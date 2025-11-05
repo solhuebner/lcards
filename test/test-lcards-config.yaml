@@ -1,0 +1,59 @@
+# Test LCARdS Configuration for Migration Testing
+
+# Resources
+resources:
+  - url: /hacsfiles/lcards/lcards.js
+    type: module
+
+views:
+  - title: Bridge
+    cards:
+      # Test button card
+      - type: custom:lcards-button-card
+        entity: light.bridge
+        lcards_card_type: lcards-button-lozenge
+        name: "BRIDGE"
+        show_state: true
+        tap_action:
+          action: toggle
+
+      # Test elbow card
+      - type: custom:lcards-elbow-card
+        lcards_card_type: lcards-elbow-left
+        size: large
+        color: orange
+
+      # Test MSD card
+      - type: custom:lcards-msd-card
+        lcards-msd:
+          version: 1
+          base_svg:
+            source: "builtin:enterprise-d"
+          overlays:
+            - id: bridge_status
+              type: status_grid
+              position: [200, 100]
+              entities:
+                - light.bridge_main
+                - sensor.bridge_occupancy
+
+      # Test multimeter
+      - type: custom:lcards-multimeter-card
+        entity: sensor.warp_core_temperature
+        lcards_card_type: lcards-multimeter-radial
+        show_name: true
+
+  - title: Engineering
+    cards:
+      # Grid with multiple LCARdS cards
+      - type: grid
+        columns: 3
+        cards:
+          - type: custom:lcards-button-card
+            lcards_card_type: lcards-button-picard
+            entity: switch.warp_core
+          - type: custom:lcards-label-card
+            lcards_card_type: lcards-label-header
+            text: "WARP CORE"
+          - type: custom:lcards-elbow-card
+            lcards_card_type: lcards-elbow-top-right
