@@ -257,6 +257,18 @@ export class MsdControlsRenderer {
 
   // ADDED: recover original card definition even if pipeline stripped it
   resolveCardDefinition(overlay) {
+    // DEBUGGING: Log the overlay structure to understand what properties are available
+    lcardsLog.debug('[MsdControlsRenderer] Resolving card definition for', overlay.id, {
+      hasCard: !!overlay.card,
+      hasCardConfig: !!overlay.card_config,
+      hasCardConfigProp: !!overlay.cardConfig,
+      hasPrivateCard: !!overlay._card,
+      hasMetaCard: !!overlay.meta?.card,
+      hasExtensionCard: !!overlay.extension?.card,
+      overlayKeys: Object.keys(overlay),
+      overlayType: overlay.type
+    });
+
     if (overlay.card) return overlay.card;
     if (overlay.card_config) return overlay.card_config;
     if (overlay.cardConfig) return overlay.cardConfig;
@@ -268,10 +280,21 @@ export class MsdControlsRenderer {
     if (!this._rawOverlayIndex) {
       const raw = (window && window._msdRawOverlays) ? window._msdRawOverlays : [];
       this._rawOverlayIndex = new Map(raw.map(o => [o.id, o]));
+      lcardsLog.debug('[MsdControlsRenderer] Built raw overlay index:', {
+        totalRaw: raw.length,
+        controlRaw: raw.filter(o => o.type === 'control').length,
+        indexSize: this._rawOverlayIndex.size,
+        hasWindow: !!window,
+        hasRawOverlays: !!window._msdRawOverlays
+      });
     }
     const rawEntry = this._rawOverlayIndex?.get(overlay.id);
-    if (rawEntry?.card) return rawEntry.card;
+    if (rawEntry?.card) {
+      lcardsLog.debug('[MsdControlsRenderer] Found card definition in raw overlay cache for', overlay.id);
+      return rawEntry.card;
+    }
 
+    lcardsLog.warn('[MsdControlsRenderer] No card definition found anywhere for', overlay.id);
     return null;
   }
 

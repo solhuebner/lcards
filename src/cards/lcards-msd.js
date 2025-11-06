@@ -1007,6 +1007,17 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
                 lcardsLog.debug('[LCARdSMSDCard] Enhanced config with anchors:', Object.keys(this._anchors));
             }
 
+            // ADDED: Cache raw overlays for control recovery (replaces YAML template JavaScript processing)
+            if (this._msdConfig.overlays && Array.isArray(this._msdConfig.overlays)) {
+                window._msdRawOverlays = this._msdConfig.overlays.map(o => JSON.parse(JSON.stringify(o)));
+                const controlOverlays = window._msdRawOverlays.filter(o => o.type === 'control');
+                lcardsLog.debug('[LCARdSMSDCard] Cached raw overlays for controls recovery:', {
+                    totalOverlays: window._msdRawOverlays.length,
+                    controlOverlays: controlOverlays.length,
+                    controlIds: controlOverlays.map(o => o.id)
+                });
+            }
+
             // Use MsdInstanceManager.requestInstance like the YAML template
             const pipelineResult = await window.lcards.debug.msd.MsdInstanceManager.requestInstance(
                 enhancedConfig,
