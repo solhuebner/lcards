@@ -26,6 +26,7 @@ import { CoreRulesManager } from './rules-engine/index.js';
 import { CoreThemeManager } from './theme-manager/index.js';
 import { CoreAnimationManager } from './animation-manager/index.js';
 import { CoreValidationService } from './validation-service/index.js';
+import { CoreStyleLibrary } from './style-library/index.js';
 
 /**
  * LCARdSCore - Central coordinator for all LCARdS infrastructure
@@ -46,7 +47,7 @@ class LCARdSCore {
         this.themeManager = null;        // Theme and style management (Phase 2a)
         this.animationManager = null;    // Animation coordination (Phase 2a)
         this.validationService = null;   // Config validation and error reporting (Phase 2a)
-        this.styleLibrary = null;        // Style presets (Phase 1d)
+        this.styleLibrary = null;        // Style presets and CSS utilities (Phase 2a)
 
         // ===== REGISTRIES =====
         this._cardInstances = new Map();     // Map<cardId, CardContext>
@@ -140,7 +141,15 @@ class LCARdSCore {
             await this.validationService.initialize(hass);
             lcardsLog.debug('[LCARdSCore] ✅ ValidationService initialized');
 
-            // TODO Phase 1d: Initialize StyleLibrary
+            // Initialize StyleLibrary (Phase 2a)
+            this.styleLibrary = new CoreStyleLibrary({
+                enablePresets: true,
+                enableTokens: true,
+                cacheEnabled: true,
+                debug: false
+            });
+            await this.styleLibrary.initialize(this.themeManager);
+            lcardsLog.debug('[LCARdSCore] ✅ StyleLibrary initialized');
 
             this._coreInitialized = true;
 
@@ -229,6 +238,7 @@ class LCARdSCore {
             themeManager: this.themeManager,
             animationManager: this.animationManager,
             validationService: this.validationService,
+            styleLibrary: this.styleLibrary,
 
             // Convenience methods - prefer SystemsManager for entity access (has caching)
             getEntityState: (entityId) => this.systemsManager.getEntityState(entityId),
@@ -319,6 +329,10 @@ class LCARdSCore {
         if (this.validationService) {
             this.validationService.updateHass(hass);
         }
+
+        if (this.styleLibrary) {
+            this.styleLibrary.updateHass(hass);
+        }
     }
 
     /**
@@ -357,6 +371,7 @@ class LCARdSCore {
             themeManager: this.themeManager ? this.themeManager.getDebugInfo() : null,
             animationManager: this.animationManager ? this.animationManager.getDebugInfo() : null,
             validationService: this.validationService ? this.validationService.getDebugInfo() : null,
+            styleLibrary: this.styleLibrary ? this.styleLibrary.getDebugInfo() : null,
 
             hasHass: !!this._currentHass
         };
@@ -455,6 +470,10 @@ class LCARdSCore {
             this.validationService.updateHass(hass);
         }
 
+        if (this.styleLibrary) {
+            this.styleLibrary.updateHass(hass);
+        }
+
         // Forward to registered cards
         this._cardInstances.forEach((context) => {
             if (context.card && typeof context.card.hass !== 'undefined') {
@@ -515,6 +534,11 @@ class LCARdSCore {
         if (this.validationService) {
             this.validationService.destroy();
             this.validationService = null;
+        }
+
+        if (this.styleLibrary) {
+            this.styleLibrary.destroy();
+            this.styleLibrary = null;
         }
 
         // Reset state
