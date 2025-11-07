@@ -487,14 +487,27 @@ export async function initMsdPipeline(userMsdConfig, mountEl, hass = null) {
       });
 
       if (baseContentGroup) {
+        lcardsLog.debug('[PipelineCore] 🎨 Applying base SVG filters during initialization:', {
+          elementId: baseContentGroup.id,
+          elementTag: baseContentGroup.tagName,
+          currentFilter: baseContentGroup.style.filter,
+          filtersToApply: cardModel.baseSvg.filters,
+          hasFiltersToApply: !!(cardModel.baseSvg.filters && Object.keys(cardModel.baseSvg.filters).length),
+          elementConnected: baseContentGroup.isConnected,
+          elementParent: baseContentGroup.parentElement?.tagName
+        });
+
         applyBaseSvgFilters(baseContentGroup, cardModel.baseSvg.filters);
 
-        // Verify filters were applied
-        lcardsLog.debug('[PipelineCore] ✅ Base SVG filters applied to #__msd-base-content:', {
-          appliedFilter: baseContentGroup.style.filter,
-          elementId: baseContentGroup.id,
-          elementTag: baseContentGroup.tagName
-        });
+        // Verify filters were applied with delay to catch async issues
+        setTimeout(() => {
+          lcardsLog.debug('[PipelineCore] ✅ Base SVG filters verification after 50ms:', {
+            appliedFilter: baseContentGroup.style.filter,
+            elementId: baseContentGroup.id,
+            elementTag: baseContentGroup.tagName,
+            isStillConnected: baseContentGroup.isConnected
+          });
+        }, 50);
       } else {
         lcardsLog.warn('[PipelineCore] ⚠️ #__msd-base-content group not found, cannot apply filters (overlays will not be affected)');
       }

@@ -163,7 +163,13 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
 
         // Always reinitialize when config changes - simpler and more reliable
         // This ensures clean state whether user cancels or saves edit mode
-        lcardsLog.debug('[LCARdSMSDCard] Config changed, reinitializing');
+        lcardsLog.debug('[LCARdSMSDCard] Config changed, reinitializing. Resize detection:', {
+          hasWidthVars: !!(config.variables?.card?.width),
+          hasHeightVars: !!(config.variables?.card?.height),
+          cardWidth: config.variables?.card?.width,
+          cardHeight: config.variables?.card?.height,
+          isResizeTriggered: !!(config.variables?.card?.width && config.variables?.card?.height)
+        });
         this._resetInitializationState();
 
         // Handle SVG loading
