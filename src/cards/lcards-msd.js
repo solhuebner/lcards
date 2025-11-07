@@ -97,6 +97,8 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
         this._anchors = null;
         this._anchorsReady = false;
         this._componentReady = false;
+        this._initRetryCount = 0;
+        this._maxInitRetries = 5; // Reduced to 5 retries (500ms max) to avoid log spam
     }
 
     // ============================================================================
@@ -159,11 +161,90 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
             throw new Error('MSD configuration is required');
         }
 
+        // Always reinitialize when config changes - simpler and more reliable
+        // This ensures clean state whether user cancels or saves edit mode
+        lcardsLog.debug('[LCARdSMSDCard] Config changed, reinitializing');
+        this._resetInitializationState();
+
         // Handle SVG loading
         this._handleSvgLoading(this._msdConfig);
 
         // Prepare for MSD pipeline initialization
         this._prepareMsdPipeline();
+    }
+
+    /**
+     * Reset initialization state for fresh start
+     * @private
+     */
+    _resetInitializationState() {
+        lcardsLog.debug('[LCARdSMSDCard] Resetting initialization state');
+        this._msdInitialized = false;
+        this._initRetryCount = 0;
+
+        // Clean up existing pipeline if any
+        if (this._msdPipeline) {
+            this._msdPipeline = null;
+        }
+
+        // If component was previously ready, keep it ready for re-initialization
+        // This handles the case where we're resetting after edit mode exit
+        if (this._componentReady) {
+            lcardsLog.debug('[LCARdSMSDCard] Component was ready, will attempt immediate re-initialization');
+            // Use a small delay to ensure DOM has been updated after config change
+            setTimeout(() => {
+                this._tryInitializePipeline();
+            }, 50);
+        }
+    }
+
+    /**
+     * Detect if running in preview mode
+     * Override to handle card editor vs dashboard edit mode distinction
+     * @private
+     */
+    _detectPreviewMode() {
+        const parentElement = this.parentElement;
+        lcardsLog.debug('[LCARdSMSDCard] Preview mode detection debug:', {
+            hasParent: !!parentElement,
+            parentTag: parentElement?.tagName,
+            parentClass: parentElement?.className,
+            isConnected: this.isConnected
+        });
+
+        if (!parentElement) {
+            lcardsLog.debug('[LCARdSMSDCard] No parent element - deferring preview mode detection');
+            // If we don't have a parent yet, we can't determine preview mode
+            // This will be re-evaluated when the card is actually mounted
+            return false;
+        }
+
+        // Check for card editor dialog (this is true preview mode)
+        const cardEditorDialog = parentElement.closest('hui-dialog-edit-card, hui-card-preview, hui-card-picker');
+        if (cardEditorDialog) {
+            lcardsLog.debug('[LCARdSMSDCard] In card editor dialog - true preview mode:', {
+                dialogTag: cardEditorDialog.tagName
+            });
+            return true;
+        }
+
+        // Check for card picker
+        const cardPickerEl = parentElement.closest('hui-card-picker');
+        if (cardPickerEl) {
+            lcardsLog.debug('[LCARdSMSDCard] In card picker - preview mode');
+            return true;
+        }
+
+        // If we're in dashboard edit mode but NOT in a dialog, we're on the actual dashboard
+        const dashboardEl = parentElement.closest('hui-root, ha-panel-lovelace');
+        if (dashboardEl && dashboardEl.editMode) {
+            lcardsLog.debug('[LCARdSMSDCard] Dashboard edit mode but not in dialog - normal mode');
+            return false;
+        }
+
+        lcardsLog.debug('[LCARdSMSDCard] Using parent class preview detection');
+        // Fall back to parent detection for other cases
+        return super._detectPreviewMode();
     }
 
     /**
@@ -238,9 +319,16 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
                 const svg = this.shadowRoot?.querySelector('svg');
                 if (svg) {
                     lcardsLog.debug('[LCARdSMSDCard] SVG element found, initializing MSD pipeline');
+                    this._initRetryCount = 0; // Reset retry count on success
                     this._initializeMsdPipeline();
                 } else {
-                    lcardsLog.warn('[LCARdSMSDCard] SVG element not found, retrying in 100ms');
+                    this._initRetryCount++;
+                    if (this._initRetryCount >= this._maxInitRetries) {
+                        lcardsLog.error(`[LCARdSMSDCard] SVG element not found after ${this._maxInitRetries} retries, giving up.`);
+                        this._errorState = 'SVG element not found after initialization retries. Try refreshing the page.';
+                        return;
+                    }
+                    lcardsLog.warn(`[LCARdSMSDCard] SVG element not found, retrying in 100ms (attempt ${this._initRetryCount}/${this._maxInitRetries})`);
                     setTimeout(() => this._tryInitializePipeline(), 100);
                 }
             });
