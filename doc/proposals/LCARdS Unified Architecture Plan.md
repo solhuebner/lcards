@@ -77,37 +77,47 @@ This document outlines the architectural evolution of LCARdS from a single-insta
 │  └──────────────────────────────────────────────────────────┘  │
 │                                                                   │
 │  ┌──────────────────────────────────────────────────────────┐  │
-│  │  MSD Card (LIT-Based - Completed)                         │  │
-│  │  ├─ Modular pipeline system                              │  │
-│  │  ├─ Overlay system (lines, text, sparklines, etc.)       │  │
+│  │  MSD Card Infrastructure (Functional - Ready to Extract) │  │
+│  │  ├─ SystemsManager (/src/msd/pipeline/SystemsManager.js) │  │
+│  │  ├─ DataSourceManager (/src/msd/data/DataSourceManager.js)│  │
+│  │  ├─ RulesEngine (/src/msd/rules/RulesEngine.js)          │  │
+│  │  ├─ Overlay system (/src/msd/overlays/)                  │  │
 │  │  ├─ Controls layer (embedded HA cards)                   │  │
-│  │  ├─ SystemsManager (entity tracking)                     │  │
-│  │  ├─ DataSourceManager (REST, polling)                    │  │
-│  │  ├─ Rules engine (state evaluation)                      │  │
-│  │  ├─ Composition engine (SVG layout)                      │  │
+│  │  ├─ MsdInstanceManager (singleton enforcement)           │  │
 │  │  │                                                         │  │
 │  │  ⚠️  ISSUES:                                              │  │
-│  │  • Infrastructure locked inside MSD card                 │  │
-│  │  • Single-instance limitation (instance manager)         │  │
+│  │  • Core systems locked inside /src/msd/ structure        │  │
+│  │  • Single-instance limitation via MsdInstanceManager     │  │
 │  │  • Overlays cannot be used standalone                    │  │
-│  │  • No inter-card communication                           │  │
+│  │  • No inter-card communication possible                  │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  Global Infrastructure (Partially Available)              │  │
+│  │  ├─ window.lcards namespace (/src/lcards.js)             │  │
+│  │  ├─ Animation API (anime.js, scopes, presets)            │  │
+│  │  ├─ SVG helpers, anchor helpers                          │  │
+│  │  ├─ Font loading utilities                               │  │
+│  │  ├─ Debug API structure started                          │  │
+│  │  └─ Unified API system (/src/api/)                       │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │                                                                   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### MSD Strengths to Leverage
+### MSD Strengths to Leverage (Updated with Actual Locations)
 
 The completed MSD implementation has proven several architectural patterns that should be extracted:
 
 1. **Pipeline Pattern:** Clean separation of concerns (data → processing → rendering)
-2. **Modular Overlays:** Reusable rendering components (lines, text, sparklines, buttons)
-3. **SystemsManager:** Centralized entity state tracking with subscriptions
-4. **DataSourceManager:** Unified data fetching (REST, polling)
-5. **Rules Engine:** Declarative state evaluation with priority-based matching
+2. **Modular Overlays:** Reusable rendering components (`/src/msd/overlays/`)
+   - `ButtonOverlay.js`, `TextOverlay.js`, `OverlayBase.js` all functional
+3. **SystemsManager:** Centralized entity state tracking (1,600 lines, `/src/msd/pipeline/`)
+4. **DataSourceManager:** Unified data fetching (696 lines, `/src/msd/data/`)
+5. **RulesEngine:** Declarative state evaluation (1,472 lines, `/src/msd/rules/`)
 6. **Controls Layer:** Embedded HA cards with proper HASS forwarding
-7. **Animation System:** anime.js v4 scopes and timelines
-8. **API Structure:** Tiered API system (documented in src/api)
+7. **Animation System:** anime.js v4 scopes and timelines (already global)
+8. **Native Card Foundation:** `LCARdSNativeCard` base class (`/src/base/`)
 
 ---
 
@@ -726,48 +736,55 @@ global_rules:
 **Initial JS Implementation (Phase 1):**
 
 ```javascript
-// src/core/rules-manager/builtin-packs.js
+// src/lcards/rules/alert-conditions.js
 
 /**
- * Built-in rule packs
+ * Built-in alert condition rule pack
  * TODO: Externalize to YAML in Phase 3
  */
-export const BUILTIN_RULE_PACKS = {
-    'lcards-core-rules': {
-        pack_id: 'lcards-core-rules',
-        version: '1.0.0',
-        description: 'Standard LCARS alert condition rules',
-        global_rules: [
-            {
-                id: 'red_alert',
-                priority: 1000,
-                condition: { entity: 'sensor.alert_condition', state: 'red' },
-                target: { tags: ['alert-sensitive'] },
-                apply: { style_preset: 'red_alert', animation: 'pulse_critical' }
-            },
-            {
-                id: 'yellow_alert',
-                priority: 900,
-                condition: { entity: 'sensor.alert_condition', state: 'yellow' },
-                target: { tags: ['alert-sensitive'] },
-                apply: { style_preset: 'yellow_alert', animation: 'pulse_warning' }
-            },
-            {
-                id: 'green_alert',
-                priority: 800,
-                condition: { entity: 'sensor.alert_condition', state: 'green' },
-                target: { tags: ['alert-sensitive'] },
-                apply: { style_preset: 'green_alert' }
-            },
-            {
-                id: 'entity_unavailable',
-                priority: 950,
-                condition: { state: ['unavailable', 'unknown'] },
-                target: '*',
-                apply: { style_preset: 'error', animation: 'blink_error' }
-            }
-        ]
-    }
+export const ALERT_CONDITIONS_PACK = {
+    pack_id: 'lcards-alert-conditions',
+    version: '1.0.0',
+    description: 'Standard LCARS alert condition rules',
+    global_rules: [
+        {
+            id: 'red_alert',
+            priority: 1000,
+            condition: { entity: 'sensor.alert_condition', state: 'red' },
+            target: { tags: ['alert-sensitive'] },
+            apply: { style_preset: 'red_alert', animation: 'pulse_critical' }
+        },
+        {
+            id: 'yellow_alert',
+            priority: 900,
+            condition: { entity: 'sensor.alert_condition', state: 'yellow' },
+            target: { tags: ['alert-sensitive'] },
+            apply: { style_preset: 'yellow_alert', animation: 'pulse_warning' }
+        },
+        {
+            id: 'green_alert',
+            priority: 800,
+            condition: { entity: 'sensor.alert_condition', state: 'green' },
+            target: { tags: ['alert-sensitive'] },
+            apply: { style_preset: 'green_alert' }
+        }
+    ]
+};
+
+// src/lcards/rules/entity-states.js
+export const ENTITY_STATES_PACK = {
+    pack_id: 'lcards-entity-states',
+    version: '1.0.0',
+    description: 'Universal entity state handling',
+    global_rules: [
+        {
+            id: 'entity_unavailable',
+            priority: 950,
+            condition: { state: ['unavailable', 'unknown'] },
+            target: '*',  // ALL overlays
+            apply: { style_preset: 'error', animation: 'blink_error' }
+        }
+    ]
 };
 ```
 
@@ -918,55 +935,64 @@ views:
 ```
 src/core/
 ├── lcards-core.js                   # Main LCARdSCore singleton
-├── lcards-init.js                   # Lightweight initialization
 ├── systems-manager/
-│   └── index.js                     # SystemsManager (extracted from MSD)
+│   └── index.js                     # SystemsManager (from /src/msd/pipeline/)
 ├── data-sources/
-│   ├── index.js                     # DataSourceManager
-│   └── rest-source.js               # REST API polling
+│   └── index.js                     # DataSourceManager (from /src/msd/data/)
 ├── rules-manager/
-│   ├── index.js                     # RulesManager
-│   ├── builtin-packs.js             # Built-in rules (JS for now)
-│   └── condition-evaluator.js      # Condition matching logic
+│   └── index.js                     # RulesManager (from /src/msd/rules/)
 └── styling/
-    ├── style-library.js             # StyleLibrary
-    └── builtin-styles.js            # Built-in style presets
+    └── style-library.js             # StyleLibrary
+
+src/lcards/rules/                    # Built-in rule packs (better location)
+├── alert-conditions.js             # Red/yellow/green alerts
+├── entity-states.js                # Unavailable/unknown states
+├── engineering.js                  # Engineering-specific rules
+└── index.js                        # Pack registration
 ```
 
-##### 1.2: Extract SystemsManager from MSD
+##### 1.2: Extract SystemsManager from MSD (Step 1a - Safest First)
 
-**Source:** `src/msd/core/systems-manager.js`
+**Source:** `src/msd/pipeline/SystemsManager.js` (1,600 lines - functional)
 
-**Changes:**
-- Remove MSD-specific dependencies
-- Make it work without pipeline reference
-- Add multi-card subscription management
-- Add entity state caching
+**Strategy:** Copy first, then modify gradually to minimize risk
+1. Copy to `src/core/systems-manager/index.js`
+2. Remove MSD pipeline dependencies
+3. Make entity tracking work independently
+4. Add multi-card subscription management
+5. Test with existing MSD (should work unchanged)
 
 **Deliverable:** `src/core/systems-manager/index.js`
 
-##### 1.3: Extract DataSourceManager from MSD
+##### 1.3: Extract DataSourceManager from MSD (Step 1b - Depends on SystemsManager)
 
-**Source:** `src/msd/data-sources/`
+**Source:** `src/msd/data/DataSourceManager.js` (696 lines - functional)
 
-**Changes:**
-- Remove MSD-specific dependencies
-- Add retry logic for missing data sources
-- Support config merging from multiple cards
-- Add subscription lifecycle management
+**Strategy:** Extract after SystemsManager is stable
+1. Copy to `src/core/data-sources/index.js`
+2. Update to use global SystemsManager
+3. Add retry logic for missing data sources
+4. Support config merging from multiple cards
+5. Test data source sharing across cards
 
 **Deliverable:** `src/core/data-sources/index.js`
 
-##### 1.4: Create RulesManager (Global + Local Scopes)
+##### 1.4: Extract RulesEngine as RulesManager (Step 1c - Depends on Both)
 
-**New Implementation** (inspired by MSD rules engine)
+**Source:** `src/msd/rules/RulesEngine.js` (1,472 lines - functional)
+
+**Strategy:** Build on existing rules engine architecture
+1. Copy RulesEngine to `src/core/rules-manager/index.js`
+2. Rename and enhance for global + local rule scopes
+3. Add overlay registry with tag indexing
+4. Implement firewall-style evaluation (local first, then global)
+5. Add built-in rule packs (JS-defined initially)
 
 **Features:**
-- Global rule storage (sorted by priority)
-- Local rule storage (per-card)
-- Overlay registry with tag indexing
-- Firewall-style evaluation (local first, then global)
-- Built-in rule packs (JS-defined initially)
+- Leverage existing rule evaluation logic
+- Add global rule storage (sorted by priority)
+- Add local rule storage (per-card)
+- Multi-card overlay targeting
 
 **Deliverable:** `src/core/rules-manager/index.js`
 
@@ -984,9 +1010,9 @@ src/core/
 
 **Deliverable:** `src/core/lcards-core.js`
 
-##### 1.6: Update LCARdSBaseCard
+##### 1.6: Update LCARdSNativeCard Foundation (Step 1e)
 
-**File:** `src/base/LCARdSBaseCard.js` (or wherever base card lives)
+**File:** `src/base/LCARdSNativeCard.js` (actual location - 486 lines)
 
 **Changes:**
 - Initialize core on first card connection
@@ -994,6 +1020,8 @@ src/core/
 - Forward HASS updates to pipeline
 - Initialize overlays/controls if configured
 - Handle card destruction (unregister from core)
+
+**Note:** Base class already exists and is functional
 
 ##### 1.7: Lightweight Module-Level Initialization
 
@@ -1011,14 +1039,22 @@ src/core/
 
 **Deliverable:** Updated `src/lcards.js` with lightweight init
 
+**Backward Compatibility Strategy:**
+- ✅ **Existing MSD cards continue working unchanged** during extraction
+- ✅ **No breaking changes to user YAML configurations**
+- ✅ **Existing `window.lcards` API preserved and extended**
+- ✅ **MSD `window.lcards.debug.msd` API maintained**
+- ✅ **Step-by-step extraction minimizes risk**
+
 **Phase 1 Deliverables:**
 - ✅ `src/core/lcards-core.js` - Core singleton
-- ✅ `src/core/systems-manager/index.js` - Entity tracking
-- ✅ `src/core/data-sources/index.js` - Data fetching
-- ✅ `src/core/rules-manager/index.js` - Rule evaluation
+- ✅ `src/core/systems-manager/index.js` - Entity tracking (from `/src/msd/pipeline/`)
+- ✅ `src/core/data-sources/index.js` - Data fetching (from `/src/msd/data/`)
+- ✅ `src/core/rules-manager/index.js` - Rule evaluation (from `/src/msd/rules/`)
 - ✅ `src/core/styling/style-library.js` - Style presets
+- ✅ `src/lcards/rules/` - Built-in rule packs
 - ✅ Updated `src/lcards.js` - Module initialization
-- ✅ Updated `src/base/LCARdSBaseCard.js` - Core integration
+- ✅ Updated `src/base/LCARdSNativeCard.js` - Core integration
 - ✅ Unit tests for each core system
 
 ---
@@ -1244,26 +1280,28 @@ await this.rulesManager.loadBuiltinPacks([
 
 ##### 3.3: Update MSD Card to Use Global Core
 
-**File:** `src/cards/lcards-msd-card.js`
+**File:** `src/cards/lcards-msd.js` (actual location - 1,281 lines)
 
 **Changes:**
-- Use global core instead of instance manager
+- Use global core instead of MsdInstanceManager
 - Register all overlays with core
 - Declare rules to core (if provided)
 - Declare data sources to core (if provided)
+- Maintain existing functionality while enabling multi-instance
 
 **Deliverable:** MSD card using global core
 
 ##### 3.4: Remove Legacy Instance Manager
 
-**File to remove:** `src/msd/core/instance-manager.js`
+**File to remove:** `src/msd/pipeline/MsdInstanceManager.js` (actual location - 1,152 lines)
 
 **Changes:**
-- Remove singleton limitation
-- Remove instance tracking
-- Update MSD initialization to use core
+- Remove singleton limitation logic
+- Remove instance tracking code
+- Update MSD initialization to use global core
+- Preserve any useful instance management patterns for core
 
-**Deliverable:** Instance manager removed
+**Deliverable:** Instance manager removed, multi-instance enabled
 
 ##### 3.5: Documentation
 
@@ -1368,27 +1406,42 @@ await this.rulesManager.loadBuiltinPacks([
 
 ### Core API
 
-**Global Namespace:**
+**Global Namespace (Updated - Building on Existing Structure):**
 
 ```javascript
 window.lcards = {
-    // === CORE SINGLETON ===
+    // === CORE SINGLETON (NEW) ===
     core: LCARdSCore,
 
-    // === UTILITIES (Always Available) ===
-    eventBus: CBLCARSEventBus,
-    anim: { anime, scopes, presets, ... },
-    svgHelpers: { ... },
-    anchorHelpers: { ... },
-    loadFont: Function,
+    // === UTILITIES (Already Available) ===
+    anim: {
+        animejs: anime,           // Full anime.js module
+        anime: anime.animate,     // Shortcut for anime.animate
+        scopes: Map,              // Animation scopes
+        presets: { ... },         // Animation presets
+        animateElement: Function,
+        animateWithRoot: Function,
+        waitForElement: Function
+    },
+    svgHelpers: { ... },          // SVG manipulation utilities
+    anchorHelpers: { ... },       // SVG anchor utilities
+    loadFont: Function,           // Font loading
+    loadUserSVG: Function,        // User SVG loading
+    getSVGFromCache: Function,    // SVG cache access
 
-    // === DEBUG API ===
+    // === MSD RUNTIME API (Keep for compatibility) ===
+    msd: MsdRuntimeAPI,           // Existing MSD user API
+
+    // === DEBUG API (Enhanced) ===
     debug: {
-        setLevel: Function,
-        getLevel: Function,
-        getInfo: Function,
-        eventBus: Function,
-        core: Function
+        setLevel: Function,       // Log level control
+        getLevel: Function,       // Get current log level
+        msd: {                    // Existing MSD debug API
+            MsdInstanceManager: Function,
+            pipelineInstance: Object,
+            // ... other MSD debug tools
+        },
+        core: Function            // NEW: Core debug info
     }
 };
 ```
@@ -1610,14 +1663,22 @@ views:
 
 ## Appendix
 
-### A. Migration from Current MSD
+### A. Migration from Current MSD (Updated)
 
 **No migration required** - MSD will be updated to use global core internally.
 
 Users with existing MSD cards will see:
-- Same functionality
+- Same functionality (100% backward compatible)
 - Better performance (shared systems)
 - New capability: Multiple MSDs per dashboard
+- New capability: Standalone overlay cards available
+
+**Key Implementation Updates:**
+- Core systems extracted from actual locations in `/src/msd/`
+- Built-in rule packs organized in `/src/lcards/rules/`
+- Builds on existing `window.lcards` namespace structure
+- Phase 1 broken into safer, incremental steps
+- Existing `LCARdSNativeCard` foundation leveraged
 
 ### B. Configuration Examples
 
