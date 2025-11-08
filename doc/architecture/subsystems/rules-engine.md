@@ -24,75 +24,146 @@
 
 ## Overview
 
-The **Rules Engine** provides sophisticated conditional logic for dynamic overlay styling, profile management, and animation control. It evaluates conditions based on entity states, time ranges, performance metrics, and DataSource values to apply style changes in real-time.
+The **Rules Engine Singleton** provides sophisticated conditional logic for dynamic overlay styling across **all card instances**. As a shared singleton system, it collects rules from multiple cards and distributes evaluation results to all registered callbacks, enabling cross-card coordination and resource efficiency.
 
 ### Key Features
 
-- ✅ **High-performance evaluation** with dependency tracking
+- ✅ **Singleton architecture** - Single RulesEngine serves all cards
+- ✅ **Multi-card support** - Rules from all cards evaluated together
+- ✅ **Cross-card targeting** - Rules can affect overlays on any card
+- ✅ **Multiple callback registration** - Each card gets rule updates
+- ✅ **High-performance evaluation** with shared dependency tracking
 - ✅ **Comprehensive condition types** (20+ types)
-- ✅ **DataSource integration** with transformation access
+- ✅ **DataSource integration** with shared transformation access
 - ✅ **Rule composition** with logical operators (all/any/not)
 - ✅ **Stop semantics** for rule priority control
 - ✅ **Real-time tracing** for debugging
 - ✅ **Memory-efficient** with compiled condition trees
 
-### Use Cases
+### Multi-Card Use Cases
 
-- **Conditional styling** - Change overlay colors based on sensor values
-- **Profile switching** - Activate different profiles based on time or state
-- **Alert visualization** - Highlight warnings and errors
-- **Performance optimization** - Disable features when performance drops
-- **Contextual behavior** - Show/hide overlays based on conditions
+- **Cross-card styling** - One card's rule styles overlays on other cards
+- **Global alerts** - Emergency states affect all cards simultaneously
+- **Coordinated themes** - Theme changes propagate to all cards
+- **Shared conditions** - Common conditions evaluated once for all cards
+- **Performance optimization** - Single entity subscription for all cards
+- **Tag-based targeting** - Rules target overlay tags across all cards
 
 ---
 
 ## Architecture
 
-### System Integration
+### Singleton Multi-Card Integration
 
 ```mermaid
 graph TB
-    subgraph "Data Layer"
-        DSM[DataSource Manager]
+    subgraph "Shared Singleton Layer"
+        DSM[DataSource Manager Singleton]
         HASS[Home Assistant]
+
+        subgraph "RulesEngine Singleton"
+            RE[Rules Engine Core]
+            CP[Condition Parser]
+            EV[Evaluator]
+            DT[Dependency Tracker]
+            Cache[Condition Cache]
+            Callbacks[Callback Registry]
+        end
     end
 
-    subgraph "Rules Engine"
-        RE[Rules Engine Core]
-        CP[Condition Parser]
-        EV[Evaluator]
-        DT[Dependency Tracker]
-        Cache[Condition Cache]
+    subgraph "Card Instance Layer"
+        CardA[MSD Card A]
+        CardB[MSD Card B]
+        CardC[V2 Button Card]
+
+        subgraph "Card A Components"
+            SMA[Systems Manager A]
+            ARA[Renderer A]
+            OvA[Overlays A]
+        end
+
+        subgraph "Card B Components"
+            SMB[Systems Manager B]
+            ARB[Renderer B]
+            OvB[Overlays B]
+        end
     end
 
-    subgraph "Output"
-        AR[Advanced Renderer]
-        Overlays[Overlay Instances]
-    end
+    %% Rule registration from cards
+    CardA -.register rules.-> RE
+    CardB -.register rules.-> RE
+    CardC -.register overlays.-> RE
 
+    %% Callback registration
+    SMA -.register callback.-> Callbacks
+    SMB -.register callback.-> Callbacks
+    CardC -.register callback.-> Callbacks
+
+    %% Data flow into RulesEngine
     DSM -.data updates.-> DT
     HASS -.entity states.-> DT
     DT -.mark dirty.-> RE
 
+    %% Internal RulesEngine flow
     RE --> CP
     CP --> EV
     EV --> Cache
     Cache -.cached results.-> EV
 
-    RE -.style changes.-> AR
-    AR --> Overlays
+    %% Results distribution to ALL cards
+    RE -.rule results.-> Callbacks
+    Callbacks -.callback().-> SMA
+    Callbacks -.callback().-> SMB
+    Callbacks -.callback().-> CardC
 
-    style RE fill:#ff9900,stroke:#cc7700,stroke-width:3px
+    %% Card-specific rendering
+    SMA --> ARA --> OvA
+    SMB --> ARB --> OvB
+    CardC --> CardC
+
+    classDef singleton fill:#e1f5fe,stroke:#01579b,stroke-width:3px
+    classDef card fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+
+    class DSM,RE,CP,EV,DT,Cache,Callbacks singleton
+    class CardA,CardB,CardC,SMA,SMB,ARA,ARB card
 ```
 
-### Evaluation Flow
+### Multi-Card Evaluation Flow
 
 ```mermaid
 sequenceDiagram
-    participant DSM as DataSource Manager
-    participant RE as Rules Engine
-    participant EV as Evaluator
-    participant AR as Advanced Renderer
+    participant HASS as Home Assistant
+    participant DSM as DataSource Manager Singleton
+    participant RE as RulesEngine Singleton
+    participant CardA as MSD Card A
+    participant CardB as MSD Card B
+    participant CardC as V2 Card C
+
+    Note over CardA,CardC: Card Initialization Phase
+    CardA->>RE: registerRules([rule1, rule2])
+    CardA->>RE: setReEvaluationCallback(callbackA)
+    CardB->>RE: registerRules([rule3, rule4])
+    CardB->>RE: setReEvaluationCallback(callbackB)
+    CardC->>RE: registerOverlayTargets(["button1"])
+    CardC->>RE: setReEvaluationCallback(callbackC)
+
+    Note over HASS,CardC: Runtime Entity Change
+    HASS->>DSM: entity.light.bedroom = "on"
+    DSM->>RE: onEntityChanged("light.bedroom", "on")
+    RE->>RE: markRulesDirty(affectedRules)
+
+    Note over RE: Rule Evaluation (All Cards' Rules)
+    RE->>RE: evaluateDirty() → [rule1: match, rule3: match]
+
+    Note over RE,CardC: Results Distribution to ALL Cards
+    RE->>CardA: callbackA() with rule results
+    RE->>CardB: callbackB() with rule results
+    RE->>CardC: callbackC() with rule results
+
+    Note over CardA,CardC: Individual Card Processing
+    CardA->>CardA: applyRuleResults(rule1 → overlayX style)
+    CardB->>CardB: applyRuleResults(rule3 → overlayY style)
+    CardC->>CardC: applyRuleResults(no matches → no changes)
 
     Note over DSM: Entity state changes
     DSM->>RE: notifyUpdate(sourceId)

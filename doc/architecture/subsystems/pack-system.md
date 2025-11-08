@@ -26,7 +26,7 @@ const PACK = {
 };
 ```
 
-### Pack Architecture
+### Pack Architecture (Singleton Integration)
 
 ```mermaid
 graph TB
@@ -43,8 +43,8 @@ graph TB
         CAP[Chart Animation Presets]
     end
 
-    subgraph Systems["LCARdS Systems"]
-        TM[ThemeManager]
+    subgraph Systems["LCARdS Singleton Systems"]
+        TM[ThemeManager Singleton]
         SPM[StylePresetManager]
         AR[AdvancedRenderer]
         SRS[StyleResolverService]

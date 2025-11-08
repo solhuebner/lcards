@@ -20,67 +20,115 @@
 
 ## Overview
 
-The **SystemsManager** is the central orchestrator that manages the entire LCARdS rendering pipeline. It coordinates all subsystems, manages their lifecycle, and provides a unified interface for accessing system components.
+The **SystemsManager** is a **per-card orchestrator** that bridges individual card instances with the shared singleton systems. In the new singleton architecture, SystemsManager no longer creates local systems but instead connects cards to shared resources and manages card-specific rendering.
 
-### Responsibilities
+### New Role in Singleton Architecture
 
-- ✅ **Lifecycle management** - Initialize, start, update, and dispose subsystems
-- ✅ **Subsystem coordination** - Ensure proper initialization order and dependencies
-- ✅ **Unified access** - Single point of access to all system components
-- ✅ **Error handling** - Graceful degradation and error recovery
-- ✅ **Performance monitoring** - Track system health and performance
-- ✅ **Hot reload support** - Handle configuration changes and updates
+- ✅ **Singleton integration** - Connect to shared RulesEngine, DataSourceManager, etc.
+- ✅ **Rule registration** - Add card's rules to shared RulesEngine singleton
+- ✅ **Callback management** - Register for rule updates from shared systems
+- ✅ **Card-specific rendering** - Manage card's individual AdvancedRenderer
+- ✅ **Resource cleanup** - Clean up card-specific resources on disposal
+- ✅ **Bridge pattern** - Translate between singleton APIs and card needs
 
-### Managed Subsystems
+### Singleton vs Local Systems
 
-The SystemsManager coordinates these key subsystems:
+**Singleton Systems (Shared):**
+- **RulesEngine** - Shared across all cards
+- **DataSourceManager** - Single entity subscriptions for all cards
+- **ThemeManager** - Consistent themes across all cards
+- **AnimationManager** - Coordinated animations
+- **StylePresetManager** - Shared style presets
 
-| Subsystem | Purpose | Priority |
-|-----------|---------|----------|
-| **DataSourceManager** | Entity data processing and buffering | 1 (First) |
-| **TemplateProcessor** | Template evaluation and caching | 2 |
-| **RulesEngine** | Conditional logic evaluation | 3 |
-| **AdvancedRenderer** | Overlay rendering and updates | 4 |
-| **AnimationRegistry** | Animation management | 5 |
-| **AttachmentPointManager** | Attachment point calculations | 6 |
-| **RouterCore** | Path routing calculations | 7 (Last) |
+**Card-Local Systems:**
+- **AdvancedRenderer** - Card-specific overlay rendering
+- **AttachmentPointManager** - Card-specific attachment calculations
+- **RouterCore** - Card-specific path routing
+- **TemplateProcessor** - Card-specific template evaluation
 
 ---
 
 ## Architecture
 
-### System Hierarchy
+### Singleton Integration Pattern
 
 ```mermaid
 graph TB
-    Card[LCARdS Card]
+    subgraph "Shared Singleton Layer"
+        LC[lcardsCore]
+        RE[🧠 RulesEngine Singleton]
+        DSM[📊 DataSourceManager Singleton]
+        TM[🎨 ThemeManager Singleton]
+        AM[🎬 AnimationManager Singleton]
+    end
 
-    Card --> SM[Systems Manager]
+    subgraph "Card A Instance"
+        CardA[LCARdS Card A]
+        SMA[Systems Manager A]
 
-    SM --> DSM[DataSource Manager]
-    SM --> TP[Template Processor]
-    SM --> RE[Rules Engine]
-    SM --> AR[Advanced Renderer]
-    SM --> ANIM[Animation Registry]
-    SM --> APM[Attachment Point Manager]
-    SM --> RC[Router Core]
+        subgraph "Card A Local Systems"
+            ARA[Advanced Renderer A]
+            APMA[Attachment Point Manager A]
+            RCA[Router Core A]
+            TPA[Template Processor A]
+        end
+    end
 
-    DSM -.data.-> TP
-    DSM -.data.-> RE
-    TP -.templates.-> AR
-    RE -.rules.-> AR
-    APM -.points.-> RC
+    subgraph "Card B Instance"
+        CardB[LCARdS Card B]
+        SMB[Systems Manager B]
 
-    AR --> Overlays[Overlay Instances]
-    Overlays --> Text[Text Overlay]
-    Overlays --> Button[Button Overlay]
-    Overlays --> Line[Line Overlay]
-    Overlays --> Grid[Status Grid]
-    Overlays --> Chart[ApexCharts]
+        subgraph "Card B Local Systems"
+            ARB[Advanced Renderer B]
+            APMB[Attachment Point Manager B]
+            RCB[Router Core B]
+            TPB[Template Processor B]
+        end
+    end
 
-    style SM fill:#ff9900,stroke:#cc7700,stroke-width:3px
-    style DSM fill:#99ccff,stroke:#6699cc
-    style AR fill:#99ccff,stroke:#6699cc
+    %% Card to SystemsManager
+    CardA --> SMA
+    CardB --> SMB
+
+    %% SystemsManager to Singletons (shared)
+    SMA -.connects to.-> RE
+    SMA -.connects to.-> DSM
+    SMA -.connects to.-> TM
+    SMB -.connects to.-> RE
+    SMB -.connects to.-> DSM
+    SMB -.connects to.-> TM
+
+    %% SystemsManager to Local Systems (card-specific)
+    SMA --> ARA
+    SMA --> APMA
+    SMA --> RCA
+    SMA --> TPA
+    SMB --> ARB
+    SMB --> APMB
+    SMB --> RCB
+    SMB --> TPB
+
+    %% Data flow from singletons to local systems
+    DSM -.data.-> TPA
+    DSM -.data.-> TPB
+    RE -.rule results.-> SMA
+    RE -.rule results.-> SMB
+    TM -.themes.-> ARA
+    TM -.themes.-> ARB
+
+    %% Local system coordination
+    TPA -.templates.-> ARA
+    TPB -.templates.-> ARB
+    APMA -.points.-> RCA
+    APMB -.points.-> RCB
+
+    classDef singleton fill:#e1f5fe,stroke:#01579b,stroke-width:3px
+    classDef cardSystem fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef localSystem fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+
+    class LC,RE,DSM,TM,AM singleton
+    class CardA,SMA,CardB,SMB cardSystem
+    class ARA,APMA,RCA,TPA,ARB,APMB,RCB,TPB localSystem
 ```
 
 ### Initialization Flow

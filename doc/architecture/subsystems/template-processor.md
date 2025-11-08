@@ -1,7 +1,7 @@
-# Template Processor
+# Template Processor (Per-Card)
 
-> **Unified template processing system**
-> Centralized detection, parsing, and validation for MSD and Home Assistant templates.
+> **Card-specific template processing with singleton integration**
+> Per-card template detection, parsing, and validation that integrates with singleton DataSourceManager and shared entity processing.
 
 ---
 
@@ -23,7 +23,7 @@
 
 ## Overview
 
-The **Template Processor** provides unified template processing across all MSD components. It detects, parses, and validates both MSD DataSource templates and Home Assistant templates, enabling dynamic content throughout the system.
+The **Template Processor** is a **per-card system** that provides template processing for each MSD card while integrating with singleton services. It detects, parses, and validates both MSD DataSource templates and Home Assistant templates, coordinating with the singleton DataSourceManager for entity data.
 
 ### Key Features
 
@@ -37,18 +37,19 @@ The **Template Processor** provides unified template processing across all MSD c
 
 ### Responsibilities
 
-**Template Processor handles:**
-- Template detection and identification
-- Reference extraction for subscriptions
+**Template Processor (Per-Card) handles:**
+- Template detection and identification for card-specific content
+- Reference extraction for singleton DataSourceManager subscriptions
 - Format specification parsing
-- Entity dependency tracking
+- Entity dependency tracking (registered with singleton DataSourceManager)
 - Template syntax validation
-- Template caching
+- Template caching per card
 
 **Does NOT handle:**
 - HA template evaluation (delegated to `MsdTemplateEngine`)
 - Action context templates (handled by `ActionHelpers`)
-- Actual value resolution (delegated to DataSource system)
+- Actual entity data processing (handled by singleton DataSourceManager)
+- Cross-card template coordination (handled at singleton level)
 
 ---
 

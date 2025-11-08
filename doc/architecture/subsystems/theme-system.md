@@ -1,7 +1,7 @@
-# Theme System
+# Theme System (Singleton)
 
-> **Unified styling and default values through token-based themes**
-> Centralized theme management with token references, component defaults, and hot-swappable styling.
+> **Shared theming intelligence across all MSD cards**
+> Singleton ThemeManager provides consistent token-based themes, component defaults, and coordinated styling across multiple cards.
 
 ---
 
@@ -21,15 +21,18 @@
 
 ## Overview
 
-The **Theme System** provides a unified approach to styling through a token-based architecture. Themes define all component defaults, color schemes, typography, and spacing in a hierarchical structure that supports token references and computed values.
+The **Theme System** is a **singleton service** that provides unified theming across all MSD cards through a token-based architecture. The ThemeManager singleton ensures consistent styling, coordinated theme changes, and shared component defaults across multiple cards.
 
 ### Key Features
 
-- ✅ **Token-based defaults** - All values defined in theme tokens
-- ✅ **Token references** - Tokens can reference other tokens
+- 🌐 **Singleton Architecture** - Single theme manager serves all MSD cards
+- ✅ **Multi-Card Consistency** - Theme changes instantly apply to all cards
+- ✅ **Token-based defaults** - All values defined in shared theme tokens
+- ✅ **Token references** - Tokens can reference other tokens across cards
 - ✅ **Component scoping** - Dedicated defaults for each overlay type
 - ✅ **Multiple themes** - Built-in themes + custom theme support
-- ✅ **Hot-swappable** - Change entire look with one setting
+- ✅ **Hot-swappable** - Change entire look across all cards with one setting
+- ✅ **Cross-Card Theming** - Consistent theming for overlays targeting other cards
 - ✅ **Type-safe** - Schema validation for theme tokens
 - ✅ **ApexCharts integration** - Custom CSS for chart styling
 

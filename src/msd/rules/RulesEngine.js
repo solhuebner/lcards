@@ -31,7 +31,7 @@ export class RulesEngine {
 
     // NEW: HASS subscription management
     this.hassUnsubscribe = null;
-    this._reEvaluationCallback = null;
+    this._reEvaluationCallbacks = []; // CHANGED: Array of callbacks for multiple MSD cards
     this._hassEntities = new Set(); // Cached entity list for performance
     this._freshStateCache = new Map(); // Cache for fresh states from events (entityId -> state object)
 
@@ -360,13 +360,16 @@ export class RulesEngine {
     // Mark all rules dirty since any entity could have changed
     this.markAllDirty();
 
-    // Trigger re-evaluation callback if registered
-    if (this._reEvaluationCallback) {
-      try {
-        this._reEvaluationCallback();
-      } catch (error) {
-        lcardsLog.error('[RulesEngine] Error in re-evaluation callback:', error);
-      }
+    // Trigger re-evaluation callbacks if registered (supports multiple MSD cards)
+    if (this._reEvaluationCallbacks.length > 0) {
+      lcardsLog.debug(`[RulesEngine] Triggering ${this._reEvaluationCallbacks.length} re-evaluation callbacks`);
+      this._reEvaluationCallbacks.forEach((callback, index) => {
+        try {
+          callback();
+        } catch (error) {
+          lcardsLog.error(`[RulesEngine] Error in re-evaluation callback ${index}:`, error);
+        }
+      });
     }
   }
 
@@ -1110,13 +1113,16 @@ export class RulesEngine {
     if (affectedRules > 0) {
       lcardsLog.debug(`[RulesEngine] Entity ${entityId} changed, marked ${affectedRules} rules dirty`);
 
-      // Trigger re-evaluation if callback is set
-      if (this._reEvaluationCallback) {
-        try {
-          this._reEvaluationCallback();
-        } catch (error) {
-          lcardsLog.error('[RulesEngine] Re-evaluation callback failed:', error);
-        }
+      // Trigger re-evaluation callbacks if registered (supports multiple MSD cards)
+      if (this._reEvaluationCallbacks.length > 0) {
+        lcardsLog.debug(`[RulesEngine] Triggering ${this._reEvaluationCallbacks.length} re-evaluation callbacks for entity ${entityId}`);
+        this._reEvaluationCallbacks.forEach((callback, index) => {
+          try {
+            callback();
+          } catch (error) {
+            lcardsLog.error(`[RulesEngine] Re-evaluation callback ${index} failed for entity ${entityId}:`, error);
+          }
+        });
       }
     }
 
@@ -1129,17 +1135,49 @@ export class RulesEngine {
   }
 
   /**
-   * Set callback for when rules need re-evaluation
+   * Add callback for when rules need re-evaluation (supports multiple MSD cards)
    * @param {Function} callback - Re-evaluation callback function
+   * @returns {number} - Index of the added callback (for removal)
    */
   setReEvaluationCallback(callback) {
     if (typeof callback !== 'function') {
       lcardsLog.warn('[RulesEngine] Re-evaluation callback must be a function');
-      return;
+      return -1;
     }
 
-    this._reEvaluationCallback = callback;
-    lcardsLog.debug('[RulesEngine] Re-evaluation callback set');
+    // CHANGED: Add callback to array instead of overwriting single callback
+    this._reEvaluationCallbacks.push(callback);
+    const callbackIndex = this._reEvaluationCallbacks.length - 1;
+
+    lcardsLog.debug(`[RulesEngine] Re-evaluation callback added (index: ${callbackIndex}, total: ${this._reEvaluationCallbacks.length})`);
+    return callbackIndex;
+  }
+
+  /**
+   * Remove callback for when rules need re-evaluation
+   * @param {Function|number} callbackOrIndex - Callback function or its index to remove
+   */
+  removeReEvaluationCallback(callbackOrIndex) {
+    if (typeof callbackOrIndex === 'number') {
+      // Remove by index
+      if (callbackOrIndex >= 0 && callbackOrIndex < this._reEvaluationCallbacks.length) {
+        this._reEvaluationCallbacks.splice(callbackOrIndex, 1);
+        lcardsLog.debug(`[RulesEngine] Re-evaluation callback removed by index ${callbackOrIndex} (remaining: ${this._reEvaluationCallbacks.length})`);
+      } else {
+        lcardsLog.warn(`[RulesEngine] Invalid callback index: ${callbackOrIndex}`);
+      }
+    } else if (typeof callbackOrIndex === 'function') {
+      // Remove by function reference
+      const index = this._reEvaluationCallbacks.indexOf(callbackOrIndex);
+      if (index !== -1) {
+        this._reEvaluationCallbacks.splice(index, 1);
+        lcardsLog.debug(`[RulesEngine] Re-evaluation callback removed by reference (remaining: ${this._reEvaluationCallbacks.length})`);
+      } else {
+        lcardsLog.warn('[RulesEngine] Callback not found for removal');
+      }
+    } else {
+      lcardsLog.warn('[RulesEngine] removeReEvaluationCallback requires function or index');
+    }
   }
 
   /**
@@ -1158,7 +1196,9 @@ export class RulesEngine {
       }
     }
 
-    this._reEvaluationCallback = null;
+    // CHANGED: Clear all re-evaluation callbacks
+    this._reEvaluationCallbacks = [];
+    lcardsLog.debug('[RulesEngine] All re-evaluation callbacks cleared');
   }
 
   /**

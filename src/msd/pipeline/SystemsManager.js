@@ -240,12 +240,37 @@ export class SystemsManager {
   async completeSystems(mergedConfig, cardModel, mountEl, hass) {
     lcardsLog.debug('[SystemsManager] 🔧 Completing systems initialization');
 
-    // ✅ Use shared RulesEngine singleton from lcardsCore
+    // ✅ Use shared RulesEngine singleton from lcardsCore and add this MSD's rules
     lcardsLog.debug('[SystemsManager] 🧠 Using shared RulesEngine from lcardsCore');
     if (!lcardsCore.rulesManager) {
       throw new Error('lcardsCore.rulesManager is null - core not initialized?');
     }
     this.rulesEngine = lcardsCore.rulesManager;
+
+    // CRITICAL: Add this MSD's rules to the shared RulesEngine
+    if (mergedConfig.rules && mergedConfig.rules.length > 0) {
+      lcardsLog.debug(`[SystemsManager] 📋 Adding ${mergedConfig.rules.length} rules from this MSD to shared RulesEngine`);
+
+      // Add rules to the shared engine's rules array
+      mergedConfig.rules.forEach(rule => {
+        if (rule.id) {
+          // Check if rule already exists to avoid duplicates
+          if (!this.rulesEngine.rulesById.has(rule.id)) {
+            this.rulesEngine.rules.push(rule);
+            lcardsLog.debug(`[SystemsManager] ➕ Added rule: ${rule.id}`);
+          } else {
+            lcardsLog.warn(`[SystemsManager] ⚠️ Rule ${rule.id} already exists in shared RulesEngine, skipping`);
+          }
+        }
+      });
+
+      // Rebuild the rules index and dependencies
+      this.rulesEngine.buildRulesIndex();
+      this.rulesEngine.buildDependencyIndex();
+      lcardsLog.debug(`[SystemsManager] ✅ Rules added. Total rules in shared engine: ${this.rulesEngine.rules.length}`);
+    } else {
+      lcardsLog.debug('[SystemsManager] ℹ️ No rules to add from this MSD');
+    }
 
     // ADDED: Give RulesEngine access to SystemsManager for HASS state lookup
     this.rulesEngine.systemsManager = this;

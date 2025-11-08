@@ -1,43 +1,65 @@
-# Data Architecture & DataSource System
+# DataSource System (Singleton)
 
-> **LCARdS is data-driven at its core**
-> Understanding how data flows from Home Assistant through the datasource system to overlays is fundamental to using LCARdS effectively.
+> **Shared data intelligence across all MSD cards**
+> Singleton DataSourceManager processes Home Assistant entities once and distributes to all registered cards for maximum efficiency.
 
 ---
 
 ## 🎯 Core Concept
 
-**Everything in LCARdS is driven by data.** The datasource system sits at the heart of the architecture, transforming Home Assistant entity states into processed, aggregated, and computed values that power dynamic overlays.
+**Everything in LCARdS is driven by shared data intelligence.** The DataSourceManager singleton sits at the heart of the architecture, processing Home Assistant entity states once and distributing processed, aggregated, and computed values to all registered MSD cards efficiently.
 
 ```mermaid
-graph LR
-    subgraph "Home Assistant"
+graph TB
+    subgraph "Home Assistant Layer"
         Entities[Entity States]
         History[History Data]
     end
 
-    subgraph "LCARdS DataSource System"
-        DS[DataSource Manager]
-        Transform[Transformations]
-        Aggregate[Aggregations]
-        Compute[Computed Values]
+    subgraph "Singleton DataSourceManager"
+        DSM[DataSourceManager Singleton]
+        Transform[Shared Transformations]
+        Aggregate[Shared Aggregations]
+        Compute[Shared Computed Values]
     end
 
-    subgraph "Presentation"
-        Templates[Template Processor]
-        Rules[Rules Engine]
-        Overlays[Overlays]
+    subgraph "Card A"
+        TemplatesA[Template Processor A]
+        OverlaysA[Overlays A]
     end
 
-    Entities --> DS
-    History --> DS
-    DS --> Transform
+    subgraph "Card B"
+        TemplatesB[Template Processor B]
+        OverlaysB[Overlays B]
+    end
+
+    subgraph "RulesEngine Singleton"
+        Rules[Shared Rules Processing]
+    end
+
+    Entities --> DSM
+    History --> DSM
+    DSM --> Transform
     Transform --> Aggregate
     Aggregate --> Compute
-    Compute --> Templates
-    Compute --> Rules
-    Templates --> Overlays
-    Rules --> Overlays
+
+    %% Singleton distribution
+    Compute -.distribute.-> TemplatesA
+    Compute -.distribute.-> TemplatesB
+    Compute -.distribute.-> Rules
+
+    Rules -.rule results.-> OverlaysA
+    Rules -.rule results.-> OverlaysB
+    TemplatesA --> OverlaysA
+    TemplatesB --> OverlaysB
+
+    classDef singleton fill:#e1f5fe,stroke:#01579b,stroke-width:3px
+    classDef cardA fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef cardB fill:#fff3e0,stroke:#e65100,stroke-width:2px
+
+    class DSM,Transform,Aggregate,Compute,Rules singleton
+    class TemplatesA,OverlaysA cardA
+    class TemplatesB,OverlaysB cardB
 ```
 
 ---

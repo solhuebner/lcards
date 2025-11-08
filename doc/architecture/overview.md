@@ -1,15 +1,15 @@
 # Architecture Overview
 
 > **LCARdS System Architecture**
-> A comprehensive overview of the LCARdS rendering system, component relationships, and data flow.
+> A comprehensive overview of the LCARdS singleton-based rendering system, component relationships, and multi-card data flow.
 
 ---
 
 ## 🎯 High-Level Architecture
 
-LCARdS is a Home Assistant custom card built on a **data-driven, overlay-based rendering system**.
+LCARdS is a Home Assistant custom card system built on a **singleton-based, data-driven architecture** that supports multiple card instances with shared resources.
 
-**Core Philosophy:** Everything is driven by data. The datasource system sits at the center of the architecture, transforming Home Assistant entity states into processed values that power dynamic overlays.
+**Core Philosophy:** Shared intelligence, distributed presentation. A set of global singleton systems (RulesEngine, ThemeManager, etc.) provide shared intelligence and data processing, while individual cards focus solely on presentation and user interaction.
 
 The architecture consists of several key layers:
 
@@ -20,84 +20,161 @@ graph TB
         HASS[hass Object]
     end
 
-    subgraph "LCARdS Card"
-        Card[LCARdS Card Element]
-        SM[Systems Manager]
+    subgraph "LCARdS Global Singleton Layer"
+        LC[lcardsCore]
 
-        subgraph "Data Layer (Core)"
-            DSM[DataSource Manager]
-            TP[Template Processor]
-            RE[Rules Engine]
-        end
-
-        subgraph "Rendering Layer"
-            AR[Advanced Renderer]
-            OI[Overlay Instances]
-        end
-
-        subgraph "Support Systems"
-            APM[Attachment Point Manager]
-            RC[Router Core]
-        end        subgraph "Overlay Types"
-            TO[Text Overlay]
-            BO[Button Overlay]
-            LO[Line Overlay]
-            SG[Status Grid Overlay]
-            AC[ApexCharts Overlay]
+        subgraph "Shared Intelligence Systems"
+            RE[🧠 RulesEngine]
+            DSM[📊 DataSourceManager]
+            TM[🎨 ThemeManager]
+            AM[🎬 AnimationManager]
+            SPM[🎭 StylePresetManager]
+            AR[🗂️ AnimationRegistry]
+            VS[✅ ValidationService]
+            SL[📚 StyleLibrary]
+            CSM[⚙️ CoreSystemsManager]
         end
     end
 
-    subgraph "Output"
-        SVG[SVG Container]
-        DOM[HTML Elements]
+    subgraph "Card Instance Layer"
+        subgraph "MSD Card A"
+            CardA[MSD Card Element A]
+            SMA[Systems Manager A]
+            RendererA[Advanced Renderer A]
+            OIA[Overlay Instances A]
+        end
+
+        subgraph "MSD Card B"
+            CardB[MSD Card Element B]
+            SMB[Systems Manager B]
+            RendererB[Advanced Renderer B]
+            OIB[Overlay Instances B]
+        end
+
+        subgraph "V2 Button Card"
+            CardC[V2 Button Card]
+            SimpleC[Simple Renderer C]
+        end
     end
 
+    subgraph "Output Layer"
+        SVGA[SVG Container A]
+        DOMA[HTML Elements A]
+        SVGB[SVG Container B]
+        DOMB[HTML Elements B]
+        DOMC[HTML Elements C]
+    end
+
+    %% Home Assistant to Singletons
     HA --> HASS
-    HASS --> Card
-    Card --> SM
-    SM --> DSM
-    SM --> AR
-    DSM --> TP
-    DSM --> RE
-    TP --> AR
-    RE --> AR
-    AR --> OI
-    OI --> TO
-    OI --> BO
-    OI --> LO
-    OI --> SG
-    OI --> AC
-    AR --> APM
-    AR --> RC
-    TO --> SVG
-    BO --> SVG
-    LO --> SVG
-    SG --> DOM
-    AC --> DOM
-    APM -.provides attachment points.-> LO
-    RC -.computes routes.-> LO
-    DSM -.provides data.-> TP
-    DSM -.provides data.-> RE
+    HASS --> LC
+    LC --> RE
+    LC --> DSM
+    LC --> TM
+
+    %% Singletons serve all cards
+    RE -.rule results.-> SMA
+    RE -.rule results.-> SMB
+    RE -.rule results.-> CardC
+    DSM -.entity data.-> SMA
+    DSM -.entity data.-> SMB
+    TM -.themes.-> RendererA
+    TM -.themes.-> RendererB
+    TM -.themes.-> SimpleC
+    AM -.animations.-> RendererA
+    AM -.animations.-> RendererB
+
+    %% Card instance flows
+    CardA --> SMA --> RendererA --> OIA --> SVGA
+    CardB --> SMB --> RendererB --> OIB --> SVGB
+    CardC --> SimpleC --> DOMC
+    OIA --> DOMA
+    OIB --> DOMB
+
+    %% Multi-directional rule registration
+    SMA -.registers rules.-> RE
+    SMB -.registers rules.-> RE
+    CardC -.registers overlays.-> RE
+
+    classDef singleton fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef card fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef v2card fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+
+    class RE,DSM,TM,AM,SPM,AR,VS,SL,CSM singleton
+    class CardA,SMA,RendererA,CardB,SMB,RendererB card
+    class CardC,SimpleC v2card
 ```
 
 ---
 
 ## 🏗️ Core Components
 
-### 1. DataSource Manager
-**Central data processing hub** that connects Home Assistant entities to the overlay system.
+### Singleton Layer (lcardsCore)
+**Global shared intelligence systems** that serve all card instances on a page.
+
+#### 1. RulesEngine Singleton 🧠
+**Centralized rule evaluation system** that processes rules from all cards and distributes results.
 
 **Responsibilities:**
-- Subscribe to Home Assistant entity state changes
-- Maintain time-windowed data buffers
+- Collect rules from all MSD and V2 card instances
+- Monitor Home Assistant entity state changes
+- Evaluate rule conditions across all registered rules
+- Distribute rule results to all registered card callbacks
+- Maintain rule dependency tracking and performance optimization
+
+**Multi-Card Features:**
+- Multiple callback registration (one per card instance)
+- Cross-card rule targeting (rules can affect overlays on any card)
+- Shared entity monitoring (single HASS subscription for all cards)
+
+#### 2. DataSource Manager Singleton 📊
+**Shared data processing hub** that serves all card instances.
+
+**Responsibilities:**
+- Single Home Assistant entity subscription for all cards
+- Maintain shared time-windowed data buffers
 - Apply transformation pipelines (unit conversion, scaling, smoothing)
 - Calculate aggregations (averages, rates, trends)
 - Generate computed values from expressions
-- Provide processed data to templates and rules engine
+- Provide processed data to all card instances
 
-**Key Features:**
-- Real-time reactive updates
-- Historical data preloading
+**Multi-Card Benefits:**
+- Eliminates duplicate entity subscriptions
+- Shared data caching and processing
+- Consistent data across all cards
+
+#### 3. ThemeManager Singleton 🎨
+**Shared theme system** providing consistent styling across all cards.
+
+**Responsibilities:**
+- Load and manage theme packs from all cards
+- Resolve CSS variables and theme properties
+- Provide theme-aware color schemes
+- Handle theme switching and updates
+- Maintain theme caching for performance
+
+#### 4. AnimationManager Singleton 🎬
+**Centralized animation coordination** for all card animations.
+
+**Responsibilities:**
+- Manage animation sequences across all cards
+- Coordinate cross-card animation synchronization
+- Handle animation conflicts and priorities
+- Provide animation presets and utilities
+
+#### 5. StylePresetManager Singleton 🎭
+**Shared style preset system** for consistent component styling.
+
+**Responsibilities:**
+- Load and manage style presets from all cards
+- Resolve style inheritance and overrides
+- Provide preset-based styling for overlays
+
+#### 6. Other Singletons
+- **AnimationRegistry** 🗂️: Shared animation definitions
+- **ValidationService** ✅: Schema validation for all configurations
+- **StyleLibrary** 📚: Shared style utilities and helpers
+- **CoreSystemsManager** ⚙️: Singleton lifecycle management
 - 50+ predefined transformations
 - Statistical aggregation engines
 - Memory-efficient circular buffers
@@ -111,18 +188,26 @@ graph TB
 
 **See:** [DataSource System Architecture](subsystems/datasource-system.md)
 
-### 2. Systems Manager
-**Central orchestration hub** that coordinates all systems.
+### Card Instance Layer
+
+#### 1. Systems Manager (Per-Card)
+**Card-specific orchestration hub** that connects individual cards to shared singletons.
 
 **Responsibilities:**
-- Initialize all subsystems (renderer, router, attachment manager)
-- Manage card lifecycle (connect, update, disconnect)
-- Handle entity subscriptions
-- Coordinate incremental updates
-- Manage animation system
+- Register card's rules with shared RulesEngine singleton
+- Connect to shared DataSourceManager for entity data
+- Initialize card-specific rendering pipeline
+- Handle card lifecycle (connect, update, disconnect)
+- Coordinate card-specific overlays and rendering
+- Bridge between singleton systems and card presentation
+
+**Key Changes in Singleton Architecture:**
+- No longer creates local systems (uses shared singletons)
+- Registers callbacks with shared RulesEngine for rule updates
+- Manages card-specific rule cleanup on destruction
 
 **Key Files:**
-- `src/msd/SystemsManager.js`
+- `src/msd/pipeline/SystemsManager.js`
 
 ### 2. Advanced Renderer
 **Main rendering engine** that processes overlays and produces SVG/HTML output.
@@ -523,7 +608,127 @@ Used when:
 
 ---
 
-## 🔑 Key Design Patterns
+## � Multi-Card Architecture
+
+### Singleton-Based Multi-Instance Support
+
+The LCARdS system now supports **multiple card instances** on a single page through a singleton-based architecture.
+
+#### Architecture Benefits
+
+**Previous Architecture Problems:**
+- ❌ Each MSD card created duplicate systems (RulesEngine, DataSourceManager, etc.)
+- ❌ Multiple HASS subscriptions for the same entities
+- ❌ No cross-card rule coordination
+- ❌ Resource waste and potential conflicts
+
+**New Singleton Architecture Solutions:**
+- ✅ **Single shared systems** serve all cards
+- ✅ **Single HASS subscription** per entity across all cards
+- ✅ **Cross-card rule targeting** - rules can affect overlays on any card
+- ✅ **Resource efficiency** - shared caching and processing
+- ✅ **Coordinated updates** - all cards receive rule results simultaneously
+
+#### Multi-Card Rule Flow
+
+```mermaid
+sequenceDiagram
+    participant HASS as Home Assistant
+    participant RE as RulesEngine Singleton
+    participant CardA as MSD Card A
+    participant CardB as MSD Card B
+    participant CardC as V2 Button Card
+
+    Note over CardA,CardC: Card Initialization
+    CardA->>RE: Register rules & callback
+    CardB->>RE: Register rules & callback
+    CardC->>RE: Register overlay targets
+
+    Note over HASS,CardC: Entity State Change
+    HASS->>RE: Entity light.tv = "on"
+    RE->>RE: Evaluate ALL rules from all cards
+
+    Note over RE: Rule Results Distribution
+    RE->>CardA: callback() with rule results
+    RE->>CardB: callback() with rule results
+    RE->>CardC: callback() with rule results
+
+    Note over CardA,CardC: Individual Card Updates
+    CardA->>CardA: Apply relevant overlays
+    CardB->>CardB: Apply relevant overlays
+    CardC->>CardC: Apply button styles
+```
+
+#### Cross-Card Rule Targeting
+
+Rules from one card can target overlays on other cards:
+
+**Card A Rule:**
+```yaml
+rules:
+  - id: emergency_alert
+    when: { entity: alarm.fire, state: "on" }
+    apply:
+      overlays:
+        # Target specific overlay on any card
+        "emergency_button": { style: { color: red } }
+
+        # Target by tag across ALL cards
+        "*[tag~='emergency']": { style: { border: { color: red } } }
+```
+
+**Result:** All cards with `emergency_button` overlay or `emergency` tag get styled.
+
+### V2 Card Architecture
+
+#### Lightweight Cards Using Singletons
+
+The singleton architecture enables a new category of **V2 Cards** - lightweight, purpose-built cards that leverage shared systems:
+
+**V2 Card Characteristics:**
+- ✅ **Singleton-aware**: Direct access to shared RulesEngine, ThemeManager, etc.
+- ✅ **Lightweight**: No routing, no local systems, minimal complexity
+- ✅ **Rules-responsive**: Register overlays that respond to global rules
+- ✅ **Theme-consistent**: Automatic theme inheritance from shared ThemeManager
+- ✅ **Animation-ready**: Access to shared AnimationManager
+
+**Comparison:**
+
+| Feature | MSD Card | V2 Card |
+|---------|----------|---------|
+| Complexity | High - Full pipeline | Low - Simple renderer |
+| Systems | Local + Shared | Shared only |
+| Configuration | Full MSD schema | Minimal schema |
+| Routing | Yes | No |
+| Use Case | Complex displays | Single-purpose components |
+
+#### V2 Card Foundation Class
+
+```javascript
+class LCARdSV2Card extends LitElement {
+  constructor() {
+    super();
+    // Direct singleton access
+    this.rulesEngine = lcardsCore.rulesManager;
+    this.themeManager = lcardsCore.themeManager;
+
+    // Register for rule updates
+    this.rulesEngine.setReEvaluationCallback(() => {
+      this.handleRuleUpdate();
+    });
+  }
+
+  handleRuleUpdate() {
+    // Lightweight rule processing
+    const results = this.rulesEngine.evaluateDirty(this.hass);
+    this.applyRuleResults(results);
+  }
+}
+```
+
+---
+
+## �🔑 Key Design Patterns
 
 ### 1. Instance-Based Rendering
 Overlay instances persist between updates for efficient incremental updates.
@@ -554,5 +759,5 @@ Font loading handled through multiple validation passes with bbox checking.
 
 ---
 
-**Last Updated:** October 26, 2025
-**Version:** 2025.10.1-fuk.42-69
+**Last Updated:** November 8, 2025
+**Version:** 2025.11.1-singleton-architecture

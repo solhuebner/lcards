@@ -1,4 +1,4 @@
-# MSD Validation System - Architecture & Developer Guide
+# MSD Validation System (Singleton) - Architecture & Developer Guide
 
 **Location:** `/doc/architecture/validation_architecture.md`
 
@@ -18,14 +18,17 @@
 
 ## Overview
 
-The MSD Validation System provides comprehensive, schema-based validation of overlay configurations with support for design tokens, enhanced properties, and context-aware requirements.
+The MSD Validation System is a **singleton service** that provides comprehensive, schema-based validation of overlay configurations across all MSD cards. It supports design tokens, enhanced properties, cross-card validation, and context-aware requirements.
 
 ### Key Features
 
+- 🌐 **Singleton Architecture** - Single validation service for all MSD cards
+- **Multi-Card Validation** - Validates overlays across multiple cards with cross-card references
 - **Schema-based validation** - Each overlay type has a declarative schema
-- **Token-aware** - Resolves design tokens before validation
+- **Token-aware** - Resolves design tokens from singleton ThemeManager before validation
 - **Enhanced properties** - Supports complex object formats (font_size objects, marker objects, etc.)
 - **Conditional validation** - Fields can be conditionally required based on context
+- **Cross-Card Dependencies** - Validates overlay targeting and cross-card relationships
 - **Chart-specific** - Validates chart data format compatibility
 - **Extensible** - Easy to add new overlay types and validators
 - **Developer-friendly** - Rich error messages with suggestions and examples

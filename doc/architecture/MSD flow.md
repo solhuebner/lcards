@@ -1,7 +1,7 @@
-# MSD System Flow & Pipeline Architecture
+# MSD System Flow & Singleton Architecture
 
-> **Complete data flow from configuration to rendering**
-> A detailed guide to how LCARdS initializes, processes configuration, and renders overlays.
+> **Complete data flow from configuration to rendering with singleton intelligence layer**
+> A detailed guide to how LCARdS initializes shared systems, processes configuration, and coordinates multi-card rendering.
 
 ---
 
@@ -26,169 +26,237 @@
 
 ## Overview
 
-The MSD (Master Systems Display) system follows a **pipeline architecture** with clear stages from configuration loading to final SVG rendering.
+The MSD (Master Systems Display) system follows a **singleton architecture** with global intelligence systems shared across multiple cards and lightweight per-card rendering pipelines.
 
-### Pipeline Stages
+### Singleton Architecture Flow
 
 ```mermaid
-graph LR
-    Config[User Configuration] --> Process[Configuration<br/>Processing]
-    Process --> Packs[Pack System<br/>Merge & Validate]
-    Packs --> Model[Model Building]
-    Model --> Systems[Systems<br/>Initialization]
-    Systems --> Render[Rendering<br/>Pipeline]
-    Render --> Display[SVG Display]
+graph TB
+    subgraph "Singleton Layer (Global)"
+        LC[lcardsCore Initializer]
+        RE[🧠 RulesEngine Singleton]
+        DSM[📊 DataSourceManager Singleton]
+        TM[🎨 ThemeManager Singleton]
+        VS[✅ ValidationService Singleton]
+    end
 
-    Display -.->|Updates| Runtime[Runtime<br/>Updates]
-    Runtime -.->|Re-render| Render
+    subgraph "Card A Pipeline"
+        ConfigA[Card A Config] --> ProcessA[Config Processing]
+        ProcessA --> PacksA[Pack Merge]
+        PacksA --> ModelA[Model Building]
+        ModelA --> SysA[Systems Manager A]
+        SysA --> RenderA[Renderer A]
+        RenderA --> DisplayA[SVG Display A]
+    end
 
-    style Config fill:#4d94ff,stroke:#0066cc,color:#fff
-    style Process fill:#ff9933,stroke:#cc6600,color:#fff
-    style Packs fill:#ff9933,stroke:#cc6600,color:#fff
-    style Model fill:#ff9933,stroke:#cc6600,color:#fff
-    style Systems fill:#00cc66,stroke:#009944,color:#fff
-    style Render fill:#00cc66,stroke:#009944,color:#fff
-    style Display fill:#ffcc00,stroke:#cc9900
+    subgraph "Card B Pipeline"
+        ConfigB[Card B Config] --> ProcessB[Config Processing]
+        ProcessB --> PacksB[Pack Merge]
+        PacksB --> ModelB[Model Building]
+        ModelB --> SysB[Systems Manager B]
+        SysB --> RenderB[Renderer B]
+        RenderB --> DisplayB[SVG Display B]
+    end
+
+    %% Singleton initialization
+    ConfigA --> LC
+    ConfigB --> LC
+    LC --> RE
+    LC --> DSM
+    LC --> TM
+    LC --> VS
+
+    %% Singleton to card distribution
+    RE -.rule updates.-> SysA
+    RE -.rule updates.-> SysB
+    DSM -.entity data.-> SysA
+    DSM -.entity data.-> SysB
+    TM -.themes.-> RenderA
+    TM -.themes.-> RenderB
+
+    %% Card registration with singletons
+    SysA -.register rules.-> RE
+    SysB -.register rules.-> RE
+
+    %% Runtime updates
+    DisplayA -.->|Updates| RuntimeA[Runtime Updates A]
+    DisplayB -.->|Updates| RuntimeB[Runtime Updates B]
+    RuntimeA -.->|Re-render| RenderA
+    RuntimeB -.->|Re-render| RenderB
+
+    DSM -.->|Shared Updates| RuntimeA
+    DSM -.->|Shared Updates| RuntimeB
+
+    classDef singleton fill:#e1f5fe,stroke:#01579b,stroke-width:3px
+    classDef cardA fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef cardB fill:#fff3e0,stroke:#e65100,stroke-width:2px
+
+    class LC,RE,DSM,TM,VS singleton
+    class ConfigA,ProcessA,PacksA,ModelA,SysA,RenderA,DisplayA,RuntimeA cardA
+    class ConfigB,ProcessB,PacksB,ModelB,SysB,RenderB,DisplayB,RuntimeB cardB
 ```
 
 **Key Characteristics:**
-- 🔄 **Event-driven** - Responds to HA entity changes
-- 📦 **Modular** - Clear separation of concerns
-- ⚡ **Efficient** - Incremental updates, no full re-renders
-- 🎯 **Declarative** - Configuration-first approach
-- 🔍 **Debuggable** - Comprehensive introspection tools
+- 🌐 **Singleton Intelligence** - Shared systems across all cards (RulesEngine, DataSourceManager, ThemeManager)
+- 🎯 **Multi-Card Support** - Multiple MSD cards can coexist with shared rule evaluation
+- 🔄 **Event-driven** - Responds to HA entity changes through singleton distribution
+- 📦 **Modular** - Clear separation between global intelligence and per-card rendering
+- ⚡ **Efficient** - Shared processing, incremental updates, coordinated cross-card updates
+- 🎯 **Declarative** - Configuration-first approach with singleton-aware targeting
+- 🔍 **Debuggable** - Comprehensive introspection tools with singleton state visibility
 
 ---
 
 ## Complete Pipeline Flow
 
-### End-to-End System Flow
+### End-to-End Singleton System Flow
 
 ```mermaid
 sequenceDiagram
-    participant User as User Config
-    participant Pipeline as PipelineCore
-    participant Config as Config Processor
-    participant Packs as Pack System
-    participant Model as Model Builder
-    participant Systems as SystemsManager
-    participant DS as DataSourceManager
-    participant Rules as RulesEngine
-    participant Template as TemplateProcessor
-    participant Renderer as AdvancedRenderer
-    participant SVG as SVG Output
+    participant UserA as Card A Config
+    participant UserB as Card B Config
+    participant Core as lcardsCore
+    participant DSM as DataSourceManager (Singleton)
+    participant RE as RulesEngine (Singleton)
+    participant TM as ThemeManager (Singleton)
+    participant SysA as SystemsManager A
+    participant SysB as SystemsManager B
+    participant RendA as AdvancedRenderer A
+    participant RendB as AdvancedRenderer B
+    participant SVGA as SVG Output A
+    participant SVGB as SVG Output B
 
-    User->>Pipeline: initMsdPipeline(config, mountEl, hass)
+    %% First card initialization
+    UserA->>Core: initMsdPipeline(configA, mountElA, hass)
+    Core->>Core: Initialize singletons (first time)
+    Core->>DSM: Initialize DataSourceManager singleton
+    Core->>RE: Initialize RulesEngine singleton
+    Core->>TM: Initialize ThemeManager singleton
 
-    Pipeline->>Config: processAndValidateConfig()
-    Config->>Config: Validate schema
-    Config->>Config: Check required fields
-    Config-->>Pipeline: {mergedConfig, issues, provenance}
+    Core->>SysA: initializeSystems(configA)
+    SysA->>DSM: Register card A datasources
+    SysA->>RE: Register card A rules
+    SysA->>RendA: Initialize renderer A
 
-    Pipeline->>Packs: mergePacks(config)
-    Packs->>Packs: Load builtin packs
-    Packs->>Packs: Load external packs
-    Packs->>Packs: Merge configurations
-    Packs-->>Pipeline: Merged pack config
+    %% Second card initialization
+    UserB->>Core: initMsdPipeline(configB, mountElB, hass)
+    Core->>Core: Singletons already exist - reuse
 
-    Pipeline->>Model: buildCardModel(config)
-    Model->>Model: Process overlays
-    Model->>Model: Build card structure
-    Model-->>Pipeline: CardModel instance
+    Core->>SysB: initializeSystems(configB)
+    SysB->>DSM: Register card B datasources
+    SysB->>RE: Register card B rules (callback array)
+    SysB->>RendB: Initialize renderer B
 
-    Pipeline->>Systems: initializeSystems()
-    Systems->>DS: Initialize DataSourceManager
-    DS->>DS: Create DataSource instances
-    DS->>DS: Subscribe to HA entities
-    DS-->>Systems: DataSources ready
+    %% Shared processing with distribution
+    DSM->>DSM: Entity state changed
+    DSM->>SysA: Distribute updates to card A
+    DSM->>SysB: Distribute updates to card B
 
-    Systems->>Rules: Initialize RulesEngine
-    Systems->>Template: Initialize TemplateProcessor
-    Systems->>Renderer: Initialize AdvancedRenderer
-    Systems-->>Pipeline: All systems initialized
+    SysA->>RE: Request rule evaluation for card A
+    SysB->>RE: Request rule evaluation for card B
 
-    Pipeline->>Model: computeResolvedModel()
-    Model->>Rules: Evaluate rules
-    Rules->>Template: Process templates
-    Template->>DS: Get datasource values
-    DS-->>Template: Current values
-    Template-->>Model: Resolved templates
-    Model-->>Pipeline: Resolved model
+    RE->>RE: Evaluate all rules once
+    RE->>SysA: Send card A rule results
+    RE->>SysB: Send card B rule results
 
-    Pipeline->>Renderer: render(resolvedModel)
-    Renderer->>Renderer: Render overlays
-    Renderer->>SVG: Generate SVG elements
-    SVG-->>User: Display dashboard
+    SysA->>RendA: Apply updates to renderer A
+    SysB->>RendB: Apply updates to renderer B
 
-    loop Runtime Updates
-        DS->>DS: Entity state changed
-        DS->>Model: Emit update
-        Model->>Rules: Re-evaluate affected rules
-        Model->>Template: Re-process templates
-        Model->>Renderer: Incremental update
-        Renderer->>SVG: Update affected elements
+    RendA->>SVGA: Update SVG A
+    RendB->>SVGB: Update SVG B
+
+    loop Multi-Card Runtime Updates
+        DSM->>DSM: Shared entity change
+        DSM->>SysA: Notify card A
+        DSM->>SysB: Notify card B
+
+        Note over RE: Single rule evaluation<br/>serves both cards
+        RE->>SysA: Card A results
+        RE->>SysB: Card B results
+
+        par Card A Updates
+            SysA->>RendA: Incremental update A
+            RendA->>SVGA: Update elements A
+        and Card B Updates
+            SysB->>RendB: Incremental update B
+            RendB->>SVGB: Update elements B
+        end
     end
 ```
 
-**Flow Summary:**
-1. **Configuration** - Load and validate user config
-2. **Packs** - Merge themes, presets, external config
-3. **Model** - Build internal card representation
-4. **Systems** - Initialize all subsystems (DataSources, Rules, Templates, Renderer)
-5. **Resolution** - Resolve templates, evaluate rules
-6. **Rendering** - Generate SVG from resolved model
-7. **Runtime** - Handle updates incrementally
+**Singleton Flow Summary:**
+1. **Singleton Initialization** - lcardsCore creates shared intelligence systems (first card only)
+2. **Card Registration** - Each card registers its datasources and rules with singletons
+3. **Configuration Processing** - Per-card config validation and pack merging
+4. **Model Building** - Each card builds its internal representation
+5. **Systems Coordination** - SystemsManager connects cards to singletons
+6. **Shared Processing** - Singletons process data once, distribute to all cards
+7. **Distributed Rendering** - Each card renders independently with shared intelligence
+8. **Coordinated Runtime** - Entity changes trigger singleton evaluation, distributed updates
 
 
 ---
 
 ## Initialization Sequence
 
-### Card Loading & Setup
+### Singleton Architecture Initialization
 
 ```mermaid
 graph TD
     Start[Card Load] --> Entry[index.js Entry Point]
+    Entry --> Core[lcardsCore.initMsdPipeline]
 
-    Entry --> Pipeline[PipelineCore.initMsdPipeline]
-    Pipeline --> Config[Process Configuration]
+    Core --> FirstCard{First card<br/>in browser?}
 
+    FirstCard -->|Yes| InitSingletons[Initialize Singletons]
+    InitSingletons --> DSM[📊 DataSourceManager Singleton]
+    InitSingletons --> RE[🧠 RulesEngine Singleton]
+    InitSingletons --> TM[🎨 ThemeManager Singleton]
+    InitSingletons --> VS[✅ ValidationService Singleton]
+
+    FirstCard -->|No| ReuseSingletons[Reuse Existing Singletons]
+    ReuseSingletons --> CardSetup
+    DSM --> CardSetup[Card-Specific Setup]
+
+    CardSetup --> Config[Process Card Configuration]
     Config --> Valid{Valid<br/>config?}
     Valid -->|No| Error[Throw Error<br/>with details]
     Valid -->|Yes| Packs[Load & Merge Packs]
 
-    Packs --> Theme[Initialize Theme System]
-    Theme --> Model[Build Card Model]
+    Packs --> Model[Build Card Model]
     Model --> Systems[Initialize Systems Manager]
 
-    Systems --> DS[DataSourceManager]
-    Systems --> Rules[RulesEngine]
-    Systems --> Template[TemplateProcessor]
-    Systems --> Router[RouterCore]
-    Systems --> Anim[AnimationRegistry]
-    Systems --> Renderer[AdvancedRenderer]
+    Systems --> RegisterDS[Register with DataSourceManager]
+    Systems --> RegisterRE[Register with RulesEngine]
+    Systems --> LocalSystems[Initialize Local Systems]
+
+    LocalSystems --> Template[TemplateProcessor]
+    LocalSystems --> Router[RouterCore]
+    LocalSystems --> Anim[AnimationRegistry]
+    LocalSystems --> Renderer[AdvancedRenderer]
 
     Renderer --> Initial[Initial Render]
     Initial --> Display[Display SVG]
     Display --> Ready[✅ Card Ready]
 
-    Ready --> Runtime[Enter Runtime Mode]
+    Ready --> Runtime[Enter Coordinated Runtime]
 
     style Start fill:#4d94ff,stroke:#0066cc,color:#fff
     style Error fill:#ff3333,stroke:#cc0000,color:#fff
     style Ready fill:#00cc66,stroke:#009944,color:#fff
     style Runtime fill:#ffcc00,stroke:#cc9900
+    style DSM,RE,TM,VS fill:#e1f5fe,stroke:#01579b,stroke-width:3px
 ```
 
-**Initialization Steps:**
-1. **Entry Point** - `index.js` exports `initMsdPipeline`
-2. **Config Processing** - Validate and normalize configuration
-3. **Pack Loading** - Merge builtin and external configuration
-4. **Theme Setup** - Load active theme and resolve tokens
-5. **Model Building** - Create internal card model
-6. **System Initialization** - Initialize all subsystems
-7. **Initial Render** - Generate first SVG output
-8. **Runtime Mode** - Enter event-driven update mode
+**Singleton Initialization Steps:**
+1. **Entry Point** - `index.js` exports `initMsdPipeline`, calls `lcardsCore`
+2. **Singleton Check** - First card creates global singletons, subsequent cards reuse
+3. **Singleton Creation** - DataSourceManager, RulesEngine, ThemeManager, ValidationService
+4. **Card Registration** - Register datasources and rules with appropriate singletons
+5. **Config Processing** - Per-card validation and pack merging
+6. **Local Systems** - Initialize card-specific systems (TemplateProcessor, Renderer)
+7. **Initial Render** - Generate first SVG output with singleton intelligence
+8. **Coordinated Runtime** - Enter multi-card event-driven mode with shared processing
 
 ---
 
@@ -345,126 +413,164 @@ graph TD
 
 ## Systems Initialization
 
-### SystemsManager Startup
+### Singleton + SystemsManager Coordination
 
 ```mermaid
 graph TD
-    Manager[SystemsManager] --> Init[initializeSystems]
+    subgraph "Singleton Layer (Global - First Card Only)"
+        LC[lcardsCore] --> DSM[📊 DataSourceManager Singleton]
+        LC --> RE[🧠 RulesEngine Singleton]
+        LC --> TM[🎨 ThemeManager Singleton]
+        LC --> VS[✅ ValidationService Singleton]
 
-    Init --> Theme[ThemeManager]
-    Theme --> Tokens[Load Theme Tokens]
-    Tokens --> Defaults[Component Defaults]
+        DSM --> Entities[Subscribe to HA Entities]
+        DSM --> History[Preload History]
+        DSM --> Buffer[Initialize Entity Buffers]
 
-    Init --> DS[DataSourceManager]
-    DS --> Entities[Subscribe to HA Entities]
-    DS --> History[Preload History]
-    DS --> Buffer[Initialize Buffers]
+        RE --> RuleStore[Initialize Rule Store]
+        RE --> Callbacks[Setup Callback Arrays]
 
-    Init --> Rules[RulesEngine]
-    Rules --> Conditions[Parse Rule Conditions]
-    Rules --> Actions[Parse Rule Actions]
+        TM --> Tokens[Load Theme Tokens]
+        TM --> Defaults[Component Defaults]
+    end
 
-    Init --> Template[TemplateProcessor]
-    Template --> Registry[Register Built-in Functions]
-    Template --> Context[Setup Evaluation Context]
+    subgraph "Card Layer (Per Card)"
+        Manager[SystemsManager] --> RegisterDS[Register DataSources with Singleton]
+        Manager --> RegisterRE[Register Rules with Singleton]
+        Manager --> LocalInit[Initialize Local Systems]
 
-    Init --> Router[RouterCore]
-    Router --> PathLib[Initialize Path Library]
-    Router --> Algo[Load Routing Algorithms]
+        RegisterDS --> DSM
+        RegisterRE --> RE
 
-    Init --> Anim[AnimationRegistry]
-    Anim --> AnimeJS[Load Anime.js v4]
-    Anim --> Presets[Register Animation Presets]
+        LocalInit --> Template[TemplateProcessor]
+        LocalInit --> Router[RouterCore]
+        LocalInit --> Anim[AnimationRegistry]
+        LocalInit --> Renderer[AdvancedRenderer]
 
-    Init --> Renderer[AdvancedRenderer]
-    Renderer --> SVG[Setup SVG Namespace]
-    Renderer --> OverlayRenderers[Initialize Overlay Renderers]
+        Template --> Registry[Register Built-in Functions]
+        Router --> PathLib[Initialize Path Library]
+        Anim --> AnimeJS[Load Anime.js v4]
+        Renderer --> SVG[Setup SVG Namespace]
+        Renderer --> OverlayRenderers[Initialize Overlay Renderers]
+    end
 
-    Renderer --> Ready[✅ All Systems Ready]
+    Renderer --> Ready[✅ Card Systems Ready]
 
-    style Manager fill:#4d94ff,stroke:#0066cc,color:#fff
-    style Ready fill:#00cc66,stroke:#009944,color:#fff
+    classDef singleton fill:#e1f5fe,stroke:#01579b,stroke-width:3px
+    classDef cardLocal fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+
+    class LC,DSM,RE,TM,VS,Entities,History,Buffer,RuleStore,Callbacks,Tokens,Defaults singleton
+    class Manager,RegisterDS,RegisterRE,LocalInit,Template,Router,Anim,Renderer,Registry,PathLib,AnimeJS,SVG,OverlayRenderers cardLocal
 ```
 
-**SystemsManager Role:**
-- Central orchestrator for all subsystems
-- Ensures initialization order
-- Manages inter-system dependencies
-- Provides access to all subsystems
-- Handles cleanup on card removal
+**Singleton SystemsManager Role:**
+- **Global Coordination** - First card creates shared intelligence singletons
+- **Registration Bridge** - Each card registers its datasources/rules with singletons
+- **Local System Management** - Manages card-specific systems (TemplateProcessor, Renderer)
+- **Singleton Access** - Provides card access to shared intelligence systems
+- **Multi-Card Cleanup** - Handles card removal without affecting other cards
 
-**Subsystems Initialized:**
-1. **ThemeManager** - Theme tokens and defaults
-2. **DataSourceManager** - Entity subscriptions and data processing
-3. **RulesEngine** - Conditional logic evaluation
-4. **TemplateProcessor** - Template string resolution
-5. **RouterCore** - Line path calculation
-6. **AnimationRegistry** - Animation management
+**System Types:**
+**Singleton Systems (Shared):**
+1. **DataSourceManager** - Entity subscriptions shared across all cards
+2. **RulesEngine** - Rule evaluation with callback distribution to all cards
+3. **ThemeManager** - Theme tokens and defaults available to all cards
+4. **ValidationService** - Schema validation shared across all cards
+
+**Local Systems (Per Card):**
+1. **TemplateProcessor** - Card-specific template resolution
+2. **RouterCore** - Card-specific line path calculation
+3. **AnimationRegistry** - Card-specific animation management
+4. **AdvancedRenderer** - Card-specific SVG generation
 7. **AdvancedRenderer** - SVG rendering
 
 ---
 
 ## DataSource Lifecycle
 
-### DataSource Creation & Updates
+### Singleton DataSourceManager Multi-Card Coordination
 
 ```mermaid
 sequenceDiagram
-    participant Config as User Config
-    participant DSM as DataSourceManager
-    participant DS as DataSource Instance
+    participant CardA as Card A Config
+    participant CardB as Card B Config
+    participant DSM as DataSourceManager Singleton
+    participant DS as Shared DataSource
     participant HA as Home Assistant
     participant Transform as Transformations
     participant Agg as Aggregations
-    participant Overlay as Overlays
+    participant OverlayA as Card A Overlays
+    participant OverlayB as Card B Overlays
 
-    Config->>DSM: data_sources configuration
-    DSM->>DS: Create DataSource(config)
-    DS->>HA: Subscribe to entity
+    %% Card A registration
+    CardA->>DSM: Register data_sources (Card A)
+    DSM->>DS: Create/reuse DataSource for entity
+    DS->>HA: Subscribe to entity (if first)
     HA-->>DS: Current state
 
-    opt Historical Data
-        DS->>HA: Request history (6 hours default)
+    %% Card B registration (same entity)
+    CardB->>DSM: Register data_sources (Card B)
+    DSM->>DS: Reuse existing DataSource
+    Note over DSM: Same entity - shared DataSource
+
+    opt Historical Data (Shared)
+        DS->>HA: Request history (shared across cards)
         HA-->>DS: Historical data array
-        DS->>DS: Pre-fill buffer
+        DS->>DS: Pre-fill shared buffer
     end
 
-    DS->>Transform: Apply transformations
+    DS->>Transform: Apply transformations (once)
     Transform->>Transform: Unit conversion
     Transform->>Transform: Scaling
     Transform->>Transform: Smoothing
     Transform-->>DS: Transformed values
 
-    DS->>Agg: Calculate aggregations
+    DS->>Agg: Calculate aggregations (once)
     Agg->>Agg: Moving average
     Agg->>Agg: Min/Max
     Agg->>Agg: Rate of change
     Agg-->>DS: Aggregated values
 
-    DS->>Overlay: Emit initial values
-    Overlay-->>Overlay: Initial render
+    %% Distribute to both cards
+    DS->>OverlayA: Emit to Card A overlays
+    DS->>OverlayB: Emit to Card B overlays
+    OverlayA-->>OverlayA: Card A initial render
+    OverlayB-->>OverlayB: Card B initial render
 
-    loop Runtime Updates
+    loop Multi-Card Runtime Updates
         HA->>DS: Entity state changed
-        DS->>DS: Add to buffer (time-windowed)
-        DS->>Transform: Re-apply transformations
-        DS->>Agg: Recalculate aggregations
-        DS->>Overlay: Emit updated values
-        Overlay-->>Overlay: Incremental update
+        DS->>DS: Add to shared buffer
+        DS->>Transform: Re-apply transformations (once)
+        DS->>Agg: Recalculate aggregations (once)
+
+        Note over DSM: Singleton distributes to all cards
+        DS->>OverlayA: Emit to Card A overlays
+        DS->>OverlayB: Emit to Card B overlays
+
+        par Card Updates
+            OverlayA-->>OverlayA: Card A incremental update
+        and
+            OverlayB-->>OverlayB: Card B incremental update
+        end
     end
 
-    Config->>DSM: Card removed
-    DSM->>DS: destroy()
+    CardA->>DSM: Card A removed
+    Note over DSM: Keep DataSource - Card B still using
+    CardB->>DSM: Card B removed
+    DSM->>DS: destroy() - no more subscribers
     DS->>HA: Unsubscribe from entity
 ```
 
-**DataSource Features:**
-- **Real-time subscriptions** - Auto-connect to HA entities
-- **Historical preload** - Load past data for charts/analysis
-- **Time-windowed buffers** - Efficient memory management
-- **Transformation pipeline** - 50+ processors (unit conversion, scaling, smoothing)
-- **Aggregation engine** - Statistics, trends, moving averages
-- **Performance optimization** - Coalescing, throttling, smart buffering
+**Singleton DataSource Features:**
+- **Shared Subscriptions** - One entity subscription serves multiple cards
+- **Coordinated Processing** - Single transformation/aggregation pipeline per entity
+- **Multi-Card Distribution** - Processed data distributed to all subscribers
+- **Reference Counting** - DataSources destroyed when no cards using them
+- **Efficient Resource Usage** - Shared buffers, transformations, and HA connections
+- **Historical preload** - Load past data once, share across all cards
+- **Time-windowed buffers** - Efficient shared memory management
+- **Transformation pipeline** - 50+ processors applied once per entity
+- **Aggregation engine** - Statistics calculated once, distributed to all cards
 
 ---
 
@@ -533,57 +639,90 @@ graph TD
 
 ## Runtime Updates
 
-### Incremental Update Flow
+### Multi-Card Singleton Coordinated Updates
 
 ```mermaid
 sequenceDiagram
     participant Entity as HA Entity
-    participant DS as DataSource
-    participant Model as CardModel
-    participant Rules as RulesEngine
-    participant Template as TemplateProcessor
-    participant Renderer as AdvancedRenderer
-    participant DOM as SVG DOM
+    participant DSM as DataSourceManager Singleton
+    participant RE as RulesEngine Singleton
+    participant CardA as Card A Systems
+    participant CardB as Card B Systems
+    participant TemplateA as TemplateProcessor A
+    participant TemplateB as TemplateProcessor B
+    participant RendererA as AdvancedRenderer A
+    participant RendererB as AdvancedRenderer B
+    participant DOMA as SVG DOM A
+    participant DOMB as SVG DOM B
 
-    Entity->>DS: State changed
-    DS->>DS: Update buffer
-    DS->>DS: Process transformations
-    DS->>DS: Recalculate aggregations
-    DS->>Model: Emit update event
+    Entity->>DSM: State changed (single event)
+    DSM->>DSM: Update shared buffer
+    DSM->>DSM: Process transformations (once)
+    DSM->>DSM: Recalculate aggregations (once)
 
-    Model->>Rules: Check affected rules
-    Rules->>Rules: Re-evaluate conditions
-    Rules-->>Model: Rule results
+    Note over DSM: Singleton distributes to all registered cards
+    DSM->>CardA: Emit update to Card A
+    DSM->>CardB: Emit update to Card B
 
-    Model->>Template: Re-process affected templates
-    Template->>DS: Get current values
-    DS-->>Template: Values with transformations
-    Template-->>Model: Resolved content
+    par Card A Processing
+        CardA->>RE: Check Card A affected rules
+        RE->>RE: Re-evaluate all rules (shared)
+        RE-->>CardA: Card A rule results
 
-    Model->>Renderer: incrementalUpdate(changedOverlays)
+        CardA->>TemplateA: Re-process Card A templates
+        TemplateA->>DSM: Get current values
+        DSM-->>TemplateA: Shared processed values
+        TemplateA-->>CardA: Resolved content A
 
-    loop For each changed overlay
-        Renderer->>Renderer: Find existing SVG element
-        Renderer->>Renderer: Update element attributes
-        Renderer->>DOM: Apply changes (no reflow)
+        CardA->>RendererA: incrementalUpdate(Card A overlays)
+
+        loop For each changed overlay A
+            RendererA->>RendererA: Find existing SVG element
+            RendererA->>RendererA: Update element attributes
+            RendererA->>DOMA: Apply changes (no reflow)
+        end
+
+        RendererA-->>CardA: Update A complete
+
+    and Card B Processing
+        CardB->>RE: Check Card B affected rules
+        Note over RE: Same rule evaluation serves both cards
+        RE-->>CardB: Card B rule results
+
+        CardB->>TemplateB: Re-process Card B templates
+        TemplateB->>DSM: Get current values
+        DSM-->>TemplateB: Same shared processed values
+        TemplateB-->>CardB: Resolved content B
+
+        CardB->>RendererB: incrementalUpdate(Card B overlays)
+
+        loop For each changed overlay B
+            RendererB->>RendererB: Find existing SVG element
+            RendererB->>RendererB: Update element attributes
+            RendererB->>DOMB: Apply changes (no reflow)
+        end
+
+        RendererB-->>CardB: Update B complete
     end
-
-    Renderer-->>Model: Update complete
 ```
 
-**Update Optimization:**
-- ✅ **No full re-renders** - Only update changed overlays
-- ✅ **Minimal DOM manipulation** - Batch updates
-- ✅ **Efficient diffing** - Track what changed
-- ✅ **Event coalescing** - Batch rapid updates
-- ✅ **Async processing** - Non-blocking updates
+**Singleton Update Optimization:**
+- ✅ **Shared Processing** - Single entity processing serves all cards
+- ✅ **Coordinated Rule Evaluation** - Rules evaluated once, distributed to all cards
+- ✅ **No full re-renders** - Only update changed overlays per card
+- ✅ **Parallel Card Updates** - Multiple cards update simultaneously
+- ✅ **Minimal DOM manipulation** - Batch updates per card
+- ✅ **Efficient diffing** - Track what changed per card
+- ✅ **Event coalescing** - Batch rapid updates across all cards
+- ✅ **Async processing** - Non-blocking coordinated updates
 
-**Update Triggers:**
-- Entity state changes from Home Assistant
-- DataSource computed value changes
-- Rule re-evaluation results
-- User interactions (button clicks)
-- Timer-based updates
+**Multi-Card Update Triggers:**
+- Single entity state change affects multiple cards
+- Shared DataSource computed value changes
+- Singleton rule re-evaluation distributed to relevant cards
+- Cross-card targeting (overlay updates in different cards)
+- User interactions with card-to-card effects
+- Timer-based updates coordinated across cards
 
 ---
 

@@ -1,10 +1,10 @@
-# LCARdS Architecture Documentation# MSD Architecture Documentation Index
+# LCARdS Architecture Documentation
 
+> **Central hub for singleton-based multi-card architecture documentation**
+> Navigate the complete LCARdS system with shared singletons and multiple card support
 
-
-> **Central hub for all architecture documentation****Last Updated:** 2025-10-25
-
-> Navigate the complete architecture of the LCARdS rendering system.**Version:** v2025.10.1-fuk.27-69
+**Last Updated:** November 8, 2025
+**Version:** v2025.11.1-singleton-architecture
 
 
 
@@ -12,15 +12,31 @@
 
 
 
-## 📋 Quick Navigation## 📚 Quick Navigation
+## 📋 Quick Navigation
 
+### 🎯 Start Here
 
+- **[Architecture Overview](overview.md)** - Singleton-based multi-card architecture
+- **[MSD Flow](MSD%20flow.md)** - Complete system data flow from configuration to rendering
+- **[Singleton Architecture](../SINGLETON_ARCHITECTURE_COMPLETE.md)** - Migration to shared systems
 
-### 🎯 Start Here### Core System Architecture
+### 🏗️ Singleton Layer (Shared Systems)
 
-- **[Architecture Overview](overview.md)** - High-level system architecture, component relationships
+**Global Intelligence Systems:**
+- **[RulesEngine Singleton](subsystems/rules-engine.md)** - Multi-card rule evaluation and distribution
+- **[DataSourceManager Singleton](subsystems/datasource-system.md)** - Shared entity processing and caching
+- **[ThemeManager Singleton](subsystems/theme-system.md)** - Consistent theming across all cards
+- **[AnimationManager Singleton](subsystems/animation-registry.md)** - Coordinated animation system
 
-- **[MSD Flow](MSD%20flow.md)** - Complete system data flow from configuration to rendering| Document | Purpose | When to Read |
+### 🎴 Card Instance Layer
+
+**MSD Cards (Complex):**
+- **[Systems Manager](subsystems/systems-manager.md)** - Bridge between cards and singletons
+- **[Advanced Renderer](subsystems/advanced-renderer.md)** - Card-specific rendering pipeline
+
+**V2 Cards (Lightweight):**
+- **[V2 Card Foundation](../src/base/LCARdSV2Card.js)** - Singleton-aware base class
+- **[V2 Button Card](../src/cards/lcards-v2-button.js)** - Example lightweight implementation| Document | Purpose | When to Read |
 
 |----------|---------|--------------|
 

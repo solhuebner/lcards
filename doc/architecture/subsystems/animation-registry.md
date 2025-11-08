@@ -1,7 +1,7 @@
-# Animation Registry
+# Animation Registry (Singleton)
 
-> **Animation management system with intelligent caching and reuse**
-> Centralized registry for anime.js animations with semantic comparison and performance optimization.
+> **Shared animation management system across all MSD cards**
+> Singleton registry for anime.js animations with intelligent caching, semantic comparison, and multi-card coordination.
 
 ---
 
@@ -22,31 +22,37 @@
 
 ## Overview
 
-The **Animation Registry** provides centralized management of anime.js animations with intelligent caching and instance reuse. It prevents duplicate animation instances, optimizes performance, and tracks usage statistics.
+The **Animation Registry** is a **singleton service** that provides centralized animation management across all MSD cards. It enables animation sharing, prevents duplicate instances, and coordinates animations between multiple cards.
 
 ### Key Features
 
+- 🌐 **Singleton Architecture** - Single animation registry serves all MSD cards
+- ✅ **Multi-Card Coordination** - Animations can target elements across different cards
 - ✅ **Intelligent caching** - Reuse animation instances with semantic comparison
 - ✅ **Preset system** - Built-in animation presets (pulse, fade, draw, motionpath)
 - ✅ **Target compatibility** - Automatic target validation and retargeting
-- ✅ **Performance tracking** - Cache hits, misses, reuse rates
+- ✅ **Cross-Card Targeting** - Animations can reference overlays in other cards
+- ✅ **Performance tracking** - Cache hits, misses, reuse rates across all cards
 - ✅ **LRU cleanup** - Automatic cache management
 - ✅ **Debug access** - Global debug interface
 
-### Responsibilities
+### Singleton Responsibilities
 
-**Animation Registry handles:**
-- Animation instance creation and caching
+**Animation Registry Singleton handles:**
+- Animation instance creation and caching across all cards
 - Semantic hash computation for definitions
-- Target compatibility validation
-- Instance reuse and retargeting
+- Target compatibility validation (including cross-card targets)
+- Instance reuse and retargeting between cards
+- Multi-card animation coordination
+- Global animation registry management
 - Cache cleanup and optimization
-- Performance statistics
+- Performance statistics across all cards
 
 **Does NOT handle:**
 - Timeline coordination (delegated to `TimelineDiffer`)
 - Animation resolution (delegated to `resolveAnimations`)
 - Preset definitions (delegated to `presets.js`)
+- Per-card animation execution (handled by individual cards)
 
 ---
 

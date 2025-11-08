@@ -22,21 +22,23 @@
 
 ## Overview
 
-The **Style Resolver** provides centralized style resolution across all MSD components. It handles token resolution from the theme system, applies intelligent caching for performance, and tracks provenance for debugging.
+The **Style Resolver** provides centralized style resolution across all MSD components with **singleton theme integration**. It handles token resolution from the singleton ThemeManager, applies intelligent caching for performance, and tracks provenance for debugging.
 
 ### Key Features
 
 - ✅ **Multi-tier resolution** - Explicit values, tokens, theme defaults, fallbacks
+- ✅ **Singleton theme integration** - Resolve tokens from shared ThemeManager singleton
+- ✅ **Multi-Card consistency** - Consistent styling across all cards via shared themes
 - ✅ **Token resolution** - Resolve theme tokens using dot notation
 - ✅ **Intelligent caching** - Cache resolved values for performance
 - ✅ **Preset support** - Apply LCARS style presets
-- ✅ **Theme integration** - Automatic theme change handling
+- ✅ **Coordinated theme changes** - Automatic theme change handling across all cards
 - ✅ **Provenance tracking** - Track resolution sources for debugging
 - ✅ **Validation** - Validate style values
 
 ### Integrated Systems
 
-- **ThemeManager** - Token resolution
+- **ThemeManager Singleton** - Shared token resolution across all cards
 - **CacheManager** - Performance optimization
 - **PresetManager** - LCARS preset application
 - **ProvenanceTracker** - Debugging support
