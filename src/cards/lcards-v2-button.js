@@ -125,10 +125,14 @@ export class LCARdSV2ButtonCard extends LCARdSV2Card {
         this._buttonState = 'unknown';
         this._buttonStyle = {};
         this._isPressed = false;
+        this._actionsSetup = false;
 
         // Template processing results
         this._processedText = null;
         this._processedState = null;
+
+        // Action handler cleanup
+        this._actionCleanup = null;
     }
 
     /**
@@ -160,6 +164,83 @@ export class LCARdSV2ButtonCard extends LCARdSV2Card {
                 this.setAttribute(`data-tag-${tag}`, 'true');
             });
         }
+    }
+
+    /**
+     * Called when element is connected to DOM
+     */
+    connectedCallback() {
+        super.connectedCallback();
+        // Set up actions after element is fully connected
+        if (this.config && this.systemsManager) {
+            requestAnimationFrame(() => {
+                this._setupActionListeners();
+            });
+        }
+    }
+
+    /**
+     * Called after first render - fallback for action setup
+     */
+    firstUpdated() {
+        super.firstUpdated();
+        // Fallback: ensure actions are set up if not already done
+        if (!this._actionsSetup && this.config && this.systemsManager) {
+            requestAnimationFrame(() => {
+                this._setupActionListeners();
+            });
+        }
+    }
+
+    /**
+     * Set up unified action listeners on the button element
+     * Now uses the universal base class action setup
+     */
+    _setupActionListeners() {
+        lcardsLog.debug(`[LCARdSV2ButtonCard] Setting up action listeners (${this._cardId})`);
+
+        // Clean up previous listeners
+        if (this._actionCleanup) {
+            this._actionCleanup();
+            this._actionCleanup = null;
+        }
+
+        const buttonElement = this.shadowRoot?.querySelector('.v2-button');
+        if (!buttonElement || !this.config) {
+            lcardsLog.warn(`[LCARdSV2ButtonCard] ❌ Action setup failed - missing requirements (${this._cardId})`);
+            return;
+        }
+
+        // Prepare action configurations
+        const actions = {
+            tap_action: this.config.tap_action || { action: 'toggle' },
+            hold_action: this.config.hold_action || null,
+            double_tap_action: this.config.double_tap_action || null
+        };
+
+        // Filter out null actions
+        Object.keys(actions).forEach(key => {
+            if (!actions[key]) {
+                delete actions[key];
+            }
+        });
+
+        // Use universal base class action setup
+        this._actionCleanup = this.setupActions(buttonElement, actions);
+        this._actionsSetup = true;
+
+        lcardsLog.debug(`[LCARdSV2ButtonCard] ✅ Action listeners set up: ${Object.keys(actions).join(', ')} (${this._cardId})`);
+    }
+
+    /**
+     * Cleanup action listeners on disconnect
+     */
+    disconnectedCallback() {
+        if (this._actionCleanup) {
+            this._actionCleanup();
+            this._actionCleanup = null;
+        }
+        super.disconnectedCallback();
     }
 
     /**
@@ -210,30 +291,50 @@ export class LCARdSV2ButtonCard extends LCARdSV2Card {
     }
 
     /**
-     * Handle button tap
+     * Handle button tap using unified action handler
      */
     _handleTap(event) {
-        if (!this.config || this._buttonState === 'unavailable') {
+        event.stopPropagation();
+
+        if (!this.config.entity || !this.hass) {
             return;
         }
 
+        // Get tap action (default to toggle)
         const tapAction = this.config.tap_action || { action: 'toggle' };
 
-        this._isPressed = true;
-        setTimeout(() => {
-            this._isPressed = false;
-            this.requestUpdate();
-        }, 150);
-
-        lcardsLog.debug(`[LCARdSV2ButtonCard] Button tapped (${this._cardId}):`, {
+        lcardsLog.debug(`[LCARdSV2ButtonCard] Executing tap action via unified handler:`, {
             entity: this.config.entity,
             action: tapAction.action
         });
 
-        // Execute tap action
-        this._executeTapAction(tapAction);
+        // Use unified action handler
+        this._executeAction(event.currentTarget, tapAction, 'tap');
 
         this.requestUpdate();
+    }
+
+    /**
+     * Execute action using the unified action handler
+     * @param {HTMLElement} element - Source element
+     * @param {Object} actionConfig - Action configuration
+     * @param {string} actionType - Action type (tap, hold, double_tap)
+     */
+    async _executeAction(element, actionConfig, actionType = 'tap') {
+        if (!this.systemsManager?.actionHandler) {
+            lcardsLog.warn(`[LCARdSV2ButtonCard] Action handler not available - falling back to basic toggle`);
+            // Fallback for basic toggle if action handler isn't ready
+            if (actionConfig.action === 'toggle' && this.hass && this.config.entity) {
+                this.hass.callService('homeassistant', 'toggle', { entity_id: this.config.entity });
+            }
+            return;
+        }
+
+        try {
+            await this.systemsManager.executeAction(element, actionConfig, actionType);
+        } catch (error) {
+            lcardsLog.error(`[LCARdSV2ButtonCard] Action execution failed:`, error);
+        }
     }
 
     /**
@@ -296,6 +397,14 @@ export class LCARdSV2ButtonCard extends LCARdSV2Card {
         if (changedProperties.has('config') && this.config) {
             // Process templates when config changes
             this._processTemplates();
+        }
+
+        // Fallback: retry setting up actions if they failed initially
+        if (!this._actionsSetup && this.config && this.systemsManager) {
+            lcardsLog.trace(`[LCARdSV2ButtonCard] Retrying action setup in updated() (${this._cardId})`);
+            requestAnimationFrame(() => {
+                this._setupActionListeners();
+            });
         }
     }
 
@@ -426,7 +535,6 @@ export class LCARdSV2ButtonCard extends LCARdSV2Card {
                 <div
                     class="${buttonClasses}"
                     style="${styleString}"
-                    @click="${this._handleTap}"
                 >
                     ${this.config.icon ? html`
                         <ha-icon class="button-icon" .icon="${this.config.icon}"></ha-icon>

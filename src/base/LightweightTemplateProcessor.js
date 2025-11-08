@@ -111,8 +111,8 @@ export class LightweightTemplateProcessor {
      * @private
      */
     async _processStringTemplate(template, context) {
-        // Check cache first
-        const cacheKey = `${template}:${JSON.stringify(context)}`;
+        // Check cache first - use safer cache key generation to avoid circular references
+        const cacheKey = `${template}:${this._generateSafeCacheKey(context)}`;
         if (this.cache.has(cacheKey)) {
             return this.cache.get(cacheKey);
         }
@@ -360,6 +360,36 @@ export class LightweightTemplateProcessor {
             return JSON.parse(str);
         } catch {
             return fallback;
+        }
+    }
+
+    /**
+     * Generate safe cache key avoiding circular references
+     * @private
+     */
+    _generateSafeCacheKey(context) {
+        if (!context || typeof context !== 'object') {
+            return String(context);
+        }
+
+        try {
+            // Extract only serializable properties, avoid circular refs
+            const safeContext = {};
+            for (const [key, value] of Object.entries(context)) {
+                if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+                    safeContext[key] = value;
+                } else if (value === null || value === undefined) {
+                    safeContext[key] = value;
+                } else {
+                    // For complex objects, just use a type indicator
+                    safeContext[key] = `[${typeof value}]`;
+                }
+            }
+            return JSON.stringify(safeContext);
+        } catch (error) {
+            // Fallback: use a simple hash based on object keys and types
+            const keys = Object.keys(context).sort();
+            return keys.map(key => `${key}:${typeof context[key]}`).join(',');
         }
     }
 

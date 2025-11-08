@@ -17,6 +17,7 @@ import { html, css, LitElement } from 'lit';
 import { lcardsLog } from '../utils/lcards-logging.js';
 import { lcardsCore } from '../core/lcards-core.js';
 import { V2CardSystemsManager } from './V2CardSystemsManager.js';
+import { ActionHelpers } from '../msd/renderer/ActionHelpers.js';
 
 /**
  * Base class for V2 Cards using singleton architecture
@@ -479,6 +480,88 @@ export class LCARdSV2Card extends LitElement {
                 </div>
             </div>
         `;
+    }
+
+    /**
+     * Universal action setup for V2 cards
+     * Sets up unified action handling using MSD's ActionHelpers system
+     * @param {HTMLElement} element - Target element for actions
+     * @param {Object} actions - Action configurations (tap_action, hold_action, double_tap_action)
+     * @returns {Function} Cleanup function to remove listeners
+     */
+    setupActions(element, actions) {
+        if (!element || !actions) {
+            lcardsLog.warn(`[LCARdSV2Card] setupActions called with missing element or actions (${this._cardId})`);
+            return () => {};
+        }
+
+        lcardsLog.debug(`[LCARdSV2Card] Setting up actions: ${Object.keys(actions).join(', ')} (${this._cardId})`);
+        const cleanupFunctions = [];
+
+        // Helper function to enrich action with entity
+        const enrichAction = (actionConfig) => {
+            const enriched = { ...actionConfig };
+            if (!enriched.entity && this.config?.entity) {
+                enriched.entity = this.config.entity;
+            }
+            return enriched;
+        };
+
+        // Tap action
+        if (actions.tap_action) {
+            const tapHandler = (event) => {
+                const enrichedAction = enrichAction(actions.tap_action);
+                ActionHelpers.executeAction(enrichedAction, this, 'tap', element);
+            };
+            element.addEventListener('click', tapHandler);
+            cleanupFunctions.push(() => element.removeEventListener('click', tapHandler));
+        }
+
+        // Double-tap action
+        if (actions.double_tap_action) {
+            const doubleTapHandler = () => {
+                const enrichedAction = enrichAction(actions.double_tap_action);
+                ActionHelpers.executeAction(enrichedAction, this, 'double_tap', element);
+            };
+            element.addEventListener('dblclick', doubleTapHandler);
+            cleanupFunctions.push(() => element.removeEventListener('dblclick', doubleTapHandler));
+        }
+
+        // Hold action
+        if (actions.hold_action) {
+            let holdTimer;
+            const holdStart = () => {
+                holdTimer = setTimeout(() => {
+                    const enrichedAction = enrichAction(actions.hold_action);
+                    ActionHelpers.executeAction(enrichedAction, this, 'hold', element);
+                }, 500);
+            };
+            const holdEnd = () => {
+                if (holdTimer) {
+                    clearTimeout(holdTimer);
+                    holdTimer = null;
+                }
+            };
+
+            element.addEventListener('pointerdown', holdStart);
+            element.addEventListener('pointerup', holdEnd);
+            element.addEventListener('pointercancel', holdEnd);
+
+            cleanupFunctions.push(() => {
+                element.removeEventListener('pointerdown', holdStart);
+                element.removeEventListener('pointerup', holdEnd);
+                element.removeEventListener('pointercancel', holdEnd);
+                if (holdTimer) clearTimeout(holdTimer);
+            });
+        }
+
+        lcardsLog.debug(`[LCARdSV2Card] ✅ Actions setup complete - ${cleanupFunctions.length} handlers (${this._cardId})`);
+
+        // Return cleanup function
+        return () => {
+            lcardsLog.debug(`[LCARdSV2Card] 🧹 Cleaning up action listeners (${this._cardId})`);
+            cleanupFunctions.forEach(cleanup => cleanup());
+        };
     }
 
     /**

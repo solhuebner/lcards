@@ -35,8 +35,9 @@
 - **[Advanced Renderer](subsystems/advanced-renderer.md)** - Card-specific rendering pipeline
 
 **V2 Cards (Lightweight):**
-- **[V2 Card Foundation](../src/base/LCARdSV2Card.js)** - Singleton-aware base class
-- **[V2 Button Card](../src/cards/lcards-v2-button.js)** - Example lightweight implementation| Document | Purpose | When to Read |
+- **[V2 Cards Architecture](V2_CARDS_ARCHITECTURE.md)** - Complete V2 system documentation
+- **[Unified Action System](UNIFIED_ACTION_SYSTEM.md)** - Shared action handling for MSD + V2
+- **[V2 Cards API Reference](../api/V2_CARDS_API.md)** - Complete API documentation| Document | Purpose | When to Read |
 
 |----------|---------|--------------|
 

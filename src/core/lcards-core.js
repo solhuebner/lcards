@@ -29,6 +29,7 @@ import { CoreValidationService } from './validation-service/index.js';
 import { CoreStyleLibrary } from './style-library/index.js';
 import { StylePresetManager } from '../msd/presets/StylePresetManager.js';  // ✅ Real MSD StylePresetManager
 import { AnimationRegistry } from '../msd/animation/AnimationRegistry.js';  // ✅ Real MSD AnimationRegistry
+import { LCARdSActionHandler } from '../base/LCARdSActionHandler.js';  // ✅ Unified action handling
 
 /**
  * LCARdSCore - Central coordinator for all LCARdS infrastructure
@@ -52,6 +53,7 @@ class LCARdSCore {
         this.styleLibrary = null;        // Style presets and CSS utilities (Phase 2a)
         this.stylePresetManager = null;  // Style presets from packs (Phase 2b)
         this.animationRegistry = null;   // Animation instance caching (Phase 2b)
+        this.actionHandler = null;       // Unified action handling system
 
         // ===== REGISTRIES =====
         this._cardInstances = new Map();     // Map<cardId, CardContext>
@@ -157,6 +159,10 @@ class LCARdSCore {
             // Initialize AnimationRegistry (Phase 2b) - ✅ Real MSD AnimationRegistry as singleton
             this.animationRegistry = new AnimationRegistry();
             lcardsLog.debug('[LCARdSCore] ✅ AnimationRegistry initialized');
+
+            // Initialize ActionHandler (Phase 2c) - ✅ Unified action handling for all cards
+            this.actionHandler = new LCARdSActionHandler();
+            lcardsLog.debug('[LCARdSCore] ✅ ActionHandler initialized');
 
             this._coreInitialized = true;
 
@@ -361,6 +367,7 @@ class LCARdSCore {
         const dataSources = this.dataSourceManager ? 'DataSourceManager ready' : 'Not initialized';
         const rules = this.rulesManager ? 'CoreRulesManager ready' : 'Not initialized';
         const themes = this.themeManager ? 'ThemeManager ready' : 'Not initialized';
+        const actions = this.actionHandler ? 'ActionHandler ready' : 'Not initialized';
 
         return {
             coreInitialized: this._coreInitialized,
@@ -371,6 +378,7 @@ class LCARdSCore {
             dataSources,
             rules,
             themes,
+            actions,
 
             systemsManager: this.systemsManager ? this.systemsManager.getDebugInfo() : null,
             dataSourceManager: this.dataSourceManager ? this.dataSourceManager.getDebugInfo() : null,
@@ -381,6 +389,7 @@ class LCARdSCore {
             styleLibrary: this.styleLibrary ? this.styleLibrary.getDebugInfo() : null,
             stylePresetManager: this.stylePresetManager ? this._getStylePresetManagerDebugInfo() : null,
             animationRegistry: this.animationRegistry ? this._getAnimationRegistryDebugInfo() : null,
+            actionHandler: this.actionHandler ? this._getActionHandlerDebugInfo() : null,
 
             hasHass: !!this._currentHass
         };
@@ -474,6 +483,26 @@ class LCARdSCore {
         } catch (error) {
             lcardsLog.warn('[LCARdSCore] Failed to get AnimationRegistry debug info:', error);
             return { type: 'AnimationRegistry', error: error.message };
+        }
+    }
+
+    /**
+     * Get debug info from ActionHandler
+     * @private
+     */
+    _getActionHandlerDebugInfo() {
+        if (!this.actionHandler) return null;
+
+        try {
+            return {
+                type: 'LCARdSActionHandler',
+                registeredElements: this.actionHandler._registeredElements?.constructor?.name || 'WeakMap',
+                activeHandlers: this.actionHandler._activeHandlers?.size || 0,
+                initialized: true
+            };
+        } catch (error) {
+            lcardsLog.warn('[LCARdSCore] Failed to get ActionHandler debug info:', error);
+            return { type: 'LCARdSActionHandler', error: error.message };
         }
     }
 

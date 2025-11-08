@@ -16,24 +16,31 @@
    - Quick reference guide
    - **START HERE** for API usage
 
-2. **[MIGRATION_GUIDE.md](MIGRATION_GUIDE.md)** 🔄
+2. **[V2_CARDS_API.md](V2_CARDS_API.md)** 🎴
+   - **Complete V2 Cards API documentation**
+   - Base class methods and lifecycle
+   - Action system integration
+   - Template processing and style resolution
+   - **START HERE** for V2 card development
+
+3. **[MIGRATION_GUIDE.md](MIGRATION_GUIDE.md)** 🔄
    - Migrating from legacy API to Phase 4
    - Backward compatibility information
    - Step-by-step migration instructions
 
-3. **[PHASE_5_ANALYSIS.md](PHASE_5_ANALYSIS.md)** 🔮
+4. **[PHASE_5_ANALYSIS.md](PHASE_5_ANALYSIS.md)** 🔮
    - Future enhancement analysis
    - Value vs effort for 7 placeholder features
    - Implementation recommendations
 
 ### Implementation References
 
-4. **[debug-api.md](debug-api.md)** 🛠️
+5. **[debug-api.md](debug-api.md)** 🛠️
    - Technical implementation details
    - Internal architecture
    - Developer reference
 
-5. **[runtime-api.md](runtime-api.md)** ⚙️
+6. **[runtime-api.md](runtime-api.md)** ⚙️
    - Runtime API specifications
    - System integration details
    - Advanced usage patterns

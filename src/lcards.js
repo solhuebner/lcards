@@ -32,6 +32,7 @@ import './msd/index.js';
 
 // Native card imports
 import { LCARdSMSDCard } from './cards/lcards-msd.js';
+import { LCARdSV2ButtonCard } from './cards/lcards-v2-button.js';
 
 // Unified API system import
 import { LCARdSUnifiedAPI } from './api/LCARdSUnifiedAPI.js';

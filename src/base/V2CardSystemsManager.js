@@ -6,7 +6,8 @@
  * - Template processing capabilities
  * - Style resolution
  * - DataSource subscription management
- * - Rule-based update handling
+ * - Rule-based upda/**
+ * V2CardSystemsManager
  *
  * This is a mini version of the full MSD SystemsManager, focused on
  * the essential capabilities needed by lightweight V2 cards.
@@ -16,6 +17,7 @@ import { lcardsLog } from '../utils/lcards-logging.js';
 import { lcardsCore } from '../core/lcards-core.js';
 import { LightweightTemplateProcessor } from './LightweightTemplateProcessor.js';
 import { V2StyleResolver } from './V2StyleResolver.js';
+import { ActionHelpers } from '../msd/renderer/ActionHelpers.js';
 
 export class V2CardSystemsManager {
     constructor(cardInstance) {
@@ -28,6 +30,7 @@ export class V2CardSystemsManager {
         this.animationManager = null;
         this.dataSourceManager = null;
         this.validationService = null;
+        this.actionHandler = null;
 
         // V2-specific local systems
         this.templateProcessor = null;
@@ -63,6 +66,7 @@ export class V2CardSystemsManager {
             this.animationManager = lcardsCore.animationManager;
             this.dataSourceManager = lcardsCore.dataSourceManager;
             this.validationService = lcardsCore.validationService;
+            this.actionHandler = lcardsCore.actionHandler;
 
             lcardsLog.debug(`[V2CardSystemsManager] Singleton connections established (${this.cardId})`);
 
@@ -283,6 +287,126 @@ export class V2CardSystemsManager {
         }
     }
 
+    // ================================
+    // ACTION HANDLING
+    // ================================
+
+    /**
+     * Execute an action using the unified action handler
+     * @param {Object} element - Source element
+     * @param {Object} actionConfig - Action configuration
+     * @param {string} actionType - Action type (tap, hold, double_tap)
+     * @returns {Promise<void>}
+     */
+    async executeAction(element, actionConfig, actionType = 'tap') {
+        try {
+            // Ensure action config includes entity if not already present
+            const enrichedActionConfig = { ...actionConfig };
+            if (!enrichedActionConfig.entity && this.card.config?.entity) {
+                enrichedActionConfig.entity = this.card.config.entity;
+            }
+
+            lcardsLog.debug(`[V2CardSystemsManager] Executing ${actionType} action via ActionHelpers (${this.cardId}):`, enrichedActionConfig);
+
+            // Use MSD's proven action system - same as overlays
+            ActionHelpers.executeAction(enrichedActionConfig, this.card, actionType, element);
+        } catch (error) {
+            lcardsLog.error(`[V2CardSystemsManager] Action execution failed (${this.cardId}):`, error);
+        }
+    }
+
+    /**
+     * Setup action listeners on an element using the unified action handler
+     * @param {HTMLElement} element - Target element
+     * @param {Object} actions - Action configurations (tap_action, hold_action, etc.)
+     * @param {string} entityId - Entity ID for action context
+     * @returns {Function} Cleanup function
+     */
+    setupActionListeners(element, actions, entityId) {
+        lcardsLog.debug(`[V2CardSystemsManager] Setting up action listeners using ActionHelpers (${this.cardId})`);
+        lcardsLog.trace(`[V2CardSystemsManager] Element: ${element?.tagName}, Actions: ${Object.keys(actions).join(', ')}, Entity: ${entityId}`);
+
+
+
+        try {
+            // Always use manual setup with ActionHelpers (proven MSD approach)
+            lcardsLog.debug(`[V2CardSystemsManager] Using ActionHelpers-based setup (${this.cardId})`);
+            const cleanupFunctions = [];
+
+                if (actions.tap_action) {
+                    lcardsLog.trace(`[V2CardSystemsManager] Adding click listener for tap_action (${this.cardId})`);
+                    const tapHandler = (event) => {
+                        // Enrich action config with entity if not present
+                        const enrichedAction = { ...actions.tap_action };
+                        if (!enrichedAction.entity && this.card.config?.entity) {
+                            enrichedAction.entity = this.card.config.entity;
+                        }
+
+                        // Use MSD's proven action system - same as MSD overlays
+                        ActionHelpers.executeAction(enrichedAction, this.card, 'tap', element);
+                    };
+                    element.addEventListener('click', tapHandler);
+                    cleanupFunctions.push(() => element.removeEventListener('click', tapHandler));
+                    lcardsLog.debug(`[V2CardSystemsManager] ✅ Click listener added (${this.cardId})`);
+                }
+
+                if (actions.double_tap_action) {
+                    const doubleTapHandler = () => {
+                        // Enrich action config with entity if not present
+                        const enrichedAction = { ...actions.double_tap_action };
+                        if (!enrichedAction.entity && this.card.config?.entity) {
+                            enrichedAction.entity = this.card.config.entity;
+                        }
+
+                        ActionHelpers.executeAction(enrichedAction, this.card, 'double_tap', element);
+                    };
+                    element.addEventListener('dblclick', doubleTapHandler);
+                    cleanupFunctions.push(() => element.removeEventListener('dblclick', doubleTapHandler));
+                }
+
+                if (actions.hold_action) {
+                    let holdTimer;
+                    const holdStart = () => {
+                        holdTimer = setTimeout(() => {
+                            // Enrich action config with entity if not present
+                            const enrichedAction = { ...actions.hold_action };
+                            if (!enrichedAction.entity && this.card.config?.entity) {
+                                enrichedAction.entity = this.card.config.entity;
+                            }
+
+                            ActionHelpers.executeAction(enrichedAction, this.card, 'hold', element);
+                        }, 500);
+                    };
+                    const holdEnd = () => {
+                        if (holdTimer) {
+                            clearTimeout(holdTimer);
+                            holdTimer = null;
+                        }
+                    };
+
+                    element.addEventListener('pointerdown', holdStart);
+                    element.addEventListener('pointerup', holdEnd);
+                    element.addEventListener('pointercancel', holdEnd);
+
+                    cleanupFunctions.push(() => {
+                        element.removeEventListener('pointerdown', holdStart);
+                        element.removeEventListener('pointerup', holdEnd);
+                        element.removeEventListener('pointercancel', holdEnd);
+                        if (holdTimer) clearTimeout(holdTimer);
+                    });
+                }
+
+            lcardsLog.debug(`[V2CardSystemsManager] ✅ Action listeners setup complete - ${cleanupFunctions.length} handlers added (${this.cardId})`);
+            return () => {
+                lcardsLog.trace(`[V2CardSystemsManager] Cleaning up ${cleanupFunctions.length} action listeners (${this.cardId})`);
+                cleanupFunctions.forEach(cleanup => cleanup());
+            };
+        } catch (error) {
+            lcardsLog.error(`[V2CardSystemsManager] Action listener setup failed (${this.cardId}):`, error);
+            return () => {}; // No-op cleanup
+        }
+    }
+
     /**
      * Get debug information
      * @returns {Object} Debug info
@@ -298,7 +422,8 @@ export class V2CardSystemsManager {
                 themeManager: !!this.themeManager,
                 animationManager: !!this.animationManager,
                 dataSourceManager: !!this.dataSourceManager,
-                validationService: !!this.validationService
+                validationService: !!this.validationService,
+                actionHandler: !!this.actionHandler
             },
 
             // Local systems
