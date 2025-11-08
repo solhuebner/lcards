@@ -462,7 +462,7 @@ export class ActionHelpers {
       lcardsLog.debug(`[ActionHelpers] Executing ${actionType} action:`, normalizedAction);
 
       // DEBUG: Compare original vs normalized action
-      lcardsLog.warn(`[ActionHelpers] 🔍 ACTION NORMALIZATION DEBUG:`, {
+      lcardsLog.debug(`[ActionHelpers] 🔍 ACTION NORMALIZATION DEBUG:`, {
         original: JSON.stringify(action, null, 2),
         normalized: JSON.stringify(normalizedAction, null, 2),
         same: JSON.stringify(action) === JSON.stringify(normalizedAction)

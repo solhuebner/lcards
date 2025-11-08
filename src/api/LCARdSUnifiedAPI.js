@@ -83,6 +83,19 @@ export class LCARdSUnifiedAPI {
 
 
       // ==========================================
+      // CORE API - Singleton Integration
+      // ==========================================
+      // Preserve direct singleton access (already set up in lcards.js)
+      // Just add to debug tier for API consistency
+      if (window.lcards.core) {
+        // Add singleton reference to debug tier for consistent API access
+        window.lcards.debug.singletons = window.lcards.core;
+        lcardsLog.debug('[UnifiedAPI] Core singletons attached to debug tier');
+      } else {
+        lcardsLog.warn('[UnifiedAPI] Core singletons not available yet - will be added when core initializes');
+      }
+
+      // ==========================================
       // PHASE 0: Dev API (placeholder stub)
       // ==========================================
       window.lcards.dev = {
@@ -102,8 +115,10 @@ export class LCARdSUnifiedAPI {
 
       lcardsLog.debug('[UnifiedAPI] ✅ Unified API structure attached successfully');
       lcardsLog.debug('[UnifiedAPI] Available namespaces:', {
+        core: !!window.lcards.core,
         runtime: !!window.lcards.msd,
         debug: !!window.lcards.debug?.msd,
+        debugSingletons: !!window.lcards.debug?.singletons,
         dev: !!window.lcards.dev,
         animation: !!window.lcards.anim
       });
@@ -148,6 +163,11 @@ export class LCARdSUnifiedAPI {
 
     return {
       phase: 0,
+      core: {
+        loaded: !!window.lcards?.core,
+        initialized: !!window.lcards?.core?._coreInitialized,
+        debugAccess: !!window.lcards?.debug?.singletons
+      },
       runtime: {
         version: window.lcards?.msd?._version || 'not-loaded',
         placeholder: window.lcards?.msd?._placeholder || false
@@ -180,8 +200,10 @@ export class LCARdSUnifiedAPI {
     return {
       available: true,
       namespaces: {
+        core: !!window.lcards?.core,
         runtime: !!window.lcards?.msd,
         debug: !!window.lcards?.debug?.msd,
+        debugSingletons: !!window.lcards?.debug?.singletons,
         dev: !!window.lcards?.dev,
         animation: !!window.lcards?.anim
       },

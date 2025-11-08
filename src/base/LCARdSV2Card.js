@@ -15,7 +15,6 @@
 
 import { html, css, LitElement } from 'lit';
 import { lcardsLog } from '../utils/lcards-logging.js';
-import { lcardsCore } from '../core/lcards-core.js';
 import { V2CardSystemsManager } from './V2CardSystemsManager.js';
 import { ActionHelpers } from '../msd/renderer/ActionHelpers.js';
 
@@ -135,9 +134,10 @@ export class LCARdSV2Card extends LitElement {
         }
 
         try {
-            // Wait for lcardsCore to be ready
-            if (!lcardsCore || !lcardsCore.rulesManager) {
-                lcardsLog.warn(`[LCARdSV2Card] lcardsCore not ready, waiting... (${this._cardId})`);
+            // Wait for core singletons to be ready via unified API
+            const core = window.lcards?.core;
+            if (!core || !core.rulesManager) {
+                lcardsLog.warn(`[LCARdSV2Card] Core singletons not ready, waiting... (${this._cardId})`);
                 // Retry after a short delay
                 setTimeout(() => this._initializeSingletons(), 100);
                 return;

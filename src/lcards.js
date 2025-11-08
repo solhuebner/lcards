@@ -105,7 +105,11 @@ async function initializeCustomCard() {
     // Add core to debug API
     window.lcards.debug.core = () => lcardsCore.getDebugInfo();
 
+    // Add singleton reference to debug tier for unified API consistency
+    window.lcards.debug.singletons = lcardsCore;
+
     lcardsLog.info('[lcards.js] ✅ LCARdSCore singleton attached to window.lcards.core');
+    lcardsLog.debug('[lcards.js] ✅ Singleton reference added to debug.singletons');
 
     // === SINGLETON INITIALIZATION ===
     // Initialize core singletons immediately without HASS

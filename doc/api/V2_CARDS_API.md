@@ -24,11 +24,21 @@ The V2 Cards API provides a comprehensive interface for building lightweight, si
 
 ### **Core Principles:**
 
-- **Singleton Integration** - Automatic access to global systems
+- **Singleton Integration** - Automatic access to global systems via unified API
 - **Unified Actions** - Same action system as MSD overlays
 - **Template Processing** - Built-in template engine integration
 - **Style Resolution** - Theme token and override support
 - **Memory Management** - Automatic cleanup and resource management
+- **API Consistency** - Unified API patterns for development and debugging
+
+### **API Access Patterns:**
+
+V2 Cards use the **unified API** architecture that provides multiple access patterns:
+
+- **Structured API** - `window.lcards.msd.*` for development methods
+- **Debug API** - `window.lcards.debug.msd.*` for introspection and debugging
+- **Direct Access** - `window.lcards.core.*` for console debugging and exploration
+- **Systems Manager** - Convenient wrapper methods in V2CardSystemsManager
 
 ---
 
@@ -299,6 +309,63 @@ setConfig(config) {
 ### **V2CardSystemsManager**
 
 Lightweight systems coordinator accessible via `this.systemsManager`.
+
+#### **Unified API Access Methods**
+
+The V2CardSystemsManager provides convenient access to the unified API structure:
+
+##### **`getCore()`**
+
+Get core singletons via unified API with fallback support.
+
+```javascript
+const core = this.systemsManager.getCore();
+if (core?.systemsManager) {
+  // Access singleton systems
+  const entityState = core.systemsManager.getEntityState('sensor.temperature');
+}
+```
+
+##### **`getRuntimeAPI()`**
+
+Get MSD Runtime API instance.
+
+```javascript
+const runtimeAPI = this.systemsManager.getRuntimeAPI();
+if (runtimeAPI) {
+  const instance = runtimeAPI.getInstance();
+}
+```
+
+##### **`getDebugAPI()`**
+
+Get MSD Debug API instance for introspection.
+
+```javascript
+const debugAPI = this.systemsManager.getDebugAPI();
+if (debugAPI) {
+  const coreDebug = debugAPI.core();
+  const singletons = debugAPI.singletons();
+}
+```
+
+##### **`getMsdAPI()`**
+
+Convenience method equivalent to `getRuntimeAPI()`.
+
+```javascript
+const msd = this.systemsManager.getMsdAPI();
+```
+
+##### **`testAPIConnectivity()`**
+
+Test unified API connectivity and return status report.
+
+```javascript
+const test = this.systemsManager.testAPIConnectivity();
+console.log('API Status:', test);
+// Returns detailed connectivity information for debugging
+```
 
 #### **Template Methods**
 
@@ -650,15 +717,74 @@ static get styles() {
 
 ## Debug API
 
-### **V2 Card Debug Interface**
+### **Unified API Console Access**
 
-Access V2 card debug information through the console:
+V2 Cards integrate with the unified API architecture, providing multiple debugging access patterns:
 
+#### **Direct Singleton Access** ⭐ *Preferred for Console*
 ```javascript
-// Access V2 debug namespace (when available)
-window.lcards.debug.v2.cards.list();        // List all V2 cards
-window.lcards.debug.v2.systems.status();    // Systems status
-window.lcards.debug.v2.actions.trace();     // Action tracing
+// Your favorite debugging patterns - all preserved!
+window.lcards.core.getDebugInfo();                    // Hierarchical overview
+window.lcards.core.systemsManager.getDebugInfo();     // Direct manager access
+window.lcards.core.dataSourceManager.getDebugInfo();  // Drill into any singleton
+window.lcards.core.themeManager.getCurrentTheme();    // All singleton methods work
+
+// V2 Cards use these same singletons
+window.lcards.core.rulesManager;      // Rules engine used by V2 cards
+window.lcards.core.actionHandler;     // Action handler for tap/hold actions
+```
+
+#### **Structured Debug API** 🔧 *For Development Scripts*
+```javascript
+// Structured debug methods
+window.lcards.debug.msd.core();                      // Same as getDebugInfo()
+window.lcards.debug.msd.singleton('systemsManager'); // Inspect specific manager
+window.lcards.debug.msd.singletons();                // List all available managers
+
+// V2 Card-specific debugging
+window.lcards.debug.msd.help('core');                // Show core debugging help
+```
+
+#### **Enhanced Debug Tier** 🚀 *Alternative Access*
+```javascript
+// Alternative singleton access through debug tier
+window.lcards.debug.singletons.systemsManager;       // Same singletons, debug namespace
+window.lcards.debug.core();                          // Functional wrapper for getDebugInfo()
+```
+
+### **V2 Card Systems Manager Debug**
+
+#### **API Connectivity Testing**
+```javascript
+// Select a V2 card element, then test its API connectivity
+const test = $0.systemsManager.testAPIConnectivity();
+console.log('API Status:', test);
+
+// Expected output:
+{
+  "cardId": "my-v2-card",
+  "apis": {
+    "core": { "available": true, "initialized": true, "managers": 8 },
+    "runtime": { "available": true, "hasInstance": true, "methods": 15 },
+    "debug": { "available": true, "hasCore": true, "methods": 25 }
+  },
+  "fallbacks": {
+    "directCore": true,
+    "debugSingletons": true
+  }
+}
+```
+
+#### **V2 Systems Manager Inspection**
+```javascript
+// Get V2 card systems manager debug info
+const debug = $0.systemsManager.getDebugInfo();
+console.log('V2 Systems:', debug);
+
+// Access unified API methods
+const core = $0.systemsManager.getCore();
+const runtime = $0.systemsManager.getRuntimeAPI();
+const debugAPI = $0.systemsManager.getDebugAPI();
 ```
 
 ### **Development Debugging**
@@ -670,23 +796,6 @@ window.lcards.logging.setLevel('debug');
 
 // Or trace level for maximum detail
 window.lcards.logging.setLevel('trace');
-```
-
-#### **Card State Inspection**
-```javascript
-// In card implementation, expose debug info
-getDebugInfo() {
-  return {
-    cardId: this._cardId,
-    initialized: this._initialized,
-    config: this.config,
-    systemsManager: !!this.systemsManager,
-    actionsSetup: this._actionsSetup
-  };
-}
-
-// Access via console
-$0.getDebugInfo();  // On selected card element
 ```
 
 #### **Action Debug Tracing**

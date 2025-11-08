@@ -14,7 +14,6 @@
  */
 
 import { lcardsLog } from '../utils/lcards-logging.js';
-import { lcardsCore } from '../core/lcards-core.js';
 import { LightweightTemplateProcessor } from './LightweightTemplateProcessor.js';
 import { V2StyleResolver } from './V2StyleResolver.js';
 import { ActionHelpers } from '../msd/renderer/ActionHelpers.js';
@@ -44,6 +43,53 @@ export class V2CardSystemsManager {
         lcardsLog.debug(`[V2CardSystemsManager] Created for card ${this.cardId}`);
     }
 
+    // ==========================================
+    // UNIFIED API ACCESS METHODS
+    // ==========================================
+
+    /**
+     * Get core singletons via unified API
+     * Provides backward compatibility with direct access fallback
+     * @returns {Object} Core singleton manager object
+     */
+    getCore() {
+        // Prefer unified API access
+        if (window.lcards?.core) {
+            return window.lcards.core;
+        }
+
+        // Fallback for legacy/debugging
+        if (window.lcards?.debug?.singletons) {
+            return window.lcards.debug.singletons;
+        }
+
+        // Last resort - this shouldn't happen in production
+        lcardsLog.warn('[V2CardSystemsManager] No unified API access available, falling back to import');
+        return null;
+    }
+
+    /**
+     * Get runtime API instance
+     * @returns {Object|null} MSD Runtime API instance
+     */
+    getRuntimeAPI() {
+        if (window.lcards?.msd) {
+            return window.lcards.msd;
+        }
+        return null;
+    }
+
+    /**
+     * Get debug API instance
+     * @returns {Object|null} MSD Debug API instance
+     */
+    getDebugAPI() {
+        if (window.lcards?.debug?.msd) {
+            return window.lcards.debug.msd;
+        }
+        return null;
+    }
+
     /**
      * Initialize the systems manager
      * @returns {Promise<void>}
@@ -55,18 +101,19 @@ export class V2CardSystemsManager {
         }
 
         try {
-            // Wait for lcardsCore to be ready
-            if (!lcardsCore || !lcardsCore.rulesManager) {
-                throw new Error('lcardsCore not ready - singleton systems not available');
+            // Use unified API to access core singletons
+            const core = this.getCore();
+            if (!core || !core.rulesManager) {
+                throw new Error('Core singletons not ready - systems not available');
             }
 
-            // Connect to singleton systems
-            this.rulesEngine = lcardsCore.rulesManager;
-            this.themeManager = lcardsCore.themeManager;
-            this.animationManager = lcardsCore.animationManager;
-            this.dataSourceManager = lcardsCore.dataSourceManager;
-            this.validationService = lcardsCore.validationService;
-            this.actionHandler = lcardsCore.actionHandler;
+            // Connect to singleton systems via unified API
+            this.rulesEngine = core.rulesManager;
+            this.themeManager = core.themeManager;
+            this.animationManager = core.animationManager;
+            this.dataSourceManager = core.dataSourceManager;
+            this.validationService = core.validationService;
+            this.actionHandler = core.actionHandler;
 
             lcardsLog.debug(`[V2CardSystemsManager] Singleton connections established (${this.cardId})`);
 
@@ -255,12 +302,13 @@ export class V2CardSystemsManager {
      * @returns {Object|null} Entity state or null
      */
     getEntityState(entityId) {
-        if (!lcardsCore || !lcardsCore.systemsManager) {
+        const core = this.getCore();
+        if (!core || !core.systemsManager) {
             return null;
         }
 
         try {
-            return lcardsCore.systemsManager.getEntityState(entityId);
+            return core.systemsManager.getEntityState(entityId);
         } catch (error) {
             lcardsLog.warn(`[V2CardSystemsManager] Entity state fetch failed (${this.cardId}):`, error);
             return null;
@@ -274,13 +322,14 @@ export class V2CardSystemsManager {
      * @returns {Function} Unsubscribe function
      */
     subscribeToEntity(entityId, callback) {
-        if (!lcardsCore || !lcardsCore.systemsManager) {
+        const core = this.getCore();
+        if (!core || !core.systemsManager) {
             lcardsLog.warn(`[V2CardSystemsManager] SystemsManager not available for entity subscription (${this.cardId})`);
             return () => {}; // No-op unsubscribe function
         }
 
         try {
-            return lcardsCore.systemsManager.subscribeToEntity(entityId, callback);
+            return core.systemsManager.subscribeToEntity(entityId, callback);
         } catch (error) {
             lcardsLog.error(`[V2CardSystemsManager] Entity subscription failed (${this.cardId}):`, error);
             return () => {}; // No-op unsubscribe function
@@ -484,5 +533,108 @@ export class V2CardSystemsManager {
         } catch (error) {
             lcardsLog.error(`[V2CardSystemsManager] ❌ Destruction failed (${this.cardId}):`, error);
         }
+    }
+
+    // ==========================================
+    // UNIFIED API CONVENIENCE METHODS
+    // ==========================================
+
+    /**
+     * Get MSD Runtime API instance (convenience method)
+     * @returns {Object|null} Runtime API or null if not available
+     *
+     * @example
+     * const msd = this.systemsManager.getMsdAPI();
+     * if (msd) {
+     *   const instance = msd.getInstance();
+     * }
+     */
+    getMsdAPI() {
+        return this.getRuntimeAPI();
+    }
+
+    /**
+     * Get debug information using unified API
+     * @returns {Object} Combined debug info from core and debug APIs
+     *
+     * @example
+     * const debug = this.systemsManager.getDebugInfo();
+     * console.log('Core:', debug.core);
+     * console.log('MSD:', debug.msd);
+     */
+    getDebugInfo() {
+        const debugInfo = {
+            card: this.cardId,
+            initialized: this.initialized,
+            subscriptions: this.dataSourceSubscriptions.size,
+            ruleCallbacks: this.ruleCallbacks.size,
+            core: null,
+            msd: null,
+            api: {
+                coreAvailable: !!this.getCore(),
+                runtimeAvailable: !!this.getRuntimeAPI(),
+                debugAvailable: !!this.getDebugAPI()
+            }
+        };
+
+        // Get core debug info via unified API
+        const debugAPI = this.getDebugAPI();
+        if (debugAPI && typeof debugAPI.core === 'function') {
+            try {
+                debugInfo.core = debugAPI.core();
+            } catch (error) {
+                debugInfo.core = { error: error.message };
+            }
+        }
+
+        // Get MSD debug info if available
+        const runtimeAPI = this.getRuntimeAPI();
+        if (runtimeAPI) {
+            try {
+                const instance = runtimeAPI.getInstance();
+                debugInfo.msd = instance ? 'Available' : 'Not available';
+            } catch (error) {
+                debugInfo.msd = { error: error.message };
+            }
+        }
+
+        return debugInfo;
+    }
+
+    /**
+     * Test unified API connectivity
+     * @returns {Object} API connectivity test results
+     *
+     * @example
+     * const test = this.systemsManager.testAPIConnectivity();
+     * console.log('API Status:', test);
+     */
+    testAPIConnectivity() {
+        return {
+            timestamp: new Date().toISOString(),
+            cardId: this.cardId,
+            apis: {
+                core: {
+                    available: !!this.getCore(),
+                    initialized: this.getCore()?._coreInitialized || false,
+                    managers: this.getCore() ? Object.keys(this.getCore()).filter(k => !k.startsWith('_')).length : 0
+                },
+                runtime: {
+                    available: !!this.getRuntimeAPI(),
+                    hasInstance: !!this.getRuntimeAPI()?.getInstance?.(),
+                    methods: this.getRuntimeAPI() ? Object.keys(this.getRuntimeAPI()).length : 0
+                },
+                debug: {
+                    available: !!this.getDebugAPI(),
+                    hasCore: !!this.getDebugAPI()?.core,
+                    hasSingletons: !!window.lcards?.debug?.singletons,
+                    methods: this.getDebugAPI() ? Object.keys(this.getDebugAPI()).length : 0
+                }
+            },
+            fallbacks: {
+                directCore: !!window.lcards?.core,
+                debugSingletons: !!window.lcards?.debug?.singletons
+            }
+        };
     }
 }

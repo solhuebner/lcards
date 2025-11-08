@@ -23,9 +23,97 @@ export class MsdDebugAPI {
       // ==========================================
 
       /**
+       * Get singleton debug info (unified API access)
+       *
+       * Provides access to core singleton debug information through the
+       * structured API while preserving direct console access patterns.
+       *
+       * @returns {Object} Core singleton debug information
+       *
+       * @example
+       * // Structured API access
+       * window.lcards.debug.msd.core();
+       *
+       * // Direct access (still works)
+       * window.lcards.core.getDebugInfo();
+       * window.lcards.debug.singletons.getDebugInfo();
+       */
+      core() {
+        if (window.lcards?.core?.getDebugInfo) {
+          return window.lcards.core.getDebugInfo();
+        }
+        return { error: 'Core singletons not available', available: false };
+      },
+
+      /**
+       * Get specific singleton manager debug info
+       *
+       * @param {string} manager - Manager name (e.g., 'systemsManager', 'dataSourceManager')
+       * @returns {Object} Manager debug information
+       *
+       * @example
+       * window.lcards.debug.msd.singleton('systemsManager');
+       * window.lcards.debug.msd.singleton('dataSourceManager');
+       */
+      singleton(manager) {
+        const core = window.lcards?.core;
+        if (!core) {
+          return { error: 'Core singletons not available', manager, available: false };
+        }
+
+        const singletonManager = core[manager];
+        if (!singletonManager) {
+          return {
+            error: `Manager '${manager}' not found`,
+            manager,
+            available: Object.keys(core).filter(k => !k.startsWith('_'))
+          };
+        }
+
+        if (typeof singletonManager.getDebugInfo === 'function') {
+          return singletonManager.getDebugInfo();
+        }
+
+        return {
+          error: `Manager '${manager}' does not have getDebugInfo method`,
+          manager,
+          type: typeof singletonManager
+        };
+      },
+
+      /**
+       * List all available singleton managers
+       *
+       * @returns {Array} Array of available singleton manager names
+       *
+       * @example
+       * window.lcards.debug.msd.singletons();
+       */
+      singletons() {
+        const core = window.lcards?.core;
+        if (!core) {
+          return { error: 'Core singletons not available', available: false };
+        }
+
+        const managers = Object.keys(core).filter(key => {
+          return !key.startsWith('_') &&
+                 core[key] &&
+                 typeof core[key] === 'object' &&
+                 typeof core[key].getDebugInfo === 'function';
+        });
+
+        return {
+          managers,
+          count: managers.length,
+          coreInitialized: core._coreInitialized,
+          directAccess: 'window.lcards.core or window.lcards.debug.singletons'
+        };
+      },
+
+      /**
        * Display help information about available API methods
        *
-       * @param {string} [topic] - Optional namespace to get specific help (e.g., 'perf', 'routing', 'data')
+       * @param {string} [topic] - Optional namespace to get specific help (e.g., 'perf', 'routing', 'data', 'core')
        *
        * @example
        * // Show all available namespaces
@@ -33,9 +121,14 @@ export class MsdDebugAPI {
        *
        * // Show methods in a specific namespace
        * window.lcards.debug.msd.help('perf');
+       * window.lcards.debug.msd.help('core');
        */
       help(topic) {
         const namespaces = {
+          core: {
+            desc: 'Core singleton access and debugging',
+            methods: ['core()', 'singleton(manager)', 'singletons()']
+          },
           perf: {
             desc: 'Performance profiling and analysis',
             methods: ['summary()', 'slowestOverlays(n)', 'byRenderer()', 'byOverlay(id)', 'warnings()', 'timeline()', 'compare()']
@@ -125,6 +218,23 @@ export class MsdDebugAPI {
        */
       usage(namespace) {
         const examples = {
+          core: [
+            '// Get complete core singleton debug info',
+            'const coreDebug = msd.core();',
+            'console.log("Systems:", coreDebug.systemsManager);',
+            '',
+            '// Inspect specific singleton manager',
+            'const dsm = msd.singleton("dataSourceManager");',
+            'console.log("Data sources:", dsm);',
+            '',
+            '// List all available singleton managers',
+            'const managers = msd.singletons();',
+            'console.log("Available:", managers.managers);',
+            '',
+            '// Direct console access (alternative)',
+            'window.lcards.core.getDebugInfo();',
+            'window.lcards.debug.singletons.systemsManager.getDebugInfo();'
+          ],
           perf: [
             '// Get performance summary',
             'const perf = msd.perf.summary();',
