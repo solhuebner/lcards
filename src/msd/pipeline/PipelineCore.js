@@ -77,14 +77,17 @@ export async function initMsdPipeline(userMsdConfig, mountEl, hass = null) {
     // Don't fail the pipeline - renderers will gracefully fall back to manual resolution
   }
 
-  // ✅ NEW: Phase 1.5 - Initialize LCARdS Core Infrastructure
-  lcardsLog.debug('[PipelineCore] 🚀 Phase 1.5: Initializing LCARdS Core Infrastructure');
+  // ✅ FIXED: Phase 1.5 - Use LCARdS Core Infrastructure (Singleton Architecture)
+  lcardsLog.debug('[PipelineCore] 🚀 Phase 1.5: Connecting to LCARdS Core Infrastructure');
   try {
-    await lcardsCore.initialize(hass);
-    lcardsLog.debug('[PipelineCore] ✅ LCARdS Core Infrastructure initialized');
+    // Core is already initialized on module load - just update HASS if needed
+    if (hass && lcardsCore._coreInitialized) {
+      lcardsCore.updateHass(hass);
+    }
+    lcardsLog.debug('[PipelineCore] ✅ LCARdS Core Infrastructure connected');
   } catch (error) {
-    lcardsLog.warn('[PipelineCore] ⚠️ Core Infrastructure initialization failed:', error);
-    lcardsLog.warn('[PipelineCore] ⚠️ Continuing with legacy systems only');
+    lcardsLog.warn('[PipelineCore] ⚠️ Core Infrastructure connection failed:', error);
+    lcardsLog.warn('[PipelineCore] ⚠️ Continuing with local systems only');
   }
 
   // CRITICAL: Initialize systems with pack defaults loading before overlay processing

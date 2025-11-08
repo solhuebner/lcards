@@ -83,7 +83,13 @@ export class ModelBuilder {
         lcardsLog.warn('[ModelBuilder] computeResolvedModel: anchors missing – repairing from merged.anchors');
         this.cardModel.anchors = { ...this.mergedConfig.anchors };
       } else {
-        lcardsLog.warn('[ModelBuilder] computeResolvedModel: anchors missing and no merged fallback available.');
+        // Check if this is base_svg: "none" case - different messaging
+        const baseSvgSource = this.mergedConfig.base_svg?.source;
+        if (baseSvgSource === 'none') {
+          lcardsLog.debug('[ModelBuilder] No anchors available for base_svg: "none" - overlays will use position coordinates');
+        } else {
+          lcardsLog.warn('[ModelBuilder] computeResolvedModel: anchors missing and no merged fallback available.');
+        }
       }
     }
   }

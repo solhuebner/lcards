@@ -23,16 +23,20 @@ graph TB
     subgraph "LCARdS Global Singleton Layer"
         LC[lcardsCore]
 
+        subgraph "BaseService Architecture"
+            BS[⭐ BaseService<br/>updateHass() + ingestHass()]
+        end
+
         subgraph "Shared Intelligence Systems"
-            RE[🧠 RulesEngine]
-            DSM[📊 DataSourceManager]
-            TM[🎨 ThemeManager]
-            AM[🎬 AnimationManager]
-            SPM[🎭 StylePresetManager]
+            RE[🧠 RulesEngine<br/>extends BaseService]
+            DSM[📊 DataSourceManager<br/>extends BaseService]
+            TM[🎨 ThemeManager<br/>extends BaseService]
+            AM[🎬 AnimationManager<br/>extends BaseService]
+            SPM[🎭 StylePresetManager<br/>extends BaseService]
             AR[🗂️ AnimationRegistry]
-            VS[✅ ValidationService]
+            VS[✅ ValidationService<br/>extends BaseService]
             SL[📚 StyleLibrary]
-            CSM[⚙️ CoreSystemsManager]
+            CSM[⚙️ CoreSystemsManager<br/>extends BaseService]
         end
     end
 
@@ -65,6 +69,15 @@ graph TB
         DOMC[HTML Elements C]
     end
 
+    %% BaseService inheritance hierarchy
+    BS -.inherits.-> RE
+    BS -.inherits.-> DSM
+    BS -.inherits.-> TM
+    BS -.inherits.-> AM
+    BS -.inherits.-> SPM
+    BS -.inherits.-> VS
+    BS -.inherits.-> CSM
+
     %% Home Assistant to Singletons
     HA --> HASS
     HASS --> LC
@@ -96,10 +109,12 @@ graph TB
     SMB -.registers rules.-> RE
     CardC -.registers overlays.-> RE
 
+    classDef baseservice fill:#fff9c4,stroke:#f57f17,stroke-width:3px
     classDef singleton fill:#e1f5fe,stroke:#01579b,stroke-width:2px
     classDef card fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
     classDef v2card fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
 
+    class BS baseservice
     class RE,DSM,TM,AM,SPM,AR,VS,SL,CSM singleton
     class CardA,SMA,RendererA,CardB,SMB,RendererB card
     class CardC,SimpleC v2card
@@ -109,11 +124,39 @@ graph TB
 
 ## 🏗️ Core Components
 
+### BaseService Architecture ⭐
+**Standardized inheritance pattern** for all LCARdS singleton services providing consistent lifecycle management.
+
+**Purpose:** Ensures all singleton services have guaranteed `updateHass()` and `ingestHass()` methods, eliminating runtime type checking and providing architectural consistency.
+
+**Core Methods:**
+- **`updateHass(hass)`**: Standard lifecycle method called by core when HASS state updates
+- **`ingestHass(hass)`**: Alternative API for services that prefer this pattern
+
+**Inheritance Patterns:**
+
+| Service | HASS Needs | Override Pattern |
+|---------|------------|------------------|
+| **DataSourceManager** | ✅ Critical | Overrides `updateHass()` → calls `ingestHass()` |
+| **RulesEngine** | ✅ Critical | Overrides `updateHass()` → calls `ingestHass()` |
+| **ThemeManager** | ❌ Theme-only | Uses inherited no-op methods |
+| **AnimationManager** | ❌ Currently | Uses inherited no-op methods |
+| **ValidationService** | ❌ Validation-only | Uses inherited no-op methods |
+| **SystemsManager** | ❌ Coordination-only | Uses inherited no-op methods |
+
+**Benefits:**
+- ✅ **API Consistency**: All services guaranteed to have lifecycle methods
+- ✅ **No Runtime Checks**: Core can safely call `updateHass()` without `typeof` checks
+- ✅ **Clean Architecture**: Proper inheritance hierarchy instead of defensive programming
+- ✅ **Future Flexibility**: Services can easily add HASS handling by overriding methods
+
 ### Singleton Layer (lcardsCore)
 **Global shared intelligence systems** that serve all card instances on a page.
 
 #### 1. RulesEngine Singleton 🧠
 **Centralized rule evaluation system** that processes rules from all cards and distributes results.
+
+**BaseService Integration:** Extends BaseService, overrides `updateHass()` → `ingestHass()` for HASS data processing.
 
 **Responsibilities:**
 - Collect rules from all MSD and V2 card instances
@@ -129,6 +172,8 @@ graph TB
 
 #### 2. DataSource Manager Singleton 📊
 **Shared data processing hub** that serves all card instances.
+
+**BaseService Integration:** Extends BaseService, overrides `updateHass()` → `ingestHass()` for entity data processing and subscriptions.
 
 **Responsibilities:**
 - Single Home Assistant entity subscription for all cards
@@ -146,6 +191,8 @@ graph TB
 #### 3. ThemeManager Singleton 🎨
 **Shared theme system** providing consistent styling across all cards.
 
+**BaseService Integration:** Extends BaseService, uses inherited no-op lifecycle methods (theme-only, doesn't need HASS data).
+
 **Responsibilities:**
 - Load and manage theme packs from all cards
 - Resolve CSS variables and theme properties
@@ -155,6 +202,8 @@ graph TB
 
 #### 4. AnimationManager Singleton 🎬
 **Centralized animation coordination** for all card animations.
+
+**BaseService Integration:** Extends BaseService, uses inherited no-op lifecycle methods (could override for entity-driven animations in future).
 
 **Responsibilities:**
 - Manage animation sequences across all cards
@@ -172,9 +221,9 @@ graph TB
 
 #### 6. Other Singletons
 - **AnimationRegistry** 🗂️: Shared animation definitions
-- **ValidationService** ✅: Schema validation for all configurations
+- **ValidationService** ✅: Schema validation for all configurations *(extends BaseService, uses no-op lifecycle)*
 - **StyleLibrary** 📚: Shared style utilities and helpers
-- **CoreSystemsManager** ⚙️: Singleton lifecycle management
+- **CoreSystemsManager** ⚙️: Singleton lifecycle management *(extends BaseService, uses no-op lifecycle)*
 - 50+ predefined transformations
 - Statistical aggregation engines
 - Memory-efficient circular buffers

@@ -16,6 +16,7 @@
 
 import { ThemeTokenResolver, initializeTokenResolver, getTokenResolver } from './ThemeTokenResolver.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
+import { BaseService } from '../../core/BaseService.js';
 
 /**
  * Built-in filter presets for base SVG
@@ -73,8 +74,9 @@ export const BUILTIN_FILTER_PRESETS = {
  * Manages theme loading, activation, and provides unified access to component defaults.
  * Replaces the deprecated DefaultsManager and ProfileResolver systems.
  */
-export class ThemeManager {
+export class ThemeManager extends BaseService {
   constructor() {
+    super();
     /** @type {Map<string, Object>} Theme ID -> Theme object */
     this.themes = new Map();
 

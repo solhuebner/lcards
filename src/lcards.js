@@ -106,6 +106,26 @@ async function initializeCustomCard() {
 
     lcardsLog.info('[lcards.js] ✅ LCARdSCore singleton attached to window.lcards.core');
 
+    // === SINGLETON INITIALIZATION ===
+    // Initialize core singletons immediately without HASS
+    // They will update their HASS reference when first card loads
+    try {
+        // Create a minimal HASS stub for initial singleton setup
+        const stubHass = {
+            states: {},
+            services: {},
+            config: {},
+            user: { name: 'Loading...', is_admin: false },
+            connected: false
+        };
+
+        await lcardsCore.initialize(stubHass);
+        lcardsLog.info('[lcards.js] 🌐 Core singletons initialized on module load');
+    } catch (error) {
+        lcardsLog.warn('[lcards.js] ⚠️ Core singleton initialization deferred (will init on first card):', error);
+        // This is okay - singletons will initialize when first card loads with real HASS
+    }
+
     ///load yaml configs
     // Await YAML configs
     templatesPromise = loadTemplates(LCARdS.templates_uri);

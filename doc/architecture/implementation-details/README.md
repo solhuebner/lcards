@@ -7,6 +7,20 @@
 
 ## 📋 Contents
 
+### BaseService Architecture
+
+Standardized inheritance pattern for all LCARdS singleton services.
+
+#### [BaseService.md](BaseService.md)
+Complete technical documentation for the BaseService inheritance system.
+
+**Topics:**
+- BaseService class implementation and API
+- Service integration patterns (HASS-critical vs HASS-independent)
+- Lifecycle method inheritance (`updateHass`, `ingestHass`)
+- Migration guide from defensive programming to clean inheritance
+- Service classification table and debugging utilities
+
 ### Incremental Update System
 
 Detailed documentation of the incremental rendering system that enables efficient updates without full re-renders.

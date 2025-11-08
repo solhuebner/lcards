@@ -6,9 +6,11 @@ import { lcardsLog } from '../../utils/lcards-logging.js';
  */
 
 import { MsdDataSource } from './MsdDataSource.js';
+import { BaseService } from '../../core/BaseService.js';
 
-export class DataSourceManager {
+export class DataSourceManager extends BaseService {
   constructor(hass) {
+    super();
     this.hass = hass;
     this.sources = new Map();
     this.overlaySubscriptions = new Map();
@@ -691,5 +693,15 @@ export class DataSourceManager {
       lcardsLog.debug('[DataSourceManager] ✅ ingestHass: Complete - full refresh');
       return { hasChanges: true, changedCount: totalCount, totalCount };
     }
+  }
+
+  /**
+   * Override BaseService updateHass to forward to ingestHass
+   * Core calls updateHass(), but DataSourceManager implements ingestHass()
+   *
+   * @param {Object} hass - Home Assistant instance
+   */
+  updateHass(hass) {
+    return this.ingestHass(hass);
   }
 }

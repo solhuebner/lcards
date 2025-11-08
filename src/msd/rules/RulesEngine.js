@@ -7,9 +7,11 @@ import { perfTime, perfCount } from '../util/performance.js';
 import { globalTraceBuffer } from './RuleTraceBuffer.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import { ApexChartsOverlayRenderer } from '../renderer/ApexChartsOverlayRenderer.js';
+import { BaseService } from '../../core/BaseService.js';
 
-export class RulesEngine {
+export class RulesEngine extends BaseService {
   constructor(rules = [], dataSourceManager = null) {
+    super();
     this.rules = Array.isArray(rules) ? rules : [];
     this.rulesById = new Map();
     this.dependencyIndex = null;
@@ -371,6 +373,16 @@ export class RulesEngine {
         }
       });
     }
+  }
+
+  /**
+   * Override BaseService updateHass to forward to ingestHass
+   * Core calls updateHass(), but RulesEngine implements ingestHass()
+   *
+   * @param {Object} hass - Home Assistant instance
+   */
+  updateHass(hass) {
+    return this.ingestHass(hass);
   }
 
   evaluateRule(rule, getEntity) {

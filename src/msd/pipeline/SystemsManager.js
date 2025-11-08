@@ -28,8 +28,11 @@ import { TextOverlay } from '../overlays/TextOverlay.js';
 // AnimationManager now imported as shared singleton from lcardsCore
 import { processAnimationConfig } from '../animation/AnimationConfigProcessor.js';
 
-export class SystemsManager {
+import { BaseService } from '../../core/BaseService.js';
+
+export class SystemsManager extends BaseService {
   constructor() {
+    super();
     // Initialize core managers
     this.themeManager = null; // Will be set to shared core ThemeManager in initializeSystemsWithPacksFirst
 

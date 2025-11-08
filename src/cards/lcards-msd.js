@@ -839,7 +839,11 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
         let svgKey = null;
         let svgUrl = null;
 
-        if (msdConfig.base_svg.source.startsWith('builtin:')) {
+        if (msdConfig.base_svg.source === 'none') {
+            // No SVG source - process anchors immediately for overlay-only mode
+            lcardsLog.debug('[LCARdSMSDCard] Using "none" source - processing anchors immediately');
+            this._processAnchors(msdConfig);
+        } else if (msdConfig.base_svg.source.startsWith('builtin:')) {
             // Built-in SVG
             svgKey = msdConfig.base_svg.source.replace('builtin:', '');
             this._svgKey = svgKey;

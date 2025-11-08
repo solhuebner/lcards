@@ -23,6 +23,7 @@ import { OverlayValidator } from './OverlayValidator.js';
 import { TokenValidator } from './TokenValidator.js';
 import { DataSourceValidator } from './DataSourceValidator.js';
 import { ErrorFormatter } from './ErrorFormatter.js';
+import { BaseService } from '../../core/BaseService.js';
 
 /**
  * Core Validation Service
@@ -30,7 +31,7 @@ import { ErrorFormatter } from './ErrorFormatter.js';
  * Centralizes all validation logic with intelligent orchestration,
  * theme integration, and comprehensive debugging support.
  */
-export class ValidationService {
+export class ValidationService extends BaseService {
   /**
    * Create a ValidationService instance
    *
@@ -42,6 +43,7 @@ export class ValidationService {
    * @param {boolean} [config.debug=false] - Enable debug logging
    */
   constructor(config = {}) {
+    super();
     this.config = {
       strict: false,
       stopOnError: false,

@@ -19,9 +19,11 @@ import { lcardsLog } from '../../utils/lcards-logging.js';
 import { AnimationRegistry } from './AnimationRegistry.js';
 import { TriggerManager } from './TriggerManager.js';
 import { ActionHelpers } from '../renderer/ActionHelpers.js';
+import { BaseService } from '../../core/BaseService.js';
 
-export class AnimationManager {
+export class AnimationManager extends BaseService {
   constructor(systemsManager) {
+    super();
     this.systemsManager = systemsManager;
 
     // Core components
@@ -57,6 +59,7 @@ export class AnimationManager {
    * @param {Object} options - Additional options
    * @param {Object} options.customPresets - User-defined animation_presets
    * @param {Object} options.timelines - Timeline configurations
+   * @param {Object} options.suppressMountWarning - Suppress mount element warning (for core singleton init)
    */
   async initialize(overlays = [], options = {}) {
     lcardsLog.info('[AnimationManager] 🎬 Initializing animation system');
@@ -64,7 +67,7 @@ export class AnimationManager {
     try {
       // Store mount element for reliable DOM queries
       this.mountEl = this.systemsManager?.renderer?.mountEl;
-      if (!this.mountEl) {
+      if (!this.mountEl && !options.suppressMountWarning) {
         lcardsLog.warn('[AnimationManager] No mountEl available - DOM queries may fail');
       }
 
