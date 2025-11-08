@@ -25,7 +25,7 @@ import { ButtonOverlay } from '../overlays/ButtonOverlay.js';
 import { TextOverlay } from '../overlays/TextOverlay.js';
 
 // ✨ ADDED: Import animation system components
-import { AnimationManager } from '../animation/AnimationManager.js';
+// AnimationManager now imported as shared singleton from lcardsCore
 import { processAnimationConfig } from '../animation/AnimationConfigProcessor.js';
 
 export class SystemsManager {
@@ -33,7 +33,7 @@ export class SystemsManager {
     // Initialize core managers
     this.themeManager = null; // Will be set to shared core ThemeManager in initializeSystemsWithPacksFirst
 
-    this.stylePresetManager = new StylePresetManager();
+    this.stylePresetManager = null; // Will be set to shared core StylePresetManager
 
     this.dataSourceManager = null;
     this.renderer = null;
@@ -41,7 +41,7 @@ export class SystemsManager {
     this.controlsRenderer = null;
     this.hudManager = null;
     this.router = null;
-    this.animRegistry = null;
+    this.animRegistry = null; // Will be set to shared core AnimationRegistry
     this.animationManager = null; // ✨ NEW: Phase 5 - Animation system
     this.rulesEngine = null;
     this.debugManager = new DebugManager();
@@ -117,6 +117,9 @@ export class SystemsManager {
 
     // ✅ PHASE 1A: Use shared core ThemeManager singleton (real MSD class)
     lcardsLog.debug('[SystemsManager] 🔗 Using shared core ThemeManager singleton');
+    if (!lcardsCore.themeManager) {
+      throw new Error('lcardsCore.themeManager is null - core not initialized?');
+    }
     this.themeManager = lcardsCore.themeManager;
 
     // PHASE 1: Initialize theme system FIRST (provides all component defaults)
@@ -211,13 +214,20 @@ export class SystemsManager {
     // Initialize data source manager FIRST (overlays may reference it)
     await this._initializeDataSources(hass, mergedConfig);
 
-    // CRITICAL FIX: Initialize StylePresetManager with loaded packs
-    lcardsLog.debug('[SystemsManager] 🎨 CRITICAL: Initializing StylePresetManager');
-    lcardsLog.debug('[SystemsManager] Available packs:', packs.map(p => ({ id: p.id, hasStylePresets: !!p.style_presets })));
+    // ✅ Use shared StylePresetManager singleton from lcardsCore and initialize with packs
+    lcardsLog.debug('[SystemsManager] 🎨 Using shared StylePresetManager from lcardsCore');
+    if (!lcardsCore.stylePresetManager) {
+      throw new Error('lcardsCore.stylePresetManager is null - core not initialized?');
+    }
+    this.stylePresetManager = lcardsCore.stylePresetManager;
 
-    if (this.stylePresetManager && !this.stylePresetManager.initialized) {
+    // Initialize with packs if not already initialized
+    if (!this.stylePresetManager.initialized) {
+      lcardsLog.debug('[SystemsManager] Initializing shared StylePresetManager with packs:', packs.map(p => ({ id: p.id, hasStylePresets: !!p.style_presets })));
       await this.stylePresetManager.initialize(packs);
-      lcardsLog.debug('[SystemsManager] ✅ StylePresetManager initialized');
+      lcardsLog.debug('[SystemsManager] ✅ Shared StylePresetManager initialized');
+    } else {
+      lcardsLog.debug('[SystemsManager] ✅ Shared StylePresetManager already initialized');
     }
 
     lcardsLog.debug('[SystemsManager] ✅ Critical systems ready for overlay processing');
@@ -230,8 +240,12 @@ export class SystemsManager {
   async completeSystems(mergedConfig, cardModel, mountEl, hass) {
     lcardsLog.debug('[SystemsManager] 🔧 Completing systems initialization');
 
-    // Initialize rules engine AFTER DataSourceManager with proper connection
-    this.rulesEngine = new RulesEngine(mergedConfig.rules, this.dataSourceManager);
+    // ✅ Use shared RulesEngine singleton from lcardsCore
+    lcardsLog.debug('[SystemsManager] 🧠 Using shared RulesEngine from lcardsCore');
+    if (!lcardsCore.rulesManager) {
+      throw new Error('lcardsCore.rulesManager is null - core not initialized?');
+    }
+    this.rulesEngine = lcardsCore.rulesManager;
 
     // ADDED: Give RulesEngine access to SystemsManager for HASS state lookup
     this.rulesEngine.systemsManager = this;
@@ -311,27 +325,25 @@ export class SystemsManager {
     this.debugManager.markRouterReady();
     lcardsLog.debug('[SystemsManager] RouterCore marked ready for debug system');
 
-    // Initialize animation registry
-    this.animRegistry = new AnimationRegistry();
+    // ✅ Use shared AnimationRegistry singleton from lcardsCore
+    lcardsLog.debug('[SystemsManager] 🎭 Using shared AnimationRegistry from lcardsCore');
+    if (!lcardsCore.animationRegistry) {
+      throw new Error('lcardsCore.animationRegistry is null - core not initialized?');
+    }
+    this.animRegistry = lcardsCore.animationRegistry;
 
     // ADDED: Initialize unified overlay update system
     this.overlayUpdater = new BaseOverlayUpdater(this);
     lcardsLog.debug('[SystemsManager] BaseOverlayUpdater initialized for unified overlay updates');
 
-    // ✨ NEW: Phase 5 - Initialize AnimationManager
-    lcardsLog.debug('[SystemsManager] 🎬 Phase 5: Initializing AnimationManager');
-    this.animationManager = new AnimationManager(this);
+    // ✨ NEW: Phase 5 - Use shared AnimationManager from lcardsCore
+    lcardsLog.debug('[SystemsManager] 🎬 Phase 5: Using shared AnimationManager from lcardsCore');
+    if (!lcardsCore.animationManager) {
+      throw new Error('lcardsCore.animationManager is null - core not initialized?');
+    }
+    this.animationManager = lcardsCore.animationManager;
 
-    // Process animation configuration from merged config
-    const animationConfig = processAnimationConfig(mergedConfig);
-
-    // Initialize with processed configuration
-    await this.animationManager.initialize(mergedConfig.overlays || [], {
-      customPresets: animationConfig.customPresets,
-      timelines: animationConfig.timelines
-    });
-
-    lcardsLog.debug('[SystemsManager] ✅ AnimationManager initialized');
+    lcardsLog.debug('[SystemsManager] ✅ Shared AnimationManager connected');
 
     lcardsLog.debug('[SystemsManager] ✅ All systems initialization complete', {
       hasThemeManager: !!this.themeManager,
@@ -496,7 +508,12 @@ export class SystemsManager {
     lcardsLog.debug('[SystemsManager] Initializing DataSourceManager with', Object.keys(allDataSources).length, 'data sources');
 
     try {
-      this.dataSourceManager = new DataSourceManager(hass);
+      // ✅ Use shared core DataSourceManager singleton (real MSD class)
+      lcardsLog.debug('[SystemsManager] 🔗 Using shared core DataSourceManager singleton');
+      if (!lcardsCore.dataSourceManager) {
+        throw new Error('lcardsCore.dataSourceManager is null - core not initialized?');
+      }
+      this.dataSourceManager = lcardsCore.dataSourceManager;
 
       // PHASE 1: Register entity change listener BEFORE initializing data sources
       // This ensures subscriptions created during initialization can trigger the listener

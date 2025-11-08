@@ -21,12 +21,14 @@
 
 import { lcardsLog } from '../utils/lcards-logging.js';
 import { CoreSystemsManager } from './systems-manager/index.js';
-import { CoreDataSourceManager } from './data-sources/index.js';
-import { CoreRulesManager } from './rules-engine/index.js';
+import { DataSourceManager } from '../msd/data/DataSourceManager.js';  // ✅ Real MSD DataSourceManager
+import { RulesEngine } from '../msd/rules/RulesEngine.js';  // ✅ Real MSD RulesEngine
 import { ThemeManager } from '../msd/themes/ThemeManager.js';  // ✅ Real MSD ThemeManager
-import { CoreAnimationManager } from './animation-manager/index.js';
+import { AnimationManager } from '../msd/animation/AnimationManager.js';
 import { CoreValidationService } from './validation-service/index.js';
 import { CoreStyleLibrary } from './style-library/index.js';
+import { StylePresetManager } from '../msd/presets/StylePresetManager.js';  // ✅ Real MSD StylePresetManager
+import { AnimationRegistry } from '../msd/animation/AnimationRegistry.js';  // ✅ Real MSD AnimationRegistry
 
 /**
  * LCARdSCore - Central coordinator for all LCARdS infrastructure
@@ -48,6 +50,8 @@ class LCARdSCore {
         this.animationManager = null;    // Animation coordination (Phase 2a)
         this.validationService = null;   // Config validation and error reporting (Phase 2a)
         this.styleLibrary = null;        // Style presets and CSS utilities (Phase 2a)
+        this.stylePresetManager = null;  // Style presets from packs (Phase 2b)
+        this.animationRegistry = null;   // Animation instance caching (Phase 2b)
 
         // ===== REGISTRIES =====
         this._cardInstances = new Map();     // Map<cardId, CardContext>
@@ -112,14 +116,13 @@ class LCARdSCore {
             this.systemsManager.initialize(hass);
             lcardsLog.debug('[LCARdSCore] ✅ SystemsManager initialized');
 
-            // Initialize DataSourceManager (Phase 1b)
-            this.dataSourceManager = new CoreDataSourceManager(hass);
-            await this.dataSourceManager.initialize();
-            lcardsLog.debug('[LCARdSCore] ✅ DataSourceManager initialized');
+            // Initialize DataSourceManager (Phase 1b) - ✅ Real MSD DataSourceManager as singleton
+            this.dataSourceManager = new DataSourceManager(hass);
+            // NOTE: DataSourceManager will be properly initialized later by MSD SystemsManager
+            lcardsLog.debug('[LCARdSCore] ✅ DataSourceManager created (MSD will initialize)');
 
             // Initialize RulesManager (Phase 1c)
-            this.rulesManager = new CoreRulesManager();
-            await this.rulesManager.initialize();
+            this.rulesManager = new RulesEngine();
             lcardsLog.debug('[LCARdSCore] ✅ RulesManager initialized');
 
             // Initialize ThemeManager (Phase 2a) - ✅ Real MSD ThemeManager as singleton
@@ -128,8 +131,8 @@ class LCARdSCore {
             lcardsLog.debug('[LCARdSCore] ✅ ThemeManager created (MSD will initialize with packs)');
 
             // Initialize AnimationManager (Phase 2a)
-            this.animationManager = new CoreAnimationManager();
-            await this.animationManager.initialize();
+            this.animationManager = new AnimationManager(null); // No systemsManager in core
+            await this.animationManager.initialize([], {}); // Empty overlays and options for core
             lcardsLog.debug('[LCARdSCore] ✅ AnimationManager initialized');
 
             // Initialize ValidationService (Phase 2a)
@@ -142,14 +145,18 @@ class LCARdSCore {
             lcardsLog.debug('[LCARdSCore] ✅ ValidationService initialized');
 
             // Initialize StyleLibrary (Phase 2a)
-            this.styleLibrary = new CoreStyleLibrary({
-                enablePresets: true,
-                enableTokens: true,
-                cacheEnabled: true,
-                debug: false
-            });
-            await this.styleLibrary.initialize(this.themeManager);
+            this.styleLibrary = new CoreStyleLibrary(this.themeManager);
+            await this.styleLibrary.initialize();
             lcardsLog.debug('[LCARdSCore] ✅ StyleLibrary initialized');
+
+            // Initialize StylePresetManager (Phase 2b) - ✅ Real MSD StylePresetManager as singleton
+            this.stylePresetManager = new StylePresetManager();
+            // NOTE: StylePresetManager will be initialized with packs by first MSD SystemsManager
+            lcardsLog.debug('[LCARdSCore] ✅ StylePresetManager created (MSD will initialize with packs)');
+
+            // Initialize AnimationRegistry (Phase 2b) - ✅ Real MSD AnimationRegistry as singleton
+            this.animationRegistry = new AnimationRegistry();
+            lcardsLog.debug('[LCARdSCore] ✅ AnimationRegistry initialized');
 
             this._coreInitialized = true;
 
@@ -351,7 +358,7 @@ class LCARdSCore {
      */
     getDebugInfo() {
         const systems = this.systemsManager ? 'CoreSystemsManager ready' : 'Not initialized';
-        const dataSources = this.dataSourceManager ? 'CoreDataSourceManager ready' : 'Not initialized';
+        const dataSources = this.dataSourceManager ? 'DataSourceManager ready' : 'Not initialized';
         const rules = this.rulesManager ? 'CoreRulesManager ready' : 'Not initialized';
         const themes = this.themeManager ? 'ThemeManager ready' : 'Not initialized';
 
@@ -367,14 +374,107 @@ class LCARdSCore {
 
             systemsManager: this.systemsManager ? this.systemsManager.getDebugInfo() : null,
             dataSourceManager: this.dataSourceManager ? this.dataSourceManager.getDebugInfo() : null,
-            rulesManager: this.rulesManager ? this.rulesManager.getDebugInfo() : null,
+            rulesManager: this.rulesManager ? this._getRulesManagerDebugInfo() : null,
             themeManager: this.themeManager ? this.themeManager.getDebugInfo() : null,
-            animationManager: this.animationManager ? this.animationManager.getDebugInfo() : null,
+            animationManager: this.animationManager ? this._getAnimationManagerDebugInfo() : null,
             validationService: this.validationService ? this.validationService.getDebugInfo() : null,
             styleLibrary: this.styleLibrary ? this.styleLibrary.getDebugInfo() : null,
+            stylePresetManager: this.stylePresetManager ? this._getStylePresetManagerDebugInfo() : null,
+            animationRegistry: this.animationRegistry ? this._getAnimationRegistryDebugInfo() : null,
 
             hasHass: !!this._currentHass
         };
+    }
+
+    /**
+     * Get debug info from RulesEngine (real MSD class)
+     * @private
+     */
+    _getRulesManagerDebugInfo() {
+        if (!this.rulesManager) return null;
+
+        try {
+            return {
+                type: 'RulesEngine',
+                rulesCount: this.rulesManager.rules?.length || 0,
+                rulesById: this.rulesManager.rulesById?.size || 0,
+                dirtyRules: this.rulesManager.dirtyRules?.size || 0,
+                evalCounts: this.rulesManager.evalCounts || {},
+                hasDataSourceManager: !!this.rulesManager.dataSourceManager,
+                recentMatches: this.rulesManager.getRecentMatches ? this.rulesManager.getRecentMatches(10000) : [],
+                trace: this.rulesManager.getTrace ? this.rulesManager.getTrace() : null
+            };
+        } catch (error) {
+            lcardsLog.warn('[LCARdSCore] Failed to get RulesEngine debug info:', error);
+            return { type: 'RulesEngine', error: error.message };
+        }
+    }
+
+    /**
+     * Get debug info from AnimationManager (real MSD class)
+     * @private
+     */
+    _getAnimationManagerDebugInfo() {
+        if (!this.animationManager) return null;
+
+        try {
+            return {
+                type: 'AnimationManager',
+                initialized: this.animationManager.initialized || false,
+                scopesCount: this.animationManager.scopes?.size || 0,
+                customPresetsCount: this.animationManager.customPresets?.size || 0,
+                timelinesCount: this.animationManager.timelines?.size || 0,
+                activeAnimationsCount: this.animationManager.activeAnimations?.size || 0,
+                registeredAnimationsCount: this.animationManager.registeredAnimations?.size || 0,
+                hasMountEl: !!this.animationManager.mountEl,
+                hasSystemsManager: !!this.animationManager.systemsManager
+            };
+        } catch (error) {
+            lcardsLog.warn('[LCARdSCore] Failed to get AnimationManager debug info:', error);
+            return { type: 'AnimationManager', error: error.message };
+        }
+    }
+
+    /**
+     * Get debug info from StylePresetManager (real MSD class)
+     * @private
+     */
+    _getStylePresetManagerDebugInfo() {
+        if (!this.stylePresetManager) return null;
+
+        try {
+            return {
+                type: 'StylePresetManager',
+                initialized: this.stylePresetManager.initialized || false,
+                packCount: this.stylePresetManager.loadedPacks?.length || 0,
+                cacheSize: this.stylePresetManager.presetCache?.size || 0,
+                availableTypes: this.stylePresetManager._getAvailableOverlayTypes ? this.stylePresetManager._getAvailableOverlayTypes() : []
+            };
+        } catch (error) {
+            lcardsLog.warn('[LCARdSCore] Failed to get StylePresetManager debug info:', error);
+            return { type: 'StylePresetManager', error: error.message };
+        }
+    }
+
+    /**
+     * Get debug info from AnimationRegistry (real MSD class)
+     * @private
+     */
+    _getAnimationRegistryDebugInfo() {
+        if (!this.animationRegistry) return null;
+
+        try {
+            return {
+                type: 'AnimationRegistry',
+                cacheSize: this.animationRegistry.cache?.size || 0,
+                maxCacheSize: this.animationRegistry.maxCacheSize || 0,
+                perfStats: this.animationRegistry.perfStats || {},
+                usageStats: this.animationRegistry.usageStats?.size || 0
+            };
+        } catch (error) {
+            lcardsLog.warn('[LCARdSCore] Failed to get AnimationRegistry debug info:', error);
+            return { type: 'AnimationRegistry', error: error.message };
+        }
     }
 
     /**
