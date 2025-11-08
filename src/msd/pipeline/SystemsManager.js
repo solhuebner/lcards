@@ -5,6 +5,7 @@ import { MsdHudManager } from '../hud/MsdHudManager.js';
 import { DataSourceManager } from '../data/DataSourceManager.js';
 import { RouterCore } from '../routing/RouterCore.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
+import { lcardsCore } from '../../core/lcards-core.js';
 import { AnimationRegistry } from '../animation/AnimationRegistry.js';
 import { ThemeManager } from '../themes/ThemeManager.js';
 import { RulesEngine } from '../rules/RulesEngine.js';
@@ -30,7 +31,7 @@ import { processAnimationConfig } from '../animation/AnimationConfigProcessor.js
 export class SystemsManager {
   constructor() {
     // Initialize core managers
-    this.themeManager = new ThemeManager();
+    this.themeManager = null; // Will be set to shared core ThemeManager in initializeSystemsWithPacksFirst
 
     this.stylePresetManager = new StylePresetManager();
 
@@ -113,6 +114,10 @@ export class SystemsManager {
     // Store config and HASS context immediately
     this.mergedConfig = mergedConfig;
     this._hass = hass; // PHASE 1: Use single source
+
+    // ✅ PHASE 1A: Use shared core ThemeManager singleton (real MSD class)
+    lcardsLog.debug('[SystemsManager] 🔗 Using shared core ThemeManager singleton');
+    this.themeManager = lcardsCore.themeManager;
 
     // PHASE 1: Initialize theme system FIRST (provides all component defaults)
     lcardsLog.debug('[SystemsManager] 🎨 Phase 1: Initializing theme system');

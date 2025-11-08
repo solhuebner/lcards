@@ -23,7 +23,7 @@ import { lcardsLog } from '../utils/lcards-logging.js';
 import { CoreSystemsManager } from './systems-manager/index.js';
 import { CoreDataSourceManager } from './data-sources/index.js';
 import { CoreRulesManager } from './rules-engine/index.js';
-import { CoreThemeManager } from './theme-manager/index.js';
+import { ThemeManager } from '../msd/themes/ThemeManager.js';  // ✅ Real MSD ThemeManager
 import { CoreAnimationManager } from './animation-manager/index.js';
 import { CoreValidationService } from './validation-service/index.js';
 import { CoreStyleLibrary } from './style-library/index.js';
@@ -122,10 +122,10 @@ class LCARdSCore {
             await this.rulesManager.initialize();
             lcardsLog.debug('[LCARdSCore] ✅ RulesManager initialized');
 
-            // Initialize ThemeManager (Phase 2a)
-            this.themeManager = new CoreThemeManager();
-            await this.themeManager.initialize(); // Lightweight init without packs
-            lcardsLog.debug('[LCARdSCore] ✅ ThemeManager initialized');
+            // Initialize ThemeManager (Phase 2a) - ✅ Real MSD ThemeManager as singleton
+            this.themeManager = new ThemeManager();
+            // NOTE: ThemeManager will be properly initialized later with packs by MSD SystemsManager
+            lcardsLog.debug('[LCARdSCore] ✅ ThemeManager created (MSD will initialize with packs)');
 
             // Initialize AnimationManager (Phase 2a)
             this.animationManager = new CoreAnimationManager();
@@ -353,7 +353,7 @@ class LCARdSCore {
         const systems = this.systemsManager ? 'CoreSystemsManager ready' : 'Not initialized';
         const dataSources = this.dataSourceManager ? 'CoreDataSourceManager ready' : 'Not initialized';
         const rules = this.rulesManager ? 'CoreRulesManager ready' : 'Not initialized';
-        const themes = this.themeManager ? 'CoreThemeManager ready' : 'Not initialized';
+        const themes = this.themeManager ? 'ThemeManager ready' : 'Not initialized';
 
         return {
             coreInitialized: this._coreInitialized,
