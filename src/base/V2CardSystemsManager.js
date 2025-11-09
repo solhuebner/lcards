@@ -109,11 +109,14 @@ export class V2CardSystemsManager {
 
             // Connect to singleton systems via unified API
             this.rulesEngine = core.rulesManager;
-            this.themeManager = core.themeManager;
             this.animationManager = core.animationManager;
             this.dataSourceManager = core.dataSourceManager;
             this.validationService = core.validationService;
             this.actionHandler = core.actionHandler;
+
+            // Get theme-related managers (may be null if core still initializing)
+            this.themeManager = core.getThemeManager();
+            this.stylePresetManager = core.getStylePresetManager();
 
             lcardsLog.debug(`[V2CardSystemsManager] Singleton connections established (${this.cardId})`);
 
@@ -172,8 +175,20 @@ export class V2CardSystemsManager {
      * @returns {any} Token value or fallback
      */
     getThemeToken(tokenPath, fallback = null) {
+        // Lazy-load ThemeManager if not available yet
         if (!this.themeManager) {
-            lcardsLog.warn(`[V2CardSystemsManager] Theme manager not ready (${this.cardId})`);
+            const core = this.getCore();
+            if (core) {
+                this.themeManager = core.getThemeManager();
+            }
+        }
+
+        if (!this.themeManager) {
+            // Only warn once per card instance to avoid spam
+            if (!this._themeManagerWarnShown) {
+                lcardsLog.debug(`[V2CardSystemsManager] Theme manager not ready yet, using fallback (${this.cardId})`);
+                this._themeManagerWarnShown = true;
+            }
             return fallback;
         }
 
@@ -200,6 +215,85 @@ export class V2CardSystemsManager {
             lcardsLog.warn(`[V2CardSystemsManager] Active theme fetch failed (${this.cardId}):`, error);
             return null;
         }
+    }
+
+    /**
+     * Get style preset from StylePresetManager
+     * @param {string} overlayType - Type of overlay (e.g., 'button', 'status_grid')
+     * @param {string} presetName - Name of the preset (e.g., 'lozenge', 'picard-filled')
+     * @returns {Object|null} Preset configuration or null if not found
+     */
+    getStylePreset(overlayType, presetName) {
+        // Lazy-load managers if not available yet
+        if (!this.stylePresetManager) {
+            const core = this.getCore();
+            if (core) {
+                this.stylePresetManager = core.getStylePresetManager();
+            }
+        }
+
+        if (!this.themeManager) {
+            const core = this.getCore();
+            if (core) {
+                this.themeManager = core.getThemeManager();
+            }
+        }
+
+        if (!this.stylePresetManager) {
+            // Only warn once per card instance to avoid spam
+            if (!this._stylePresetWarnShown) {
+                lcardsLog.debug(`[V2CardSystemsManager] StylePreset manager not ready yet (${this.cardId})`);
+                this._stylePresetWarnShown = true;
+            }
+            return null;
+        }
+
+        try {
+            return this.stylePresetManager.getPreset(overlayType, presetName, this.themeManager);
+        } catch (error) {
+            lcardsLog.warn(`[V2CardSystemsManager] StylePreset fetch failed (${this.cardId}):`, error);
+            return null;
+        }
+    }
+
+    /**
+     * Get available presets for an overlay type
+     * @param {string} overlayType - Type of overlay
+     * @returns {Array} Array of preset names
+     */
+    getAvailablePresets(overlayType) {
+        // Lazy-load StylePresetManager if not available yet
+        if (!this.stylePresetManager) {
+            const core = this.getCore();
+            if (core) {
+                this.stylePresetManager = core.getStylePresetManager();
+            }
+        }
+
+        if (!this.stylePresetManager) {
+            return [];
+        }
+
+        try {
+            return this.stylePresetManager.getAvailablePresets(overlayType);
+        } catch (error) {
+            lcardsLog.warn(`[V2CardSystemsManager] Available presets fetch failed (${this.cardId}):`, error);
+            return [];
+        }
+    }
+
+    /**
+     * Check if a style preset exists
+     * @param {string} overlayType - Type of overlay
+     * @param {string} presetName - Name of the preset
+     * @returns {boolean} True if preset exists
+     */
+    hasStylePreset(overlayType, presetName) {
+        if (!this.stylePresetManager) {
+            return false;
+        }
+
+        return this.stylePresetManager.hasPreset(overlayType, presetName);
     }
 
     /**

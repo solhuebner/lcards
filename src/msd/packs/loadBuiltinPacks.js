@@ -45,144 +45,256 @@ const CB_LCARS_BUTTONS_PACK = {
   overlays: [],
   // STYLE PRESETS: Named style bundles that can be applied to any overlay type
   style_presets: {
-    // Universal button presets (work for StatusGrid, ButtonOverlay, etc.)
+    // Universal button presets (work for StatusGrid, ButtonOverlay, V2 Cards, etc.)
     button: {
-      lozenge: {
-        color: 'theme:colors.accent.primary',
-        background_color: 'theme:colors.ui.surface',
-        border_radius: 34,                 // Full rounded corners for pill shape
-        border_width: 0,                   // No border
-        font_family: 'theme:typography.fontFamily.primary',
-        font_size: 16,
-        text_color: 'theme:colors.ui.foreground',
-        text_padding: 12,
+      // =====================================
+      // BASE BUTTON - Foundation for all buttons
+      // =====================================
+      base: {
+        // Core styling
+        font_family: 'theme:components.button.base.font.family',
+        font_size: 'theme:components.button.base.font.size.normal',
+        font_weight: 'theme:components.button.base.font.weight.normal',
+        text_transform: 'theme:components.button.base.font.transform',
 
-        // Layout for StatusGrid
-        text_layout: 'side-by-side',
-        label_position: 'left',
-        value_position: 'right',
-        lcars_text_preset: 'standard',
-        normalize_radius: true,
-        show_labels: true,
-        show_values: true,
+        // State-based colors (active/inactive/unavailable)
+        background_color: 'theme:components.button.base.background.active',
+        text_color: 'theme:components.button.base.text.active',
+        border_color: 'theme:components.button.base.border.color',
 
-        // Grid-specific (ignored by ButtonOverlay)
-        cell_gap: 8
+        // Layout
+        height: 'theme:components.button.base.layout.height.standard',
+        min_height: 'theme:components.button.base.layout.minHeight',
+        padding_top: 'theme:components.button.base.layout.padding.vertical',
+        padding_bottom: 'theme:components.button.base.layout.padding.vertical',
+        padding_left: 'theme:components.button.base.layout.padding.horizontal',
+        padding_right: 'theme:components.button.base.layout.padding.horizontal',
+
+        // Border
+        border_width: 0,
+        border_radius: 'theme:components.button.base.radius.none',
+
+        // Icon
+        icon_size: 'theme:components.button.base.icon.size',
+        icon_color: 'theme:components.button.base.text.onColor',
+        icon_border_width: 'theme:components.button.base.icon.border.width',
+        icon_border_color: 'theme:components.button.base.border.color',
+        icon_border_padding: 'theme:components.button.base.icon.border.padding.standard',
+
+        // Text layout defaults
+        text_justify: 'right',
+        text_align_items: 'end',
+        show_icon: false,
+        show_label: true,
+        show_state: false,
+        show_name: false,
+
+        // State variants for dynamic styling
+        states: {
+          active: {
+            background_color: 'theme:components.button.base.background.active',
+            text_color: 'theme:components.button.base.text.active'
+          },
+          inactive: {
+            background_color: 'theme:components.button.base.background.inactive',
+            text_color: 'theme:components.button.base.text.inactive'
+          },
+          unavailable: {
+            background_color: 'theme:components.button.base.background.unavailable',
+            text_color: 'theme:components.button.base.text.unavailable'
+          }
+        }
       },
 
+      // =====================================
+      // LOZENGE BUTTONS - Fully rounded
+      // =====================================
+      lozenge: {
+        extends: 'button.base',
+        border_radius_top_left: 'theme:components.button.base.radius.pill',
+        border_radius_top_right: 'theme:components.button.base.radius.pill',
+        border_radius_bottom_left: 'theme:components.button.base.radius.pill',
+        border_radius_bottom_right: 'theme:components.button.base.radius.pill',
+        icon_border_left_padding: '0px',
+        icon_border_right_padding: '3px'
+      },
+
+      'lozenge-right': {
+        extends: 'button.lozenge',
+        text_justify: 'left',
+        icon_justify: 'right',
+        icon_border_left_color: 'theme:components.button.base.border.color',
+        icon_border_left_padding: '3px',
+        icon_border_right_color: 'theme:components.button.base.border.transparent',
+        icon_border_right_padding: '3px'
+      },
+
+      // =====================================
+      // BULLET BUTTONS - Half rounded
+      // =====================================
       bullet: {
-        color: 'theme:colors.accent.secondary',
-        background_color: 'theme:colors.ui.card',
-        border_width: 0,                   // No border
-        font_family: 'theme:typography.fontFamily.primary',
-        font_size: 16,
-        text_color: 'theme:colors.ui.foreground',
-        text_padding: 8,
-
-        // Individual corner radius for bullet shape (rounded left, squared right)
-        border_radius_top_left: 34,
-        border_radius_bottom_left: 34,
-        border_radius_top_right: 0,
-        border_radius_bottom_right: 0,
-
-        // Layout for StatusGrid
-        text_layout: 'side-by-side',
-        label_position: 'left',
-        value_position: 'right',
-        lcars_text_preset: 'bullet',
-        normalize_radius: true,
-        show_labels: true,
-        show_values: true
+        extends: 'button.base',
+        border_radius_top_left: 'theme:components.button.base.radius.full',
+        border_radius_bottom_left: 'theme:components.button.base.radius.full',
+        border_radius_top_right: 'theme:components.button.base.radius.none',
+        border_radius_bottom_right: 'theme:components.button.base.radius.none'
       },
 
       'bullet-right': {
-        color: 'theme:colors.accent.secondary',
-        background_color: 'theme:colors.ui.card',
-        border_width: 0,                   // No border
-        font_family: 'theme:typography.fontFamily.primary',
-        font_size: 16,
-        text_color: 'theme:colors.ui.foreground',
-        text_padding: 8,
-
-        // Individual corner radius for bullet-right shape (squared left, rounded right)
-        border_radius_top_left: 0,
-        border_radius_bottom_left: 0,
-        border_radius_top_right: 34,
-        border_radius_bottom_right: 34,
-
-        // Layout for StatusGrid
-        text_layout: 'side-by-side',
-        label_position: 'left',
-        value_position: 'right',
-        lcars_text_preset: 'bullet',
-        normalize_radius: true,
-        show_labels: true,
-        show_values: true
+        extends: 'button.base',
+        border_radius_top_left: 'theme:components.button.base.radius.none',
+        border_radius_bottom_left: 'theme:components.button.base.radius.none',
+        border_radius_top_right: 'theme:components.button.base.radius.full',
+        border_radius_bottom_right: 'theme:components.button.base.radius.full'
       },
 
+      // =====================================
+      // CAPPED BUTTONS - Single side rounded
+      // =====================================
+      capped: {
+        extends: 'button.base',
+        border_radius_top_left: 'theme:components.button.base.radius.full',
+        border_radius_bottom_left: 'theme:components.button.base.radius.full',
+        border_radius_top_right: 'theme:components.button.base.radius.none',
+        border_radius_bottom_right: 'theme:components.button.base.radius.none'
+      },
+
+      'capped-right': {
+        extends: 'button.base',
+        border_radius_top_left: 'theme:components.button.base.radius.none',
+        border_radius_bottom_left: 'theme:components.button.base.radius.none',
+        border_radius_top_right: 'theme:components.button.base.radius.full',
+        border_radius_bottom_right: 'theme:components.button.base.radius.full'
+      },
+
+      // =====================================
+      // PICARD FILLED - Solid backgrounds
+      // =====================================
       'picard-filled': {
-        color: 'theme:colors.accent.tertiary',
-        background_color: 'theme:colors.ui.accent',
-        border_radius: 0,                  // Sharp corners for Picard style
-        border_width: 2,
-        border_color: 'theme:colors.accent.primary',
-        font_family: 'theme:typography.fontFamily.primary',
-        font_weight: 'bold',
-        font_size: 16,
-        text_color: 'theme:colors.ui.foregroundOnAccent',
-        text_padding: 12,
+        extends: 'button.base',
+        font_weight: 'theme:components.button.base.font.weight.normal',
+        font_size: 'theme:components.button.base.font.size.normal',
+        text_align_items: 'center',
+        padding_top: 0,
+        padding_bottom: 5,
+        padding_left: 'theme:components.button.base.layout.padding.icon',
+        padding_right: 'theme:components.button.base.layout.padding.icon',
 
-        // Layout for StatusGrid
-        text_layout: 'stacked',
-        label_position: 'south-east',
-        value_position: 'south-east',
-        lcars_text_preset: 'corner',
-        normalize_radius: false,
-        show_labels: true,
-        show_values: true
+        // Use base colors (will be resolved from theme tokens)
+        background_color: 'theme:components.button.base.background.active',
+        text_color: 'theme:components.button.base.text.active',
+
+        // Icon styling
+        icon_border_right_color: 'theme:components.button.base.border.color',
+        icon_border_right_padding: 'theme:components.button.base.icon.border.padding.dense',
+        icon_border_left_color: 'theme:components.button.base.border.transparent',
+        icon_border_left_padding: 'theme:components.button.base.icon.border.padding.minimal'
       },
 
-      'picard-outline': {
-        color: 'transparent',
-        background_color: 'transparent',
-        border_radius: 0,                  // Sharp corners for Picard style
-        border_width: 2,
-        border_color: 'theme:colors.accent.primary',
-        font_family: 'theme:typography.fontFamily.primary',
-        font_weight: 'bold',
-        font_size: 16,
-        text_color: 'theme:colors.accent.primary',
-        text_padding: 12,
-
-        // Layout for StatusGrid
-        text_layout: 'stacked',
-        label_position: 'center',
-        value_position: 'center',
-        lcars_text_preset: 'corner',
-        normalize_radius: false,
-        show_labels: true,
-        show_values: true
+      'picard-filled-right': {
+        extends: 'button.picard-filled',
+        text_justify: 'left',
+        icon_justify: 'right',
+        icon_border_left_color: 'theme:components.button.base.border.color',
+        icon_border_left_padding: 'theme:components.button.base.icon.border.padding.dense',
+        icon_border_right_color: 'theme:components.button.base.border.transparent',
+        icon_border_right_padding: 'theme:components.button.base.icon.border.padding.minimal'
       },
 
-      badge: {
-        color: 'theme:colors.accent.secondary',
-        background_color: 'theme:colors.ui.surface',
-        border_radius: 16,                 // Medium rounded corners
-        border_width: 1,
-        border_color: 'theme:colors.ui.border',
-        font_family: 'theme:typography.fontFamily.primary',
-        font_size: 14,
-        text_color: 'theme:colors.ui.foreground',
-        text_padding: 8,
+      'picard-filled-dense': {
+        extends: 'button.picard-filled',
+        height: 'theme:components.button.base.layout.height.dense'
+      },
 
-        // Layout for StatusGrid
-        text_layout: 'stacked',
-        label_position: 'center-top',
-        value_position: 'center',
-        lcars_text_preset: 'badge',
-        normalize_radius: true,
-        show_labels: true,
-        show_values: true
+      'picard-filled-dense-right': {
+        extends: 'button.picard-filled-right',
+        height: 'theme:components.button.base.layout.height.dense'
+      },
+
+      // =====================================
+      // PICARD OUTLINE - Border only
+      // =====================================
+      'picard': {
+        extends: 'button.base',
+        font_weight: 'theme:components.button.base.font.weight.normal',
+        font_size: 'theme:components.button.base.font.size.normal',
+        text_align_items: 'center',
+        padding_top: 0,
+        padding_bottom: 5,
+        padding_left: 'theme:components.button.base.layout.padding.icon',
+        padding_right: 'theme:components.button.base.layout.padding.icon',
+
+        // Outline style - transparent background with borders
+        background_color: 'theme:components.button.base.background.transparent',
+        border_width: 'theme:components.button.base.border.width',
+        border_color: 'theme:components.button.base.border.color',
+
+        // Text colors reference the border color for consistency
+        text_color: 'theme:components.button.base.background.active',
+
+        // Icon styling
+        icon_border_right_color: 'theme:components.button.base.border.color',
+        icon_border_right_padding: 'theme:components.button.base.icon.border.padding.dense'
+      },
+
+      'picard-right': {
+        extends: 'button.picard',
+        text_justify: 'left',
+        icon_justify: 'right',
+        icon_border_left_color: 'theme:components.button.base.border.color',
+        icon_border_left_padding: 'theme:components.button.base.icon.border.padding.dense',
+        icon_border_right_color: 'theme:components.button.base.border.transparent',
+        icon_border_right_padding: 'theme:components.button.base.icon.border.padding.minimal'
+      },
+
+      'picard-dense': {
+        extends: 'button.picard',
+        height: 'theme:components.button.base.layout.height.dense'
+      },
+
+      'picard-dense-right': {
+        extends: 'button.picard-right',
+        height: 'theme:components.button.base.layout.height.dense'
+      },
+
+      // =====================================
+      // PICARD ICON - Icon-only compact
+      // =====================================
+      'picard-icon': {
+        extends: 'button.picard-filled-dense',
+        width: 'theme:components.button.base.layout.height.icon',
+        height: 'theme:components.button.base.layout.height.icon',
+        min_height: 'theme:components.button.base.layout.height.icon',
+
+        // Rounded corners for icon buttons
+        border_radius_top_left: 'theme:components.button.base.radius.large',
+        border_radius_top_right: 'theme:components.button.base.radius.large',
+        border_radius_bottom_left: 'theme:components.button.base.radius.large',
+        border_radius_bottom_right: 'theme:components.button.base.radius.large',
+
+        // Icon-only layout
+        show_icon: true,
+        show_label: false,
+        show_state: false,
+        show_name: false,
+        icon_justify: 'center',
+        text_align_items: 'center',
+
+        // Remove icon borders for compact style
+        icon_border_left_width: 0,
+        icon_border_right_width: 0,
+        icon_size: 30,
+
+        // Grid template for icon-only
+        grid_template_areas: '"i"'
+      },
+
+      // =====================================
+      // SQUARE - Basic square button
+      // =====================================
+      square: {
+        extends: 'button.base',
+        show_icon: false
       }
     },
 

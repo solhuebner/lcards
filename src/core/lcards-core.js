@@ -153,8 +153,26 @@ class LCARdSCore {
 
             // Initialize StylePresetManager (Phase 2b) - ✅ Real MSD StylePresetManager as singleton
             this.stylePresetManager = new StylePresetManager();
-            // NOTE: StylePresetManager will be initialized with packs by first MSD SystemsManager
-            lcardsLog.debug('[LCARdSCore] ✅ StylePresetManager created (MSD will initialize with packs)');
+
+            // ✅ CRITICAL: Load builtin packs at singleton startup for V2-only pages
+            // This ensures themes and presets are available even without MSD cards
+            try {
+                const { loadBuiltinPacks } = await import('../msd/packs/loadBuiltinPacks.js');
+                const builtinPacks = loadBuiltinPacks(['core', 'cb_lcars_buttons', 'builtin_themes']);
+                await this.stylePresetManager.initialize(builtinPacks);
+                lcardsLog.debug('[LCARdSCore] ✅ StylePresetManager initialized with builtin packs:', builtinPacks.map(p => p.id));
+
+                // Also initialize ThemeManager with builtin themes if available
+                if (builtinPacks.length > 0) {
+                    const themesPack = builtinPacks.find(p => p.themes);
+                    if (themesPack && this.themeManager) {
+                        await this.themeManager.initialize(builtinPacks);
+                        lcardsLog.debug('[LCARdSCore] ✅ ThemeManager initialized with builtin themes');
+                    }
+                }
+            } catch (error) {
+                lcardsLog.warn('[LCARdSCore] ⚠️ Failed to load builtin packs (V2 cards may have limited styling):', error);
+            }
 
             // Initialize AnimationRegistry (Phase 2b) - ✅ Real MSD AnimationRegistry as singleton
             this.animationRegistry = new AnimationRegistry();
@@ -565,6 +583,22 @@ class LCARdSCore {
             return {};
         }
         return this.rulesManager.getRulesInfo();
+    }
+
+    /**
+     * Get StylePresetManager instance
+     * @returns {StylePresetManager|null} Style preset manager or null if not initialized
+     */
+    getStylePresetManager() {
+        return this.stylePresetManager;
+    }
+
+    /**
+     * Get ThemeManager instance (via SystemsManager)
+     * @returns {ThemeManager|null} Theme manager or null if not initialized
+     */
+    getThemeManager() {
+        return this.systemsManager?.themeManager || null;
     }
 
     /**

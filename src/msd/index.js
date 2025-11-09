@@ -1,4 +1,4 @@
-import { initMsdPipeline, initMsdHud } from './pipeline/PipelineCore.js';
+import { initMsdPipeline } from './pipeline/PipelineCore.js';
 import { processMsdConfig } from './pipeline/ConfigProcessor.js';
 import { mergePacks, validateMerged } from './pipeline/ConfigProcessor.js';
 import { buildCardModel } from './model/CardModel.js';

@@ -296,6 +296,94 @@ export const lcarsClassicTokens = {
       }
     },
 
+    button: {
+      // Base button tokens (used by all button presets)
+      base: {
+        // Colors for different states
+        color: {
+          active: 'var(--lcars-card-button, var(--picard-medium-light-gray))',
+          inactive: 'var(--lcars-card-button-off, var(--picard-dark-gray))',
+          unavailable: 'var(--lcars-card-button-unavailable, var(--picard-darkest-gray))'
+        },
+
+        background: {
+          active: 'var(--lcars-card-button, var(--picard-medium-light-gray))',
+          inactive: 'var(--lcars-card-button-off, var(--picard-dark-gray))',
+          unavailable: 'var(--lcars-card-button-unavailable, var(--picard-darkest-gray))',
+          transparent: 'transparent'
+        },
+
+        text: {
+          active: 'black',
+          inactive: 'black',
+          unavailable: 'black',
+          onColor: 'black'  // Text on colored backgrounds
+        },
+
+        // Border styles
+        border: {
+          width: 'borders.width.thick',  // 3px
+          color: 'black',
+          transparent: 'transparent'
+        },
+
+        // Typography
+        font: {
+          family: 'typography.fontFamily.primary',
+          size: {
+            normal: 22,
+            dense: 22,
+            icon: 24
+          },
+          weight: {
+            normal: 'normal',
+            bold: 'bold'
+          },
+          transform: 'uppercase'
+        },
+
+        // Layout dimensions
+        layout: {
+          height: {
+            standard: 45,
+            dense: 50,
+            icon: 40
+          },
+          minHeight: 45,
+          padding: {
+            vertical: 5,
+            horizontal: 24,
+            icon: 10,
+            dense: 0
+          },
+          margin: 0
+        },
+
+        // Border radius values
+        radius: {
+          none: 0,
+          small: 'borders.radius.sm',     // 2px
+          medium: 'borders.radius.base',  // 4px
+          large: 'borders.radius.lg',     // 8px
+          full: 'var(--ha-card-border-radius)', // Full rounded
+          pill: 25  // For lozenge style
+        },
+
+        // Icon styling
+        icon: {
+          size: 24,
+          border: {
+            width: 6,
+            padding: {
+              standard: '1.0%',
+              dense: '1.5%',
+              minimal: '0.5%'
+            }
+          }
+        }
+      }
+    },
+
     text: {
       defaultSize: 'typography.fontSize.base',
       defaultColor: 'colors.ui.foreground',
