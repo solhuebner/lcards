@@ -136,8 +136,10 @@ export class LCARdSV2Card extends LitElement {
         try {
             // Wait for core singletons to be ready via unified API
             const core = window.lcards?.core;
-            if (!core || !core.rulesManager) {
-                lcardsLog.warn(`[LCARdSV2Card] Core singletons not ready, waiting... (${this._cardId})`);
+            const themeManager = core?.getThemeManager();
+
+            if (!core || !core.rulesManager || !themeManager || !themeManager.initialized) {
+                lcardsLog.warn(`[LCARdSV2Card] Core singletons not ready, waiting... (${this._cardId}) - core: ${!!core}, rules: ${!!core?.rulesManager}, theme: ${!!themeManager}, themeInit: ${!!themeManager?.initialized}`);
                 // Retry after a short delay
                 setTimeout(() => this._initializeSingletons(), 100);
                 return;

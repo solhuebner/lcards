@@ -490,11 +490,6 @@ export const lcarsClassicTokens = {
       defaultPadding: 'spacing.scale.4'
     },
 
-    button: {
-      defaultColor: 'colors.accent.primary',
-      defaultRadius: 'borders.radius.lg'
-    },
-
     chart: {
       // ============================================================================
       // SERIES COLORS (Primary data visualization)

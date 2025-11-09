@@ -28,6 +28,7 @@ import { AnimationManager } from '../msd/animation/AnimationManager.js';
 import { CoreValidationService } from './validation-service/index.js';
 
 import { StylePresetManager } from '../msd/presets/StylePresetManager.js';  // ✅ Real MSD StylePresetManager
+import { loadBuiltinPacks } from '../msd/packs/loadBuiltinPacks.js';
 import { AnimationRegistry } from '../msd/animation/AnimationRegistry.js';  // ✅ Real MSD AnimationRegistry
 import { LCARdSActionHandler } from '../base/LCARdSActionHandler.js';  // ✅ Unified action handling
 
@@ -128,8 +129,15 @@ class LCARdSCore {
 
             // Initialize ThemeManager (Phase 2a) - ✅ Real MSD ThemeManager as singleton
             this.themeManager = new ThemeManager();
-            // NOTE: ThemeManager will be properly initialized later with packs by MSD SystemsManager
-            lcardsLog.debug('[LCARdSCore] ✅ ThemeManager created (MSD will initialize with packs)');
+
+            // Initialize with builtin packs immediately - cards can augment later
+            try {
+                const builtinPacks = loadBuiltinPacks(['core', 'builtin_themes']);
+                await this.themeManager.initialize(builtinPacks, 'lcars-classic');
+                lcardsLog.info('[LCARdSCore] ✅ ThemeManager initialized with builtin themes');
+            } catch (error) {
+                lcardsLog.error('[LCARdSCore] ❌ ThemeManager initialization failed:', error);
+            }
 
             // Initialize AnimationManager (Phase 2a)
             this.animationManager = new AnimationManager(null); // No systemsManager in core
@@ -149,22 +157,11 @@ class LCARdSCore {
             // This now includes both preset management AND CSS utilities
             this.stylePresetManager = new StylePresetManager();
 
-            // ✅ CRITICAL: Load builtin packs at singleton startup for V2-only pages
-            // This ensures themes and presets are available even without MSD cards
+            // Initialize StylePresetManager with same builtin packs (ThemeManager already initialized above)
             try {
-                const { loadBuiltinPacks } = await import('../msd/packs/loadBuiltinPacks.js');
                 const builtinPacks = loadBuiltinPacks(['core', 'lcards_buttons', 'builtin_themes']);
                 await this.stylePresetManager.initialize(builtinPacks);
                 lcardsLog.debug('[LCARdSCore] ✅ StylePresetManager initialized with builtin packs:', builtinPacks.map(p => p.id));
-
-                // Also initialize ThemeManager with builtin themes if available
-                if (builtinPacks.length > 0) {
-                    const themesPack = builtinPacks.find(p => p.themes);
-                    if (themesPack && this.themeManager) {
-                        await this.themeManager.initialize(builtinPacks);
-                        lcardsLog.debug('[LCARdSCore] ✅ ThemeManager initialized with builtin themes');
-                    }
-                }
             } catch (error) {
                 lcardsLog.warn('[LCARdSCore] ⚠️ Failed to load builtin packs (V2 cards may have limited styling):', error);
             }
