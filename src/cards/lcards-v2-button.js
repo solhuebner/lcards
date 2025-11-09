@@ -22,7 +22,10 @@
  */
 
 import { html, css } from 'lit';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { LCARdSV2Card } from '../base/LCARdSV2Card.js';
+import { ButtonRenderer } from '../msd/renderer/core/ButtonRenderer.js';
+import { OverlayUtils } from '../msd/renderer/OverlayUtils.js';
 import { lcardsLog } from '../utils/lcards-logging.js';
 
 export class LCARdSV2ButtonCard extends LCARdSV2Card {
@@ -38,7 +41,13 @@ export class LCARdSV2ButtonCard extends LCARdSV2Card {
 
             // Template processing results
             _processedText: { type: String, state: true },
-            _processedState: { type: String, state: true }
+            _processedLabel: { type: String, state: true },
+            _processedValue: { type: String, state: true },
+            _processedState: { type: String, state: true },
+
+            // SVG rendering state
+            _svgDimensions: { type: Object, state: true },
+            _pendingActionInfo: { type: Object, state: true }
         };
     }
 
@@ -46,6 +55,24 @@ export class LCARdSV2ButtonCard extends LCARdSV2Card {
         return [
             super.styles,
             css`
+                /* SVG Button Styles */
+                .v2-button-svg {
+                    display: block;
+                    width: 100%;
+                    height: auto;
+                    cursor: pointer;
+                    user-select: none;
+                }
+
+                .v2-button-svg:hover {
+                    opacity: 0.95;
+                }
+
+                .v2-button-svg:active {
+                    opacity: 0.85;
+                }
+
+                /* Fallback CSS Button Styles (used when ButtonRenderer fails) */
                 .v2-button {
                     display: flex;
                     align-items: center;
@@ -112,7 +139,15 @@ export class LCARdSV2ButtonCard extends LCARdSV2Card {
 
                 /* Rule-based styling overrides */
                 .v2-button[data-rule-applied="true"] {
-                    position: relative; /* Applied when rules modify the button */
+                    position: relative;
+                }
+
+                /* Loading state */
+                .v2-card-loading {
+                    padding: 20px;
+                    text-align: center;
+                    color: var(--secondary-text-color);
+                    font-size: 14px;
                 }
             `
         ];
@@ -126,13 +161,337 @@ export class LCARdSV2ButtonCard extends LCARdSV2Card {
         this._buttonStyle = {};
         this._isPressed = false;
         this._actionsSetup = false;
+        this._stateObj = null;
 
         // Template processing results
         this._processedText = null;
+        this._processedLabel = null;
+        this._processedValue = null;
         this._processedState = null;
 
-        // Action handler cleanup
+        // Action handler cleanup and state
         this._actionCleanup = null;
+        this._actionSetupInProgress = false;
+        this._actionSetupRetried = false;
+
+        // SVG rendering setup
+        this._svgDimensions = { width: 200, height: 60 }; // Default button size
+        this._pendingActionInfo = null;
+        // Note: Using static ButtonRenderer.render() - no instance needed
+    }
+
+    /**
+     * Load button preset from StylePresetManager
+     * Supports both legacy flat format and new nested format
+     * @private
+     */
+    async _loadButtonPreset() {
+        // Check for preset in both legacy (flat) and new (nested) locations
+        const presetName = this.config?.lcars_button_preset || this.config?.style?.lcars_button_preset;
+
+        if (!presetName) {
+            return {};
+        }
+
+        if (!this.systemsManager) {
+            lcardsLog.debug(`[LCARdSV2ButtonCard] SystemsManager not ready for preset loading (${this._cardId})`);
+            return {};
+        }
+
+        try {
+            const preset = this.systemsManager.getStylePreset('button', presetName);
+            if (preset && Object.keys(preset).length > 0) {
+                lcardsLog.debug(`[LCARdSV2ButtonCard] ✅ Loaded preset '${presetName}':`, preset);
+                return preset;
+            } else {
+                lcardsLog.debug(`[LCARdSV2ButtonCard] Preset '${presetName}' returned empty or null`);
+            }
+        } catch (error) {
+            lcardsLog.warn(`[LCARdSV2ButtonCard] ⚠️ Failed to load preset '${presetName}':`, error);
+        }
+
+        return {};
+    }
+
+    /**
+     * Build texts array for ButtonRenderer from unified configuration
+     * Supports both legacy format and new nested format
+     * @param {Object} config - Unified configuration object
+     * @private
+     */
+    _buildTextsArray(config = this.config) {
+        const texts = [];
+
+        // Handle unified format: label and value fields (MSD compatibility)
+        if (config.label) {
+            texts.push({
+                text: this._processedLabel || config.label,
+                position: config.style?.label_position || 'center',
+                textType: 'label'
+            });
+        }
+
+        if (config.value) {
+            texts.push({
+                text: this._processedValue || config.value,
+                position: config.style?.value_position || 'bottom-right',
+                textType: 'value',
+                fontSize: 12
+            });
+        }
+
+        // Legacy text field support (backward compatibility)
+        if (config.text && !config.label) {
+            texts.push({
+                text: this._processedText || config.text,
+                position: 'center',
+                textType: 'label'
+            });
+        }
+
+        // Entity name fallback
+        if (!config.text && !config.label && config.entity && this.hass?.states[config.entity]) {
+            const entity = this.hass.states[config.entity];
+            texts.push({
+                text: entity.attributes.friendly_name || 'Button',
+                position: 'center',
+                textType: 'label'
+            });
+        }
+
+        // State display (backward compatibility)
+        if (config.show_state !== false && this._processedState && !config.value) {
+            texts.push({
+                text: this._processedState,
+                position: 'bottom-right',
+                textType: 'value',
+                fontSize: 12,
+                opacity: 0.8
+            });
+        }
+
+        // Advanced multiple texts (from style.text.texts array)
+        if (config.style?.text?.texts && Array.isArray(config.style.text.texts)) {
+            texts.push(...config.style.text.texts);
+        }
+
+        // Legacy texts array support
+        if (config.texts && Array.isArray(config.texts)) {
+            texts.push(...config.texts);
+        }
+
+        // Icon as text element (if present)
+        if (config.icon) {
+            texts.unshift({ // Add at beginning for proper z-order
+                text: config.icon, // Just the icon name, ButtonRenderer should handle it
+                position: config.icon_position || 'left',
+                textType: 'icon',
+                fontSize: 18
+            });
+        }
+
+        return texts;
+    }
+
+    /**
+     * Build MSD-compatible button config (like ButtonOverlay)
+     * @private
+     */
+    _buildMSDButtonConfig() {
+        const unifiedConfig = this._parseUnifiedConfig();
+
+        // Create buttonConfig exactly like MSD ButtonOverlay does
+        // Use processed templates when available
+        return {
+            id: this._cardId || 'v2-button',
+            label: this._processedLabel || unifiedConfig.label,
+            content: this._processedValue || unifiedConfig.value,
+            texts: this._buildTextsArray(unifiedConfig),
+            tap_action: unifiedConfig.tap_action,
+            hold_action: unifiedConfig.hold_action,
+            double_tap_action: unifiedConfig.double_tap_action,
+            // Store raw content for updates (like MSD)
+            _raw: unifiedConfig,
+            _originalContent: unifiedConfig.label || unifiedConfig.value
+        };
+    }
+
+    /**
+     * Resolve MSD-compatible button style (like ButtonOverlay)
+     * @private
+     */
+    _resolveMSDButtonStyle() {
+        const unifiedConfig = this._parseUnifiedConfig();
+
+        // Use the same pattern as ButtonOverlay._resolveButtonOverlayStyles()
+        const style = unifiedConfig.style || {};
+
+        // Get preset if specified (like MSD does)
+        let buttonStyle = { ...style };
+
+        const presetName = style.lcars_button_preset || unifiedConfig.lcars_button_preset;
+        lcardsLog.debug(`[LCARdSV2ButtonCard] Looking for preset: '${presetName}', systemsManager available: ${!!this.systemsManager}`);
+
+        if (presetName && this.systemsManager) {
+            try {
+                const preset = this.systemsManager.getStylePreset('button', presetName);
+                lcardsLog.debug(`[LCARdSV2ButtonCard] Got preset result:`, preset);
+
+                if (preset && Object.keys(preset).length > 0) {
+                    // Merge preset with style (preset has lower priority)
+                    buttonStyle = { ...preset, ...style };
+                    lcardsLog.debug(`[LCARdSV2ButtonCard] ✅ Applied MSD preset '${presetName}':`, preset);
+                } else {
+                    lcardsLog.warn(`[LCARdSV2ButtonCard] Preset '${presetName}' returned empty or null`);
+                }
+            } catch (error) {
+                lcardsLog.warn(`[LCARdSV2ButtonCard] Failed to get MSD preset '${presetName}':`, error);
+            }
+        } else if (presetName && !this.systemsManager) {
+            lcardsLog.warn(`[LCARdSV2ButtonCard] Preset '${presetName}' requested but systemsManager not available`);
+        }
+
+        // Add rule-based styling (from patches/rules - medium priority)
+        const ruleStyle = this._buttonStyle || {};
+        buttonStyle = { ...buttonStyle, ...ruleStyle };
+
+        // Add state-based styling
+        const stateStyle = this._getStateBasedStyle();
+        buttonStyle = { ...buttonStyle, ...stateStyle };
+
+        // Convert V2-style properties to ButtonRenderer format (for backwards compatibility)
+        const convertedStyle = this._convertV2StyleToButtonRenderer(buttonStyle);
+
+        lcardsLog.debug(`[LCARdSV2ButtonCard] Style resolution steps:`, {
+            originalStyle: style,
+            presetName: presetName,
+            withRules: {...buttonStyle, ...ruleStyle},
+            withState: {...buttonStyle, ...ruleStyle, ...stateStyle},
+            converted: convertedStyle
+        });
+
+        return convertedStyle;
+    }    /**
+     * Parse config to support both legacy flat and new nested formats
+     * @private
+     */
+    _parseUnifiedConfig() {
+        const config = this.config;
+
+        // Start with base config
+        const unified = { ...config };
+
+        // Handle legacy flat properties by moving them into style object
+        if (!unified.style) {
+            unified.style = {};
+        }
+
+        // Migrate legacy preset (flat -> nested)
+        if (config.lcars_button_preset && !unified.style.lcars_button_preset) {
+            unified.style.lcars_button_preset = config.lcars_button_preset;
+        }
+
+        // Migrate legacy text preset
+        if (config.lcars_text_preset && !unified.style.lcars_text_preset) {
+            unified.style.lcars_text_preset = config.lcars_text_preset;
+        }
+
+        // Migrate legacy colors
+        if (config.color && !unified.style.color) {
+            unified.style.color = config.color;
+        }
+        if (config.background_color && !unified.style.background_color) {
+            unified.style.background_color = config.background_color;
+        }
+
+        // Migrate legacy bracket properties
+        if (config.lcars_brackets && !unified.style.bracket_style) {
+            unified.style.bracket_style = config.lcars_brackets;
+        }
+
+        // Handle text vs label/value (legacy compatibility)
+        if (config.text && !unified.label && !unified.value) {
+            unified.label = config.text;
+        }
+
+        // If no label is set but we have an entity, use the entity's friendly name
+        if (!unified.label && !config.text && config.entity && this.hass?.states[config.entity]) {
+            const entity = this.hass.states[config.entity];
+            unified.label = entity.attributes.friendly_name || config.entity;
+        }
+
+        // Add show_state support
+        if (config.show_state && this._stateObj) {
+            unified.value = unified.value || this._stateObj.state;
+        }
+
+        lcardsLog.debug(`[LCARdSV2ButtonCard] Parsed unified config:`, {
+            original: config,
+            unified: unified
+        });
+
+        return unified;
+    }
+
+
+
+    /**
+     * Convert V2-style properties to ButtonRenderer format
+     * @private
+     */
+    _convertV2StyleToButtonRenderer(style) {
+        const converted = { ...style };
+
+        // Map common CSS properties to ButtonRenderer equivalents
+        if (style.backgroundColor) converted.color = style.backgroundColor;
+        if (style.borderColor) converted.border_color = style.borderColor;
+        if (style.borderRadius) converted.border_radius = parseInt(style.borderRadius);
+        if (style.color) converted.label_color = style.color;
+
+        // Handle advanced features
+        if (this.config.effects) {
+            converted.gradient_enabled = this.config.effects.gradient;
+            converted.glow_enabled = this.config.effects.glow;
+            converted.pattern_enabled = this.config.effects.pattern;
+        }
+
+        // Handle individual borders (NEW feature)
+        if (this.config.border) {
+            const border = this.config.border;
+            if (border.top) converted.border_top_width = border.top.width;
+            if (border.right) converted.border_right_width = border.right.width;
+            if (border.bottom) converted.border_bottom_width = border.bottom.width;
+            if (border.left) converted.border_left_width = border.left.width;
+        }
+
+        return converted;
+    }
+
+    /**
+     * Get state-based styling
+     * @private
+     */
+    _getStateBasedStyle() {
+        const stateStyle = {};
+
+        // Apply state-specific colors
+        switch (this._buttonState) {
+            case 'on':
+                stateStyle.color = 'var(--lcars-button-on-background, var(--accent-color))';
+                stateStyle.border_color = 'var(--lcars-button-on-border, var(--accent-color))';
+                break;
+            case 'off':
+                stateStyle.color = 'var(--lcars-button-off-background, var(--disabled-color))';
+                stateStyle.border_color = 'var(--lcars-button-off-border, var(--disabled-color))';
+                break;
+            case 'unavailable':
+                stateStyle.color = 'var(--lcars-button-unavailable-background, #666)';
+                stateStyle.border_color = 'var(--lcars-button-unavailable-border, #666)';
+                stateStyle.opacity = 0.5;
+                break;
+        }
+
+        return stateStyle;
     }
 
     /**
@@ -193,11 +552,17 @@ export class LCARdSV2ButtonCard extends LCARdSV2Card {
     }
 
     /**
-     * Set up unified action listeners on the button element
-     * Now uses the universal base class action setup
+     * Set up unified action listeners on the SVG button element
+     * Now works with ButtonRenderer SVG output
      */
-    _setupActionListeners() {
-        lcardsLog.debug(`[LCARdSV2ButtonCard] Setting up action listeners (${this._cardId})`);
+    async _setupActionListeners() {
+        // Prevent duplicate setups
+        if (this._actionsSetup || this._actionSetupInProgress) {
+            return;
+        }
+
+        this._actionSetupInProgress = true;
+        lcardsLog.debug(`[LCARdSV2ButtonCard] Setting up SVG action listeners (${this._cardId})`);
 
         // Clean up previous listeners
         if (this._actionCleanup) {
@@ -205,9 +570,24 @@ export class LCARdSV2ButtonCard extends LCARdSV2Card {
             this._actionCleanup = null;
         }
 
-        const buttonElement = this.shadowRoot?.querySelector('.v2-button');
-        if (!buttonElement || !this.config) {
-            lcardsLog.warn(`[LCARdSV2ButtonCard] ❌ Action setup failed - missing requirements (${this._cardId})`);
+        // Wait for SVG to be fully rendered
+        await this.updateComplete;
+
+        const svgElement = this.shadowRoot?.querySelector('.v2-button-svg');
+        const buttonGroup = svgElement?.querySelector('[data-button-id]');
+
+        if (!buttonGroup || !this.config) {
+            this._actionSetupInProgress = false;
+            lcardsLog.warn(`[LCARdSV2ButtonCard] ❌ SVG action setup failed - missing requirements (${this._cardId})`);
+
+            // Only retry once more after a longer delay
+            if (!this._actionSetupRetried) {
+                this._actionSetupRetried = true;
+                setTimeout(() => {
+                    this._actionSetupInProgress = false;
+                    this._setupActionListeners();
+                }, 500);
+            }
             return;
         }
 
@@ -225,11 +605,12 @@ export class LCARdSV2ButtonCard extends LCARdSV2Card {
             }
         });
 
-        // Use universal base class action setup
-        this._actionCleanup = this.setupActions(buttonElement, actions);
+        // Use universal base class action setup with SVG element
+        this._actionCleanup = this.setupActions(buttonGroup, actions);
         this._actionsSetup = true;
+        this._actionSetupInProgress = false;
 
-        lcardsLog.debug(`[LCARdSV2ButtonCard] ✅ Action listeners set up: ${Object.keys(actions).join(', ')} (${this._cardId})`);
+        lcardsLog.debug(`[LCARdSV2ButtonCard] ✅ SVG Action listeners set up: ${Object.keys(actions).join(', ')} (${this._cardId})`);
     }
 
     /**
@@ -377,17 +758,21 @@ export class LCARdSV2ButtonCard extends LCARdSV2Card {
     }
 
     /**
-     * Update button state based on entity
+     * Update button state based on entity and handle async preset loading
      */
     updated(changedProperties) {
         super.updated(changedProperties);
 
         if (changedProperties.has('hass') && this.hass && this.config?.entity) {
             const entity = this.hass.states[this.config.entity];
-            if (entity) {
-                this._buttonState = entity.state;
-            } else {
-                this._buttonState = 'unavailable';
+            const newState = entity ? entity.state : 'unavailable';
+
+            // Update state object for template processing
+            this._stateObj = entity;
+
+            if (this._buttonState !== newState) {
+                this._buttonState = newState;
+                // State change will trigger natural re-render via property
             }
 
             // Process templates when entity state changes
@@ -397,11 +782,19 @@ export class LCARdSV2ButtonCard extends LCARdSV2Card {
         if (changedProperties.has('config') && this.config) {
             // Process templates when config changes
             this._processTemplates();
+
+            // Load preset asynchronously when config changes (no forced re-render)
+            this._loadAndApplyPresetAsync();
         }
 
-        // Fallback: retry setting up actions if they failed initially
-        if (!this._actionsSetup && this.config && this.systemsManager) {
-            lcardsLog.trace(`[LCARdSV2ButtonCard] Retrying action setup in updated() (${this._cardId})`);
+        if (changedProperties.has('systemsManager') && this.systemsManager) {
+            // Load preset when systems manager becomes available
+            this._loadAndApplyPresetAsync();
+        }
+
+        // Only retry action setup if we haven't succeeded and have the prerequisites
+        if (!this._actionsSetup && !this._actionSetupInProgress && this.config && this.systemsManager) {
+            // Use a single delayed retry instead of immediate
             requestAnimationFrame(() => {
                 this._setupActionListeners();
             });
@@ -409,7 +802,32 @@ export class LCARdSV2ButtonCard extends LCARdSV2Card {
     }
 
     /**
+     * Load preset asynchronously and trigger re-render
+     * @private
+     */
+    async _loadAndApplyPresetAsync() {
+        if (!this.config?.lcars_button_preset || this._presetLoaded) {
+            return;
+        }
+
+        try {
+            const preset = await this._loadButtonPreset();
+            if (preset && Object.keys(preset).length > 0) {
+                // Merge preset into button style (lower priority than rules/explicit)
+                this._buttonStyle = { ...preset, ...this._buttonStyle };
+                this._presetLoaded = true;
+                // Natural re-render via property change
+                this.requestUpdate();
+                lcardsLog.debug(`[LCARdSV2ButtonCard] ✅ Applied preset '${this.config.lcars_button_preset}' (${this._cardId})`);
+            }
+        } catch (error) {
+            lcardsLog.warn(`[LCARdSV2ButtonCard] ⚠️ Preset loading failed (${this._cardId}):`, error);
+        }
+    }
+
+    /**
      * Process templates for dynamic content
+     * Supports both legacy and unified config formats
      * @private
      */
     async _processTemplates() {
@@ -418,18 +836,42 @@ export class LCARdSV2ButtonCard extends LCARdSV2Card {
         }
 
         try {
-            // Process text template
+            let templatesProcessed = false;
+
+            // Process text template (legacy)
             if (this.config.text && typeof this.config.text === 'string') {
                 this._processedText = await this.processTemplate(this.config.text);
+                templatesProcessed = true;
             }
 
-            // Process state display template
+            // Process label template (unified)
+            if (this.config.label && typeof this.config.label === 'string') {
+                this._processedLabel = await this.processTemplate(this.config.label);
+                templatesProcessed = true;
+            }
+
+            // Process value template (unified)
+            if (this.config.value && typeof this.config.value === 'string') {
+                this._processedValue = await this.processTemplate(this.config.value);
+                templatesProcessed = true;
+            }
+
+            // Process state display template (legacy)
             if (this.config.state_display && typeof this.config.state_display === 'string') {
                 this._processedState = await this.processTemplate(this.config.state_display);
+                templatesProcessed = true;
+            }
+
+            // Process show_state (when enabled, get entity state)
+            if (this.config.show_state && this._stateObj) {
+                this._processedState = this._stateObj.state;
+                templatesProcessed = true;
             }
 
             // Request re-render if templates were processed
-            this.requestUpdate();
+            if (templatesProcessed) {
+                this.requestUpdate();
+            }
 
         } catch (error) {
             lcardsLog.error(`[LCARdSV2ButtonCard] Template processing failed (${this._cardId}):`, error);
@@ -463,7 +905,53 @@ export class LCARdSV2ButtonCard extends LCARdSV2Card {
     }
 
     /**
-     * Render the button
+     * Render fallback button when ButtonRenderer fails
+     * @private
+     */
+    _renderFallbackButton() {
+        lcardsLog.warn(`[LCARdSV2ButtonCard] Using CSS fallback rendering (${this._cardId})`);
+
+        const entity = this.hass?.states[this.config.entity];
+        const displayText = this._processedText || this.config.text || entity?.attributes.friendly_name || 'Button';
+        const displayState = this._processedState || entity?.state || 'unknown';
+
+        const buttonClasses = [
+            'v2-button',
+            `state-${this._buttonState}`,
+            this._isPressed ? 'pressed' : ''
+        ].filter(Boolean).join(' ');
+
+        return html`
+            <div class="v2-card-container">
+                <div class="${buttonClasses}">
+                    ${this.config.icon ? html`
+                        <ha-icon class="button-icon" .icon="${this.config.icon}"></ha-icon>
+                    ` : ''}
+                    <span class="button-text">${displayText}</span>
+                    ${this.config.show_state !== false ? html`
+                        <span class="button-state">${displayState}</span>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Render loading state
+     * @private
+     */
+    _renderLoadingState() {
+        return html`
+            <div class="v2-card-container">
+                <div class="v2-card-loading">
+                    Initializing V2 Button...
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Render the button using ButtonRenderer (SVG-based)
      */
     render() {
         if (!this.config) {
@@ -471,83 +959,96 @@ export class LCARdSV2ButtonCard extends LCARdSV2Card {
         }
 
         if (!this._initialized) {
+            return this._renderLoadingState();
+        }
+
+        // Calculate dimensions from config or use defaults
+        const size = this.config.size || this._svgDimensions;
+        const position = { x: 0, y: 0 }; // Relative to SVG coordinate system
+
+        try {
+            // Ensure global managers are available for MSD rendering
+            if (!this._ensureGlobalManagersForMSD()) {
+                lcardsLog.warn(`[LCARdSV2ButtonCard] SystemsManager not available, using fallback (${this._cardId})`);
+                return this._renderFallbackButton();
+            }
+
+            // Use MSD ButtonOverlay pattern: static render method
+            // This matches exactly how MSD ButtonOverlay works
+
+            // Build simple buttonConfig (like MSD ButtonOverlay)
+            const buttonConfig = this._buildMSDButtonConfig();
+
+            // Resolve style (like MSD ButtonOverlay)
+            const buttonStyle = this._resolveMSDButtonStyle();
+
+            // Use static ButtonRenderer.render() (exactly like MSD)
+            const result = ButtonRenderer.render(
+                buttonConfig,
+                buttonStyle,
+                size,
+                position,
+                {
+                    cellId: this._cardId,
+                    gridContext: false,
+                    cardInstance: this
+                }
+            );
+
+            // Process actions using MSD ActionHelpers (like ButtonOverlay does)
+            // Note: ActionHelpers.processOverlayActions() is called by ButtonRenderer internally
+            // when actions are present in config, so no additional action processing needed here
+
             return html`
                 <div class="v2-card-container">
-                    <div class="v2-card-loading">
-                        Initializing V2 Button...
-                    </div>
+                    <svg
+                        class="v2-button-svg"
+                        width="${size.width}"
+                        height="${size.height}"
+                        viewBox="0 0 ${size.width} ${size.height}"
+                        style="display: block; width: 100%; height: auto; max-width: ${size.width}px;"
+                    >
+                        ${unsafeHTML(result.markup)}
+                    </svg>
                 </div>
             `;
+
+        } catch (error) {
+            lcardsLog.error(`[LCARdSV2ButtonCard] ButtonRenderer failed (${this._cardId}):`, error);
+            return this._renderFallbackButton();
+        }
+    }
+
+    /**
+     * Ensure global managers are available for static ButtonRenderer.render()
+     * @private
+     */
+    _ensureGlobalManagersForMSD() {
+        if (!this.systemsManager) return false;
+
+        const core = this.systemsManager.getCore();
+        if (!core) return false;
+
+        // Ensure ThemeManager is exposed at expected window location for MSD renderers
+        if (typeof window !== 'undefined') {
+            if (!window.lcards) {
+                window.lcards = {};
+            }
+            if (!window.lcards.theme) {
+                window.lcards.theme = core.getThemeManager();
+                lcardsLog.debug(`[LCARdSV2ButtonCard] ✅ ThemeManager exposed at window.lcards.theme (${this._cardId})`);
+            }
         }
 
-        const entity = this.hass?.states[this.config.entity];
+        return true;
+    }
 
-        // Use template processing for text display
-        let displayText;
-        let displayState;
-
-        if (this.config.text) {
-            // Process text template if it exists
-            displayText = this._processedText || this.config.text;
-        } else {
-            displayText = entity?.attributes.friendly_name || 'Button';
-        }
-
-        if (this.config.state_display) {
-            // Process state display template if it exists
-            displayState = this._processedState || (entity?.state || 'unknown');
-        } else {
-            displayState = entity?.state || 'unknown';
-        }
-
-        // Compute button classes
-        const buttonClasses = [
-            'v2-button',
-            `state-${this._buttonState}`,
-            this._isPressed ? 'pressed' : ''
-        ].filter(Boolean).join(' ');
-
-        // Resolve styles using V2 style resolver
-        const baseStyle = {};
-        const themeTokens = [
-            'components.button.backgroundColor',
-            'components.button.color',
-            'components.button.borderColor',
-            'components.button.fontSize'
-        ];
-        const stateOverrides = this._getStateStyleOverrides();
-
-        let resolvedStyle = {};
-        if (this.systemsManager) {
-            resolvedStyle = this.resolveStyle(baseStyle, themeTokens, stateOverrides);
-        } else {
-            // Fallback if systems manager not ready
-            resolvedStyle = { ...baseStyle, ...stateOverrides };
-        }
-
-        // Convert to inline CSS string
-        const styleString = Object.entries(resolvedStyle)
-            .map(([key, value]) => `${key}: ${value}`)
-            .join('; ');
-
-        return html`
-            <div class="v2-card-container">
-                <div
-                    class="${buttonClasses}"
-                    style="${styleString}"
-                >
-                    ${this.config.icon ? html`
-                        <ha-icon class="button-icon" .icon="${this.config.icon}"></ha-icon>
-                    ` : ''}
-
-                    <span class="button-text">${displayText}</span>
-
-                    ${this.config.show_state !== false ? html`
-                        <span class="button-state">${displayState}</span>
-                    ` : ''}
-                </div>
-            </div>
-        `;
+    /**
+     * Legacy method redirected to MSD pattern
+     * @private
+     */
+    _resolveButtonRendererStyleSync() {
+        return this._resolveMSDButtonStyle();
     }
 
     /**
@@ -574,6 +1075,7 @@ export class LCARdSV2ButtonCard extends LCARdSV2Card {
             entity: 'light.example',
             text: 'Example Button',
             icon: 'mdi:lightbulb',
+            lcars_button_preset: 'lozenge', // NEW: Showcase preset support
             overlay_id: 'example_button',
             tags: ['example']
         };

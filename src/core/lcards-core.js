@@ -587,11 +587,11 @@ class LCARdSCore {
     }
 
     /**
-     * Get ThemeManager instance (via SystemsManager)
+     * Get ThemeManager instance
      * @returns {ThemeManager|null} Theme manager or null if not initialized
      */
     getThemeManager() {
-        return this.systemsManager?.themeManager || null;
+        return this.themeManager || null;
     }
 
     /**

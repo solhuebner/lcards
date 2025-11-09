@@ -102,6 +102,10 @@ async function initializeCustomCard() {
     // Attach the LCARdSCore singleton (imported statically)
     window.lcards.core = lcardsCore;
 
+    // Expose managers for ButtonRenderer compatibility
+    window.lcards.theme = lcardsCore.getThemeManager();
+    window.lcards.styleResolver = lcardsCore.getStylePresetManager();
+
     // Add core to debug API
     window.lcards.debug.core = () => lcardsCore.getDebugInfo();
 
@@ -126,6 +130,11 @@ async function initializeCustomCard() {
 
         await lcardsCore.initialize(stubHass);
         lcardsLog.info('[lcards.js] 🌐 Core singletons initialized on module load');
+
+        // Expose ThemeManager at expected location for MSD renderers
+        window.lcards.theme = lcardsCore.getThemeManager();
+        lcardsLog.debug('[lcards.js] ✅ ThemeManager exposed at window.lcards.theme for MSD compatibility');
+
     } catch (error) {
         lcardsLog.warn('[lcards.js] ⚠️ Core singleton initialization deferred (will init on first card):', error);
         // This is okay - singletons will initialize when first card loads with real HASS
