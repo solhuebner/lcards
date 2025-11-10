@@ -1,4 +1,4 @@
-import { linearMap } from '../util/linearMap.js';
+import { linearMap } from '../../utils/linearMap.js';
 
 export function compileRule(rule, issues) {
   const raw = rule.when;

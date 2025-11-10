@@ -1,5 +1,5 @@
-import { perfTime, perfTimeAsync, perfCount } from '../util/performance.js';
-import { computeObjectHash } from '../util/hashing.js';
+import { perfTime, perfTimeAsync, perfCount } from '../../utils/performance.js';
+import { computeObjectHash } from '../../utils/hashing.js';
 
 /**
  * Animation Registry for efficient animation reuse

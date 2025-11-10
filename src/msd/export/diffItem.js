@@ -1,4 +1,4 @@
-import { stableStringify } from '../util/stableStringify.js';
+import { stableStringify } from '../../utils/stableStringify.js';
 
 export function diffItem(merged, collection, id) {
   const chain = merged.__provenance?.[collection]?.[id];

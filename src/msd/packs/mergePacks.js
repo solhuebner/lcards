@@ -1,5 +1,5 @@
-import { computeCanonicalChecksum } from '../util/checksum.js';
-import { perfTime, perfTimeAsync, perfCount } from '../util/performance.js';
+import { computeCanonicalChecksum } from '../../utils/checksum.js';
+import { perfTime, perfTimeAsync, perfCount } from '../../utils/performance.js';
 import { loadBuiltinPacks } from './loadBuiltinPacks.js';
 import { chartTemplateRegistry } from '../templates/ChartTemplateRegistry.js';
 

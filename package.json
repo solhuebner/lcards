@@ -1,6 +1,6 @@
 {
   "name": "lcards",
-  "version": "1.0.0",
+  "version": "1.6.41",
   "description": "LCARdS - Modern LCARS card system for Home Assistant",
   "main": "index.js",
   "author": "Jason Weyermars",
@@ -26,6 +26,7 @@
   "devDependencies": {
     "clean-webpack-plugin": "^4.0.0",
     "js-yaml": "^4.1.0",
+    "jsdom": "^27.1.0",
     "rimraf": "^6.0.1",
     "webpack": "^5.94.0",
     "webpack-bundle-analyzer": "^4.10.2",

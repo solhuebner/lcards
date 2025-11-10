@@ -1,4 +1,4 @@
-import { deepMerge } from '../util/deepMerge.js';
+import { deepMerge } from '../../utils/deepMerge.js';
 
 /**
  * Build desired animation instances.

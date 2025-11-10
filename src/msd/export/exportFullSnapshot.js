@@ -1,4 +1,4 @@
-import { stableStringify } from '../util/stableStringify.js';
+import { stableStringify } from '../../utils/stableStringify.js';
 
 function stripMeta(item, includeMeta) {
   if (includeMeta) return item;

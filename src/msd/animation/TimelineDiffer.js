@@ -1,5 +1,5 @@
-import { perfTime } from '../util/performance.js';
-import { computeObjectHash } from '../util/hashing.js';
+import { perfTime } from '../../utils/performance.js';
+import { computeObjectHash } from '../../utils/hashing.js';
 
 /**
  * Timeline diffing system for efficient animation updates

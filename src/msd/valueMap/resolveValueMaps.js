@@ -1,5 +1,5 @@
 import { perfInc, perfTime } from '../perf/PerfCounters.js';
-import { linearMap } from '../util/linearMap.js';
+import { linearMap } from '../../utils/linearMap.js';
 
 export function resolveValueMaps(resolvedOverlays, ctx) {
   return perfTime('value_map.resolve', () => {

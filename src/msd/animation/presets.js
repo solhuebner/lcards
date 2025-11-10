@@ -15,7 +15,7 @@
  */
 
 import { lcardsLog } from '../../utils/lcards-logging.js';
-import { deepMerge } from '../util/deepMerge.js';
+import { deepMerge } from '../../utils/deepMerge.js';
 
 const _presets = new Map();
 

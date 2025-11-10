@@ -3,7 +3,7 @@
  * 🧠 Features dependency tracking, conditional evaluation, overlay patching, and comprehensive rule tracing
  */
 
-import { perfTime, perfCount } from '../util/performance.js';
+import { perfTime, perfCount } from '../../utils/performance.js';
 import { globalTraceBuffer } from './RuleTraceBuffer.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import { BaseService } from '../../core/BaseService.js';

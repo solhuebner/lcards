@@ -1,5 +1,5 @@
-import { perfTime, perfCount } from '../util/performance.js';
-import { computeObjectHash } from '../util/hashing.js';
+import { perfTime, perfCount } from '../../utils/performance.js';
+import { computeObjectHash } from '../../utils/hashing.js';
 
 /**
  * Routing cache with intelligent invalidation

@@ -1,5 +1,5 @@
 import { perfInc } from '../perf/PerfCounters.js';
-import { stableStringify } from '../util/stableStringify.js';
+import { stableStringify } from '../../utils/stableStringify.js';
 
 /**
  * Router adapter:
