@@ -137,7 +137,7 @@ export class SystemsManager extends BaseService {
       if (packLayers.length > 0) {
         lcardsLog.debug('[SystemsManager] 📦 Loading packs from merged config provenance');
 
-        const { loadBuiltinPacks } = await import('../packs/loadBuiltinPacks.js');
+        const { loadBuiltinPacks } = await import('../../core/packs/loadBuiltinPacks.js');
         const packNames = packLayers.map(layer => layer.pack);
 
         // Ensure 'core' and 'builtin_themes' packs are always loaded
@@ -167,7 +167,7 @@ export class SystemsManager extends BaseService {
       // Fallback: Load core and builtin_themes packs
       lcardsLog.debug('[SystemsManager] 📦 No pack provenance, loading core + builtin_themes');
       try {
-        const { loadBuiltinPacks } = await import('../packs/loadBuiltinPacks.js');
+        const { loadBuiltinPacks } = await import('../../core/packs/loadBuiltinPacks.js');
         packs = loadBuiltinPacks(['core', 'builtin_themes']);
         lcardsLog.debug('[SystemsManager] ✅ Loaded fallback packs');
       } catch (error) {

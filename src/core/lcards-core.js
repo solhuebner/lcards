@@ -28,7 +28,7 @@ import { AnimationManager } from '../msd/animation/AnimationManager.js';
 import { CoreValidationService } from './validation-service/index.js';
 
 import { StylePresetManager } from './presets/StylePresetManager.js';  // ✅ Moved to Core
-import { loadBuiltinPacks } from '../msd/packs/loadBuiltinPacks.js';
+import { loadBuiltinPacks } from './packs/loadBuiltinPacks.js';  // ✅ Moved to Core
 import { AnimationRegistry } from '../msd/animation/AnimationRegistry.js';  // ✅ Real MSD AnimationRegistry
 import { LCARdSActionHandler } from '../base/LCARdSActionHandler.js';  // ✅ Unified action handling
 

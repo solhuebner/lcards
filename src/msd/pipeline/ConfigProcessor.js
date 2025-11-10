@@ -1,4 +1,4 @@
-import { mergePacks } from '../packs/mergePacks.js';
+import { mergePacks } from '../../core/packs/mergePacks.js';
 import { validateMerged } from '../validation/validateMerged.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 

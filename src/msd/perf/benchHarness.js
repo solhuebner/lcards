@@ -2,7 +2,7 @@
    Run with: node src/msd/perf/benchHarness.js
    (Feature flag not required; directly exercises modules)
 */
-import { mergePacks } from '../packs/mergePacks.js';
+import { mergePacks } from '../../core/packs/mergePacks.js';
 import { buildCardModel } from '../model/CardModel.js';
 import { RulesEngine } from '../rules/RulesEngine.js';
 import { resolveValueMaps } from '../valueMap/resolveValueMaps.js';

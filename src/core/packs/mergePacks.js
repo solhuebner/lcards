@@ -1,7 +1,7 @@
 import { computeCanonicalChecksum } from '../../utils/checksum.js';
 import { perfTime, perfTimeAsync, perfCount } from '../../utils/performance.js';
 import { loadBuiltinPacks } from './loadBuiltinPacks.js';
-import { chartTemplateRegistry } from '../templates/ChartTemplateRegistry.js';
+import { chartTemplateRegistry } from '../../msd/templates/ChartTemplateRegistry.js';
 
 /**
  * Single consolidated merge algorithm - COMPLETE REPLACEMENT
