@@ -6,7 +6,6 @@
 import { perfTime, perfCount } from '../util/performance.js';
 import { globalTraceBuffer } from './RuleTraceBuffer.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
-import { ApexChartsOverlayRenderer } from '../renderer/ApexChartsOverlayRenderer.js';
 import { BaseService } from '../../core/BaseService.js';
 
 export class RulesEngine extends BaseService {
