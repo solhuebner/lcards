@@ -1,0 +1,256 @@
+import { lcardsLog } from '../../utils/lcards-logging.js';
+import { TemplateEvaluator } from './TemplateEvaluator.js';
+import { TemplateDetector } from './TemplateDetector.js';
+import { TemplateParser } from './TemplateParser.js';
+
+/**
+ * SimpleCardTemplateEvaluator - Evaluates button-card style templates
+ *
+ * Extracted from LCARdSSimpleCard.processTemplate()
+ *
+ * Supports:
+ * - JavaScript templates: [[[return entity.state]]]
+ * - Token templates: {{entity.state}}, {{variables.color}}
+ *
+ * Context requirements:
+ * - entity: The Home Assistant entity object
+ * - hass: The Home Assistant connection object
+ * - config: Card configuration
+ * - (optional) variables: Custom variables
+ * - (optional) theme: Theme configuration
+ *
+ * @extends TemplateEvaluator
+ * @module SimpleCardTemplateEvaluator
+ */
+export class SimpleCardTemplateEvaluator extends TemplateEvaluator {
+  /**
+   * Create SimpleCard template evaluator
+   *
+   * @param {Object} context - Evaluation context
+   * @param {Object} context.entity - Home Assistant entity
+   * @param {Object} context.hass - Home Assistant connection
+   * @param {Object} context.config - Card configuration
+   * @param {Object} [context.variables] - Custom variables
+   * @param {Object} [context.theme] - Theme configuration
+   */
+  constructor(context) {
+    super(context);
+
+    if (!context.hass) {
+      lcardsLog.warn('[SimpleCardTemplateEvaluator] Created without hass in context');
+    }
+  }
+
+  /**
+   * Evaluate template content
+   *
+   * @param {string} content - Template content to evaluate
+   * @returns {string} Evaluated content
+   *
+   * @example
+   * const evaluator = new SimpleCardTemplateEvaluator({
+   *   entity: entityObj,
+   *   hass: hassObj,
+   *   config: configObj
+   * });
+   *
+   * evaluator.evaluate('[[[return entity.state]]]')
+   * // => 'on'
+   *
+   * evaluator.evaluate('{{entity.attributes.friendly_name}}')
+   * // => 'Living Room Light'
+   */
+  evaluate(content) {
+    if (!this._validateContent(content)) {
+      return content;
+    }
+
+    return this._safeEvaluate(() => {
+      const types = TemplateDetector.detectTemplateTypes(content);
+
+      // Quick exit if no templates
+      if (!types.hasJavaScript && !types.hasTokens) {
+        return content;
+      }
+
+      let result = content;
+
+      // Process JavaScript templates first
+      if (types.hasJavaScript) {
+        result = this._evaluateJavaScript(result);
+      }
+
+      // Then process tokens
+      if (types.hasTokens) {
+        result = this._evaluateTokens(result);
+      }
+
+      this._logEvaluation(content, result, { types });
+
+      return result;
+    }, content, content);
+  }
+
+  /**
+   * Evaluate JavaScript templates [[[code]]]
+   *
+   * @private
+   * @param {string} content - Content with JavaScript templates
+   * @returns {string} Content with templates evaluated
+   */
+  _evaluateJavaScript(content) {
+    return content.replace(/\[\[\[([\s\S]*?)\]\]\]/g, (match, code) => {
+      try {
+        return this._safeEvalCode(code.trim());
+      } catch (error) {
+        lcardsLog.warn('[SimpleCardTemplateEvaluator] JavaScript evaluation failed:', error);
+        return match; // Return original if evaluation fails
+      }
+    });
+  }
+
+  /**
+   * Evaluate token templates {{token}}
+   *
+   * @private
+   * @param {string} content - Content with token templates
+   * @returns {string} Content with tokens evaluated
+   */
+  _evaluateTokens(content) {
+    return content.replace(/\{\{([^}]+)\}\}/g, (match, token) => {
+      try {
+        const value = this._resolveToken(token.trim());
+        return value !== null && value !== undefined ? String(value) : '';
+      } catch (error) {
+        lcardsLog.warn('[SimpleCardTemplateEvaluator] Token resolution failed:', error);
+        return match; // Return original if resolution fails
+      }
+    });
+  }
+
+  /**
+   * Safely evaluate JavaScript code with context
+   *
+   * @private
+   * @param {string} code - JavaScript code to evaluate
+   * @returns {string} Evaluation result
+   */
+  _safeEvalCode(code) {
+    // Create evaluation context with safe access to required objects
+    const evalContext = {
+      entity: this.context.entity,
+      config: this.context.config,
+      hass: this.context.hass,
+      states: this.context.hass?.states || {},
+      user: this.context.hass?.user || {},
+      variables: this.context.variables || {},
+      theme: this.context.theme || {},
+      // Safe helper functions
+      Math,
+      String,
+      Number,
+      Boolean,
+      parseFloat,
+      parseInt,
+      Array,
+      Object,
+      Date
+    };
+
+    // Create function with context variables as parameters
+    const func = new Function(
+      ...Object.keys(evalContext),
+      `return ${code}`
+    );
+
+    // Execute with context values
+    const value = func(...Object.values(evalContext));
+
+    return value !== null && value !== undefined ? String(value) : '';
+  }
+
+  /**
+   * Resolve dot-notation token path
+   *
+   * @private
+   * @param {string} token - Token path (e.g., 'entity.state', 'variables.color')
+   * @returns {*} Resolved value
+   */
+  _resolveToken(token) {
+    const parsed = TemplateParser.parseToken(token);
+    const { parts } = parsed;
+
+    if (parts.length === 0) {
+      return null;
+    }
+
+    // Start with the full context
+    let current = this.context;
+
+    // Navigate through the path
+    for (const part of parts) {
+      if (current === null || current === undefined) {
+        return null;
+      }
+      current = current[part];
+    }
+
+    return current;
+  }
+
+  /**
+   * Get dependencies from template content
+   *
+   * @param {string} content - Template content to analyze
+   * @returns {Array<string>} Array of dependency identifiers
+   *
+   * @example
+   * evaluator.getDependencies('[[[return entity.state]]]')
+   * // => ['entity']
+   *
+   * evaluator.getDependencies('{{entity.state}} {{variables.color}}')
+   * // => ['entity', 'variables']
+   */
+  getDependencies(content) {
+    if (!this._validateContent(content)) {
+      return [];
+    }
+
+    const dependencies = new Set();
+
+    // Extract from JavaScript templates
+    const jsTemplates = TemplateParser.extractJavaScript(content);
+    jsTemplates.forEach(template => {
+      template.tokens.forEach(token => dependencies.add(token));
+    });
+
+    // Extract from token templates
+    const tokens = TemplateParser.extractTokens(content);
+    tokens.forEach(token => {
+      if (token.parts.length > 0) {
+        dependencies.add(token.parts[0]);
+      }
+    });
+
+    return Array.from(dependencies);
+  }
+
+  /**
+   * Update context (override to add validation)
+   *
+   * @param {Object} newContext - New context to merge
+   */
+  updateContext(newContext) {
+    super.updateContext(newContext);
+
+    // Warn if critical context is missing
+    if (!this.context.hass) {
+      lcardsLog.warn('[SimpleCardTemplateEvaluator] Context missing hass object');
+    }
+  }
+}
+
+// Expose for debugging
+if (typeof window !== 'undefined') {
+  window.__simpleCardTemplateEvaluator = SimpleCardTemplateEvaluator;
+}

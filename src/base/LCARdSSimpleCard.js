@@ -26,6 +26,7 @@ import { html, css } from 'lit';
 import { lcardsLog } from '../utils/lcards-logging.js';
 import { LCARdSNativeCard } from './LCARdSNativeCard.js';
 import { TriggerManager } from '../core/animation/TriggerManager.js';
+import { SimpleCardTemplateEvaluator } from '../core/templates/SimpleCardTemplateEvaluator.js';
 
 /**
  * Base class for simple LCARdS cards
@@ -243,60 +244,19 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             return template;
         }
 
-        // Quick check for templates
-        const hasJavaScript = template.includes('[[[') && template.includes(']]]');
-        const hasTokens = template.includes('{{') && template.includes('}}');
-
-        if (!hasJavaScript && !hasTokens) {
-            return template;
-        }
-
         try {
             // Create evaluation context
             const context = {
                 entity: this._entity,
                 config: this.config,
                 hass: this.hass,
-                states: this.hass?.states || {},
-                user: this.hass?.user || {},
-                // Helper functions
-                Math,
-                String,
-                Number,
-                Boolean,
-                parseFloat,
-                parseInt
+                variables: this.config?.variables || {},
+                theme: this._singletons?.themeManager?.getCurrentTheme?.()
             };
 
-            // Process JavaScript templates [[[code]]]
-            let result = template;
-            if (hasJavaScript) {
-                result = result.replace(/\[\[\[([\s\S]*?)\]\]\]/g, (match, code) => {
-                    try {
-                        const func = new Function(...Object.keys(context), `return ${code}`);
-                        const value = func(...Object.values(context));
-                        return value !== null && value !== undefined ? String(value) : '';
-                    } catch (error) {
-                        lcardsLog.warn(`[LCARdSSimpleCard] Template evaluation failed:`, error);
-                        return match;
-                    }
-                });
-            }
-
-            // Process token templates {{token}}
-            if (hasTokens) {
-                result = result.replace(/\{\{([^}]+)\}\}/g, (match, path) => {
-                    try {
-                        const value = this._resolveTokenPath(path.trim(), context);
-                        return value !== null && value !== undefined ? String(value) : '';
-                    } catch (error) {
-                        lcardsLog.warn(`[LCARdSSimpleCard] Token resolution failed:`, error);
-                        return match;
-                    }
-                });
-            }
-
-            return result;
+            // Use SimpleCardTemplateEvaluator for consistent template processing
+            const evaluator = new SimpleCardTemplateEvaluator(context);
+            return evaluator.evaluate(template);
 
         } catch (error) {
             lcardsLog.error(`[LCARdSSimpleCard] Template processing failed:`, error);
