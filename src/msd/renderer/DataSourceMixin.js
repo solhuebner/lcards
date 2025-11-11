@@ -1,12 +1,15 @@
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import { MsdTemplateEngine } from '../templates/MsdTemplateEngine.js';
 import { TemplateProcessor } from '../utils/TemplateProcessor.js';
+import { MSDTemplateEvaluator } from '../templates/MSDTemplateEvaluator.js';
+import { TemplateDetector } from '../../core/templates/TemplateDetector.js';
 
 /**
  * [DataSourceMixin] DataSource integration mixin - reusable DataSource integration methods
  * 🔗 Provides consistent DataSource access, template processing, and value formatting across all overlay renderers
  *
  * Uses TemplateProcessor for unified template detection and parsing (Phase 2)
+ * PHASE 4: Now using MSDTemplateEvaluator for MSD template evaluation
  */
 
 export class DataSourceMixin {
@@ -251,6 +254,8 @@ export class DataSourceMixin {
 
   /**
    * Enhanced template string processing with better fallback handling
+   * PHASE 4: Now using MSDTemplateEvaluator for consistent template evaluation
+   *
    * @param {string} content - Template string with {references}
    * @param {string} rendererName - Name of the renderer for logging
    * @param {boolean} fallbackToOriginal - Whether to return original content if DataSources unavailable
@@ -263,88 +268,15 @@ export class DataSourceMixin {
         return fallbackToOriginal ? content : null;
       }
 
-      let hasUnresolvedTemplates = false;
-      const processedContent = content.replace(/\{([^}]+)\}/g, (match, reference) => {
-        try {
-          const [dataSourceRef, formatSpec] = reference.split(':');
-          const cleanRef = dataSourceRef.trim();
+      // Use MSDTemplateEvaluator for consistent template processing
+      const evaluator = new MSDTemplateEvaluator(dataSourceManager);
+      const processedContent = evaluator.evaluate(content);
 
-          const { sourceName, dataKey, isTransformation, isAggregation } = this.parseDataSourceReference(cleanRef);
-          const dataSource = dataSourceManager.getSource(sourceName);
+      // Check if anything was actually resolved
+      const wasProcessed = processedContent !== content;
 
-          if (!dataSource) {
-            // Not necessarily an error - data sources may be optional or not initialized yet
-            lcardsLog.debug(`[${rendererName}] DataSource '${sourceName}' not found`);
-            hasUnresolvedTemplates = true;
-            return fallbackToOriginal ? match : `[Source: ${sourceName} not found]`;
-          }
-
-          const currentData = dataSource.getCurrentData();
-          let value = currentData?.v;
-
-          // Access enhanced data
-          if (dataKey && isTransformation && currentData?.transformations) {
-            value = currentData.transformations[dataKey];
-          } else if (dataKey && isAggregation && currentData?.aggregations) {
-            // ✅ FIXED: Handle nested aggregation paths properly
-            // Split dataKey to handle paths like "heating_time.current"
-            const pathParts = dataKey.split('.');
-            const aggKey = pathParts[0]; // "heating_time"
-            const aggData = currentData.aggregations[aggKey];
-
-            if (aggData === null || aggData === undefined) {
-              lcardsLog.warn(`[${rendererName}] 🔗 Aggregation '${aggKey}' not found in ${sourceName}`);
-              hasUnresolvedTemplates = true;
-              return fallbackToOriginal ? match : `[No data: ${reference}]`;
-            }
-
-            // If there are nested keys (e.g., "current" in "heating_time.current")
-            if (pathParts.length > 1) {
-              const nestedPath = pathParts.slice(1).join('.');
-              value = this.getNestedValue(aggData, nestedPath);
-            } else {
-              // No nested path - handle the aggregation object
-              if (typeof aggData === 'object' && aggData !== null) {
-                // Try common aggregation result properties
-                if (aggData.avg !== undefined) value = aggData.avg;
-                else if (aggData.value !== undefined) value = aggData.value;
-                else if (aggData.last !== undefined) value = aggData.last;
-                else if (aggData.current !== undefined) value = aggData.current;
-                else if (aggData.direction !== undefined) value = aggData.direction;
-                else value = JSON.stringify(aggData);
-              } else {
-                value = aggData;
-              }
-            }
-          }
-
-          if (value === null || value === undefined) {
-            lcardsLog.warn(`[${rendererName}] 🔗 Template value not found: ${reference}`);
-            hasUnresolvedTemplates = true;
-            return fallbackToOriginal ? match : `[No data: ${reference}]`;
-          }
-
-          // Apply formatting if specified
-          if (formatSpec) {
-            return this.applyNumberFormat(
-              value,
-              formatSpec.trim(),
-              currentData?.metadata  // ✅ NEW: Pass metadata
-            );
-          }
-
-          return String(value);
-
-        } catch (error) {
-          lcardsLog.error(`[${rendererName}] ❌ Template processing error for '${reference}':`, error);
-          hasUnresolvedTemplates = true;
-          return fallbackToOriginal ? match : `[Error: ${reference}]`;
-        }
-      });
-
-      // Log whether templates were successfully resolved
-      if (!hasUnresolvedTemplates && processedContent !== content) {
-        lcardsLog.debug(`[${rendererName}] 🔗 Successfully resolved all templates`);
+      if (wasProcessed) {
+        lcardsLog.debug(`[${rendererName}] 🔗 Successfully resolved templates using MSDTemplateEvaluator`);
       }
 
       return processedContent;
@@ -488,11 +420,11 @@ export class DataSourceMixin {
 
   /**
    * Detect if content contains either MSD or HA template markers
-   * PHASE 2: Delegated to TemplateProcessor for unified detection
+   * PHASE 4: Now delegated to TemplateDetector for unified detection
    * @private
    */
   static _hasTemplateMarkers(content) {
-    return TemplateProcessor.hasTemplates(content);
+    return TemplateDetector.hasTemplates(content);
   }
 
   /**

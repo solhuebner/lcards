@@ -1,7 +1,14 @@
 import { lcardsLog } from '../../utils/lcards-logging.js';
+import { TemplateDetector } from '../../core/templates/TemplateDetector.js';
+import { TemplateParser } from '../../core/templates/TemplateParser.js';
 
 /**
  * [TemplateProcessor] Unified template processing system
+ *
+ * PHASE 6: Now delegates to core template infrastructure
+ * - Detection delegated to TemplateDetector
+ * - Parsing delegated to TemplateParser
+ * - Maintains backward compatibility with existing code
  *
  * Consolidates all template processing logic from:
  * - DataSourceMixin (MSD templates: {data_source.key:format})
@@ -65,6 +72,7 @@ export class TemplateProcessor {
 
   /**
    * Check if content contains any template markers
+   * PHASE 6: Delegates to TemplateDetector
    *
    * @param {string} content - Content to check
    * @returns {boolean} True if content has templates
@@ -75,46 +83,34 @@ export class TemplateProcessor {
    * TemplateProcessor.hasTemplates('Plain text')  // false
    */
   static hasTemplates(content) {
-    if (!content || typeof content !== 'string') {
-      return false;
-    }
-
-    return content.includes(this.MARKERS.MSD_START) ||
-           content.includes(this.MARKERS.HA_START);
+    return TemplateDetector.hasTemplates(content);
   }
 
   /**
    * Check if content has MSD templates specifically
+   * PHASE 6: Delegates to TemplateDetector
    *
    * @param {string} content - Content to check
    * @returns {boolean} True if has MSD templates ({...})
    */
   static hasMSDTemplates(content) {
-    if (!content || typeof content !== 'string') {
-      return false;
-    }
-
-    // Has { but not {{ (to avoid false positive on HA templates)
-    return content.includes(this.MARKERS.MSD_START) &&
-           !content.includes(this.MARKERS.HA_START);
+    return TemplateDetector.hasMSDTemplates(content);
   }
 
   /**
    * Check if content has HA templates specifically
+   * PHASE 6: Delegates to TemplateDetector
    *
    * @param {string} content - Content to check
    * @returns {boolean} True if has HA templates ({{...}})
    */
   static hasHATemplates(content) {
-    if (!content || typeof content !== 'string') {
-      return false;
-    }
-
-    return content.includes(this.MARKERS.HA_START);
+    return TemplateDetector.hasHATemplates(content);
   }
 
   /**
    * Extract all template references from content
+   * PHASE 6: Delegates to TemplateParser
    *
    * Returns array of reference objects with:
    * - type: 'msd' | 'ha'
@@ -143,83 +139,62 @@ export class TemplateProcessor {
 
     const references = [];
 
-    // Extract MSD references
-    const msdMatches = content.matchAll(this.TEMPLATE_PATTERNS.MSD);
-    for (const match of msdMatches) {
-      const fullRef = match[1].trim();
+    // Extract MSD references using TemplateParser
+    const msdRefs = TemplateParser.extractMSDReferences(content);
+    for (const ref of msdRefs) {
+      const pathType = this._determinePathType(ref.path);
 
-      // Skip if this is actually part of an HA template
-      if (match[0].startsWith('{{')) {
-        continue;
-      }
-
-      const parsed = this._parseMSDReference(fullRef);
       references.push({
         type: 'msd',
-        reference: fullRef,
-        ...parsed
+        reference: ref.match.replace(/[{}]/g, ''), // Remove braces
+        dataSource: ref.source,
+        path: ref.path.length > 0 ? ref.path.join('.') : null,
+        pathType,
+        format: ref.format
       });
     }
 
     // Extract HA references (basic detection - full parsing done by MsdTemplateEngine)
-    const haMatches = content.matchAll(this.TEMPLATE_PATTERNS.HA);
-    for (const match of haMatches) {
-      const expression = match[1].trim();
-
-      references.push({
-        type: 'ha',
-        reference: expression,
-        expression: expression
-      });
+    const haTokens = TemplateParser.extractTokens(content);
+    for (const token of haTokens) {
+      // Only treat as HA if it looks like HA template syntax
+      if (token.match.includes('states') || token.match.includes('state_attr')) {
+        references.push({
+          type: 'ha',
+          reference: token.path,
+          expression: token.path
+        });
+      }
     }
 
     return references;
   }
 
   /**
-   * Parse MSD template reference into components
+   * Determine path type from parsed path array
    *
    * @private
-   * @param {string} reference - Reference string (e.g., 'cpu_temp.v:.1f')
-   * @returns {Object} Parsed components
+   * @param {Array<string>} path - Path array
+   * @returns {string} Path type ('value', 'transformation', or 'aggregation')
    */
-  static _parseMSDReference(reference) {
-    // Split format specification if present
-    const formatMatch = reference.match(this.TEMPLATE_PATTERNS.FORMAT_SPEC);
-
-    let dataSourcePath = reference;
-    let format = null;
-
-    if (formatMatch) {
-      dataSourcePath = formatMatch[1].trim();
-      format = formatMatch[2].trim();
+  static _determinePathType(path) {
+    if (!path || path.length === 0) {
+      return 'value';
     }
 
-    // Parse DataSource path
-    const parts = dataSourcePath.split('.');
-    const dataSource = parts[0];
-    const path = parts.length > 1 ? parts.slice(1).join('.') : null;
-
-    // Detect transformation/aggregation
-    let pathType = 'value'; // default
-    if (path) {
-      if (path.startsWith('transformations.') || parts[1] === 'transformations') {
-        pathType = 'transformation';
-      } else if (path.startsWith('aggregations.') || parts[1] === 'aggregations') {
-        pathType = 'aggregation';
-      }
+    const firstPart = path[0];
+    if (firstPart === 'transformations') {
+      return 'transformation';
     }
-
-    return {
-      dataSource,
-      path,
-      pathType,
-      format
-    };
+    if (firstPart === 'aggregations') {
+      return 'aggregation';
+    }
+    return 'value';
   }
 
   /**
    * Extract entity dependencies from content
+   * PHASE 6: Uses TemplateParser for extraction
    *
    * For MSD templates: returns DataSource names
    * For HA templates: delegates to MsdTemplateEngine
@@ -236,45 +211,8 @@ export class TemplateProcessor {
       return [];
     }
 
-    const dependencies = new Set();
-    const references = this.extractReferences(content);
-
-    for (const ref of references) {
-      if (ref.type === 'msd' && ref.dataSource) {
-        dependencies.add(ref.dataSource);
-      } else if (ref.type === 'ha') {
-        // Delegate HA dependency extraction to MsdTemplateEngine
-        const haEntities = this._extractHAEntities(ref.expression);
-        haEntities.forEach(e => dependencies.add(e));
-      }
-    }
-
-    return Array.from(dependencies);
-  }
-
-  /**
-   * Extract entity IDs from HA template expression
-   *
-   * @private
-   * @param {string} expression - HA template expression
-   * @returns {Array<string>} Entity IDs
-   */
-  static _extractHAEntities(expression) {
-    const entities = [];
-
-    // Match states('entity.id') function
-    const statesMatches = expression.matchAll(/states\s*\(\s*['"]([^'"]+)['"]\s*\)/g);
-    for (const match of statesMatches) {
-      entities.push(match[1]);
-    }
-
-    // Match state_attr('entity.id', 'attr') function
-    const attrMatches = expression.matchAll(/state_attr\s*\(\s*['"]([^'"]+)['"]\s*,/g);
-    for (const match of attrMatches) {
-      entities.push(match[1]);
-    }
-
-    return entities;
+    // Use TemplateParser for unified dependency extraction
+    return TemplateParser.extractDependencies(content);
   }
 
   /**
