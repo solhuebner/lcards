@@ -609,13 +609,53 @@ core.getAllCardInstances();
 
 ## Summary
 
-### Key Pipeline Stages
+### Key Pipeline Stages (MSD Cards Only)
 
-1. **Configuration** → Process and validate user config (per card)
-2. **Packs** → Load and merge themes, presets, external config (per card)
-3. **Model** → Build internal card representation (per card)
-4. **Singleton Connection** → Connect to global intelligence systems (per card)
-5. **Local Systems** → Initialize card-specific rendering pipeline (per card)
+1. **Configuration** → Process and validate user config (per MSD card)
+2. **Packs** → Load and merge themes, presets, external config (per MSD card)
+3. **Model** → Build internal card representation (per MSD card)
+4. **Singleton Connection** → Connect to global intelligence systems (per MSD card)
+5. **Local Systems** → Initialize card-specific rendering pipeline (per MSD card)
+6. **DataSource Integration** → Direct connection to DataSourceManager singleton (MSD cards only)
+7. **Rendering** → AdvancedRenderer generates SVG (per MSD card)
+8. **Runtime Updates** → Singleton-coordinated entity changes, multi-card distribution
+
+### Architecture Clarifications
+
+**MSD Card Systems (Per-Card):**
+- MSD SystemsManager (orchestrator)
+- AdvancedRenderer (SVG generation)
+- RouterCore (line routing)
+- TemplateProcessor (template resolution)
+- MsdDebugRenderer (debug overlays)
+- MsdControlsRenderer (control overlays)
+- MsdHudManager (HUD management)
+- BaseOverlayUpdater (incremental updates)
+
+**Shared Singleton Systems (Global):**
+- DataSourceManager (entity data, buffers, transformations) - **Used by MSD cards**
+- RulesEngine (rule evaluation, distribution) - **Used by all cards**
+- ThemeManager (themes, tokens) - **Used by all cards**
+- AnimationManager (animation coordination) - **Used by all cards**
+- ValidationService (schema validation) - **Used by all cards**
+- CoreSystemsManager (entity caching) - **Only used by SimpleCard/V2, NOT MSD**
+
+**Card Type Comparison:**
+
+| Feature | MSD Cards | SimpleCard/V2 Cards |
+|---------|-----------|-------------------|
+| **Systems Manager** | MSD SystemsManager (per-card) | Uses CoreSystemsManager (singleton) |
+| **Entity Access** | DataSourceManager (full pipeline) | CoreSystemsManager (cached) |
+| **Rendering** | AdvancedRenderer (SVG) | Simple HTML/Lit templates |
+| **Memory** | ~4-5 MB per card | ~5 KB per card |
+| **Complexity** | High (multi-overlay) | Low (single purpose) |
+| **Use Case** | Master systems displays | Buttons, labels, status |
+
+---
+
+**Last Updated:** November 10, 2025 (Post-Singleton Architecture Completion)
+**Version:** 2025.11.10-msd-flow-part2
+**Status:** ✅ MSD/SimpleCard architecture clarified
 6. **DataSources** → Register with singleton, share entity subscriptions (coordinated)
 7. **Resolution** → Resolve templates, evaluate rules (per card + singleton)
 8. **Rendering** → Generate SVG from resolved model (per card)

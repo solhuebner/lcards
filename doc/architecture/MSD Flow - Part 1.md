@@ -37,15 +37,22 @@ The MSD (Master Systems Display) system follows a **two-tier architecture**: glo
 
 **Tier 1: Global Singleton Layer**
 - Shared intelligence systems (RulesEngine, DataSourceManager, ThemeManager, AnimationManager)
+- CoreSystemsManager (for SimpleCard/V2 cards only - MSD cards do NOT use this)
 - Created once on first MSD card initialization
 - Serves all cards simultaneously
 - Efficient resource usage through shared processing
 
 **Tier 2: Per-Card Instance Layer**
 - Each MSD card creates its own MSD SystemsManager
-- Card-specific rendering pipeline (AdvancedRenderer, RouterCore, etc.)
+- SimpleCards use CoreSystemsManager (NOT MSD SystemsManager)
+- Card-specific rendering pipeline (AdvancedRenderer, RouterCore, etc.) - MSD cards only
 - Connects to singleton layer for shared intelligence
 - Independent rendering but coordinated updates
+
+**Important Distinction:**
+- **MSD Cards** → Use DataSourceManager directly (bypass CoreSystemsManager)
+- **SimpleCard/V2** → Use CoreSystemsManager for entity caching (lighter weight)
+- Both leverage shared RulesEngine, ThemeManager, AnimationManager
 
 ### Key Characteristics
 
@@ -535,7 +542,7 @@ graph TD
 6. **MsdHudManager** - Card-specific HUD management
 7. **BaseOverlayUpdater** - Card-specific incremental updates
 
-**Key Point**: MSD cards do **NOT** use CoreSystemsManager. They bypass it entirely and connect directly to the singleton layer.
+**Key Point**: MSD cards do **NOT** use CoreSystemsManager. They bypass it entirely and connect directly to the singleton layer (DataSourceManager, RulesEngine, etc.). CoreSystemsManager is only for SimpleCard and V2 cards.
 
 ---
 
@@ -549,5 +556,6 @@ graph TD
 
 ---
 
-**Last Updated:** November 10, 2025
-**Version:** 2025.11.1-msd-flow-part1
+**Last Updated:** November 10, 2025 (Post-Singleton Architecture Completion)
+**Version:** 2025.11.10-msd-flow-part1
+**Status:** ✅ Singleton extraction complete, CoreSystemsManager integrated with SimpleCard

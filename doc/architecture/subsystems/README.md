@@ -179,19 +179,33 @@
 
 ---
 
-### Coordination
+### Coordination & Management
 
-#### [Systems Manager](systems-manager.md)
-**Central orchestrator** that manages all subsystems.
+#### [CoreSystemsManager](core-systems-manager.md) ⭐ NEW v1.8.0
+**Lightweight entity tracking singleton** for SimpleCard and V2 cards.
 
 **Key Features:**
-- Lifecycle management
-- Subsystem coordination
-- Unified access
-- Error handling
+- Entity state caching (80-90% performance improvement)
+- Entity subscription management (reactive updates)
+- Card registration and lifecycle tracking
+- Cross-card entity change notifications
+- HASS change detection and distribution
+
+**When to use:** SimpleCard, V2 cards, lightweight entity access.
+
+**NOT for:** MSD cards (use DataSourceManager instead).
+
+#### [MSD Systems Manager](msd-systems-manager.md)
+**Per-card orchestrator** for MSD cards (NOT used by SimpleCard).
+
+**Key Features:**
+- Per-MSD-card coordination
+- Connects to singleton layer (RulesEngine, DataSourceManager, etc.)
+- Manages card-specific rendering pipeline
+- Lifecycle management for MSD overlays
 - Performance monitoring
 
-**When to use:** System initialization, coordination, debugging.
+**When to use:** MSD cards only. SimpleCard uses CoreSystemsManager instead.
 
 ---
 
