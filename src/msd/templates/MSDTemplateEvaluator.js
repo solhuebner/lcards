@@ -5,7 +5,7 @@ import { TemplateParser } from '../../core/templates/TemplateParser.js';
 /**
  * MSDTemplateEvaluator - Evaluates MSD DataSource templates
  *
- * Extracted from DataSourceMixin.processEnhancedTemplateStrings()
+ * Extracted from MSDContentResolver.processEnhancedTemplateStrings()
  *
  * Supports:
  * - Simple DataSource references: {datasource}

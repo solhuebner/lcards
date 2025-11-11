@@ -9,7 +9,7 @@
 import { BaseRenderer } from '../BaseRenderer.js';
 import { OverlayUtils } from '../OverlayUtils.js';
 import { RendererUtils } from '../RendererUtils.js';
-import { DataSourceMixin } from '../DataSourceMixin.js';
+import { MSDContentResolver } from '../MSDContentResolver.js';
 import { BracketRenderer } from '../BracketRenderer.js';
 import { ActionHelpers } from '../ActionHelpers.js';
 import { TextRenderer as CoreTextRenderer } from './TextRenderer.js'; // Import core TextRenderer
@@ -1483,8 +1483,8 @@ export class ButtonRenderer extends BaseRenderer {
       return content;
     }
 
-    // Use DataSourceMixin for unified processing
-    return DataSourceMixin.processUnifiedTemplateStrings(content, 'ButtonRenderer');
+    // Use MSDContentResolver for unified processing
+    return MSDContentResolver.processUnifiedTemplateStrings(content, 'ButtonRenderer');
   }
 
   /**

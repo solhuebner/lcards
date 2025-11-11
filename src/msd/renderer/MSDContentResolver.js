@@ -5,14 +5,17 @@ import { MSDTemplateEvaluator } from '../templates/MSDTemplateEvaluator.js';
 import { TemplateDetector } from '../../core/templates/TemplateDetector.js';
 
 /**
- * [DataSourceMixin] DataSource integration mixin - reusable DataSource integration methods
+ * [MSDContentResolver] MSD Content Resolution - template processing and DataSource integration
  * 🔗 Provides consistent DataSource access, template processing, and value formatting across all overlay renderers
+ *
+ * Renamed from DataSourceMixin (Phase 9) for more accurate naming - this is not a mixin,
+ * it's a static utility class that resolves MSD content with DataSource template support.
  *
  * Uses TemplateProcessor for unified template detection and parsing (Phase 2)
  * PHASE 4: Now using MSDTemplateEvaluator for MSD template evaluation
  */
 
-export class DataSourceMixin {
+export class MSDContentResolver {
   /**
    * Resolve content from various sources including DataSource integration
    * @param {Object} source - Source object (overlay, cell, etc.)
@@ -376,7 +379,7 @@ export class DataSourceMixin {
       }
       return engine;
     } catch (error) {
-      lcardsLog.error('[DataSourceMixin] Failed to create MsdTemplateEngine instance:', error);
+      lcardsLog.error('[MSDContentResolver] Failed to create MsdTemplateEngine instance:', error);
       return null;
     }
   }
@@ -413,7 +416,7 @@ export class DataSourceMixin {
       try { engine.compiledTemplates?.delete?.(tempId); } catch (_) {}
       return deps;
     } catch (err) {
-      lcardsLog.error('[DataSourceMixin] Error extracting HA entity dependencies:', err);
+      lcardsLog.error('[MSDContentResolver] Error extracting HA entity dependencies:', err);
       return [];
     }
   }
@@ -489,4 +492,4 @@ export class DataSourceMixin {
 }
 
 // Export for use in renderers
-export default DataSourceMixin;
+export default MSDContentResolver;

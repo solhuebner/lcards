@@ -23,7 +23,7 @@ import { OverlayBase } from './OverlayBase.js';
 import { ButtonRenderer } from '../renderer/core/ButtonRenderer.js';
 import { OverlayUtils } from '../renderer/OverlayUtils.js';
 import { RendererUtils } from '../renderer/RendererUtils.js';
-import { DataSourceMixin } from '../renderer/DataSourceMixin.js';
+import { MSDContentResolver } from '../renderer/MSDContentResolver.js';
 import { ActionHelpers } from '../renderer/ActionHelpers.js';
 import { TemplateProcessor } from '../utils/TemplateProcessor.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
@@ -655,7 +655,7 @@ export class ButtonOverlay extends OverlayBase {
     const rawLabel = overlay._raw?.label || overlay.label || '';
     const rawContent = overlay._raw?.content || overlay.content || overlay.label || '';
 
-    // Process templates using DataSourceMixin
+    // Process templates using MSDContentResolver
     const processedLabel = this._processContentTemplate(rawLabel);
     const processedContent = this._processContentTemplate(rawContent);
 
@@ -668,7 +668,7 @@ export class ButtonOverlay extends OverlayBase {
   }
 
   /**
-   * Process content template using DataSourceMixin
+   * Process content template using MSDContentResolver
    *
    * @private
    * @param {string} content - Content to process
@@ -683,7 +683,7 @@ export class ButtonOverlay extends OverlayBase {
       return content;
     }
 
-    return DataSourceMixin.processUnifiedTemplateStrings(content, 'ButtonOverlay');
+    return MSDContentResolver.processUnifiedTemplateStrings(content, 'ButtonOverlay');
   }
 
   /**

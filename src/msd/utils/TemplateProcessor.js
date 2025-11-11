@@ -11,7 +11,7 @@ import { TemplateParser } from '../../core/templates/TemplateParser.js';
  * - Maintains backward compatibility with existing code
  *
  * Consolidates all template processing logic from:
- * - DataSourceMixin (MSD templates: {data_source.key:format})
+ * - MSDContentResolver (MSD templates: {data_source.key:format})
  * - OverlayUtils (legacy simple templates)
  * - Scattered inline template detection
  *

@@ -21,7 +21,7 @@ import { TextRenderer } from '../renderer/core/TextRenderer.js';
 import { themeTokenResolver } from '../../core/themes/ThemeTokenResolver.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import { TemplateProcessor } from '../utils/TemplateProcessor.js';
-import { DataSourceMixin } from '../renderer/DataSourceMixin.js';
+import { MSDContentResolver } from '../renderer/MSDContentResolver.js';
 
 export class TextOverlay extends OverlayBase {
   constructor(overlay, systemsManager) {
@@ -281,7 +281,7 @@ ${renderResult.markup}
       lcardsLog.debug(`[TextOverlay] 📝 Raw content for ${overlay.id}: "${rawContent}"`);
 
       // Process templates with current datasource values using the same method as ButtonRenderer
-      const textContent = DataSourceMixin.processUnifiedTemplateStrings(rawContent, 'TextOverlay');
+      const textContent = MSDContentResolver.processUnifiedTemplateStrings(rawContent, 'TextOverlay');
 
       lcardsLog.debug(`[TextOverlay] 🎯 Processed content for ${overlay.id}: "${textContent}"`);
 
@@ -436,7 +436,7 @@ ${renderResult.markup}
    */
     /**
    * Resolve text content from DataSource/templates
-   * FIXED: Now uses DataSourceMixin properly like working TextOverlayRenderer
+   * FIXED: Now uses MSDContentResolver properly like working TextOverlayRenderer
    * @private
    */
   _resolveTextContent(overlay, style, sourceData = null) {
@@ -449,17 +449,17 @@ ${renderResult.markup}
 
     // Handle value_format with data source (same as working TextOverlayRenderer)
     if (!content && style.value_format && typeof style.value_format === 'string' && dataSourceRef) {
-      const dataSourceContent = DataSourceMixin.resolveDataSourceContent(dataSourceRef, style, 'TextOverlay');
+      const dataSourceContent = MSDContentResolver.resolveDataSourceContent(dataSourceRef, style, 'TextOverlay');
       if (dataSourceContent !== null) {
         const numericValue = parseFloat(dataSourceContent);
         if (!isNaN(numericValue) && String(numericValue) === String(dataSourceContent).trim()) {
           if (style.value_format.includes('{value')) {
             content = style.value_format.replace(/\{value(?::([^}]+))?\}/g, (match, formatSpec) => {
               if (formatSpec) {
-                const dsManager = DataSourceMixin.getDataSourceManager();
+                const dsManager = MSDContentResolver.getDataSourceManager();
                 const dataSource = dsManager?.getSource(dataSourceRef.split('.')[0]);
                 const unitOfMeasurement = dataSource?.getCurrentData()?.unit_of_measurement;
-                return DataSourceMixin.applyNumberFormat(numericValue, formatSpec, unitOfMeasurement);
+                return MSDContentResolver.applyNumberFormat(numericValue, formatSpec, unitOfMeasurement);
               }
               return String(numericValue);
             });
@@ -482,15 +482,15 @@ ${renderResult.markup}
       content = style.value_format;
     }
 
-    // ✅ KEY FIX: Use DataSourceMixin.processTemplateForInitialRender like working version
+    // ✅ KEY FIX: Use MSDContentResolver.processTemplateForInitialRender like working version
     if (typeof content === 'string') {
-      content = DataSourceMixin.processTemplateForInitialRender(content, 'TextOverlay');
+      content = MSDContentResolver.processTemplateForInitialRender(content, 'TextOverlay');
       return content;
     }
 
     // Handle templates in content
     if (TemplateProcessor.hasTemplates(content)) {
-      content = DataSourceMixin.processTemplateForInitialRender(content, 'TextOverlay');
+      content = MSDContentResolver.processTemplateForInitialRender(content, 'TextOverlay');
       return content;
     }
 
@@ -502,7 +502,7 @@ ${renderResult.markup}
       dataSourceRef = overlay.data_source || overlay._raw?.data_source || style.data_source;
     }
     if (dataSourceRef) {
-      const dataSourceContent = DataSourceMixin.resolveDataSourceContent(dataSourceRef, style, 'TextOverlay');
+      const dataSourceContent = MSDContentResolver.resolveDataSourceContent(dataSourceRef, style, 'TextOverlay');
       if (dataSourceContent !== null) {
         return dataSourceContent;
       } else {
@@ -603,12 +603,12 @@ ${renderResult.markup}
    * @private
    */
   _resolveDataSourceContent(dataSourceRef, style) {
-    // This is a simplified version - full implementation would use DataSourceMixin
+    // This is a simplified version - full implementation would use MSDContentResolver
     // For now, return null to indicate data source resolution should happen elsewhere
     try {
-      // Check if DataSourceMixin is available
-      if (typeof DataSourceMixin !== 'undefined' && DataSourceMixin.resolveDataSourceContent) {
-        return DataSourceMixin.resolveDataSourceContent(dataSourceRef, style, 'TextOverlay');
+      // Check if MSDContentResolver is available
+      if (typeof MSDContentResolver !== 'undefined' && MSDContentResolver.resolveDataSourceContent) {
+        return MSDContentResolver.resolveDataSourceContent(dataSourceRef, style, 'TextOverlay');
       }
     } catch (error) {
       lcardsLog.debug(`[TextOverlay] Could not resolve data source ${dataSourceRef}:`, error);

@@ -127,8 +127,8 @@ export class OverlayUtils {
    * if (TemplateProcessor.hasTemplates(content)) { ... }
    *
    * // For full processing (with DataSource support):
-   * import { DataSourceMixin } from './DataSourceMixin.js';
-   * const result = DataSourceMixin.processUnifiedTemplateStrings(content, 'YourRenderer');
+   * import { MSDContentResolver } from './MSDContentResolver.js';
+   * const result = MSDContentResolver.processUnifiedTemplateStrings(content, 'YourRenderer');
    * ```
    *
    * @param {string} template - Template string with {key} placeholders
@@ -143,7 +143,7 @@ export class OverlayUtils {
     if (typeof console !== 'undefined' && console.warn) {
       console.warn(
         '[OverlayUtils] processTemplate() is deprecated. ' +
-        'Use TemplateProcessor for template detection or DataSourceMixin for processing. ' +
+        'Use TemplateProcessor for template detection or MSDContentResolver for processing. ' +
         'This method will be removed in a future version.'
       );
     }

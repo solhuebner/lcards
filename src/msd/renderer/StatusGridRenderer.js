@@ -6,7 +6,7 @@
 import { BaseRenderer } from './BaseRenderer.js';
 import { OverlayUtils } from './OverlayUtils.js';
 import { RendererUtils } from './RendererUtils.js';
-import { DataSourceMixin } from './DataSourceMixin.js';
+import { MSDContentResolver } from './MSDContentResolver.js';
 import { BracketRenderer } from './BracketRenderer.js';
 import { ActionHelpers } from './ActionHelpers.js';
 import { ButtonRenderer } from './core/ButtonRenderer.js'; // Add ButtonRenderer import
@@ -2277,7 +2277,7 @@ export class StatusGridRenderer extends BaseRenderer {
     // MSD-style inline conditional support stays (only for { ... ? ... : ... } style)
     if (cellContent.includes('?') && cellContent.includes(':') && hasMSD) {
       lcardsLog.debug(`[StatusGridRenderer] Using conditional path for: ${cellContent}`);
-      return this._processConditionalWithDataSourceMixin(cellContent, updateDataSourceData);
+      return this._processConditionalWithMSDContentResolver(cellContent, updateDataSourceData);
     }
 
     // CRITICAL FIX: If updateDataSourceData is a DataSourceManager, use its hass states
@@ -2289,8 +2289,8 @@ export class StatusGridRenderer extends BaseRenderer {
     }
 
     // Fallback: Unified processing (handles both HA {{}} and MSD {})
-    lcardsLog.trace(`[StatusGridRenderer] ⚠️ Using fallback DataSourceMixin path for: ${cellContent}`);
-    return DataSourceMixin.processUnifiedTemplateStrings(cellContent, 'StatusGridRenderer');
+    lcardsLog.trace(`[StatusGridRenderer] ⚠️ Using fallback MSDContentResolver path for: ${cellContent}`);
+    return MSDContentResolver.processUnifiedTemplateStrings(cellContent, 'StatusGridRenderer');
   }
 
   /**
@@ -2303,7 +2303,7 @@ export class StatusGridRenderer extends BaseRenderer {
 
     if (!entityMatches) {
       // No states() calls, fall back to standard processing
-      return DataSourceMixin.processUnifiedTemplateStrings(cellContent, 'StatusGridRenderer');
+      return MSDContentResolver.processUnifiedTemplateStrings(cellContent, 'StatusGridRenderer');
     }
 
     let resolved = cellContent;
@@ -2331,13 +2331,13 @@ export class StatusGridRenderer extends BaseRenderer {
   }
 
   /**
-   * Process conditional expression by extracting DataSource references and using DataSourceMixin
+   * Process conditional expression by extracting DataSource references and using MSDContentResolver
    * @private
    * @param {string} conditionalTemplate - Template with conditional expression
    * @param {Object} [updateDataSourceData] - Updated DataSource data to use (for updates)
    * @returns {string} Resolved conditional or original template
    */
-  _processConditionalWithDataSourceMixin(conditionalTemplate, updateDataSourceData = null) {
+  _processConditionalWithMSDContentResolver(conditionalTemplate, updateDataSourceData = null) {
     try {
       // Extract the conditional expression from the template
       const templateMatch = conditionalTemplate.match(/\{([^}]+)\}/);
@@ -2364,12 +2364,12 @@ export class StatusGridRenderer extends BaseRenderer {
         resolvedValue = this._extractValueFromUpdateData(leftPath.trim(), updateDataSourceData);
       }
 
-      // If we couldn't extract from update data, fall back to DataSourceMixin
+      // If we couldn't extract from update data, fall back to MSDContentResolver
       if (resolvedValue === null || resolvedValue === undefined) {
-        resolvedValue = DataSourceMixin.processEnhancedTemplateStringsWithFallback(dataSourceTemplate, 'StatusGridRenderer');
+        resolvedValue = MSDContentResolver.processEnhancedTemplateStringsWithFallback(dataSourceTemplate, 'StatusGridRenderer');
       }
 
-      // If DataSourceMixin couldn't resolve it, return original
+      // If MSDContentResolver couldn't resolve it, return original
       if (resolvedValue === dataSourceTemplate) {
         return conditionalTemplate;
       }
@@ -2402,7 +2402,7 @@ export class StatusGridRenderer extends BaseRenderer {
       return finalValue;
 
     } catch (error) {
-      lcardsLog.error(`[StatusGridRenderer] Error processing conditional with DataSourceMixin:`, error);
+      lcardsLog.error(`[StatusGridRenderer] Error processing conditional with MSDContentResolver:`, error);
       return conditionalTemplate;
     }
   }
@@ -2432,7 +2432,7 @@ export class StatusGridRenderer extends BaseRenderer {
       if (value && typeof value === 'object' && part in value) {
         value = value[part];
       } else {
-        lcardsLog.debug(`[StatusGridRenderer] Path "${part}" not found in update data, falling back to DataSourceMixin`);
+        lcardsLog.debug(`[StatusGridRenderer] Path "${part}" not found in update data, falling back to MSDContentResolver`);
         return null;
       }
     }

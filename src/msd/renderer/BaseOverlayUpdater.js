@@ -4,12 +4,12 @@
  *
  * @module BaseOverlayUpdater
  * @requires lcards-logging
- * @requires DataSourceMixin
+ * @requires MSDContentResolver
  * @requires TemplateEntityExtractor
  */
 
 import { lcardsLog } from '../../utils/lcards-logging.js';
-import { DataSourceMixin } from './DataSourceMixin.js';
+import { MSDContentResolver } from './MSDContentResolver.js';
 import { TemplateEntityExtractor } from '../templates/TemplateEntityExtractor.js';
 import { TemplateProcessor } from '../utils/TemplateProcessor.js';
 
