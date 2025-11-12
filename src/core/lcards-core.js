@@ -155,6 +155,15 @@ class LCARdSCore {
             await this.validationService.initialize(hass);
             lcardsLog.debug('[LCARdSCore] ✅ ValidationService initialized');
 
+            // Initialize ConfigManager (Phase 2a+) - ✅ CRITICAL: Must be early for card initialization
+            // Cards need config processing from the moment they're created
+            this.configManager = new CoreConfigManager();
+            await this.configManager.initialize({
+                validationService: this.validationService
+                // Note: themeManager and stylePresetManager will be added to context after they initialize
+            });
+            lcardsLog.debug('[LCARdSCore] ✅ ConfigManager initialized (early - before cards need it)');
+
             // Initialize StylePresetManager (Phase 2b) - ✅ Unified style system (replaces CoreStyleLibrary)
             // This now includes both preset management AND CSS utilities
             this.stylePresetManager = new StylePresetManager();
@@ -176,14 +185,15 @@ class LCARdSCore {
             this.actionHandler = new LCARdSActionHandler();
             lcardsLog.debug('[LCARdSCore] ✅ ActionHandler initialized');
 
-            // Initialize ConfigManager (Phase 2d) - ✅ Unified config processing for all cards
-            this.configManager = new CoreConfigManager();
-            await this.configManager.initialize({
-                validationService: this.validationService,
-                themeManager: this.themeManager,
-                stylePresetManager: this.stylePresetManager
-            });
-            lcardsLog.debug('[LCARdSCore] ✅ ConfigManager initialized');
+            // Update ConfigManager context with late-initialized systems (Phase 2d)
+            // ConfigManager was initialized early (after ValidationService), now add theme/style managers
+            if (this.configManager) {
+                await this.configManager.updateContext({
+                    themeManager: this.themeManager,
+                    stylePresetManager: this.stylePresetManager
+                });
+                lcardsLog.debug('[LCARdSCore] ✅ ConfigManager context updated with theme/style managers');
+            }
 
             this._coreInitialized = true;
 

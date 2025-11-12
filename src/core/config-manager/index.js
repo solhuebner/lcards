@@ -87,6 +87,31 @@ export class CoreConfigManager {
   }
 
   /**
+   * Update context with late-initialized dependencies
+   * Allows ConfigManager to be initialized early before all systems are ready
+   *
+   * @param {Object} context - Additional context to add
+   * @param {Object} context.themeManager - ThemeManager instance
+   * @param {Object} context.stylePresetManager - StylePresetManager instance
+   */
+  async updateContext(context) {
+    if (!this.initialized) {
+      lcardsLog.warn('[CoreConfigManager] Cannot update context - not initialized');
+      return;
+    }
+
+    if (context.themeManager) {
+      this.themeManager = context.themeManager;
+      lcardsLog.debug('[CoreConfigManager] ThemeManager added to context');
+    }
+
+    if (context.stylePresetManager) {
+      this.stylePresetManager = context.stylePresetManager;
+      lcardsLog.debug('[CoreConfigManager] StylePresetManager added to context');
+    }
+  }
+
+  /**
    * Process card configuration with four-layer merge
    *
    * Merge order:

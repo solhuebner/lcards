@@ -126,6 +126,20 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
 
         const core = window.lcardsCore || window.lcards?.core;
 
+        // Wait for CoreConfigManager to be ready (critical system)
+        if (core && !core.configManager?.initialized) {
+            lcardsLog.debug(`[LCARdSSimpleCard] Waiting for CoreConfigManager to initialize...`);
+
+            // Wait for core initialization to complete
+            await core.initialize(this.hass);
+
+            if (!core.configManager?.initialized) {
+                lcardsLog.warn(`[LCARdSSimpleCard] CoreConfigManager still not available after waiting - using raw config`);
+                super.setConfig(config);
+                return;
+            }
+        }
+
         // Check if CoreConfigManager is available and initialized
         if (core?.configManager?.initialized) {
             try {
@@ -174,8 +188,8 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
                 super.setConfig(config);
             }
         } else {
-            // Fallback: CoreConfigManager not available
-            lcardsLog.debug(`[LCARdSSimpleCard] CoreConfigManager not available - using raw config`);
+            // Fallback: CoreConfigManager not available (no core singleton)
+            lcardsLog.warn(`[LCARdSSimpleCard] No core singleton available - using raw config`);
             super.setConfig(config);
         }
     }
