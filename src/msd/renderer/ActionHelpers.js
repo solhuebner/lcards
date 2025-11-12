@@ -20,7 +20,7 @@ export class ActionHelpers {
 
     /**
    * Attach simple actions (tap, hold, double-tap) to overlay element
-   * Fixed version with unified event handling like cells but for overlays
+   * Uses unified LCARdSActionHandler with cell-filtering wrapper for StatusGrid support
    * @param {Element} element - The DOM element to attach actions to
    * @param {Object} simpleActions - Simple actions configuration
    * @param {Object} cardInstance - Card instance for action handling
@@ -39,174 +39,66 @@ export class ActionHelpers {
     const overlayId = element.getAttribute('data-overlay-id');
     const animationManager = options.animationManager;
 
-    // Track action state to prevent conflicts (same as cell system)
-    let isHolding = false;
-    let holdTimer = null;
-    let lastTap = 0;
-
-    // Handle mouse/touch events with proper coordination
-    const handlePointerDown = (event) => {
-      // Check if we're clicking on a cell that has its own actions
-      // This includes the cell rect AND any text elements belonging to the cell
-      const targetCell = event.target.closest('[data-has-cell-actions="true"]') ||
-                         (event.target.hasAttribute('data-cell-id') &&
-                          event.target.getAttribute('data-has-cell-actions') === 'true');
+    // Helper to check if click is on a cell with its own actions (StatusGrid support)
+    const isCellWithActions = (target) => {
+      const targetCell = target.closest('[data-has-cell-actions="true"]') ||
+                         (target.hasAttribute('data-cell-id') &&
+                          target.getAttribute('data-has-cell-actions') === 'true');
       if (targetCell) {
-        const cellId = targetCell.getAttribute('data-cell-id') || event.target.getAttribute('data-cell-id');
+        const cellId = targetCell.getAttribute('data-cell-id') || target.getAttribute('data-cell-id');
         lcardsLog.debug(`[ActionHelpers] 🚫 Overlay ignoring event - clicked on cell with own actions:`, cellId);
-        return; // Don't handle overlay actions on cells with their own actions
+        return true;
       }
+      return false;
+    };
 
-      lcardsLog.debug(`[ActionHelpers] 🔲 Overlay pointer down - starting hold timer`);
-      event.preventDefault();
-      event.stopImmediatePropagation();
-
-      if (simpleActions.hold_action) {
-        isHolding = false;
-        lcardsLog.debug(`[ActionHelpers] 🔲 Overlay setting hold timer for 500ms`);
-        holdTimer = setTimeout(() => {
-          isHolding = true;
-          lcardsLog.debug(`[ActionHelpers] 🎯 Overlay HOLD ACTION TRIGGERED after 500ms`);
-
-          // Trigger animation if animation manager is available
-          if (animationManager && overlayId) {
-            animationManager.triggerAnimations(overlayId, 'on_hold');
-          }
-
-          ActionHelpers.executeAction(simpleActions.hold_action, cardInstance, 'hold', element);
-        }, 500);
+    // Create a wrapper element that filters events before they reach the unified handler
+    // This preserves StatusGrid cell-action isolation
+    const eventFilter = (event) => {
+      if (isCellWithActions(event.target)) {
+        event.stopImmediatePropagation();
+        lcardsLog.debug(`[ActionHelpers] 🛑 Event filtered - cell has own actions`);
       }
     };
 
-    const handlePointerUp = (event) => {
-      // Check if we're clicking on a cell that has its own actions
-      const targetCell = event.target.closest('[data-has-cell-actions="true"]') ||
-                         (event.target.hasAttribute('data-cell-id') &&
-                          event.target.getAttribute('data-has-cell-actions') === 'true');
-      if (targetCell) {
-        const cellId = targetCell.getAttribute('data-cell-id') || event.target.getAttribute('data-cell-id');
-        lcardsLog.debug(`[ActionHelpers] 🚫 Overlay ignoring up event - clicked on cell with own actions:`, cellId);
-        return; // Don't handle overlay actions on cells with their own actions
+    // Add capture-phase filters to prevent events on cells from reaching unified handler
+    element.addEventListener('click', eventFilter, { capture: true });
+    element.addEventListener('pointerdown', eventFilter, { capture: true });
+    element.addEventListener('mousedown', eventFilter, { capture: true });
+    element.addEventListener('touchstart', eventFilter, { capture: true });
+    element.addEventListener('dblclick', eventFilter, { capture: true });
+
+    // Get HASS from card instance
+    const hass = cardInstance.___hass || cardInstance._hass || cardInstance.hass || cardInstance.__hass;
+
+    // Delegate to unified action handler
+    const cleanupActions = ActionHelpers._actionHandler.setupActions(
+      element,
+      simpleActions,
+      hass,
+      {
+        animationManager: animationManager,
+        elementId: overlayId,
+        animations: options.animations,
+        getAnimationSetup: () => ({
+          overlayId: overlayId,
+          elementSelector: `[data-overlay-id="${overlayId}"]`
+        })
       }
+    );
 
-      lcardsLog.debug(`[ActionHelpers] 🔲 Overlay pointer up, wasHolding: ${isHolding}, hadTimer: ${!!holdTimer}`);
-      event.preventDefault();
-      event.stopImmediatePropagation();
+    lcardsLog.debug(`[ActionHelpers] ✅ Overlay actions attached using unified handler with cell filtering`);
 
-      // Clear hold timer if it exists
-      if (holdTimer) {
-        clearTimeout(holdTimer);
-        holdTimer = null;
-        lcardsLog.debug(`[ActionHelpers] 🔲 Overlay cleared hold timer`);
-      }
-
-      // Only process tap/double-tap if we weren't holding
-      if (!isHolding) {
-        const now = Date.now();
-
-        // Check for double-tap first
-        if (simpleActions.double_tap_action && (now - lastTap < 300) && lastTap > 0) {
-          lcardsLog.debug(`[ActionHelpers] 🎯 Overlay DOUBLE-TAP ACTION TRIGGERED`);
-
-          // Trigger animation if animation manager is available
-          if (animationManager && overlayId) {
-            animationManager.triggerAnimations(overlayId, 'on_double_tap');
-          }
-
-          ActionHelpers.executeAction(simpleActions.double_tap_action, cardInstance, 'double_tap', element);
-          lastTap = 0; // Reset to prevent triple-tap and single-tap
-          return; // CRITICAL: Exit early to prevent single-tap logic
-        }
-
-        if (simpleActions.tap_action) {
-          lastTap = now;
-          // Set up single tap with delay to allow for double-tap
-          if (simpleActions.double_tap_action) {
-            // Wait to see if double-tap comes
-            const tapTimestamp = now;
-            setTimeout(() => {
-              if (lastTap === tapTimestamp) { // No double-tap happened (lastTap wasn't reset)
-                lcardsLog.debug(`[ActionHelpers] 🎯 Overlay SINGLE TAP ACTION TRIGGERED (delayed)`);
-
-                // Trigger animation if animation manager is available
-                if (animationManager && overlayId) {
-                  animationManager.triggerAnimations(overlayId, 'on_tap');
-                }
-
-                ActionHelpers.executeAction(simpleActions.tap_action, cardInstance, 'tap', element);
-              } else {
-                lcardsLog.debug(`[ActionHelpers] 🚫 Overlay single tap cancelled (double-tap occurred)`);
-              }
-            }, 300);
-          } else {
-            // No double-tap action, execute immediately
-            lcardsLog.debug(`[ActionHelpers] 🎯 Overlay SINGLE TAP ACTION TRIGGERED (immediate)`);
-
-            // Trigger animation if animation manager is available
-            if (animationManager && overlayId) {
-              animationManager.triggerAnimations(overlayId, 'on_tap');
-            }
-
-            ActionHelpers.executeAction(simpleActions.tap_action, cardInstance, 'tap', element);
-          }
-        }
-      } else {
-        lcardsLog.debug(`[ActionHelpers] 🔲 Overlay hold was completed, skipping tap processing`);
-      }
-
-      // Reset hold state
-      isHolding = false;
+    // Return cleanup function that removes both filters and actions
+    return () => {
+      element.removeEventListener('click', eventFilter, { capture: true });
+      element.removeEventListener('pointerdown', eventFilter, { capture: true });
+      element.removeEventListener('mousedown', eventFilter, { capture: true });
+      element.removeEventListener('touchstart', eventFilter, { capture: true });
+      element.removeEventListener('dblclick', eventFilter, { capture: true });
+      cleanupActions();
+      lcardsLog.debug(`[ActionHelpers] 🧹 Cleaned up overlay actions and cell filters`);
     };
-
-    const handlePointerLeave = (event) => {
-      // Always clear timers on leave, regardless of target
-      lcardsLog.debug(`[ActionHelpers] 🔲 Overlay pointer leave - clearing hold timer`);
-      if (holdTimer) {
-        clearTimeout(holdTimer);
-        holdTimer = null;
-      }
-      isHolding = false;
-    };
-
-    // Attach unified pointer events for overlay with lower priority (normal phase, not capture)
-    // This ensures cell events (capture phase) are handled first
-    element.addEventListener('mousedown', handlePointerDown, { capture: false });
-    element.addEventListener('mouseup', handlePointerUp, { capture: false });
-    element.addEventListener('mouseleave', handlePointerLeave, { capture: false });
-    element.addEventListener('touchstart', handlePointerDown, { capture: false });
-    element.addEventListener('touchend', handlePointerUp, { capture: false });
-    element.addEventListener('touchcancel', handlePointerLeave, { capture: false });
-
-    // Add hover support for animations (desktop only)
-    if (animationManager && overlayId) {
-      const isDesktop = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-      lcardsLog.debug(`[ActionHelpers] 🖱️ Hover handler check for ${overlayId}: {hasAnimationManager: true, isDesktop: ${isDesktop}}`);
-
-      if (isDesktop) {
-        // On hover - start animations
-        const hoverHandler = () => {
-          lcardsLog.debug(`[ActionHelpers] 🖱️ Hover triggered on ${overlayId}`);
-          animationManager.triggerAnimations(overlayId, 'on_hover');
-        };
-        element.addEventListener('mouseenter', hoverHandler, { capture: false });
-
-        // ✨ NEW: On leave - stop hover animations and trigger leave animations
-        const leaveHandler = () => {
-          lcardsLog.debug(`[ActionHelpers] 🖱️ Leave triggered on ${overlayId}`);
-
-          // Stop any looping hover animations
-          animationManager.stopAnimations(overlayId, 'on_hover');
-
-          // Trigger on_leave animations (if configured)
-          animationManager.triggerAnimations(overlayId, 'on_leave');
-        };
-        element.addEventListener('mouseleave', leaveHandler, { capture: false });
-
-        lcardsLog.debug(`[ActionHelpers] ✅ Hover/leave handlers attached for ${overlayId}`);
-      } else {
-        lcardsLog.debug(`[ActionHelpers] ⏭️ Skipping hover handlers for ${overlayId} (not desktop)`);
-      }
-    }
   }
 
   /**

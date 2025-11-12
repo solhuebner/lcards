@@ -9,7 +9,6 @@
 import { LitElement, html, css, unsafeCSS } from 'lit';
 import { lcards } from '../lcards-vars.js';
 import { lcardsLog } from '../utils/lcards-logging.js';
-import { LCARdSActionHandler } from './LCARdSActionHandler.js';
 
 /**
  * Base class for all LCARdS native cards
@@ -90,7 +89,6 @@ export class LCARdSNativeCard extends LitElement {
         this._mountResolved = false;
         this._cardGuid = this._generateGuid();
         this._errorState = null;
-        this._actionHandler = new LCARdSActionHandler();
 
         lcardsLog.debug(`[LCARdSNativeCard] Created card with GUID: ${this._cardGuid}`);
     }
@@ -237,7 +235,7 @@ export class LCARdSNativeCard extends LitElement {
         }
 
         return html`
-            <div class="lcards-card" @action=${this._handleAction}>
+            <div class="lcards-card">
                 ${this._renderCard()}
             </div>
         `;
@@ -327,42 +325,6 @@ export class LCARdSNativeCard extends LitElement {
         // Basic validation - override for specific requirements
         if (!config.type) {
             throw new Error('Card type is required');
-        }
-    }
-
-    // ============================================================================
-    // Action Handling
-    // ============================================================================
-
-    /**
-     * Handle action events
-     * @private
-     */
-    _handleAction(event) {
-        event.stopPropagation();
-
-        const actionConfig = this._getActionConfig(event);
-        if (actionConfig) {
-            this._actionHandler.handleAction(this, this.hass, actionConfig, event.detail?.actionName);
-        }
-    }
-
-    /**
-     * Get action configuration for event - override in subclasses
-     * @protected
-     */
-    _getActionConfig(event) {
-        // Default: look for tap_action in config
-        return this.config.tap_action || { action: 'none' };
-    }
-
-    /**
-     * Register action handler for element
-     * @protected
-     */
-    _registerActionHandler(element, actionConfig) {
-        if (element && actionConfig) {
-            this._actionHandler.registerElement(element, actionConfig);
         }
     }
 
@@ -481,6 +443,6 @@ export class LCARdSNativeCard extends LitElement {
      * @private
      */
     _cleanup() {
-        this._actionHandler.cleanup();
+        // Subclasses can override to add cleanup logic
     }
 }

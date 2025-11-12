@@ -1,20 +1,30 @@
 /**
  * LCARdS Action Handler
  *
- * Native action handler for direct integration with Home Assistant's action system.
- * Handles all major Home Assistant action types without external dependencies.
+ * Unified action handler with full animation support, late-binding, and shadow DOM awareness.
+ * Handles all Home Assistant action types plus animation triggers.
+ *
+ * Features:
+ * - TriggerManager integration for animations
+ * - Late-binding support for AnimationManager
+ * - Shadow DOM event handling
+ * - All action types: tap, hold, double-tap, hover, leave
+ * - Action execution: toggle, more-info, call-service, navigate, url
+ *
+ * Used by both SimpleCard and MSD card systems.
  */
 
 import { lcardsLog } from '../utils/lcards-logging.js';
+import { TriggerManager } from '../core/animation/TriggerManager.js';
 
 /**
  * Action handler for LCARdS cards
  *
  * Provides unified action handling across all card types:
- * - tap_action
- * - hold_action
- * - double_tap_action
- * - Custom actions for MSD overlays
+ * - tap_action, hold_action, double_tap_action
+ * - Animation triggers: on_tap, on_hold, on_double_tap, on_hover, on_leave
+ * - Shadow DOM support
+ * - Late-binding for AnimationManager
  */
 export class LCARdSActionHandler {
 
@@ -24,14 +34,422 @@ export class LCARdSActionHandler {
     }
 
     /**
-     * Handle an action event
+     * Setup action handlers on element with full animation support
+     *
+     * Modern implementation that supports:
+     * - Shadow DOM elements
+     * - Animation triggers via TriggerManager
+     * - Late-binding for AnimationManager
+     * - All event types: tap, hold, double-tap, hover, leave
+     *
+     * @param {HTMLElement} element - Target element (can be in shadow DOM)
+     * @param {Object} actions - Action configurations (tap_action, hold_action, double_tap_action)
+     * @param {Object} hass - Home Assistant instance
+     * @param {Object} options - Additional options
+     * @param {Object} options.animationManager - AnimationManager instance for triggering animations
+     * @param {string} options.elementId - Element ID for animation targeting
+     * @param {Array} options.animations - Animation configurations for late-binding
+     * @param {Function} options.getAnimationSetup - Callback to get animation setup (overlayId, elementSelector)
+     * @param {Object} options.shadowRoot - Shadow root for element queries
+     * @param {string} options.entity - Default entity ID for actions (fallback if action.entity not specified)
+     * @returns {Function} Cleanup function
+     */
+    setupActions(element, actions = {}, hass, options = {}) {
+        if (!element) {
+            return () => {};
+        }
+
+        const cleanupFunctions = [];
+        const hasActions = actions.tap_action || actions.hold_action || actions.double_tap_action;
+        const animationManager = options.animationManager;
+        const elementId = options.elementId || element.id || element.getAttribute('data-overlay-id');
+        const defaultEntity = options.entity; // Fallback entity for actions
+
+        lcardsLog.debug(`[LCARdSActionHandler] Setting up actions:`, {
+            elementId,
+            hasActions,
+            hasAnimationManager: !!animationManager,
+            defaultEntity,
+            actionTypes: Object.keys(actions).filter(k => k.endsWith('_action') && actions[k])
+        });
+
+        // Create TriggerManager for animation handling (even if no actions)
+        // Uses late-binding pattern: if AnimationManager isn't ready, store for later
+        let triggerManager = null;
+        let pendingAnimationSetup = null;
+
+        if (elementId && options.animations) {
+            const animations = options.animations;
+            const animationSetup = options.getAnimationSetup?.() || {};
+            const overlayId = animationSetup.overlayId || elementId;
+
+            if (animationManager) {
+                // AnimationManager is ready - register immediately
+                lcardsLog.debug(`[LCARdSActionHandler] Creating TriggerManager for ${overlayId}:`, {
+                    animationCount: animations.length,
+                    triggers: animations.map(a => a.trigger || 'on_tap')
+                });
+
+                // Get or query for the target element
+                const shadowRoot = options.shadowRoot;
+                const targetElement = shadowRoot?.querySelector(animationSetup.elementSelector || '[data-overlay-id]') || element;
+
+                // Create TriggerManager instance
+                triggerManager = new TriggerManager(overlayId, targetElement, animationManager);
+
+                // Register overlay scope with AnimationManager first
+                if (animationManager.onOverlayRendered) {
+                    animationManager.onOverlayRendered(overlayId, targetElement, { animations });
+                    lcardsLog.debug(`[LCARdSActionHandler] Registered overlay scope: ${overlayId}`);
+                }
+
+                // Register each animation with TriggerManager
+                animations.forEach(animConfig => {
+                    const trigger = animConfig.trigger || 'on_tap';
+                    triggerManager.register(trigger, animConfig);
+                });
+
+                lcardsLog.info(`[LCARdSActionHandler] ✅ TriggerManager created with ${animations.length} animations`);
+
+                // Add cleanup for TriggerManager
+                cleanupFunctions.push(() => {
+                    triggerManager.destroy();
+                    lcardsLog.debug(`[LCARdSActionHandler] TriggerManager destroyed for ${overlayId}`);
+                });
+            } else {
+                // AnimationManager not ready - store for late binding
+                lcardsLog.debug(`[LCARdSActionHandler] AnimationManager not ready, storing for late binding:`, {
+                    overlayId,
+                    animationCount: animations.length
+                });
+
+                pendingAnimationSetup = {
+                    overlayId,
+                    animations,
+                    elementSelector: animationSetup.elementSelector || '[data-overlay-id]',
+                    element,
+                    shadowRoot: options.shadowRoot
+                };
+            }
+        }
+
+        // Helper to ensure animations are registered (late-binding)
+        const ensureAnimationsRegistered = async () => {
+            if (!pendingAnimationSetup) {
+                return; // Already registered or no animations
+            }
+
+            // Try to get AnimationManager via late binding
+            const core = window.lcards?.core;
+            const currentAnimationManager = core?.getAnimationManager?.();
+
+            if (!currentAnimationManager) {
+                lcardsLog.warn(`[LCARdSActionHandler] AnimationManager still not available for late binding`);
+                return;
+            }
+
+            const { overlayId, animations, elementSelector, shadowRoot } = pendingAnimationSetup;
+
+            lcardsLog.debug(`[LCARdSActionHandler] 🎬 Late-binding animation registration for ${overlayId}:`, {
+                animationCount: animations.length,
+                triggers: animations.map(a => a.trigger || 'on_tap')
+            });
+
+            // Find the target element
+            const targetElement = shadowRoot?.querySelector(elementSelector) || element;
+
+            if (!targetElement) {
+                lcardsLog.warn(`[LCARdSActionHandler] Target element not found for late binding: ${elementSelector}`);
+                return;
+            }
+
+            // Create anime.js scope for this overlay
+            const scope = currentAnimationManager.createScopeForOverlay(overlayId, targetElement);
+
+            // Create TriggerManager
+            triggerManager = new TriggerManager(overlayId, targetElement, currentAnimationManager);
+
+            // Store scope data in AnimationManager
+            currentAnimationManager.scopes.set(overlayId, {
+                scope: scope,
+                overlay: { animations },
+                element: targetElement,
+                activeAnimations: new Set(),
+                triggerManager: triggerManager,
+                runningInstances: new Map()
+            });
+
+            lcardsLog.debug(`[LCARdSActionHandler] Created scope for overlay: ${overlayId}`);
+
+            // Register each animation using AnimationManager.registerAnimation()
+            for (const animConfig of animations) {
+                await currentAnimationManager.registerAnimation(overlayId, animConfig);
+            }
+
+            lcardsLog.info(`[LCARdSActionHandler] ✅ TriggerManager created (late-binding) with ${animations.length} animations`);
+
+            // Clear pending setup
+            pendingAnimationSetup = null;
+        };
+
+        // Set cursor styling for actionable elements
+        if (hasActions) {
+            element.style.cursor = 'pointer';
+            cleanupFunctions.push(() => {
+                element.style.cursor = '';
+            });
+        }
+
+        // Track action state to prevent conflicts
+        let holdTimer = null;
+        let lastTapTime = 0;
+        let tapCount = 0;
+        let isHolding = false;
+
+        // Tap action handler with double-tap coordination
+        if (actions.tap_action) {
+            const tapHandler = async (event) => {
+                event.stopPropagation();
+                event.preventDefault();
+
+                // Skip if we were holding
+                if (isHolding) {
+                    lcardsLog.debug(`[LCARdSActionHandler] Skipping tap - hold completed`);
+                    isHolding = false;
+                    return;
+                }
+
+                const now = Date.now();
+
+                // Handle double-tap detection if configured
+                if (actions.double_tap_action) {
+                    tapCount++;
+
+                    if (tapCount === 1) {
+                        lastTapTime = now;
+                        // Wait for potential second tap
+                        setTimeout(async () => {
+                            if (tapCount === 1) {
+                                // Single tap confirmed
+                                lcardsLog.debug(`[LCARdSActionHandler] 🎯 Single tap action triggered`);
+
+                                // Ensure animations are registered (late-binding if needed)
+                                await ensureAnimationsRegistered();
+
+                                // Trigger animation if registration completed
+                                const currentAnimationManager = window.lcards?.core?.getAnimationManager?.();
+                                if (currentAnimationManager && elementId) {
+                                    currentAnimationManager.triggerAnimations(elementId, 'on_tap');
+                                }
+
+                                this._executeAction(actions.tap_action, hass, element, defaultEntity);
+                            }
+                            tapCount = 0;
+                        }, 300);
+                    } else if (tapCount === 2) {
+                        // Double tap detected - will be handled by double_tap_action handler
+                        lcardsLog.debug(`[LCARdSActionHandler] Double tap detected, deferring to double_tap_action`);
+                        tapCount = 0;
+                    }
+                } else {
+                    // No double-tap action configured, execute immediately
+                    lcardsLog.debug(`[LCARdSActionHandler] 🎯 Tap action triggered (immediate)`);
+
+                    // Ensure animations are registered (late-binding if needed)
+                    await ensureAnimationsRegistered();
+
+                    // Trigger animation if registration completed
+                    const currentAnimationManager = window.lcards?.core?.getAnimationManager?.();
+                    if (currentAnimationManager && elementId) {
+                        currentAnimationManager.triggerAnimations(elementId, 'on_tap');
+                    }
+
+                    this._executeAction(actions.tap_action, hass, element, defaultEntity);
+                }
+            };
+
+            element.addEventListener('click', tapHandler);
+            cleanupFunctions.push(() => element.removeEventListener('click', tapHandler));
+        }
+
+        // Hold action handler
+        if (actions.hold_action) {
+            const holdStart = (event) => {
+                event.stopPropagation();
+                isHolding = false;
+
+                lcardsLog.debug(`[LCARdSActionHandler] 🔲 Hold timer started`);
+
+                holdTimer = setTimeout(async () => {
+                    isHolding = true;
+                    lcardsLog.debug(`[LCARdSActionHandler] 🎯 Hold action triggered`);
+
+                    // Ensure animations are registered (late-binding if needed)
+                    await ensureAnimationsRegistered();
+
+                    // Trigger animation if registration completed
+                    const currentAnimationManager = window.lcards?.core?.getAnimationManager?.();
+                    if (currentAnimationManager && elementId) {
+                        currentAnimationManager.triggerAnimations(elementId, 'on_hold');
+                    }
+
+                    this._executeAction(actions.hold_action, hass, element, defaultEntity);
+                }, 500);
+            };
+
+            const holdEnd = () => {
+                if (holdTimer) {
+                    clearTimeout(holdTimer);
+                    holdTimer = null;
+                    lcardsLog.debug(`[LCARdSActionHandler] 🔲 Hold timer cleared`);
+                }
+            };
+
+            element.addEventListener('pointerdown', holdStart);
+            element.addEventListener('pointerup', holdEnd);
+            element.addEventListener('pointercancel', holdEnd);
+            element.addEventListener('pointerleave', holdEnd);
+
+            cleanupFunctions.push(() => {
+                element.removeEventListener('pointerdown', holdStart);
+                element.removeEventListener('pointerup', holdEnd);
+                element.removeEventListener('pointercancel', holdEnd);
+                element.removeEventListener('pointerleave', holdEnd);
+                if (holdTimer) clearTimeout(holdTimer);
+            });
+        }
+
+        // Double tap action handler
+        if (actions.double_tap_action) {
+            const doubleTapHandler = async (event) => {
+                event.stopPropagation();
+                event.preventDefault();
+
+                if (tapCount === 2) {
+                    lcardsLog.debug(`[LCARdSActionHandler] 🎯 Double-tap action triggered`);
+
+                    // Ensure animations are registered (late-binding if needed)
+                    await ensureAnimationsRegistered();
+
+                    // Trigger animation if registration completed
+                    const currentAnimationManager = window.lcards?.core?.getAnimationManager?.();
+                    if (currentAnimationManager && elementId) {
+                        currentAnimationManager.triggerAnimations(elementId, 'on_double_tap');
+                    }
+
+                    this._executeAction(actions.double_tap_action, hass, element, defaultEntity);
+                    tapCount = 0;
+                }
+            };
+
+            element.addEventListener('dblclick', doubleTapHandler);
+            cleanupFunctions.push(() => {
+                element.removeEventListener('dblclick', doubleTapHandler);
+            });
+        }
+
+        // Hover animation support (desktop only)
+        if (elementId) {
+            const isDesktop = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+            if (isDesktop) {
+                const hoverHandler = async () => {
+                    // Ensure animations are registered (late-binding if needed)
+                    await ensureAnimationsRegistered();
+
+                    // Trigger animation via AnimationManager
+                    const currentAnimationManager = window.lcards?.core?.getAnimationManager?.();
+                    if (currentAnimationManager && elementId) {
+                        lcardsLog.debug(`[LCARdSActionHandler] 🖱️ Hover animation triggered on ${elementId}`);
+                        currentAnimationManager.triggerAnimations(elementId, 'on_hover');
+                    }
+                };
+
+                const leaveHandler = async () => {
+                    // Ensure animations are registered (late-binding if needed)
+                    await ensureAnimationsRegistered();
+
+                    // Trigger animation via AnimationManager
+                    const currentAnimationManager = window.lcards?.core?.getAnimationManager?.();
+                    if (currentAnimationManager && elementId) {
+                        lcardsLog.debug(`[LCARdSActionHandler] 🖱️ Leave animation triggered on ${elementId}`);
+                        // Stop looping hover animations and trigger leave animations
+                        currentAnimationManager.stopAnimations?.(elementId, 'on_hover');
+                        currentAnimationManager.triggerAnimations(elementId, 'on_leave');
+                    }
+                };
+
+                element.addEventListener('mouseenter', hoverHandler);
+                element.addEventListener('mouseleave', leaveHandler);
+
+                cleanupFunctions.push(() => {
+                    element.removeEventListener('mouseenter', hoverHandler);
+                    element.removeEventListener('mouseleave', leaveHandler);
+                });
+
+                lcardsLog.debug(`[LCARdSActionHandler] ✅ Hover/leave handlers attached for ${elementId}`);
+            }
+        }
+
+        lcardsLog.debug(`[LCARdSActionHandler] ✅ Actions setup complete - ${cleanupFunctions.length} handlers attached`);
+
+        return () => {
+            lcardsLog.debug(`[LCARdSActionHandler] 🧹 Cleaning up ${cleanupFunctions.length} action listeners`);
+            cleanupFunctions.forEach(cleanup => cleanup());
+        };
+    }
+
+    /**
+     * Execute action configuration
+     * @private
+     */
+    _executeAction(actionConfig, hass, element, defaultEntity = null) {
+        if (!actionConfig || !hass) {
+            return;
+        }
+
+        const action = actionConfig.action;
+        // Use entity from action config, or fall back to defaultEntity, or element data attribute
+        const entityId = actionConfig.entity || defaultEntity || element?.dataset?.entity;
+
+        switch (action) {
+            case 'toggle':
+                this._handleToggle(hass, entityId);
+                break;
+            case 'more-info':
+                this._handleMoreInfo(hass, entityId);
+                break;
+            case 'call-service':
+                this._handleCallService(hass, actionConfig);
+                break;
+            case 'navigate':
+                this._handleNavigate(actionConfig);
+                break;
+            case 'url':
+                this._handleUrl(actionConfig);
+                break;
+            case 'none':
+                // Do nothing
+                break;
+            default:
+                lcardsLog.warn(`[LCARdSActionHandler] Unknown action: ${action}`);
+        }
+    }
+
+    // ============================================================================
+    // LEGACY API - For backwards compatibility with MSD ActionHelpers
+    // ============================================================================
+
+    /**
+     * Handle an action event (legacy API)
+     * @deprecated Use setupActions() instead for new code
      * @param {Object} element - Source element
      * @param {Object} hass - Home Assistant object
      * @param {Object} actionConfig - Action configuration
      * @param {string} actionName - Action name (tap, hold, double_tap)
      */
     handleAction(element, hass, actionConfig, actionName = 'tap') {
-        lcardsLog.debug(`[LCARdSActionHandler] handleAction called:`, {
+        lcardsLog.debug(`[LCARdSActionHandler] handleAction (legacy) called:`, {
             element: element?.tagName,
             hass: !!hass,
             actionConfig,
@@ -52,8 +470,8 @@ export class LCARdSActionHandler {
 
             lcardsLog.debug(`[LCARdSActionHandler] Handling ${actionName} action:`, actionConfig);
 
-            // Handle actions directly instead of using custom-card-helpers
-            this._handleActionDirectly(element, hass, actionConfig, actionName);
+            // Execute action directly
+            this._executeAction(actionConfig, hass, element);
 
         } catch (error) {
             lcardsLog.error('[LCARdSActionHandler] Action handling error:', error);
@@ -78,85 +496,6 @@ export class LCARdSActionHandler {
         ];
 
         return supportedActions.includes(action);
-    }
-
-    /**
-     * Register action handlers for an element
-     * @param {HTMLElement} element - Target element
-     * @param {Object} actionConfigs - Action configurations
-     */
-    registerElement(element, actionConfigs) {
-        if (!element || !actionConfigs) return;
-
-        try {
-            // Store action configs for this element
-            this._registeredElements.set(element, actionConfigs);
-
-            // Add event listeners
-            this._addEventListeners(element, actionConfigs);
-
-            lcardsLog.debug('[LCARdSActionHandler] Registered element with actions:', actionConfigs);
-
-        } catch (error) {
-            lcardsLog.error('[LCARdSActionHandler] Element registration error:', error);
-        }
-    }
-
-    /**
-     * Unregister action handlers for an element
-     * @param {HTMLElement} element - Target element
-     */
-    unregisterElement(element) {
-        if (!element) return;
-
-        try {
-            // Remove event listeners
-            this._removeEventListeners(element);
-
-            // Clear stored configs
-            this._registeredElements.delete(element);
-
-            lcardsLog.debug('[LCARdSActionHandler] Unregistered element');
-
-        } catch (error) {
-            lcardsLog.error('[LCARdSActionHandler] Element unregistration error:', error);
-        }
-    }
-
-    /**
-     * Create action handlers for MSD overlays
-     * @param {Object} overlay - Overlay configuration
-     * @param {Object} hass - Home Assistant object
-     * @returns {Object} Handler functions
-     */
-    createMsdOverlayHandlers(overlay, hass) {
-        if (!overlay || !hass) return {};
-
-        const handlers = {};
-
-        // Create handlers for different action types
-        ['tap_action', 'hold_action', 'double_tap_action'].forEach(actionType => {
-            const actionConfig = overlay[actionType];
-            if (actionConfig && this.hasAction(actionConfig)) {
-                handlers[actionType] = (event) => {
-                    event.stopPropagation();
-                    this.handleAction(event.target, hass, actionConfig, actionType.replace('_action', ''));
-                };
-            }
-        });
-
-        // Create custom action handler for MSD-specific actions
-        if (overlay.actions && Array.isArray(overlay.actions)) {
-            handlers.customActions = overlay.actions.map(action => ({
-                id: action.id,
-                handler: (event) => {
-                    event.stopPropagation();
-                    this.handleAction(event.target, hass, action, 'custom');
-                }
-            }));
-        }
-
-        return handlers;
     }
 
     /**
@@ -203,23 +542,8 @@ export class LCARdSActionHandler {
         return { action: 'none' };
     }
 
-    /**
-     * Cleanup all registered handlers
-     */
-    cleanup() {
-        try {
-            // Clear all active handlers
-            this._activeHandlers.clear();
-
-            lcardsLog.debug('[LCARdSActionHandler] Cleanup completed');
-
-        } catch (error) {
-            lcardsLog.error('[LCARdSActionHandler] Cleanup error:', error);
-        }
-    }
-
     // ============================================================================
-    // Private Implementation
+    // Private Action Handlers
     // ============================================================================
 
     /**
@@ -249,174 +573,15 @@ export class LCARdSActionHandler {
 
             case 'toggle':
             case 'more-info':
-                return !!actionConfig.entity;
+                // Entity can come from action config or element data attribute
+                return true;
 
             case 'none':
                 return true;
 
             default:
-                // Allow other action types (fire-dom-event, etc.)
+                // Allow other action types
                 return true;
-        }
-    }
-
-    /**
-     * Add event listeners to element
-     * @private
-     */
-    _addEventListeners(element, actionConfigs) {
-        const handlers = {
-            tap: actionConfigs.tap_action,
-            hold: actionConfigs.hold_action,
-            double_tap: actionConfigs.double_tap_action
-        };
-
-        // Add click handler for tap actions
-        if (handlers.tap && this.hasAction(handlers.tap)) {
-            const tapHandler = (event) => {
-                this.handleAction(element, element.hass, handlers.tap, 'tap');
-            };
-            element.addEventListener('click', tapHandler);
-            this._activeHandlers.add({ element, type: 'click', handler: tapHandler });
-        }
-
-        // Add touch handlers for hold/double-tap if needed
-        if (handlers.hold && this.hasAction(handlers.hold)) {
-            this._addHoldHandler(element, handlers.hold);
-        }
-
-        if (handlers.double_tap && this.hasAction(handlers.double_tap)) {
-            this._addDoubleTapHandler(element, handlers.double_tap);
-        }
-    }
-
-    /**
-     * Remove event listeners from element
-     * @private
-     */
-    _removeEventListeners(element) {
-        // Remove all handlers for this element
-        this._activeHandlers.forEach(handlerInfo => {
-            if (handlerInfo.element === element) {
-                element.removeEventListener(handlerInfo.type, handlerInfo.handler);
-                this._activeHandlers.delete(handlerInfo);
-            }
-        });
-    }
-
-    /**
-     * Add hold action handler
-     * @private
-     */
-    _addHoldHandler(element, holdConfig) {
-        let holdTimer = null;
-        const holdDelay = 500; // ms
-
-        const startHold = (event) => {
-            holdTimer = setTimeout(() => {
-                this.handleAction(element, element.hass, holdConfig, 'hold');
-            }, holdDelay);
-        };
-
-        const cancelHold = () => {
-            if (holdTimer) {
-                clearTimeout(holdTimer);
-                holdTimer = null;
-            }
-        };
-
-        element.addEventListener('mousedown', startHold);
-        element.addEventListener('mouseup', cancelHold);
-        element.addEventListener('mouseleave', cancelHold);
-        element.addEventListener('touchstart', startHold);
-        element.addEventListener('touchend', cancelHold);
-
-        // Store handlers for cleanup
-        this._activeHandlers.add({ element, type: 'mousedown', handler: startHold });
-        this._activeHandlers.add({ element, type: 'mouseup', handler: cancelHold });
-        this._activeHandlers.add({ element, type: 'mouseleave', handler: cancelHold });
-        this._activeHandlers.add({ element, type: 'touchstart', handler: startHold });
-        this._activeHandlers.add({ element, type: 'touchend', handler: cancelHold });
-    }
-
-    /**
-     * Add double-tap action handler
-     * @private
-     */
-    _addDoubleTapHandler(element, doubleTapConfig) {
-        let tapCount = 0;
-        let tapTimer = null;
-        const doubleTapDelay = 300; // ms
-
-        const handleTap = (event) => {
-            tapCount++;
-
-            if (tapCount === 1) {
-                tapTimer = setTimeout(() => {
-                    tapCount = 0;
-                }, doubleTapDelay);
-            } else if (tapCount === 2) {
-                clearTimeout(tapTimer);
-                tapCount = 0;
-                event.preventDefault();
-                this.handleAction(element, element.hass, doubleTapConfig, 'double_tap');
-            }
-        };
-
-        element.addEventListener('click', handleTap);
-        this._activeHandlers.add({ element, type: 'click', handler: handleTap });
-    }
-
-    /**
-     * Handle action directly using Home Assistant service calls
-     * @param {HTMLElement} element - Source element
-     * @param {Object} hass - Home Assistant object
-     * @param {Object} actionConfig - Action configuration
-     * @param {string} actionName - Action name (tap, hold, double_tap)
-     * @private
-     */
-    _handleActionDirectly(element, hass, actionConfig, actionName) {
-        const action = actionConfig.action;
-        const entityId = actionConfig.entity;
-
-        lcardsLog.debug(`[LCARdSActionHandler] Direct action handling: ${action} on ${entityId}`);
-
-        switch (action) {
-            case 'toggle':
-                this._handleToggle(hass, entityId);
-                break;
-
-            case 'turn_on':
-                this._handleTurnOn(hass, entityId);
-                break;
-
-            case 'turn_off':
-                this._handleTurnOff(hass, entityId);
-                break;
-
-            case 'more-info':
-                this._handleMoreInfo(hass, entityId);
-                break;
-
-            case 'call-service':
-                this._handleCallService(hass, actionConfig);
-                break;
-
-            case 'navigate':
-                this._handleNavigate(actionConfig);
-                break;
-
-            case 'url':
-                this._handleUrl(actionConfig);
-                break;
-
-            case 'none':
-                lcardsLog.debug(`[LCARdSActionHandler] No action specified`);
-                break;
-
-            default:
-                lcardsLog.warn(`[LCARdSActionHandler] Unknown action type: ${action}. Supported actions: toggle, turn_on, turn_off, more-info, call-service, navigate, url, none`);
-                break;
         }
     }
 
@@ -431,42 +596,8 @@ export class LCARdSActionHandler {
         }
 
         const domain = entityId.split('.')[0];
-        const currentState = hass.states[entityId];
-        const isOn = currentState && currentState.state === 'on';
-
-        lcardsLog.debug(`[LCARdSActionHandler] Toggling ${entityId}: ${currentState?.state} -> ${isOn ? 'off' : 'on'}`);
-
-        hass.callService(domain, isOn ? 'turn_off' : 'turn_on', { entity_id: entityId });
-    }
-
-    /**
-     * Handle turn_on action
-     * @private
-     */
-    _handleTurnOn(hass, entityId) {
-        if (!entityId) {
-            lcardsLog.warn(`[LCARdSActionHandler] Turn on action requires entity`);
-            return;
-        }
-
-        const domain = entityId.split('.')[0];
-        lcardsLog.debug(`[LCARdSActionHandler] Turning on ${entityId}`);
-        hass.callService(domain, 'turn_on', { entity_id: entityId });
-    }
-
-    /**
-     * Handle turn_off action
-     * @private
-     */
-    _handleTurnOff(hass, entityId) {
-        if (!entityId) {
-            lcardsLog.warn(`[LCARdSActionHandler] Turn off action requires entity`);
-            return;
-        }
-
-        const domain = entityId.split('.')[0];
-        lcardsLog.debug(`[LCARdSActionHandler] Turning off ${entityId}`);
-        hass.callService(domain, 'turn_off', { entity_id: entityId });
+        lcardsLog.debug(`[LCARdSActionHandler] Toggling ${entityId}`);
+        hass.callService(domain, 'toggle', { entity_id: entityId });
     }
 
     /**
@@ -481,7 +612,6 @@ export class LCARdSActionHandler {
 
         lcardsLog.debug(`[LCARdSActionHandler] Opening more info for ${entityId}`);
 
-        // Dispatch Home Assistant event to open more info dialog
         const event = new CustomEvent('hass-more-info', {
             detail: { entityId },
             bubbles: true,
@@ -521,15 +651,12 @@ export class LCARdSActionHandler {
 
         lcardsLog.debug(`[LCARdSActionHandler] Navigating to ${navigationPath}`);
 
-        // Use Home Assistant's navigation
-        const event = new CustomEvent('location-changed', {
+        window.history.pushState(null, '', navigationPath);
+        window.dispatchEvent(new CustomEvent('location-changed', {
             detail: { replace: false },
             bubbles: true,
             composed: true
-        });
-
-        window.history.pushState(null, '', navigationPath);
-        window.dispatchEvent(event);
+        }));
     }
 
     /**
