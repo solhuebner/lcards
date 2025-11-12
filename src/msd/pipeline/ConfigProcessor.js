@@ -4,9 +4,61 @@ import { lcardsLog } from '../../utils/lcards-logging.js';
 
 export { mergePacks, validateMerged };
 
+/**
+ * Process and validate MSD config using CoreConfigManager
+ * Falls back to direct mergePacks if ConfigManager unavailable
+ */
 export async function processAndValidateConfig(userMsdConfig) {
-  const mergedConfig = await mergePacks(userMsdConfig);
-  const provenance = mergedConfig.__provenance;
+  let mergedConfig;
+  let provenance;
+  let issues;
+
+  // Try to use CoreConfigManager (unified path)
+  const core = window.lcardsCore || window.lcards?.core;
+
+  if (core?.configManager?.initialized) {
+    try {
+      lcardsLog.debug('[ConfigProcessor] Using CoreConfigManager for MSD processing');
+
+      const result = await core.configManager.processConfig(
+        userMsdConfig,
+        'msd',
+        { hass: window.hass }
+      );
+
+      mergedConfig = result.mergedConfig;
+      provenance = result.provenance;
+
+      // Convert CoreConfigManager result to MSD validation format
+      issues = {
+        errors: result.errors || [],
+        warnings: result.warnings || []
+      };
+
+      // Store result in mergedConfig for backward compatibility
+      mergedConfig.__issues = issues;
+
+    } catch (error) {
+      lcardsLog.warn('[ConfigProcessor] CoreConfigManager failed, falling back to mergePacks:', error);
+      // Fallback to legacy path
+      mergedConfig = await mergePacks(userMsdConfig);
+      provenance = mergedConfig.__provenance;
+    }
+  } else {
+    // Fallback: CoreConfigManager not available (legacy path)
+    lcardsLog.debug('[ConfigProcessor] CoreConfigManager not available, using mergePacks directly');
+    mergedConfig = await mergePacks(userMsdConfig);
+    provenance = mergedConfig.__provenance;
+  }
+
+  // If issues not set (legacy path), run validation
+  if (!issues) {
+    const t0 = performance.now();
+    issues = validateMerged(mergedConfig);
+    mergedConfig.__issues = issues;
+    const t1 = performance.now();
+    try { window.lcards.debug.msd && (window.lcards.debug.msd._validationMs = (t1 - t0)); } catch {}
+  }
 
   // Store original user config in debug namespace
   if (typeof window !== 'undefined') {
@@ -15,13 +67,6 @@ export async function processAndValidateConfig(userMsdConfig) {
     window.lcards.debug.msd = window.lcards.debug.msd || {};
     window.lcards.debug.msd._originalUserConfig = userMsdConfig;
   }
-
-  // Validation pass
-  const t0 = performance.now();
-  const issues = validateMerged(mergedConfig);
-  mergedConfig.__issues = issues;
-  const t1 = performance.now();
-  try { window.lcards.debug.msd && (window.lcards.debug.msd._validationMs = (t1 - t0)); } catch {}
 
   // Anchor validation - UPDATED to accept overlay IDs as virtual anchors
   try {
@@ -58,8 +103,45 @@ export async function processAndValidateConfig(userMsdConfig) {
   return { mergedConfig, issues, provenance };
 }
 
+/**
+ * Alternative MSD config processor (used by some parts of the system)
+ * Uses CoreConfigManager when available, falls back to direct processing
+ */
 export async function processMsdConfig(userMsdConfig) {
   try {
+    // Try unified path via CoreConfigManager
+    const core = window.lcardsCore || window.lcards?.core;
+
+    if (core?.configManager?.initialized) {
+      lcardsLog.debug('[ConfigProcessor] processMsdConfig using CoreConfigManager');
+
+      const result = await core.configManager.processConfig(
+        userMsdConfig,
+        'msd',
+        { hass: window.hass }
+      );
+
+      const issues = {
+        errors: result.errors || [],
+        warnings: result.warnings || []
+      };
+
+      if (issues.errors.length > 0) {
+        lcardsLog.error('MSD validation errors:', issues.errors);
+      }
+
+      if (issues.warnings.length > 0) {
+        lcardsLog.warn('MSD validation warnings:', issues.warnings);
+      }
+
+      return {
+        config: result.mergedConfig,
+        validation: issues
+      };
+    }
+
+    // Fallback: Legacy path
+    lcardsLog.debug('[ConfigProcessor] processMsdConfig using legacy path');
     const preValidation = validateMerged(userMsdConfig);
     const mergedConfig = await mergePacks(userMsdConfig);
     const postValidation = validateMerged(mergedConfig);

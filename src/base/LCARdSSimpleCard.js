@@ -108,7 +108,76 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             texts: []
         };
 
+        // Config provenance tracking (from CoreConfigManager)
+        this._provenance = null;
+
         lcardsLog.debug(`[LCARdSSimpleCard] Constructor called for ${this._cardGuid}`);
+    }
+
+    /**
+     * Set card configuration with CoreConfigManager processing
+     * @param {Object} config - Raw card configuration
+     * @override
+     */
+    async setConfig(config) {
+        if (!config) {
+            throw new Error('Invalid configuration');
+        }
+
+        const core = window.lcardsCore || window.lcards?.core;
+
+        // Check if CoreConfigManager is available and initialized
+        if (core?.configManager?.initialized) {
+            try {
+                // Determine card type from config or use class-level property
+                const cardType = this.constructor.CARD_TYPE || config.type || 'simple-card';
+
+                lcardsLog.debug(`[LCARdSSimpleCard] Processing config with CoreConfigManager`, {
+                    cardType,
+                    hasPreset: !!config.preset,
+                    rawConfig: config
+                });
+
+                // Process config through CoreConfigManager (four-layer merge)
+                const result = await core.configManager.processConfig(
+                    config,
+                    cardType,
+                    { hass: this.hass }
+                );
+
+                // Log any errors or warnings
+                if (result.errors?.length > 0) {
+                    lcardsLog.error(`[LCARdSSimpleCard] Config validation errors:`, result.errors);
+                }
+                if (result.warnings?.length > 0) {
+                    lcardsLog.warn(`[LCARdSSimpleCard] Config validation warnings:`, result.warnings);
+                }
+
+                // Store provenance for debugging
+                this._provenance = result.provenance;
+
+                // Use merged config (whether valid or not - let parent handle errors)
+                const processedConfig = result.mergedConfig || config;
+
+                lcardsLog.debug(`[LCARdSSimpleCard] Config processed`, {
+                    valid: result.valid,
+                    hasProvenance: !!result.provenance,
+                    mergeOrder: result.provenance?.merge_order
+                });
+
+                // Call parent with processed config
+                super.setConfig(processedConfig);
+
+            } catch (error) {
+                lcardsLog.error(`[LCARdSSimpleCard] CoreConfigManager processing failed:`, error);
+                // Fallback: Use raw config
+                super.setConfig(config);
+            }
+        } else {
+            // Fallback: CoreConfigManager not available
+            lcardsLog.debug(`[LCARdSSimpleCard] CoreConfigManager not available - using raw config`);
+            super.setConfig(config);
+        }
     }
 
     /**

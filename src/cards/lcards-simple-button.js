@@ -35,6 +35,9 @@ import { lcardsLog } from '../utils/lcards-logging.js';
 
 export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
 
+    /** Card type identifier for CoreConfigManager */
+    static CARD_TYPE = 'simple-button';
+
     static get properties() {
         return {
             ...super.properties,
@@ -412,6 +415,77 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
 
 // Register the card
 customElements.define('lcards-simple-button', LCARdSSimpleButtonCard);
+
+// Register with CoreConfigManager (behavioral defaults and schema)
+if (window.lcardsCore?.configManager) {
+    const configManager = window.lcardsCore.configManager;
+
+    // Register behavioral defaults (NO STYLES - those come from theme/presets)
+    configManager.registerCardDefaults('simple-button', {
+        show_label: true,           // Display label by default
+        show_icon: false,           // No icon by default
+        enable_hold_action: true,   // Hold actions enabled
+        enable_double_tap: false    // Double-tap disabled by default
+    });
+
+    // Register JSON schema for validation
+    configManager.registerCardSchema('simple-button', {
+        type: 'object',
+        properties: {
+            entity: {
+                type: 'string',
+                description: 'Entity ID to control'
+            },
+            label: {
+                type: 'string',
+                description: 'Button label text (supports templates)'
+            },
+            content: {
+                type: 'string',
+                description: 'Additional content text (supports templates)'
+            },
+            preset: {
+                type: 'string',
+                description: 'Style preset name (e.g., "lozenge", "pill")'
+            },
+            show_label: {
+                type: 'boolean',
+                description: 'Whether to display the label'
+            },
+            show_icon: {
+                type: 'boolean',
+                description: 'Whether to display an icon'
+            },
+            enable_hold_action: {
+                type: 'boolean',
+                description: 'Whether hold action is enabled'
+            },
+            enable_double_tap: {
+                type: 'boolean',
+                description: 'Whether double-tap is enabled'
+            },
+            tap_action: {
+                type: 'object',
+                description: 'Action to perform on tap'
+            },
+            hold_action: {
+                type: 'object',
+                description: 'Action to perform on hold'
+            },
+            double_tap_action: {
+                type: 'object',
+                description: 'Action to perform on double-tap'
+            },
+            style: {
+                type: 'object',
+                description: 'Style overrides'
+            }
+        },
+        required: ['entity']
+    }, { version: '1.0' });
+
+    lcardsLog.debug('[LCARdSSimpleButtonCard] Registered with CoreConfigManager');
+}
 
 // Register with card picker
 window.customCards = window.customCards || [];

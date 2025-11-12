@@ -31,6 +31,7 @@ import { StylePresetManager } from './presets/StylePresetManager.js';  // ✅ Mo
 import { loadBuiltinPacks } from './packs/loadBuiltinPacks.js';  // ✅ Moved to Core
 import { AnimationRegistry } from './animation/AnimationRegistry.js';  // ✅ Moved to Core
 import { LCARdSActionHandler } from '../base/LCARdSActionHandler.js';  // ✅ Unified action handling
+import { CoreConfigManager } from './config-manager/index.js';  // ✅ Unified config processing
 
 /**
  * LCARdSCore - Central coordinator for all LCARdS infrastructure
@@ -54,6 +55,7 @@ class LCARdSCore {
         this.stylePresetManager = null;  // Unified style system: presets + CSS utilities (Phase 2b)
         this.animationRegistry = null;   // Animation instance caching (Phase 2b)
         this.actionHandler = null;       // Unified action handling system
+        this.configManager = null;       // Unified configuration processing
 
         // ===== REGISTRIES =====
         this._cardInstances = new Map();     // Map<cardId, CardContext>
@@ -174,6 +176,15 @@ class LCARdSCore {
             this.actionHandler = new LCARdSActionHandler();
             lcardsLog.debug('[LCARdSCore] ✅ ActionHandler initialized');
 
+            // Initialize ConfigManager (Phase 2d) - ✅ Unified config processing for all cards
+            this.configManager = new CoreConfigManager();
+            await this.configManager.initialize({
+                validationService: this.validationService,
+                themeManager: this.themeManager,
+                stylePresetManager: this.stylePresetManager
+            });
+            lcardsLog.debug('[LCARdSCore] ✅ ConfigManager initialized');
+
             this._coreInitialized = true;
 
             // Process any cards that were waiting
@@ -262,6 +273,7 @@ class LCARdSCore {
             animationManager: this.animationManager,
             validationService: this.validationService,
             stylePresetManager: this.stylePresetManager,
+            configManager: this.configManager,
 
             // Convenience methods - prefer SystemsManager for entity access (has caching)
             getEntityState: (entityId) => this.systemsManager.getEntityState(entityId),
@@ -398,6 +410,7 @@ class LCARdSCore {
             stylePresetManager: this.stylePresetManager ? this._getStylePresetManagerDebugInfo() : null,
             animationRegistry: this.animationRegistry ? this._getAnimationRegistryDebugInfo() : null,
             actionHandler: this.actionHandler ? this._getActionHandlerDebugInfo() : null,
+            configManager: this.configManager ? this.configManager.getDebugInfo() : null,
 
             hasHass: !!this._currentHass
         };
