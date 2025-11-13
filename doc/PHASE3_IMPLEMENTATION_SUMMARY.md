@@ -1,7 +1,7 @@
 # Phase 3: Unified Template System - Implementation Summary
 
-**Date:** November 12, 2025  
-**Version:** 1.9.26  
+**Date:** November 12, 2025
+**Version:** 1.9.26
 **Status:** ✅ Complete and Working
 
 ## Critical Bug Fix
@@ -56,7 +56,7 @@ A **unified template system** that works across both SimpleCard and MSD card typ
 
 ```
 1. JavaScript:    [[[code]]]              → Synchronous
-2. Tokens:        {entity.state}          → Synchronous  
+2. Tokens:        {entity.state}          → Synchronous
 3. Datasources:   {datasource:sensor.temp} → Synchronous
                   {sensor.temp}           → Synchronous (legacy)
 4. Jinja2:        {{expression}}          → Async via HA (SimpleCard only)

@@ -38,9 +38,9 @@ export class SimpleCardTemplateEvaluator extends TemplateEvaluator {
   constructor(context) {
     super(context);
 
-    if (!context.hass) {
-      lcardsLog.warn('[SimpleCardTemplateEvaluator] Created without hass in context');
-    }
+    // Note: hass is optional - only required for Jinja2 templates
+    // For JavaScript/Token/Datasource templates, hass is not needed
+    // Warning removed as it creates noise when MSD evaluates datasources synchronously
 
     // Create HATemplateEvaluator for Jinja2 support
     this._haEvaluator = new HATemplateEvaluator(context);

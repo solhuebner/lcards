@@ -43,11 +43,14 @@ export class UnifiedTemplateEvaluator {
     this.context = config.context || {};
     this.dataSourceManager = config.dataSourceManager || null;
 
+    // Ensure context has hass if provided separately
+    if (this.hass && !this.context.hass) {
+      this.context.hass = this.hass;
+    }
+
     // Create SimpleCard template evaluator (handles JS, tokens, Jinja2)
-    this.simpleCardEvaluator = new SimpleCardTemplateEvaluator({
-      hass: this.hass,
-      context: this.context
-    });
+    // Note: SimpleCardTemplateEvaluator expects hass inside the context object
+    this.simpleCardEvaluator = new SimpleCardTemplateEvaluator(this.context);
 
     // Create MSD template evaluator (handles datasources)
     // Note: MSDTemplateEvaluator expects dataSourceManager directly, not as an object property

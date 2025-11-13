@@ -26,7 +26,7 @@ import { html, css } from 'lit';
 import { lcardsLog } from '../utils/lcards-logging.js';
 import { LCARdSNativeCard } from './LCARdSNativeCard.js';
 import { LCARdSActionHandler } from './LCARdSActionHandler.js';
-import { SimpleCardTemplateEvaluator } from '../core/templates/SimpleCardTemplateEvaluator.js';
+import { UnifiedTemplateEvaluator } from '../core/templates/UnifiedTemplateEvaluator.js';
 import { TemplateParser } from '../core/templates/TemplateParser.js';
 
 /**
@@ -386,10 +386,30 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
                 theme: this._singletons?.themeManager?.getCurrentTheme?.()
             };
 
-            // Use SimpleCardTemplateEvaluator for consistent template processing
-            const evaluator = new SimpleCardTemplateEvaluator(context);
+            // Get dataSourceManager from global singleton (if available)
+            const dataSourceManager = window.lcards?.debug?.msd?.pipelineInstance?.systemsManager?.dataSourceManager;
 
-            // Use async evaluation to support Jinja2
+            // Check if template has datasource references but manager not available yet
+            const hasDatasources = template.includes('{datasource:') || /\{[a-z_]+\.[a-z_]+/.test(template);
+            if (hasDatasources && !dataSourceManager) {
+                // Schedule a retry when DataSourceManager becomes available
+                this._scheduleDatasourceRetry();
+
+                lcardsLog.debug('[LCARdSSimpleCard] Datasource template detected but DataSourceManager not ready, will retry', {
+                    cardGuid: this._cardGuid,
+                    template: template.substring(0, 50)
+                });
+            }
+
+            // Use UnifiedTemplateEvaluator for consistent template processing
+            // This enables datasource access: {datasource:sensor.temp}
+            const evaluator = new UnifiedTemplateEvaluator({
+                hass: this.hass,
+                context: context,
+                dataSourceManager: dataSourceManager
+            });
+
+            // Use async evaluation to support all template types (JavaScript, Tokens, Datasources, Jinja2)
             const result = await evaluator.evaluateAsync(template);
             return result;
 
@@ -397,6 +417,46 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             lcardsLog.error(`[LCARdSSimpleCard] Template processing failed:`, error);
             return template;
         }
+    }
+
+    /**
+     * Schedule a retry of template processing when DataSourceManager becomes available
+     * @private
+     */
+    _scheduleDatasourceRetry() {
+        // Only schedule once
+        if (this._datasourceRetryScheduled) {
+            return;
+        }
+        this._datasourceRetryScheduled = true;
+
+        // Poll for DataSourceManager availability
+        const checkInterval = setInterval(() => {
+            const dataSourceManager = window.lcards?.debug?.msd?.pipelineInstance?.systemsManager?.dataSourceManager;
+
+            if (dataSourceManager) {
+                clearInterval(checkInterval);
+                this._datasourceRetryScheduled = false;
+
+                lcardsLog.info('[LCARdSSimpleCard] DataSourceManager now available, re-processing templates', {
+                    cardGuid: this._cardGuid
+                });
+
+                // Trigger template re-processing
+                this._scheduleTemplateUpdate();
+            }
+        }, 100); // Check every 100ms
+
+        // Give up after 10 seconds
+        setTimeout(() => {
+            if (this._datasourceRetryScheduled) {
+                clearInterval(checkInterval);
+                this._datasourceRetryScheduled = false;
+                lcardsLog.warn('[LCARdSSimpleCard] DataSourceManager not available after timeout', {
+                    cardGuid: this._cardGuid
+                });
+            }
+        }, 10000);
     }    /**
      * Schedule template processing to avoid Lit update cycles
      * @protected
