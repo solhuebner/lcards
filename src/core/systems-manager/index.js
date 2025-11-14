@@ -36,6 +36,10 @@ export class CoreSystemsManager {
     this._registeredCards = new Map(); // cardId -> { card, callbacks }
     this._cardCounter = 0;
 
+    // ✨ NEW: Overlay registry for RulesEngine targeting
+    // Maps overlay IDs to their metadata (tags, sourceCardId, element reference)
+    this._overlayRegistry = new Map(); // overlayId -> { id, tags, sourceCardId, element }
+
     // Change notification system
     this._entityChangeListeners = new Set(); // Set<callback>
     this._pendingChanges = new Set(); // entityId
@@ -166,6 +170,99 @@ export class CoreSystemsManager {
     this._registeredCards.delete(cardId);
     lcardsLog.debug(`[CoreSystemsManager] ✅ Unregistered card: ${cardId}`);
   }
+
+  // ============================================================================
+  // Overlay Registry Methods (for RulesEngine targeting)
+  // ============================================================================
+
+  /**
+   * Register an overlay with the global registry
+   * This allows RulesEngine to target overlays across all cards
+   *
+   * @param {string} overlayId - Unique overlay identifier (typically `${cardId}_${localOverlayId}`)
+   * @param {Object} metadata - Overlay metadata
+   * @param {string} metadata.id - Overlay ID
+   * @param {Array<string>} metadata.tags - Tags for targeting
+   * @param {string} metadata.sourceCardId - Card that owns this overlay
+   * @param {HTMLElement} [metadata.element] - Optional reference to overlay element
+   */
+  registerOverlay(overlayId, metadata) {
+    if (!overlayId || !metadata) {
+      lcardsLog.warn('[CoreSystemsManager] Cannot register overlay without ID and metadata');
+      return;
+    }
+
+    const overlayData = {
+      id: overlayId,
+      tags: metadata.tags || [],
+      sourceCardId: metadata.sourceCardId || 'unknown',
+      element: metadata.element || null,
+      registeredAt: Date.now()
+    };
+
+    this._overlayRegistry.set(overlayId, overlayData);
+    lcardsLog.debug(`[CoreSystemsManager] ✅ Registered overlay: ${overlayId} with tags: [${overlayData.tags.join(', ')}]`);
+  }
+
+  /**
+   * Unregister an overlay from the global registry
+   *
+   * @param {string} overlayId - Overlay to unregister
+   */
+  unregisterOverlay(overlayId) {
+    if (!overlayId) return;
+
+    const removed = this._overlayRegistry.delete(overlayId);
+    if (removed) {
+      lcardsLog.debug(`[CoreSystemsManager] ✅ Unregistered overlay: ${overlayId}`);
+    }
+  }
+
+  /**
+   * Get all registered overlays that can be targeted by rules
+   * This is used by RulesEngine for selector resolution
+   *
+   * @returns {Array<Object>} Array of overlay metadata objects
+   */
+  getAllTargetableOverlays() {
+    return Array.from(this._overlayRegistry.values());
+  }
+
+  /**
+   * Get a specific overlay by ID
+   *
+   * @param {string} overlayId - Overlay to retrieve
+   * @returns {Object|null} Overlay metadata or null
+   */
+  getOverlay(overlayId) {
+    return this._overlayRegistry.get(overlayId) || null;
+  }
+
+  /**
+   * Get all overlays registered by a specific card
+   *
+   * @param {string} cardId - Card to get overlays for
+   * @returns {Array<Object>} Array of overlay metadata objects
+   */
+  getOverlaysBySource(cardId) {
+    return Array.from(this._overlayRegistry.values())
+      .filter(overlay => overlay.sourceCardId === cardId);
+  }
+
+  /**
+   * Get all overlays with a specific tag
+   *
+   * @param {string} tag - Tag to filter by
+   * @returns {Array<Object>} Array of overlay metadata objects
+   */
+  getOverlaysByTag(tag) {
+    return Array.from(this._overlayRegistry.values())
+      .filter(overlay => overlay.tags.includes(tag));
+  }
+
+  // ============================================================================
+  // Entity State Methods
+  // ============================================================================
 
   /**
    * Get current state for an entity
@@ -322,7 +419,9 @@ export class CoreSystemsManager {
       initialized: this._initialized,
       destroyed: this._destroyed,
       registeredCards: Array.from(this._registeredCards.keys()),
-      totalCards: this._registeredCards.size, // Add totalCards for validation
+      totalCards: this._registeredCards.size,
+      registeredOverlays: Array.from(this._overlayRegistry.keys()),
+      totalOverlays: this._overlayRegistry.size,
       entityStateCount: this._entityStates.size,
       entitySubscriptionCount: this._entitySubscriptions.size,
       globalChangeListeners: this._entityChangeListeners.size,
@@ -340,8 +439,9 @@ export class CoreSystemsManager {
     this._entitySubscriptions.clear();
     this._entityChangeListeners.clear();
 
-    // Clear registered cards
+    // Clear registered cards and overlays
     this._registeredCards.clear();
+    this._overlayRegistry.clear();
 
     // Clear state cache
     this._entityStates.clear();

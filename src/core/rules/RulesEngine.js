@@ -466,9 +466,9 @@ export class RulesEngine extends BaseService {
     // Mark all rules dirty since any entity could have changed
     this.markAllDirty();
 
-    // Trigger re-evaluation callbacks if registered (supports multiple MSD cards)
-    if (this._reEvaluationCallbacks.length > 0) {
-      lcardsLog.debug(`[RulesEngine] Triggering ${this._reEvaluationCallbacks.length} re-evaluation callbacks`);
+    // ✨ EFFICIENCY CHECK: Only invoke callbacks if there are dirty rules
+    if (this._reEvaluationCallbacks.length > 0 && this.dirtyRules.size > 0) {
+      lcardsLog.debug(`[RulesEngine] Changes detected, triggering ${this._reEvaluationCallbacks.length} re-evaluation callbacks`);
       this._reEvaluationCallbacks.forEach((callback, index) => {
         try {
           callback();
@@ -476,6 +476,9 @@ export class RulesEngine extends BaseService {
           lcardsLog.error(`[RulesEngine] Error in re-evaluation callback ${index}:`, error);
         }
       });
+    } else if (this._reEvaluationCallbacks.length > 0) {
+      lcardsLog.trace('[RulesEngine] No dirty rules, skipping callback invocation (efficiency check)');
+      perfCount('rules.callbacks.skipped', 1);
     }
   }
 
@@ -740,8 +743,14 @@ export class RulesEngine extends BaseService {
 
     const startTime = performance.now();
 
-    // Get all available overlays from context (during initial render) or SystemsManager (during updates)
-    const allOverlays = contextOverlays || this.systemsManager?.getResolvedModel?.()?.overlays || [];
+    // Get all available overlays from:
+    // 1. Context (during initial render)
+    // 2. SystemsManager overlay registry (for SimpleCards with registered overlays)
+    // 3. SystemsManager getResolvedModel (for MSD cards)
+    const allOverlays = contextOverlays
+      || this.systemsManager?.getAllTargetableOverlays?.()
+      || this.systemsManager?.getResolvedModel?.()?.overlays
+      || [];
 
     if (allOverlays.length === 0) {
       lcardsLog.debug('[RulesEngine] No overlays available for selector resolution');

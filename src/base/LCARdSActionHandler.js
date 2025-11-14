@@ -139,9 +139,14 @@ export class LCARdSActionHandler {
                 return; // Already registered or no animations
             }
 
-            // Try to get AnimationManager via late binding
-            const core = window.lcards?.core;
-            const currentAnimationManager = core?.getAnimationManager?.();
+            // Try to get AnimationManager via:
+            // 1. Provided getter function (preferred)
+            // 2. Core singleton as fallback
+            let currentAnimationManager = options.getAnimationManager?.();
+            if (!currentAnimationManager) {
+                const core = window.lcards?.core;
+                currentAnimationManager = core?.getAnimationManager?.();
+            }
 
             if (!currentAnimationManager) {
                 lcardsLog.warn(`[LCARdSActionHandler] AnimationManager still not available for late binding`);
@@ -237,7 +242,7 @@ export class LCARdSActionHandler {
                                 await ensureAnimationsRegistered();
 
                                 // Trigger animation if registration completed
-                                const currentAnimationManager = window.lcards?.core?.getAnimationManager?.();
+                                const currentAnimationManager = options.getAnimationManager?.() || window.lcards?.core?.getAnimationManager?.();
                                 if (currentAnimationManager && elementId) {
                                     currentAnimationManager.triggerAnimations(elementId, 'on_tap');
                                 }
@@ -259,7 +264,7 @@ export class LCARdSActionHandler {
                     await ensureAnimationsRegistered();
 
                     // Trigger animation if registration completed
-                    const currentAnimationManager = window.lcards?.core?.getAnimationManager?.();
+                    const currentAnimationManager = options.getAnimationManager?.() || window.lcards?.core?.getAnimationManager?.();
                     if (currentAnimationManager && elementId) {
                         currentAnimationManager.triggerAnimations(elementId, 'on_tap');
                     }
@@ -268,8 +273,9 @@ export class LCARdSActionHandler {
                 }
             };
 
-            element.addEventListener('click', tapHandler);
-            cleanupFunctions.push(() => element.removeEventListener('click', tapHandler));
+            // SVG elements in shadow DOM - use capture phase like MSD
+            element.addEventListener('click', tapHandler, { capture: true });
+            cleanupFunctions.push(() => element.removeEventListener('click', tapHandler, { capture: true }));
         }
 
         // Hold action handler
@@ -288,7 +294,7 @@ export class LCARdSActionHandler {
                     await ensureAnimationsRegistered();
 
                     // Trigger animation if registration completed
-                    const currentAnimationManager = window.lcards?.core?.getAnimationManager?.();
+                    const currentAnimationManager = options.getAnimationManager?.() || window.lcards?.core?.getAnimationManager?.();
                     if (currentAnimationManager && elementId) {
                         currentAnimationManager.triggerAnimations(elementId, 'on_hold');
                     }
@@ -305,16 +311,16 @@ export class LCARdSActionHandler {
                 }
             };
 
-            element.addEventListener('pointerdown', holdStart);
-            element.addEventListener('pointerup', holdEnd);
-            element.addEventListener('pointercancel', holdEnd);
-            element.addEventListener('pointerleave', holdEnd);
+            element.addEventListener('pointerdown', holdStart, { capture: true });
+            element.addEventListener('pointerup', holdEnd, { capture: true });
+            element.addEventListener('pointercancel', holdEnd, { capture: true });
+            element.addEventListener('pointerleave', holdEnd, { capture: true });
 
             cleanupFunctions.push(() => {
-                element.removeEventListener('pointerdown', holdStart);
-                element.removeEventListener('pointerup', holdEnd);
-                element.removeEventListener('pointercancel', holdEnd);
-                element.removeEventListener('pointerleave', holdEnd);
+                element.removeEventListener('pointerdown', holdStart, { capture: true });
+                element.removeEventListener('pointerup', holdEnd, { capture: true });
+                element.removeEventListener('pointercancel', holdEnd, { capture: true });
+                element.removeEventListener('pointerleave', holdEnd, { capture: true });
                 if (holdTimer) clearTimeout(holdTimer);
             });
         }
@@ -332,7 +338,7 @@ export class LCARdSActionHandler {
                     await ensureAnimationsRegistered();
 
                     // Trigger animation if registration completed
-                    const currentAnimationManager = window.lcards?.core?.getAnimationManager?.();
+                    const currentAnimationManager = options.getAnimationManager?.() || window.lcards?.core?.getAnimationManager?.();
                     if (currentAnimationManager && elementId) {
                         currentAnimationManager.triggerAnimations(elementId, 'on_double_tap');
                     }
@@ -342,9 +348,9 @@ export class LCARdSActionHandler {
                 }
             };
 
-            element.addEventListener('dblclick', doubleTapHandler);
+            element.addEventListener('dblclick', doubleTapHandler, { capture: true });
             cleanupFunctions.push(() => {
-                element.removeEventListener('dblclick', doubleTapHandler);
+                element.removeEventListener('dblclick', doubleTapHandler, { capture: true });
             });
         }
 
@@ -354,11 +360,13 @@ export class LCARdSActionHandler {
 
             if (isDesktop) {
                 const hoverHandler = async () => {
+                    lcardsLog.debug(`[LCARdSActionHandler] 🖱️ Mouseenter event received on ${elementId}`);
+
                     // Ensure animations are registered (late-binding if needed)
                     await ensureAnimationsRegistered();
 
                     // Trigger animation via AnimationManager
-                    const currentAnimationManager = window.lcards?.core?.getAnimationManager?.();
+                    const currentAnimationManager = options.getAnimationManager?.() || window.lcards?.core?.getAnimationManager?.();
                     if (currentAnimationManager && elementId) {
                         lcardsLog.debug(`[LCARdSActionHandler] 🖱️ Hover animation triggered on ${elementId}`);
                         currentAnimationManager.triggerAnimations(elementId, 'on_hover');
@@ -370,7 +378,7 @@ export class LCARdSActionHandler {
                     await ensureAnimationsRegistered();
 
                     // Trigger animation via AnimationManager
-                    const currentAnimationManager = window.lcards?.core?.getAnimationManager?.();
+                    const currentAnimationManager = options.getAnimationManager?.() || window.lcards?.core?.getAnimationManager?.();
                     if (currentAnimationManager && elementId) {
                         lcardsLog.debug(`[LCARdSActionHandler] 🖱️ Leave animation triggered on ${elementId}`);
                         // Stop looping hover animations and trigger leave animations
@@ -379,22 +387,33 @@ export class LCARdSActionHandler {
                     }
                 };
 
-                element.addEventListener('mouseenter', hoverHandler);
-                element.addEventListener('mouseleave', leaveHandler);
+                element.addEventListener('mouseenter', hoverHandler, { capture: true });
+                element.addEventListener('mouseleave', leaveHandler, { capture: true });
 
                 cleanupFunctions.push(() => {
-                    element.removeEventListener('mouseenter', hoverHandler);
-                    element.removeEventListener('mouseleave', leaveHandler);
+                    element.removeEventListener('mouseenter', hoverHandler, { capture: true });
+                    element.removeEventListener('mouseleave', leaveHandler, { capture: true });
                 });
 
                 lcardsLog.debug(`[LCARdSActionHandler] ✅ Hover/leave handlers attached for ${elementId}`);
             }
         }
 
-        lcardsLog.debug(`[LCARdSActionHandler] ✅ Actions setup complete - ${cleanupFunctions.length} handlers attached`);
+        // Add visual indicator that handlers are attached
+        element.setAttribute('data-lcards-actions-attached', 'true');
+        element.setAttribute('data-lcards-handler-count', cleanupFunctions.length);
+
+        lcardsLog.info(`[LCARdSActionHandler] ✅ Actions setup complete - ${cleanupFunctions.length} handlers attached to ${element.tagName} element`, {
+            elementId,
+            elementSelector: element.getAttribute('data-button-id') || element.getAttribute('data-overlay-id') || element.id,
+            hasPointerEvents: window.getComputedStyle(element).pointerEvents,
+            boundingBox: element.getBoundingClientRect()
+        });
 
         return () => {
             lcardsLog.debug(`[LCARdSActionHandler] 🧹 Cleaning up ${cleanupFunctions.length} action listeners`);
+            element.removeAttribute('data-lcards-actions-attached');
+            element.removeAttribute('data-lcards-handler-count');
             cleanupFunctions.forEach(cleanup => cleanup());
         };
     }

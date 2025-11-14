@@ -268,7 +268,12 @@ export class SimpleButtonRenderer {
             fill: ${resolvedPrimary};
             stroke: ${resolvedSecondary};
             stroke-width: ${strokeWidth};
-          }${textStyles}
+          }
+          .button-clickable {
+            pointer-events: all;
+            cursor: pointer;
+          }
+          ${textStyles}
         </style>
       </defs>
 

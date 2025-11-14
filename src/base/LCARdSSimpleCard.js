@@ -115,7 +115,22 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
         // Config provenance tracking (from CoreConfigManager)
         this._provenance = null;
 
-        lcardsLog.debug(`[LCARdSSimpleCard] Constructor called for ${this._cardGuid}`);
+        // ✨ NEW: Rules integration state
+        this._overlayId = null;           // Unique overlay ID for this card
+        this._overlayTags = [];           // Tags for rule targeting
+        this._rulesCallbackIndex = null;  // Callback index from RulesEngine
+        this._lastRulePatches = null;     // Cache of last applied patches
+
+        lcardsLog.debug(`[LCARdSSimpleCard] Constructor called for ${this._getDisplayId()}`);
+    }
+
+    /**
+     * Get display ID for logging - uses custom ID if provided, otherwise GUID
+     * @returns {string} Display ID
+     * @private
+     */
+    _getDisplayId() {
+        return this.config?.id || this._cardGuid;
     }
 
     /**
@@ -210,9 +225,20 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             this._entity = this.hass.states[config.entity];
         }
 
-        lcardsLog.debug(`[LCARdSSimpleCard] Config set for ${this._cardGuid}`, {
+        // Load rules from config into RulesEngine
+        if (config.rules && Array.isArray(config.rules) && config.rules.length > 0) {
+            this._loadRulesFromConfig(config.rules);
+        }
+
+        lcardsLog.debug(`[LCARdSSimpleCard] Config set for ${this._getDisplayId()}`, {
             entity: config.entity,
-            hasEntity: !!this._entity
+            hasEntity: !!this._entity,
+            rulesCount: config.rules?.length || 0,
+            hasAnimations: !!config.animations,
+            animationsCount: config.animations?.length || 0,
+            hasTapAction: !!config.tap_action,
+            hasHoldAction: !!config.hold_action,
+            finalConfig: config  // Log the entire final config for debugging
         });
 
         // Process templates whenever config changes (async to support Jinja2)
@@ -272,7 +298,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
         // Initialize singleton access
         this._initializeSingletons();
 
-        lcardsLog.debug(`[LCARdSSimpleCard] Connected: ${this._cardGuid}`);
+        lcardsLog.debug(`[LCARdSSimpleCard] Connected: ${this._getDisplayId()}`);
     }
 
     /**
@@ -285,12 +311,54 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
         // Mark as initialized
         this._initialized = true;
 
+        // Register callback with RulesEngine for entity change notifications
+        this._registerRulesCallback();
+
         // Call card-specific initialization
         if (typeof this._handleFirstUpdate === 'function') {
             this._handleFirstUpdate(changedProperties);
         }
 
-        lcardsLog.debug(`[LCARdSSimpleCard] First updated: ${this._cardGuid}`);
+        lcardsLog.debug(`[LCARdSSimpleCard] First updated: ${this._getDisplayId()}`);
+    }
+
+    /**
+     * Register callback with RulesEngine to be notified when rules need re-evaluation
+     * This allows the card to update when entity states change
+     * @private
+     */
+    _registerRulesCallback() {
+        const rulesEngine = window.lcards?.core?.rulesManager;
+        if (!rulesEngine) {
+            lcardsLog.warn('[LCARdSSimpleCard] Cannot register rules callback - RulesEngine not available');
+            return;
+        }
+
+        // Register callback to re-render when rules change
+        this._rulesCallbackIndex = rulesEngine.setReEvaluationCallback(async () => {
+            lcardsLog.debug(`[LCARdSSimpleCard] Rules re-evaluation triggered for ${this._getDisplayId()}`);
+
+            // Trigger a re-render to apply updated rule styles
+            this.requestUpdate();
+        });
+
+        lcardsLog.debug(`[LCARdSSimpleCard] Registered rules callback for ${this._getDisplayId()} (index: ${this._rulesCallbackIndex})`);
+    }
+
+    /**
+     * Cleanup when card is removed from DOM
+     */
+    disconnectedCallback() {
+        super.disconnectedCallback();
+
+        // Unregister rules callback
+        if (this._rulesCallbackIndex !== undefined) {
+            const rulesEngine = window.lcards?.core?.rulesManager;
+            if (rulesEngine) {
+                rulesEngine.removeReEvaluationCallback(this._rulesCallbackIndex);
+                lcardsLog.debug(`[LCARdSSimpleCard] Unregistered rules callback for ${this._getDisplayId()}`);
+            }
+        }
     }
 
     /**
@@ -348,6 +416,196 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
         } catch (error) {
             lcardsLog.error(`[LCARdSSimpleCard] Singleton initialization failed:`, error);
         }
+    }
+
+    // ============================================================================
+    // RULES INTEGRATION - Dynamic styling via RulesEngine
+    // ============================================================================
+
+    /**
+     * Load rules from card config into the global RulesEngine
+     * Follows MSD pattern: add rules to shared engine
+     *
+     * @param {Array} rules - Array of rule objects from card config
+     * @private
+     */
+    _loadRulesFromConfig(rules) {
+        if (!this._singletons?.rulesEngine) {
+            lcardsLog.warn('[LCARdSSimpleCard] RulesEngine not available, cannot load rules from config');
+            return;
+        }
+
+        if (!Array.isArray(rules) || rules.length === 0) {
+            return;
+        }
+
+        try {
+            const rulesEngine = this._singletons.rulesEngine;
+            let addedCount = 0;
+
+            // Add each rule to the shared engine (skip duplicates by ID)
+            rules.forEach(rule => {
+                // Ensure rule has an ID
+                if (!rule.id) {
+                    lcardsLog.warn('[LCARdSSimpleCard] Rule missing ID, skipping:', rule);
+                    return;
+                }
+
+                // Skip if rule already exists in engine
+                if (rulesEngine.rulesById.has(rule.id)) {
+                    lcardsLog.debug(`[LCARdSSimpleCard] Rule ${rule.id} already exists in engine, skipping`);
+                    return;
+                }
+
+                // Add rule to engine
+                rulesEngine.rules.push(rule);
+                addedCount++;
+            });
+
+            if (addedCount > 0) {
+                // Rebuild indexes and compile new rules
+                rulesEngine.buildRulesIndex();
+                rulesEngine.buildDependencyIndex();
+                rulesEngine._compileRules();
+                rulesEngine.markAllDirty(); // Mark all rules dirty for initial evaluation
+
+                lcardsLog.info(`[LCARdSSimpleCard] ✅ Loaded ${addedCount} rules from config. Total rules in engine: ${rulesEngine.rules.length}`);
+            }
+
+        } catch (error) {
+            lcardsLog.error('[LCARdSSimpleCard] Failed to load rules from config:', error);
+        }
+    }
+
+    /**
+     * Register this card's overlay with the RulesEngine for dynamic styling
+     * Subclasses should call this in firstUpdated() with their overlay configuration
+     *
+     * @param {string} overlayId - Unique identifier for this overlay (e.g., 'main_button')
+     * @param {Array<string>} tags - Tags for rule targeting (e.g., ['status', 'button'])
+     * @protected
+     */
+    _registerOverlayForRules(overlayId, tags = []) {
+        if (!this._singletons?.rulesEngine || !this._singletons?.systemsManager) {
+            lcardsLog.debug('[LCARdSSimpleCard] Rules or SystemsManager not available, skipping overlay registration');
+            return;
+        }
+
+        // Create fully qualified overlay ID (cardId_overlayId)
+        // If user provided config.id, use it for better readability, otherwise use generated GUID
+        const cardId = this.config.id || this._cardGuid;
+        this._overlayId = `${cardId}_${overlayId}`;
+        this._overlayTags = Array.isArray(tags) ? tags : [tags];
+
+        // Register overlay with CoreSystemsManager
+        this._singletons.systemsManager.registerOverlay(this._overlayId, {
+            id: this._overlayId,
+            tags: this._overlayTags,
+            sourceCardId: this._cardGuid
+        });
+
+        // Register callback with RulesEngine (follows MSD pattern)
+        this._rulesCallbackIndex = this._singletons.rulesEngine.setReEvaluationCallback(async () => {
+            // Evaluate rules to get patches
+            const ruleResults = await this._singletons.rulesEngine.evaluateDirty({ getEntity: null });
+
+            // Apply patches to this card's overlay
+            this._applyRulePatches(ruleResults.overlayPatches);
+        });
+
+        lcardsLog.debug(`[LCARdSSimpleCard] Registered overlay for rules: ${this._overlayId}`, {
+            tags: this._overlayTags,
+            callbackIndex: this._rulesCallbackIndex
+        });
+    }
+
+    /**
+     * Unregister overlay from rules system during cleanup
+     * @protected
+     */
+    _unregisterOverlayFromRules() {
+        if (!this._overlayId) return;
+
+        // Remove callback from RulesEngine
+        if (this._rulesCallbackIndex !== null && this._singletons?.rulesEngine) {
+            this._singletons.rulesEngine.removeReEvaluationCallback(this._rulesCallbackIndex);
+            this._rulesCallbackIndex = null;
+        }
+
+        // Unregister overlay from SystemsManager
+        if (this._singletons?.systemsManager) {
+            this._singletons.systemsManager.unregisterOverlay(this._overlayId);
+        }
+
+        lcardsLog.debug(`[LCARdSSimpleCard] Unregistered overlay from rules: ${this._overlayId}`);
+
+        this._overlayId = null;
+        this._overlayTags = [];
+        this._lastRulePatches = null;
+    }
+
+    /**
+     * Apply rule patches to this card's overlay
+     * Filters patches for this card's overlay and triggers efficient update
+     *
+     * @param {Array} overlayPatches - Array of overlay patches from RulesEngine
+     * @private
+     */
+    _applyRulePatches(overlayPatches) {
+        if (!overlayPatches || !this._overlayId) return;
+
+        // Find patches for this card's overlay
+        const myPatches = overlayPatches.filter(patch => patch.id === this._overlayId);
+
+        if (myPatches.length === 0) {
+            // No patches for this overlay - clear cached patches if any existed
+            if (this._lastRulePatches !== null) {
+                this._lastRulePatches = null;
+                this.requestUpdate(); // Clear previous rule styles
+            }
+            return;
+        }
+
+        // Merge all patches for this overlay (later patches override)
+        const mergedPatch = myPatches.reduce((acc, patch) => ({
+            ...acc,
+            ...patch,
+            style: {
+                ...(acc.style || {}),
+                ...(patch.style || {})
+            }
+        }), {});
+
+        // Cache patches for style resolution
+        this._lastRulePatches = mergedPatch;
+
+        // Trigger efficient update using Lit's change detection
+        this.requestUpdate();
+
+        lcardsLog.debug(`[LCARdSSimpleCard] Applied rule patches to ${this._overlayId}`, {
+            patchCount: myPatches.length,
+            style: mergedPatch.style
+        });
+    }
+
+    /**
+     * Get final merged style object combining config styles with rule patches
+     * Subclasses should call this when computing final styles for rendering
+     *
+     * @param {Object} configStyle - Style from config
+     * @returns {Object} Merged style object (config + rules)
+     * @protected
+     */
+    _getMergedStyleWithRules(configStyle = {}) {
+        if (!this._lastRulePatches || !this._lastRulePatches.style) {
+            return configStyle;
+        }
+
+        // Merge config style with rule patches (rules override)
+        return {
+            ...configStyle,
+            ...this._lastRulePatches.style
+        };
     }
 
     // ============================================================================
@@ -880,6 +1138,9 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
      * @protected
      */
     _onDisconnected() {
+        // Cleanup rules integration
+        this._unregisterOverlayFromRules();
+
         // Cleanup entity subscriptions
         if (this._entitySubscriptions) {
             this._entitySubscriptions.forEach(unsubscribe => {
