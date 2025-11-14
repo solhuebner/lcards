@@ -18,7 +18,7 @@ export class ModelBuilder {
     this._resolvedModelRef = null;
   }
 
-  computeResolvedModel() {
+  async computeResolvedModel() {
     // Anchor repair diagnostic
     this._ensureAnchors();
 
@@ -32,7 +32,7 @@ export class ModelBuilder {
     this._subscribeOverlaysToUpdates(baseOverlays);
 
     // Apply rules
-    const ruleResult = this._applyRules();
+    const ruleResult = await this._applyRules(baseOverlays);  // ✨ CHANGED: Pass overlays for selector resolution
 
     // Apply overlay patches
     const overlaysWithPatches = this._applyOverlayPatches(baseOverlays, ruleResult);
@@ -206,7 +206,7 @@ export class ModelBuilder {
   // Deleted in Phase 0 of architecture refactor.
 
 
-  _applyRules() {
+  async _applyRules(baseOverlays = []) {  // ✨ CHANGED: Accept overlays parameter
     lcardsLog.debug('[ModelBuilder] 🔍 _applyRules() called');
 
     // FIXED: Always evaluate rules during render, not just when dirty
@@ -236,7 +236,7 @@ export class ModelBuilder {
       return null;
     };
 
-    const ruleResult = this.systems.rulesEngine.evaluateDirty({ getEntity });
+    const ruleResult = await this.systems.rulesEngine.evaluateDirty({ getEntity, overlays: baseOverlays });  // ✨ CHANGED: Pass overlays
     lcardsLog.debug('[ModelBuilder] 📏 Rule evaluation result:', {
       overlayPatches: ruleResult.overlayPatches.length,
       patches: ruleResult.overlayPatches

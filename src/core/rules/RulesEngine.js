@@ -7,6 +7,8 @@ import { perfTime, perfCount } from '../../utils/performance.js';
 import { globalTraceBuffer } from './RuleTraceBuffer.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import { BaseService } from '../../core/BaseService.js';
+import { compileRule, evalCompiled } from './compileConditions.js';  // ✨ NEW
+import { UnifiedTemplateEvaluator } from '../templates/UnifiedTemplateEvaluator.js';  // ✨ NEW
 
 export class RulesEngine extends BaseService {
   constructor(rules = [], dataSourceManager = null) {
@@ -36,9 +38,18 @@ export class RulesEngine extends BaseService {
     this._hassEntities = new Set(); // Cached entity list for performance
     this._freshStateCache = new Map(); // Cache for fresh states from events (entityId -> state object)
 
+    // ✨ NEW: Template evaluator for Jinja2/JS conditions
+    this._templateEvaluator = null;
+
+    // ✨ NEW: Compiled rules cache
+    this.compiledRules = new Map();
+
     this.buildRulesIndex();
     this.buildDependencyIndex();
     this.markAllDirty(); // Initial state
+
+    // ✨ NEW: Compile rules
+    this._compileRules();
   }
 
   buildRulesIndex() {
@@ -48,6 +59,91 @@ export class RulesEngine extends BaseService {
         this.rulesById.set(rule.id, rule);
       }
     });
+  }
+
+  /**
+   * Set systemsManager and initialize template evaluator
+   * @param {Object} manager - SystemsManager instance
+   */
+  set systemsManager(manager) {
+    this._systemsManager = manager;
+    if (manager) {
+      this._initializeTemplateEvaluator();
+    }
+  }
+
+  get systemsManager() {
+    return this._systemsManager;
+  }
+
+  /**
+   * Initialize template evaluator for rule conditions
+   * Called after systemsManager is set
+   *
+   * @private
+   */
+  _initializeTemplateEvaluator() {
+    if (!this._systemsManager) {
+      lcardsLog.warn('[RulesEngine] Cannot initialize template evaluator without systemsManager');
+      return;
+    }
+
+    const hass = this._systemsManager.getHass();
+    if (!hass) {
+      lcardsLog.warn('[RulesEngine] Cannot initialize template evaluator without hass');
+      return;
+    }
+
+    this._templateEvaluator = new UnifiedTemplateEvaluator({
+      hass: hass,
+      context: {
+        hass: hass,
+        config: {},
+        variables: {}
+      },
+      dataSourceManager: this.dataSourceManager
+    });
+
+    lcardsLog.debug('[RulesEngine] Template evaluator initialized for Jinja2/JS conditions');
+  }
+
+  /**
+   * Compile all rules to optimized trees
+   *
+   * @private
+   */
+  _compileRules() {
+    const issues = [];
+
+    lcardsLog.debug(`[RulesEngine] Compiling ${this.rules.length} rules...`);
+
+    this.rules.forEach(rule => {
+      try {
+        const compiled = compileRule(rule, issues);
+        this.compiledRules.set(rule.id, compiled);
+
+        lcardsLog.trace(`[RulesEngine] Compiled rule ${rule.id}:`, {
+          hasConditions: !!compiled.tree,
+          dependencies: {
+            entities: compiled.deps.entities.size,
+            perf: compiled.deps.perf.size,
+            flags: compiled.deps.flags.size
+          }
+        });
+      } catch (error) {
+        lcardsLog.error(`[RulesEngine] Failed to compile rule ${rule.id}:`, error);
+        issues.push({
+          ruleId: rule.id,
+          error: error.message
+        });
+      }
+    });
+
+    if (issues.length > 0) {
+      lcardsLog.warn('[RulesEngine] Rule compilation issues:', issues);
+    }
+
+    lcardsLog.debug(`[RulesEngine] Compiled ${this.compiledRules.size} rules successfully`);
   }
 
   buildDependencyIndex() {
@@ -204,9 +300,17 @@ export class RulesEngine extends BaseService {
     perfCount('rules.dirty.all', this.dirtyRules.size);
   }
 
-  evaluateDirty(context = {}) {
-    return perfTime('rules.evaluate', () => {
-      let { getEntity } = context;
+  /**
+   * Evaluate dirty (changed) rules
+   *
+   * NOW ASYNC to support Jinja2 template conditions
+   *
+   * @param {Object} context - Evaluation context
+   * @returns {Promise<Object>} Aggregated rule results
+   */
+  async evaluateDirty(context = {}) {
+    return perfTime('rules.evaluate', async () => {  // ✨ CHANGED: async
+      let { getEntity, overlays } = context;  // ✨ CHANGED: Extract overlays from context
 
       // ENHANCED: Always prioritize original HASS states for rule evaluation
       // regardless of the context or provided getEntity function
@@ -312,10 +416,11 @@ export class RulesEngine extends BaseService {
         .filter(rule => rule)
         .sort((a, b) => (b.priority || 0) - (a.priority || 0));
 
-      dirtyRulesArray.forEach(rule => {
-        if (processedRules.has(rule.id)) return;
+      // ✨ CHANGED: Sequential async evaluation (maintains priority order)
+      for (const rule of dirtyRulesArray) {
+        if (processedRules.has(rule.id)) continue;
 
-        const result = this.evaluateRule(rule, getEntity);
+        const result = await this.evaluateRule(rule, getEntity, overlays);  // ✨ CHANGED: Pass overlays
         processedRules.add(rule.id);
 
         // Cache evaluation result
@@ -332,7 +437,7 @@ export class RulesEngine extends BaseService {
 
         // Remove from dirty set
         this.dirtyRules.delete(rule.id);
-      });
+      }
 
       // Performance tracking
       this.evalCounts.total += totalDirty;
@@ -384,7 +489,166 @@ export class RulesEngine extends BaseService {
     return this.ingestHass(hass);
   }
 
-  evaluateRule(rule, getEntity) {
+  /**
+   * Evaluate rule using compiled conditions
+   *
+   * NOW ASYNC to support Jinja2 conditions
+   *
+   * @param {Object} rule - Rule to evaluate
+   * @param {Function} getEntity - Function to get entity state
+   * @param {Array} contextOverlays - Overlays available during evaluation (for initial render)
+   * @returns {Promise<Object>} Evaluation result
+   */
+  async evaluateRule(rule, getEntity, contextOverlays = null) {  // ✨ CHANGED: Accept contextOverlays
+    const startTime = performance.now();
+
+    try {
+      // Get compiled rule
+      const compiled = this.compiledRules.get(rule.id);
+      if (!compiled) {
+        lcardsLog.warn(`[RulesEngine] No compiled rule found for ${rule.id}`);
+        return this.createUnmatchedResult(rule);
+      }
+
+      // Create evaluation context
+      const ctx = {
+        // Entity lookup
+        getEntity,
+        entity: null,  // Will be set by evalEntity if needed
+
+        // HASS access
+        hass: this.systemsManager?.getHass?.(),
+
+        // Time/date
+        now: Date.now(),
+
+        // Additional context
+        sun: this.systemsManager?.getSunInfo?.(),
+        getPerf: (key) => this.perfMetrics?.[key],
+        flags: this.debugFlags || {},
+
+        // ✨ NEW: Template evaluator for Jinja2/JS
+        unifiedTemplateEvaluator: this._templateEvaluator
+      };
+
+      // Evaluate compiled tree (async)
+      const matched = await evalCompiled(compiled.tree, ctx);
+
+      const evaluationTime = performance.now() - startTime;
+
+      const result = {
+        ruleId: rule.id,
+        priority: rule.priority || 0,
+        matched,
+        conditions: { matched },  // Simplified since tree is pre-compiled
+        rule,
+        evaluationTime
+      };
+
+      // Add trace entry
+      this.traceBuffer.addTrace(
+        rule.id,
+        matched,
+        { matched },  // Simplified conditions
+        evaluationTime,
+        {
+          priority: rule.priority || 0,
+          hasTemplateConditions: this._hasTemplateConditions(compiled.tree),
+          entityRefs: this.dependencyIndex?.ruleToEntities.get(rule.id) || []
+        }
+      );
+
+      if (matched && rule.apply) {
+        // Resolve overlay selectors to patches (supports bulk targeting)
+        result.overlayPatches = this._resolveOverlaySelectors(rule.apply, contextOverlays);  // ✨ CHANGED: Pass contextOverlays
+        result.profilesAdd = rule.apply.profiles_add || [];
+        result.profilesRemove = rule.apply.profiles_remove || [];
+        result.animations = rule.apply.animations || [];
+        result.baseSvgUpdate = rule.apply.base_svg || null;
+        result.stopAfter = rule.stop === true;
+
+        // DEBUG: Log what we found
+        lcardsLog.debug(`[RulesEngine] 🎨 Rule ${rule.id} matched - apply block:`, {
+          hasBaseSvg: !!rule.apply.base_svg,
+          baseSvgValue: rule.apply.base_svg,
+          hasOverlays: !!rule.apply.overlays,
+          overlayCount: result.overlayPatches?.length || 0
+        });
+      }
+
+      return result;
+
+    } catch (error) {
+      const evaluationTime = performance.now() - startTime;
+
+      // Trace error
+      this.traceBuffer.addTrace(
+        rule.id,
+        false,
+        {},
+        evaluationTime,
+        { error: error.message }
+      );
+
+      lcardsLog.error(`[RulesEngine] Error evaluating rule ${rule.id}:`, error);
+      return {
+        ruleId: rule.id,
+        matched: false,
+        error: error.message,
+        evaluationTime
+      };
+    }
+  }
+
+  /**
+   * Check if compiled tree has template conditions
+   *
+   * @private
+   * @param {Object} tree - Compiled condition tree
+   * @returns {boolean} True if has Jinja2 or JavaScript conditions
+   */
+  _hasTemplateConditions(tree) {
+    if (!tree) return false;
+
+    if (tree.type === 'jinja2' || tree.type === 'javascript') {
+      return true;
+    }
+
+    if (tree.type === 'all' || tree.type === 'any') {
+      return tree.nodes.some(n => this._hasTemplateConditions(n));
+    }
+
+    if (tree.type === 'not') {
+      return this._hasTemplateConditions(tree.node);
+    }
+
+    return false;
+  }
+
+  /**
+   * Create unmatched result for missing/failed rules
+   *
+   * @private
+   * @param {Object} rule - Rule that failed
+   * @returns {Object} Unmatched result
+   */
+  createUnmatchedResult(rule) {
+    return {
+      ruleId: rule.id,
+      priority: rule.priority || 0,
+      matched: false,
+      conditions: { matched: false },
+      rule,
+      evaluationTime: 0
+    };
+  }
+
+  // ============================================================================
+  // LEGACY evaluateConditions - Keep for backward compatibility temporarily
+  // Will be removed once all callsites use compiled evaluation
+  // ============================================================================
+
+  evaluateRule_LEGACY(rule, getEntity) {
     const startTime = performance.now();
 
     try {
@@ -416,7 +680,7 @@ export class RulesEngine extends BaseService {
 
       if (matched && rule.apply) {
         // NEW: Resolve overlay selectors to patches (supports bulk targeting)
-        result.overlayPatches = this._resolveOverlaySelectors(rule.apply);
+        result.overlayPatches = this._resolveOverlaySelectors(rule.apply, contextOverlays);  // ✨ CHANGED: Pass contextOverlays
         result.profilesAdd = rule.apply.profiles_add || [];
         result.profilesRemove = rule.apply.profiles_remove || [];
         result.animations = rule.apply.animations || [];
@@ -471,13 +735,13 @@ export class RulesEngine extends BaseService {
    * @returns {Array<Object>} Array of overlay patches with {id, style, ...}
    * @private
    */
-  _resolveOverlaySelectors(ruleApply) {
+  _resolveOverlaySelectors(ruleApply, contextOverlays = null) {  // ✨ CHANGED: Accept overlays parameter
     if (!ruleApply.overlays) return [];
 
     const startTime = performance.now();
 
-    // Get all available overlays from SystemsManager
-    const allOverlays = this.systemsManager?.getResolvedModel?.()?.overlays || [];
+    // Get all available overlays from context (during initial render) or SystemsManager (during updates)
+    const allOverlays = contextOverlays || this.systemsManager?.getResolvedModel?.()?.overlays || [];
 
     if (allOverlays.length === 0) {
       lcardsLog.debug('[RulesEngine] No overlays available for selector resolution');
@@ -1335,6 +1599,7 @@ export function applyOverlayPatches(overlays, patches) {
     // But mark them so they don't cascade to individual cells
     const patchedOverlay = {
       ...overlay,
+      ...patch.style,  // ✨ NEW: Also apply patch properties at top level for overlays like text/button
       style: {
         ...overlay.style,
         ...patch.style
@@ -1350,6 +1615,8 @@ export function applyOverlayPatches(overlays, patches) {
     lcardsLog.debug('[RulesEngine] ✅ Patched overlay result:', {
       id: patchedOverlay.id,
       type: patchedOverlay.type,
+      topLevelColor: patchedOverlay.color,
+      topLevelStatusIndicator: patchedOverlay.status_indicator,
       newStyle: patchedOverlay.style,
       newFinalStyle: patchedOverlay.finalStyle
     });

@@ -181,6 +181,54 @@ rules:
       # ...
 ```
 
+### Template Conditions
+
+Use **JavaScript or Jinja2 templates** for complex conditional logic with full access to Home Assistant states and attributes.
+
+#### JavaScript Templates
+
+```yaml
+# Simple state check
+when:
+  any:
+    - condition: "[[[return states['light.bedroom'].state === 'on']]]"
+
+# Numeric comparison
+when:
+  any:
+    - condition: "[[[return parseFloat(states['sensor.temperature'].state) > 25]]]"
+
+# Multiple entities
+when:
+  any:
+    - condition: |
+        [[[
+          return states['light.bedroom'].state === 'on' &&
+                 states['light.bathroom'].state === 'on'
+        ]]]
+```
+
+#### Jinja2 Templates
+
+```yaml
+# Simple state check
+when:
+  any:
+    - condition: "{{ states('light.bedroom') == 'on' }}"
+
+# Numeric comparison
+when:
+  any:
+    - condition: "{{ states('sensor.temperature') | float > 25 }}"
+
+# Multiple entities
+when:
+  any:
+    - condition: "{{ states('light.bedroom') == 'on' and states('light.bathroom') == 'on' }}"
+```
+
+**See the complete guide:** [Template Conditions](template-conditions.md)
+
 ### Time Conditions
 
 Check time ranges or days of week:

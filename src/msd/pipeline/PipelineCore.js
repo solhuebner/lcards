@@ -354,7 +354,7 @@ export async function initMsdPipeline(userMsdConfig, mountEl, hass = null) {
     try {
       lcardsLog.debug('[PipelineCore] 📊 Computing resolved model...');
       const startTime = performance.now();
-      const resolvedModel = modelBuilder.computeResolvedModel();
+      const resolvedModel = await modelBuilder.computeResolvedModel();
 
       lcardsLog.debug('[PipelineCore] ✅ Resolved model computed:', {
         overlayCount: resolvedModel.overlays.length,

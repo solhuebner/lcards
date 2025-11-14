@@ -1,4 +1,6 @@
 import { linearMap } from '../../utils/linearMap.js';
+import { TemplateDetector } from '../templates/TemplateDetector.js';
+import { TemplateParser } from '../templates/TemplateParser.js';
 
 export function compileRule(rule, issues) {
   const raw = rule.when;
@@ -28,12 +30,80 @@ function compileNode(node, issues, ruleId) {
   if (node.not) {
     return { type: 'not', node: compileNode(node.not, issues, ruleId) };
   }
+
+  // ✨ NEW: Auto-detect template type from 'condition' field
+  if (node.condition) {
+    const conditionStr = String(node.condition);
+
+    // Debug: Log condition string to help diagnose YAML escaping issues
+    if (conditionStr.includes('[[[') || conditionStr.includes('{{')) {
+      console.log('[compileConditions] Condition string:', conditionStr);
+      console.log('[compileConditions] String length:', conditionStr.length);
+      console.log('[compileConditions] Has backslashes:', conditionStr.includes('\\'));
+    }
+
+    // JavaScript with [[[ ]]] syntax (like custom-button-card)
+    if (conditionStr.includes('[[[') && conditionStr.includes(']]]')) {
+      const code = conditionStr.slice(3, -3).trim();
+      console.log('[compileConditions] Detected JavaScript with [[[]]]. Code:', code);
+
+      // Don't add extra 'return' - user's code should handle it
+      return {
+        type: 'javascript',
+        code: code,
+        detected: true
+      };
+    }
+
+    // Jinja2 (double braces)
+    if (conditionStr.includes('{{') && conditionStr.includes('}}')) {
+      console.log('[compileConditions] Detected Jinja2 template');
+      return {
+        type: 'jinja2',
+        template: conditionStr,
+        detected: true
+      };
+    }
+
+    // If no special syntax, log a warning
+    console.warn('[compileConditions] Plain string condition not supported. Use [[[ ]]] for JavaScript or {{ }} for Jinja2');
+    issues.push({
+      ruleId,
+      severity: 'error',
+      message: `Plain string conditions not supported. Use [[[ ]]] for JavaScript or {{ }} for Jinja2: "${conditionStr}"`
+    });
+    return { type: 'always' };
+  }
+
+  // ✨ NEW: Explicit type support (for power users)
+  if (node.jinja2) {
+    return {
+      type: 'jinja2',
+      template: node.jinja2,
+      detected: false  // Explicitly declared
+    };
+  }
+
+  if (node.javascript || node.js) {
+    return {
+      type: 'javascript',
+      code: node.javascript || node.js,
+      detected: false
+    };
+  }
+
   if (node.map_range_cond) {
     const c = { ...node.map_range_cond };
     return { type: 'map_range_cond', c };
   }
   if (node.entity || node.entity_attr) {
-    return { type: node.entity ? 'entity' : 'entity_attr', c: node };
+    // ✨ FIXED: Normalize 'state' property to 'equals' for comparison
+    const c = { ...node };
+    if (c.state !== undefined && c.equals === undefined) {
+      c.equals = c.state;
+      delete c.state;
+    }
+    return { type: node.entity ? 'entity' : 'entity_attr', c };
   }
   if (node.time_between) {
     return { type: 'time_between', range: node.time_between };
@@ -77,6 +147,29 @@ function collectDeps(node, deps) {
     case 'flag':
       if (node.c?.debugFlagName) deps.flags.add(node.c.debugFlagName);
       break;
+    // ✨ NEW: Extract dependencies from template conditions
+    case 'jinja2':
+      // Extract entity IDs from Jinja2 templates
+      try {
+        const jinja2Entities = TemplateParser.extractJinja2Entities(node.template);
+        jinja2Entities.forEach(entityId => deps.entities.add(entityId));
+      } catch (error) {
+        // Parsing failed, no dependencies extracted
+      }
+      break;
+    case 'javascript':
+      // Extract entity references from JavaScript code
+      try {
+        const jsTokens = TemplateParser.extractTokens(node.code);
+        jsTokens.forEach(token => {
+          if (token.parts[0] === 'entity') {
+            // This references ctx.entity, dependency will be from rule's entity context
+          }
+        });
+      } catch (error) {
+        // Parsing failed, no dependencies extracted
+      }
+      break;
   }
 }
 
@@ -84,22 +177,307 @@ function alwaysTrueNode() {
   return { type: 'always' };
 }
 
-export function evalCompiled(tree, ctx) {
+/**
+ * Evaluate Jinja2 template condition via Home Assistant
+ *
+ * @param {Object} tree - Compiled Jinja2 node
+ * @param {Object} ctx - Evaluation context
+ * @param {Object} ctx.unifiedTemplateEvaluator - UnifiedTemplateEvaluator instance
+ * @returns {Promise<boolean>} True if condition matches
+ */
+async function evalJinja2(tree, ctx) {
+  if (!ctx.unifiedTemplateEvaluator) {
+    console.warn('[compileConditions] UnifiedTemplateEvaluator not available for Jinja2 evaluation');
+    return false;
+  }
+
+  try {
+    // Evaluate Jinja2 template - result is a string
+    const result = await ctx.unifiedTemplateEvaluator.evaluateAsync(tree.template);
+
+    console.log('[evalJinja2] Template:', tree.template);
+    console.log('[evalJinja2] Raw result:', result, 'Type:', typeof result);
+
+    // Handle direct boolean/number results
+    if (typeof result === 'boolean') {
+      console.log('[evalJinja2] Direct boolean result:', result);
+      return result;
+    }
+
+    if (typeof result === 'number') {
+      console.log('[evalJinja2] Numeric result, converting:', result !== 0);
+      return result !== 0;
+    }
+
+    // Convert result to boolean
+    // Jinja2 may return: "True", "False", "true", "false", "1", "0", "yes", "no"
+    const resultStr = String(result).trim().toLowerCase();
+    console.log('[evalJinja2] String result after normalization:', resultStr);
+
+    const truthyValues = ['true', '1', 'yes', 'on'];
+    const falsyValues = ['false', '0', 'no', 'off', '', 'none'];
+
+    if (truthyValues.includes(resultStr)) {
+      console.log('[evalJinja2] Matched truthy value, returning true');
+      return true;
+    }
+
+    if (falsyValues.includes(resultStr)) {
+      console.log('[evalJinja2] Matched falsy value, returning false');
+      return false;
+    }
+
+    // Try numeric conversion as fallback
+    const numValue = parseFloat(resultStr);
+    if (!isNaN(numValue)) {
+      console.log('[evalJinja2] Numeric conversion:', numValue, 'Returning:', numValue !== 0);
+      return numValue !== 0;
+    }
+
+    // If result is non-empty string, treat as truthy
+    console.log('[evalJinja2] Non-empty string, treating as truthy:', resultStr.length > 0);
+    return resultStr.length > 0;
+
+  } catch (error) {
+    console.error('[compileConditions] Jinja2 evaluation failed:', error);
+    console.error('Template:', tree.template);
+    return false;
+  }
+}
+
+/**
+ * Resolve dot-notation path from context
+ *
+ * Handles special case: Entity IDs like "light.tv.state"
+ * - If token looks like entity_id.property, use getEntity or hass.states
+ * - Otherwise, resolve as normal dot-notation
+ *
+ * @param {Array<string>} parts - Path parts (e.g., ['light', 'tv', 'state'])
+ * @param {Object} ctx - Evaluation context
+ * @returns {*} Resolved value
+ */
+function resolveTokenPath(parts, ctx) {
+  // Special case: Entity ID pattern (domain.name.property)
+  // Examples: light.tv.state, sensor.temp.attributes.battery
+  if (parts.length >= 3) {
+    const potentialEntityId = `${parts[0]}.${parts[1]}`;  // e.g., "light.tv"
+    const propertyPath = parts.slice(2);  // e.g., ["state"] or ["attributes", "battery"]
+
+    // Try to get entity from context
+    let entity = null;
+
+    // Method 1: Use getEntity if available (preferred - handles fallback)
+    if (ctx.getEntity && typeof ctx.getEntity === 'function') {
+      try {
+        entity = ctx.getEntity(potentialEntityId);
+      } catch (e) {
+        // getEntity might throw if entity not found
+      }
+    }
+
+    // Method 2: Try hass.states (direct lookup)
+    if (!entity && ctx.hass?.states?.[potentialEntityId]) {
+      entity = ctx.hass.states[potentialEntityId];
+    }
+
+    // If we found an entity, resolve the property path
+    if (entity) {
+      let current = entity;
+      for (const prop of propertyPath) {
+        if (current === null || current === undefined) {
+          return null;
+        }
+        current = current[prop];
+      }
+      return current;
+    }
+  }
+
+  // Standard dot-notation resolution (non-entity paths)
+  let current = ctx;
+
+  for (const part of parts) {
+    if (current === null || current === undefined) {
+      return null;
+    }
+    current = current[part];
+  }
+
+  return current;
+}
+
+/**
+ * Resolve tokens in JavaScript code before evaluation
+ *
+ * Converts {entity.state} to actual values from context
+ * Uses a SIMPLE regex that matches ALL {tokens} including entity IDs
+ *
+ * IMPORTANT: Detects if token is already quoted and avoids double-quoting!
+ *
+ * @param {string} code - JavaScript code with tokens
+ * @param {Object} ctx - Evaluation context
+ * @returns {string} Code with tokens replaced by values
+ */
+function resolveTokensInCode(code, ctx) {
+  // Use a simple regex that matches ANY {token} including entity IDs
+  // This is different from TemplateParser.extractTokens() which excludes domain names
+  const tokenRegex = /\{([^{}]+)\}/g;
+
+  let resolved = code;
+  const matches = [];
+  let match;
+
+  // Collect all matches first (to avoid issues with string.replace changing indices)
+  while ((match = tokenRegex.exec(code)) !== null) {
+    matches.push({
+      fullMatch: match[0],  // e.g., "{light.tv.state}"
+      tokenPath: match[1].trim(),  // e.g., "light.tv.state"
+      index: match.index
+    });
+  }
+
+  // Process matches in reverse order to maintain string positions
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const { fullMatch, tokenPath, index } = matches[i];
+
+    // Parse the token path
+    const parts = tokenPath.split('.');
+
+    // Resolve token path from context
+    const value = resolveTokenPath(parts, ctx);
+
+    // Debug logging for token resolution
+    console.log(`[resolveTokensInCode] Resolving token: ${fullMatch}`);
+    console.log(`[resolveTokensInCode] Token path parts:`, parts);
+    console.log(`[resolveTokensInCode] Resolved value:`, value, `(type: ${typeof value})`);
+
+    // Check if token is already wrapped in quotes
+    const beforeToken = code.substring(Math.max(0, index - 1), index);
+    const afterToken = code.substring(index + fullMatch.length, index + fullMatch.length + 1);
+    const isAlreadyQuoted = (beforeToken === '"' || beforeToken === "'") &&
+                            (afterToken === '"' || afterToken === "'");
+
+    console.log(`[resolveTokensInCode] Is already quoted: ${isAlreadyQuoted}`);
+
+    // Replace token with value
+    let replacement;
+    if (value === null || value === undefined) {
+      replacement = isAlreadyQuoted ? 'null' : 'null';  // Don't quote null
+    } else if (typeof value === 'string') {
+      // If already quoted (e.g., "{light.tv.state}"), just insert the value
+      // If not quoted (e.g., {light.tv.state}), wrap in quotes
+      if (isAlreadyQuoted) {
+        replacement = value.replace(/"/g, '\\"').replace(/'/g, "\\'");  // Escape quotes
+      } else {
+        replacement = `"${value.replace(/"/g, '\\"')}"`;  // Wrap in quotes
+      }
+    } else {
+      replacement = String(value);  // Numbers, booleans - no quotes
+    }
+
+    console.log(`[resolveTokensInCode] Replacement value:`, replacement);
+
+    // Replace this specific occurrence
+    resolved = resolved.substring(0, index) + replacement + resolved.substring(index + fullMatch.length);
+  }
+
+  console.log(`[resolveTokensInCode] Final resolved code:`, resolved);
+  return resolved;
+}
+
+/**
+ * Evaluate JavaScript condition
+ * Simple approach like custom-button-card: just pass hass and states
+ *
+ * @param {Object} tree - Compiled JavaScript node
+ * @param {Object} ctx - Evaluation context with hass, entity, etc
+ * @returns {boolean} True if condition matches
+ */
+function evalJavaScript(tree, ctx) {
+  const code = tree.code;
+
+  try {
+    // Create function with available context
+    // Same approach as custom-button-card
+    const func = new Function(
+      'entity',
+      'hass',
+      'states',
+      code
+    );
+
+    // Execute with context values
+    const result = func(
+      ctx.entity,
+      ctx.hass,
+      ctx.hass?.states || {}
+    );
+
+    // Ensure boolean result
+    return !!result;
+
+  } catch (error) {
+    console.error('[compileConditions] JavaScript evaluation failed:', error);
+    console.error('[compileConditions] Error message:', error.message);
+    console.error('[compileConditions] Error stack:', error.stack);
+    console.error('[compileConditions] Code:', code);
+    console.error('[compileConditions] Context keys:', Object.keys(ctx));
+    return false;
+  }
+}
+
+export async function evalCompiled(tree, ctx) {
   switch (tree.type) {
-    case 'always': return true;
-    case 'all': return tree.nodes.every(n => evalCompiled(n, ctx));
-    case 'any': return tree.nodes.some(n => evalCompiled(n, ctx));
-    case 'not': return !evalCompiled(tree.node, ctx);
-    case 'entity': return evalEntity(tree.c, ctx);
-    case 'entity_attr': return evalEntityAttr(tree.c, ctx);
-    case 'map_range_cond': return evalMapRangeCond(tree.c, ctx);
-    case 'time_between': return evalTimeBetween(tree.range, ctx);
-    case 'weekday_in': return evalWeekdayIn(tree.list, ctx);
-    case 'sun_elevation': return evalSunElevation(tree.cmp, ctx);
-    case 'perf_metric': return evalPerfMetric(tree.c, ctx);
-    case 'flag': return evalFlag(tree.c, ctx);
-    case 'random_chance': return Math.random() < (tree.p || 0);
-    default: return false;
+    case 'always':
+      return true;
+
+    case 'all':
+      // Evaluate all conditions (in parallel for performance)
+      const allResults = await Promise.all(
+        tree.nodes.map(n => evalCompiled(n, ctx))
+      );
+      return allResults.every(r => r);
+
+    case 'any':
+      // Evaluate all conditions (in parallel)
+      const anyResults = await Promise.all(
+        tree.nodes.map(n => evalCompiled(n, ctx))
+      );
+      return anyResults.some(r => r);
+
+    case 'not':
+      const notResult = await evalCompiled(tree.node, ctx);
+      return !notResult;
+
+    // ✨ NEW: Async template conditions
+    case 'jinja2':
+      return await evalJinja2(tree, ctx);
+
+    case 'javascript':
+      return evalJavaScript(tree, ctx);  // Sync
+
+    // Existing conditions (sync)
+    case 'entity':
+      return evalEntity(tree.c, ctx);
+    case 'entity_attr':
+      return evalEntityAttr(tree.c, ctx);
+    case 'map_range_cond':
+      return evalMapRangeCond(tree.c, ctx);
+    case 'time_between':
+      return evalTimeBetween(tree.range, ctx);
+    case 'weekday_in':
+      return evalWeekdayIn(tree.list, ctx);
+    case 'sun_elevation':
+      return evalSunElevation(tree.cmp, ctx);
+    case 'perf_metric':
+      return evalPerfMetric(tree.c, ctx);
+    case 'flag':
+      return evalFlag(tree.c, ctx);
+    case 'random_chance':
+      return Math.random() < (tree.p || 0);
+
+    default:
+      return false;
   }
 }
 

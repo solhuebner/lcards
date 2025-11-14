@@ -460,11 +460,140 @@ when:
 
 ### Template Conditions
 
-#### Template Expression
+Template conditions allow JavaScript or Jinja2 expressions for complex logic with full access to Home Assistant states.
 
+#### Detection and Compilation
+
+Templates are detected by their delimiters during condition compilation in `compileConditions.js`:
+
+```javascript
+// JavaScript template detection
+if (typeof condition === 'string' && condition.trim().startsWith('[[[')) {
+  return {
+    type: 'js-template',
+    code: condition.trim().slice(3, -3).trim(),
+    evaluate: (ctx) => evalJavaScript(code, ctx)
+  };
+}
+
+// Jinja2 template detection
+if (typeof condition === 'string' && condition.includes('{{')) {
+  return {
+    type: 'jinja2-template',
+    template: condition,
+    evaluate: (ctx) => evalJinja2(template, ctx)
+  };
+}
+```
+
+#### JavaScript Templates
+
+**Syntax:** `[[[return expression]]]` (triple square brackets)
+
+**Evaluation:**
+```javascript
+function evalJavaScript(code, ctx) {
+  const { entity, hass, states } = ctx;
+
+  try {
+    // Simple custom-button-card style execution
+    const fn = new Function('entity', 'hass', 'states', code);
+    const result = fn(entity, hass, states);
+
+    return Boolean(result);
+  } catch (error) {
+    console.error('JavaScript template error:', error);
+    return false;
+  }
+}
+```
+
+**Context Available:**
+- `states` - All Home Assistant entity states object
+- `hass` - Full Home Assistant object
+- `entity` - Current entity (if rule has entity defined)
+
+**Example:**
 ```yaml
 when:
-  template: "{{ states('sensor.temperature') | float > 25 }}"
+  any:
+    - condition: "[[[return states['light.bedroom'].state === 'on']]]"
+    - condition: |
+        [[[
+          const temp = parseFloat(states['sensor.temperature'].state);
+          return temp > 25 && temp < 30;
+        ]]]
+```
+
+#### Jinja2 Templates
+
+**Syntax:** `{{ expression }}` (double curly braces)
+
+**Evaluation:**
+```javascript
+async function evalJinja2(template, ctx) {
+  const { entity, hass } = ctx;
+
+  try {
+    // Use UnifiedTemplateEvaluator from template-processor
+    const result = await UnifiedTemplateEvaluator.evaluateAsync(
+      template,
+      entity,
+      hass
+    );
+
+    // Convert string results to boolean
+    if (typeof result === 'string') {
+      if (result.toLowerCase() === 'true') return true;
+      if (result.toLowerCase() === 'false') return false;
+      console.warn('Jinja2 returned non-boolean string:', result);
+      return false;
+    }
+
+    return Boolean(result);
+  } catch (error) {
+    console.error('Jinja2 template error:', error);
+    return false;
+  }
+}
+```
+
+**Context Available:**
+- All Home Assistant template functions (`states()`, `state_attr()`, etc.)
+- Time functions (`now()`, `today_at()`, etc.)
+- Jinja2 filters (`| float`, `| int`, `| round()`, etc.)
+
+**Example:**
+```yaml
+when:
+  any:
+    - condition: "{{ states('light.bedroom') == 'on' }}"
+    - condition: "{{ states('sensor.temperature') | float > 25 and states('sensor.temperature') | float < 30 }}"
+```
+
+#### Implementation Notes
+
+**Simplification (v1.9.42):**
+- Removed ~300 lines of complex token resolution code
+- Simplified to match custom-button-card approach
+- Users write normal JavaScript/Jinja2, no special token syntax needed
+
+**Key Changes from Previous Versions:**
+- ❌ **Old:** Token syntax like `{light.bedroom.state}` (removed)
+- ❌ **Old:** Complex `resolveTokensInCode()` function (removed)
+- ✅ **New:** Direct `states["entity.id"]` access (like custom-button-card)
+- ✅ **New:** Simple `new Function()` execution
+
+**Debug Logging:**
+Both JavaScript and Jinja2 evaluation include debug logging when enabled:
+```javascript
+console.log('[JS Template] Evaluating:', code);
+console.log('[JS Template] Context:', { entity, hass, states });
+console.log('[JS Template] Result:', result);
+
+console.log('[Jinja2] Template:', template);
+console.log('[Jinja2] Raw result:', result, typeof result);
+console.log('[Jinja2] Boolean result:', boolResult);
 ```
 
 ### Custom Conditions

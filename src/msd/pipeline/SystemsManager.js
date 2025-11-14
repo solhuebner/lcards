@@ -270,6 +270,7 @@ export class SystemsManager extends BaseService {
       // Rebuild the rules index and dependencies
       this.rulesEngine.buildRulesIndex();
       this.rulesEngine.buildDependencyIndex();
+      this.rulesEngine._compileRules();  // ✨ ADDED: Compile newly added rules
       lcardsLog.debug(`[SystemsManager] ✅ Rules added. Total rules in shared engine: ${this.rulesEngine.rules.length}`);
     } else {
       lcardsLog.debug('[SystemsManager] ℹ️ No rules to add from this MSD');
@@ -287,7 +288,7 @@ export class SystemsManager extends BaseService {
 
       // Connect re-evaluation to render pipeline
       // When rules are marked dirty (entity changes), evaluate and apply patches
-      this.rulesEngine.setReEvaluationCallback(() => {
+      this.rulesEngine.setReEvaluationCallback(async () => {  // ✨ CHANGED: async
         lcardsLog.debug('[SystemsManager] 🔄 RulesEngine re-evaluation callback triggered');
 
         if (!this._hass) {
@@ -295,8 +296,8 @@ export class SystemsManager extends BaseService {
           return;
         }
 
-        // Evaluate dirty rules
-        const ruleResults = this.rulesEngine.evaluateDirty(this._hass);
+        // Evaluate dirty rules (now async for Jinja2 conditions)
+        const ruleResults = await this.rulesEngine.evaluateDirty(this._hass);  // ✨ CHANGED: await
 
         lcardsLog.debug(`[SystemsManager] 🔍 DIRTY RULES RESULT:`, {
           hasBaseSvgUpdate: !!ruleResults.baseSvgUpdate,
