@@ -181,6 +181,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
         this._lastRulePatches = null;     // Cache of last applied patches
         this._overlayRegistered = false;  // Track if overlay is registered
         this._hasRulesToLoad = false;     // Flag to defer rule loading until singletons are ready
+        this._hassMonitoringSetup = false; // Flag to prevent duplicate monitoring setup
 
         lcardsLog.debug(`[LCARdSSimpleCard] Constructor called for ${this._getDisplayId()}`);
     }
@@ -336,7 +337,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
      * Called when HASS changes
      * @protected
      */
-    _onHassChanged(newHass, oldHass) {
+    async _onHassChanged(newHass, oldHass) {
         super._onHassChanged(newHass, oldHass);
 
         lcardsLog.debug(`[LCARdSSimpleCard] _onHassChanged called for ${this._cardGuid}`, {
@@ -351,11 +352,49 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             this._entity = newHass.states[this.config.entity];
         }
 
-        // Forward HASS to core singleton for distribution to all systems
-        // Core will call rulesManager.updateHass() along with other systems
+        // Set up efficient entity-based rule monitoring on first HASS (once only)
+        lcardsLog.debug(`[LCARdSSimpleCard] Checking monitoring setup for ${this._getDisplayId()}`, {
+            _hassMonitoringSetup: this._hassMonitoringSetup,
+            hasRulesManager: !!(this._singletons?.rulesEngine),
+            hasNewHass: !!newHass,
+            hasOldHass: !!oldHass,
+            oldHassIsNull: oldHass === null,
+            oldHassIsUndefined: oldHass === undefined,
+            shouldSetup: !this._hassMonitoringSetup && !!(this._singletons?.rulesEngine) && !!newHass && !oldHass
+        });
+
+        if (!this._hassMonitoringSetup && this._singletons?.rulesEngine && newHass && !oldHass) {
+            this._hassMonitoringSetup = true;
+            lcardsLog.debug(`[LCARdSSimpleCard] 🔧 Setting up entity-based monitoring for ${this._getDisplayId()}`);
+            try {
+                await this._singletons.rulesEngine.setupHassMonitoring(newHass);
+                lcardsLog.debug(`[LCARdSSimpleCard] ✅ Entity-based rule monitoring enabled for ${this._getDisplayId()}`);
+            } catch (error) {
+                lcardsLog.error(`[LCARdSSimpleCard] ❌ Failed to setup rule monitoring:`, error);
+            }
+        }
+
+        // Forward HASS to core singleton ONLY if relevant entities changed
+        // This prevents unnecessary subsystem updates when unrelated entities change
         if (window.lcards?.core) {
-            lcardsLog.trace(`[LCARdSSimpleCard] 📡 Forwarding HASS to core.ingestHass() for ${this._cardGuid}`);
-            window.lcards.core.ingestHass(newHass);
+            // Check if this card's entity or any rule-dependent entities changed
+            const cardEntityChanged = this.config?.entity &&
+                oldHass?.states?.[this.config.entity] !== newHass?.states?.[this.config.entity];
+
+            const trackedEntitiesChanged = this._trackedEntities?.some(entityId =>
+                oldHass?.states?.[entityId] !== newHass?.states?.[entityId]
+            );
+
+            if (!oldHass || cardEntityChanged || trackedEntitiesChanged) {
+                lcardsLog.trace(`[LCARdSSimpleCard] 📡 Forwarding HASS to core.ingestHass() for ${this._cardGuid}`, {
+                    reason: !oldHass ? 'initial' : cardEntityChanged ? 'card entity' : 'tracked entity',
+                    cardEntity: this.config?.entity,
+                    trackedCount: this._trackedEntities?.length || 0
+                });
+                window.lcards.core.ingestHass(newHass);
+            } else {
+                lcardsLog.trace(`[LCARdSSimpleCard] ⏭️ Skipping core.ingestHass() - no relevant entity changes for ${this._cardGuid}`);
+            }
         } else {
             lcardsLog.warn(`[LCARdSSimpleCard] ⚠️ No core singleton available for ${this._cardGuid}`);
         }
@@ -384,7 +423,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
      * Called when connected to DOM
      * @protected
      */
-    _onConnected() {
+    async _onConnected() {
         super._onConnected();
 
         // Initialize singleton access
@@ -394,6 +433,29 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
         if (this._hasRulesToLoad && this.config.rules) {
             this._loadRulesFromConfig(this.config.rules);
             this._hasRulesToLoad = false; // Clear flag after loading
+
+            // IMPORTANT: Set up monitoring AFTER rules are compiled (so dependency index is populated)
+            // Try to setup monitoring now that we have singletons AND rules (if HASS already arrived)
+            if (!this._hassMonitoringSetup && this._singletons?.rulesEngine && this._hass) {
+                this._hassMonitoringSetup = true;
+                lcardsLog.debug(`[LCARdSSimpleCard] 🔧 Setting up entity-based monitoring (after rules loaded) for ${this._getDisplayId()}`, {
+                    hasRulesEngine: !!this._singletons.rulesEngine,
+                    hasHass: !!this._hass,
+                    hasConnection: !!this._hass?.connection,
+                    hasSubscribeEvents: !!(this._hass?.connection?.subscribeEvents)
+                });
+                try {
+                    await this._singletons.rulesEngine.setupHassMonitoring(this._hass);
+                    // Verify it actually worked
+                    if (this._singletons.rulesEngine.hassUnsubscribe) {
+                        lcardsLog.debug(`[LCARdSSimpleCard] ✅ Entity-based rule monitoring enabled for ${this._getDisplayId()}`);
+                    } else {
+                        lcardsLog.warn(`[LCARdSSimpleCard] ⚠️ setupHassMonitoring() completed but no subscription created for ${this._getDisplayId()}`);
+                    }
+                } catch (error) {
+                    lcardsLog.error(`[LCARdSSimpleCard] ❌ Failed to setup rule monitoring:`, error);
+                }
+            }
         }
 
         lcardsLog.debug(`[LCARdSSimpleCard] Connected: ${this._getDisplayId()}`);

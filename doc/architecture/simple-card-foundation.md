@@ -339,6 +339,60 @@ The base class handles this automatically when you register your overlay. The sy
 - Trigger initial rule evaluation if HASS is ready
 - Set up callback for future rule changes
 
+#### Performance Optimization (v1.9.31+)
+
+**Entity-Specific Rule Evaluation**
+
+SimpleCards use the same efficient entity-based monitoring as MSD cards:
+
+```javascript
+// Automatically called in _onConnected() after rules are loaded
+await this._rulesManager.setupHassMonitoring(this._hass);
+```
+
+**How it works:**
+
+1. **WebSocket Subscription**: Subscribes directly to HASS `state_changed` events
+2. **Dependency Tracking**: Only listens to entities referenced in your rules
+3. **Selective Dirty-Marking**: Only marks rules dirty when their entities change
+4. **Efficient Callbacks**: Only triggers re-evaluation when rules are actually dirty
+
+**Performance Benefits:**
+
+- ✅ **No unnecessary evaluations**: Rules only run when their entities change
+- ✅ **Shared monitoring**: Multiple cards share the same WebSocket subscription
+- ✅ **Low overhead**: O(1) entity lookup via cached Set
+- ❌ **Old behavior** (v1.9.30): All rules evaluated on every HASS update
+
+**Example:**
+
+```yaml
+# Rule only re-evaluates when sensor.cpu_temp changes
+# Ignores changes to sensor.memory, light.bedroom, etc.
+rules:
+  - id: cpu_hot_red
+    when:
+      entity: sensor.cpu_temp
+      conditions:
+        - attribute: state
+          operator: '>'
+          value: 80
+    apply:
+      style:
+        primary: '#ff0000'
+```
+
+**Debug Logging:**
+
+```javascript
+// Enable to see entity-specific evaluation
+lcardsLog.setLogLevel('debug');
+
+// Look for these messages:
+// "[RulesEngine] Processing entity change: sensor.cpu_temp -> 85"
+// "[RulesEngine] Marked 1 rules dirty for entity sensor.cpu_temp"
+```
+
 #### Complete Flow
 
 ```mermaid

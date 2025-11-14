@@ -464,8 +464,18 @@ export class RulesEngine extends BaseService {
   }
 
   /**
-   * Ingest fresh HASS state and trigger rule re-evaluation
-   * Called by SystemsManager when HASS updates
+   * Ingest fresh HASS state
+   * Called by Core when HASS updates (for backwards compatibility)
+   *
+   * NOTE: With setupHassMonitoring(), entity-specific dirty marking is handled
+   * automatically via WebSocket subscriptions. This method is kept for:
+   * 1. Cards that haven't set up monitoring yet
+   * 2. Manual HASS updates in tests
+   * 3. Backwards compatibility
+   *
+   * If setupHassMonitoring() is active, this does NOT mark all rules dirty
+   * to avoid duplicate evaluations.
+   *
    * @param {Object} hass - Fresh Home Assistant state object
    */
   ingestHass(hass) {
@@ -474,8 +484,14 @@ export class RulesEngine extends BaseService {
       return;
     }
 
-    // Mark all rules dirty since any entity could have changed
-    this.markAllDirty();
+    // If WebSocket monitoring is active, entity changes already mark rules dirty
+    // Only mark all dirty if no monitoring is set up (fallback for legacy cards)
+    if (!this.hassUnsubscribe) {
+      lcardsLog.trace('[RulesEngine] No WebSocket monitoring, marking all rules dirty (fallback)');
+      this.markAllDirty();
+    } else {
+      lcardsLog.trace('[RulesEngine] WebSocket monitoring active, skipping markAllDirty (entity-specific tracking active)');
+    }
 
     // ✨ EFFICIENCY CHECK: Only invoke callbacks if there are dirty rules
     if (this._reEvaluationCallbacks.length > 0 && this.dirtyRules.size > 0) {
@@ -1365,48 +1381,57 @@ export class RulesEngine extends BaseService {
    * @returns {Promise<void>}
    */
   async setupHassMonitoring(hass) {
-    if (!hass?.connection?.subscribeEvents || this.hassUnsubscribe) {
-      lcardsLog.debug('[RulesEngine] HASS monitoring already set up or unavailable');
-      return;
-    }
-
-    // Extract all HASS entities referenced in rules (exclude DataSource references)
-    const allEntityReferences = Array.from(this.dependencyIndex?.entityToRules.keys() || []);
-    lcardsLog.debug('[RulesEngine] 🔍 All entity references from dependency index:', allEntityReferences);
-
-    // Filter out DataSource references
-    const ruleEntities = allEntityReferences.filter(entityId => {
-      // Skip DataSource references (contain dots and match DataSource pattern)
-      if (entityId.includes('.')) {
-        const sourceName = entityId.split('.')[0];
-        if (this.dataSourceManager?.getSource(sourceName)) {
-          lcardsLog.debug(`[RulesEngine] 🚫 Filtered out DataSource reference: ${entityId}`);
-          return false;
-        }
+    // Check if already set up OR setup is in progress
+    if (!hass?.connection?.subscribeEvents || this.hassUnsubscribe || this._hassMonitoringSetupInProgress) {
+      if (this._hassMonitoringSetupInProgress) {
+        lcardsLog.debug('[RulesEngine] HASS monitoring setup already in progress, skipping duplicate setup');
+      } else {
+        lcardsLog.debug('[RulesEngine] HASS monitoring already set up or unavailable');
       }
-      lcardsLog.debug(`[RulesEngine] ✅ Including HASS entity: ${entityId}`);
-      return true;
-    });
-
-    lcardsLog.debug(`[RulesEngine] 📊 HASS entity monitoring summary:`, {
-      totalReferences: allEntityReferences.length,
-      dataSourceReferences: allEntityReferences.length - ruleEntities.length,
-      hassEntities: ruleEntities.length,
-      hassEntityList: ruleEntities
-    });
-
-    if (ruleEntities.length === 0) {
-      lcardsLog.debug('[RulesEngine] No HASS entities found in rules for monitoring (all references are DataSources)');
       return;
     }
 
-    // Cache entity list for performance
-    this._hassEntities = new Set(ruleEntities);
+    // Set flag to prevent concurrent setup attempts
+    this._hassMonitoringSetupInProgress = true;
 
-    lcardsLog.debug(`[RulesEngine] Setting up monitoring for ${ruleEntities.length} rule entities:`, ruleEntities);
-
-    // Direct subscription - following DataSource pattern
     try {
+      // Extract all HASS entities referenced in rules (exclude DataSource references)
+      const allEntityReferences = Array.from(this.dependencyIndex?.entityToRules.keys() || []);
+      lcardsLog.debug('[RulesEngine] 🔍 All entity references from dependency index:', allEntityReferences);
+
+      // Filter out DataSource references
+      const ruleEntities = allEntityReferences.filter(entityId => {
+        // Skip DataSource references (contain dots and match DataSource pattern)
+        if (entityId.includes('.')) {
+          const sourceName = entityId.split('.')[0];
+          if (this.dataSourceManager?.getSource(sourceName)) {
+            lcardsLog.debug(`[RulesEngine] 🚫 Filtered out DataSource reference: ${entityId}`);
+            return false;
+          }
+        }
+        lcardsLog.debug(`[RulesEngine] ✅ Including HASS entity: ${entityId}`);
+        return true;
+      });
+
+      lcardsLog.debug(`[RulesEngine] 📊 HASS entity monitoring summary:`, {
+        totalReferences: allEntityReferences.length,
+        dataSourceReferences: allEntityReferences.length - ruleEntities.length,
+        hassEntities: ruleEntities.length,
+        hassEntityList: ruleEntities
+      });
+
+      if (ruleEntities.length === 0) {
+        lcardsLog.debug('[RulesEngine] No HASS entities found in rules for monitoring (all references are DataSources)');
+        this._hassMonitoringSetupInProgress = false;
+        return;
+      }
+
+      // Cache entity list for performance
+      this._hassEntities = new Set(ruleEntities);
+
+      lcardsLog.debug(`[RulesEngine] Setting up monitoring for ${ruleEntities.length} rule entities:`, ruleEntities);
+
+      // Direct subscription - following DataSource pattern
       this.hassUnsubscribe = await hass.connection.subscribeEvents((event) => {
         if (event.event_type === 'state_changed' && event.data?.entity_id) {
           const entityId = event.data.entity_id;
@@ -1422,6 +1447,9 @@ export class RulesEngine extends BaseService {
     } catch (error) {
       lcardsLog.error('[RulesEngine] ❌ Failed to set up HASS monitoring:', error);
       throw error;
+    } finally {
+      // Clear flag whether setup succeeded or failed
+      this._hassMonitoringSetupInProgress = false;
     }
   }
 
