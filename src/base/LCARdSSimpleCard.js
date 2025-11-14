@@ -540,11 +540,10 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
         // Register callback with RulesEngine (SINGLE callback per card)
         // Callback evaluates rules and applies relevant patches
         this._rulesCallbackIndex = this._singletons.rulesEngine.setReEvaluationCallback(async () => {
-            lcardsLog.debug(`[LCARdSSimpleCard] Rules re-evaluation callback triggered for ${this._overlayId}`);
+            lcardsLog.trace(`[LCARdSSimpleCard] Rules re-evaluation callback triggered for ${this._overlayId}`);
 
             try {
                 // Evaluate dirty rules to get patches
-                // Pass getEntity function to access entity states from HASS
                 const ruleResults = await this._singletons.rulesEngine.evaluateDirty({
                     getEntity: (entityId) => {
                         const state = this.hass?.states?.[entityId];
@@ -553,20 +552,8 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
                     }
                 });
 
-                lcardsLog.debug(`[LCARdSSimpleCard] ✨ Rule evaluation COMPLETE - received result:`, {
-                    hasResults: !!ruleResults,
-                    resultType: typeof ruleResults,
-                    isPromise: ruleResults instanceof Promise,
-                    hasPatches: !!ruleResults?.overlayPatches,
-                    patchesIsArray: Array.isArray(ruleResults?.overlayPatches),
-                    patchCount: Array.isArray(ruleResults?.overlayPatches) ? ruleResults.overlayPatches.length : 0,
-                    overlayPatchesValue: ruleResults?.overlayPatches,
-                    fullResult: ruleResults
-                });
-
                 // Apply patches if any exist
                 if (ruleResults && ruleResults.overlayPatches) {
-                    lcardsLog.info(`[LCARdSSimpleCard] 🎨 Calling _applyRulePatches for ${this._overlayId} with ${ruleResults.overlayPatches.length} patches`);
                     this._applyRulePatches(ruleResults.overlayPatches);
                 }
             } catch (error) {
@@ -582,11 +569,10 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             cardGuid: this._cardGuid
         });
 
-        // ✨ NEW: Trigger initial rule evaluation if HASS is already available
+        // Trigger initial rule evaluation if HASS is already available
         // This ensures rules are applied even if the light is already ON during page load
         if (this.hass) {
-            lcardsLog.debug(`[LCARdSSimpleCard] HASS available, triggering initial rule evaluation for ${this._overlayId}`);
-            // Mark all rules dirty and trigger evaluation
+            lcardsLog.trace(`[LCARdSSimpleCard] HASS available, triggering initial rule evaluation for ${this._overlayId}`);
             this._singletons.rulesEngine.markAllDirty();
             // Trigger the callback we just registered
             if (this._rulesCallbackIndex >= 0) {
@@ -634,10 +620,9 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
      * @private
      */
     _applyRulePatches(overlayPatches) {
-        lcardsLog.info(`[LCARdSSimpleCard] 🎨 _applyRulePatches called for ${this._overlayId}`, {
+        lcardsLog.trace(`[LCARdSSimpleCard] _applyRulePatches called for ${this._overlayId}`, {
             patchesProvided: Array.isArray(overlayPatches) ? overlayPatches.length : 0,
-            overlayId: this._overlayId,
-            patchIds: Array.isArray(overlayPatches) ? overlayPatches.map(p => p.id) : []
+            overlayId: this._overlayId
         });
 
         if (!overlayPatches || !this._overlayId) {
@@ -674,17 +659,11 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             }
         }), {});
 
-        // DEBUG: Log the merged patch
-        lcardsLog.debug(`[LCARdSSimpleCard] Merged patch for ${this._overlayId}:`, {
-            mergedPatch,
-            lastRulePatches: this._lastRulePatches
-        });
-
         // Check if patches actually changed (avoid unnecessary updates)
         const patchesChanged = JSON.stringify(this._lastRulePatches) !== JSON.stringify(mergedPatch);
 
         if (!patchesChanged) {
-            lcardsLog.trace(`[LCARdSSimpleCard] Rule patches unchanged for ${this._overlayId}, skipping update (but patch IS active)`);
+            lcardsLog.trace(`[LCARdSSimpleCard] Rule patches unchanged for ${this._overlayId}`);
             return;
         }
 
@@ -692,8 +671,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
         this._lastRulePatches = mergedPatch;
 
         lcardsLog.debug(`[LCARdSSimpleCard] Applied rule patches to ${this._overlayId}`, {
-            patchCount: myPatches.length,
-            style: mergedPatch.style
+            patchCount: myPatches.length
         });
 
         // Call subclass hook to handle style resolution after patch changes

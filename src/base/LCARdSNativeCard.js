@@ -150,7 +150,8 @@ export class LCARdSNativeCard extends LitElement {
             this._onHassChanged(hass, oldHass);
             this.requestUpdate();
         } else if (hass && oldHass === hass) {
-            lcardsLog.warn(`[LCARdSNativeCard] ⚠️ HASS object reference unchanged for ${this._cardGuid} - mutations not detected!`);
+            // This is normal - HA often mutates the HASS object in place
+            lcardsLog.trace(`[LCARdSNativeCard] HASS object mutated in place for ${this._cardGuid}`);
         }
     }
 

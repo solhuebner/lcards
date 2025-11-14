@@ -317,7 +317,10 @@ export class AnimationManager extends BaseService {
     const scopeData = this.scopes.get(overlayId);
 
     if (!scopeData) {
-      lcardsLog.warn(`[AnimationManager] Cannot trigger animations - overlay not found: ${overlayId}`);
+      // Only warn if we have ANY scopes registered (meaning animations are actually being used)
+      if (this.scopes.size > 0) {
+        lcardsLog.debug(`[AnimationManager] Overlay not found for animation trigger: ${overlayId}`);
+      }
       return;
     }
 

@@ -30,7 +30,7 @@ export class MSDTemplateEvaluator extends TemplateEvaluator {
     super({ dataSourceManager });
 
     if (!dataSourceManager) {
-      lcardsLog.warn('[MSDTemplateEvaluator] Created without dataSourceManager');
+      lcardsLog.debug('[MSDTemplateEvaluator] Created without dataSourceManager (template evaluation will be limited)');
     }
 
     this.dataSourceManager = dataSourceManager;

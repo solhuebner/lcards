@@ -73,10 +73,10 @@ export class CoreConfigManager {
       throw new Error('CoreConfigManager requires validationService');
     }
     if (!this.themeManager) {
-      lcardsLog.warn('[CoreConfigManager] ThemeManager not available - theme features disabled');
+      lcardsLog.debug('[CoreConfigManager] ThemeManager not available during init (will be added later)');
     }
     if (!this.stylePresetManager) {
-      lcardsLog.warn('[CoreConfigManager] StylePresetManager not available - preset features disabled');
+      lcardsLog.debug('[CoreConfigManager] StylePresetManager not available during init (will be added later)');
     }
 
     // Register builtin card types

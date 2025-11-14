@@ -360,7 +360,7 @@ export class LCARdSActionHandler {
 
             if (isDesktop) {
                 const hoverHandler = async () => {
-                    lcardsLog.debug(`[LCARdSActionHandler] 🖱️ Mouseenter event received on ${elementId}`);
+                    lcardsLog.trace(`[LCARdSActionHandler] Mouseenter event on ${elementId}`);
 
                     // Ensure animations are registered (late-binding if needed)
                     await ensureAnimationsRegistered();
@@ -368,7 +368,7 @@ export class LCARdSActionHandler {
                     // Trigger animation via AnimationManager
                     const currentAnimationManager = options.getAnimationManager?.() || window.lcards?.core?.getAnimationManager?.();
                     if (currentAnimationManager && elementId) {
-                        lcardsLog.debug(`[LCARdSActionHandler] 🖱️ Hover animation triggered on ${elementId}`);
+                        lcardsLog.trace(`[LCARdSActionHandler] Hover animation triggered on ${elementId}`);
                         currentAnimationManager.triggerAnimations(elementId, 'on_hover');
                     }
                 };
@@ -380,7 +380,7 @@ export class LCARdSActionHandler {
                     // Trigger animation via AnimationManager
                     const currentAnimationManager = options.getAnimationManager?.() || window.lcards?.core?.getAnimationManager?.();
                     if (currentAnimationManager && elementId) {
-                        lcardsLog.debug(`[LCARdSActionHandler] 🖱️ Leave animation triggered on ${elementId}`);
+                        lcardsLog.trace(`[LCARdSActionHandler] Leave animation triggered on ${elementId}`);
                         // Stop looping hover animations and trigger leave animations
                         currentAnimationManager.stopAnimations?.(elementId, 'on_hover');
                         currentAnimationManager.triggerAnimations(elementId, 'on_leave');
@@ -395,7 +395,7 @@ export class LCARdSActionHandler {
                     element.removeEventListener('mouseleave', leaveHandler, { capture: true });
                 });
 
-                lcardsLog.debug(`[LCARdSActionHandler] ✅ Hover/leave handlers attached for ${elementId}`);
+                lcardsLog.trace(`[LCARdSActionHandler] Hover/leave handlers attached for ${elementId}`);
             }
         }
 

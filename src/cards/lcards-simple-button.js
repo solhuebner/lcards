@@ -30,7 +30,6 @@
 import { html, css } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { LCARdSSimpleCard } from '../base/LCARdSSimpleCard.js';
-import { SimpleButtonRenderer } from './renderers/SimpleButtonRenderer.js';
 import { lcardsLog } from '../utils/lcards-logging.js';
 
 export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
@@ -228,8 +227,8 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Only update if changed (avoid unnecessary re-renders)
         if (!this._buttonStyle || JSON.stringify(this._buttonStyle) !== JSON.stringify(resolvedStyle)) {
             this._buttonStyle = resolvedStyle;
-            lcardsLog.debug(`[LCARdSSimpleButtonCard] Button style resolved and triggering re-render:`, this._buttonStyle);
-            this.requestUpdate(); // ✨ CRITICAL: Trigger re-render to apply new styles
+            lcardsLog.trace(`[LCARdSSimpleButtonCard] Button style resolved, triggering re-render`);
+            this.requestUpdate(); // Trigger re-render to apply new styles
         }
     }
 
@@ -273,27 +272,10 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      * @private
      */
     _setupButtonActions() {
-        lcardsLog.debug(`[LCARdSSimpleButtonCard] _setupButtonActions called`, {
-            hasConfig: !!this.config,
-            hasHass: !!this.hass,
-            hasShadowRoot: !!this.shadowRoot,
-            cardGuid: this._cardGuid,
-            configTapAction: this.config?.tap_action,
-            configAnimations: this.config?.animations,
-            configEntity: this.config?.entity
-        });
-
-        // 🔍 DIAGNOSTIC: Log hass object details
         if (!this.hass) {
-            lcardsLog.error(`[LCARdSSimpleButtonCard] ❌ HASS IS UNDEFINED - Actions cannot be set up!`);
+            lcardsLog.trace(`[LCARdSSimpleButtonCard] HASS not available yet, deferring action setup`);
             return;
         }
-
-        lcardsLog.debug(`[LCARdSSimpleButtonCard] ✅ HASS is available:`, {
-            hasStates: !!this.hass.states,
-            hasCallService: !!this.hass.callService,
-            entityState: this.config?.entity ? this.hass.states[this.config.entity] : 'no entity'
-        });
 
         // Clean up previous actions
         if (this._actionCleanup) {
@@ -302,23 +284,12 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         }
 
         // Find the button group element in shadow DOM
-        // Following MSD pattern: attach actions to the group container, not individual SVG shapes
-        // This allows any shape inside the group to trigger actions (rect, path, circle, etc.)
         const buttonElement = this.shadowRoot.querySelector('[data-overlay-id="simple-button"]');
 
         if (!buttonElement) {
-            lcardsLog.warn(`[LCARdSSimpleButtonCard] Button group element not found for action setup`);
+            lcardsLog.trace(`[LCARdSSimpleButtonCard] Button element not found yet`);
             return;
         }
-
-        lcardsLog.debug(`[LCARdSSimpleButtonCard] Found button element for actions`, {
-            element: buttonElement.tagName,
-            classes: buttonElement.className?.baseVal || buttonElement.className,
-            dataButtonId: buttonElement.getAttribute('data-button-id'),
-            dataOverlayId: buttonElement.getAttribute('data-overlay-id'),
-            childCount: buttonElement.children.length,
-            boundingRect: buttonElement.getBoundingClientRect()
-        });
 
         // Build action configuration
         const actions = {
@@ -341,33 +312,20 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Build elementId for animation targeting
         const elementId = `simple-button-${this._cardGuid}`;
 
-        lcardsLog.debug(`[LCARdSSimpleButtonCard] About to call setupActions`, {
-            elementId,
-            cardGuid: this._cardGuid,
-            hasAnimationManager: !!getAnimationManager(),
-            animationsCount: this.config.animations?.length || 0
-        });
-
-        // Use base class method - it handles hass internally
-        // Base class signature: setupActions(element, actions, options)
+        // Use base class method to setup actions
         this._actionCleanup = this.setupActions(
             buttonElement,
             actions,
             {
-                animationManager: getAnimationManager(),  // Get current value
-                getAnimationManager,  // Pass getter for late binding
+                animationManager: getAnimationManager(),
+                getAnimationManager,
                 elementId: elementId,
-                entity: this.config.entity,  // Default entity for toggle actions
-                animations: this.config.animations  // Animation configurations
+                entity: this.config.entity,
+                animations: this.config.animations
             }
         );
 
-        lcardsLog.debug(`[LCARdSSimpleButtonCard] ✅ Actions attached via base class method`, {
-            hasAnimationManager: !!getAnimationManager(),
-            hasHass: !!this.hass,
-            actionTypes: Object.keys(actions).filter(k => actions[k]),
-            animationCount: this.config.animations?.length || 0
-        });
+        lcardsLog.trace(`[LCARdSSimpleButtonCard] Actions attached successfully`);
     }
 
     /**
@@ -394,29 +352,16 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
     }
 
     /**
-     * Render button content using SimpleButtonRenderer
+     * Render button content
      * @private
      */
     _renderButtonContent() {
-        lcardsLog.debug(`[LCARdSSimpleButtonCard] 🔄 _renderButtonContent called for ${this._overlayId}`, {
-            hasButtonStyle: !!this._buttonStyle,
-            buttonStylePrimary: this._buttonStyle?.primary,
-            hasRulePatches: !!this._lastRulePatches,
-            timestamp: Date.now()
-        });
+        lcardsLog.trace(`[LCARdSSimpleButtonCard] Rendering button for ${this._overlayId}`);
 
         const width = this.config.width || 200;
         const height = this.config.height || 60;
 
-        // DEBUG: Log what style we're rendering with
-        lcardsLog.debug(`[LCARdSSimpleButtonCard] 🎨 _renderButtonContent for ${this._overlayId}:`, {
-            hasButtonStyle: !!this._buttonStyle,
-            buttonStyle: this._buttonStyle,
-            hasRulePatches: !!this._lastRulePatches,
-            rulePatchesStyle: this._lastRulePatches?.style
-        });
-
-        // Build button configuration for ButtonRenderer
+        // Build button configuration
         const buttonConfig = {
             id: 'simple-button',
             label: this._processedTexts.label,
@@ -463,18 +408,6 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         const primary = this._buttonStyle?.primary || 'var(--lcars-orange, #FF9900)';
         const textColor = this._buttonStyle?.textColor || 'var(--lcars-color-text, #FFFFFF)';
 
-        // DEBUG: Log actual colors being used
-        lcardsLog.debug(`[LCARdSSimpleButtonCard] 🎨 Generating SVG for ${this._overlayId}:`, {
-            overlayId: this._overlayId,
-            primary,
-            textColor,
-            hasButtonStyle: !!this._buttonStyle,
-            buttonStyleKeys: this._buttonStyle ? Object.keys(this._buttonStyle) : [],
-            buttonStyle: this._buttonStyle,
-            hasRulePatches: !!this._lastRulePatches,
-            rulePatchesStyle: this._lastRulePatches?.style
-        });
-
         const strokeWidth = 2;
         const text = config.label || 'Button';
 
@@ -505,11 +438,6 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 </g>
             </svg>
         `.trim();
-
-        // DEBUG: Log the actual SVG markup for target_button
-        if (this._overlayId === 'target_button') {
-            lcardsLog.debug(`[LCARdSSimpleButtonCard] 📄 SVG Markup for target_button:`, svgString.substring(0, 500));
-        }
 
         return svgString;
     }
