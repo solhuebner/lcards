@@ -448,7 +448,18 @@ export class RulesEngine extends BaseService {
       perfCount('rules.eval.matched', results.length);
       perfCount('rules.eval.skipped', this.rules.length - totalDirty);
 
-      return this.aggregateResults(results);
+      const aggregatedResult = this.aggregateResults(results);
+
+      // DEBUG: Log what we're returning from evaluateDirty
+      lcardsLog.debug(`[RulesEngine] 📤 evaluateDirty returning:`, {
+        overlayPatchesCount: aggregatedResult.overlayPatches?.length || 0,
+        profilesAddCount: aggregatedResult.profilesAdd?.length || 0,
+        hasResult: !!aggregatedResult,
+        isObject: typeof aggregatedResult === 'object',
+        keys: Object.keys(aggregatedResult || {})
+      });
+
+      return aggregatedResult;
     });
   }
 
@@ -564,6 +575,15 @@ export class RulesEngine extends BaseService {
       if (matched && rule.apply) {
         // Resolve overlay selectors to patches (supports bulk targeting)
         result.overlayPatches = this._resolveOverlaySelectors(rule.apply, contextOverlays);  // ✨ CHANGED: Pass contextOverlays
+
+        // DEBUG: Log the patches we got back
+        lcardsLog.debug(`[RulesEngine] ✨ _resolveOverlaySelectors returned:`, {
+          ruleId: rule.id,
+          patchesCount: result.overlayPatches?.length || 0,
+          patches: result.overlayPatches,
+          isArray: Array.isArray(result.overlayPatches)
+        });
+
         result.profilesAdd = rule.apply.profiles_add || [];
         result.profilesRemove = rule.apply.profiles_remove || [];
         result.animations = rule.apply.animations || [];
@@ -752,8 +772,16 @@ export class RulesEngine extends BaseService {
       || this.systemsManager?.getResolvedModel?.()?.overlays
       || [];
 
+    lcardsLog.debug('[RulesEngine] _resolveOverlaySelectors called', {
+      hasContextOverlays: !!contextOverlays,
+      hasSystemsManager: !!this.systemsManager,
+      allOverlaysCount: allOverlays.length,
+      overlayIds: allOverlays.map(o => o.id),
+      selectors: Object.keys(ruleApply.overlays)
+    });
+
     if (allOverlays.length === 0) {
-      lcardsLog.debug('[RulesEngine] No overlays available for selector resolution');
+      lcardsLog.warn('[RulesEngine] ⚠️ No overlays available for selector resolution!');
       return [];
     }
 
@@ -815,6 +843,11 @@ export class RulesEngine extends BaseService {
       // Direct overlay ID (backwards compatible)
       else {
         const overlay = allOverlays.find(o => o.id === selector);
+        lcardsLog.debug(`[RulesEngine] Direct ID selector '${selector}'`, {
+          found: !!overlay,
+          availableIds: allOverlays.map(o => o.id),
+          searching: selector
+        });
         if (overlay && !excludeIds.has(overlay.id)) {
           matchedOverlays = [overlay];
         }
@@ -1187,6 +1220,18 @@ export class RulesEngine extends BaseService {
   }
 
   aggregateResults(ruleResults) {
+    // DEBUG: Log what we're aggregating
+    lcardsLog.debug(`[RulesEngine] 🔄 aggregateResults called:`, {
+      resultsCount: ruleResults.length,
+      resultsWithPatches: ruleResults.filter(r => r.overlayPatches && r.overlayPatches.length > 0).length,
+      allResults: ruleResults.map(r => ({
+        ruleId: r.ruleId,
+        matched: r.matched,
+        hasPatchesArray: !!r.overlayPatches,
+        patchesCount: r.overlayPatches?.length || 0
+      }))
+    });
+
     const aggregated = {
       overlayPatches: [],
       profilesAdd: [],
@@ -1235,6 +1280,16 @@ export class RulesEngine extends BaseService {
           aggregated.baseSvgUpdate = result.baseSvgUpdate;
         }
       });
+
+    // DEBUG: Log what we're returning
+    lcardsLog.debug(`[RulesEngine] 🔄 aggregateResults returning:`, {
+      overlayPatchesCount: aggregated.overlayPatches.length,
+      profilesAddCount: aggregated.profilesAdd.length,
+      profilesRemoveCount: aggregated.profilesRemove.length,
+      animationsCount: aggregated.animations.length,
+      hasBaseSvg: !!aggregated.baseSvgUpdate,
+      overlayPatches: aggregated.overlayPatches
+    });
 
     return aggregated;
   }

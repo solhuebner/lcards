@@ -79,6 +79,14 @@ export class CoreSystemsManager {
   }
 
   /**
+   * Get current HASS instance
+   * @returns {Object} Home Assistant instance
+   */
+  getHass() {
+    return this._hass;
+  }
+
+  /**
    * Update HASS instance (called when HASS updates)
    *
    * @param {Object} hass - Updated Home Assistant instance

@@ -127,7 +127,9 @@ class LCARdSCore {
 
             // Initialize RulesManager (Phase 1c)
             this.rulesManager = new RulesEngine();
-            lcardsLog.debug('[LCARdSCore] ✅ RulesManager initialized');
+            // 🔗 CRITICAL: Connect systemsManager so RulesEngine can access overlay registry
+            this.rulesManager.systemsManager = this.systemsManager;
+            lcardsLog.debug('[LCARdSCore] ✅ RulesManager initialized and connected to SystemsManager');
 
             // Initialize ThemeManager (Phase 2a) - ✅ Real MSD ThemeManager as singleton
             this.themeManager = new ThemeManager();
@@ -350,6 +352,14 @@ class LCARdSCore {
     _updateHass(hass) {
         this._currentHass = hass;
 
+        lcardsLog.debug(`[Core] _updateHass distributing to subsystems`, {
+            hasSystemsManager: !!this.systemsManager,
+            hasDataSourceManager: !!this.dataSourceManager,
+            hasRulesManager: !!this.rulesManager,
+            hasThemeManager: !!this.themeManager,
+            hasAnimationManager: !!this.animationManager
+        });
+
         // Forward to all systems
         if (this.systemsManager) {
             this.systemsManager.updateHass(hass);
@@ -360,6 +370,7 @@ class LCARdSCore {
         }
 
         if (this.rulesManager) {
+            lcardsLog.info(`[Core] 🔄 Calling rulesManager.updateHass()`);
             this.rulesManager.updateHass(hass);
         }
 
@@ -383,9 +394,14 @@ class LCARdSCore {
      * @param {Object} hass - Updated HASS instance
      */
     ingestHass(hass) {
-        if (hass !== this._currentHass) {
-            this._updateHass(hass);
-        }
+        lcardsLog.debug(`[Core] ingestHass called`, {
+            hassAvailable: !!hass,
+            statesCount: Object.keys(hass?.states || {}).length,
+            hasRulesManager: !!this.rulesManager
+        });
+
+        // Always update - HASS properties change even if object reference stays same
+        this._updateHass(hass);
     }
 
     /**

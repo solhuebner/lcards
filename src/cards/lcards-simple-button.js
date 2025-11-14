@@ -75,15 +75,8 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                     opacity: 0.8;
                 }
 
-                /* Ensure LCARS theme variables are available */
-                .button-bg {
-                    fill: var(--lcars-orange, #FF9900) !important;
-                    stroke: var(--lcars-color-secondary, #000000) !important;
-                }
-
-                .button-text {
-                    fill: var(--lcars-color-text, #000000) !important;
-                }
+                /* These styles are now applied inline for dynamic rule-based changes
+                   Removed !important to allow inline styles to work */
             `
         ];
     }
@@ -91,6 +84,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
     constructor() {
         super();
         this._buttonStyle = null;
+        this._lastActionElement = null; // Track last element actions were attached to
     }
 
     /**
@@ -141,7 +135,20 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             tags.push('entity-based');
         }
 
-        this._registerOverlayForRules('button', tags);
+        // ✅ SIMPLIFIED: Use card ID directly (no suffix)
+        // If user sets id:my_button, overlay registers as "my_button" (not "my_button_button")
+        const overlayId = this.config.id || this.config.entity || this._cardGuid;
+
+        lcardsLog.debug(`[LCARdSSimpleButtonCard] Registering overlay with ID: ${overlayId}`, {
+            hasConfigId: !!this.config.id,
+            configId: this.config.id,
+            hasEntity: !!this.config.entity,
+            entity: this.config.entity,
+            cardGuid: this._cardGuid,
+            finalOverlayId: overlayId
+        });
+
+        this._registerOverlayForRules(overlayId, tags);
 
         // Setup actions after DOM is ready (original simple approach)
         this.updateComplete.then(() => {
@@ -160,16 +167,33 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
     }
 
     /**
+     * Hook called after rule patches change (from base class)
+     * @protected
+     */
+    _onRulePatchesChanged() {
+        // Re-resolve button style to merge new rule patches
+        this._resolveButtonStyleSync();
+    }
+
+    /**
      * Lit lifecycle - called after every render
      * Re-attach actions because Lit recreates DOM elements
      */
     updated(changedProperties) {
         super.updated(changedProperties);
 
-        // Re-attach actions after EVERY render since Lit recreates the SVG
-        if (this._actionsInitialized && this.shadowRoot.querySelector('[data-overlay-id="simple-button"]')) {
-            lcardsLog.debug(`[LCARdSSimpleButtonCard] 🔄 Re-attaching actions after render`);
-            this._setupButtonActions();
+        // Only re-attach actions if we have relevant changes and actions are initialized
+        // This prevents excessive re-attachment on every render
+        if (this._actionsInitialized) {
+            const buttonElement = this.shadowRoot.querySelector('[data-overlay-id="simple-button"]');
+
+            // Check if the button element exists and if we need to re-attach
+            // (Lit recreates SVG on every render, so we need to re-attach)
+            if (buttonElement && buttonElement !== this._lastActionElement) {
+                lcardsLog.debug(`[LCARdSSimpleButtonCard] 🔄 Re-attaching actions after render (element changed)`);
+                this._setupButtonActions();
+                this._lastActionElement = buttonElement;
+            }
         }
     }    /**
      * Resolve button style synchronously to avoid update cycles
@@ -204,7 +228,8 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Only update if changed (avoid unnecessary re-renders)
         if (!this._buttonStyle || JSON.stringify(this._buttonStyle) !== JSON.stringify(resolvedStyle)) {
             this._buttonStyle = resolvedStyle;
-            lcardsLog.debug(`[LCARdSSimpleButtonCard] Button style resolved:`, this._buttonStyle);
+            lcardsLog.debug(`[LCARdSSimpleButtonCard] Button style resolved and triggering re-render:`, this._buttonStyle);
+            this.requestUpdate(); // ✨ CRITICAL: Trigger re-render to apply new styles
         }
     }
 
@@ -373,8 +398,23 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      * @private
      */
     _renderButtonContent() {
+        lcardsLog.debug(`[LCARdSSimpleButtonCard] 🔄 _renderButtonContent called for ${this._overlayId}`, {
+            hasButtonStyle: !!this._buttonStyle,
+            buttonStylePrimary: this._buttonStyle?.primary,
+            hasRulePatches: !!this._lastRulePatches,
+            timestamp: Date.now()
+        });
+
         const width = this.config.width || 200;
         const height = this.config.height || 60;
+
+        // DEBUG: Log what style we're rendering with
+        lcardsLog.debug(`[LCARdSSimpleButtonCard] 🎨 _renderButtonContent for ${this._overlayId}:`, {
+            hasButtonStyle: !!this._buttonStyle,
+            buttonStyle: this._buttonStyle,
+            hasRulePatches: !!this._lastRulePatches,
+            rulePatchesStyle: this._lastRulePatches?.style
+        });
 
         // Build button configuration for ButtonRenderer
         const buttonConfig = {
@@ -391,8 +431,11 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         try {
             const svgMarkup = this._generateSimpleButtonSVG(width, height, buttonConfig);
 
+            // Add cache-busting comment to force DOM update when style changes
+            const timestamp = Date.now();
+
             return html`
-                <div class="button-container">
+                <div class="button-container" data-render-time="${timestamp}">
                     ${unsafeHTML(svgMarkup)}
                 </div>
             `;
@@ -419,29 +462,24 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
 
         const primary = this._buttonStyle?.primary || 'var(--lcars-orange, #FF9900)';
         const textColor = this._buttonStyle?.textColor || 'var(--lcars-color-text, #FFFFFF)';
+
+        // DEBUG: Log actual colors being used
+        lcardsLog.debug(`[LCARdSSimpleButtonCard] 🎨 Generating SVG for ${this._overlayId}:`, {
+            overlayId: this._overlayId,
+            primary,
+            textColor,
+            hasButtonStyle: !!this._buttonStyle,
+            buttonStyleKeys: this._buttonStyle ? Object.keys(this._buttonStyle) : [],
+            buttonStyle: this._buttonStyle,
+            hasRulePatches: !!this._lastRulePatches,
+            rulePatchesStyle: this._lastRulePatches?.style
+        });
+
         const strokeWidth = 2;
         const text = config.label || 'Button';
 
-        return `
+        const svgString = `
             <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                    <style>
-                        .button-bg {
-                            fill: ${primary};
-                            stroke: var(--lcars-color-secondary, #000000);
-                            stroke-width: ${strokeWidth};
-                        }
-                        .button-text {
-                            fill: ${textColor};
-                            font-family: 'LCARS', 'Antonio', sans-serif;
-                            font-size: 14px;
-                            font-weight: bold;
-                            text-anchor: middle;
-                            dominant-baseline: central;
-                        }
-                    </style>
-                </defs>
-
                 <g data-button-id="simple-button"
                    data-overlay-id="simple-button"
                    class="button-group"
@@ -454,11 +492,12 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                         height="${height - strokeWidth}"
                         rx="${cornerRadius}"
                         ry="${cornerRadius}"
+                        style="fill: ${primary}; stroke: var(--lcars-color-secondary, #000000); stroke-width: ${strokeWidth};"
                     />
 
                     <text
                         class="button-text"
-                        style="pointer-events: none;"
+                        style="pointer-events: none; fill: ${textColor}; font-family: 'LCARS', 'Antonio', sans-serif; font-size: 14px; font-weight: bold; text-anchor: middle; dominant-baseline: central;"
                         x="${width/2}"
                         y="${height/2}">
                         ${this._escapeXML(text)}
@@ -466,6 +505,13 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 </g>
             </svg>
         `.trim();
+
+        // DEBUG: Log the actual SVG markup for target_button
+        if (this._overlayId === 'target_button') {
+            lcardsLog.debug(`[LCARdSSimpleButtonCard] 📄 SVG Markup for target_button:`, svgString.substring(0, 500));
+        }
+
+        return svgString;
     }
 
     /**
@@ -490,6 +536,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             this._actionCleanup();
             this._actionCleanup = null;
         }
+
+        // Clear element reference
+        this._lastActionElement = null;
 
         super.disconnectedCallback();
     }

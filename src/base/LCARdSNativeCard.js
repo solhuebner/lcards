@@ -26,7 +26,8 @@ export class LCARdSNativeCard extends LitElement {
 
     static get properties() {
         return {
-            hass: { type: Object },
+            // NOTE: hass is NOT declared here because we have custom setter/getter
+            // If you declare a property AND have a custom setter, Lit's reactive system conflicts
             config: { type: Object },
             _isPreviewMode: { type: Boolean, state: true },
             _mountResolved: { type: Boolean, state: true },
@@ -138,10 +139,18 @@ export class LCARdSNativeCard extends LitElement {
         const oldHass = this._hass;
         this._hass = hass;
 
+        // Log every hass update to see if it's even being called
+        lcardsLog.trace(`[LCARdSNativeCard] HASS setter called for ${this._cardGuid}`, {
+            hassChanged: oldHass !== hass,
+            sameObject: oldHass === hass
+        });
+
         if (hass && oldHass !== hass) {
-            lcardsLog.debug(`[LCARdSNativeCard] HASS updated for ${this._cardGuid}`);
+            lcardsLog.debug(`[LCARdSNativeCard] HASS object changed for ${this._cardGuid} - calling _onHassChanged`);
             this._onHassChanged(hass, oldHass);
             this.requestUpdate();
+        } else if (hass && oldHass === hass) {
+            lcardsLog.warn(`[LCARdSNativeCard] ⚠️ HASS object reference unchanged for ${this._cardGuid} - mutations not detected!`);
         }
     }
 

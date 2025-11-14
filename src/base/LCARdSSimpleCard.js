@@ -115,11 +115,13 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
         // Config provenance tracking (from CoreConfigManager)
         this._provenance = null;
 
-        // ✨ NEW: Rules integration state
+        // ✨ Rules integration state
         this._overlayId = null;           // Unique overlay ID for this card
         this._overlayTags = [];           // Tags for rule targeting
-        this._rulesCallbackIndex = null;  // Callback index from RulesEngine
+        this._rulesCallbackIndex = null;  // Callback index from RulesEngine (SINGLE callback)
         this._lastRulePatches = null;     // Cache of last applied patches
+        this._overlayRegistered = false;  // Track if overlay is registered
+        this._hasRulesToLoad = false;     // Flag to defer rule loading until singletons are ready
 
         lcardsLog.debug(`[LCARdSSimpleCard] Constructor called for ${this._getDisplayId()}`);
     }
@@ -138,78 +140,89 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
      * @param {Object} config - Raw card configuration
      * @override
      */
-    async setConfig(config) {
+    setConfig(config) {
         if (!config) {
             throw new Error('Invalid configuration');
         }
 
+        // ✅ CRITICAL: setConfig MUST be synchronous for Home Assistant!
+        // Store raw config immediately, then process asynchronously
+
+        lcardsLog.debug(`[LCARdSSimpleCard] setConfig called`, {
+            hasId: !!config.id,
+            id: config.id,
+            hasPreset: !!config.preset,
+            preset: config.preset,
+            entity: config.entity
+        });
+
+        // Call parent with raw config immediately (synchronous)
+        super.setConfig(config);
+
+        // Start async config processing in background (don't await!)
+        this._processConfigAsync(config).catch(error => {
+            lcardsLog.error(`[LCARdSSimpleCard] Async config processing failed:`, error);
+        });
+    }
+
+    /**
+     * Process config asynchronously through CoreConfigManager
+     * This runs in the background after setConfig completes synchronously
+     * @param {Object} rawConfig - Raw card configuration
+     * @private
+     */
+    async _processConfigAsync(rawConfig) {
         const core = window.lcardsCore || window.lcards?.core;
 
-        // Wait for CoreConfigManager to be ready (critical system)
-        if (core && !core.configManager?.initialized) {
-            lcardsLog.debug(`[LCARdSSimpleCard] Waiting for CoreConfigManager to initialize...`);
-
-            // Wait for core initialization to complete
-            await core.initialize(this.hass);
-
-            if (!core.configManager?.initialized) {
-                lcardsLog.warn(`[LCARdSSimpleCard] CoreConfigManager still not available after waiting - using raw config`);
-                super.setConfig(config);
-                return;
-            }
+        if (!core?.configManager?.initialized) {
+            lcardsLog.warn(`[LCARdSSimpleCard] CoreConfigManager not available`);
+            return;
         }
 
-        // Check if CoreConfigManager is available and initialized
-        if (core?.configManager?.initialized) {
-            try {
-                // Determine card type from config or use class-level property
-                const cardType = this.constructor.CARD_TYPE || config.type || 'simple-card';
+        try {
+            const cardType = this.constructor.CARD_TYPE || rawConfig.type || 'simple-card';
 
-                lcardsLog.debug(`[LCARdSSimpleCard] Processing config with CoreConfigManager`, {
-                    cardType,
-                    hasPreset: !!config.preset,
-                    rawConfig: config
-                });
+            lcardsLog.debug(`[LCARdSSimpleCard] Processing config with CoreConfigManager`, {
+                cardType,
+                hasPreset: !!rawConfig.preset
+            });
 
-                // Process config through CoreConfigManager (four-layer merge)
-                const result = await core.configManager.processConfig(
-                    config,
-                    cardType,
-                    { hass: this.hass }
-                );
+            const result = await core.configManager.processConfig(
+                rawConfig,
+                cardType,
+                { hass: this.hass }
+            );
 
-                // Log any errors or warnings
-                if (result.errors?.length > 0) {
-                    lcardsLog.error(`[LCARdSSimpleCard] Config validation errors:`, result.errors);
-                }
-                if (result.warnings?.length > 0) {
-                    lcardsLog.warn(`[LCARdSSimpleCard] Config validation warnings:`, result.warnings);
-                }
-
-                // Store provenance for debugging
-                this._provenance = result.provenance;
-
-                // Use merged config (whether valid or not - let parent handle errors)
-                const processedConfig = result.mergedConfig || config;
-
-                lcardsLog.debug(`[LCARdSSimpleCard] Config processed`, {
-                    valid: result.valid,
-                    hasProvenance: !!result.provenance,
-                    mergeOrder: result.provenance?.merge_order
-                });
-
-                // Call parent with processed config
-                super.setConfig(processedConfig);
-
-            } catch (error) {
-                lcardsLog.error(`[LCARdSSimpleCard] CoreConfigManager processing failed:`, error);
-                // Fallback: Use raw config
-                super.setConfig(config);
+            // Log validation results
+            if (result.errors?.length > 0) {
+                lcardsLog.error(`[LCARdSSimpleCard] Config validation errors:`, result.errors);
             }
-        } else {
-            // Fallback: CoreConfigManager not available (no core singleton)
-            lcardsLog.warn(`[LCARdSSimpleCard] No core singleton available - using raw config`);
-            super.setConfig(config);
+            if (result.warnings?.length > 0) {
+                lcardsLog.warn(`[LCARdSSimpleCard] Config validation warnings:`, result.warnings);
+            }
+
+            // Store provenance for debugging
+            this._provenance = result.provenance;
+
+            lcardsLog.debug(`[LCARdSSimpleCard] Config processed`, {
+                valid: result.valid,
+                hasProvenance: !!result.provenance,
+                mergeOrder: result.provenance?.merge_order
+            });
+
+            // Update with processed config if valid
+            if (result.valid && result.mergedConfig) {
+                // Update internal config
+                this.config = result.mergedConfig;
+
+                // Trigger re-render with processed config
+                this.requestUpdate();
+
+                lcardsLog.debug(`[LCARdSSimpleCard] Config updated with processed version`);
+            }
+
+        } catch (error) {
+            lcardsLog.error(`[LCARdSSimpleCard] CoreConfigManager processing failed:`, error);
         }
     }
 
@@ -225,9 +238,17 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             this._entity = this.hass.states[config.entity];
         }
 
-        // Load rules from config into RulesEngine
+        // Load rules from config into RulesEngine if singletons are ready
+        // This handles the case where config is set after connection
         if (config.rules && Array.isArray(config.rules) && config.rules.length > 0) {
-            this._loadRulesFromConfig(config.rules);
+            if (this._singletons?.rulesEngine) {
+                // Singletons already initialized - load rules now
+                this._loadRulesFromConfig(config.rules);
+                this._hasRulesToLoad = false; // Clear flag
+            } else {
+                // Singletons not ready yet - set flag for loading in _onConnected
+                this._hasRulesToLoad = true;
+            }
         }
 
         lcardsLog.debug(`[LCARdSSimpleCard] Config set for ${this._getDisplayId()}`, {
@@ -238,6 +259,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             animationsCount: config.animations?.length || 0,
             hasTapAction: !!config.tap_action,
             hasHoldAction: !!config.hold_action,
+            singletonsReady: !!this._singletons,
             finalConfig: config  // Log the entire final config for debugging
         });
 
@@ -258,14 +280,25 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
     _onHassChanged(newHass, oldHass) {
         super._onHassChanged(newHass, oldHass);
 
+        lcardsLog.debug(`[LCARdSSimpleCard] _onHassChanged called for ${this._cardGuid}`, {
+            hasCore: !!window.lcards?.core,
+            hasConfig: !!this.config,
+            configEntity: this.config?.entity,
+            entityState: newHass?.states?.[this.config?.entity]?.state
+        });
+
         // Update entity reference
         if (this.config.entity) {
             this._entity = newHass.states[this.config.entity];
         }
 
-        // IMPORTANT: Feed HASS back to singleton system for cross-card coordination
+        // Forward HASS to core singleton for distribution to all systems
+        // Core will call rulesManager.updateHass() along with other systems
         if (window.lcards?.core) {
+            lcardsLog.info(`[LCARdSSimpleCard] 📡 Forwarding HASS to core.ingestHass() for ${this._cardGuid}`);
             window.lcards.core.ingestHass(newHass);
+        } else {
+            lcardsLog.warn(`[LCARdSSimpleCard] ⚠️ No core singleton available for ${this._cardGuid}`);
         }
 
         // Check if any tracked entities changed (for Jinja2 template updates)
@@ -298,6 +331,12 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
         // Initialize singleton access
         this._initializeSingletons();
 
+        // Now that singletons are initialized, load rules from config
+        if (this._hasRulesToLoad && this.config.rules) {
+            this._loadRulesFromConfig(this.config.rules);
+            this._hasRulesToLoad = false; // Clear flag after loading
+        }
+
         lcardsLog.debug(`[LCARdSSimpleCard] Connected: ${this._getDisplayId()}`);
     }
 
@@ -311,8 +350,9 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
         // Mark as initialized
         this._initialized = true;
 
-        // Register callback with RulesEngine for entity change notifications
-        this._registerRulesCallback();
+        // NOTE: Do NOT register rules callback here - subclasses should call
+        // _registerOverlayForRules() in their own _handleFirstUpdate() hook
+        // to avoid duplicate registrations
 
         // Call card-specific initialization
         if (typeof this._handleFirstUpdate === 'function') {
@@ -325,24 +365,15 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
     /**
      * Register callback with RulesEngine to be notified when rules need re-evaluation
      * This allows the card to update when entity states change
+     *
+     * ⚠️ DEPRECATED - Use _registerOverlayForRules() instead
+     * This method is kept for backwards compatibility but should not be called
+     *
      * @private
+     * @deprecated
      */
     _registerRulesCallback() {
-        const rulesEngine = window.lcards?.core?.rulesManager;
-        if (!rulesEngine) {
-            lcardsLog.warn('[LCARdSSimpleCard] Cannot register rules callback - RulesEngine not available');
-            return;
-        }
-
-        // Register callback to re-render when rules change
-        this._rulesCallbackIndex = rulesEngine.setReEvaluationCallback(async () => {
-            lcardsLog.debug(`[LCARdSSimpleCard] Rules re-evaluation triggered for ${this._getDisplayId()}`);
-
-            // Trigger a re-render to apply updated rule styles
-            this.requestUpdate();
-        });
-
-        lcardsLog.debug(`[LCARdSSimpleCard] Registered rules callback for ${this._getDisplayId()} (index: ${this._rulesCallbackIndex})`);
+        lcardsLog.warn('[LCARdSSimpleCard] _registerRulesCallback() is deprecated - use _registerOverlayForRules() instead');
     }
 
     /**
@@ -351,14 +382,10 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
     disconnectedCallback() {
         super.disconnectedCallback();
 
-        // Unregister rules callback
-        if (this._rulesCallbackIndex !== undefined) {
-            const rulesEngine = window.lcards?.core?.rulesManager;
-            if (rulesEngine) {
-                rulesEngine.removeReEvaluationCallback(this._rulesCallbackIndex);
-                lcardsLog.debug(`[LCARdSSimpleCard] Unregistered rules callback for ${this._getDisplayId()}`);
-            }
-        }
+        // Unregister overlay and rules callback (consolidated cleanup)
+        this._unregisterOverlayFromRules();
+
+        lcardsLog.debug(`[LCARdSSimpleCard] Disconnected and cleaned up: ${this._getDisplayId()}`);
     }
 
     /**
@@ -481,7 +508,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
      * Register this card's overlay with the RulesEngine for dynamic styling
      * Subclasses should call this in firstUpdated() with their overlay configuration
      *
-     * @param {string} overlayId - Unique identifier for this overlay (e.g., 'main_button')
+     * @param {string} overlayId - Overlay identifier (for simple cards, use card ID directly)
      * @param {Array<string>} tags - Tags for rule targeting (e.g., ['status', 'button'])
      * @protected
      */
@@ -491,10 +518,16 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             return;
         }
 
-        // Create fully qualified overlay ID (cardId_overlayId)
-        // If user provided config.id, use it for better readability, otherwise use generated GUID
-        const cardId = this.config.id || this._cardGuid;
-        this._overlayId = `${cardId}_${overlayId}`;
+        // Prevent duplicate registration
+        if (this._overlayRegistered) {
+            lcardsLog.warn(`[LCARdSSimpleCard] Overlay already registered for ${this._getDisplayId()}, skipping duplicate registration`);
+            return;
+        }
+
+        // ✅ SIMPLIFIED: Use the provided overlayId directly (no suffix appending)
+        // For simple cards with single overlays, pass the card ID directly
+        // This makes rule targeting intuitive: user sets id:my_button, rule targets my_button
+        this._overlayId = overlayId;
         this._overlayTags = Array.isArray(tags) ? tags : [tags];
 
         // Register overlay with CoreSystemsManager
@@ -504,19 +537,65 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             sourceCardId: this._cardGuid
         });
 
-        // Register callback with RulesEngine (follows MSD pattern)
+        // Register callback with RulesEngine (SINGLE callback per card)
+        // Callback evaluates rules and applies relevant patches
         this._rulesCallbackIndex = this._singletons.rulesEngine.setReEvaluationCallback(async () => {
-            // Evaluate rules to get patches
-            const ruleResults = await this._singletons.rulesEngine.evaluateDirty({ getEntity: null });
+            lcardsLog.debug(`[LCARdSSimpleCard] Rules re-evaluation callback triggered for ${this._overlayId}`);
 
-            // Apply patches to this card's overlay
-            this._applyRulePatches(ruleResults.overlayPatches);
+            try {
+                // Evaluate dirty rules to get patches
+                // Pass getEntity function to access entity states from HASS
+                const ruleResults = await this._singletons.rulesEngine.evaluateDirty({
+                    getEntity: (entityId) => {
+                        const state = this.hass?.states?.[entityId];
+                        lcardsLog.trace(`[LCARdSSimpleCard] getEntity(${entityId}) => ${state?.state}`);
+                        return state;
+                    }
+                });
+
+                lcardsLog.debug(`[LCARdSSimpleCard] ✨ Rule evaluation COMPLETE - received result:`, {
+                    hasResults: !!ruleResults,
+                    resultType: typeof ruleResults,
+                    isPromise: ruleResults instanceof Promise,
+                    hasPatches: !!ruleResults?.overlayPatches,
+                    patchesIsArray: Array.isArray(ruleResults?.overlayPatches),
+                    patchCount: Array.isArray(ruleResults?.overlayPatches) ? ruleResults.overlayPatches.length : 0,
+                    overlayPatchesValue: ruleResults?.overlayPatches,
+                    fullResult: ruleResults
+                });
+
+                // Apply patches if any exist
+                if (ruleResults && ruleResults.overlayPatches) {
+                    lcardsLog.info(`[LCARdSSimpleCard] 🎨 Calling _applyRulePatches for ${this._overlayId} with ${ruleResults.overlayPatches.length} patches`);
+                    this._applyRulePatches(ruleResults.overlayPatches);
+                }
+            } catch (error) {
+                lcardsLog.error(`[LCARdSSimpleCard] Error in rules callback for ${this._overlayId}:`, error);
+            }
         });
+
+        this._overlayRegistered = true;
 
         lcardsLog.debug(`[LCARdSSimpleCard] Registered overlay for rules: ${this._overlayId}`, {
             tags: this._overlayTags,
-            callbackIndex: this._rulesCallbackIndex
+            callbackIndex: this._rulesCallbackIndex,
+            cardGuid: this._cardGuid
         });
+
+        // ✨ NEW: Trigger initial rule evaluation if HASS is already available
+        // This ensures rules are applied even if the light is already ON during page load
+        if (this.hass) {
+            lcardsLog.debug(`[LCARdSSimpleCard] HASS available, triggering initial rule evaluation for ${this._overlayId}`);
+            // Mark all rules dirty and trigger evaluation
+            this._singletons.rulesEngine.markAllDirty();
+            // Trigger the callback we just registered
+            if (this._rulesCallbackIndex >= 0) {
+                const callbacks = this._singletons.rulesEngine._reEvaluationCallbacks || [];
+                if (callbacks[this._rulesCallbackIndex]) {
+                    callbacks[this._rulesCallbackIndex]();
+                }
+            }
+        }
     }
 
     /**
@@ -524,24 +603,27 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
      * @protected
      */
     _unregisterOverlayFromRules() {
-        if (!this._overlayId) return;
+        if (!this._overlayRegistered) {
+            return; // Nothing to clean up
+        }
 
         // Remove callback from RulesEngine
         if (this._rulesCallbackIndex !== null && this._singletons?.rulesEngine) {
             this._singletons.rulesEngine.removeReEvaluationCallback(this._rulesCallbackIndex);
             this._rulesCallbackIndex = null;
+            lcardsLog.debug(`[LCARdSSimpleCard] Removed rules callback for ${this._overlayId}`);
         }
 
         // Unregister overlay from SystemsManager
-        if (this._singletons?.systemsManager) {
+        if (this._overlayId && this._singletons?.systemsManager) {
             this._singletons.systemsManager.unregisterOverlay(this._overlayId);
+            lcardsLog.debug(`[LCARdSSimpleCard] Unregistered overlay: ${this._overlayId}`);
         }
-
-        lcardsLog.debug(`[LCARdSSimpleCard] Unregistered overlay from rules: ${this._overlayId}`);
 
         this._overlayId = null;
         this._overlayTags = [];
         this._lastRulePatches = null;
+        this._overlayRegistered = false;
     }
 
     /**
@@ -552,7 +634,16 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
      * @private
      */
     _applyRulePatches(overlayPatches) {
-        if (!overlayPatches || !this._overlayId) return;
+        lcardsLog.info(`[LCARdSSimpleCard] 🎨 _applyRulePatches called for ${this._overlayId}`, {
+            patchesProvided: Array.isArray(overlayPatches) ? overlayPatches.length : 0,
+            overlayId: this._overlayId,
+            patchIds: Array.isArray(overlayPatches) ? overlayPatches.map(p => p.id) : []
+        });
+
+        if (!overlayPatches || !this._overlayId) {
+            lcardsLog.warn(`[LCARdSSimpleCard] Cannot apply patches - missing overlayPatches or overlayId`);
+            return;
+        }
 
         // Find patches for this card's overlay
         const myPatches = overlayPatches.filter(patch => patch.id === this._overlayId);
@@ -561,7 +652,14 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             // No patches for this overlay - clear cached patches if any existed
             if (this._lastRulePatches !== null) {
                 this._lastRulePatches = null;
-                this.requestUpdate(); // Clear previous rule styles
+                lcardsLog.debug(`[LCARdSSimpleCard] Cleared rule patches for ${this._overlayId}`);
+
+                // Call subclass hook to handle style resolution after patch clearing
+                if (typeof this._onRulePatchesChanged === 'function') {
+                    this._onRulePatchesChanged();
+                }
+
+                this.requestUpdate(); // Trigger re-render to clear rule styles
             }
             return;
         }
@@ -576,16 +674,36 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             }
         }), {});
 
+        // DEBUG: Log the merged patch
+        lcardsLog.debug(`[LCARdSSimpleCard] Merged patch for ${this._overlayId}:`, {
+            mergedPatch,
+            lastRulePatches: this._lastRulePatches
+        });
+
+        // Check if patches actually changed (avoid unnecessary updates)
+        const patchesChanged = JSON.stringify(this._lastRulePatches) !== JSON.stringify(mergedPatch);
+
+        if (!patchesChanged) {
+            lcardsLog.trace(`[LCARdSSimpleCard] Rule patches unchanged for ${this._overlayId}, skipping update (but patch IS active)`);
+            return;
+        }
+
         // Cache patches for style resolution
         this._lastRulePatches = mergedPatch;
-
-        // Trigger efficient update using Lit's change detection
-        this.requestUpdate();
 
         lcardsLog.debug(`[LCARdSSimpleCard] Applied rule patches to ${this._overlayId}`, {
             patchCount: myPatches.length,
             style: mergedPatch.style
         });
+
+        // Call subclass hook to handle style resolution after patch changes
+        // This allows subclasses to re-resolve styles without forcing a render
+        if (typeof this._onRulePatchesChanged === 'function') {
+            this._onRulePatchesChanged();
+        }
+
+        // Trigger efficient update using Lit's change detection
+        this.requestUpdate();
     }
 
     /**
