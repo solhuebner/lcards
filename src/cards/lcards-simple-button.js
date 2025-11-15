@@ -79,6 +79,8 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         super();
         this._buttonStyle = null;
         this._lastActionElement = null; // Track last element actions were attached to
+        this._containerSize = { width: 200, height: 60 }; // Default size, updated by ResizeObserver
+        this._resizeObserver = null;
     }
 
     /**
@@ -155,6 +157,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             this._setupButtonActions();
             this._actionsInitialized = true;
         });
+
+        // ✨ NEW: Setup ResizeObserver for auto-sizing
+        this._setupResizeObserver();
     }
 
     /**
@@ -164,6 +169,35 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
     _onTemplatesChanged() {
         // Resolve button style after templates change
         this._resolveButtonStyleSync();
+    }
+
+    /**
+     * Setup ResizeObserver to track container size changes for auto-sizing
+     * Enables buttons to automatically fill HA grid cells and responsive containers
+     * @private
+     */
+    _setupResizeObserver() {
+        // Clean up existing observer if any
+        if (this._resizeObserver) {
+            this._resizeObserver.disconnect();
+        }
+
+        this._resizeObserver = new ResizeObserver(entries => {
+            if (entries.length === 0) return;
+
+            const { width, height } = entries[0].contentRect;
+
+            // Only update if size actually changed (avoid thrashing)
+            if (width !== this._containerSize.width || height !== this._containerSize.height) {
+                this._containerSize = { width, height };
+                lcardsLog.trace(`[LCARdSSimpleButtonCard] Container resized to ${width}x${height}`);
+                this.requestUpdate(); // Trigger re-render with new size
+            }
+        });
+
+        // Observe this element for size changes
+        this._resizeObserver.observe(this);
+        lcardsLog.debug(`[LCARdSSimpleButtonCard] ResizeObserver setup for auto-sizing`);
     }
 
     /**
@@ -378,8 +412,10 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
     _renderButtonContent() {
         lcardsLog.trace(`[LCARdSSimpleButtonCard] Rendering button for ${this._overlayId}`);
 
-        const width = this.config.width || 200;
-        const height = this.config.height || 60;
+        // ✨ Use container size if available, otherwise config or defaults
+        // This enables auto-sizing for HA grid cards and responsive layouts
+        const width = this.config.width || this._containerSize?.width || 200;
+        const height = this.config.height || this._containerSize?.height || 60;
 
         // Build button configuration
         const buttonConfig = {
@@ -512,6 +548,12 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             this._actionCleanup = null;
         }
 
+        // Clean up ResizeObserver
+        if (this._resizeObserver) {
+            this._resizeObserver.disconnect();
+            this._resizeObserver = null;
+        }
+
         // Clear element reference
         this._lastActionElement = null;
 
@@ -520,9 +562,27 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
 
     /**
      * Get card size for Home Assistant layout
+     * Returns height in units of ~50px rows
+     * @returns {number} Card height in rows
      */
     getCardSize() {
-        return 1;
+        // Calculate based on configured or auto-sized height
+        const height = this.config.height || this._containerSize?.height || 60;
+        // Convert to HA grid units (each unit is ~50px)
+        return Math.ceil(height / 50);
+    }
+
+    /**
+     * Get layout options for Home Assistant grid system
+     * @returns {Object} Layout configuration
+     */
+    getLayoutOptions() {
+        return {
+            grid_columns: this.config.grid_columns || 2,  // Default span 2 columns
+            grid_rows: this.config.grid_rows || 1,        // Default span 1 row
+            grid_min_columns: this.config.grid_min_columns || 1,
+            grid_min_rows: this.config.grid_min_rows || 1
+        };
     }
 
     /**
@@ -601,6 +661,36 @@ if (window.lcardsCore?.configManager) {
             style: {
                 type: 'object',
                 description: 'Style overrides (color, textColor, fontSize, etc.)'
+            },
+            width: {
+                type: 'number',
+                description: 'Fixed width in pixels (optional - auto-sizes to container by default)'
+            },
+            height: {
+                type: 'number',
+                description: 'Fixed height in pixels (optional - auto-sizes to container by default)'
+            },
+
+            // Grid Layout Properties
+            grid_columns: {
+                type: 'number',
+                description: 'Number of grid columns to span (default: 2)',
+                minimum: 1
+            },
+            grid_rows: {
+                type: 'number',
+                description: 'Number of grid rows to span (default: 1)',
+                minimum: 1
+            },
+            grid_min_columns: {
+                type: 'number',
+                description: 'Minimum columns required (default: 1)',
+                minimum: 1
+            },
+            grid_min_rows: {
+                type: 'number',
+                description: 'Minimum rows required (default: 1)',
+                minimum: 1
             },
 
             // Action Properties
