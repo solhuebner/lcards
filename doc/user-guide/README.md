@@ -83,6 +83,17 @@ graph TD
 
 Learn how to configure every aspect of LCARdS.
 
+### Card Types
+
+**Native LCARdS cards** for standalone use:
+
+| Card Type | Description | Guide |
+|-----------|-------------|-------|
+| 🔘 **[Simple Button](configuration/simple-button-card.md)** | SVG-based button card | Entity binding, state-aware styling, computed tokens |
+
+**Testing Guides:**
+- **[Simple Button Testing](testing/simple-button-testing.md)** - 20 systematic tests with configs
+
 ### Overlay System
 
 **Overlays** are visual elements on your dashboard:

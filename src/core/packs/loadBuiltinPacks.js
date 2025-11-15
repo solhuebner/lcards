@@ -59,7 +59,7 @@ const LCARDS_BUTTONS_PACK = {
 
         // State-based colors (active/inactive/unavailable)
         background_color: 'theme:components.button.base.background.active',
-        text_color: 'theme:components.button.base.text.active',
+        text_color: 'theme:components.button.base.text.default.color.active',
         border_color: 'theme:components.button.base.border.color',
 
         // Layout
@@ -76,9 +76,9 @@ const LCARDS_BUTTONS_PACK = {
 
         // Icon
         icon_size: 'theme:components.button.base.icon.size',
-        icon_color: 'theme:components.button.base.text.onColor',
+        icon_color: 'theme:components.button.base.icon.color.default',
         icon_border_width: 'theme:components.button.base.icon.border.width',
-        icon_border_color: 'theme:components.button.base.border.color',
+        icon_border_color: 'theme:components.button.base.icon.border.color.default',
         icon_border_padding: 'theme:components.button.base.icon.border.padding.standard',
 
         // Text layout defaults
@@ -93,15 +93,15 @@ const LCARDS_BUTTONS_PACK = {
         states: {
           active: {
             background_color: 'theme:components.button.base.background.active',
-            text_color: 'theme:components.button.base.text.active'
+            text_color: 'theme:components.button.base.text.default.color.active'
           },
           inactive: {
             background_color: 'theme:components.button.base.background.inactive',
-            text_color: 'theme:components.button.base.text.inactive'
+            text_color: 'theme:components.button.base.text.default.color.inactive'
           },
           unavailable: {
             background_color: 'theme:components.button.base.background.unavailable',
-            text_color: 'theme:components.button.base.text.unavailable'
+            text_color: 'theme:components.button.base.text.default.color.unavailable'
           }
         }
       },
@@ -111,22 +111,45 @@ const LCARDS_BUTTONS_PACK = {
       // =====================================
       lozenge: {
         extends: 'button.base',
-        border_radius_top_left: 'theme:components.button.base.radius.pill',
-        border_radius_top_right: 'theme:components.button.base.radius.pill',
-        border_radius_bottom_left: 'theme:components.button.base.radius.pill',
-        border_radius_bottom_right: 'theme:components.button.base.radius.pill',
-        icon_border_left_padding: '0px',
-        icon_border_right_padding: '3px'
+        show_icon: true,  // Enable icons by default for lozenge buttons
+        border: {
+          radius: {
+            top_left: 'theme:components.button.base.radius.full',
+            top_right: 'theme:components.button.base.radius.full',
+            bottom_left: 'theme:components.button.base.radius.full',
+            bottom_right: 'theme:components.button.base.radius.full'
+          }
+        },
+        icon: {
+          border: {
+            left: {
+              padding: '0px'
+            },
+            right: {
+              padding: '3px'
+            }
+          }
+        }
       },
 
       'lozenge-right': {
         extends: 'button.lozenge',
-        text_justify: 'left',
-        icon_justify: 'right',
-        icon_border_left_color: 'theme:components.button.base.border.color',
-        icon_border_left_padding: '3px',
-        icon_border_right_color: 'theme:components.button.base.border.transparent',
-        icon_border_right_padding: '3px'
+        text: {
+          justify: 'left'
+        },
+        icon: {
+          position: 'right',
+          border: {
+            left: {
+              color: 'theme:components.button.base.border.color',
+              padding: '3px'
+            },
+            right: {
+              color: 'theme:components.button.base.border.color.transparent',
+              padding: '3px'
+            }
+          }
+        }
       },
 
       // =====================================
@@ -182,12 +205,12 @@ const LCARDS_BUTTONS_PACK = {
 
         // Use base colors (will be resolved from theme tokens)
         background_color: 'theme:components.button.base.background.active',
-        text_color: 'theme:components.button.base.text.active',
+        text_color: 'theme:components.button.base.text.default.color.active',
 
         // Icon styling
         icon_border_right_color: 'theme:components.button.base.border.color',
         icon_border_right_padding: 'theme:components.button.base.icon.border.padding.dense',
-        icon_border_left_color: 'theme:components.button.base.border.transparent',
+        icon_border_left_color: 'theme:components.button.base.border.color.transparent',
         icon_border_left_padding: 'theme:components.button.base.icon.border.padding.minimal'
       },
 
@@ -197,7 +220,7 @@ const LCARDS_BUTTONS_PACK = {
         icon_justify: 'right',
         icon_border_left_color: 'theme:components.button.base.border.color',
         icon_border_left_padding: 'theme:components.button.base.icon.border.padding.dense',
-        icon_border_right_color: 'theme:components.button.base.border.transparent',
+        icon_border_right_color: 'theme:components.button.base.border.color.transparent',
         icon_border_right_padding: 'theme:components.button.base.icon.border.padding.minimal'
       },
 
@@ -243,7 +266,7 @@ const LCARDS_BUTTONS_PACK = {
         icon_justify: 'right',
         icon_border_left_color: 'theme:components.button.base.border.color',
         icon_border_left_padding: 'theme:components.button.base.icon.border.padding.dense',
-        icon_border_right_color: 'theme:components.button.base.border.transparent',
+        icon_border_right_color: 'theme:components.button.base.border.color.transparent',
         icon_border_right_padding: 'theme:components.button.base.icon.border.padding.minimal'
       },
 

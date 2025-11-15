@@ -298,36 +298,44 @@ export const lcarsClassicTokens = {
 
     button: {
       // Base button tokens (used by all button presets)
+      // Schema aligned with CB-LCARS (v1.10.69+)
       base: {
-        // Colors for different states
-        color: {
-          active: 'var(--lcars-card-button, var(--picard-medium-light-gray))',
-          inactive: 'var(--lcars-card-button-off, var(--picard-dark-gray))',
-          unavailable: 'var(--lcars-card-button-unavailable, var(--picard-darkest-gray))'
-        },
-
+        // Background colors (state-based)
         background: {
-          active: 'var(--lcars-card-button, var(--picard-medium-light-gray))',
-          inactive: 'var(--lcars-card-button-off, var(--picard-dark-gray))',
-          unavailable: 'var(--lcars-card-button-unavailable, var(--picard-darkest-gray))',
+          active: 'var(--lcars-orange, #FF9900)',
+          inactive: 'alpha(colors.accent.primary, 0.7)',  // Dimmed orange
+          unavailable: 'var(--lcars-dark-gray, #666666)',
+          default: 'var(--lcars-african-violet, #FF9900)',
           transparent: 'transparent'
         },
 
-        text: {
-          active: 'black',
-          inactive: 'black',
-          unavailable: 'black',
-          onColor: 'black'  // Text on colored backgrounds
-        },
-
-        // Border styles
+        // Border configuration (grouped under border)
         border: {
-          width: 'borders.width.thick',  // 3px
-          color: 'black',
-          transparent: 'transparent'
+          width: '2px',
+          radius: '8px',
+          color: {
+            active: 'black',
+            inactive: 'var(--lcars-gray, #999999)',
+            unavailable: 'var(--lcars-dark-gray, #666666)',
+            transparent: 'transparent'
+          }
         },
 
-        // Typography
+        // Text defaults (for label and future texts array)
+        text: {
+          default: {
+            color: {
+              active: 'black',
+              inactive: 'black',
+              unavailable: 'var(--lcars-ui-red, #CC6666)'
+            },
+            font_size: '14px',
+            font_weight: 'bold',
+            font_family: "'LCARS', 'Antonio', sans-serif"
+          }
+        },
+
+        // Legacy font tokens (for backward compat with other components)
         font: {
           family: 'typography.fontFamily.primary',
           size: {
@@ -365,7 +373,7 @@ export const lcarsClassicTokens = {
           small: 'borders.radius.sm',     // 2px
           medium: 'borders.radius.base',  // 4px
           large: 'borders.radius.lg',     // 8px
-          full: 'var(--ha-card-border-radius)', // Full rounded
+          full: 'var(--ha-card-border-radius, 34px)', // Full rounded (pill shape), fallback to 34px
           pill: 25  // For lozenge style
         },
 
@@ -381,6 +389,7 @@ export const lcarsClassicTokens = {
             bottom: 'bottom'
           },
           color: {
+            default: 'black',
             active: 'black',
             inactive: 'black',
             unavailable: 'black',

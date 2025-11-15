@@ -37,7 +37,13 @@ export class ColorUtils {
 
     // Handle direct colors - compute at load time
     const rgb = this._parseColor(color);
-    if (!rgb) return color;
+    if (!rgb) {
+      // Check if this looks like an unresolved token reference
+      if (typeof color === 'string' && color.includes('.') && !color.startsWith('#') && !color.startsWith('rgb')) {
+        lcardsLog.warn(`[ColorUtils] darken() received what appears to be an unresolved token: '${color}' - returning unchanged`);
+      }
+      return color;
+    }
 
     const darkened = rgb.map(val => Math.max(0, Math.floor(val * (1 - percent))));
     return this._rgbToHex(darkened[0], darkened[1], darkened[2]);
@@ -63,7 +69,13 @@ export class ColorUtils {
 
     // Handle direct colors
     const rgb = this._parseColor(color);
-    if (!rgb) return color;
+    if (!rgb) {
+      // Check if this looks like an unresolved token reference
+      if (typeof color === 'string' && color.includes('.') && !color.startsWith('#') && !color.startsWith('rgb')) {
+        lcardsLog.warn(`[ColorUtils] lighten() received what appears to be an unresolved token: '${color}' - returning unchanged`);
+      }
+      return color;
+    }
 
     const lightened = rgb.map(val => Math.min(255, Math.floor(val + (255 - val) * percent)));
     return this._rgbToHex(lightened[0], lightened[1], lightened[2]);
@@ -89,7 +101,13 @@ export class ColorUtils {
 
     // Handle direct colors
     const rgb = this._parseColor(color);
-    if (!rgb) return color;
+    if (!rgb) {
+      // Check if this looks like an unresolved token reference
+      if (typeof color === 'string' && color.includes('.') && !color.startsWith('#') && !color.startsWith('rgb')) {
+        lcardsLog.warn(`[ColorUtils] alpha() received what appears to be an unresolved token: '${color}' - returning unchanged`);
+      }
+      return color;
+    }
 
     return `rgba(${rgb.join(', ')}, ${alpha})`;
   }

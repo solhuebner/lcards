@@ -276,10 +276,14 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
                 // Update internal config
                 this.config = result.mergedConfig;
 
+                // Allow subclasses to react to config changes before render
+                // (e.g., button card needs to re-resolve styles when config changes)
+                if (this._onConfigUpdated) {
+                    this._onConfigUpdated();
+                }
+
                 // Trigger re-render with processed config
                 this.requestUpdate();
-
-                lcardsLog.debug(`[LCARdSSimpleCard] Config updated with processed version`);
             }
 
         } catch (error) {
@@ -1310,15 +1314,20 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
      * @returns {Object|null} Preset configuration or null
      */
     getStylePreset(overlayType, presetName) {
-        if (!this._singletons?.stylePresetManager) {
+        // Try singletons first, then fall back to global core
+        const core = window.lcards?.core;
+        const stylePresetManager = this._singletons?.stylePresetManager || core?.getStylePresetManager?.();
+        const themeManager = this._singletons?.themeManager || core?.getThemeManager?.();
+
+        if (!stylePresetManager) {
             return null;
         }
 
         try {
-            return this._singletons.stylePresetManager.getPreset(
+            return stylePresetManager.getPreset(
                 overlayType,
                 presetName,
-                this._singletons.themeManager
+                themeManager
             );
         } catch (error) {
             lcardsLog.warn(`[LCARdSSimpleCard] Preset fetch failed:`, error);

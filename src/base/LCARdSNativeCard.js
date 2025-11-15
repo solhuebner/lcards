@@ -108,7 +108,8 @@ export class LCARdSNativeCard extends LitElement {
         }
 
         try {
-            this.config = { ...config };
+            // Deep clone config to prevent mutations from affecting HA's copy
+            this.config = JSON.parse(JSON.stringify(config));
             this._errorState = null;
 
             // Detect preview mode

@@ -1281,5 +1281,5 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
     }
 }
 
-// Register the card
-customElements.define('lcards-msd-card', LCARdSMSDCard);
+// NOTE: Card registration moved to src/lcards.js initializeCustomCard().then()
+// This ensures all core singletons are initialized before cards can be instantiated.

@@ -64,6 +64,11 @@ export class ThemeTokenResolver {
       return path;
     }
 
+    // Handle computed tokens directly (before trying to look up in token tree)
+    if (typeof path === 'string' && this._isComputedToken(path)) {
+      return this._resolveComputedToken(path, context);
+    }
+
     // Check cache for non-context-dependent paths
     const hasContext = context && Object.keys(context).length > 0;
     if (!hasContext) {
@@ -302,11 +307,24 @@ export class ThemeTokenResolver {
       const resolvedArgs = args.map(arg => {
         // If argument is a token reference, resolve it
         if (this._isTokenReference(arg)) {
-          return this.resolve(arg, arg, context);
+          const resolved = this.resolve(arg, arg, context);
+          // Warn if token reference didn't resolve (returned unchanged)
+          if (resolved === arg) {
+            lcardsLog.warn(`[ThemeTokenResolver] Token reference in computed expression not found: '${arg}' in '${expression}'`);
+          }
+          return resolved;
         }
-        // If argument is a number string, parse it
-        if (!isNaN(arg)) {
-          return parseFloat(arg);
+        // If argument is a number string (possibly with %), parse it
+        const trimmedArg = typeof arg === 'string' ? arg.trim() : arg;
+        if (typeof trimmedArg === 'string' && trimmedArg.endsWith('%')) {
+          // Parse percentage and convert to decimal (30% -> 0.3)
+          const numStr = trimmedArg.slice(0, -1);
+          if (!isNaN(numStr)) {
+            return parseFloat(numStr) / 100;
+          }
+        }
+        if (!isNaN(trimmedArg)) {
+          return parseFloat(trimmedArg);
         }
         return arg;
       });

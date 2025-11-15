@@ -26,6 +26,7 @@ import { html, css } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { LCARdSSimpleCard } from '../base/LCARdSSimpleCard.js';
 import { lcardsLog } from '../utils/lcards-logging.js';
+import { ColorUtils } from '../core/themes/ColorUtils.js';
 
 export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
 
@@ -112,6 +113,13 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             if (oldState !== newState) {
                 // Schedule template processing to avoid update cycles
                 this._scheduleTemplateUpdate();
+
+                // ✨ ENHANCEMENT: Re-resolve button style when entity state changes
+                // This makes the button color update reactively (without requiring page refresh)
+                // The _getStateOverrides() method will return different colors based on state
+                this._resolveButtonStyleSync();
+
+                lcardsLog.debug(`[LCARdSSimpleButtonCard] Entity state changed: ${oldState} -> ${newState}, re-resolved button style`);
             }
         }
     }
@@ -168,10 +176,74 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      */
     _onTemplatesChanged() {
         // Resolve button style after templates change
+        // Note: This may be called before singletons are initialized
+        // In that case, _onConnected() will re-resolve styles
         this._resolveButtonStyleSync();
     }
 
     /**
+     * Hook called when connected to DOM (after singletons initialized)
+     * @protected
+     */
+    _onConnected() {
+        super._onConnected();
+
+        // CRITICAL: Re-resolve styles now that StylePresetManager is available
+        // The initial _onTemplatesChanged() call happens before singletons are initialized,
+        // so we must re-run style resolution here to pick up presets
+        if (this.config.preset) {
+            const hasStylePresetManager = !!this._singletons?.stylePresetManager;
+
+            lcardsLog.debug(`[LCARdSSimpleButtonCard] Re-resolving styles after singletons initialized`, {
+                hasStylePresetManager,
+                preset: this.config.preset
+            });
+
+            if (hasStylePresetManager) {
+                // StylePresetManager is available - resolve and render now
+                this._resolveButtonStyleSync();
+                this.requestUpdate();
+            } else {
+                // StylePresetManager not available yet - wait for it
+                lcardsLog.debug(`[LCARdSSimpleButtonCard] Waiting for StylePresetManager to become available`);
+                this._waitForStylePresetManager();
+            }
+        }
+    }
+
+    /**
+     * Wait for StylePresetManager to become available and then re-resolve styles
+     * @private
+     */
+    async _waitForStylePresetManager() {
+        const maxAttempts = 50; // 5 seconds max
+        const delayMs = 100;
+
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            // Check if StylePresetManager is now available
+            const core = window.lcards?.core;
+            if (core?.getStylePresetManager && core.getStylePresetManager()) {
+                // Update our singletons reference
+                if (this._singletons) {
+                    this._singletons.stylePresetManager = core.getStylePresetManager();
+                }
+
+                lcardsLog.debug(`[LCARdSSimpleButtonCard] StylePresetManager now available after ${attempt * delayMs}ms`);
+
+                // Re-resolve styles with preset data
+                this._resolveButtonStyleSync();
+
+                // Trigger re-render
+                this.requestUpdate();
+                return;
+            }
+
+            // Wait before next attempt
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+
+        lcardsLog.warn(`[LCARdSSimpleButtonCard] StylePresetManager did not become available after ${maxAttempts * delayMs}ms`);
+    }    /**
      * Setup ResizeObserver to track container size changes for auto-sizing
      * Enables buttons to automatically fill HA grid cells and responsive containers
      * @private
@@ -210,6 +282,17 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
     }
 
     /**
+     * Hook called when config is updated by CoreConfigManager
+     * Re-resolve button style to ensure _processedIcon and other cached values are up-to-date
+     * @protected
+     */
+    _onConfigUpdated() {
+        lcardsLog.debug(`[LCARdSSimpleButtonCard] Config updated by CoreConfigManager, re-resolving button style`);
+        // Re-resolve button style with the new merged config
+        this._resolveButtonStyleSync();
+    }
+
+    /**
      * Lit lifecycle - called after every render
      * Re-attach actions because Lit recreates DOM elements
      */
@@ -230,16 +313,91 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             }
         }
     }    /**
+     * Deep merge two objects, with target taking priority
+     * Handles nested objects properly (unlike spread operator)
+     * @private
+     */
+    _deepMerge(base, override) {
+        if (!override || typeof override !== 'object') return base;
+        if (!base || typeof base !== 'object') return override;
+
+        const result = { ...base };
+
+        for (const [key, value] of Object.entries(override)) {
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                // Recursively merge nested objects
+                result[key] = this._deepMerge(result[key], value);
+            } else {
+                // Override with new value
+                result[key] = value;
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Recursively resolve theme: tokens AND computed tokens in an object
+     * @private
+     */
+    _resolveThemeTokensRecursive(obj) {
+        if (!obj || typeof obj !== 'object' || !this._singletons?.themeManager) {
+            return obj;
+        }
+
+        const result = Array.isArray(obj) ? [...obj] : { ...obj };
+
+        for (const [key, value] of Object.entries(result)) {
+            if (typeof value === 'string') {
+                if (value.startsWith('theme:')) {
+                    // Resolve theme token
+                    const tokenPath = value.substring(6);
+                    const resolved = this._singletons.themeManager.getToken(tokenPath, value);
+                    if (resolved !== value) {
+                        result[key] = this._resolveThemeTokensRecursive(resolved); // Recurse in case token resolves to another token
+                        lcardsLog.trace(`[LCARdSSimpleButtonCard] Resolved theme token: ${value} -> ${result[key]}`);
+                    } else {
+                        lcardsLog.warn(`[LCARdSSimpleButtonCard] Theme token not found: '${value}' - using as literal value`);
+                    }
+                } else if (value.includes('(') && (value.startsWith('alpha(') || value.startsWith('darken(') || value.startsWith('lighten('))) {
+                    // Resolve computed token (alpha, darken, lighten, etc.)
+                    try {
+                        lcardsLog.debug(`[LCARdSSimpleButtonCard] Attempting to resolve computed token: ${value}`);
+                        lcardsLog.debug(`[LCARdSSimpleButtonCard] Resolver available:`, !!this._singletons?.themeManager?.resolver);
+                        const resolved = this._singletons.themeManager.resolver.resolve(value, value);
+                        lcardsLog.debug(`[LCARdSSimpleButtonCard] Resolution result: ${value} -> ${resolved}`);
+                        if (resolved !== value) {
+                            result[key] = resolved;
+                            lcardsLog.trace(`[LCARdSSimpleButtonCard] Resolved computed token: ${value} -> ${resolved}`);
+                        } else {
+                            lcardsLog.warn(`[LCARdSSimpleButtonCard] Computed token unchanged: ${value}`);
+                        }
+                    } catch (error) {
+                        lcardsLog.warn(`[LCARdSSimpleButtonCard] Failed to resolve computed token: ${value}`, error);
+                    }
+                }
+            } else if (value && typeof value === 'object') {
+                // Recursively resolve nested objects
+                result[key] = this._resolveThemeTokensRecursive(value);
+            }
+        }
+
+        return result;
+    }
+
+    /**
      * Resolve button style with full priority chain
      *
-     * This method demonstrates the complete style resolution chain for SimpleCard
-     * cards with RulesEngine integration:
+     * Follows CB-LCARS schema:
+     * - card.color.background.{active|inactive|unavailable}
+     * - card.color.{active|inactive|unavailable} (for borders)
+     * - text.{label|name|state}.color.{active|inactive|unavailable}
      *
      * **Style Priority (low to high):**
      * 1. Preset styles (if specified)
-     * 2. Config styles (overrides preset)
-     * 3. Theme token resolution
-     * 4. State-based overrides (e.g., entity state)
+     * 2. Config styles (overrides preset) - DEEP MERGE
+     * 3. Theme token resolution (including computed tokens)
+     * 4. State-based defaults (only if not explicitly set)
      * 5. Rule patches (highest priority via _getMergedStyleWithRules)
      *
      * **Performance:**
@@ -253,47 +411,250 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      * @private
      */
     _resolveButtonStyleSync() {
-        // Start with base style from config
-        let style = { ...(this.config.style || {}) };
+        // 1. Start with preset (if specified)
+        let style = {};
 
-        // Apply preset if specified
+        // Check StylePresetManager availability - try singletons first, then global core
+        const core = window.lcards?.core;
+        const stylePresetManager = this._singletons?.stylePresetManager || core?.getStylePresetManager?.();
+
+        lcardsLog.debug(`[LCARdSSimpleButtonCard] _resolveButtonStyleSync starting`, {
+            hasPreset: !!this.config.preset,
+            presetName: this.config.preset,
+            hasGetStylePreset: typeof this.getStylePreset === 'function',
+            hasSingletons: !!this._singletons,
+            hasStylePresetManager: !!stylePresetManager,
+            source: this._singletons?.stylePresetManager ? 'singletons' : (stylePresetManager ? 'core' : 'none')
+        });
+
         if (this.config.preset) {
-            const preset = this.getStylePreset('button', this.config.preset);
-            if (preset) {
-                // Preset has lower priority than explicit config
-                style = { ...preset, ...style };
-                lcardsLog.debug(`[LCARdSSimpleButtonCard] Applied preset '${this.config.preset}'`);
+            // Check if StylePresetManager is available (either via singletons or core)
+            if (!stylePresetManager) {
+                lcardsLog.warn(`[LCARdSSimpleButtonCard] StylePresetManager not available yet, preset '${this.config.preset}' will be deferred`);
+                // Return early - don't process anything until StylePresetManager is ready
+                // This prevents rendering with incomplete/default values
+                return;
+            } else {
+                const preset = this.getStylePreset('button', this.config.preset);
+                lcardsLog.debug(`[LCARdSSimpleButtonCard] Preset lookup result`, {
+                    presetName: this.config.preset,
+                    presetFound: !!preset,
+                    presetKeys: preset ? Object.keys(preset) : [],
+                    hasBorder: preset?.border,
+                    borderRadius: preset?.border?.radius
+                });
+                if (preset) {
+                    // Deep copy preset to avoid mutation issues
+                    style = this._deepMerge({}, preset);
+                    lcardsLog.debug(`[LCARdSSimpleButtonCard] Applied preset '${this.config.preset}'`, {
+                        borderRadius: preset.border?.radius,
+                        borderWidth: preset.border?.width,
+                        styleKeys: Object.keys(style)
+                    });
+                }
+            }
+        } else {
+            lcardsLog.debug(`[LCARdSSimpleButtonCard] No preset specified, starting with empty style`);
+        }
+
+        // 2. DEEP merge config styles (config wins over preset)
+        if (this.config.style) {
+            lcardsLog.debug(`[LCARdSSimpleButtonCard] Merging config.style`, {
+                hasBorder: !!this.config.style.border,
+                borderRadius: this.config.style.border?.radius,
+                borderWidth: this.config.style.border?.width
+            });
+            // First create a deep copy to avoid mutating the original config
+            const configStyleCopy = JSON.parse(JSON.stringify(this.config.style));
+            // Then resolve ALL tokens recursively (theme: and computed)
+            const configWithTokens = this._resolveThemeTokensRecursive(configStyleCopy);
+            // Then deep merge (handles nested objects)
+            style = this._deepMerge(style, configWithTokens);
+            lcardsLog.trace(`[LCARdSSimpleButtonCard] Deep merged config styles`);
+        }
+
+        // 3. Get current button state
+        const buttonState = this._getButtonState();
+
+        // 4. Apply state-based theme defaults (only if not explicitly set in config)
+        // Use CB-LCARS nested schema: card.color.background.{state}
+        if (!this._hasNestedValue(style, 'card.color.background', buttonState)) {
+
+            let bgToken = `components.button.base.background.${buttonState}`;
+            let backgroundColor = this.getThemeToken(bgToken);
+
+            // If 'default' state not found in theme, fall back to 'active'
+            if (!backgroundColor && buttonState === 'default') {
+                bgToken = `components.button.base.background.active`;
+                backgroundColor = this.getThemeToken(bgToken);
+            }
+
+            if (backgroundColor) {
+                // Resolve computed tokens in the theme value
+                const resolved = this._singletons?.themeManager?.resolver?.resolve(backgroundColor, backgroundColor) || backgroundColor;
+
+                if (!style.card) style.card = {};
+                if (!style.card.color) style.card.color = {};
+                if (!style.card.color.background) style.card.color.background = {};
+                style.card.color.background[buttonState] = resolved;
+
+                lcardsLog.trace(`[LCARdSSimpleButtonCard] Applied theme default: card.color.background.${buttonState} = ${resolved}`);
             }
         }
 
-        // Get state-based overrides
-        const stateOverrides = this._getStateOverrides();
+        // Apply text color defaults using text.default.color.{state}
+        if (!this._hasNestedValue(style, 'text.default.color', buttonState)) {
 
-        // Resolve with theme tokens
-        let resolvedStyle = this.resolveStyle(style, [
-            'colors.accent.primary',
-            'colors.text.primary'
-        ], stateOverrides);
+            let textToken = `components.button.base.text.default.color.${buttonState}`;
+            let textColor = this.getThemeToken(textToken);
 
-        // ✨ NEW: Merge with rules-based styles (rules have highest priority)
-        resolvedStyle = this._getMergedStyleWithRules(resolvedStyle);
+            // If 'default' state not found in theme, fall back to 'active'
+            if (!textColor && buttonState === 'default') {
+                textToken = `components.button.base.text.default.color.active`;
+                textColor = this.getThemeToken(textToken);
+            }
+
+            if (textColor) {
+                if (!style.text) style.text = {};
+                if (!style.text.default) style.text.default = {};
+                if (!style.text.default.color) style.text.default.color = {};
+                style.text.default.color[buttonState] = textColor;
+
+                lcardsLog.trace(`[LCARdSSimpleButtonCard] Applied theme default: text.default.color.${buttonState} = ${textColor}`);
+            }
+        }
+
+        // Apply opacity for non-active states (only if entity exists and not set in config)
+        if (this._entity && style.opacity === undefined) {
+            if (buttonState === 'inactive') {
+                style.opacity = 0.7;
+            } else if (buttonState === 'unavailable') {
+                style.opacity = 0.5;
+            }
+        }
+
+        // 5. Merge with rules-based styles (rules have highest priority)
+        let resolvedStyle = this._getMergedStyleWithRules(style);
+
+        // Store current button state for rendering
+        resolvedStyle._currentState = buttonState;
+
+        // 6. Process icon configuration from preset/config
+        this._processIconConfiguration(resolvedStyle);
 
         // Only update if changed (avoid unnecessary re-renders)
         if (!this._buttonStyle || JSON.stringify(this._buttonStyle) !== JSON.stringify(resolvedStyle)) {
             this._buttonStyle = resolvedStyle;
-            lcardsLog.trace(`[LCARdSSimpleButtonCard] Button style resolved, triggering re-render`);
+            lcardsLog.debug(`[LCARdSSimpleButtonCard] Button style resolved (state: ${buttonState}), triggering re-render`);
             this.requestUpdate(); // Trigger re-render to apply new styles
         }
     }
 
     /**
+     * Process icon configuration from preset/config
+     * Extracts icon-related properties and stores them for rendering
+     * Handles both flat (legacy) and nested (new) icon config structures
+     * @private
+     */
+    _processIconConfiguration(resolvedStyle) {
+        // Determine show_icon
+        // Priority: config.show_icon > resolvedStyle.show_icon (from preset) > false (default)
+        let show_icon = false;
+        if (this.config.show_icon !== undefined) {
+            show_icon = this.config.show_icon;
+        } else if (resolvedStyle.show_icon !== undefined) {
+            show_icon = resolvedStyle.show_icon;
+        }
+
+        // Determine icon name
+        // Support both flat config.icon='mdi:star' and nested config.icon.icon='mdi:star'
+        let iconName;
+        if (typeof this.config.icon === 'string') {
+            // Flat format: icon: 'mdi:star' or icon: 'entity'
+            iconName = this.config.icon;
+        } else if (typeof this.config.icon === 'object' && this.config.icon?.icon) {
+            // Nested format: icon: { icon: 'mdi:star', position: 'right' }
+            iconName = this.config.icon.icon;
+        }
+        // If no icon specified but show_icon is true and we have an entity, default to 'entity'
+        else if (show_icon && this._entity && !iconName) {
+            iconName = 'entity';
+        }
+
+        // Determine icon position
+        // Priority: config.icon.position > resolvedStyle.icon.position > 'left' (default)
+        let position = 'left'; // default
+
+        // Check config first (highest priority)
+        if (typeof this.config.icon === 'object' && this.config.icon?.position) {
+            position = this.config.icon.position;
+        }
+        // Then check resolved style (includes preset)
+        else if (resolvedStyle.icon?.position) {
+            position = resolvedStyle.icon.position;
+        }
+
+        // Store processed icon configuration
+        // Parse the icon string to get type (mdi, si, entity) and icon name
+        const parsedIcon = this._parseIconString(iconName);
+
+        if (parsedIcon) {
+            this._processedIcon = {
+                ...parsedIcon,  // Contains type, icon, position='left', size, color defaults
+                position: position,  // Override position with our computed value
+                size: resolvedStyle.icon?.size || parsedIcon.size,
+                color: resolvedStyle.icon?.color || parsedIcon.color,
+                show: show_icon
+            };
+        } else {
+            this._processedIcon = null;
+        }
+    }
+
+    /**
+     * Override base class _processIcon() to prevent it from overwriting
+     * the icon configuration we've already processed via _processIconConfiguration()
+     *
+     * The base class's _processIcon() doesn't understand presets and would
+     * reset the icon position to 'left' instead of using the preset's position.
+     *
+     * @override
+     */
+    async _processIcon() {
+        // Button card handles icon processing in _processIconConfiguration()
+        // which is called from _resolveButtonStyleSync() and properly handles
+        // preset icon configuration including position.
+        // Do nothing here to prevent base class from overwriting it.
+        lcardsLog.trace(`[LCARdSSimpleButtonCard] _processIcon called (no-op, using _processIconConfiguration instead)`);
+    }
+
+    /**
+     * Check if a nested value exists at a path
+     * @private
+     */
+    _hasNestedValue(obj, path, finalKey) {
+        const parts = path.split('.');
+        let current = obj;
+
+        for (const part of parts) {
+            if (!current || typeof current !== 'object' || !(part in current)) {
+                return false;
+            }
+            current = current[part];
+        }
+
+        // Check if finalKey exists in the final object
+        return current && typeof current === 'object' && finalKey in current;
+    }    /**
      * Translate HA entity state to button state
      * @private
      * @returns {string} Button state: 'active', 'inactive', or 'unavailable'
      */
     _getButtonState() {
         if (!this._entity) {
-            return 'inactive';
+            // Buttons without entities use the 'default' state for colors
+            // (falls back to 'active' in theme defaults if 'default' not specified)
+            return 'default';
         }
 
         const state = this._entity.state;
@@ -319,11 +680,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      * @private
      */
     _getStateOverrides() {
-        if (!this._entity) {
-            return {};
-        }
-
+        // Get button state (returns 'default' for buttons without entities)
         const buttonState = this._getButtonState();
+
         const overrides = {};
 
         // Get state-specific colors from theme tokens
@@ -339,11 +698,13 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         if (textColor) overrides.text_color = textColor;
         if (color) overrides.color = color;
 
-        // Apply opacity for non-active states
-        if (buttonState === 'inactive') {
-            overrides.opacity = 0.7;
-        } else if (buttonState === 'unavailable') {
-            overrides.opacity = 0.5;
+        // Apply opacity for non-active states (only if we have an entity)
+        if (this._entity) {
+            if (buttonState === 'inactive') {
+                overrides.opacity = 0.7;
+            } else if (buttonState === 'unavailable') {
+                overrides.opacity = 0.5;
+            }
         }
 
         return overrides;
@@ -432,6 +793,13 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
     _renderCard() {
         if (!this._initialized) {
             return super._renderCard();
+        }
+
+        // If we have a preset but haven't resolved styles yet, wait
+        // This prevents rendering with default/incomplete values
+        if (this.config.preset && !this._buttonStyle) {
+            lcardsLog.debug(`[LCARdSSimpleButtonCard] Delaying render - waiting for preset resolution: ${this.config.preset}`);
+            return html`<div class="lcards-card">Loading preset...</div>`;
         }
 
         // Return a promise-based template for async rendering
@@ -607,27 +975,34 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      */
     _generateSimpleButtonSVG(width, height, config) {
         // Read styling from _buttonStyle (resolved from preset/tokens)
-        // Note: SVG <rect> only supports uniform border radius
-        // If preset uses per-corner radii, use the top-left value as fallback
-        let borderRadius = this._buttonStyle?.border_radius;
-        if (borderRadius === undefined && this._buttonStyle?.border_radius_top_left !== undefined) {
-            borderRadius = this._buttonStyle.border_radius_top_left;
-            // TODO: Support per-corner radii using SVG path elements
-        }
-        borderRadius = borderRadius ?? 20;
+        // Use CB-LCARS nested schema only
+        const buttonState = this._buttonStyle?._currentState || this._getButtonState();
 
-        const borderWidth = this._buttonStyle?.border_width ?? 2;
-        const backgroundColor = this._buttonStyle?.background_color || this._buttonStyle?.primary || 'var(--lcars-orange, #FF9900)';
-        const textColor = this._buttonStyle?.text_color || this._buttonStyle?.textColor || 'var(--lcars-color-text, #FFFFFF)';
-        const borderColor = this._buttonStyle?.border_color || 'var(--lcars-color-secondary, #000000)';
+        // Background color: card.color.background.{state}
+        const backgroundColor = this._buttonStyle?.card?.color?.background?.[buttonState] ||
+                               this._buttonStyle?.card?.color?.background?.default ||
+                               'var(--lcars-orange, #FF9900)';
 
-        // Font properties
-        const fontSize = this._buttonStyle?.font_size ?? '14px';
-        const fontWeight = this._buttonStyle?.font_weight ?? 'bold';
-        const fontFamily = this._buttonStyle?.font_family ?? "'LCARS', 'Antonio', sans-serif";
+        // Text color: text.default.color.{state}
+        const textColor = this._buttonStyle?.text?.default?.color?.[buttonState] ||
+                         this._buttonStyle?.text?.default?.color?.default ||
+                         'var(--lcars-color-text, #FFFFFF)';
 
-        const strokeWidth = borderWidth;
+        // Border color: border.color.{state} or border.color (plain string)
+        const borderColor = this._buttonStyle?.border?.color?.[buttonState] ||
+                           this._buttonStyle?.border?.color?.default ||
+                           this._buttonStyle?.border?.color ||
+                           'var(--lcars-color-secondary, #000000)';
+
+        // Font properties: text.default.font_*
+        const fontSize = this._buttonStyle?.text?.default?.font_size || '14px';
+        const fontWeight = this._buttonStyle?.text?.default?.font_weight || 'bold';
+        const fontFamily = this._buttonStyle?.text?.default?.font_family || "'LCARS', 'Antonio', sans-serif";
+
         const text = config.label || 'Button';
+
+        // Resolve border configuration with per-corner support
+        const border = this._resolveBorderConfiguration();
 
         // Generate icon markup if present
         const iconPosition = this._processedIcon?.position || 'left';
@@ -641,22 +1016,21 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             textX = textAreaStart + (textAreaWidth / 2);
         }
 
+        // Determine if we need complex path rendering
+        const needsComplexPath = border.hasIndividualRadius || border.hasIndividualSides;
+
+        // Generate button background
+        const backgroundMarkup = needsComplexPath
+            ? this._renderComplexButtonPath(width, height, border, backgroundColor, borderColor)
+            : this._renderSimpleButtonRect(width, height, border, backgroundColor, borderColor);
+
         const svgString = `
             <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
                 <g data-button-id="simple-button"
                    data-overlay-id="simple-button"
                    class="button-group"
                    style="pointer-events: visiblePainted; cursor: pointer;">
-                    <rect
-                        class="button-bg button-clickable"
-                        x="${strokeWidth/2}"
-                        y="${strokeWidth/2}"
-                        width="${width - strokeWidth}"
-                        height="${height - strokeWidth}"
-                        rx="${borderRadius}"
-                        ry="${borderRadius}"
-                        style="fill: ${backgroundColor}; stroke: ${borderColor}; stroke-width: ${strokeWidth};"
-                    />
+                    ${backgroundMarkup}
 
                     ${iconData.markup}
 
@@ -672,6 +1046,341 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         `.trim();
 
         return svgString;
+    }
+
+    /**
+     * Resolve border configuration from button style
+     * Uses nested CB-LCARS schema only: border.{width|radius|color}
+     * @private
+     * @returns {Object} Border configuration
+     */
+    _resolveBorderConfiguration() {
+        // Helper to resolve CSS variables to actual values
+        const resolveCSSVariable = (value) => {
+            if (!value || typeof value !== 'string') return value;
+
+            // Check if it's a CSS variable
+            const varMatch = value.match(/^var\((--[^,)]+)(?:,\s*(.+))?\)$/);
+            if (!varMatch) return value;
+
+            const varName = varMatch[1];
+            const fallbackValue = varMatch[2];
+
+            // Try to get computed value from document root
+            if (typeof getComputedStyle !== 'undefined') {
+                const computedValue = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+                if (computedValue) {
+                    return computedValue;
+                }
+            }
+
+            // Use fallback if provided
+            if (fallbackValue) {
+                return fallbackValue.trim();
+            }
+
+            return value;
+        };
+
+        // Helper to parse radius values (handles numbers, CSS vars, theme tokens, and pixel strings)
+        const parseRadius = (value, fallback) => {
+            if (value === undefined || value === null) return fallback;
+
+            // If it's already a number, use it
+            if (typeof value === 'number') return value;
+
+            const stringValue = String(value);
+
+            // Resolve theme tokens (e.g., "theme:components.button.base.radius.full")
+            let resolved = stringValue;
+            if (stringValue.startsWith('theme:')) {
+                if (this._singletons?.themeManager?.resolver) {
+                    const tokenPath = stringValue.replace('theme:', '');
+                    resolved = this._singletons.themeManager.resolver.resolve(tokenPath, stringValue);
+                    lcardsLog.trace(`[LCARdSSimpleButtonCard] Resolved theme token "${stringValue}" -> "${resolved}"`);
+                } else {
+                    lcardsLog.warn(`[LCARdSSimpleButtonCard] Cannot resolve theme token "${stringValue}" - ThemeManager not available {hasSingletons: ${!!this._singletons}, hasThemeManager: ${!!this._singletons?.themeManager}, hasResolver: ${!!this._singletons?.themeManager?.resolver}}`);
+                }
+            }
+
+            // Then resolve CSS variables (e.g., "var(--ha-card-border-radius, 34px)")
+            resolved = resolveCSSVariable(resolved);
+
+            // Try to parse as number (handles "25" or "25px")
+            const parsed = parseFloat(resolved);
+            return isNaN(parsed) ? fallback : parsed;
+        };
+
+        // Helper to parse width values (handles numbers, theme tokens, and pixel strings like "3px")
+        const parseWidth = (value, fallback) => {
+            if (value === undefined || value === null) return fallback;
+
+            // If it's already a number, use it
+            if (typeof value === 'number') return value;
+
+            const stringValue = String(value);
+
+            // Resolve theme tokens first
+            let resolved = stringValue;
+            if (stringValue.startsWith('theme:')) {
+                if (this._singletons?.themeManager?.resolver) {
+                    const tokenPath = stringValue.replace('theme:', '');
+                    resolved = this._singletons.themeManager.resolver.resolve(tokenPath, stringValue);
+                } else {
+                    lcardsLog.warn(`[LCARdSSimpleButtonCard] Cannot resolve theme token "${stringValue}" - ThemeManager not available`);
+                }
+            }
+
+            // Then resolve CSS variables
+            resolved = resolveCSSVariable(resolved);
+
+            // Try to parse as number (handles "3" or "3px")
+            const parsed = parseFloat(resolved);
+            return isNaN(parsed) ? fallback : parsed;
+        };
+
+        // Get current state for state-based colors
+        const state = this._getButtonState();
+
+        // Width: border.width (can be object for per-side or single value)
+        let globalWidth = 2;
+        const nestedWidth = this._buttonStyle?.border?.width;
+        if (nestedWidth !== undefined && typeof nestedWidth !== 'object') {
+            globalWidth = parseWidth(nestedWidth, 2);
+        }
+
+        // Per-side widths (border.width.{side})
+        const perSideWidth = {
+            top: parseWidth(nestedWidth?.top, globalWidth),
+            right: parseWidth(nestedWidth?.right, globalWidth),
+            bottom: parseWidth(nestedWidth?.bottom, globalWidth),
+            left: parseWidth(nestedWidth?.left, globalWidth)
+        };
+        const hasPerSideWidth = typeof nestedWidth === 'object' && (
+            nestedWidth.top !== undefined ||
+            nestedWidth.right !== undefined ||
+            nestedWidth.bottom !== undefined ||
+            nestedWidth.left !== undefined
+        );
+
+        // Color: border.color.{state} or border.color (plain string)
+        const nestedColor = this._buttonStyle?.border?.color;
+        let globalColor = 'var(--lcars-color-secondary, #000000)';
+        if (nestedColor !== undefined) {
+            if (typeof nestedColor === 'object') {
+                // Try state, then 'default', then 'active', then hardcoded fallback
+                globalColor = nestedColor[state] || nestedColor.default || nestedColor.active || globalColor;
+            } else {
+                globalColor = nestedColor;
+            }
+        }
+
+        // Radius: border.radius (can be object for per-corner or single value)
+        let globalRadius = 20;
+        const nestedRadius = this._buttonStyle?.border?.radius;
+
+        lcardsLog.debug('[LCARdSSimpleButtonCard] Border radius resolution:', {
+            nestedRadius,
+            isObject: typeof nestedRadius === 'object'
+        });
+
+        if (nestedRadius !== undefined && typeof nestedRadius !== 'object') {
+            globalRadius = parseRadius(nestedRadius, 20);
+        }
+
+        // Check for individual corner radii (border.radius.{corner})
+        const hasIndividualRadius = !!(
+            this._buttonStyle?.border?.radius?.top_left !== undefined ||
+            this._buttonStyle?.border?.radius?.top_right !== undefined ||
+            this._buttonStyle?.border?.radius?.bottom_left !== undefined ||
+            this._buttonStyle?.border?.radius?.bottom_right !== undefined
+        );
+
+        // Check for individual border sides (border.{side})
+        const borderTop = this._buttonStyle?.border?.top;
+        const borderRight = this._buttonStyle?.border?.right;
+        const borderBottom = this._buttonStyle?.border?.bottom;
+        const borderLeft = this._buttonStyle?.border?.left;
+
+        const hasIndividualSides = !!(borderTop || borderRight || borderBottom || borderLeft);
+
+        // Process individual sides (border.{side}.width and border.{side}.color)
+        const individualSides = {
+            top: borderTop ? {
+                width: parseWidth(borderTop.width, globalWidth),
+                color: borderTop.color || globalColor
+            } : null,
+            right: borderRight ? {
+                width: parseWidth(borderRight.width, globalWidth),
+                color: borderRight.color || globalColor
+            } : null,
+            bottom: borderBottom ? {
+                width: parseWidth(borderBottom.width, globalWidth),
+                color: borderBottom.color || globalColor
+            } : null,
+            left: borderLeft ? {
+                width: parseWidth(borderLeft.width, globalWidth),
+                color: borderLeft.color || globalColor
+            } : null
+        };
+
+        // Resolve individual corner radii from nested schema
+        const topLeft = parseRadius(
+            this._buttonStyle?.border?.radius?.top_left,
+            globalRadius
+        );
+        const topRight = parseRadius(
+            this._buttonStyle?.border?.radius?.top_right,
+            globalRadius
+        );
+        const bottomRight = parseRadius(
+            this._buttonStyle?.border?.radius?.bottom_right,
+            globalRadius
+        );
+        const bottomLeft = parseRadius(
+            this._buttonStyle?.border?.radius?.bottom_left,
+            globalRadius
+        );
+
+        lcardsLog.debug('[LCARdSSimpleButtonCard] Parsed corner radii:', {
+            topLeft,
+            topRight,
+            bottomRight,
+            bottomLeft,
+            globalRadius,
+            rawTopLeft: this._buttonStyle?.border?.radius?.top_left
+        });
+
+        return {
+            // Global values
+            width: globalWidth,
+            color: globalColor,
+            radius: parseRadius(globalRadius, 20),
+
+            // Per-side widths (border.width.{side})
+            perSideWidth: hasPerSideWidth ? perSideWidth : null,
+            hasPerSideWidth,
+
+            // Individual corner radii
+            topLeft,
+            topRight,
+            bottomRight,
+            bottomLeft,
+
+            // Individual border sides (border.{side}.width and color)
+            individualSides: hasIndividualSides ? individualSides : null,
+
+            // Flags
+            hasIndividualRadius,
+            hasIndividualSides
+        };
+    }
+
+    /**
+     * Render simple button using rect element (uniform radius)
+     * @private
+     */
+    _renderSimpleButtonRect(width, height, border, backgroundColor, borderColor) {
+        const strokeWidth = border.width;
+        return `<rect
+                    class="button-bg button-clickable"
+                    x="${strokeWidth/2}"
+                    y="${strokeWidth/2}"
+                    width="${width - strokeWidth}"
+                    height="${height - strokeWidth}"
+                    rx="${border.radius}"
+                    ry="${border.radius}"
+                    style="fill: ${backgroundColor}; stroke: ${borderColor}; stroke-width: ${strokeWidth}; pointer-events: all;"
+                />`;
+    }
+
+    /**
+     * Render complex button using path element (per-corner radii)
+     * Ported from MSD ButtonRenderer for consistency
+     * @private
+     */
+    _renderComplexButtonPath(width, height, border, backgroundColor, borderColor) {
+        const path = this._generateComplexBorderPath(width, height, border);
+        const strokeWidth = border.width;
+
+        let markup = `<path
+                        class="button-bg button-clickable"
+                        d="${path}"
+                        fill="${backgroundColor}"
+                        stroke="${borderColor}"
+                        stroke-width="${strokeWidth}"
+                        style="pointer-events: all;"
+                    />`;
+
+        return markup;
+    }
+
+    /**
+     * Generate complex SVG path for individual corner radii
+     * Ported from MSD ButtonRenderer
+     * @private
+     * @param {number} width - Button width
+     * @param {number} height - Button height
+     * @param {Object} border - Border configuration with individual corner radii
+     * @returns {string} SVG path string
+     */
+    _generateComplexBorderPath(width, height, border) {
+        // Ensure all radius values are valid numbers
+        const topLeft = Number(border.topLeft) || 0;
+        const topRight = Number(border.topRight) || 0;
+        const bottomRight = Number(border.bottomRight) || 0;
+        const bottomLeft = Number(border.bottomLeft) || 0;
+
+        // Ensure width and height are valid numbers
+        const w = Number(width) || 100;
+        const h = Number(height) || 40;
+
+        // Start from top-left corner, accounting for radius
+        let path = `M ${topLeft} 0`;
+
+        // Top edge to top-right corner
+        path += ` L ${w - topRight} 0`;
+
+        // Top-right corner curve
+        if (topRight > 0) {
+            path += ` Q ${w} 0 ${w} ${topRight}`;
+        } else {
+            path += ` L ${w} 0`;
+        }
+
+        // Right edge to bottom-right corner
+        path += ` L ${w} ${h - bottomRight}`;
+
+        // Bottom-right corner curve
+        if (bottomRight > 0) {
+            path += ` Q ${w} ${h} ${w - bottomRight} ${h}`;
+        } else {
+            path += ` L ${w} ${h}`;
+        }
+
+        // Bottom edge to bottom-left corner
+        path += ` L ${bottomLeft} ${h}`;
+
+        // Bottom-left corner curve
+        if (bottomLeft > 0) {
+            path += ` Q 0 ${h} 0 ${h - bottomLeft}`;
+        } else {
+            path += ` L 0 ${h}`;
+        }
+
+        // Left edge to top-left corner
+        path += ` L 0 ${topLeft}`;
+
+        // Top-left corner curve
+        if (topLeft > 0) {
+            path += ` Q 0 0 ${topLeft} 0`;
+        } else {
+            path += ` L 0 0`;
+        }
+
+        path += ` Z`;
+
+        return path;
     }
 
     /**
@@ -750,8 +1459,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
     }
 }
 
-// Register the card
-customElements.define('lcards-simple-button', LCARdSSimpleButtonCard);
+// NOTE: Card registration moved to src/lcards.js initializeCustomCard().then()
+// This ensures all core singletons (including StylePresetManager) are initialized
+// before cards can be instantiated, preventing race conditions.
 
 // Register with CoreConfigManager (behavioral defaults and schema)
 if (window.lcardsCore?.configManager) {

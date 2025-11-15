@@ -34,7 +34,7 @@ import './msd/index.js';
 import { LCARdSMSDCard } from './cards/lcards-msd.js';
 
 // Simple card imports
-import './cards/lcards-simple-button.js';
+import { LCARdSSimpleButtonCard } from './cards/lcards-simple-button.js';
 
 // Unified API system import
 import { LCARdSUnifiedAPI } from './api/LCARdSUnifiedAPI.js';
@@ -178,6 +178,7 @@ async function initializeCustomCard() {
 // Initialize the custom card and register elements only after setup is complete
 initializeCustomCard()
     .then(() => {
+        // Register legacy CB-LCARS cards
         defineCustomElement('lcards-base-card', LCARdSBaseCard, 'lcards-base-card-editor', LCARdSCardEditor);
         defineCustomElement('lcards-label-card', LCARdSLabelCard, 'lcards-label-card-editor', LCARdSCardEditor);
         defineCustomElement('lcards-elbow-card', LCARdSElbowCard, 'lcards-elbow-card-editor', LCARdSCardEditor);
@@ -185,8 +186,12 @@ initializeCustomCard()
         defineCustomElement('lcards-multimeter-card', LCARdSMultimeterCard, 'lcards-multimeter-card-editor', LCARdSCardEditor);
         defineCustomElement('lcards-dpad-card', LCARdSDPADCard, 'lcards-dpad-card-editor', LCARdSCardEditor);
         defineCustomElement('lcards-button-card2', LCARdSButtonCard, 'lcards-button-card2-editor', LCARdSCardEditor);
-        // defineCustomElement('lcards-msd-card', LCARdSMSDCard, 'lcards-msd-card-editor', LCARdSCardEditor);
-        // ↳ MSD Card now self-registers as native element (no button-card dependency)
+
+        // Register V2 native cards (registered here to ensure singletons are ready)
+        customElements.define('lcards-simple-button', LCARdSSimpleButtonCard);
+        customElements.define('lcards-msd-card', LCARdSMSDCard);
+
+        lcardsLog.info('[lcards.js] ✅ All custom elements registered after core initialization');
     })
     .catch(error => {
         lcardsLog.error('[initializeCustomCard.then()] Error initializing custom card:', error);
