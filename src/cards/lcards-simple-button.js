@@ -13,12 +13,7 @@
  *
  * Configuration:
  * ```yaml
- * type: custom:lcar                <g data-button-id="simple-button"
-                   data-overlay-id="simple-button"
-                   data-overlay-type="button"
-                   class="button-group"
-                   style="pointer-events: all; cursor: pointer;">
-                    <rectimple-button
+ * type: custom:lcards-simple-button
  * entity: light.bedroom
  * label: "Bedroom Light"
  * preset: lozenge  # Optional: button style preset
@@ -537,7 +532,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         return {
             type: 'custom:lcards-simple-button',
             entity: 'light.example',
-            label: 'Example Button',
+            label: 'LCARdS Button',
             preset: 'lozenge',
             tap_action: {
                 action: 'toggle'
@@ -565,21 +560,33 @@ if (window.lcardsCore?.configManager) {
     configManager.registerCardSchema('simple-button', {
         type: 'object',
         properties: {
+            // Core Properties
             entity: {
                 type: 'string',
                 description: 'Entity ID to control'
             },
+            id: {
+                type: 'string',
+                description: 'Custom overlay ID for rule targeting (optional - auto-generated if omitted)'
+            },
+            tags: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Tags for bulk rule targeting (e.g., ["controlled", "indicator"])'
+            },
+
+            // Display Properties
             label: {
                 type: 'string',
-                description: 'Button label text (supports templates)'
+                description: 'Button label text (supports Jinja2 templates)'
             },
             content: {
                 type: 'string',
-                description: 'Additional content text (supports templates)'
+                description: 'Additional content text (supports Jinja2 templates)'
             },
             preset: {
                 type: 'string',
-                description: 'Style preset name (e.g., "lozenge", "pill")'
+                description: 'Style preset name (e.g., "lozenge", "pill", "bullet")'
             },
             show_label: {
                 type: 'boolean',
@@ -589,14 +596,14 @@ if (window.lcardsCore?.configManager) {
                 type: 'boolean',
                 description: 'Whether to display an icon'
             },
-            enable_hold_action: {
-                type: 'boolean',
-                description: 'Whether hold action is enabled'
+
+            // Style Properties
+            style: {
+                type: 'object',
+                description: 'Style overrides (color, textColor, fontSize, etc.)'
             },
-            enable_double_tap: {
-                type: 'boolean',
-                description: 'Whether double-tap is enabled'
-            },
+
+            // Action Properties
             tap_action: {
                 type: 'object',
                 description: 'Action to perform on tap'
@@ -609,12 +616,28 @@ if (window.lcardsCore?.configManager) {
                 type: 'object',
                 description: 'Action to perform on double-tap'
             },
-            style: {
-                type: 'object',
-                description: 'Style overrides'
+
+            // Rules & Animations
+            rules: {
+                type: 'array',
+                description: 'Card-local rules for dynamic styling based on entity states',
+                items: {
+                    type: 'object',
+                    properties: {
+                        id: { type: 'string' },
+                        when: { type: 'object' },
+                        apply: { type: 'object' }
+                    },
+                    required: ['id', 'when', 'apply']
+                }
+            },
+            animations: {
+                type: 'array',
+                description: 'Animation configurations (experimental)',
+                items: { type: 'object' }
             }
-        },
-        required: ['entity']
+        }
+        // No required fields - allows decorative/static buttons without entities
     }, { version: '1.0' });
 
     lcardsLog.debug('[LCARdSSimpleButtonCard] Registered with CoreConfigManager');
@@ -624,8 +647,8 @@ if (window.lcardsCore?.configManager) {
 window.customCards = window.customCards || [];
 window.customCards.push({
     type: 'lcards-simple-button',
-    name: 'LCARdS Simple Button',
-    description: 'Simple LCARS-styled button with actions and templates',
+    name: 'LCARdS Button',
+    description: 'LCARS-styled button with actions and templates',
     preview: true
 });
 
