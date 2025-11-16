@@ -1,6 +1,6 @@
-# Simple Button Card - Official Schema Definition (v1.10.69)
+# Simple Button Card - Official Schema Definition (v1.14.16)
 
-**Date:** November 15, 2025
+**Date:** November 16, 2025
 **Purpose:** Single source of truth for schema - update tokens, presets, code, and docs from this
 **Status:** 🎯 DEFINITIVE - All implementations must match this
 
@@ -13,7 +13,24 @@ type: custom:lcards-simple-button
 
 # Core properties
 entity: <entity-id>              # Optional - if omitted, always uses 'active' state
-label: <string>                  # Button label text (default: "Button")
+label: <string>                  # Legacy: Button label text (use 'text:' for new syntax)
+text:                            # NEW: Multi-text label system
+  <field-id>:                    # Arbitrary field ID (e.g., 'label', 'title', 'status')
+    content: <string>            # Text content to display
+    position: <position-name>    # Named position or explicit coordinates
+    x: <number>                  # Explicit x coordinate (overrides position)
+    y: <number>                  # Explicit y coordinate (overrides position)
+    x_percent: <number>          # Percentage x position (0-100)
+    y_percent: <number>          # Percentage y position (0-100)
+    padding: <number|object>     # Uniform or {top, right, bottom, left}
+    size: <number>               # Font size in pixels (default: 14)
+    color: <color|object>        # Color string or {active, inactive, unavailable}
+    font_weight: <css-value>     # Font weight (default: bold)
+    font_family: <css-value>     # Font family
+    anchor: start | middle | end # Text anchor (default: from position)
+    baseline: hanging | central | alphabetic  # Baseline (default: from position)
+    show: <boolean>              # Show/hide field (default: true)
+    template: <boolean>          # Enable template processing (default: true)
 preset: <preset-name>            # Optional - style preset to apply first
 
 # Icon (HA-style)
@@ -53,7 +70,7 @@ style:
       right: <css-size>
       bottom: <css-size>
       left: <css-size>
-    
+
     # Radius - uniform or per-corner
     radius: <css-size>           # Uniform radius
     # OR per-corner:
@@ -62,14 +79,14 @@ style:
       top_right: <css-size>
       bottom_right: <css-size>
       bottom_left: <css-size>
-    
+
     # Border colors (per state)
     color:
       default: <color>
       active: <color>
       inactive: <color>
       unavailable: <color>
-    
+
     # Individual side styling (advanced)
     top:
       width: <css-size>
@@ -471,33 +488,149 @@ button: {
 
 ---
 
-## Future: Multi-Text Support
+## Multi-Text Label System (Phase 1)
 
-When `texts` array is implemented, it will inherit from `text.default`:
+**Status:** ✅ IMPLEMENTED (v1.14.16)
+
+The multi-text label system allows multiple text fields with flexible positioning.
+
+### Named Positions
+
+Nine pre-defined positions with automatic anchor/baseline:
+
+- **Corners:** `top-left`, `top-right`, `bottom-left`, `bottom-right`
+- **Edges:** `top-center`, `bottom-center`, `left-center`, `right-center`
+- **Center:** `center`
+
+### Basic Syntax
 
 ```yaml
-# Future syntax (not yet implemented)
-style:
-  text:
-    default:
-      color:
-        active: 'white'
-      font_size: '14px'
+# Legacy (still supported)
+label: "Button Text"
 
-texts:
-  - text: "{entity.state}"
-    position: [10, 10]
-    style:  # Overrides text.default
-      color:
-        active: 'yellow'
-      font_size: '16px'
-
-  - text: "Status"
-    position: [10, 30]
-    # Uses text.default (inherits white, 14px)
+# New multi-text syntax
+text:
+  label:
+    content: "Button Text"
+    position: center
 ```
 
-**Current:** Only `label` is supported, uses `text.default` styles.
+### Multiple Fields
+
+```yaml
+text:
+  title:
+    content: "Room Control"
+    position: top-center
+    size: 16
+    font_weight: bold
+
+  subtitle:
+    content: "Living Room"
+    position: center
+    size: 14
+
+  status:
+    content: "Active"
+    position: bottom-center
+    size: 12
+    color: "#66FF66"
+```
+
+### Custom Padding
+
+```yaml
+text:
+  label:
+    content: "Padded Text"
+    position: top-left
+    padding: 20  # Uniform padding
+
+  custom:
+    content: "Custom Padding"
+    position: top-right
+    padding:
+      top: 25
+      left: 30
+      bottom: 10
+      right: 15
+```
+
+### State-Based Colors
+
+```yaml
+text:
+  label:
+    content: "State Colors"
+    position: center
+    color:
+      active: "#66FF66"       # When entity is ON
+      inactive: "#FF6666"     # When entity is OFF
+      unavailable: "#666666"  # When unavailable
+```
+
+### Preset Fields
+
+Three fields have default positions:
+- `label`: defaults to `center`
+- `name`: defaults to `top-left`
+- `state`: defaults to `bottom-right`
+
+```yaml
+text:
+  label:
+    content: "Main Label"
+    # Uses default center position
+
+  name:
+    content: "Device Name"
+    # Uses default top-left position
+
+  state:
+    content: "ON"
+    # Uses default bottom-right position
+```
+
+### Icon Area Awareness
+
+Text automatically accounts for icon space:
+
+```yaml
+icon:
+  show: true
+  icon: mdi:lightbulb
+  position: left
+  area_width: 80  # Optional, auto-calculated if omitted
+
+text:
+  label:
+    content: "With Icon"
+    position: center  # Centers in remaining space (excludes icon area)
+```
+
+---
+
+## Future: Multi-Text Support (Phase 2)
+
+Phase 2 will add:
+- Multi-line text wrapping
+- Text rotation
+- Template support in content
+- Advanced positioning (explicit x/y coordinates)
+- Percentage-based positioning
+
+When implemented, it will continue to inherit from `text.default`:
+
+```yaml
+# Future Phase 2 syntax (not yet implemented)
+text:
+  dynamic:
+    content: "{entity.state}"
+    position: top-left
+    rotation: 45
+    wrap: true
+    max_width: 150
+```
 
 ---
 

@@ -1,9 +1,9 @@
 # Simple Button Card - Quick Reference
 
 **Component:** `custom:lcards-simple-button`
-**Version:** 1.10.70+
-**Schema:** CB-LCARS Nested Schema
-**Last Updated:** November 15, 2025
+**Version:** 1.14.16+
+**Schema:** CB-LCARS Nested Schema with Multi-Text Support
+**Last Updated:** November 16, 2025
 
 ---
 
@@ -12,9 +12,20 @@
 ```yaml
 type: custom:lcards-simple-button
 entity: <entity_id>           # Optional: Home Assistant entity
-label: <string>                # Button text
+label: <string>                # Legacy: Button text (use 'text:' for new multi-text)
 preset: <preset_name>          # Optional: 'lozenge', 'lozenge-right', etc.
 icon: <icon_string>            # Optional: 'mdi:lightbulb', 'si:github', 'entity'
+
+# NEW: Multi-text label system
+text:
+  <field-id>:                  # Any field ID (e.g., 'label', 'title', 'status')
+    content: <string>          # Text to display
+    position: <position-name>  # Named position (see below)
+    padding: <number>          # Uniform padding OR {top, right, bottom, left}
+    size: <number>             # Font size in pixels (default: 14)
+    color: <color>             # Color OR {active, inactive, unavailable}
+    font_weight: <css-value>   # Font weight (default: bold)
+    font_family: <css-value>   # Font family
 
 style:
   # Card background colors (state-based)
@@ -278,7 +289,7 @@ style:
       background:
         active: 'var(--lcars-blue)'
         inactive: 'var(--lcars-gray)'
-  
+
   text:
     default:
       color:
@@ -404,6 +415,111 @@ components.button.base.border.color.unavailable
 components.button.base.text.default.font_size
 components.button.base.text.default.font_weight
 components.button.base.text.default.font_family
+```
+
+---
+
+## Multi-Text Label System
+
+**NEW in v1.14.16** - Multiple text fields with flexible positioning.
+
+### Named Positions
+
+Nine pre-defined positions:
+- **Corners:** `top-left`, `top-right`, `bottom-left`, `bottom-right`
+- **Edges:** `top-center`, `bottom-center`, `left-center`, `right-center`
+- **Center:** `center`
+
+### Basic Example
+
+```yaml
+# Legacy (still works)
+label: "Button"
+
+# New multi-text
+text:
+  label:
+    content: "Button"
+    position: center
+```
+
+### Multiple Fields
+
+```yaml
+text:
+  title:
+    content: "Living Room"
+    position: top-center
+    size: 16
+    font_weight: bold
+
+  status:
+    content: "2 lights on"
+    position: bottom-center
+    size: 12
+    color: "#66FF66"
+```
+
+### Preset Fields
+
+Three fields have default positions:
+
+```yaml
+text:
+  label:
+    content: "Main"     # Defaults to center
+  name:
+    content: "Name"     # Defaults to top-left
+  state:
+    content: "ON"       # Defaults to bottom-right
+```
+
+### Custom Padding
+
+```yaml
+text:
+  label:
+    content: "Text"
+    position: top-left
+    padding: 20  # Uniform
+
+  other:
+    content: "More"
+    padding:
+      top: 25
+      left: 30
+      bottom: 10
+      right: 15
+```
+
+### State-Based Colors
+
+```yaml
+entity: light.living_room
+text:
+  label:
+    content: "Light"
+    position: center
+    color:
+      active: "#66FF66"
+      inactive: "#FF6666"
+      unavailable: "#666666"
+```
+
+### With Icons
+
+Text automatically accounts for icon space:
+
+```yaml
+icon:
+  show: true
+  icon: mdi:lightbulb
+  position: left
+
+text:
+  label:
+    content: "Light"
+    position: center  # Centers in remaining space
 ```
 
 ---

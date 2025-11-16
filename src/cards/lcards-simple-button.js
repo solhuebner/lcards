@@ -559,7 +559,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      */
     _processIconConfiguration(resolvedStyle) {
         // Determine show_icon
-        // Priority: config.show_icon > resolvedStyle.show_icon (from preset) > false (default)
+        // Priority: config.icon.show > config.show_icon > resolvedStyle.show_icon (from preset) > false (default)
         // Special case: if icon_only is true, implicitly set show_icon to true
         let show_icon = false;
         const iconOnlyMode = this.config.icon_only || resolvedStyle.icon_only || false;
@@ -567,6 +567,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         if (iconOnlyMode) {
             // icon_only mode implicitly requires showing the icon
             show_icon = true;
+        } else if (typeof this.config.icon === 'object' && this.config.icon?.show !== undefined) {
+            // Check nested icon.show first
+            show_icon = this.config.icon.show;
         } else if (this.config.show_icon !== undefined) {
             show_icon = this.config.show_icon;
         } else if (resolvedStyle.show_icon !== undefined) {
@@ -1302,15 +1305,18 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Check if we're in icon-only mode (hide text when icon is shown)
         const iconOnly = this._processedIcon?.iconOnly && this._processedIcon?.show;
 
-        // Generate text markup (conditionally)
-        const textMarkup = iconOnly ? '' : `
-                    <text
-                        class="button-text"
-                        style="pointer-events: none; fill: ${textColor}; font-family: ${fontFamily}; font-size: ${fontSize}; font-weight: ${fontWeight}; text-anchor: middle; dominant-baseline: central;"
-                        x="${textX}"
-                        y="${height/2}">
-                        ${this._escapeXML(text)}
-                    </text>`;
+        // Generate text markup using multi-text system
+        let textMarkup = '';
+        if (!iconOnly) {
+            // Resolve text configuration (handles legacy label and new text object)
+            const textFields = this._resolveTextConfiguration();
+
+            // Process text fields (resolve positions, colors, etc.)
+            const processedFields = this._processTextFields(textFields, width, height, this._processedIcon);
+
+            // Generate SVG text elements
+            textMarkup = this._generateTextElements(processedFields);
+        }
 
         const svgString = `
             <svg width="${width}" height="${height}" viewBox="${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}" xmlns="http://www.w3.org/2000/svg">
@@ -1321,7 +1327,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                     ${backgroundMarkup}
                     ${borderMarkup}
                     ${iconData.markup}
-${textMarkup}
+                    ${textMarkup}
                 </g>
             </svg>
         `.trim();
@@ -1555,6 +1561,383 @@ ${textMarkup}
             hasIndividualRadius,
             hasIndividualSides
         };
+    }
+
+    /**
+     * Parse and resolve text configuration for multi-text label system
+     * Supports both legacy `label` property and new `text` object with arbitrary field IDs
+     * @private
+     */
+    _resolveTextConfiguration() {
+        const config = this.config || {};
+
+        // Check for legacy label property (backward compatibility)
+        if (config.label && !config.text) {
+            return {
+                label: {
+                    id: 'label',
+                    content: config.label,
+                    position: 'center',
+                    x: null,
+                    y: null,
+                    x_percent: null,
+                    y_percent: null,
+                    padding: 8,
+                    size: this._buttonStyle?.text?.default?.font_size || 14,
+                    color: null, // Will use default
+                    font_weight: this._buttonStyle?.text?.default?.font_weight || 'bold',
+                    font_family: this._buttonStyle?.text?.default?.font_family || "'LCARS', 'Antonio', sans-serif",
+                    anchor: null,
+                    baseline: null,
+                    show: true,
+                    template: true
+                }
+            };
+        }
+
+        // Parse new text object with arbitrary field IDs
+        const textConfig = config.text || {};
+        const resolvedFields = {};
+
+        // Default positions for preset fields
+        // NOTE: Only specify position here. Anchor/baseline should come from named position calculation!
+        const presetDefaults = {
+            label: { position: 'center' },
+            name: { position: 'top-left' },
+            state: { position: 'bottom-right' }
+        };
+
+        // Process each text field
+        for (const [fieldId, fieldConfig] of Object.entries(textConfig)) {
+            if (!fieldConfig || typeof fieldConfig !== 'object') continue;
+
+            // Get preset defaults if this is a known field
+            const presetDefault = presetDefaults[fieldId] || {};
+
+            // Resolve field configuration with defaults
+            resolvedFields[fieldId] = {
+                id: fieldId,
+                content: fieldConfig.content || '',
+                position: fieldConfig.position || presetDefault.position || null,
+                x: fieldConfig.x !== undefined ? fieldConfig.x : null,
+                y: fieldConfig.y !== undefined ? fieldConfig.y : null,
+                x_percent: fieldConfig.x_percent !== undefined ? fieldConfig.x_percent : null,
+                y_percent: fieldConfig.y_percent !== undefined ? fieldConfig.y_percent : null,
+                padding: fieldConfig.padding !== undefined ? fieldConfig.padding : 8,
+                size: fieldConfig.size || this._buttonStyle?.text?.default?.font_size || 14,
+                color: fieldConfig.color || null, // null means use default
+                font_weight: fieldConfig.font_weight || this._buttonStyle?.text?.default?.font_weight || 'normal',
+                font_family: fieldConfig.font_family || this._buttonStyle?.text?.default?.font_family || "'LCARS', 'Antonio', sans-serif",
+                anchor: fieldConfig.anchor || presetDefault.anchor || null,
+                baseline: fieldConfig.baseline || presetDefault.baseline || null,
+                show: fieldConfig.show !== undefined ? fieldConfig.show : true,
+                template: fieldConfig.template !== undefined ? fieldConfig.template : true
+            };
+        }
+
+        return resolvedFields;
+    }
+
+    /**
+     * Calculate the available text area bounds excluding icon area and divider
+     * @private
+     */
+    _calculateTextAreaBounds(buttonWidth, buttonHeight, iconConfig) {
+        // No icon - text uses full button area
+        if (!iconConfig || !iconConfig.show) {
+            return {
+                left: 0,
+                width: buttonWidth,
+                height: buttonHeight
+            };
+        }
+
+        // Calculate icon area width using same logic as _generateIconMarkup
+        const dividerWidth = iconConfig.divider?.width || 6;
+        let iconAreaWidth;
+        if (iconConfig.areaWidth) {
+            iconAreaWidth = iconConfig.areaWidth;
+        } else {
+            // Auto-calculate: icon size + spacing + divider
+            const iconSize = iconConfig.size || 24;
+            const layoutSpacing = 8; // Fixed horizontal spacing
+            iconAreaWidth = iconSize + layoutSpacing * 2 + dividerWidth;
+        }
+
+        const iconPosition = iconConfig.position || 'left';
+
+        if (iconPosition === 'left') {
+            // Icon on left: text area is right side excluding icon and divider
+            return {
+                left: iconAreaWidth + dividerWidth,
+                width: buttonWidth - iconAreaWidth - dividerWidth,
+                height: buttonHeight
+            };
+        } else if (iconPosition === 'right') {
+            // Icon on right: text area is left side excluding icon and divider
+            return {
+                left: 0,
+                width: buttonWidth - iconAreaWidth - dividerWidth,
+                height: buttonHeight
+            };
+        }
+
+        // Center icon (future) - for now treat as full width
+        return {
+            left: 0,
+            width: buttonWidth,
+            height: buttonHeight
+        };
+    }
+
+    /**
+     * Calculate coordinates for a named text position with padding
+     * @private
+     */
+    _calculateNamedPosition(position, textAreaBounds, padding) {
+        // Parse padding (support simple number or directional object)
+        const parsePadding = (p) => {
+            if (typeof p === 'number') {
+                return { top: p, right: p, bottom: p, left: p };
+            }
+            return {
+                top: p?.top ?? 8,
+                right: p?.right ?? 8,
+                bottom: p?.bottom ?? 8,
+                left: p?.left ?? 8
+            };
+        };
+
+        const pad = parsePadding(padding);
+        const { left, width, height } = textAreaBounds;
+
+        // Calculate positions relative to text area
+        const positions = {
+            'center': {
+                x: left + (width / 2),
+                y: height / 2,
+                anchor: 'middle',
+                baseline: 'central'
+            },
+            'top-left': {
+                x: left + pad.left,
+                y: pad.top,
+                anchor: 'start',
+                baseline: 'hanging'
+            },
+            'top-right': {
+                x: left + width - pad.right,
+                y: pad.top,
+                anchor: 'end',
+                baseline: 'hanging'
+            },
+            'top-center': {
+                x: left + (width / 2),
+                y: pad.top,
+                anchor: 'middle',
+                baseline: 'hanging'
+            },
+            'bottom-left': {
+                x: left + pad.left,
+                y: height - pad.bottom,
+                anchor: 'start',
+                baseline: 'alphabetic'
+            },
+            'bottom-right': {
+                x: left + width - pad.right,
+                y: height - pad.bottom,
+                anchor: 'end',
+                baseline: 'alphabetic'
+            },
+            'bottom-center': {
+                x: left + (width / 2),
+                y: height - pad.bottom,
+                anchor: 'middle',
+                baseline: 'alphabetic'
+            },
+            'left-center': {
+                x: left + pad.left,
+                y: height / 2,
+                anchor: 'start',
+                baseline: 'central'
+            },
+            'right-center': {
+                x: left + width - pad.right,
+                y: height / 2,
+                anchor: 'end',
+                baseline: 'central'
+            }
+        };
+
+        return positions[position] || positions['center'];
+    }
+
+    /**
+     * Process text fields and calculate final positions and styling
+     * @private
+     */
+    _processTextFields(textFields, buttonWidth, buttonHeight, iconConfig) {
+        const processedFields = [];
+        const textAreaBounds = this._calculateTextAreaBounds(buttonWidth, buttonHeight, iconConfig);
+
+        // Get entity state for color resolution
+        const entityState = this._getEntityState();
+
+        for (const [fieldId, field] of Object.entries(textFields)) {
+            // Skip if not visible
+            if (!field.show) continue;
+
+            // Resolve content (template processing done elsewhere, just use content)
+            const content = field.content || '';
+            if (!content) continue; // Skip empty content
+
+            // Priority 1: Explicit x/y coordinates
+            let x, y, anchor, baseline;
+
+            if (field.x !== null && field.y !== null) {
+                x = field.x;
+                y = field.y;
+                anchor = field.anchor;
+                baseline = field.baseline;
+            }
+            // Priority 2: Relative percentages (Phase 2 feature, placeholder for now)
+            else if (field.x_percent !== null && field.y_percent !== null) {
+                x = textAreaBounds.left + (textAreaBounds.width * field.x_percent / 100);
+                y = textAreaBounds.height * field.y_percent / 100;
+                anchor = field.anchor;
+                baseline = field.baseline;
+            }
+            // Priority 3: Named position
+            else if (field.position) {
+                const pos = this._calculateNamedPosition(field.position, textAreaBounds, field.padding);
+                x = pos.x;
+                y = pos.y;
+                // Use field's anchor/baseline if specified, otherwise use position's default
+                anchor = field.anchor || pos.anchor;
+                baseline = field.baseline || pos.baseline;
+            }
+            // Priority 4: Default center position
+            else {
+                x = textAreaBounds.left + (textAreaBounds.width / 2);
+                y = buttonHeight / 2;
+                anchor = 'middle';
+                baseline = 'central';
+            }
+
+            // Resolve color based on state
+            let resolvedColor;
+            if (field.color) {
+                if (typeof field.color === 'string') {
+                    resolvedColor = field.color;
+                } else if (typeof field.color === 'object') {
+                    // State-based color
+                    if (entityState === 'unavailable') {
+                        resolvedColor = field.color.unavailable || field.color.inactive || 'gray';
+                    } else if (entityState === 'on' || entityState === 'active') {
+                        resolvedColor = field.color.active || 'white';
+                    } else {
+                        resolvedColor = field.color.inactive || 'gray';
+                    }
+                }
+            }
+            // Use default text color if no field color specified
+            if (!resolvedColor) {
+                const textColor = this._buttonStyle?.text?.default?.color;
+                if (typeof textColor === 'string') {
+                    resolvedColor = textColor;
+                } else if (typeof textColor === 'object') {
+                    if (entityState === 'unavailable') {
+                        resolvedColor = textColor.unavailable || textColor.inactive || 'gray';
+                    } else if (entityState === 'on' || entityState === 'active') {
+                        resolvedColor = textColor.active || 'white';
+                    } else {
+                        resolvedColor = textColor.inactive || 'gray';
+                    }
+                } else {
+                    resolvedColor = 'white'; // Final fallback
+                }
+            }
+
+            processedFields.push({
+                id: fieldId,
+                content: content,
+                x: x,
+                y: y,
+                size: field.size,
+                color: resolvedColor,
+                font_weight: field.font_weight,
+                font_family: field.font_family,
+                anchor: anchor,
+                baseline: baseline
+            });
+        }
+
+        return processedFields;
+    }
+
+    /**
+     * Get current entity state for color resolution
+     * @private
+     */
+    _getEntityState() {
+        if (!this._entity) return 'inactive';
+        const state = this._entity.state;
+        if (state === 'unavailable' || state === 'unknown') return 'unavailable';
+        if (state === 'on' || state === 'active' || state === 'open' || state === 'playing') return 'active';
+        return 'inactive';
+    }
+
+    /**
+     * Generate SVG text elements from processed text fields
+     * @private
+     */
+    _generateTextElements(processedFields) {
+        if (!processedFields || processedFields.length === 0) return '';
+
+        const textElements = [];
+
+        for (const field of processedFields) {
+            // Build SVG <text> element
+            const textAttrs = [
+                `x="${field.x}"`,
+                `y="${field.y}"`,
+                `font-size="${field.size}"`,
+                `fill="${field.color}"`,
+                `text-anchor="${field.anchor}"`,
+                `dominant-baseline="${field.baseline}"`
+            ];
+
+            if (field.font_weight) {
+                textAttrs.push(`font-weight="${field.font_weight}"`);
+            }
+
+            if (field.font_family) {
+                textAttrs.push(`font-family="${field.font_family}"`);
+            }
+
+            // Add data attribute for field ID (useful for debugging and AnimJS targeting)
+            textAttrs.push(`data-field-id="${field.id}"`);
+
+            // Build complete text element
+            const textElement = `<text ${textAttrs.join(' ')}>${this._escapeHtml(field.content)}</text>`;
+            textElements.push(textElement);
+        }
+
+        return textElements.join('\n        ');
+    }
+
+    /**
+     * Escape HTML special characters for safe SVG content
+     * @private
+     */
+    _escapeHtml(text) {
+        if (!text) return '';
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 
     /**
