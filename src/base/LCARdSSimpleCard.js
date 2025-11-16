@@ -1208,6 +1208,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
     /**
      * Parse icon string into type and name
      * Supports: 'mdi:icon', 'si:icon', 'entity', plain names
+     * Does not set defaults - those come from theme tokens in _processIconConfiguration
      * @private
      */
     _parseIconString(iconString) {
@@ -1219,10 +1220,8 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
         if (iconString === 'entity' && this._entity?.attributes?.icon) {
             return {
                 type: 'entity',
-                icon: this._entity.attributes.icon,
-                position: 'left',
-                size: 24,
-                color: 'inherit'
+                icon: this._entity.attributes.icon
+                // position, size and color will be resolved from theme tokens
             };
         }
 
@@ -1234,27 +1233,21 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
                 case 'mdi':
                     return {
                         type: 'mdi',
-                        icon: name, // Just the name without prefix
-                        position: 'left',
-                        size: 24,
-                        color: 'inherit'
+                        icon: name // Just the name without prefix
+                        // position, size and color will be resolved from theme tokens
                     };
                 case 'si':
                     return {
                         type: 'si',
-                        icon: name, // Just the name without prefix
-                        position: 'left',
-                        size: 24,
-                        color: 'inherit'
+                        icon: name // Just the name without prefix
+                        // position, size and color will be resolved from theme tokens
                     };
                 default:
                     // Unknown prefix, treat as MDI
                     return {
                         type: 'mdi',
-                        icon: name,
-                        position: 'left',
-                        size: 24,
-                        color: 'inherit'
+                        icon: name
+                        // position, size and color will be resolved from theme tokens
                     };
             }
         }
@@ -1262,10 +1255,8 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
         // Plain name - assume MDI
         return {
             type: 'mdi',
-            icon: iconString,
-            position: 'left',
-            size: 24,
-            color: 'inherit'
+            icon: iconString
+            // position, size and color will be resolved from theme tokens
         };
     }
 

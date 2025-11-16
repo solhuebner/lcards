@@ -554,13 +554,20 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      * Process icon configuration from preset/config
      * Extracts icon-related properties and stores them for rendering
      * Handles both flat (legacy) and nested (new) icon config structures
+     * Resolves state-based colors from theme tokens
      * @private
      */
     _processIconConfiguration(resolvedStyle) {
         // Determine show_icon
         // Priority: config.show_icon > resolvedStyle.show_icon (from preset) > false (default)
+        // Special case: if icon_only is true, implicitly set show_icon to true
         let show_icon = false;
-        if (this.config.show_icon !== undefined) {
+        const iconOnlyMode = this.config.icon_only || resolvedStyle.icon_only || false;
+
+        if (iconOnlyMode) {
+            // icon_only mode implicitly requires showing the icon
+            show_icon = true;
+        } else if (this.config.show_icon !== undefined) {
             show_icon = this.config.show_icon;
         } else if (resolvedStyle.show_icon !== undefined) {
             show_icon = resolvedStyle.show_icon;
@@ -590,8 +597,13 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             position = this.config.icon.position;
         }
         // Then check resolved style (includes preset)
-        else if (resolvedStyle.icon?.position) {
+        else if (resolvedStyle.icon?.position && typeof resolvedStyle.icon.position === 'string') {
             position = resolvedStyle.icon.position;
+        }
+
+        // Ensure position is valid
+        if (position !== 'left' && position !== 'right') {
+            position = 'left';
         }
 
         // Store processed icon configuration
@@ -599,12 +611,179 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         const parsedIcon = this._parseIconString(iconName);
 
         if (parsedIcon) {
+            // Get current button state for state-based colors
+            const buttonState = this._getButtonState();
+
+            // Get theme tokens for icons
+            const iconTokens = this._theme?.tokens?.components?.button?.base?.icon || {};
+
+            // Resolve icon color with state-based fallback chain
+            // Priority: config > preset > theme token (state-based) > text color (state-based) > hardcoded
+            let iconColor;
+
+            lcardsLog.debug('[LCARdSSimpleButtonCard] Icon color resolution:', {
+                buttonState,
+                'config.icon': this.config.icon,
+                'resolvedStyle.icon': resolvedStyle.icon,
+                'iconTokens.color': iconTokens.color,
+                '_buttonStyle.text': this._buttonStyle?.text
+            });
+
+            // 1. Check explicit config color
+            if (typeof this.config.icon === 'object' && this.config.icon?.color) {
+                // Check if it's state-based (object with active/inactive keys)
+                if (typeof this.config.icon.color === 'object') {
+                    iconColor = this.config.icon.color[buttonState] ||
+                               this.config.icon.color.default ||
+                               this.config.icon.color.active;
+                } else {
+                    iconColor = this.config.icon.color;
+                }
+                lcardsLog.debug('[LCARdSSimpleButtonCard] Icon color from config:', iconColor);
+            }
+            // 2. Check preset/resolvedStyle color
+            else if (resolvedStyle.icon?.color) {
+                // Check if it's state-based
+                if (typeof resolvedStyle.icon.color === 'object') {
+                    iconColor = resolvedStyle.icon.color[buttonState] ||
+                               resolvedStyle.icon.color.default ||
+                               resolvedStyle.icon.color.active;
+                } else {
+                    iconColor = resolvedStyle.icon.color;
+                }
+                lcardsLog.debug('[LCARdSSimpleButtonCard] Icon color from preset/resolvedStyle:', iconColor);
+            }
+            // 3. Check theme token (can be state-based)
+            else if (iconTokens.color) {
+                if (typeof iconTokens.color === 'object') {
+                    iconColor = iconTokens.color[buttonState] ||
+                               iconTokens.color.default ||
+                               iconTokens.color.active;
+                    lcardsLog.debug('[LCARdSSimpleButtonCard] Icon color from theme token (state-based):', {
+                        buttonState,
+                        'iconTokens.color[buttonState]': iconTokens.color[buttonState],
+                        'iconTokens.color.default': iconTokens.color.default,
+                        'iconTokens.color.active': iconTokens.color.active,
+                        resolved: iconColor
+                    });
+                } else {
+                    iconColor = iconTokens.color;
+                    lcardsLog.debug('[LCARdSSimpleButtonCard] Icon color from theme token (static):', iconColor);
+                }
+            }
+            // 4. Fall back to text color (also state-based)
+            else if (this._buttonStyle?.text?.default?.color) {
+                const textColor = this._buttonStyle.text.default.color;
+                if (typeof textColor === 'object') {
+                    iconColor = textColor[buttonState] ||
+                               textColor.default ||
+                               textColor.active;
+                } else {
+                    iconColor = textColor;
+                }
+                lcardsLog.debug('[LCARdSSimpleButtonCard] Icon color from text color:', iconColor);
+            }
+            // 5. Final hardcoded fallback
+            else {
+                iconColor = 'var(--lcars-color-text, #FFFFFF)';
+                lcardsLog.warn('[LCARdSSimpleButtonCard] Icon color using hardcoded fallback');
+            }
+
+            // Ensure iconColor is a string (not an object)
+            if (typeof iconColor !== 'string') {
+                console.warn('[LCARdSSimpleButtonCard] Icon color resolved to non-string:', iconColor);
+                iconColor = 'var(--lcars-color-text, #FFFFFF)';
+            }
+
+            // Resolve icon size
+            // Priority: config > preset > theme token > hardcoded
+            let iconSize;
+            if (typeof this.config.icon === 'object' && this.config.icon?.size) {
+                iconSize = this.config.icon.size;
+            } else if (resolvedStyle.icon?.size && typeof resolvedStyle.icon.size === 'number') {
+                iconSize = resolvedStyle.icon.size;
+            } else if (iconTokens.size && typeof iconTokens.size === 'number') {
+                iconSize = iconTokens.size;
+            } else {
+                iconSize = 24; // hardcoded fallback
+            }
+
+            // Resolve icon spacing (space around icon for clamping calculation)
+            // Priority: config > preset > theme token > hardcoded
+            let iconSpacing;
+            if (typeof this.config.icon === 'object' && this.config.icon?.spacing !== undefined) {
+                iconSpacing = this.config.icon.spacing;
+            } else if (resolvedStyle.icon?.spacing !== undefined) {
+                iconSpacing = resolvedStyle.icon.spacing;
+            } else if (iconTokens.spacing !== undefined) {
+                iconSpacing = iconTokens.spacing;
+            } else {
+                iconSpacing = 8; // hardcoded fallback
+            }
+
+            // Resolve icon area width (horizontal space allocated)
+            // Priority: config > preset > auto-calculated from size
+            let iconAreaWidth;
+            if (typeof this.config.icon === 'object' && this.config.icon?.area_width) {
+                iconAreaWidth = this.config.icon.area_width;
+            } else if (resolvedStyle.icon?.area_width && typeof resolvedStyle.icon.area_width === 'number') {
+                iconAreaWidth = resolvedStyle.icon.area_width;
+            }
+            // If not specified, will be auto-calculated in _generateIconMarkup based on size + spacing + divider
+
+            // Resolve divider settings (renamed from "interior" for clarity)
+            // Priority: config > preset > theme token > hardcoded
+            let dividerWidth, dividerColor;
+
+            // Divider width
+            if (typeof this.config.icon === 'object' && this.config.icon?.divider?.width !== undefined) {
+                dividerWidth = this.config.icon.divider.width;
+            } else if (typeof this.config.icon === 'object' && this.config.icon?.interior?.width !== undefined) {
+                // Legacy support for "interior" name
+                dividerWidth = this.config.icon.interior.width;
+            } else if (resolvedStyle.icon?.divider?.width !== undefined) {
+                dividerWidth = resolvedStyle.icon.divider.width;
+            } else if (resolvedStyle.icon?.interior?.width !== undefined) {
+                // Legacy support for "interior" name
+                dividerWidth = resolvedStyle.icon.interior.width;
+            } else if (iconTokens.interior?.width !== undefined) {
+                dividerWidth = iconTokens.interior.width;
+            } else {
+                dividerWidth = 6; // hardcoded fallback
+            }
+
+            // Divider color
+            if (typeof this.config.icon === 'object' && this.config.icon?.divider?.color) {
+                dividerColor = this.config.icon.divider.color;
+            } else if (typeof this.config.icon === 'object' && this.config.icon?.interior?.color) {
+                // Legacy support for "interior" name
+                dividerColor = this.config.icon.interior.color;
+            } else if (resolvedStyle.icon?.divider?.color) {
+                dividerColor = resolvedStyle.icon.divider.color;
+            } else if (resolvedStyle.icon?.interior?.color) {
+                // Legacy support for "interior" name
+                dividerColor = resolvedStyle.icon.interior.color;
+            } else if (iconTokens.interior?.color) {
+                dividerColor = iconTokens.interior.color;
+            } else {
+                dividerColor = 'black'; // hardcoded fallback
+            }
+
             this._processedIcon = {
-                ...parsedIcon,  // Contains type, icon, position='left', size, color defaults
-                position: position,  // Override position with our computed value
-                size: resolvedStyle.icon?.size || parsedIcon.size,
-                color: resolvedStyle.icon?.color || parsedIcon.color,
-                show: show_icon
+                type: parsedIcon.type,
+                icon: parsedIcon.icon,
+                position: position,  // Computed position from config > preset > 'left' default
+                size: iconSize,      // Visual icon size
+                spacing: iconSpacing, // Space around icon (affects clamping and area calculation)
+                areaWidth: iconAreaWidth, // Horizontal space allocated (optional, auto-calculated if not set)
+                color: iconColor,
+                divider: {           // Renamed from "interior" for clarity
+                    width: dividerWidth,
+                    color: dividerColor
+                },
+                show: show_icon,
+                // Support icon-only mode (hides text)
+                iconOnly: iconOnlyMode
             };
         } else {
             this._processedIcon = null;
@@ -887,11 +1066,12 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
     _generateIconMarkup(iconConfig, buttonWidth, buttonHeight, position) {
         if (!iconConfig) return { markup: '', widthUsed: 0 };
 
-        const tokens = this._theme?.tokens?.components?.button?.base?.icon || {};
-        const requestedSize = iconConfig.size || tokens.size || 24;
-        const spacing = tokens.spacing || 8;
-        const borderWidth = tokens.interior?.width || 6;
-        const borderColor = tokens.interior?.color || 'black';
+        const requestedSize = iconConfig.size || 24; // Visual icon size
+        const spacing = iconConfig.spacing ?? 8; // Space around icon (configurable!)
+
+        // Divider settings from iconConfig (already resolved with priority chain)
+        const dividerWidth = iconConfig.divider?.width ?? 6;
+        const dividerColor = iconConfig.divider?.color ?? 'black';
 
         // Get padding values (defaults to 0)
         const paddingLeft = iconConfig.padding_left || 0;
@@ -899,70 +1079,144 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         const paddingTop = iconConfig.padding_top || 0;
         const paddingBottom = iconConfig.padding_bottom || 0;
 
-        // Account for button stroke (2px on each side)
-        const strokeWidth = 2;
+        // Get button border/stroke width from button style
+        // Check resolved button style for border width
+        const buttonBorder = this._buttonStyle?.border || this._buttonStyle?.card?.border || {};
+        const strokeWidth = buttonBorder.width !== undefined ? parseInt(buttonBorder.width) : 2;
+
         const availableHeight = buttonHeight - (strokeWidth * 2);
         const availableWidth = buttonWidth - (strokeWidth * 2);
 
-        // Calculate icon area total width (requested size controls the AREA, not just icon)
-        // Icon area = left spacing + icon + right spacing + border
-        const iconAreaWidth = requestedSize + spacing * 2 + borderWidth;
+        // Icon-only mode: center the icon, no divider
+        const iconOnly = iconConfig.iconOnly;
 
-        // Constrain icon to fit within button HEIGHT (with spacing)
-        // This is the actual rendered icon size
-        const maxIconHeight = availableHeight - (spacing * 2);
-        const actualIconSize = Math.min(requestedSize, maxIconHeight);
+        let iconX, iconY, dividerX, dividerY, dividerHeight, iconAreaWidth;
 
-        // Calculate icon area content width (excluding the border)
-        const iconAreaContentWidth = iconAreaWidth - borderWidth;
+        if (iconOnly) {
+            // In icon-only mode, center the icon and use no divider
+            // Constrain icon to fit within button bounds with spacing
+            const maxIconHeight = availableHeight - (spacing * 2);
+            const maxIconWidth = availableWidth - (spacing * 2);
+            const actualIconSize = Math.min(requestedSize, maxIconHeight, maxIconWidth);
 
-        // Center icon horizontally within its content area, then apply padding
-        const iconXOffset = (iconAreaContentWidth - actualIconSize) / 2 + paddingLeft - paddingRight;
+            // Center horizontally and vertically with padding
+            iconX = strokeWidth + (availableWidth - actualIconSize) / 2 + paddingLeft - paddingRight;
+            iconY = strokeWidth + (availableHeight - actualIconSize) / 2 + paddingTop - paddingBottom;
 
-        // Position icon horizontally (from button interior edge)
-        const iconX = position === 'left'
-            ? strokeWidth + iconXOffset
-            : availableWidth + strokeWidth - iconAreaWidth + borderWidth + iconXOffset;
+            // No divider in icon-only mode
+            dividerX = null;
+            iconAreaWidth = 0; // Icon doesn't consume text space
 
-        // Center icon vertically within button bounds, then apply padding
-        const iconY = strokeWidth + (availableHeight - actualIconSize) / 2 + paddingTop - paddingBottom;
+            // Determine icon type and rendering
+            let iconElement = '';
+            if (iconConfig.type === 'entity' || iconConfig.type === 'mdi' || iconConfig.type === 'si') {
+                const iconName = iconConfig.type === 'entity'
+                    ? iconConfig.icon
+                    : `${iconConfig.type}:${iconConfig.icon}`;
 
-        // Interior border (divider line) - full height of button
-        const borderX = position === 'left'
-            ? strokeWidth + iconAreaContentWidth
-            : availableWidth + strokeWidth - iconAreaWidth;
+                iconElement = `
+                    <foreignObject x="${iconX}" y="${iconY}" width="${actualIconSize}" height="${actualIconSize}">
+                        <ha-icon xmlns="http://www.w3.org/1999/xhtml"
+                                 icon="${iconName}"
+                                 style="width: ${actualIconSize}px; height: ${actualIconSize}px; --mdc-icon-size: ${actualIconSize}px; color: ${iconConfig.color || 'currentColor'}; display: flex; align-items: center; justify-content: center;"></ha-icon>
+                    </foreignObject>`;
+            }
 
-        // Determine icon type and rendering
-        let iconElement = '';
-        if (iconConfig.type === 'entity' || iconConfig.type === 'mdi' || iconConfig.type === 'si') {
-            const iconName = iconConfig.type === 'entity'
-                ? iconConfig.icon
-                : `${iconConfig.type}:${iconConfig.icon}`;
+            const markup = `
+                <g class="icon-group" data-position="center">
+                    ${iconElement}
+                </g>
+            `.trim();
 
-            iconElement = `
-                <foreignObject x="${iconX}" y="${iconY}" width="${actualIconSize}" height="${actualIconSize}">
-                    <ha-icon xmlns="http://www.w3.org/1999/xhtml"
-                             icon="${iconName}"
-                             style="width: ${actualIconSize}px; height: ${actualIconSize}px; color: ${iconConfig.color || 'currentColor'}; display: flex; align-items: center; justify-content: center;"></ha-icon>
-                </foreignObject>`;
+            return { markup, widthUsed: iconAreaWidth };
+
+        } else {
+            // Normal mode: position icon left/right with divider
+
+            // Calculate icon area total width
+            // Option 1: Use explicit area_width from config if provided
+            // Option 2: Auto-calculate based on requested icon size and divider
+            if (iconConfig.areaWidth) {
+                iconAreaWidth = iconConfig.areaWidth;
+            } else {
+                // Auto-calculate area width using fixed layout spacing (8px)
+                // This provides consistent horizontal layout regardless of vertical spacing setting
+                // Vertical spacing (iconConfig.spacing) only affects icon SIZE clamping
+                const layoutSpacing = 8; // Fixed horizontal spacing for layout
+                iconAreaWidth = requestedSize + layoutSpacing * 2 + dividerWidth;
+            }
+
+            // Constrain icon to fit within button HEIGHT (with configurable spacing)
+            // This is the actual rendered icon size - using configurable spacing
+            const maxIconHeight = availableHeight - (spacing * 2);
+            const actualIconSize = Math.min(requestedSize, maxIconHeight);
+
+            // Calculate icon area content width (excluding the divider)
+            const iconAreaContentWidth = iconAreaWidth - dividerWidth;
+
+            // Center icon horizontally within its content area, then apply padding
+            const iconXOffset = (iconAreaContentWidth - actualIconSize) / 2 + paddingLeft - paddingRight;
+
+            // Position icon horizontally (from button interior edge)
+            iconX = position === 'left'
+                ? strokeWidth + iconXOffset
+                : availableWidth + strokeWidth - iconAreaWidth + dividerWidth + iconXOffset;
+
+            // Center icon vertically within button bounds, then apply padding
+            iconY = strokeWidth + (availableHeight - actualIconSize) / 2 + paddingTop - paddingBottom;
+
+            // Smart divider height logic:
+            // - If button has visible border (strokeWidth > 1), divider is "interior" (respects stroke)
+            // - If button has no/minimal border (strokeWidth <= 1), divider goes full height (visual separator)
+            const hasBorder = strokeWidth > 1;
+
+            // Position X
+            dividerX = position === 'left'
+                ? strokeWidth + iconAreaContentWidth
+                : availableWidth + strokeWidth - iconAreaWidth;
+
+            if (hasBorder) {
+                // Interior mode: avoid overlapping button border
+                dividerY = strokeWidth;
+                dividerHeight = buttonHeight - (strokeWidth * 2);
+            } else {
+                // Full height mode: create visual separation
+                dividerY = 0;
+                dividerHeight = buttonHeight;
+            }
+
+            // Determine icon type and rendering
+            let iconElement = '';
+            if (iconConfig.type === 'entity' || iconConfig.type === 'mdi' || iconConfig.type === 'si') {
+                const iconName = iconConfig.type === 'entity'
+                    ? iconConfig.icon
+                    : `${iconConfig.type}:${iconConfig.icon}`;
+
+                iconElement = `
+                    <foreignObject x="${iconX}" y="${iconY}" width="${actualIconSize}" height="${actualIconSize}">
+                        <ha-icon xmlns="http://www.w3.org/1999/xhtml"
+                                 icon="${iconName}"
+                                 style="width: ${actualIconSize}px; height: ${actualIconSize}px; --mdc-icon-size: ${actualIconSize}px; color: ${iconConfig.color || 'currentColor'}; display: flex; align-items: center; justify-content: center;"></ha-icon>
+                    </foreignObject>`;
+            }
+
+            const markup = `
+                <g class="icon-group" data-position="${position}">
+                    <!-- Divider line between icon and text -->
+                    <rect
+                        class="icon-divider"
+                        x="${dividerX}"
+                        y="${dividerY}"
+                        width="${dividerWidth}"
+                        height="${dividerHeight}"
+                        style="fill: ${dividerColor};"
+                    />
+                    ${iconElement}
+                </g>
+            `.trim();
+
+            return { markup, widthUsed: iconAreaWidth };
         }
-
-        const markup = `
-            <g class="icon-group" data-position="${position}">
-                <!-- Interior border divider -->
-                <rect
-                    class="icon-border"
-                    x="${borderX}"
-                    y="0"
-                    width="${borderWidth}"
-                    height="${buttonHeight}"
-                    style="fill: ${borderColor};"
-                />
-                ${iconElement}
-            </g>
-        `.trim();
-
-        return { markup, widthUsed: iconAreaWidth };
     }
 
     /**
@@ -1024,6 +1278,19 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             ? this._renderComplexButtonPath(width, height, border, backgroundColor, borderColor)
             : this._renderSimpleButtonRect(width, height, border, backgroundColor, borderColor);
 
+        // Check if we're in icon-only mode (hide text when icon is shown)
+        const iconOnly = this._processedIcon?.iconOnly && this._processedIcon?.show;
+
+        // Generate text markup (conditionally)
+        const textMarkup = iconOnly ? '' : `
+                    <text
+                        class="button-text"
+                        style="pointer-events: none; fill: ${textColor}; font-family: ${fontFamily}; font-size: ${fontSize}; font-weight: ${fontWeight}; text-anchor: middle; dominant-baseline: central;"
+                        x="${textX}"
+                        y="${height/2}">
+                        ${this._escapeXML(text)}
+                    </text>`;
+
         const svgString = `
             <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
                 <g data-button-id="simple-button"
@@ -1033,14 +1300,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                     ${backgroundMarkup}
 
                     ${iconData.markup}
-
-                    <text
-                        class="button-text"
-                        style="pointer-events: none; fill: ${textColor}; font-family: ${fontFamily}; font-size: ${fontSize}; font-weight: ${fontWeight}; text-anchor: middle; dominant-baseline: central;"
-                        x="${textX}"
-                        y="${height/2}">
-                        ${this._escapeXML(text)}
-                    </text>
+${textMarkup}
                 </g>
             </svg>
         `.trim();
@@ -1300,8 +1560,8 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      * @private
      */
     _renderComplexButtonPath(width, height, border, backgroundColor, borderColor) {
-        const path = this._generateComplexBorderPath(width, height, border);
         const strokeWidth = border.width;
+        const path = this._generateComplexBorderPath(width, height, border, strokeWidth);
 
         let markup = `<path
                         class="button-bg button-clickable"
@@ -1322,60 +1582,72 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      * @param {number} width - Button width
      * @param {number} height - Button height
      * @param {Object} border - Border configuration with individual corner radii
+     * @param {number} strokeWidth - Stroke width for proper inset calculation
      * @returns {string} SVG path string
      */
-    _generateComplexBorderPath(width, height, border) {
-        // Ensure all radius values are valid numbers
-        const topLeft = Number(border.topLeft) || 0;
-        const topRight = Number(border.topRight) || 0;
-        const bottomRight = Number(border.bottomRight) || 0;
-        const bottomLeft = Number(border.bottomLeft) || 0;
+    _generateComplexBorderPath(width, height, border, strokeWidth = 0) {
+        // Calculate inset to keep stroke within bounds
+        // Stroke is drawn centered on the path, so we need to inset by half the stroke width
+        const inset = strokeWidth / 2;
+
+        // Ensure all radius values are valid numbers and adjust for inset
+        // The visual radius should be maintained, but we need to account for the inset space
+        const topLeft = Math.max(0, (Number(border.topLeft) || 0) - inset);
+        const topRight = Math.max(0, (Number(border.topRight) || 0) - inset);
+        const bottomRight = Math.max(0, (Number(border.bottomRight) || 0) - inset);
+        const bottomLeft = Math.max(0, (Number(border.bottomLeft) || 0) - inset);
 
         // Ensure width and height are valid numbers
         const w = Number(width) || 100;
         const h = Number(height) || 40;
 
+        // Adjust dimensions for stroke inset
+        const x0 = inset;
+        const y0 = inset;
+        const x1 = w - inset;
+        const y1 = h - inset;
+
         // Start from top-left corner, accounting for radius
-        let path = `M ${topLeft} 0`;
+        let path = `M ${x0 + topLeft} ${y0}`;
 
         // Top edge to top-right corner
-        path += ` L ${w - topRight} 0`;
+        path += ` L ${x1 - topRight} ${y0}`;
 
         // Top-right corner curve
         if (topRight > 0) {
-            path += ` Q ${w} 0 ${w} ${topRight}`;
+            path += ` Q ${x1} ${y0} ${x1} ${y0 + topRight}`;
         } else {
-            path += ` L ${w} 0`;
+            path += ` L ${x1} ${y0}`;
         }
 
         // Right edge to bottom-right corner
-        path += ` L ${w} ${h - bottomRight}`;
+        path += ` L ${x1} ${y1 - bottomRight}`;
 
         // Bottom-right corner curve
         if (bottomRight > 0) {
-            path += ` Q ${w} ${h} ${w - bottomRight} ${h}`;
+            path += ` Q ${x1} ${y1} ${x1 - bottomRight} ${y1}`;
         } else {
-            path += ` L ${w} ${h}`;
+            path += ` L ${x1} ${y1}`;
         }
 
         // Bottom edge to bottom-left corner
-        path += ` L ${bottomLeft} ${h}`;
+        path += ` L ${x0 + bottomLeft} ${y1}`;
 
         // Bottom-left corner curve
         if (bottomLeft > 0) {
-            path += ` Q 0 ${h} 0 ${h - bottomLeft}`;
+            path += ` Q ${x0} ${y1} ${x0} ${y1 - bottomLeft}`;
         } else {
-            path += ` L 0 ${h}`;
+            path += ` L ${x0} ${y1}`;
         }
 
         // Left edge to top-left corner
-        path += ` L 0 ${topLeft}`;
+        path += ` L ${x0} ${y0 + topLeft}`;
 
         // Top-left corner curve
         if (topLeft > 0) {
-            path += ` Q 0 0 ${topLeft} 0`;
+            path += ` Q ${x0} ${y0} ${x0 + topLeft} ${y0}`;
         } else {
-            path += ` L 0 0`;
+            path += ` L ${x0} ${y0}`;
         }
 
         path += ` Z`;

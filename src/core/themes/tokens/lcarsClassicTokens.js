@@ -381,19 +381,13 @@ export const lcarsClassicTokens = {
         icon: {
           size: 24,
           spacing: 8,  // Space between icon and text
-          position: {
-            left: 'left',
-            right: 'right',
-            center: 'center',
-            top: 'top',
-            bottom: 'bottom'
-          },
+          // Note: position is set per-preset, not in theme tokens
+          // Default position is 'left' (hardcoded in button card)
           color: {
             default: 'black',
-            active: 'black',
+            active: 'white',
             inactive: 'black',
-            unavailable: 'black',
-            inherit: 'inherit'  // Inherit from parent
+            unavailable: 'black'
           },
           border: {
             width: 6,
