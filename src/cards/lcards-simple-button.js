@@ -1273,10 +1273,34 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Determine if we need complex path rendering
         const needsComplexPath = border.hasIndividualRadius || border.hasIndividualSides;
 
-        // Generate button background
+        // Generate button background (fill only, no stroke)
         const backgroundMarkup = needsComplexPath
-            ? this._renderComplexButtonPath(width, height, border, backgroundColor, borderColor)
-            : this._renderSimpleButtonRect(width, height, border, backgroundColor, borderColor);
+            ? this._renderComplexButtonPath(width, height, border, backgroundColor)
+            : this._renderSimpleButtonRect(width, height, border, backgroundColor);
+
+        // Generate separate border paths for clean corner joins
+        const borderMarkup = this._renderIndividualBorderPaths(width, height, border);
+
+        // Calculate maximum border width for viewBox expansion
+        // Stroke extends half its width on each side, so we need strokeWidth/2 padding
+        const maxBorderWidth = Math.max(
+            border.width || 0,
+            border.perSideWidth?.top || 0,
+            border.perSideWidth?.right || 0,
+            border.perSideWidth?.bottom || 0,
+            border.perSideWidth?.left || 0,
+            border.individualSides?.top?.width || 0,
+            border.individualSides?.right?.width || 0,
+            border.individualSides?.bottom?.width || 0,
+            border.individualSides?.left?.width || 0
+        );
+        const strokeOverhang = maxBorderWidth / 2;
+
+        // Expand viewBox to prevent stroke clipping while keeping display size the same
+        const viewBoxX = -strokeOverhang;
+        const viewBoxY = -strokeOverhang;
+        const viewBoxWidth = width + (strokeOverhang * 2);
+        const viewBoxHeight = height + (strokeOverhang * 2);
 
         // Check if we're in icon-only mode (hide text when icon is shown)
         const iconOnly = this._processedIcon?.iconOnly && this._processedIcon?.show;
@@ -1292,13 +1316,13 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                     </text>`;
 
         const svgString = `
-            <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+            <svg width="${width}" height="${height}" viewBox="${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}" xmlns="http://www.w3.org/2000/svg">
                 <g data-button-id="simple-button"
                    data-overlay-id="simple-button"
                    class="button-group"
                    style="pointer-events: visiblePainted; cursor: pointer;">
                     ${backgroundMarkup}
-
+                    ${borderMarkup}
                     ${iconData.markup}
 ${textMarkup}
                 </g>
@@ -1538,37 +1562,37 @@ ${textMarkup}
 
     /**
      * Render simple button using rect element (uniform radius)
+     * Background only - no stroke (borders rendered separately)
      * @private
      */
-    _renderSimpleButtonRect(width, height, border, backgroundColor, borderColor) {
-        const strokeWidth = border.width;
+    _renderSimpleButtonRect(width, height, border, backgroundColor) {
         return `<rect
                     class="button-bg button-clickable"
-                    x="${strokeWidth/2}"
-                    y="${strokeWidth/2}"
-                    width="${width - strokeWidth}"
-                    height="${height - strokeWidth}"
+                    x="0"
+                    y="0"
+                    width="${width}"
+                    height="${height}"
                     rx="${border.radius}"
                     ry="${border.radius}"
-                    style="fill: ${backgroundColor}; stroke: ${borderColor}; stroke-width: ${strokeWidth}; pointer-events: all;"
+                    style="fill: ${backgroundColor}; pointer-events: all;"
                 />`;
     }
 
     /**
      * Render complex button using path element (per-corner radii)
      * Ported from MSD ButtonRenderer for consistency
+     * Render complex button using path element (per-corner radii)
+     * Background only - no stroke (borders rendered separately)
      * @private
      */
-    _renderComplexButtonPath(width, height, border, backgroundColor, borderColor) {
-        const strokeWidth = border.width;
-        const path = this._generateComplexBorderPath(width, height, border, strokeWidth);
+    _renderComplexButtonPath(width, height, border, backgroundColor) {
+        // Generate path without stroke inset (borders handled separately)
+        const path = this._generateComplexBorderPath(width, height, border, 0);
 
         let markup = `<path
                         class="button-bg button-clickable"
                         d="${path}"
                         fill="${backgroundColor}"
-                        stroke="${borderColor}"
-                        stroke-width="${strokeWidth}"
                         style="pointer-events: all;"
                     />`;
 
@@ -1653,6 +1677,221 @@ ${textMarkup}
         path += ` Z`;
 
         return path;
+    }
+
+    /**
+     * Render individual border paths for complex borders
+     * Ported from MSD ButtonRenderer for clean corner joins
+     * @private
+     */
+    _renderIndividualBorderPaths(width, height, border) {
+        let borderMarkup = '';
+
+        // Helper to safely get border width with fallbacks
+        const safeGetBorderWidth = (side, fallback = border.width) => {
+            if (border.individualSides && border.individualSides[side]) {
+                return border.individualSides[side].width;
+            }
+            if (border.perSideWidth && border.perSideWidth[side] !== undefined) {
+                return border.perSideWidth[side];
+            }
+            return fallback;
+        };
+
+        // Helper to safely get border color with fallbacks
+        const safeGetBorderColor = (side, fallback = border.color) => {
+            if (border.individualSides && border.individualSides[side]) {
+                return border.individualSides[side].color;
+            }
+            return fallback;
+        };
+
+        // Get corner radii
+        const topLeft = Number(border.topLeft) || 0;
+        const topRight = Number(border.topRight) || 0;
+        const bottomRight = Number(border.bottomRight) || 0;
+        const bottomLeft = Number(border.bottomLeft) || 0;
+
+        const w = Number(width) || 100;
+        const h = Number(height) || 40;
+
+        // Get border widths for rendering
+        const topWidth = safeGetBorderWidth('top');
+        const rightWidth = safeGetBorderWidth('right');
+        const bottomWidth = safeGetBorderWidth('bottom');
+        const leftWidth = safeGetBorderWidth('left');
+
+        // Check if any corner has a radius (needed for corner arc rendering)
+        const hasAnyRadius = topLeft > 0 || topRight > 0 || bottomRight > 0 || bottomLeft > 0;
+
+        // Use square line caps to fill gaps between paths
+        // Square caps extend by strokeWidth/2 perpendicular to path, creating seamless joins
+        const lineCap = 'square';
+
+        // Top border (at top edge, not inset - let stroke extend outside viewBox)
+        if (topWidth > 0) {
+            const topColor = safeGetBorderColor('top');
+            // Draw from corner radius positions (or edge if no radius)
+            const startX = topLeft > 0 ? topLeft : 0;
+            const endX = topRight > 0 ? w - topRight : w;
+            borderMarkup += `
+                <path d="M ${startX} 0 L ${endX} 0"
+                      stroke="${topColor}"
+                      stroke-width="${topWidth}"
+                      stroke-linecap="${lineCap}"
+                      fill="none" />`;
+        }
+
+        // Right border (at right edge)
+        if (rightWidth > 0) {
+            const rightColor = safeGetBorderColor('right');
+            const startY = topRight > 0 ? topRight : 0;
+            const endY = bottomRight > 0 ? h - bottomRight : h;
+            // Only render if corners don't meet/overlap and line is long enough
+            // When endY <= startY, corners meet or overlap - skip the line
+            if (endY > startY && (endY - startY) > rightWidth) {
+                borderMarkup += `
+                    <path d="M ${w} ${startY} L ${w} ${endY}"
+                          stroke="${rightColor}"
+                          stroke-width="${rightWidth}"
+                          stroke-linecap="${lineCap}"
+                          fill="none" />`;
+            }
+        }
+
+        // Bottom border (at bottom edge)
+        if (bottomWidth > 0) {
+            const bottomColor = safeGetBorderColor('bottom');
+            const startX = bottomRight > 0 ? w - bottomRight : w;
+            const endX = bottomLeft > 0 ? bottomLeft : 0;
+            borderMarkup += `
+                <path d="M ${startX} ${h} L ${endX} ${h}"
+                      stroke="${bottomColor}"
+                      stroke-width="${bottomWidth}"
+                      stroke-linecap="${lineCap}"
+                      fill="none" />`;
+        }
+
+        // Left border (at left edge)
+        if (leftWidth > 0) {
+            const leftColor = safeGetBorderColor('left');
+            const startY = bottomLeft > 0 ? h - bottomLeft : h;
+            const endY = topLeft > 0 ? topLeft : 0;
+            // Only render if corners don't meet/overlap and line is long enough
+            // When startY <= endY, corners meet or overlap - skip the line
+            if (startY > endY && (startY - endY) > leftWidth) {
+                borderMarkup += `
+                    <path d="M 0 ${startY} L 0 ${endY}"
+                          stroke="${leftColor}"
+                          stroke-width="${leftWidth}"
+                          stroke-linecap="${lineCap}"
+                          fill="none" />`;
+            }
+        }
+
+        // Render corner arcs if we have radii
+        if (border.hasIndividualRadius && hasAnyRadius) {
+            borderMarkup += this._renderCornerArcs(width, height, border);
+        }
+
+        return borderMarkup;
+    }
+
+    /**
+     * Render corner arc paths for individual corner radii
+     * Ported from MSD ButtonRenderer
+     * @private
+     */
+    _renderCornerArcs(width, height, border) {
+        let arcMarkup = '';
+
+        // Get corner radii
+        const topLeft = Number(border.topLeft) || 0;
+        const topRight = Number(border.topRight) || 0;
+        const bottomRight = Number(border.bottomRight) || 0;
+        const bottomLeft = Number(border.bottomLeft) || 0;
+
+        const w = Number(width) || 100;
+        const h = Number(height) || 40;
+
+        // Get border widths for corners (use adjacent sides or global)
+        const getCornerWidth = (side1, side2) => {
+            const width1 = border.individualSides?.[side1]?.width || border.perSideWidth?.[side1] || border.width;
+            const width2 = border.individualSides?.[side2]?.width || border.perSideWidth?.[side2] || border.width;
+            return Math.max(width1, width2); // Use the larger width for clean joins
+        };
+
+        const getCornerColor = (side1, side2) => {
+            // Prefer side1's color, fallback to side2, then global
+            return border.individualSides?.[side1]?.color ||
+                   border.individualSides?.[side2]?.color ||
+                   border.color;
+        };
+
+        // Helper to get individual border widths
+        const getBorderWidth = (side) => {
+            return border.individualSides?.[side]?.width || border.perSideWidth?.[side] || border.width;
+        };
+
+        // Top-left corner arc using SVG arc command for perfect 90° tangency
+        if (topLeft > 0) {
+            const cornerWidth = getCornerWidth('top', 'left');
+            const cornerColor = getCornerColor('top', 'left');
+            // Adjust radius for stroke: stroke is centered on path, so reduce radius by strokeWidth/2
+            // This makes the outer edge of the stroke align with the background edge
+            const adjustedRadius = topLeft - (cornerWidth / 2);
+            const arcStart = topLeft - (cornerWidth / 2);
+            arcMarkup += `
+                <path d="M 0 ${arcStart} A ${adjustedRadius} ${adjustedRadius} 0 0 1 ${arcStart} 0"
+                      stroke="${cornerColor}"
+                      stroke-width="${cornerWidth}"
+                      stroke-linecap="square"
+                      fill="none" />`;
+        }
+
+        // Top-right corner arc
+        if (topRight > 0) {
+            const cornerWidth = getCornerWidth('top', 'right');
+            const cornerColor = getCornerColor('top', 'right');
+            const adjustedRadius = topRight - (cornerWidth / 2);
+            const arcStart = topRight - (cornerWidth / 2);
+            arcMarkup += `
+                <path d="M ${w - arcStart} 0 A ${adjustedRadius} ${adjustedRadius} 0 0 1 ${w} ${arcStart}"
+                      stroke="${cornerColor}"
+                      stroke-width="${cornerWidth}"
+                      stroke-linecap="square"
+                      fill="none" />`;
+        }
+
+        // Bottom-right corner arc
+        if (bottomRight > 0) {
+            const cornerWidth = getCornerWidth('right', 'bottom');
+            const cornerColor = getCornerColor('right', 'bottom');
+            const adjustedRadius = bottomRight - (cornerWidth / 2);
+            const arcStart = bottomRight - (cornerWidth / 2);
+            arcMarkup += `
+                <path d="M ${w} ${h - arcStart} A ${adjustedRadius} ${adjustedRadius} 0 0 1 ${w - arcStart} ${h}"
+                      stroke="${cornerColor}"
+                      stroke-width="${cornerWidth}"
+                      stroke-linecap="square"
+                      fill="none" />`;
+        }
+
+        // Bottom-left corner arc
+        if (bottomLeft > 0) {
+            const cornerWidth = getCornerWidth('bottom', 'left');
+            const cornerColor = getCornerColor('bottom', 'left');
+            const adjustedRadius = bottomLeft - (cornerWidth / 2);
+            const arcStart = bottomLeft - (cornerWidth / 2);
+            arcMarkup += `
+                <path d="M ${arcStart} ${h} A ${adjustedRadius} ${adjustedRadius} 0 0 1 0 ${h - arcStart}"
+                      stroke="${cornerColor}"
+                      stroke-width="${cornerWidth}"
+                      stroke-linecap="square"
+                      fill="none" />`;
+        }
+
+        return arcMarkup;
     }
 
     /**
