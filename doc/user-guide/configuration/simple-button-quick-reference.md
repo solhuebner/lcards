@@ -421,7 +421,7 @@ components.button.base.text.default.font_family
 
 ## Multi-Text Label System
 
-**NEW in v1.14.16** - Multiple text fields with flexible positioning.
+**NEW in v1.14.17** - Multiple text fields with flexible positioning and rotation.
 
 ### Named Positions
 
@@ -521,6 +521,58 @@ text:
     content: "Light"
     position: center  # Centers in remaining space
 ```
+
+### Text Rotation
+
+Rotate text at any angle (in degrees):
+
+```yaml
+text:
+  horizontal:
+    content: "NORMAL"
+    position: center
+    rotation: 0
+
+  vertical:
+    content: "VERTICAL"
+    position: left-center
+    rotation: 90
+
+  diagonal:
+    content: "DIAGONAL"
+    position: top-right
+    rotation: 45
+
+  upside_down:
+    content: "FLIPPED"
+    position: bottom-center
+    rotation: 180
+```
+
+### Explicit Positioning
+
+Use absolute coordinates or percentages:
+
+```yaml
+text:
+  absolute:
+    content: "At (100, 30)"
+    x: 100
+    y: 30
+    anchor: middle
+    baseline: central
+
+  relative:
+    content: "At 50%"
+    x_percent: 50
+    y_percent: 50
+```
+
+**Positioning Priority:**
+1. Explicit `x`, `y` (highest)
+2. Percentage `x_percent`, `y_percent`
+3. Named `position`
+4. Default: center
 
 ---
 

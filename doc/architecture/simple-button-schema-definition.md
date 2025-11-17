@@ -490,9 +490,9 @@ button: {
 
 ## Multi-Text Label System (Phase 1)
 
-**Status:** ✅ IMPLEMENTED (v1.14.16)
+**Status:** ✅ IMPLEMENTED (v1.14.17)
 
-The multi-text label system allows multiple text fields with flexible positioning.
+The multi-text label system allows multiple text fields with flexible positioning and rotation.
 
 ### Named Positions
 
@@ -608,18 +608,83 @@ text:
     position: center  # Centers in remaining space (excludes icon area)
 ```
 
+### Text Rotation
+
+Text can be rotated at any angle around its anchor point:
+
+```yaml
+text:
+  horizontal:
+    content: "HORIZONTAL"
+    position: center
+    rotation: 0  # Default: no rotation
+
+  vertical:
+    content: "VERTICAL"
+    position: left-center
+    rotation: 90  # Rotate 90° clockwise
+
+  diagonal:
+    content: "DIAGONAL"
+    position: top-right
+    rotation: 45  # Rotate 45° clockwise
+
+  upside_down:
+    content: "UPSIDE DOWN"
+    position: bottom-center
+    rotation: 180  # Rotate 180° (upside down)
+
+  counter_clockwise:
+    content: "COUNTER"
+    position: right-center
+    rotation: -90  # Rotate 90° counter-clockwise
+```
+
+**Rotation Details:**
+- Rotation angle in degrees (positive = clockwise, negative = counter-clockwise)
+- Text rotates around its anchor point (x, y coordinates)
+- Combines with all positioning methods (named positions, explicit x/y, percentages)
+- Uses SVG `transform="rotate(angle x y)"` attribute
+
+### Explicit Coordinates and Percentages
+
+Use absolute pixel coordinates or percentages for precise positioning:
+
+```yaml
+text:
+  absolute_position:
+    content: "At (100, 30)"
+    x: 100
+    y: 30
+    anchor: middle
+    baseline: central
+
+  relative_position:
+    content: "At 50%, 50%"
+    x_percent: 50
+    y_percent: 50
+    anchor: middle
+    baseline: central
+```
+
+**Positioning Priority:**
+1. Explicit `x` and `y` (highest priority)
+2. Percentage `x_percent` and `y_percent`
+3. Named `position`
+4. Default: `center`
+
 ---
 
 ## Future: Multi-Text Support (Phase 2)
 
 Phase 2 will add:
 - Multi-line text wrapping
-- Text rotation
-- Template support in content
-- Advanced positioning (explicit x/y coordinates)
-- Percentage-based positioning
+- ~~Text rotation~~ ✅ **DONE** (v1.14.17)
+- ~~Template support in content~~ ✅ **DONE** (already supported)
+- ~~Advanced positioning (explicit x/y coordinates)~~ ✅ **DONE** (v1.14.17)
+- ~~Percentage-based positioning~~ ✅ **DONE** (v1.14.17)
 
-When implemented, it will continue to inherit from `text.default`:
+Remaining Phase 2 features:
 
 ```yaml
 # Future Phase 2 syntax (not yet implemented)
@@ -627,7 +692,6 @@ text:
   dynamic:
     content: "{entity.state}"
     position: top-left
-    rotation: 45
     wrap: true
     max_width: 150
 ```

@@ -1589,6 +1589,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                     font_family: this._buttonStyle?.text?.default?.font_family || "'LCARS', 'Antonio', sans-serif",
                     anchor: null,
                     baseline: null,
+                    rotation: 0,  // NEW: no rotation by default
                     show: true,
                     template: true
                 }
@@ -1630,6 +1631,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 font_family: fieldConfig.font_family || this._buttonStyle?.text?.default?.font_family || "'LCARS', 'Antonio', sans-serif",
                 anchor: fieldConfig.anchor || presetDefault.anchor || null,
                 baseline: fieldConfig.baseline || presetDefault.baseline || null,
+                rotation: fieldConfig.rotation !== undefined ? fieldConfig.rotation : 0,  // NEW: rotation in degrees
                 show: fieldConfig.show !== undefined ? fieldConfig.show : true,
                 template: fieldConfig.template !== undefined ? fieldConfig.template : true
             };
@@ -1868,7 +1870,8 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 font_weight: field.font_weight,
                 font_family: field.font_family,
                 anchor: anchor,
-                baseline: baseline
+                baseline: baseline,
+                rotation: field.rotation  // NEW: pass through rotation
             });
         }
 
@@ -1913,6 +1916,11 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
 
             if (field.font_family) {
                 textAttrs.push(`font-family="${field.font_family}"`);
+            }
+
+            // Add rotation transform if specified (rotates around text origin point)
+            if (field.rotation && field.rotation !== 0) {
+                textAttrs.push(`transform="rotate(${field.rotation} ${field.x} ${field.y})"`);
             }
 
             // Add data attribute for field ID (useful for debugging and AnimJS targeting)
