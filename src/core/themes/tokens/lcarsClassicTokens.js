@@ -355,7 +355,8 @@ export const lcarsClassicTokens = {
             // Typography
             font_size: '14px',        // Standard text size
             font_weight: 'bold',      // LCARS style: bold text
-            font_family: "'LCARS', 'Antonio', sans-serif"
+            font_family: "'Antonio', Arial, sans-serif",
+            text_transform: 'uppercase'  // LCARS style: uppercase text
           }
         },
 
@@ -389,8 +390,7 @@ export const lcarsClassicTokens = {
           small: 'borders.radius.sm',                   // 2px
           medium: 'borders.radius.base',                // 4px
           large: 'borders.radius.lg',                   // 8px
-          full: 'var(--ha-card-border-radius, 34px)',  // Pill shape (lozenge)
-          pill: 25                                      // Alternative pill value
+          full: 'var(--ha-card-border-radius, 34px)'    // Pill shape (lozenge)
         },
 
         // ============================================================================
@@ -409,8 +409,8 @@ export const lcarsClassicTokens = {
           },
 
           // Icon border/divider styling
-          border: {
-            width: 6,     // Divider line width between icon and text
+          divider: {
+            width: 5,     // Divider line width between icon and text
 
             // Border colors (state-based)
             color: {
@@ -419,25 +419,9 @@ export const lcarsClassicTokens = {
               inactive: 'black',
               unavailable: 'black',
               transparent: 'transparent'
-            },
-
-            // Padding around icon area (percentage of button width)
-            padding: {
-              standard: '1.0%',   // Normal spacing
-              dense: '1.5%',      // Tighter spacing
-              minimal: '0.5%',    // Minimal spacing
-              none: 0             // No padding
-            },
-            margin: 0             // External margin
+            }
           },
 
-          // Interior border for split lozenge effect
-          interior: {
-            enabled: true,        // Enable interior divider
-            width: 6,             // Divider width
-            color: 'black',       // Divider color
-            side: 'auto'          // 'left', 'right', or 'auto' (opposite of icon position)
-          }
         }
       }
     },

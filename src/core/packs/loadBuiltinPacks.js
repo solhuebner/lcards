@@ -78,9 +78,6 @@ const LCARDS_BUTTONS_PACK = {
 
         // Visibility defaults
         show_icon: false,
-        show_label: true,
-        show_state: false,
-        show_name: false,
 
         // Card styling (nested structure for background colors)
         card: {
@@ -96,31 +93,43 @@ const LCARDS_BUTTONS_PACK = {
 
         // Text styling (nested structure) - ALL text properties go here
         text: {
-          padding: {
-            top: 'theme:components.button.base.layout.padding.vertical',
-            bottom: 'theme:components.button.base.layout.padding.vertical',
-            left: 'theme:components.button.base.layout.padding.horizontal',
-            right: 'theme:components.button.base.layout.padding.horizontal'
-          },
           default: {
             position: 'right-center',  // Default text position (right-aligned, vertically centered)
             // Default text styling - applies to all text fields unless overridden
             font_family: 'theme:components.button.base.text.default.font_family',
             font_size: 'theme:components.button.base.text.default.font_size',
             font_weight: 'theme:components.button.base.text.default.font_weight',
+            text_transform: 'theme:components.button.base.text.default.text_transform',
             color: {
               default: 'theme:components.button.base.text.default.color.active',
               active: 'theme:components.button.base.text.default.color.active',
               inactive: 'theme:components.button.base.text.default.color.inactive',
               unavailable: 'theme:components.button.base.text.default.color.unavailable'
             }
+          },
+          name: {
+            // Name-specific overrides (if any)
+            position: 'bottom-right',
+            content: "{entity.attributes.friendly_name}",
+            show: true
+          },
+          state: {
+            // Label-specific overrides (if any)
+            position: 'top-right',
+            content: "{entity.state}",
+            show: false
           }
         },
 
         // Border styling (nested structure)
         border: {
           width: 0,
-          color: 'theme:components.button.base.border.color',
+          color: {
+            default: 'theme:components.button.base.border.color.default',
+            active: 'theme:components.button.base.border.color.active',
+            inactive: 'theme:components.button.base.border.color.inactive',
+            unavailable: 'theme:components.button.base.border.color.unavailable'
+          },
           radius: 'theme:components.button.base.radius.none'
         },
 
@@ -129,12 +138,20 @@ const LCARDS_BUTTONS_PACK = {
           size: 'theme:components.button.base.icon.size',
           position: 'left',
           color: {
-            default: 'theme:components.button.base.icon.color.default'
+            default: 'theme:components.button.base.icon.color.default',
+            active: 'theme:components.button.base.icon.color.active',
+            inactive: 'theme:components.button.base.icon.color.inactive',
+            unavailable: 'theme:components.button.base.icon.color.unavailable'
           },
-          border: {
-            width: 'theme:components.button.base.icon.border.width',
-            color: 'theme:components.button.base.icon.border.color.default',
-            padding: 'theme:components.button.base.icon.border.padding.standard'
+          padding: {
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 0
+          },
+          divider: {
+            width: 'theme:components.button.base.icon.divider.width',
+            color: 'theme:components.button.base.icon.divider.color.default'
           }
         }
       },
@@ -157,13 +174,9 @@ const LCARDS_BUTTONS_PACK = {
         },
         icon: {
           position: 'center',  // Icon centered within left area
-          border: {
-            left: {
-              padding: '0px'
-            },
-            right: {
-              padding: '3px'
-            }
+          padding: {
+            right: 0,
+            left: 2
           }
         }
       },
@@ -177,16 +190,10 @@ const LCARDS_BUTTONS_PACK = {
           }
         },
         icon: {
-          position: 'right',
-          border: {
-            left: {
-              color: 'theme:components.button.base.border.color',
-              padding: '3px'
-            },
-            right: {
-              color: 'theme:components.button.base.border.color.transparent',
-              padding: '3px'
-            }
+          position: 'center',  // Icon centered within left area
+          padding: {
+            right: '2',
+            left: '0'
           }
         }
       },
