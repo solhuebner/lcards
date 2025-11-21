@@ -30,6 +30,7 @@ import { ColorUtils } from '../core/themes/ColorUtils.js';
 import { deepMerge } from '../utils/deepMerge.js';
 import { resolveThemeTokensRecursive } from '../utils/lcards-theme.js';
 import { escapeHtml } from '../utils/StringUtils.js';
+import { TemplateParser } from '../core/templates/TemplateParser.js';
 
 export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
 
@@ -1248,6 +1249,11 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      * @private
      */
     _generateAreaBasedIconMarkup(iconConfig, buttonWidth, buttonHeight) {
+        // Handle null/undefined iconConfig
+        if (!iconConfig) {
+            return { markup: '', widthUsed: 0 };
+        }
+
         const iconArea = iconConfig.area || 'left';
 
         // Route to appropriate implementation based on area orientation
@@ -1659,7 +1665,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // area: 'none' → Flexible positioning (icon positioned like text)
         // area: left/right → Area-based with vertical divider
         // area: top/bottom → Area-based with horizontal divider (future)
-        const usesIconArea = iconArea !== 'none';
+        const usesIconArea = this._processedIcon && iconArea !== 'none';
 
         // Check if icon uses explicit coordinates (always flexible)
         const hasExplicitCoords = this._processedIcon && (
@@ -1667,13 +1673,15 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             this._processedIcon.x_percent !== null
         );
 
-        let iconData;
-        if (!usesIconArea || hasExplicitCoords) {
-            // Flexible positioning: icon_area is 'none' or explicit coordinates
-            iconData = this._generateFlexibleIconMarkup(this._processedIcon, width, height);
-        } else {
-            // Area-based positioning: icon_area is left/right/top/bottom
-            iconData = this._generateAreaBasedIconMarkup(this._processedIcon, width, height);
+        let iconData = { markup: '', widthUsed: 0 };  // Default to empty icon
+        if (this._processedIcon) {
+            if (!usesIconArea || hasExplicitCoords) {
+                // Flexible positioning: icon_area is 'none' or explicit coordinates
+                iconData = this._generateFlexibleIconMarkup(this._processedIcon, width, height);
+            } else {
+                // Area-based positioning: icon_area is left/right/top/bottom
+                iconData = this._generateAreaBasedIconMarkup(this._processedIcon, width, height);
+            }
         }
 
         // Calculate text position accounting for icon area
@@ -2004,10 +2012,13 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         const textConfig = config.text || {};
         const resolvedFields = {};
 
+        // Extract user-defined defaults from text.default
+        const userDefaults = textConfig.default || {};
+
         // Default positions for preset fields
         // NOTE: Only specify position here. Anchor/baseline should come from named position calculation!
         const presetDefaults = {
-            label: { position: this._buttonStyle?.text?.default?.position || 'center' },  // NEW: Support default position
+            label: { position: userDefaults.position || this._buttonStyle?.text?.default?.position || 'center' },
             name: { position: 'top-left' },
             state: { position: 'bottom-right' }
         };
@@ -2023,6 +2034,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             const presetDefault = presetDefaults[fieldId] || {};
 
             // Resolve field configuration with defaults
+            // Priority: field-specific > text.default > theme default > hardcoded fallback
             resolvedFields[fieldId] = {
                 id: fieldId,
                 content: fieldConfig.content || '',
@@ -2032,11 +2044,11 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 x_percent: fieldConfig.x_percent !== undefined ? fieldConfig.x_percent : null,
                 y_percent: fieldConfig.y_percent !== undefined ? fieldConfig.y_percent : null,
                 padding: fieldConfig.padding !== undefined ? fieldConfig.padding : 8,
-                size: fieldConfig.font_size || fieldConfig.size || this._buttonStyle?.text?.default?.font_size || 14,
-                color: fieldConfig.color || null, // null means use default
-                font_weight: fieldConfig.font_weight || this._buttonStyle?.text?.default?.font_weight || 'normal',
-                font_family: fieldConfig.font_family || this._buttonStyle?.text?.default?.font_family || "'LCARS', 'Antonio', sans-serif",
-                text_transform: fieldConfig.text_transform || this._buttonStyle?.text?.default?.text_transform || 'none',
+                size: fieldConfig.font_size || fieldConfig.size || userDefaults.font_size || this._buttonStyle?.text?.default?.font_size || 14,
+                color: fieldConfig.color || userDefaults.color || null, // null means use default
+                font_weight: fieldConfig.font_weight || userDefaults.font_weight || this._buttonStyle?.text?.default?.font_weight || 'normal',
+                font_family: fieldConfig.font_family || userDefaults.font_family || this._buttonStyle?.text?.default?.font_family || "'LCARS', 'Antonio', sans-serif",
+                text_transform: fieldConfig.text_transform || userDefaults.text_transform || this._buttonStyle?.text?.default?.text_transform || 'none',
                 anchor: fieldConfig.anchor || presetDefault.anchor || null,
                 baseline: fieldConfig.baseline || presetDefault.baseline || null,
                 rotation: fieldConfig.rotation !== undefined ? fieldConfig.rotation : 0,  // NEW: rotation in degrees
