@@ -511,7 +511,77 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
         // Unregister overlay and rules callback (consolidated cleanup)
         this._unregisterOverlayFromRules();
 
+        // Cleanup resize observer if set up
+        if (this._resizeObserver) {
+            this._resizeObserver.disconnect();
+            this._resizeObserver = null;
+        }
+
         lcardsLog.debug(`[LCARdSSimpleCard] Disconnected and cleaned up: ${this._getDisplayId()}`);
+    }
+
+    /**
+     * Setup ResizeObserver for automatic container size tracking
+     * Enables cards to automatically respond to grid cell size changes
+     *
+     * Subclasses should:
+     * 1. Call this method in their initialization (e.g., _handleFirstUpdate)
+     * 2. Store size in this._containerSize = { width, height }
+     * 3. Use the size values in their rendering logic
+     *
+     * @param {Function} onResize - Optional callback: (width, height) => void
+     * @protected
+     *
+     * @example
+     * _handleFirstUpdate() {
+     *     super._handleFirstUpdate();
+     *     this._setupAutoSizing((width, height) => {
+     *         this._containerSize = { width, height };
+     *         this.requestUpdate();
+     *     });
+     * }
+     */
+    _setupAutoSizing(onResize = null) {
+        // Clean up existing observer if any
+        if (this._resizeObserver) {
+            this._resizeObserver.disconnect();
+        }
+
+        this._resizeObserver = new ResizeObserver(entries => {
+            if (entries.length === 0) return;
+
+            const { width, height } = entries[0].contentRect;
+
+            // Only process if size actually changed (avoid thrashing)
+            if (!this._containerSize ||
+                width !== this._containerSize.width ||
+                height !== this._containerSize.height) {
+
+                // Update stored size if property exists
+                if (this._containerSize !== undefined) {
+                    this._containerSize = { width, height };
+                }
+
+                lcardsLog.debug(`[LCARdSSimpleCard] Container resized to ${width}x${height} for ${this._getDisplayId()}`);
+
+                // Call custom callback if provided
+                if (onResize && typeof onResize === 'function') {
+                    onResize(width, height);
+                } else {
+                    // Default: trigger re-render
+                    this.requestUpdate();
+                }
+            }
+        });
+
+        // Observe this element (the custom element itself)
+        // The web component should fill its container via CSS (width: 100%, height: 100%)
+        this._resizeObserver.observe(this);
+
+        lcardsLog.debug(`[LCARdSSimpleCard] Auto-sizing enabled for ${this._getDisplayId()}`, {
+            element: this.tagName,
+            hasCallback: !!onResize
+        });
     }
 
     /**
@@ -1407,6 +1477,74 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
         resolved = { ...resolved, ...stateOverrides };
 
         return resolved;
+    }
+
+    /**
+     * Check if a nested value exists at a path
+     * Useful for checking theme token paths before applying styles
+     *
+     * @param {Object} obj - Object to check
+     * @param {string} path - Dot-notation path (e.g., 'card.color.background')
+     * @param {string} finalKey - Final key to check (e.g., 'active', 'inactive')
+     * @returns {boolean} True if the nested path and final key exist
+     * @protected
+     *
+     * @example
+     * const style = { card: { color: { background: { active: '#fff' } } } };
+     * this._hasNestedValue(style, 'card.color.background', 'active'); // true
+     * this._hasNestedValue(style, 'card.color.background', 'hover'); // false
+     */
+    _hasNestedValue(obj, path, finalKey) {
+        const parts = path.split('.');
+        let current = obj;
+
+        for (const part of parts) {
+            if (!current || typeof current !== 'object' || !(part in current)) {
+                return false;
+            }
+            current = current[part];
+        }
+
+        // Check if finalKey exists in the final object
+        return current && typeof current === 'object' && finalKey in current;
+    }
+
+    /**
+     * Classify entity state into standardized categories
+     * Useful for determining which theme colors/styles to apply
+     *
+     * @param {Object} entity - Entity state object (optional, uses card's entity if not provided)
+     * @returns {string} State classification: 'active', 'inactive', 'unavailable', or 'default'
+     * @protected
+     *
+     * @example
+     * const state = this._classifyEntityState(this._entity);
+     * const color = this.getThemeToken(`colors.button.${state}`);
+     */
+    _classifyEntityState(entity = null) {
+        const targetEntity = entity || this._entity;
+
+        if (!targetEntity) {
+            // Cards without entities use the 'default' state
+            // (falls back to 'active' in theme defaults if 'default' not specified)
+            return 'default';
+        }
+
+        const state = targetEntity.state;
+
+        // Unavailable is universal
+        if (state === 'unavailable' || state === 'unknown') {
+            return 'unavailable';
+        }
+
+        // Active states (ON, locked, open, home, playing, etc.)
+        if (state === 'on' || state === 'locked' || state === 'open' ||
+            state === 'home' || state === 'playing' || state === 'active') {
+            return 'active';
+        }
+
+        // Inactive states (OFF, unlocked, closed, etc.)
+        return 'inactive';
     }
 
     /**

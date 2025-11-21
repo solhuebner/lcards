@@ -126,7 +126,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
 
                 // ✨ ENHANCEMENT: Re-resolve button style when entity state changes
                 // This makes the button color update reactively (without requiring page refresh)
-                // The _getStateOverrides() method will return different colors based on state
+                // State-based colors are applied in _resolveButtonStyleSync()
                 this._resolveButtonStyleSync();
 
                 lcardsLog.debug(`[LCARdSSimpleButtonCard] Button style re-resolved after state change`);
@@ -176,8 +176,8 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             this._actionsInitialized = true;
         });
 
-        // ✨ NEW: Setup ResizeObserver for auto-sizing
-        this._setupResizeObserver();
+        // ✨ Setup auto-sizing via base class (triggers requestUpdate on resize)
+        this._setupAutoSizing();
     }
 
     /**
@@ -253,39 +253,6 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         }
 
         lcardsLog.warn(`[LCARdSSimpleButtonCard] StylePresetManager did not become available after ${maxAttempts * delayMs}ms`);
-    }    /**
-     * Setup ResizeObserver to track container size changes for auto-sizing
-     * Enables buttons to automatically fill HA grid cells and responsive containers
-     * @private
-     */
-    _setupResizeObserver() {
-        // Clean up existing observer if any
-        if (this._resizeObserver) {
-            this._resizeObserver.disconnect();
-        }
-
-        this._resizeObserver = new ResizeObserver(entries => {
-            if (entries.length === 0) return;
-
-            const { width, height } = entries[0].contentRect;
-
-            // Only update if size actually changed (avoid thrashing)
-            if (width !== this._containerSize.width || height !== this._containerSize.height) {
-                this._containerSize = { width, height };
-                lcardsLog.debug(`[LCARdSSimpleButtonCard] Container resized to ${width}x${height}`);
-                this.requestUpdate(); // Trigger re-render with new size
-            }
-        });
-
-        // Observe THIS element (the custom element itself)
-        // The web component should fill its container via CSS (width: 100%, height: 100%)
-        // and the container (HA card/grid cell) determines the actual size
-        this._resizeObserver.observe(this);
-        lcardsLog.debug(`[LCARdSSimpleButtonCard] ResizeObserver setup for auto-sizing`, {
-            element: this.tagName,
-            offsetParent: this.offsetParent?.tagName,
-            parentElement: this.parentElement?.tagName
-        });
     }
 
     /**
@@ -788,76 +755,17 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
     }
 
     /**
-     * Check if a nested value exists at a path
-     * @private
-     */
-    _hasNestedValue(obj, path, finalKey) {
-        const parts = path.split('.');
-        let current = obj;
-
-        for (const part of parts) {
-            if (!current || typeof current !== 'object' || !(part in current)) {
-                return false;
-            }
-            current = current[part];
-        }
-
-        // Check if finalKey exists in the final object
-        return current && typeof current === 'object' && finalKey in current;
-    }    /**
      * Translate HA entity state to button state
+     * Uses base class _classifyEntityState() for standardized state classification
      * @private
-     * @returns {string} Button state: 'active', 'inactive', or 'unavailable'
+     * @returns {string} Button state: 'active', 'inactive', 'unavailable', or 'default'
      */
     _getButtonState() {
-        if (!this._entity) {
-            // Buttons without entities use the 'default' state for colors
-            // (falls back to 'active' in theme defaults if 'default' not specified)
-            return 'default';
-        }
-
-        const state = this._entity.state;
-
-        // Unavailable is universal
-        if (state === 'unavailable' || state === 'unknown') {
-            return 'unavailable';
-        }
-
-        // Active states (ON, locked, open, etc.)
-        if (state === 'on' || state === 'locked' || state === 'open' ||
-            state === 'home' || state === 'playing' || state === 'active') {
-            return 'active';
-        }
-
-        // Inactive states (OFF, unlocked, closed, etc.)
-        return 'inactive';
+        return this._classifyEntityState(this._entity);
     }
 
     /**
-     * Get state-based style overrides
-     * Reads from theme tokens based on button state (active/inactive/unavailable)
-     * @private
-     */
-    _getStateOverrides() {
-        // Get button state (returns 'default' for buttons without entities)
-        const buttonState = this._getButtonState();
-
-        const overrides = {};
-
-        // Apply opacity for non-active states (only if we have an entity)
-        if (this._entity) {
-            if (buttonState === 'inactive') {
-                overrides.opacity = 0.7;
-            } else if (buttonState === 'unavailable') {
-                overrides.opacity = 0.5;
-            }
-        }
-
-        return overrides;
-    }
-
-    /**
-     * Setup action handlers on the rendered button using MSD ActionHelpers
+     * Setup action handlers on the rendered button
      * @private
      */
     /**
@@ -1778,7 +1686,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         const textAreaBounds = this._calculateTextAreaBounds(buttonWidth, buttonHeight, iconConfig);
 
         // Get entity state for color resolution
-        const entityState = this._getEntityState();
+        const entityState = this._getButtonState();
 
         for (const [fieldId, field] of Object.entries(textFields)) {
             // Skip if not visible
@@ -1887,18 +1795,6 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         }
 
         return processedFields;
-    }
-
-    /**
-     * Get current entity state for color resolution
-     * @private
-     */
-    _getEntityState() {
-        if (!this._entity) return 'inactive';
-        const state = this._entity.state;
-        if (state === 'unavailable' || state === 'unknown') return 'unavailable';
-        if (state === 'on' || state === 'active' || state === 'open' || state === 'playing') return 'active';
-        return 'inactive';
     }
 
     /**
