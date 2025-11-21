@@ -1,12 +1,14 @@
 # Simple Button Card - Quick Reference
 
 **Component:** `custom:lcards-simple-button`
-**Version:** 1.14.18+
+**Version:** 1.14.31+
 **Schema:** CB-LCARS Nested Schema with Multi-Text Support
-**Last Updated:** November 20, 2025
+**Last Updated:** November 21, 2025
 
-**BREAKING CHANGES:** v1.14.18 removes all legacy/backward compatibility support.
-Only the nested schema is supported going forward.
+**BREAKING CHANGES:**
+- **v1.14.18:** Removed all legacy/backward compatibility support. Only nested schema supported.
+- **v1.14.30:** Icon positioning overhaul - `icon.position` now means position WITHIN icon area. Use `icon_area` for area placement.
+- **v1.14.31:** Renamed `icon_area_width` → `icon_area_size` for consistency across all orientations.
 
 ---
 
@@ -16,7 +18,26 @@ Only the nested schema is supported going forward.
 type: custom:lcards-simple-button
 entity: <entity_id>           # Optional: Home Assistant entity
 preset: <preset_name>          # Optional: 'lozenge', 'lozenge-right', etc.
-icon: <icon_string>            # Optional: 'mdi:lightbulb', 'si:github', 'entity'
+
+# Icon Area Configuration
+icon_area: left | right | top | bottom | none  # Where icon's reserved space is (default: left)
+icon_area_size: <number>       # Optional: override calculated area size (width for left/right, height for top/bottom)
+
+# Icon Configuration
+icon: <icon_string>            # Simple: 'mdi:lightbulb', 'si:github', 'entity'
+# OR advanced:
+icon:
+  icon: <icon_string>          # 'mdi:lightbulb', 'si:github', 'entity'
+  position: <position-name>    # Position WITHIN the icon area (e.g., 'top', 'center', 'bottom')
+  size: <number>               # Icon size in pixels (default: 24)
+  color: <color>               # Simple color OR {active, inactive, unavailable}
+  rotation: <number>           # Rotation angle in degrees
+  padding: <number>            # Uniform padding OR {top, right, bottom, left}
+  background:                  # Optional badge/indicator style
+    color: <color>             # Background color (can be state-based)
+    radius: <number>           # Border radius (e.g., 4, '50%' for circle)
+    padding: <number>          # Space between icon and background
+  show: <boolean>              # Explicitly show/hide icon
 
 # Multi-text label system
 text:
@@ -137,14 +158,62 @@ icon: 'si:github'                  # Simple Icons
 icon: 'entity'                     # Use entity's own icon
 ```
 
-**With positioning:**
+### Icon Area Placement
+
+Control where the icon's reserved space is with **horizontal or vertical dividers**:
+
+```yaml
+icon_area: left                    # Icon on left with vertical divider (default)
+icon_area: right                   # Icon on right with vertical divider
+icon_area: top                     # Icon on top with horizontal divider
+icon_area: bottom                  # Icon on bottom with horizontal divider
+icon_area: none                    # No reserved space, icon positioned absolutely
+```
+
+### Icon Positioning Within Area
+
+```yaml
+icon_area: left                    # Creates left icon area with vertical divider
+icon_area_size: 60                 # Optional: explicit area width (default: auto-calculated)
+icon:
+  icon: 'mdi:lightbulb'
+  position: center                 # Position WITHIN the left area
+  # position options: top, center, bottom, top-left, top-right, etc.
+  size: 24                         # pixels (default: 24)
+  color: 'black'                   # CSS color (can be state-based)
+  rotation: 45                     # Rotation angle in degrees
+  show: true                       # explicitly show/hide
+```
+
+### State-Based Icon Colors
+
 ```yaml
 icon:
   icon: 'mdi:lightbulb'
-  position: left                   # 'left' or 'right' (default: left)
-  size: 24                         # pixels (default: 24)
-  color: 'black'                   # CSS color
-  show: true                       # explicitly show/hide
+  color:
+    active: 'green'                # When entity is ON
+    inactive: 'red'                # When entity is OFF
+    unavailable: 'gray'            # When entity unavailable
+```
+
+### Icon Background (Badge Style)
+
+```yaml
+icon:
+  icon: 'mdi:alert'
+  color: 'white'
+  background:
+    color: 'red'                   # Can also be state-based
+    radius: 50%                    # Circle background
+    padding: 4                     # Space around icon
+```
+
+### Icon Rotation
+
+```yaml
+icon:
+  icon: 'mdi:refresh'
+  rotation: 90                     # Rotate 90 degrees clockwise
 ```
 
 **Auto-Icon Behavior:**
@@ -155,7 +224,9 @@ Presets like `lozenge` set `show_icon: true` by default. If you don't specify an
 type: custom:lcards-simple-button
 entity: light.kitchen
 preset: lozenge
-label: "Kitchen"
+text:
+  label:
+    content: "Kitchen"
 # No icon specified - automatically uses light.kitchen's icon
 ```
 
@@ -346,7 +417,9 @@ rules:
 ### Example 4: Service Call Button
 ```yaml
 type: custom:lcards-simple-button
-label: "All Lights Off"
+text:
+  label:
+    content: "All Lights Off"
 icon: 'mdi:lightbulb-off'
 
 style:
@@ -368,13 +441,55 @@ tap_action:
     area_id: all
 ```
 
+### Example 5: Icon Area Variations
+
+```yaml
+# Left icon area (default)
+type: custom:lcards-simple-button
+entity: light.living_room
+icon_area: left
+icon_area_size: 60
+icon:
+  icon: 'mdi:lightbulb'
+  position: top                    # Top of left area
+  rotation: 45
+  color:
+    active: 'yellow'
+    inactive: 'gray'
+text:
+  label:
+    content: "Living Room"
+    position: center
+
+---
+
+# Top icon area with horizontal divider
+type: custom:lcards-simple-button
+entity: climate.bedroom
+icon_area: top
+icon_area_size: 50
+icon:
+  icon: 'mdi:thermostat'
+  position: center                 # Center of top area
+  color:
+    active: 'orange'
+    inactive: 'blue'
+text:
+  label:
+    content: "Bedroom"
+    position: center               # Center of text area below divider
+  temp:
+    content: "72°F"
+    position: bottom-right
+```
+
 ---
 
 ## Presets
 
 Built-in style presets extend `button.base` theme:
 
-- **`lozenge`** - Fully rounded (50% radius all corners)
+- **`lozenge`** - Fully rounded (50% radius all corners), icon on left
 - **`lozenge-right`** - Lozenge with icon on right
 
 **Usage:**
@@ -382,6 +497,7 @@ Built-in style presets extend `button.base` theme:
 type: custom:lcards-simple-button
 preset: lozenge
 label: "Rounded"
+# Preset automatically sets: icon_area: left, icon.position: center, etc.
 ```
 
 **Override preset styles:**
@@ -389,6 +505,9 @@ label: "Rounded"
 type: custom:lcards-simple-button
 preset: lozenge
 label: "Custom Lozenge"
+icon_area_size: 80                 # Override icon area width
+icon:
+  rotation: 45                     # Add rotation
 style:
   border:
     color:
@@ -537,18 +656,34 @@ text:
 
 ### With Icons
 
-Text automatically accounts for icon space:
+Text automatically accounts for icon area space:
 
 ```yaml
+icon_area: left                    # Icon on left with vertical divider
+icon_area_size: 60                 # Optional: explicit area width
 icon:
-  show: true
   icon: mdi:lightbulb
-  position: left
+  position: center                 # Position within left area
 
 text:
   label:
     content: "Light"
-    position: center  # Centers in remaining space
+    position: center               # Centers in text area (right of divider)
+```
+
+**With top/bottom icon areas:**
+
+```yaml
+icon_area: top                     # Icon on top with horizontal divider
+icon_area_size: 50                 # Optional: explicit area height
+icon:
+  icon: mdi:lightbulb
+  position: left                   # Position within top area
+
+text:
+  label:
+    content: "Light"
+    position: center               # Centers in text area (below divider)
 ```
 
 ### Text Rotation

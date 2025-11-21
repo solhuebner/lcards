@@ -145,6 +145,7 @@ const LCARDS_BUTTONS_PACK = {
       lozenge: {
         extends: 'button.base',
         show_icon: true,  // Enable icons by default for lozenge buttons
+        icon_area: 'left', // Icon area on left with divider
         border: {
           width: 0,  // No border for lozenge (filled buttons)
           radius: {
@@ -155,6 +156,7 @@ const LCARDS_BUTTONS_PACK = {
           }
         },
         icon: {
+          position: 'center',  // Icon centered within left area
           border: {
             left: {
               padding: '0px'
@@ -168,6 +170,7 @@ const LCARDS_BUTTONS_PACK = {
 
       'lozenge-right': {
         extends: 'button.lozenge',
+        icon_area: 'right',  // Icon area on right
         text: {
           default: {
             position: 'left-center'  // Text on left when icon is on right

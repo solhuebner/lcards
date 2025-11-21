@@ -37,19 +37,77 @@ text:                            # Multi-text label system
     template: <boolean>          # Enable template processing (default: true)
 preset: <preset-name>            # Optional - style preset to apply first
 
-# Icon (HA-style)
+# Icon Area Configuration
+icon_area: left | right | top | bottom | none  # Where icon's reserved space is (default: left)
+icon_area_size: <number>         # Optional: override calculated area size (width for left/right, height for top/bottom)
+
+# Icon Configuration
 icon: <icon-string>              # Simple: 'mdi:lightbulb', 'si:github', 'entity', null
 # OR advanced:
 icon:
   icon: <icon-string>            # 'mdi:lightbulb', 'si:github', 'entity'
-  position: left | right         # Default: left
-  size: <number>                 # Pixels (default: 24)
-  color: <color>                 # CSS color (default: inherit)
-  show: <boolean>                # Explicitly show/hide icon (overrides show_icon)
 
-# Auto-Icon Behavior:
-# If show_icon: true (or preset sets it) but no icon specified, and entity exists,
-# automatically uses entity's icon attribute (equivalent to icon: 'entity')
+  # Position WITHIN the icon area (if icon_area is set)
+  # OR absolute position on button (if icon_area: none)
+  position: <position-name>      # Named position (see below)
+  x: <number>                    # Explicit x coordinate (within area or absolute)
+  y: <number>                    # Explicit y coordinate (within area or absolute)
+  x_percent: <number>            # Percentage x position (0-100, within area or absolute)
+  y_percent: <number>            # Percentage y position (0-100, within area or absolute)
+
+  # Sizing
+  size: <number>                 # Icon size in pixels (default: 24)
+
+  # State-based colors
+  color: <color>                 # Simple uniform color
+  # OR state-based:
+  color:
+    active: <color>
+    inactive: <color>
+    unavailable: <color>
+    default: <color>
+
+  # Background (optional badge/indicator style)
+  background:
+    color: <color>               # Simple uniform background
+    # OR state-based:
+    color:
+      active: <color>
+      inactive: <color>
+      unavailable: <color>
+      default: <color>
+    radius: <number|percent>     # Border radius (e.g., 4, '50%' for circle)
+    padding: <number>            # Space between icon and background edge
+
+  # Padding
+  padding: <number>              # Uniform padding
+  # OR per-side:
+  padding:
+    top: <number>
+    right: <number>
+    bottom: <number>
+    left: <number>
+
+  # Rotation
+  rotation: <number>             # Rotation angle in degrees (positive = clockwise)
+
+  # Visibility
+  show: <boolean>                # Explicitly show/hide icon (default: true from preset/config)
+
+# Icon Area Behavior:
+# - icon_area: left/right   → Creates vertical divider, icon positioned within left/right area
+# - icon_area: top/bottom   → Creates horizontal divider, icon positioned within top/bottom area
+# - icon_area: none         → No divider, icon positioned absolutely on button (like text fields)
+# - If icon_area is set, icon.position is relative to that area
+# - If icon_area: none, icon.position is absolute on the button
+
+# Position Names (for both text and icon):
+# - Corners: top-left, top-right, bottom-left, bottom-right
+# - Edge centers: top-center, bottom-center, left-center, right-center
+# - Synonyms: top (=top-center), bottom (=bottom-center), left (=left-center), right (=right-center)
+# - Center: center
+# - Default for icon within area: center
+# - Default for text: center
 
 # Style (CB-LCARS schema)
 style:
@@ -360,7 +418,39 @@ rules:
 
 ## Icon Syntax
 
-### HA-Style (Recommended)
+### Icon Area Configuration
+
+The button can reserve space for an icon with a divider separating it from the text area:
+
+```yaml
+# Icon area on left side (default)
+icon_area: left
+icon:
+  icon: 'mdi:lightbulb'
+
+# Icon area on right side
+icon_area: right
+icon:
+  icon: 'mdi:power'
+
+# Icon area on top
+icon_area: top
+icon:
+  icon: 'mdi:menu'
+
+# Icon area on bottom
+icon_area: bottom
+icon:
+  icon: 'mdi:check'
+
+# No icon area - icon positioned absolutely
+icon_area: none
+icon:
+  icon: 'mdi:star'
+  position: top-right
+```
+
+### Icon Specification
 
 **Simple Icons:**
 ```yaml
@@ -370,27 +460,116 @@ icon: 'entity'           # Use entity's icon attribute
 icon: null               # No icon
 ```
 
-**Advanced (with options):**
+**Advanced (with positioning and state-based styling):**
+```yaml
+icon_area: left          # Icon area on left
+icon:
+  icon: 'mdi:lightbulb'
+  position: center       # Centered within left area (default)
+  size: 24
+  color:
+    active: 'var(--lcars-orange)'
+    inactive: 'var(--lcars-gray)'
+    unavailable: 'var(--lcars-ui-red)'
+  padding: 8
+  rotation: 0
+  show: true
+```
+
+### Icon Positioning Within Area
+
+When `icon_area` is set, `icon.position` is relative to that area:
+
+```yaml
+icon_area: left
+icon:
+  icon: 'mdi:lightbulb'
+  position: top          # Top of left area
+
+icon_area: right
+icon:
+  icon: 'mdi:power'
+  position: bottom       # Bottom of right area
+
+icon_area: left
+icon:
+  icon: 'mdi:home'
+  x: 10                  # 10px from left edge of icon area
+  y: 20                  # 20px from top of icon area
+```
+
+### Icon Without Area (Absolute Positioning)
+
+When `icon_area: none`, icon is positioned absolutely on the button like text fields:
+
+```yaml
+icon_area: none
+icon:
+  icon: 'mdi:star'
+  position: top-right    # Absolute position on button
+  size: 16
+
+icon_area: none
+icon:
+  icon: 'mdi:alert'
+  x_percent: 90          # 90% from left of button
+  y_percent: 10          # 10% from top of button
+```
+
+**Icon with Background (badge style):**
+```yaml
+icon_area: none
+icon:
+  icon: 'mdi:alert'
+  position: top-right
+  size: 20
+  color: white
+  background:
+    color:
+      active: 'var(--lcars-ui-red)'
+      inactive: 'transparent'
+    radius: '50%'       # Circular background
+    padding: 6          # Space between icon and background edge
+  padding: 5            # Additional outer padding
+```
+
+**Rotated Icon:**
+```yaml
+icon_area: left
+icon:
+  icon: 'mdi:arrow-up'
+  position: center
+  rotation: 90          # Point right
+  color: black
+```
+
+### Icon State-Based Colors
+
+Icons support state-based colors that change based on entity state:
+
 ```yaml
 icon:
   icon: 'mdi:lightbulb'
-  position: left         # or 'right'
-  size: 24              # pixels
-  color: 'black'        # CSS color
-  show: true            # explicitly show/hide
+  color:
+    active: 'var(--lcars-orange)'      # When entity is ON
+    inactive: 'var(--lcars-gray)'      # When entity is OFF
+    unavailable: 'var(--lcars-ui-red)' # When unavailable
+    default: 'black'                   # Fallback color
 ```
 
-**Auto-Icon Behavior:**
+### Icon Background
 
-When using presets like `lozenge` that set `show_icon: true`, if you don't specify an icon and an entity is present, the entity's icon is automatically used:
+Add a background shape behind the icon for badge or indicator effects:
 
 ```yaml
-type: custom:lcards-simple-button
-entity: light.living_room
-preset: lozenge
-label: "Living Room"
-# Icon automatically uses light.living_room's icon attribute
-# No need to explicitly set icon: 'entity'
+icon:
+  icon: 'mdi:bell'
+  background:
+    color:
+      active: 'var(--lcars-ui-red)'
+      inactive: 'transparent'
+    radius: '50%'         # Circular (can also use pixel values like 4)
+    padding: 6            # Space between icon and background edge
 ```
 
 ---
@@ -489,11 +668,20 @@ The multi-text label system allows multiple text fields with flexible positionin
 
 ### Named Positions
 
-Nine pre-defined positions with automatic anchor/baseline:
+Named positions for both text fields and icons with automatic anchor/baseline:
 
 - **Corners:** `top-left`, `top-right`, `bottom-left`, `bottom-right`
-- **Edges:** `top-center`, `bottom-center`, `left-center`, `right-center`
+- **Edge Centers:** `top-center`, `bottom-center`, `left-center`, `right-center`
 - **Center:** `center`
+- **Synonyms (edge center shortcuts):**
+  - `top` → `top-center`
+  - `bottom` → `bottom-center`
+  - `left` → `left-center`
+  - `right` → `right-center`
+
+**Default positions:**
+- Icons: `left-center` (or just `left`)
+- Text fields: `center` (except preset fields like `name`, `state`)
 
 ### Basic Syntax
 
@@ -505,8 +693,15 @@ label: "Button Text"
 text:
   label:
     content: "Button Text"
-    position: center
+    position: center        # or 'top', 'left', 'bottom-right', etc.
 ```
+
+**Position Synonyms:**
+For convenience, edge positions have shortcuts:
+- `left` → `left-center`
+- `right` → `right-center`
+- `top` → `top-center`
+- `bottom` → `bottom-center`
 
 ### Multiple Fields
 
@@ -589,16 +784,16 @@ text:
 Text automatically accounts for icon space:
 
 ```yaml
+icon_area: left           # Icon reserves space on left with divider
+icon_area_size: 80        # Optional, auto-calculated if omitted
 icon:
-  show: true
   icon: mdi:lightbulb
-  position: left
-  area_width: 80  # Optional, auto-calculated if omitted
+  position: center        # Position within left icon area
 
 text:
   label:
     content: "With Icon"
-    position: center  # Centers in remaining space (excludes icon area)
+    position: center      # Centers in remaining text area (right of divider)
 ```
 
 ### Text Rotation
@@ -736,8 +931,36 @@ To implement this schema:
 ```yaml
 type: custom:lcards-simple-button
 entity: light.living_room
-label: "Living Room"
-icon: 'mdi:lightbulb'
+
+# Icon area on left with state-based colors
+icon_area: left
+icon:
+  icon: 'mdi:lightbulb'
+  position: center         # Centered within left area
+  size: 28
+  color:
+    active: 'var(--lcars-orange)'
+    inactive: 'var(--lcars-gray)'
+    unavailable: 'var(--lcars-ui-red)'
+  padding: 10
+
+# Multiple text fields in text area
+text:
+  title:
+    content: "Living Room"
+    position: top          # Top of text area
+    font_size: 14
+    font_weight: normal
+
+  label:
+    content: "Main Light"
+    position: center       # Center of text area
+    font_size: 18
+
+  status:
+    content: "{entity.attributes.brightness}%"
+    position: bottom-right # Bottom-right of text area
+    font_size: 12
 
 style:
   card:
@@ -778,6 +1001,10 @@ rules:
           color:
             background:
               active: 'var(--lcars-yellow)'
+      # Can also override icon color in rules
+      icon:
+        color:
+          active: 'var(--lcars-yellow)'
 ```
 
 ---

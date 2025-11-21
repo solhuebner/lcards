@@ -495,7 +495,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             // Flat format: icon: 'mdi:star' or icon: 'entity'
             iconName = this.config.icon;
         } else if (typeof this.config.icon === 'object' && this.config.icon?.icon) {
-            // Nested format: icon: { icon: 'mdi:star', position: 'right' }
+            // Nested format: icon: { icon: 'mdi:star', ... }
             iconName = this.config.icon.icon;
         }
         // If no icon specified but show_icon is true and we have an entity, default to 'entity'
@@ -503,22 +503,67 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             iconName = 'entity';
         }
 
-        // Determine icon position
-        // Priority: config.icon.position > resolvedStyle.icon.position > 'left' (default)
-        let position = 'left'; // default
-
-        // Check config first (highest priority)
-        if (typeof this.config.icon === 'object' && this.config.icon?.position) {
-            position = this.config.icon.position;
-        }
-        // Then check resolved style (includes preset)
-        else if (resolvedStyle.icon?.position && typeof resolvedStyle.icon.position === 'string') {
-            position = resolvedStyle.icon.position;
+        // Determine icon_area (where the icon's reserved space is)
+        // Priority: config.icon_area > resolvedStyle.icon_area > 'left' (default)
+        let iconArea = 'left'; // default
+        if (this.config.icon_area !== undefined) {
+            iconArea = this.config.icon_area;
+        } else if (resolvedStyle.icon_area !== undefined) {
+            iconArea = resolvedStyle.icon_area;
         }
 
-        // Ensure position is valid
-        if (position !== 'left' && position !== 'right') {
-            position = 'left';
+        // Validate icon_area
+        const validAreas = ['left', 'right', 'top', 'bottom', 'none'];
+        if (!validAreas.includes(iconArea)) {
+            lcardsLog.warn(`[LCARdSSimpleButtonCard] Invalid icon_area: ${iconArea}, defaulting to 'left'`);
+            iconArea = 'left';
+        }
+
+        // Determine icon position WITHIN the icon area (or absolute if icon_area is 'none')
+        // Priority: explicit x/y > explicit x_percent/y_percent > config.icon.position > resolvedStyle.icon.position > 'center' (default)
+        let iconPosition = 'center'; // default - centered within area
+        let explicitX = null, explicitY = null;
+        let explicitXPercent = null, explicitYPercent = null;
+
+        // Check for explicit coordinates first (highest priority)
+        if (typeof this.config.icon === 'object') {
+            if (this.config.icon.x !== undefined && this.config.icon.y !== undefined) {
+                explicitX = this.config.icon.x;
+                explicitY = this.config.icon.y;
+            } else if (this.config.icon.x_percent !== undefined && this.config.icon.y_percent !== undefined) {
+                explicitXPercent = this.config.icon.x_percent;
+                explicitYPercent = this.config.icon.y_percent;
+            } else if (this.config.icon.position) {
+                iconPosition = this.config.icon.position;
+            }
+        }
+
+        // Check resolved style (includes preset) if no explicit positioning
+        if (!explicitX && !explicitXPercent && iconPosition === 'center' && resolvedStyle.icon?.position) {
+            iconPosition = resolvedStyle.icon.position;
+        }
+
+        // Normalize position names (e.g., 'left' -> 'left-center', 'top' -> 'top-center')
+        if (!explicitX && !explicitXPercent) {
+            iconPosition = this._normalizePositionName(iconPosition);
+        }
+
+        // Resolve icon padding (same as text fields)
+        // Priority: config > preset > 8 (default)
+        let iconPadding = 8; // default
+        if (typeof this.config.icon === 'object' && this.config.icon?.padding !== undefined) {
+            iconPadding = this.config.icon.padding;
+        } else if (resolvedStyle.icon?.padding !== undefined) {
+            iconPadding = resolvedStyle.icon.padding;
+        }
+
+        // Resolve icon rotation (same as text fields)
+        // Priority: config > preset > 0 (default)
+        let iconRotation = 0; // default
+        if (typeof this.config.icon === 'object' && this.config.icon?.rotation !== undefined) {
+            iconRotation = this.config.icon.rotation;
+        } else if (resolvedStyle.icon?.rotation !== undefined) {
+            iconRotation = resolvedStyle.icon.rotation;
         }
 
         // Store processed icon configuration
@@ -668,13 +713,21 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 iconSpacing = 8; // hardcoded fallback
             }
 
-            // Resolve icon area width (horizontal space allocated)
-            // Priority: config > preset > auto-calculated from size
-            let iconAreaWidth;
-            if (typeof this.config.icon === 'object' && this.config.icon?.area_width) {
-                iconAreaWidth = this.config.icon.area_width;
-            } else if (resolvedStyle.icon?.area_width && typeof resolvedStyle.icon.area_width === 'number') {
-                iconAreaWidth = resolvedStyle.icon.area_width;
+            // Resolve icon area size (width for left/right, height for top/bottom)
+            // Priority: config.icon_area_size > config.icon.area_size > preset.icon_area_size > preset.icon.area_size > auto-calculated from size
+            let iconAreaSize;
+            if (this.config.icon_area_size !== undefined) {
+                // Top-level icon_area_size (matches icon_area schema)
+                iconAreaSize = this.config.icon_area_size;
+            } else if (typeof this.config.icon === 'object' && this.config.icon?.area_size) {
+                // Nested icon.area_size (alternate format)
+                iconAreaSize = this.config.icon.area_size;
+            } else if (resolvedStyle.icon_area_size !== undefined) {
+                // Preset top-level icon_area_size
+                iconAreaSize = resolvedStyle.icon_area_size;
+            } else if (resolvedStyle.icon?.area_size && typeof resolvedStyle.icon.area_size === 'number') {
+                // Preset nested icon.area_size
+                iconAreaSize = resolvedStyle.icon.area_size;
             }
             // If not specified, will be auto-calculated in _generateIconMarkup based on size + spacing + divider
 
@@ -716,21 +769,79 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 dividerColor = 'black'; // hardcoded fallback
             }
 
+            // Resolve icon background (optional badge/indicator style)
+            // Priority: config > preset > null (no background by default)
+            let iconBackground = null;
+            const configBg = typeof this.config.icon === 'object' ? this.config.icon.background : null;
+            const presetBg = resolvedStyle.icon?.background;
+
+            if (configBg || presetBg) {
+                const bgSource = configBg || presetBg;
+                iconBackground = {};
+
+                // Background color (state-based)
+                if (bgSource.color) {
+                    if (typeof bgSource.color === 'object') {
+                        iconBackground.color = bgSource.color[buttonState] ||
+                                             bgSource.color.default ||
+                                             bgSource.color.active ||
+                                             'transparent';
+                    } else {
+                        iconBackground.color = bgSource.color;
+                    }
+                } else {
+                    iconBackground.color = 'transparent';
+                }
+
+                // Background radius
+                if (bgSource.radius !== undefined) {
+                    iconBackground.radius = bgSource.radius;
+                } else {
+                    iconBackground.radius = 4; // default square with slight rounding
+                }
+
+                // Background padding (space between icon and background edge)
+                if (bgSource.padding !== undefined) {
+                    iconBackground.padding = bgSource.padding;
+                } else {
+                    iconBackground.padding = 4; // default
+                }
+            }
+
             this._processedIcon = {
                 type: parsedIcon.type,
                 icon: parsedIcon.icon,
-                position: position,  // Computed position from config > preset > 'left' default
+
+                // Icon area configuration (where reserved space is)
+                area: iconArea,      // 'left', 'right', 'top', 'bottom', or 'none'
+
+                // Position WITHIN the icon area (or absolute if area is 'none')
+                position: iconPosition,  // Named position (normalized)
+                x: explicitX,            // Explicit x coordinate
+                y: explicitY,            // Explicit y coordinate
+                x_percent: explicitXPercent,  // Percentage x position
+                y_percent: explicitYPercent,  // Percentage y position
+                padding: iconPadding,         // Padding around icon
+                rotation: iconRotation,       // Rotation angle in degrees
+
+                // Visual properties
                 size: iconSize,      // Visual icon size
                 spacing: iconSpacing, // Space around icon (affects clamping and area calculation)
-                areaWidth: iconAreaWidth, // Horizontal space allocated (optional, auto-calculated if not set)
-                color: iconColor,
+                areaSize: iconAreaSize, // Area size (width for left/right, height for top/bottom) - optional, auto-calculated if not set
+                color: iconColor,    // State-resolved color
+
+                // Background (badge style)
+                background: iconBackground,  // { color, radius, padding } or null
+
+                // Divider (legacy feature)
                 divider: {           // Renamed from "interior" for clarity
                     width: dividerWidth,
                     color: dividerColor
                 },
+
+                // Display control
                 show: show_icon,
-                // Support icon-only mode (hides text)
-                iconOnly: iconOnlyMode
+                iconOnly: iconOnlyMode  // Support icon-only mode (hides text)
             };
         } else {
             this._processedIcon = null;
@@ -946,6 +1057,267 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      * @returns {string} SVG markup string
      * @private
      */
+    /**
+     * Generate icon markup using flexible positioning system (like text fields)
+     * Supports explicit coordinates, percentages, named positions, padding, rotation, and backgrounds
+     *
+     * @param {Object} iconConfig - Processed icon configuration
+     * @param {number} buttonWidth - Button width
+     * @param {number} buttonHeight - Button height
+     * @returns {Object} { markup: string, widthUsed: 0 } - Icon markup and width (always 0 for flexible positioning)
+     * @private
+     */
+    _generateFlexibleIconMarkup(iconConfig, buttonWidth, buttonHeight) {
+        if (!iconConfig) return { markup: '', widthUsed: 0 };
+
+        const iconSize = iconConfig.size || 24;
+        const iconColor = iconConfig.color || 'currentColor';
+        const padding = iconConfig.padding || 0;
+        const rotation = iconConfig.rotation || 0;
+        const background = iconConfig.background; // { color, radius, padding } or null
+
+        // Calculate icon position
+        let iconX, iconY;
+
+        // Priority 1: Explicit coordinates
+        if (iconConfig.x !== null && iconConfig.y !== null) {
+            iconX = iconConfig.x;
+            iconY = iconConfig.y;
+        }
+        // Priority 2: Percentage coordinates
+        else if (iconConfig.x_percent !== null && iconConfig.y_percent !== null) {
+            iconX = (buttonWidth * iconConfig.x_percent) / 100;
+            iconY = (buttonHeight * iconConfig.y_percent) / 100;
+        }
+        // Priority 3: Named position
+        else {
+            // Use text positioning system (icons positioned like text)
+            const textAreaBounds = {
+                left: 0,
+                width: buttonWidth,
+                height: buttonHeight
+            };
+            const position = this._calculateNamedPosition(iconConfig.position, textAreaBounds, padding);
+
+            // Icons are centered on their position point (unlike text which uses anchor/baseline)
+            // So we offset by half the icon size
+            iconX = position.x - (iconSize / 2);
+            iconY = position.y - (iconSize / 2);
+        }
+
+        // Generate icon name string
+        const iconName = iconConfig.type === 'entity'
+            ? (this._entity?.attributes?.icon || 'mdi:help-circle')
+            : `${iconConfig.type}:${iconConfig.icon}`;
+
+        // Generate background if configured
+        let backgroundMarkup = '';
+        if (background && background.color && background.color !== 'transparent') {
+            const bgPadding = background.padding || 4;
+            const bgSize = iconSize + (bgPadding * 2);
+            const bgX = iconX - bgPadding;
+            const bgY = iconY - bgPadding;
+            const bgRadius = background.radius || 4;
+
+            // Convert percentage radius to pixels (for circular backgrounds like '50%')
+            const radiusValue = typeof bgRadius === 'string' && bgRadius.endsWith('%')
+                ? (bgSize * parseFloat(bgRadius)) / 100
+                : bgRadius;
+
+            backgroundMarkup = `
+                <rect x="${bgX}" y="${bgY}"
+                      width="${bgSize}" height="${bgSize}"
+                      rx="${radiusValue}" ry="${radiusValue}"
+                      fill="${background.color}"
+                      class="icon-background" />
+            `;
+        }
+
+        // Generate icon element
+        const iconElement = `
+            <foreignObject x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}">
+                <ha-icon xmlns="http://www.w3.org/1999/xhtml"
+                         icon="${iconName}"
+                         style="width: ${iconSize}px; height: ${iconSize}px; --mdc-icon-size: ${iconSize}px; color: ${iconColor}; display: flex; align-items: center; justify-content: center;"></ha-icon>
+            </foreignObject>
+        `;
+
+        // Apply rotation if specified
+        const rotationTransform = rotation !== 0
+            ? `transform="rotate(${rotation} ${iconX + iconSize / 2} ${iconY + iconSize / 2})"`
+            : '';
+
+        const markup = `
+            <g class="icon-group flexible-position"
+               data-position="${iconConfig.position || 'custom'}"
+               ${rotationTransform}>
+                ${backgroundMarkup}
+                ${iconElement}
+            </g>
+        `.trim();
+
+        // Flexible icons don't consume text area width
+        return { markup, widthUsed: 0 };
+    }
+
+    /**
+     * Generate icon markup for area-based positioning (left/right with divider)
+     * Creates reserved space with divider, positions icon within that area using icon.position
+     *
+     * @param {Object} iconConfig - Processed icon configuration
+     * @param {number} buttonWidth - Button width
+     * @param {number} buttonHeight - Button height
+     * @returns {Object} { markup: string, widthUsed: number } - Icon markup and horizontal space used
+     * @private
+     */
+    _generateAreaBasedIconMarkup(iconConfig, buttonWidth, buttonHeight) {
+        const iconArea = iconConfig.area || 'left';
+
+        // Route to appropriate implementation based on area orientation
+        if (iconArea === 'top' || iconArea === 'bottom') {
+            // Top/bottom areas use horizontal divider
+            return this._generateIconMarkupTopBottom(iconConfig, buttonWidth, buttonHeight, iconArea);
+        } else {
+            // Left/right areas use vertical divider (existing implementation)
+            const legacyPosition = iconArea === 'right' ? 'right' : 'left';
+            return this._generateIconMarkup(iconConfig, buttonWidth, buttonHeight, legacyPosition);
+        }
+    }
+
+    /**
+     * Generate icon markup for top/bottom area-based positioning with horizontal divider
+     * @private
+     */
+    _generateIconMarkupTopBottom(iconConfig, buttonWidth, buttonHeight, area) {
+        if (!iconConfig) return { markup: '', widthUsed: 0 };
+
+        const requestedSize = iconConfig.size || 24; // Visual icon size
+        const spacing = iconConfig.spacing ?? 8; // Space around icon
+
+        // Divider settings from iconConfig (already resolved with priority chain)
+        const dividerWidth = iconConfig.divider?.width ?? 6;
+        const dividerColor = iconConfig.divider?.color ?? 'black';
+
+        // Get padding values (defaults to 0)
+        const paddingLeft = iconConfig.padding_left || 0;
+        const paddingRight = iconConfig.padding_right || 0;
+        const paddingTop = iconConfig.padding_top || 0;
+        const paddingBottom = iconConfig.padding_bottom || 0;
+
+        // Get button border/stroke width from button style
+        const buttonBorder = this._buttonStyle?.border || this._buttonStyle?.card?.border || {};
+        const strokeWidth = buttonBorder.width !== undefined ? parseInt(buttonBorder.width) : 2;
+
+        const availableHeight = buttonHeight - (strokeWidth * 2);
+        const availableWidth = buttonWidth - (strokeWidth * 2);
+
+        // Get icon position within area (e.g., 'left', 'center', 'right', 'top-left', etc.)
+        const iconPosition = iconConfig.position || 'center';
+
+        // Calculate icon area total height
+        let iconAreaHeight;
+        if (iconConfig.areaSize) {
+            // Use explicit area size (height for top/bottom areas)
+            iconAreaHeight = iconConfig.areaSize;
+        } else {
+            // Auto-calculate area height using fixed layout spacing (8px)
+            const layoutSpacing = 8;
+            iconAreaHeight = requestedSize + layoutSpacing * 2 + dividerWidth;
+        }
+
+        // Constrain icon to fit within button WIDTH (with configurable spacing)
+        const maxIconWidth = availableWidth - (spacing * 2);
+        const actualIconSize = Math.min(requestedSize, maxIconWidth);
+
+        // Calculate icon area content height (excluding the divider)
+        const iconAreaContentHeight = iconAreaHeight - dividerWidth;
+
+        // Determine horizontal position within button
+        let iconX;
+        if (iconPosition.includes('left')) {
+            // Align to left edge
+            iconX = strokeWidth + spacing + paddingLeft;
+        } else if (iconPosition.includes('right')) {
+            // Align to right edge
+            iconX = strokeWidth + availableWidth - actualIconSize - spacing - paddingRight;
+        } else {
+            // Center horizontally
+            iconX = strokeWidth + (availableWidth - actualIconSize) / 2 + paddingLeft - paddingRight;
+        }
+
+        // Determine vertical position within icon area
+        let iconYOffset;
+        if (iconPosition.includes('top')) {
+            // Align to top of icon area
+            iconYOffset = spacing + paddingTop;
+        } else if (iconPosition.includes('bottom')) {
+            // Align to bottom of icon area
+            iconYOffset = iconAreaContentHeight - actualIconSize - spacing - paddingBottom;
+        } else {
+            // Center vertically within icon area
+            iconYOffset = (iconAreaContentHeight - actualIconSize) / 2 + paddingTop - paddingBottom;
+        }
+
+        // Position icon vertically based on area placement
+        let iconY, dividerY;
+        if (area === 'top') {
+            iconY = strokeWidth + iconYOffset;
+            dividerY = strokeWidth + iconAreaContentHeight;
+        } else { // bottom
+            iconY = strokeWidth + availableHeight - iconAreaHeight + dividerWidth + iconYOffset;
+            dividerY = strokeWidth + availableHeight - iconAreaHeight;
+        }
+
+        // Horizontal divider positioning
+        const strokeInset = strokeWidth / 2;
+        const dividerX = strokeInset;
+        const dividerLength = buttonWidth - (strokeInset * 2);
+
+        // Determine icon type and rendering
+        let iconElement = '';
+        if (iconConfig.type === 'entity' || iconConfig.type === 'mdi' || iconConfig.type === 'si') {
+            const iconName = iconConfig.type === 'entity'
+                ? (this._entity?.attributes?.icon || 'mdi:help-circle')
+                : `${iconConfig.type}:${iconConfig.icon}`;
+
+            // Calculate rotation transform if needed
+            const rotation = iconConfig.rotation || 0;
+            const rotationTransform = rotation !== 0
+                ? `transform: rotate(${rotation}deg);`
+                : '';
+
+            iconElement = `
+                <foreignObject x="${iconX}" y="${iconY}" width="${actualIconSize}" height="${actualIconSize}">
+                    <ha-icon xmlns="http://www.w3.org/1999/xhtml"
+                             icon="${iconName}"
+                             style="width: ${actualIconSize}px; height: ${actualIconSize}px; --mdc-icon-size: ${actualIconSize}px; color: ${iconConfig.color || 'currentColor'}; display: flex; align-items: center; justify-content: center; ${rotationTransform}"></ha-icon>
+                </foreignObject>`;
+        }
+
+        const markup = `
+            <g class="icon-group" data-position="${area}">
+                <!-- Horizontal divider line between icon and text -->
+                <rect
+                    class="icon-divider"
+                    x="${dividerX}"
+                    y="${dividerY}"
+                    width="${dividerLength}"
+                    height="${dividerWidth}"
+                    style="fill: ${dividerColor};"
+                />
+                ${iconElement}
+            </g>
+        `.trim();
+
+        // Return height used instead of width for top/bottom
+        return { markup, widthUsed: 0, heightUsed: iconAreaHeight };
+    }
+
+    /**
+     * LEGACY: Generate icon markup for left/right area-based positioning
+     * @deprecated - Will be replaced by _generateAreaBasedIconMarkup with proper icon.position support
+     * @private
+     */
     _generateIconMarkup(iconConfig, buttonWidth, buttonHeight, position) {
         if (!iconConfig) return { markup: '', widthUsed: 0 };
 
@@ -1007,11 +1379,17 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                     });
                 }
 
+                // Calculate rotation transform if needed
+                const rotation = iconConfig.rotation || 0;
+                const rotationTransform = rotation !== 0
+                    ? `transform: rotate(${rotation}deg);`
+                    : '';
+
                 iconElement = `
                     <foreignObject x="${iconX}" y="${iconY}" width="${actualIconSize}" height="${actualIconSize}">
                         <ha-icon xmlns="http://www.w3.org/1999/xhtml"
                                  icon="${iconName}"
-                                 style="width: ${actualIconSize}px; height: ${actualIconSize}px; --mdc-icon-size: ${actualIconSize}px; color: ${iconConfig.color || 'currentColor'}; display: flex; align-items: center; justify-content: center;"></ha-icon>
+                                 style="width: ${actualIconSize}px; height: ${actualIconSize}px; --mdc-icon-size: ${actualIconSize}px; color: ${iconConfig.color || 'currentColor'}; display: flex; align-items: center; justify-content: center; ${rotationTransform}"></ha-icon>
                     </foreignObject>`;
             }
 
@@ -1024,13 +1402,16 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             return { markup, widthUsed: iconAreaWidth };
 
         } else {
-            // Normal mode: position icon left/right with divider
+            // Normal mode: position icon within its area with divider
+
+            // Get icon position within area (e.g., 'top', 'center', 'bottom', 'top-left', etc.)
+            const iconPosition = iconConfig.position || 'center';
 
             // Calculate icon area total width
-            // Option 1: Use explicit area_width from config if provided
+            // Option 1: Use explicit area_size from config if provided
             // Option 2: Auto-calculate based on requested icon size and divider
-            if (iconConfig.areaWidth) {
-                iconAreaWidth = iconConfig.areaWidth;
+            if (iconConfig.areaSize) {
+                iconAreaWidth = iconConfig.areaSize;
             } else {
                 // Auto-calculate area width using fixed layout spacing (8px)
                 // This provides consistent horizontal layout regardless of vertical spacing setting
@@ -1047,16 +1428,35 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             // Calculate icon area content width (excluding the divider)
             const iconAreaContentWidth = iconAreaWidth - dividerWidth;
 
-            // Center icon horizontally within its content area, then apply padding
-            const iconXOffset = (iconAreaContentWidth - actualIconSize) / 2 + paddingLeft - paddingRight;
+            // Determine horizontal position within icon area
+            let iconXOffset;
+            if (iconPosition.includes('left')) {
+                // Align to left edge of icon area
+                iconXOffset = spacing + paddingLeft;
+            } else if (iconPosition.includes('right')) {
+                // Align to right edge of icon area
+                iconXOffset = iconAreaContentWidth - actualIconSize - spacing - paddingRight;
+            } else {
+                // Center horizontally within icon area
+                iconXOffset = (iconAreaContentWidth - actualIconSize) / 2 + paddingLeft - paddingRight;
+            }
+
+            // Determine vertical position within button
+            if (iconPosition.includes('top')) {
+                // Align to top of button
+                iconY = strokeWidth + spacing + paddingTop;
+            } else if (iconPosition.includes('bottom')) {
+                // Align to bottom of button
+                iconY = strokeWidth + availableHeight - actualIconSize - spacing - paddingBottom;
+            } else {
+                // Center vertically within button
+                iconY = strokeWidth + (availableHeight - actualIconSize) / 2 + paddingTop - paddingBottom;
+            }
 
             // Position icon horizontally (from button interior edge)
             iconX = position === 'left'
                 ? strokeWidth + iconXOffset
                 : availableWidth + strokeWidth - iconAreaWidth + dividerWidth + iconXOffset;
-
-            // Center icon vertically within button bounds, then apply padding
-            iconY = strokeWidth + (availableHeight - actualIconSize) / 2 + paddingTop - paddingBottom;
 
             // Smart divider height logic:
             // - If button has visible border (strokeWidth > 1), divider is "interior" (respects stroke)
@@ -1092,11 +1492,18 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                     });
                 }
 
+                // Calculate rotation transform if needed
+                // Rotation is around the center of the icon
+                const rotation = iconConfig.rotation || 0;
+                const rotationTransform = rotation !== 0
+                    ? `transform: rotate(${rotation}deg);`
+                    : '';
+
                 iconElement = `
                     <foreignObject x="${iconX}" y="${iconY}" width="${actualIconSize}" height="${actualIconSize}">
                         <ha-icon xmlns="http://www.w3.org/1999/xhtml"
                                  icon="${iconName}"
-                                 style="width: ${actualIconSize}px; height: ${actualIconSize}px; --mdc-icon-size: ${actualIconSize}px; color: ${iconConfig.color || 'currentColor'}; display: flex; align-items: center; justify-content: center;"></ha-icon>
+                                 style="width: ${actualIconSize}px; height: ${actualIconSize}px; --mdc-icon-size: ${actualIconSize}px; color: ${iconConfig.color || 'currentColor'}; display: flex; align-items: center; justify-content: center; ${rotationTransform}"></ha-icon>
                     </foreignObject>`;
             }
 
@@ -1168,14 +1575,35 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         border.radius = Math.min(border.radius, maxRadius);
 
         // Generate icon markup if present
-        const iconPosition = this._processedIcon?.position || 'left';
-        const iconData = this._generateIconMarkup(this._processedIcon, width, height, iconPosition);
+        const iconArea = this._processedIcon?.area || 'left';
+        const iconPosition = this._processedIcon?.position || 'center';
 
-        // Calculate text position accounting for icon
+        // Determine rendering mode based on icon_area
+        // area: 'none' → Flexible positioning (icon positioned like text)
+        // area: left/right → Area-based with vertical divider
+        // area: top/bottom → Area-based with horizontal divider (future)
+        const usesIconArea = iconArea !== 'none';
+
+        // Check if icon uses explicit coordinates (always flexible)
+        const hasExplicitCoords = this._processedIcon && (
+            this._processedIcon.x !== null ||
+            this._processedIcon.x_percent !== null
+        );
+
+        let iconData;
+        if (!usesIconArea || hasExplicitCoords) {
+            // Flexible positioning: icon_area is 'none' or explicit coordinates
+            iconData = this._generateFlexibleIconMarkup(this._processedIcon, width, height);
+        } else {
+            // Area-based positioning: icon_area is left/right/top/bottom
+            iconData = this._generateAreaBasedIconMarkup(this._processedIcon, width, height);
+        }
+
+        // Calculate text position accounting for icon area
         let textX = width / 2;
-        if (iconData.widthUsed > 0) {
+        if (usesIconArea && iconData.widthUsed > 0) {
             const textAreaWidth = width - iconData.widthUsed;
-            const textAreaStart = iconPosition === 'left' ? iconData.widthUsed : 0;
+            const textAreaStart = iconArea === 'left' ? iconData.widthUsed : 0;
             textX = textAreaStart + (textAreaWidth / 2);
         }
 
@@ -1557,42 +1985,99 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             };
         }
 
-        // Calculate icon area width using same logic as _generateIconMarkup
+        // Get icon area placement (left/right/top/bottom/none)
+        const iconArea = iconConfig.area || 'left';
+
+        // If icon_area is 'none', icon doesn't reserve space
+        if (iconArea === 'none') {
+            return {
+                left: 0,
+                width: buttonWidth,
+                height: buttonHeight
+            };
+        }
+
+        // Calculate icon area size (width for left/right, height for top/bottom)
         const dividerWidth = iconConfig.divider?.width || 6;
-        let iconAreaWidth;
-        if (iconConfig.areaWidth) {
-            iconAreaWidth = iconConfig.areaWidth;
+        let iconAreaSize;
+        if (iconConfig.areaSize) {
+            iconAreaSize = iconConfig.areaSize;
         } else {
             // Auto-calculate: icon size + spacing + divider
             const iconSize = iconConfig.size || 24;
-            const layoutSpacing = 8; // Fixed horizontal spacing
-            iconAreaWidth = iconSize + layoutSpacing * 2 + dividerWidth;
+            const layoutSpacing = 8; // Fixed spacing
+            iconAreaSize = iconSize + layoutSpacing * 2 + dividerWidth;
         }
 
-        const iconPosition = iconConfig.position || 'left';
-
-        if (iconPosition === 'left') {
+        // For left/right areas, adjust horizontal bounds
+        if (iconArea === 'left') {
             // Icon on left: text area is right side excluding icon and divider
             return {
-                left: iconAreaWidth + dividerWidth,
-                width: buttonWidth - iconAreaWidth - dividerWidth,
+                left: iconAreaSize + dividerWidth,
+                top: 0,
+                width: buttonWidth - iconAreaSize - dividerWidth,
                 height: buttonHeight
             };
-        } else if (iconPosition === 'right') {
+        } else if (iconArea === 'right') {
             // Icon on right: text area is left side excluding icon and divider
             return {
                 left: 0,
-                width: buttonWidth - iconAreaWidth - dividerWidth,
+                top: 0,
+                width: buttonWidth - iconAreaSize - dividerWidth,
                 height: buttonHeight
+            };
+        } else if (iconArea === 'top') {
+            // Icon on top: text area is bottom excluding icon and divider
+            return {
+                left: 0,
+                top: iconAreaSize + dividerWidth,
+                width: buttonWidth,
+                height: buttonHeight - iconAreaSize - dividerWidth
+            };
+        } else if (iconArea === 'bottom') {
+            // Icon on bottom: text area is top excluding icon and divider
+            return {
+                left: 0,
+                top: 0,
+                width: buttonWidth,
+                height: buttonHeight - iconAreaSize - dividerWidth
             };
         }
 
-        // Center icon (future) - for now treat as full width
+        // Fallback: full width
         return {
             left: 0,
+            top: 0,
             width: buttonWidth,
             height: buttonHeight
         };
+    }
+
+    /**
+     * Normalize position name to handle synonyms
+     * Maps edge shortcuts to full centered positions:
+     * - 'left' → 'left-center'
+     * - 'right' → 'right-center'
+     * - 'top' → 'top-center'
+     * - 'bottom' → 'bottom-center'
+     *
+     * @param {string} position - Position name (e.g., 'left', 'top-left', 'center')
+     * @returns {string} Normalized position name
+     * @private
+     */
+    _normalizePositionName(position) {
+        if (!position || typeof position !== 'string') {
+            return position;
+        }
+
+        const synonyms = {
+            'left': 'left-center',
+            'right': 'right-center',
+            'top': 'top-center',
+            'bottom': 'bottom-center'
+        };
+
+        return synonyms[position] || position;
     }
 
     /**
@@ -1600,6 +2085,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      * @private
      */
     _calculateNamedPosition(position, textAreaBounds, padding) {
+        // Normalize position name (handle synonyms like 'left' → 'left-center')
+        position = this._normalizePositionName(position);
+
         // Parse padding (support simple number or directional object)
         const parsePadding = (p) => {
             if (typeof p === 'number') {
@@ -1614,61 +2102,61 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         };
 
         const pad = parsePadding(padding);
-        const { left, width, height } = textAreaBounds;
+        const { left, top = 0, width, height } = textAreaBounds;
 
-        // Calculate positions relative to text area
+        // Calculate positions relative to text area (with vertical offset for top/bottom icon areas)
         const positions = {
             'center': {
                 x: left + (width / 2),
-                y: height / 2,
+                y: top + (height / 2),
                 anchor: 'middle',
                 baseline: 'central'
             },
             'top-left': {
                 x: left + pad.left,
-                y: pad.top,
+                y: top + pad.top,
                 anchor: 'start',
                 baseline: 'hanging'
             },
             'top-right': {
                 x: left + width - pad.right,
-                y: pad.top,
+                y: top + pad.top,
                 anchor: 'end',
                 baseline: 'hanging'
             },
             'top-center': {
                 x: left + (width / 2),
-                y: pad.top,
+                y: top + pad.top,
                 anchor: 'middle',
                 baseline: 'hanging'
             },
             'bottom-left': {
                 x: left + pad.left,
-                y: height - pad.bottom,
+                y: top + height - pad.bottom,
                 anchor: 'start',
                 baseline: 'alphabetic'
             },
             'bottom-right': {
                 x: left + width - pad.right,
-                y: height - pad.bottom,
+                y: top + height - pad.bottom,
                 anchor: 'end',
                 baseline: 'alphabetic'
             },
             'bottom-center': {
                 x: left + (width / 2),
-                y: height - pad.bottom,
+                y: top + height - pad.bottom,
                 anchor: 'middle',
                 baseline: 'alphabetic'
             },
             'left-center': {
                 x: left + pad.left,
-                y: height / 2,
+                y: top + (height / 2),
                 anchor: 'start',
                 baseline: 'central'
             },
             'right-center': {
                 x: left + width - pad.right,
-                y: height / 2,
+                y: top + (height / 2),
                 anchor: 'end',
                 baseline: 'central'
             }
@@ -1723,8 +2211,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             }
             // Priority 2: Relative percentages (Phase 2 feature, placeholder for now)
             else if (field.x_percent !== null && field.y_percent !== null) {
+                const top = textAreaBounds.top || 0;
                 x = textAreaBounds.left + (textAreaBounds.width * field.x_percent / 100);
-                y = textAreaBounds.height * field.y_percent / 100;
+                y = top + (textAreaBounds.height * field.y_percent / 100);
                 anchor = field.anchor;
                 baseline = field.baseline;
             }
@@ -1739,8 +2228,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             }
             // Priority 4: Default center position
             else {
+                const top = textAreaBounds.top || 0;
                 x = textAreaBounds.left + (textAreaBounds.width / 2);
-                y = buttonHeight / 2;
+                y = top + (textAreaBounds.height / 2);
                 anchor = 'middle';
                 baseline = 'central';
             }
