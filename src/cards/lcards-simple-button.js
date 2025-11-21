@@ -553,9 +553,40 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Priority: config > preset > 8 (default)
         let iconPadding = 8; // default
         if (typeof this.config.icon === 'object' && this.config.icon?.padding !== undefined) {
-            iconPadding = this.config.icon.padding;
+            // Check if padding is a number (simple padding) or object (directional padding)
+            if (typeof this.config.icon.padding === 'number') {
+                iconPadding = this.config.icon.padding;
+            }
+            // If it's an object, iconPadding stays at default; directional values extracted below
         } else if (resolvedStyle.icon?.padding !== undefined) {
-            iconPadding = resolvedStyle.icon.padding;
+            if (typeof resolvedStyle.icon.padding === 'number') {
+                iconPadding = resolvedStyle.icon.padding;
+            }
+        }
+
+        // Resolve directional icon padding (for area-based positioning)
+        // Priority: config > preset > 0 (default)
+        let iconPaddingLeft = 0;
+        let iconPaddingRight = 0;
+        let iconPaddingTop = 0;
+        let iconPaddingBottom = 0;
+
+        // Extract from config first
+        if (typeof this.config.icon === 'object' && this.config.icon?.padding) {
+            const configPadding = this.config.icon.padding;
+            if (typeof configPadding === 'object') {
+                iconPaddingLeft = configPadding.left ?? 0;
+                iconPaddingRight = configPadding.right ?? 0;
+                iconPaddingTop = configPadding.top ?? 0;
+                iconPaddingBottom = configPadding.bottom ?? 0;
+            }
+        }
+        // Fall back to preset if not in config
+        else if (resolvedStyle.icon?.padding && typeof resolvedStyle.icon.padding === 'object') {
+            iconPaddingLeft = resolvedStyle.icon.padding.left ?? 0;
+            iconPaddingRight = resolvedStyle.icon.padding.right ?? 0;
+            iconPaddingTop = resolvedStyle.icon.padding.top ?? 0;
+            iconPaddingBottom = resolvedStyle.icon.padding.bottom ?? 0;
         }
 
         // Resolve icon rotation (same as text fields)
@@ -822,7 +853,11 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 y: explicitY,            // Explicit y coordinate
                 x_percent: explicitXPercent,  // Percentage x position
                 y_percent: explicitYPercent,  // Percentage y position
-                padding: iconPadding,         // Padding around icon
+                padding: iconPadding,         // Padding around icon (for centered/named positions)
+                padding_left: iconPaddingLeft,     // Directional padding (for area-based positioning)
+                padding_right: iconPaddingRight,   // Directional padding
+                padding_top: iconPaddingTop,       // Directional padding
+                padding_bottom: iconPaddingBottom, // Directional padding
                 rotation: iconRotation,       // Rotation angle in degrees
 
                 // Visual properties
