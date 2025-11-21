@@ -1332,56 +1332,165 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
 
     /**
      * Resolve icon for entity using HA's state-aware logic
+     * Replicates Home Assistant's icon resolution without DOM manipulation
      * @param {Object} entity - Entity state object
      * @returns {string} Icon name (e.g., 'mdi:lightbulb-on')
      * @protected
      */
     _resolveEntityIcon(entity) {
         if (!entity) {
-            lcardsLog.debug('[LCARdSSimpleCard] _resolveEntityIcon: No entity provided');
             return 'mdi:bookmark';
         }
 
-        // Check for explicit icon override in attributes
+        // Priority 1: Explicit icon override in attributes
         if (entity.attributes?.icon) {
-            lcardsLog.debug('[LCARdSSimpleCard] _resolveEntityIcon: Using attributes.icon', {
-                entityId: entity.entity_id,
-                icon: entity.attributes.icon
-            });
             return entity.attributes.icon;
         }
 
-        // Use HA's native <ha-state-icon> element for state-aware icon resolution
-        if (typeof customElements !== 'undefined' && customElements.get('ha-state-icon') && this.hass) {
-            try {
-                const tempIcon = document.createElement('ha-state-icon');
-                tempIcon.hass = this.hass;
-                tempIcon.stateObj = entity;
-                document.body.appendChild(tempIcon);
+        // Priority 2: State-aware domain icons
+        const domain = entity.entity_id.split('.')[0];
+        const state = entity.state;
 
-                const haIcon = tempIcon.shadowRoot?.querySelector('ha-icon');
-                const resolvedIcon = haIcon?.icon || tempIcon.icon;
-
-                document.body.removeChild(tempIcon);
-
-                if (resolvedIcon) {
-                    lcardsLog.debug('[LCARdSSimpleCard] _resolveEntityIcon: Resolved via ha-state-icon', {
-                        entityId: entity.entity_id,
-                        state: entity.state,
-                        resolvedIcon,
-                        timestamp: Date.now()
-                    });
-                    return resolvedIcon;
-                }
-            } catch (error) {
-                lcardsLog.debug('[LCARdSSimpleCard] _resolveEntityIcon: Error using ha-state-icon', error);
+        // Domain-specific state-aware icon mappings (from HA source)
+        const stateIconMap = {
+            'light': {
+                'on': 'mdi:lightbulb-on',
+                'off': 'mdi:lightbulb',
+                'unavailable': 'mdi:lightbulb-off-outline'
+            },
+            'switch': {
+                'on': 'mdi:toggle-switch',
+                'off': 'mdi:toggle-switch-off-outline',
+                'unavailable': 'mdi:toggle-switch-off-outline'
+            },
+            'binary_sensor': {
+                'on': 'mdi:radiobox-marked',
+                'off': 'mdi:radiobox-blank',
+                'unavailable': 'mdi:help-circle-outline'
+            },
+            'lock': {
+                'locked': 'mdi:lock',
+                'unlocked': 'mdi:lock-open',
+                'jammed': 'mdi:lock-alert',
+                'unavailable': 'mdi:lock-off-outline'
+            },
+            'cover': {
+                'open': 'mdi:window-open',
+                'closed': 'mdi:window-closed',
+                'opening': 'mdi:arrow-up-box',
+                'closing': 'mdi:arrow-down-box',
+                'unavailable': 'mdi:window-closed-variant'
+            },
+            'fan': {
+                'on': 'mdi:fan',
+                'off': 'mdi:fan-off',
+                'unavailable': 'mdi:fan-off'
+            },
+            'climate': {
+                'heat': 'mdi:fire',
+                'cool': 'mdi:snowflake',
+                'heat_cool': 'mdi:thermometer',
+                'auto': 'mdi:thermostat-auto',
+                'dry': 'mdi:water-percent',
+                'fan_only': 'mdi:fan',
+                'off': 'mdi:thermostat',
+                'unavailable': 'mdi:thermostat-box'
+            },
+            'media_player': {
+                'playing': 'mdi:play',
+                'paused': 'mdi:pause',
+                'idle': 'mdi:stop',
+                'off': 'mdi:power',
+                'unavailable': 'mdi:cast-off'
+            },
+            'person': {
+                'home': 'mdi:home-account',
+                'not_home': 'mdi:account-arrow-right',
+                'unavailable': 'mdi:account-question'
+            },
+            'device_tracker': {
+                'home': 'mdi:home',
+                'not_home': 'mdi:home-export-outline',
+                'unavailable': 'mdi:help-circle-outline'
+            },
+            'alarm_control_panel': {
+                'armed_home': 'mdi:shield-home',
+                'armed_away': 'mdi:shield-lock',
+                'armed_night': 'mdi:shield-moon',
+                'armed_vacation': 'mdi:shield-airplane',
+                'armed_custom_bypass': 'mdi:shield-half-full',
+                'pending': 'mdi:shield-outline',
+                'arming': 'mdi:shield-outline',
+                'disarmed': 'mdi:shield-off',
+                'triggered': 'mdi:bell-ring',
+                'unavailable': 'mdi:shield-off-outline'
+            },
+            'door': {
+                'open': 'mdi:door-open',
+                'closed': 'mdi:door-closed',
+                'unavailable': 'mdi:door'
+            },
+            'garage_door': {
+                'open': 'mdi:garage-open',
+                'closed': 'mdi:garage',
+                'opening': 'mdi:garage-alert',
+                'closing': 'mdi:garage-alert',
+                'unavailable': 'mdi:garage-variant'
+            },
+            'window': {
+                'open': 'mdi:window-open-variant',
+                'closed': 'mdi:window-closed-variant',
+                'unavailable': 'mdi:window-closed'
             }
+        };
+
+        // Check for state-specific icon
+        if (stateIconMap[domain] && stateIconMap[domain][state]) {
+            return stateIconMap[domain][state];
+        }
+
+        // Priority 3: Static domain icons (fallback)
+        const domainIconMap = {
+            'alarm_control_panel': 'mdi:shield',
+            'automation': 'mdi:robot',
+            'binary_sensor': 'mdi:radiobox-blank',
+            'calendar': 'mdi:calendar',
+            'camera': 'mdi:video',
+            'climate': 'mdi:thermostat',
+            'counter': 'mdi:counter',
+            'cover': 'mdi:window-closed',
+            'device_tracker': 'mdi:account',
+            'fan': 'mdi:fan',
+            'group': 'mdi:google-circles-communities',
+            'humidifier': 'mdi:air-humidifier',
+            'input_boolean': 'mdi:toggle-switch-outline',
+            'input_datetime': 'mdi:calendar-clock',
+            'input_number': 'mdi:ray-vertex',
+            'input_select': 'mdi:format-list-bulleted',
+            'input_text': 'mdi:form-textbox',
+            'light': 'mdi:lightbulb',
+            'lock': 'mdi:lock',
+            'media_player': 'mdi:cast',
+            'person': 'mdi:account',
+            'plant': 'mdi:flower',
+            'remote': 'mdi:remote',
+            'scene': 'mdi:palette',
+            'script': 'mdi:script-text',
+            'sensor': 'mdi:eye',
+            'sun': 'mdi:white-balance-sunny',
+            'switch': 'mdi:toggle-switch-outline',
+            'timer': 'mdi:timer-outline',
+            'vacuum': 'mdi:robot-vacuum',
+            'water_heater': 'mdi:thermometer',
+            'weather': 'mdi:weather-cloudy',
+            'zone': 'mdi:map-marker-radius'
+        };
+
+        if (domainIconMap[domain]) {
+            return domainIconMap[domain];
         }
 
         // Final fallback
-        lcardsLog.debug('[LCARdSSimpleCard] _resolveEntityIcon: Using fallback icon', {
-            entityId: entity.entity_id
-        });
         return 'mdi:bookmark';
     }
 
