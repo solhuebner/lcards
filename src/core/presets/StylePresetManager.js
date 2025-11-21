@@ -1,4 +1,6 @@
 import { lcardsLog } from '../../utils/lcards-logging.js';
+import { deepMergeImmutable } from '../../utils/deepMerge.js';
+import { resolveThemeTokensRecursive } from '../../utils/lcards-theme.js';
 
 /**
  * StylePresetManager - Handles style_presets from loaded packs
@@ -206,17 +208,51 @@ export class StylePresetManager {
 
     // Handle 'extends' property for inheritance
     if (preset.extends) {
+      lcardsLog.debug(`[StylePresetManager] 🔍 Before extends resolution:`, {
+        presetPath: preset.extends,
+        presetKeys: Object.keys(preset),
+        hasBorder: !!preset.border,
+        borderKeys: preset.border ? Object.keys(preset.border) : []
+      });
+
       const basePreset = this._resolveExtends(preset.extends, themeManager);
       if (basePreset) {
-        // Merge base preset with current preset (current takes precedence)
-        const { extends: _, ...presetWithoutExtends } = preset; // Remove extends property
-        preset = { ...basePreset, ...presetWithoutExtends };
+        lcardsLog.debug(`[StylePresetManager] 🔍 Base preset loaded:`, {
+          baseKeys: Object.keys(basePreset),
+          hasBorder: !!basePreset.border,
+          borderKeys: basePreset.border ? Object.keys(basePreset.border) : [],
+          borderWidth: basePreset.border?.width,
+          borderRadius: basePreset.border?.radius
+        });
+
+        // Remove extends property
+        const { extends: _, ...presetWithoutExtends } = preset;
+
+        lcardsLog.debug(`[StylePresetManager] 🔍 Child preset (without extends):`, {
+          childKeys: Object.keys(presetWithoutExtends),
+          hasBorder: !!presetWithoutExtends.border,
+          borderKeys: presetWithoutExtends.border ? Object.keys(presetWithoutExtends.border) : [],
+          borderWidth: presetWithoutExtends.border?.width,
+          borderRadius: presetWithoutExtends.border?.radius
+        });
+
+        // Use immutable deep merge - creates fresh object, no mutations!
+        preset = deepMergeImmutable(basePreset, presetWithoutExtends);
+
+        lcardsLog.debug(`[StylePresetManager] 🔍 After merge:`, {
+          resultKeys: Object.keys(preset),
+          hasBorder: !!preset.border,
+          borderKeys: preset.border ? Object.keys(preset.border) : [],
+          borderWidth: preset.border?.width,
+          borderRadius: preset.border?.radius,
+          fullBorder: JSON.stringify(preset.border)
+        });
       }
     }
 
     // Resolve theme tokens if theme manager is available
     if (themeManager) {
-      preset = this._resolveThemeTokens(preset, themeManager);
+      preset = resolveThemeTokensRecursive(preset, themeManager);
     }
 
     return preset;
@@ -246,42 +282,13 @@ export class StylePresetManager {
     this._extendStack.push(extendsPath);
 
     const basePreset = this._findPresetInPacks(`${category}.${presetName}`);
-    const resolved = basePreset ? this._resolvePreset(basePreset.preset, themeManager) : null;
+    // Pass null for themeManager to keep theme tokens unresolved during extends chain
+    // The parent _resolvePreset will resolve all tokens after the final merge
+    const resolved = basePreset ? this._resolvePreset(basePreset.preset, null) : null;
 
     this._extendStack.pop();
     if (this._extendStack.length === 0) {
       delete this._extendStack;
-    }
-
-    return resolved;
-  }
-
-  /**
-   * Resolve theme tokens in preset values
-   * @private
-   * @param {Object} preset - Preset object
-   * @param {Object} themeManager - Theme manager instance
-   * @returns {Object} Preset with resolved theme tokens
-   */
-  _resolveThemeTokens(preset, themeManager) {
-    const resolved = {};
-
-    for (const [key, value] of Object.entries(preset)) {
-      if (typeof value === 'string' && value.startsWith('theme:')) {
-        // Extract token path: 'theme:colors.accent.primary' -> 'colors.accent.primary'
-        const tokenPath = value.substring(6);
-        const resolvedValue = themeManager.getToken(tokenPath);
-
-        if (resolvedValue !== undefined) {
-          resolved[key] = resolvedValue;
-          lcardsLog.trace(`[StylePresetManager] 🎨 Resolved theme token: ${value} -> ${resolvedValue}`);
-        } else {
-          lcardsLog.warn(`[StylePresetManager] ⚠️ Theme token not found: ${tokenPath}`);
-          resolved[key] = value; // Keep original if token not found
-        }
-      } else {
-        resolved[key] = value;
-      }
     }
 
     return resolved;
@@ -303,7 +310,7 @@ export class StylePresetManager {
 
         const preset = pack.style_presets[category][presetName];
 
-        // Cache the result for future lookups
+        // Cache the result for future lookups (store the original reference)
         this.presetCache.set(cacheKey, { preset, packId: pack.id });
 
         return { preset, packId: pack.id };

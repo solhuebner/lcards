@@ -3,10 +3,16 @@ import { lcarsDs9Tokens } from '../themes/tokens/lcarsDs9Tokens.js';
 import { lcarsVoyagerTokens } from '../themes/tokens/lcarsVoyagerTokens.js';
 import { lcarsHighContrastTokens } from '../themes/tokens/lcarsHighContrastTokens.js';
 
+/**
+ * Core Builtin Pack
+ *
+ * Contains system defaults and foundational definitions.
+ * Loaded first, available to all cards and components.
+ */
 // Core builtin pack - Contains all system defaults
 const CORE_PACK = {
   id: 'core',
-  version: '1.0.0',
+  version: '1.14.18',
   animations: [],
   timelines: [],
   rules: [],
@@ -15,10 +21,16 @@ const CORE_PACK = {
   routing: {}
 };
 
+/**
+ * LCARS FX Pack
+ *
+ * Sample builtin animations and effects pack.
+ * Provides common animation presets like pulse_soft.
+ */
 // New sample builtin pack (Phase A) – expand later with real defaults.
 const LCARS_FX_PACK = {
   id: 'lcars_fx',
-  version: '1.0.0',
+  version: '1.14.18',
   animations: [
     {
       id: 'pulse_soft',
@@ -34,10 +46,19 @@ const LCARS_FX_PACK = {
 };
 
 // LCARdS Button Styles Pack (Phase 2) - Complete button presets for status grids
+/**
+ * LCARdS Button Styles Pack (v1.14.18+)
+ *
+ * Complete button presets for LCARdS cards and status grids.
+ * All presets use nested CB-LCARS schema structure.
+ *
+ * Schema: doc/architecture/simple-button-schema-definition.md
+ * Theme Tokens: src/core/themes/tokens/lcarsClassicTokens.js
+ */
 const LCARDS_BUTTONS_PACK = {
   id: 'lcards_buttons',
-  version: '1.0.0',
-  description: 'LCARdS button styles for status grids - recreates custom-button-card appearances',
+  version: '1.14.18',
+  description: 'LCARdS button styles - v1.14.18 nested schema',
   animations: [],
   timelines: [],
   rules: [],
@@ -51,57 +72,69 @@ const LCARDS_BUTTONS_PACK = {
       // BASE BUTTON - Foundation for all buttons
       // =====================================
       base: {
-        // Core styling
-        font_family: 'theme:components.button.base.font.family',
-        font_size: 'theme:components.button.base.font.size.normal',
-        font_weight: 'theme:components.button.base.font.weight.normal',
-        text_transform: 'theme:components.button.base.font.transform',
-
-        // State-based colors (active/inactive/unavailable)
-        background_color: 'theme:components.button.base.background.active',
-        text_color: 'theme:components.button.base.text.default.color.active',
-        border_color: 'theme:components.button.base.border.color',
-
-        // Layout
+        // Layout dimensions
         height: 'theme:components.button.base.layout.height.standard',
         min_height: 'theme:components.button.base.layout.minHeight',
-        padding_top: 'theme:components.button.base.layout.padding.vertical',
-        padding_bottom: 'theme:components.button.base.layout.padding.vertical',
-        padding_left: 'theme:components.button.base.layout.padding.horizontal',
-        padding_right: 'theme:components.button.base.layout.padding.horizontal',
 
-        // Border
-        border_width: 0,
-        border_radius: 'theme:components.button.base.radius.none',
-
-        // Icon
-        icon_size: 'theme:components.button.base.icon.size',
-        icon_color: 'theme:components.button.base.icon.color.default',
-        icon_border_width: 'theme:components.button.base.icon.border.width',
-        icon_border_color: 'theme:components.button.base.icon.border.color.default',
-        icon_border_padding: 'theme:components.button.base.icon.border.padding.standard',
-
-        // Text layout defaults
-        text_justify: 'right',
-        text_align_items: 'end',
+        // Visibility defaults
         show_icon: false,
         show_label: true,
         show_state: false,
         show_name: false,
 
-        // State variants for dynamic styling
-        states: {
-          active: {
-            background_color: 'theme:components.button.base.background.active',
-            text_color: 'theme:components.button.base.text.default.color.active'
+        // Card styling (nested structure for background colors)
+        card: {
+          color: {
+            background: {
+              default: 'theme:components.button.base.background.active',
+              active: 'theme:components.button.base.background.active',
+              inactive: 'theme:components.button.base.background.inactive',
+              unavailable: 'theme:components.button.base.background.unavailable'
+            }
+          }
+        },
+
+        // Text styling (nested structure) - ALL text properties go here
+        text: {
+          padding: {
+            top: 'theme:components.button.base.layout.padding.vertical',
+            bottom: 'theme:components.button.base.layout.padding.vertical',
+            left: 'theme:components.button.base.layout.padding.horizontal',
+            right: 'theme:components.button.base.layout.padding.horizontal'
           },
-          inactive: {
-            background_color: 'theme:components.button.base.background.inactive',
-            text_color: 'theme:components.button.base.text.default.color.inactive'
+          default: {
+            position: 'right-center',  // Default text position (right-aligned, vertically centered)
+            // Default text styling - applies to all text fields unless overridden
+            font_family: 'theme:components.button.base.text.default.font_family',
+            font_size: 'theme:components.button.base.text.default.font_size',
+            font_weight: 'theme:components.button.base.text.default.font_weight',
+            color: {
+              default: 'theme:components.button.base.text.default.color.active',
+              active: 'theme:components.button.base.text.default.color.active',
+              inactive: 'theme:components.button.base.text.default.color.inactive',
+              unavailable: 'theme:components.button.base.text.default.color.unavailable'
+            }
+          }
+        },
+
+        // Border styling (nested structure)
+        border: {
+          width: 0,
+          color: 'theme:components.button.base.border.color',
+          radius: 'theme:components.button.base.radius.none'
+        },
+
+        // Icon styling (nested structure)
+        icon: {
+          size: 'theme:components.button.base.icon.size',
+          position: 'left',
+          color: {
+            default: 'theme:components.button.base.icon.color.default'
           },
-          unavailable: {
-            background_color: 'theme:components.button.base.background.unavailable',
-            text_color: 'theme:components.button.base.text.default.color.unavailable'
+          border: {
+            width: 'theme:components.button.base.icon.border.width',
+            color: 'theme:components.button.base.icon.border.color.default',
+            padding: 'theme:components.button.base.icon.border.padding.standard'
           }
         }
       },
@@ -113,6 +146,7 @@ const LCARDS_BUTTONS_PACK = {
         extends: 'button.base',
         show_icon: true,  // Enable icons by default for lozenge buttons
         border: {
+          width: 0,  // No border for lozenge (filled buttons)
           radius: {
             top_left: 'theme:components.button.base.radius.full',
             top_right: 'theme:components.button.base.radius.full',
@@ -135,7 +169,9 @@ const LCARDS_BUTTONS_PACK = {
       'lozenge-right': {
         extends: 'button.lozenge',
         text: {
-          justify: 'left'
+          default: {
+            position: 'left-center'  // Text on left when icon is on right
+          }
         },
         icon: {
           position: 'right',
@@ -157,18 +193,28 @@ const LCARDS_BUTTONS_PACK = {
       // =====================================
       bullet: {
         extends: 'button.base',
-        border_radius_top_left: 'theme:components.button.base.radius.full',
-        border_radius_bottom_left: 'theme:components.button.base.radius.full',
-        border_radius_top_right: 'theme:components.button.base.radius.none',
-        border_radius_bottom_right: 'theme:components.button.base.radius.none'
+        border: {
+          width: 0,  // No border for bullet (filled buttons)
+          radius: {
+            top_left: 'theme:components.button.base.radius.full',
+            bottom_left: 'theme:components.button.base.radius.full',
+            top_right: 'theme:components.button.base.radius.none',
+            bottom_right: 'theme:components.button.base.radius.none'
+          }
+        }
       },
 
       'bullet-right': {
         extends: 'button.base',
-        border_radius_top_left: 'theme:components.button.base.radius.none',
-        border_radius_bottom_left: 'theme:components.button.base.radius.none',
-        border_radius_top_right: 'theme:components.button.base.radius.full',
-        border_radius_bottom_right: 'theme:components.button.base.radius.full'
+        border: {
+          width: 0,  // No border for bullet (filled buttons)
+          radius: {
+            top_left: 'theme:components.button.base.radius.none',
+            bottom_left: 'theme:components.button.base.radius.none',
+            top_right: 'theme:components.button.base.radius.full',
+            bottom_right: 'theme:components.button.base.radius.full'
+          }
+        }
       },
 
       // =====================================
@@ -176,18 +222,28 @@ const LCARDS_BUTTONS_PACK = {
       // =====================================
       capped: {
         extends: 'button.base',
-        border_radius_top_left: 'theme:components.button.base.radius.full',
-        border_radius_bottom_left: 'theme:components.button.base.radius.full',
-        border_radius_top_right: 'theme:components.button.base.radius.none',
-        border_radius_bottom_right: 'theme:components.button.base.radius.none'
+        border: {
+          width: 0,  // No border for capped (filled buttons)
+          radius: {
+            top_left: 'theme:components.button.base.radius.full',
+            bottom_left: 'theme:components.button.base.radius.full',
+            top_right: 'theme:components.button.base.radius.none',
+            bottom_right: 'theme:components.button.base.radius.none'
+          }
+        }
       },
 
       'capped-right': {
         extends: 'button.base',
-        border_radius_top_left: 'theme:components.button.base.radius.none',
-        border_radius_bottom_left: 'theme:components.button.base.radius.none',
-        border_radius_top_right: 'theme:components.button.base.radius.full',
-        border_radius_bottom_right: 'theme:components.button.base.radius.full'
+        border: {
+          width: 0,  // No border for capped (filled buttons)
+          radius: {
+            top_left: 'theme:components.button.base.radius.none',
+            bottom_left: 'theme:components.button.base.radius.none',
+            top_right: 'theme:components.button.base.radius.full',
+            bottom_right: 'theme:components.button.base.radius.full'
+          }
+        }
       },
 
       // =====================================
@@ -195,33 +251,87 @@ const LCARDS_BUTTONS_PACK = {
       // =====================================
       'picard-filled': {
         extends: 'button.base',
-        font_weight: 'theme:components.button.base.font.weight.normal',
-        font_size: 'theme:components.button.base.font.size.normal',
-        text_align_items: 'center',
-        padding_top: 0,
-        padding_bottom: 5,
-        padding_left: 'theme:components.button.base.layout.padding.icon',
-        padding_right: 'theme:components.button.base.layout.padding.icon',
 
-        // Use base colors (will be resolved from theme tokens)
-        background_color: 'theme:components.button.base.background.active',
-        text_color: 'theme:components.button.base.text.default.color.active',
+        // Filled buttons have no border, just background
+        border: {
+          width: 0,
+          radius: 'theme:components.button.base.radius.none'
+        },
 
-        // Icon styling
-        icon_border_right_color: 'theme:components.button.base.border.color',
-        icon_border_right_padding: 'theme:components.button.base.icon.border.padding.dense',
-        icon_border_left_color: 'theme:components.button.base.border.color.transparent',
-        icon_border_left_padding: 'theme:components.button.base.icon.border.padding.minimal'
+        // Background colors by state (inherits from base)
+        // Uses card.color.background from base preset
+
+        // Text styling - centered alignment
+        text: {
+          padding: {
+            top: '0px',
+            bottom: '5px',
+            left: 'theme:components.button.base.layout.padding.icon',
+            right: 'theme:components.button.base.layout.padding.icon'
+          },
+          default: {
+            position: 'center'  // Center-aligned text
+          }
+          // NOTE: Inherits text.default.color from base preset
+          // NOTE: Inherits text.default.font_* from base preset
+        },
+
+        // Icon styling - border on right side
+        icon: {
+          color: {
+            default: 'theme:components.button.base.icon.color.default',
+            active: 'theme:components.button.base.icon.color.active',
+            inactive: 'theme:components.button.base.icon.color.inactive',
+            unavailable: 'theme:components.button.base.icon.color.unavailable'
+          },
+          border: {
+            right: {
+              size: '6px',
+              color: {
+                default: 'theme:components.button.base.border.color.active',
+                active: 'theme:components.button.base.border.color.active',
+                inactive: 'theme:components.button.base.border.color.inactive',
+                unavailable: 'theme:components.button.base.border.color.unavailable'
+              },
+              padding: 'theme:components.button.base.icon.border.padding.dense'
+            },
+            left: {
+              size: '6px',
+              color: {
+                default: 'theme:components.button.base.border.color.transparent',
+                active: 'theme:components.button.base.border.color.transparent',
+                inactive: 'theme:components.button.base.border.color.transparent',
+                unavailable: 'theme:components.button.base.border.color.transparent'
+              },
+              padding: 'theme:components.button.base.icon.border.padding.minimal'
+            }
+          }
+        }
       },
 
       'picard-filled-right': {
         extends: 'button.picard-filled',
-        text_justify: 'left',
-        icon_justify: 'right',
-        icon_border_left_color: 'theme:components.button.base.border.color',
-        icon_border_left_padding: 'theme:components.button.base.icon.border.padding.dense',
-        icon_border_right_color: 'theme:components.button.base.border.color.transparent',
-        icon_border_right_padding: 'theme:components.button.base.icon.border.padding.minimal'
+
+        // Swap text and icon positions
+        text: {
+          default: {
+            position: 'left-center'  // Text on left when icon is on right
+          }
+        },
+        icon: {
+          border: {
+            left: {
+              size: '6px',
+              color: 'theme:components.button.base.border.color',
+              padding: 'theme:components.button.base.icon.border.padding.dense'
+            },
+            right: {
+              size: '6px',
+              color: 'theme:components.button.base.border.color.transparent',
+              padding: 'theme:components.button.base.icon.border.padding.minimal'
+            }
+          }
+        }
       },
 
       'picard-filled-dense': {
@@ -239,35 +349,97 @@ const LCARDS_BUTTONS_PACK = {
       // =====================================
       'picard': {
         extends: 'button.base',
-        font_weight: 'theme:components.button.base.font.weight.normal',
-        font_size: 'theme:components.button.base.font.size.normal',
-        text_align_items: 'center',
-        padding_top: 0,
-        padding_bottom: 5,
-        padding_left: 'theme:components.button.base.layout.padding.icon',
-        padding_right: 'theme:components.button.base.layout.padding.icon',
 
-        // Outline style - transparent background with borders
-        background_color: 'theme:components.button.base.background.transparent',
-        border_width: 'theme:components.button.base.border.width',
-        border_color: 'theme:components.button.base.border.color',
+        // Outline style - transparent background with colored borders
+        card: {
+          color: {
+            background: {
+              default: 'theme:components.button.base.background.transparent',
+              active: 'theme:components.button.base.background.transparent',
+              inactive: 'theme:components.button.base.background.transparent',
+              unavailable: 'theme:components.button.base.background.transparent'
+            }
+          }
+        },
 
-        // Text colors reference the border color for consistency
-        text_color: 'theme:components.button.base.background.active',
+        // Border styled by state (active=black, inactive=gray, unavailable=darkgray)
+        border: {
+          width: 'theme:components.button.base.border.width',
+          radius: 'theme:components.button.base.radius.none',
+          color: {
+            default: 'theme:components.button.base.border.color.active',
+            active: 'theme:components.button.base.border.color.active',
+            inactive: 'theme:components.button.base.border.color.inactive',
+            unavailable: 'theme:components.button.base.border.color.unavailable'
+          }
+        },
 
-        // Icon styling
-        icon_border_right_color: 'theme:components.button.base.border.color',
-        icon_border_right_padding: 'theme:components.button.base.icon.border.padding.dense'
+        // Text styling - left aligned for outline style
+        text: {
+          padding: {
+            top: '0px',
+            bottom: '0px',
+            left: 'theme:components.button.base.layout.padding.icon',
+            right: 'theme:components.button.base.layout.padding.icon'
+          },
+          default: {
+            position: 'left-center',  // Left-aligned text for outline buttons
+            // Override text colors to use vibrant background colors for visibility
+            color: {
+              default: 'theme:components.button.base.background.active',
+              active: 'theme:components.button.base.background.active',
+              inactive: 'theme:components.button.base.background.inactive',
+              unavailable: 'theme:components.button.base.background.unavailable'
+            }
+            // NOTE: Inherits text.default.font_* from base preset
+          }
+        },
+
+        // Icon styled by state
+        icon: {
+          color: {
+            default: 'theme:components.button.base.border.color.active',
+            active: 'theme:components.button.base.border.color.active',
+            inactive: 'theme:components.button.base.border.color.inactive',
+            unavailable: 'theme:components.button.base.border.color.unavailable'
+          },
+          border: {
+            right: {
+              size: '6px',
+              color: {
+                default: 'theme:components.button.base.border.color.active',
+                active: 'theme:components.button.base.border.color.active',
+                inactive: 'theme:components.button.base.border.color.inactive',
+                unavailable: 'theme:components.button.base.border.color.unavailable'
+              },
+              padding: 'theme:components.button.base.icon.border.padding.dense'
+            }
+          }
+        }
       },
 
       'picard-right': {
         extends: 'button.picard',
-        text_justify: 'left',
-        icon_justify: 'right',
-        icon_border_left_color: 'theme:components.button.base.border.color',
-        icon_border_left_padding: 'theme:components.button.base.icon.border.padding.dense',
-        icon_border_right_color: 'theme:components.button.base.border.color.transparent',
-        icon_border_right_padding: 'theme:components.button.base.icon.border.padding.minimal'
+
+        text: {
+          default: {
+            position: 'left-center'  // Text on left when icon is on right
+          }
+        },
+        icon: {
+          border: {
+            left: {
+              size: '6px',
+              color: 'theme:components.button.base.border.color',
+              padding: 'theme:components.button.base.icon.border.padding.dense'
+            },
+            right: {
+              size: '6px',
+              color: 'theme:components.button.base.border.color.transparent',
+              padding: 'theme:components.button.base.icon.border.padding.minimal'
+            }
+          }
+        }
       },
 
       'picard-dense': {
@@ -285,30 +457,41 @@ const LCARDS_BUTTONS_PACK = {
       // =====================================
       'picard-icon': {
         extends: 'button.picard-filled-dense',
+
+        // Square dimensions for icon button
         width: 'theme:components.button.base.layout.height.icon',
         height: 'theme:components.button.base.layout.height.icon',
         min_height: 'theme:components.button.base.layout.height.icon',
 
-        // Rounded corners for icon buttons
-        border_radius_top_left: 'theme:components.button.base.radius.large',
-        border_radius_top_right: 'theme:components.button.base.radius.large',
-        border_radius_bottom_left: 'theme:components.button.base.radius.large',
-        border_radius_bottom_right: 'theme:components.button.base.radius.large',
+        // Rounded corners
+        border: {
+          radius: {
+            top_left: 'theme:components.button.base.radius.large',
+            top_right: 'theme:components.button.base.radius.large',
+            bottom_left: 'theme:components.button.base.radius.large',
+            bottom_right: 'theme:components.button.base.radius.large'
+          }
+        },
 
-        // Icon-only layout
+        // Icon-only layout (center everything)
         show_icon: true,
         show_label: false,
         show_state: false,
         show_name: false,
-        icon_justify: 'center',
-        text_align_items: 'center',
 
-        // Remove icon borders for compact style
-        icon_border_left_width: 0,
-        icon_border_right_width: 0,
-        icon_size: 30,
+        icon: {
+          size: 30,
+          border: {
+            left: {
+              width: 0
+            },
+            right: {
+              width: 0
+            }
+          }
+        },
 
-        // Grid template for icon-only
+        // Grid template for icon-only (single icon area)
         grid_template_areas: '"i"'
       },
 

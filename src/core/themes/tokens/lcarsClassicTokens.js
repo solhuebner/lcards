@@ -1,10 +1,13 @@
 /**
- * @fileoverview LCARS Classic Theme Tokens
+ * @fileoverview LCARS Classic Theme Tokens (v1.14.18+)
  *
  * TNG-era LCARS styling with CSS variable references.
  * All color values reference --lcars-* CSS variables from HA-LCARS theme.
  *
- * @module msd/themes/tokens/lcarsClassicTokens
+ * Schema aligned with v1.14.18 nested CB-LCARS structure.
+ * See: doc/architecture/simple-button-schema-definition.md
+ *
+ * @module core/themes/tokens/lcarsClassicTokens
  */
 
 export const lcarsClassicTokens = {
@@ -297,120 +300,143 @@ export const lcarsClassicTokens = {
     },
 
     button: {
-      // Base button tokens (used by all button presets)
-      // Schema aligned with CB-LCARS (v1.10.69+)
+      /**
+       * Base button tokens - Foundation for all button presets
+       * Schema aligned with v1.14.18 nested CB-LCARS structure
+       *
+       * Used by: simple-button card, status-grid cells, button overlays
+       * See: doc/architecture/simple-button-schema-definition.md
+       */
       base: {
-        // Background colors (state-based)
+        // ============================================================================
+        // BACKGROUND COLORS (State-based fill colors)
+        // ============================================================================
         background: {
-          active: 'var(--lcars-orange, #FF9900)',
-          inactive: 'alpha(colors.accent.primary, 0.7)',  // Dimmed orange
-          unavailable: 'var(--lcars-dark-gray, #666666)',
-          default: 'var(--lcars-african-violet, #FF9900)',
+          default: 'var(--lcars-card-button, var(--picard-medium-light-gray))',
+          active: 'var(--lcars-card-button, var(--picard-medium-light-gray))',
+          inactive: 'var(--lcars-card-button-off, var(--picard-gray))',
+          unavailable: 'var(--lcars-card-button-unavailable, var(--picard-dark-gray))',
           transparent: 'transparent'
         },
 
-        // Border configuration (grouped under border)
+        // ============================================================================
+        // BORDER CONFIGURATION (Nested structure)
+        // ============================================================================
         border: {
-          width: '2px',
+          // Default border width (can be overridden per-side in presets)
+          width: '4px',
+
+          // Default border radius (can be overridden per-corner in presets)
           radius: '8px',
+
+          // Border stroke colors (state-based)
           color: {
-            active: 'black',
-            inactive: 'var(--lcars-gray, #999999)',
-            unavailable: 'var(--lcars-dark-gray, #666666)',
+            default: 'var(--lcars-card-button, var(--picard-medium-light-gray))',
+            active: 'var(--lcars-card-button, var(--picard-medium-light-gray))',
+            inactive: 'var(--lcars-card-button-off, var(--picard-gray))',
+            unavailable: 'var(--lcars-card-button-unavailable, var(--picard-dark-gray))',
             transparent: 'transparent'
           }
         },
 
-        // Text defaults (for label and future texts array)
+        // ============================================================================
+        // TEXT DEFAULTS (Multi-text label system)
+        // ============================================================================
         text: {
+          // Default text styling applied to all text fields unless overridden
           default: {
+            // Text colors (state-based)
             color: {
+              default: 'black',
               active: 'black',
               inactive: 'black',
               unavailable: 'var(--lcars-ui-red, #CC6666)'
             },
-            font_size: '14px',
-            font_weight: 'bold',
+            // Typography
+            font_size: '14px',        // Standard text size
+            font_weight: 'bold',      // LCARS style: bold text
             font_family: "'LCARS', 'Antonio', sans-serif"
           }
         },
 
-        // Legacy font tokens (for backward compat with other components)
-        font: {
-          family: 'typography.fontFamily.primary',
-          size: {
-            normal: 22,
-            dense: 22,
-            icon: 24
-          },
-          weight: {
-            normal: 'normal',
-            bold: 'bold'
-          },
-          transform: 'uppercase'
-        },
-
-        // Layout dimensions
+        // ============================================================================
+        // LAYOUT DIMENSIONS
+        // ============================================================================
         layout: {
+          // Button heights for different variants
           height: {
-            standard: 45,
-            dense: 50,
-            icon: 40
+            standard: 45,   // Normal button height
+            dense: 50,      // Compact button height
+            icon: 40        // Icon-only button height
           },
-          minHeight: 45,
+          minHeight: 45,    // Minimum button height
+
+          // Padding inside button
           padding: {
-            vertical: 5,
-            horizontal: 24,
-            icon: 10,
-            dense: 0
+            vertical: 5,    // Top/bottom padding
+            horizontal: 24, // Left/right padding
+            icon: 10,       // Padding for icon buttons
+            dense: 0        // Padding for dense buttons
           },
-          margin: 0
+          margin: 0         // External margin (usually 0)
         },
 
-        // Border radius values
+        // ============================================================================
+        // BORDER RADIUS PRESETS (Used by shape presets)
+        // ============================================================================
         radius: {
-          none: 0,
-          small: 'borders.radius.sm',     // 2px
-          medium: 'borders.radius.base',  // 4px
-          large: 'borders.radius.lg',     // 8px
-          full: 'var(--ha-card-border-radius, 34px)', // Full rounded (pill shape), fallback to 34px
-          pill: 25  // For lozenge style
+          none: 0,                                      // Square corners
+          small: 'borders.radius.sm',                   // 2px
+          medium: 'borders.radius.base',                // 4px
+          large: 'borders.radius.lg',                   // 8px
+          full: 'var(--ha-card-border-radius, 34px)',  // Pill shape (lozenge)
+          pill: 25                                      // Alternative pill value
         },
 
-        // Icon styling
+        // ============================================================================
+        // ICON STYLING
+        // ============================================================================
         icon: {
-          size: 24,
-          spacing: 8,  // Space between icon and text
-          // Note: position is set per-preset, not in theme tokens
-          // Default position is 'left' (hardcoded in button card)
+          size: 24,       // Default icon size in pixels
+          spacing: 8,     // Space between icon and text
+
+          // Icon colors (state-based)
           color: {
             default: 'black',
             active: 'white',
             inactive: 'black',
             unavailable: 'black'
           },
+
+          // Icon border/divider styling
           border: {
-            width: 6,
+            width: 6,     // Divider line width between icon and text
+
+            // Border colors (state-based)
             color: {
+              default: 'black',
               active: 'black',
               inactive: 'black',
               unavailable: 'black',
               transparent: 'transparent'
             },
+
+            // Padding around icon area (percentage of button width)
             padding: {
-              standard: '1.0%',
-              dense: '1.5%',
-              minimal: '0.5%',
-              none: 0
+              standard: '1.0%',   // Normal spacing
+              dense: '1.5%',      // Tighter spacing
+              minimal: '0.5%',    // Minimal spacing
+              none: 0             // No padding
             },
-            margin: 0
+            margin: 0             // External margin
           },
+
           // Interior border for split lozenge effect
           interior: {
-            enabled: true,
-            width: 6,
-            color: 'black',
-            side: 'auto'  // 'left', 'right', or 'auto' (opposite of icon position)
+            enabled: true,        // Enable interior divider
+            width: 6,             // Divider width
+            color: 'black',       // Divider color
+            side: 'auto'          // 'left', 'right', or 'auto' (opposite of icon position)
           }
         }
       }

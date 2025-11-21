@@ -28,6 +28,7 @@ import { LCARdSSimpleCard } from '../base/LCARdSSimpleCard.js';
 import { lcardsLog } from '../utils/lcards-logging.js';
 import { ColorUtils } from '../core/themes/ColorUtils.js';
 import { deepMerge } from '../utils/deepMerge.js';
+import { getDomainIcon } from '../msd/utils/HADomains.js';
 import { resolveThemeTokensRecursive } from '../utils/lcards-theme.js';
 import { escapeHtml } from '../utils/StringUtils.js';
 
@@ -50,7 +51,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 :host {
                     display: block;
                     width: 100%;
-                    min-height: 60px;
+                    height: 100%;
                 }
 
                 .button-container {
@@ -83,7 +84,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         super();
         this._buttonStyle = null;
         this._lastActionElement = null; // Track last element actions were attached to
-        this._containerSize = { width: 200, height: 60 }; // Default size, updated by ResizeObserver
+        this._containerSize = { width: 200, height: 56 }; // Default size (1-row HA grid cell = 56px), updated by ResizeObserver
         this._resizeObserver = null;
     }
 
@@ -265,14 +266,20 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             // Only update if size actually changed (avoid thrashing)
             if (width !== this._containerSize.width || height !== this._containerSize.height) {
                 this._containerSize = { width, height };
-                lcardsLog.trace(`[LCARdSSimpleButtonCard] Container resized to ${width}x${height}`);
+                lcardsLog.debug(`[LCARdSSimpleButtonCard] Container resized to ${width}x${height}`);
                 this.requestUpdate(); // Trigger re-render with new size
             }
         });
 
-        // Observe this element for size changes
+        // Observe THIS element (the custom element itself)
+        // The web component should fill its container via CSS (width: 100%, height: 100%)
+        // and the container (HA card/grid cell) determines the actual size
         this._resizeObserver.observe(this);
-        lcardsLog.debug(`[LCARdSSimpleButtonCard] ResizeObserver setup for auto-sizing`);
+        lcardsLog.debug(`[LCARdSSimpleButtonCard] ResizeObserver setup for auto-sizing`, {
+            element: this.tagName,
+            offsetParent: this.offsetParent?.tagName,
+            parentElement: this.parentElement?.tagName
+        });
     }
 
     /**
@@ -545,7 +552,42 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Parse the icon string to get type (mdi, si, entity) and icon name
         const parsedIcon = this._parseIconString(iconName);
 
+        lcardsLog.debug('[LCARdSSimpleButtonCard] Icon parsing result:', {
+            iconName,
+            parsedIcon,
+            hasEntity: !!this._entity,
+            entityIcon: this._entity?.attributes?.icon
+        });
+
         if (parsedIcon) {
+            // Handle 'entity' icon - either type='entity' OR type='mdi' with icon='entity'
+            // This covers both cases from base class _parseIconString
+            if (parsedIcon.type === 'entity' || (parsedIcon.type === 'mdi' && parsedIcon.icon === 'entity')) {
+                // Get entity icon with fallback to domain default
+                let entityIcon = this._entity?.attributes?.icon;
+
+                if (!entityIcon && this._entity?.entity_id) {
+                    // No explicit icon - use domain default
+                    entityIcon = getDomainIcon(this._entity.entity_id);
+                } else if (!entityIcon) {
+                    // No entity at all - use generic fallback
+                    entityIcon = 'mdi:bookmark';
+                }
+
+                lcardsLog.debug('[LCARdSSimpleButtonCard] Resolving entity icon:', {
+                    entityId: this._entity?.entity_id,
+                    explicitIcon: this._entity?.attributes?.icon,
+                    resolvedIcon: entityIcon,
+                    usedDomainDefault: !this._entity?.attributes?.icon
+                });
+                // Re-parse the resolved entity icon to get its type (mdi/si) and name
+                const resolvedParsed = this._parseIconString(entityIcon);
+                if (resolvedParsed) {
+                    parsedIcon.type = resolvedParsed.type;
+                    parsedIcon.icon = resolvedParsed.icon;
+                }
+            }
+
             // Get current button state for state-based colors
             const buttonState = this._getButtonState();
 
@@ -799,19 +841,6 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
 
         const overrides = {};
 
-        // Get state-specific colors from theme tokens
-        const bgToken = `components.button.base.background.${buttonState}`;
-        const textToken = `components.button.base.text.${buttonState}`;
-        const colorToken = `components.button.base.color.${buttonState}`;
-
-        const backgroundColor = this.getThemeToken(bgToken);
-        const textColor = this.getThemeToken(textToken);
-        const color = this.getThemeToken(colorToken);
-
-        if (backgroundColor) overrides.background_color = backgroundColor;
-        if (textColor) overrides.text_color = textColor;
-        if (color) overrides.color = color;
-
         // Apply opacity for non-active states (only if we have an entity)
         if (this._entity) {
             if (buttonState === 'inactive') {
@@ -930,7 +959,15 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // ✨ Use container size if available, otherwise config or defaults
         // This enables auto-sizing for HA grid cards and responsive layouts
         const width = this.config.width || this._containerSize?.width || 200;
-        const height = this.config.height || this._containerSize?.height || 60;
+        const height = this.config.height || this._containerSize?.height || 56;
+
+        lcardsLog.debug(`[LCARdSSimpleButtonCard] Size resolution:`, {
+            'config.width': this.config.width,
+            'config.height': this.config.height,
+            '_containerSize': this._containerSize,
+            'final width': width,
+            'final height': height
+        });
 
         // Build button configuration
         const buttonConfig = {
@@ -1045,9 +1082,19 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             // Determine icon type and rendering
             let iconElement = '';
             if (iconConfig.type === 'entity' || iconConfig.type === 'mdi' || iconConfig.type === 'si') {
+                // Resolve 'entity' type to actual entity icon
                 const iconName = iconConfig.type === 'entity'
-                    ? iconConfig.icon
+                    ? (this._entity?.attributes?.icon || 'mdi:help-circle')
                     : `${iconConfig.type}:${iconConfig.icon}`;
+
+                // Debug logging for entity icon resolution
+                if (iconConfig.type === 'entity') {
+                    lcardsLog.debug('[LCARdSSimpleButtonCard] Icon-only mode - Resolving entity icon:', {
+                        entityId: this._entity?.entity_id,
+                        entityIcon: this._entity?.attributes?.icon,
+                        resolvedIconName: iconName
+                    });
+                }
 
                 iconElement = `
                     <foreignObject x="${iconX}" y="${iconY}" width="${actualIconSize}" height="${actualIconSize}">
@@ -1120,9 +1167,19 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             // Determine icon type and rendering
             let iconElement = '';
             if (iconConfig.type === 'entity' || iconConfig.type === 'mdi' || iconConfig.type === 'si') {
+                // Resolve 'entity' type to actual entity icon
                 const iconName = iconConfig.type === 'entity'
-                    ? iconConfig.icon
+                    ? (this._entity?.attributes?.icon || 'mdi:help-circle')
                     : `${iconConfig.type}:${iconConfig.icon}`;
+
+                // Debug logging for entity icon resolution
+                if (iconConfig.type === 'entity') {
+                    lcardsLog.debug('[LCARdSSimpleButtonCard] Normal mode - Resolving entity icon:', {
+                        entityId: this._entity?.entity_id,
+                        entityIcon: this._entity?.attributes?.icon,
+                        resolvedIconName: iconName
+                    });
+                }
 
                 iconElement = `
                     <foreignObject x="${iconX}" y="${iconY}" width="${actualIconSize}" height="${actualIconSize}">
@@ -1161,7 +1218,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      */
     _generateSimpleButtonSVG(width, height, config) {
         // Read styling from _buttonStyle (resolved from preset/tokens)
-        // Use CB-LCARS nested schema only
+        // Use CB-LCARS nested schema (v1.14.18+)
         const buttonState = this._buttonStyle?._currentState || this._getButtonState();
 
         // Background color: card.color.background.{state}
@@ -1190,6 +1247,15 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Resolve border configuration with per-corner support
         const border = this._resolveBorderConfiguration();
 
+        // Clamp corner radii to half the button height to prevent overlapping
+        // This ensures lozenge/bullet buttons create perfect half-circles
+        const maxRadius = height / 2;
+        border.topLeft = Math.min(border.topLeft, maxRadius);
+        border.topRight = Math.min(border.topRight, maxRadius);
+        border.bottomRight = Math.min(border.bottomRight, maxRadius);
+        border.bottomLeft = Math.min(border.bottomLeft, maxRadius);
+        border.radius = Math.min(border.radius, maxRadius);
+
         // Generate icon markup if present
         const iconPosition = this._processedIcon?.position || 'left';
         const iconData = this._generateIconMarkup(this._processedIcon, width, height, iconPosition);
@@ -1205,10 +1271,24 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Determine if we need complex path rendering
         const needsComplexPath = border.hasIndividualRadius || border.hasIndividualSides;
 
+        // Check for custom SVG path first (chevrons, trapezoids, etc.)
+        const customPathData = this._getCustomPath(this._buttonStyle);
+
+        // Normalize custom path if provided
+        let normalizedPath = null;
+        if (customPathData) {
+            normalizedPath = this._normalizePathTo100(
+                customPathData.path,
+                customPathData.preserveAspectRatio
+            );
+        }
+
         // Generate button background (fill only, no stroke)
-        const backgroundMarkup = needsComplexPath
-            ? this._renderComplexButtonPath(width, height, border, backgroundColor)
-            : this._renderSimpleButtonRect(width, height, border, backgroundColor);
+        const backgroundMarkup = normalizedPath
+            ? this._renderCustomPathBackground(normalizedPath, backgroundColor)
+            : needsComplexPath
+                ? this._renderComplexButtonPath(width, height, border, backgroundColor)
+                : this._renderSimpleButtonRect(width, height, border, backgroundColor);
 
         // Generate separate border paths for clean corner joins
         const borderMarkup = this._renderIndividualBorderPaths(width, height, border);
@@ -1228,11 +1308,12 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         );
         const strokeOverhang = maxBorderWidth / 2;
 
-        // Expand viewBox to prevent stroke clipping while keeping display size the same
+        // Expand viewBox horizontally only to match legacy CSS border appearance
+        // (top/bottom borders look correct, but left/right need expansion)
         const viewBoxX = -strokeOverhang;
-        const viewBoxY = -strokeOverhang;
+        const viewBoxY = 0;  // No vertical expansion
         const viewBoxWidth = width + (strokeOverhang * 2);
-        const viewBoxHeight = height + (strokeOverhang * 2);
+        const viewBoxHeight = height;  // No vertical expansion
 
         // Check if we're in icon-only mode (hide text when icon is shown)
         const iconOnly = this._processedIcon?.iconOnly && this._processedIcon?.show;
@@ -1503,39 +1584,14 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
     _resolveTextConfiguration() {
         const config = this.config || {};
 
-        // Check for legacy label property (backward compatibility)
-        if (config.label && !config.text) {
-            return {
-                label: {
-                    id: 'label',
-                    content: config.label,
-                    position: 'center',
-                    x: null,
-                    y: null,
-                    x_percent: null,
-                    y_percent: null,
-                    padding: 8,
-                    size: this._buttonStyle?.text?.default?.font_size || 14,
-                    color: null, // Will use default
-                    font_weight: this._buttonStyle?.text?.default?.font_weight || 'bold',
-                    font_family: this._buttonStyle?.text?.default?.font_family || "'LCARS', 'Antonio', sans-serif",
-                    anchor: null,
-                    baseline: null,
-                    rotation: 0,  // NEW: no rotation by default
-                    show: true,
-                    template: true
-                }
-            };
-        }
-
-        // Parse new text object with arbitrary field IDs
+        // Parse text object with arbitrary field IDs
         const textConfig = config.text || {};
         const resolvedFields = {};
 
         // Default positions for preset fields
         // NOTE: Only specify position here. Anchor/baseline should come from named position calculation!
         const presetDefaults = {
-            label: { position: 'center' },
+            label: { position: this._buttonStyle?.text?.default?.position || 'center' },  // NEW: Support default position
             name: { position: 'top-left' },
             state: { position: 'bottom-right' }
         };
@@ -1543,6 +1599,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Process each text field
         for (const [fieldId, fieldConfig] of Object.entries(textConfig)) {
             if (!fieldConfig || typeof fieldConfig !== 'object') continue;
+
+            // Skip 'default' - it's configuration, not a field to render
+            if (fieldId === 'default') continue;
 
             // Get preset defaults if this is a known field
             const presetDefault = presetDefaults[fieldId] || {};
@@ -1557,10 +1616,11 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 x_percent: fieldConfig.x_percent !== undefined ? fieldConfig.x_percent : null,
                 y_percent: fieldConfig.y_percent !== undefined ? fieldConfig.y_percent : null,
                 padding: fieldConfig.padding !== undefined ? fieldConfig.padding : 8,
-                size: fieldConfig.size || this._buttonStyle?.text?.default?.font_size || 14,
+                size: fieldConfig.font_size || fieldConfig.size || this._buttonStyle?.text?.default?.font_size || 14,
                 color: fieldConfig.color || null, // null means use default
                 font_weight: fieldConfig.font_weight || this._buttonStyle?.text?.default?.font_weight || 'normal',
                 font_family: fieldConfig.font_family || this._buttonStyle?.text?.default?.font_family || "'LCARS', 'Antonio', sans-serif",
+                text_transform: fieldConfig.text_transform || this._buttonStyle?.text?.default?.text_transform || 'none',
                 anchor: fieldConfig.anchor || presetDefault.anchor || null,
                 baseline: fieldConfig.baseline || presetDefault.baseline || null,
                 rotation: fieldConfig.rotation !== undefined ? fieldConfig.rotation : 0,  // NEW: rotation in degrees
@@ -1722,8 +1782,24 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             if (!field.show) continue;
 
             // Resolve content (template processing done elsewhere, just use content)
-            const content = field.content || '';
+            let content = field.content || '';
             if (!content) continue; // Skip empty content
+
+            // Apply text transformation
+            if (field.text_transform) {
+                switch (field.text_transform) {
+                    case 'uppercase':
+                        content = content.toUpperCase();
+                        break;
+                    case 'lowercase':
+                        content = content.toLowerCase();
+                        break;
+                    case 'capitalize':
+                        content = content.replace(/\b\w/g, c => c.toUpperCase());
+                        break;
+                    // 'none' or any other value: leave as-is
+                }
+            }
 
             // Priority 1: Explicit x/y coordinates
             let x, y, anchor, baseline;
@@ -1885,6 +1961,39 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
     }
 
     /**
+     * Render custom SVG path background
+     * Enables completely custom shapes (chevrons, trapezoids, etc.)
+     *
+     * Supports two coordinate systems:
+     * 1. Normalized (0-100): Default, works with button's viewBox="0 0 100 100"
+     * 2. Custom viewBox: Specify via style.custom_path_viewbox for exact coordinates
+     *
+     * @private
+     * @param {string} customPath - SVG path data (e.g., "M 10,10 L 180,10...")
+     * @param {string} backgroundColor - Fill color
+     * @returns {string} SVG markup
+     *
+     * @example
+     * // Normalized coordinates (0-100)
+     * style: { custom_path: 'M 0,0 L 100,0 L 80,100 L 0,100 Z' }
+     *
+     * @example
+     * // Custom coordinates with viewBox
+     * style: {
+     *   custom_path: 'M 300,40 C 240,160 180,320 160,460 ...',
+     *   custom_path_viewbox: '0 0 600 600'
+     * }
+     */
+    _renderCustomPathBackground(customPath, backgroundColor) {
+        return `<path
+                    class="button-bg button-clickable"
+                    d="${customPath}"
+                    fill="${backgroundColor}"
+                    style="pointer-events: all;"
+                />`;
+    }
+
+    /**
      * Render complex button using path element (per-corner radii)
      * Ported from MSD ButtonRenderer for consistency
      * Render complex button using path element (per-corner radii)
@@ -1943,9 +2052,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Top edge to top-right corner
         path += ` L ${x1 - topRight} ${y0}`;
 
-        // Top-right corner curve
+        // Top-right corner curve (use circular arc for exact match with border)
         if (topRight > 0) {
-            path += ` Q ${x1} ${y0} ${x1} ${y0 + topRight}`;
+            path += ` A ${topRight} ${topRight} 0 0 1 ${x1} ${y0 + topRight}`;
         } else {
             path += ` L ${x1} ${y0}`;
         }
@@ -1953,9 +2062,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Right edge to bottom-right corner
         path += ` L ${x1} ${y1 - bottomRight}`;
 
-        // Bottom-right corner curve
+        // Bottom-right corner curve (use circular arc)
         if (bottomRight > 0) {
-            path += ` Q ${x1} ${y1} ${x1 - bottomRight} ${y1}`;
+            path += ` A ${bottomRight} ${bottomRight} 0 0 1 ${x1 - bottomRight} ${y1}`;
         } else {
             path += ` L ${x1} ${y1}`;
         }
@@ -1963,9 +2072,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Bottom edge to bottom-left corner
         path += ` L ${x0 + bottomLeft} ${y1}`;
 
-        // Bottom-left corner curve
+        // Bottom-left corner curve (use circular arc)
         if (bottomLeft > 0) {
-            path += ` Q ${x0} ${y1} ${x0} ${y1 - bottomLeft}`;
+            path += ` A ${bottomLeft} ${bottomLeft} 0 0 1 ${x0} ${y1 - bottomLeft}`;
         } else {
             path += ` L ${x0} ${y1}`;
         }
@@ -1973,9 +2082,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Left edge to top-left corner
         path += ` L ${x0} ${y0 + topLeft}`;
 
-        // Top-left corner curve
+        // Top-left corner curve (use circular arc)
         if (topLeft > 0) {
-            path += ` Q ${x0} ${y0} ${x0 + topLeft} ${y0}`;
+            path += ` A ${topLeft} ${topLeft} 0 0 1 ${x0 + topLeft} ${y0}`;
         } else {
             path += ` L ${x0} ${y0}`;
         }
@@ -1984,6 +2093,137 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
 
         return path;
     }
+
+    /**
+     * Check if button style uses custom SVG path
+     * Enables completely custom shapes (chevrons, trapezoids, etc.)
+     * Now with auto-normalization and aspect ratio preservation!
+     * @private
+     * @param {Object} style - Resolved button style
+     * @returns {Object|null} Object with {path, preserveAspectRatio} or null
+     */
+    _getCustomPath(style) {
+        // Check for custom_path in style root
+        if (style.custom_path) {
+            return {
+                path: style.custom_path,
+                preserveAspectRatio: style.custom_path_preserve_aspect !== false // Default true
+            };
+        }
+
+        // Check for path in border config (alternative location)
+        if (style.border?.custom_path) {
+            return {
+                path: style.border.custom_path,
+                preserveAspectRatio: style.border.custom_path_preserve_aspect !== false
+            };
+        }
+
+        return null;
+    }
+
+    /**
+     * Parse SVG path and extract bounding box
+     * Supports M, L, C (cubic bezier), Q (quadratic), A (arc), H, V, Z commands
+     * @private
+     * @param {string} pathData - SVG path data string
+     * @returns {Object} Bounding box {minX, minY, maxX, maxY, width, height}
+     */
+    _getPathBounds(pathData) {
+        let minX = Infinity, minY = Infinity;
+        let maxX = -Infinity, maxY = -Infinity;
+
+        // Simple parser - extracts all numbers from path
+        const numbers = pathData.match(/-?\d+\.?\d*/g)?.map(Number) || [];
+
+        // Process coordinates in pairs
+        for (let i = 0; i < numbers.length; i += 2) {
+            const x = numbers[i];
+            const y = numbers[i + 1];
+
+            if (x !== undefined && y !== undefined) {
+                minX = Math.min(minX, x);
+                minY = Math.min(minY, y);
+                maxX = Math.max(maxX, x);
+                maxY = Math.max(maxY, y);
+            }
+        }
+
+        // Handle edge case: no valid coordinates found
+        if (!isFinite(minX)) {
+            return { minX: 0, minY: 0, maxX: 100, maxY: 100, width: 100, height: 100 };
+        }
+
+        return {
+            minX,
+            minY,
+            maxX,
+            maxY,
+            width: maxX - minX,
+            height: maxY - minY
+        };
+    }
+
+    /**
+     * Normalize SVG path to 0-100 coordinate space
+     * Handles aspect ratio preservation and centering
+     * @private
+     * @param {string} pathData - Original SVG path data
+     * @param {boolean} preserveAspectRatio - Whether to maintain aspect ratio (default: true)
+     * @returns {string} Normalized path data
+     */
+    _normalizePathTo100(pathData, preserveAspectRatio = true) {
+        // Get original bounds
+        const bounds = this._getPathBounds(pathData);
+
+        // If already in 0-100 range (with small tolerance), return as-is
+        const isAlreadyNormalized =
+            bounds.minX >= -5 && bounds.minY >= -5 &&
+            bounds.maxX <= 105 && bounds.maxY <= 105;
+
+        if (isAlreadyNormalized) {
+            return pathData;
+        }
+
+        // Calculate scale factors
+        let scaleX = 100 / bounds.width;
+        let scaleY = 100 / bounds.height;
+
+        // Preserve aspect ratio - use smaller scale factor for both dimensions
+        if (preserveAspectRatio) {
+            const scale = Math.min(scaleX, scaleY);
+            scaleX = scale;
+            scaleY = scale;
+        }
+
+        // Calculate offsets to center the shape
+        const offsetX = -bounds.minX * scaleX;
+        const offsetY = -bounds.minY * scaleY;
+
+        // Center if aspect ratios don't match
+        const scaledWidth = bounds.width * scaleX;
+        const scaledHeight = bounds.height * scaleY;
+        const centerOffsetX = preserveAspectRatio ? (100 - scaledWidth) / 2 : 0;
+        const centerOffsetY = preserveAspectRatio ? (100 - scaledHeight) / 2 : 0;
+
+        // Transform path: scale and translate to 0-100 space
+        // This is a simple transformation - replace all number pairs
+        return pathData.replace(/-?\d+\.?\d*/g, (match, offset, string) => {
+            const num = parseFloat(match);
+
+            // Determine if this is an X or Y coordinate by context
+            // Count preceding numbers to determine position
+            const precedingNumbers = string.substring(0, offset).match(/-?\d+\.?\d*/g) || [];
+            const isX = precedingNumbers.length % 2 === 0;
+
+            if (isX) {
+                return (num * scaleX + offsetX + centerOffsetX).toFixed(2);
+            } else {
+                return (num * scaleY + offsetY + centerOffsetY).toFixed(2);
+            }
+        });
+    }
+
 
     /**
      * Render individual border paths for complex borders
@@ -2143,12 +2383,11 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         if (topLeft > 0) {
             const cornerWidth = getCornerWidth('top', 'left');
             const cornerColor = getCornerColor('top', 'left');
-            // Adjust radius for stroke: stroke is centered on path, so reduce radius by strokeWidth/2
-            // This makes the outer edge of the stroke align with the background edge
-            const adjustedRadius = topLeft - (cornerWidth / 2);
-            const arcStart = topLeft - (cornerWidth / 2);
+            // Use SAME radius as background - stroke is centered on the edge
+            // The stroke extends outward by strokeWidth/2, which is handled by viewBox expansion
+            const arcRadius = topLeft;
             arcMarkup += `
-                <path d="M 0 ${arcStart} A ${adjustedRadius} ${adjustedRadius} 0 0 1 ${arcStart} 0"
+                <path d="M 0 ${arcRadius} A ${arcRadius} ${arcRadius} 0 0 1 ${arcRadius} 0"
                       stroke="${cornerColor}"
                       stroke-width="${cornerWidth}"
                       stroke-linecap="square"
@@ -2159,10 +2398,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         if (topRight > 0) {
             const cornerWidth = getCornerWidth('top', 'right');
             const cornerColor = getCornerColor('top', 'right');
-            const adjustedRadius = topRight - (cornerWidth / 2);
-            const arcStart = topRight - (cornerWidth / 2);
+            const arcRadius = topRight;
             arcMarkup += `
-                <path d="M ${w - arcStart} 0 A ${adjustedRadius} ${adjustedRadius} 0 0 1 ${w} ${arcStart}"
+                <path d="M ${w - arcRadius} 0 A ${arcRadius} ${arcRadius} 0 0 1 ${w} ${arcRadius}"
                       stroke="${cornerColor}"
                       stroke-width="${cornerWidth}"
                       stroke-linecap="square"
@@ -2173,10 +2411,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         if (bottomRight > 0) {
             const cornerWidth = getCornerWidth('right', 'bottom');
             const cornerColor = getCornerColor('right', 'bottom');
-            const adjustedRadius = bottomRight - (cornerWidth / 2);
-            const arcStart = bottomRight - (cornerWidth / 2);
+            const arcRadius = bottomRight;
             arcMarkup += `
-                <path d="M ${w} ${h - arcStart} A ${adjustedRadius} ${adjustedRadius} 0 0 1 ${w - arcStart} ${h}"
+                <path d="M ${w} ${h - arcRadius} A ${arcRadius} ${arcRadius} 0 0 1 ${w - arcRadius} ${h}"
                       stroke="${cornerColor}"
                       stroke-width="${cornerWidth}"
                       stroke-linecap="square"
@@ -2187,10 +2424,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         if (bottomLeft > 0) {
             const cornerWidth = getCornerWidth('bottom', 'left');
             const cornerColor = getCornerColor('bottom', 'left');
-            const adjustedRadius = bottomLeft - (cornerWidth / 2);
-            const arcStart = bottomLeft - (cornerWidth / 2);
+            const arcRadius = bottomLeft;
             arcMarkup += `
-                <path d="M ${arcStart} ${h} A ${adjustedRadius} ${adjustedRadius} 0 0 1 0 ${h - arcStart}"
+                <path d="M ${arcRadius} ${h} A ${arcRadius} ${arcRadius} 0 0 1 0 ${h - arcRadius}"
                       stroke="${cornerColor}"
                       stroke-width="${cornerWidth}"
                       stroke-linecap="square"

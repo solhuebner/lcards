@@ -1,8 +1,11 @@
-# Simple Button Card - Official Schema Definition (v1.14.16)
+# Simple Button Card - Official Schema Definition (v1.14.18)
 
-**Date:** November 16, 2025
+**Date:** November 20, 2025
 **Purpose:** Single source of truth for schema - update tokens, presets, code, and docs from this
 **Status:** 🎯 DEFINITIVE - All implementations must match this
+
+**BREAKING CHANGES:** v1.14.18 removes all legacy/backward compatibility support.
+Only the nested schema is supported going forward.
 
 ---
 
@@ -13,8 +16,7 @@ type: custom:lcards-simple-button
 
 # Core properties
 entity: <entity-id>              # Optional - if omitted, always uses 'active' state
-label: <string>                  # Legacy: Button label text (use 'text:' for new syntax)
-text:                            # NEW: Multi-text label system
+text:                            # Multi-text label system
   <field-id>:                    # Arbitrary field ID (e.g., 'label', 'title', 'status')
     content: <string>            # Text content to display
     position: <position-name>    # Named position or explicit coordinates
@@ -22,11 +24,13 @@ text:                            # NEW: Multi-text label system
     y: <number>                  # Explicit y coordinate (overrides position)
     x_percent: <number>          # Percentage x position (0-100)
     y_percent: <number>          # Percentage y position (0-100)
+    rotation: <number>           # Rotation angle in degrees (positive = clockwise)
     padding: <number|object>     # Uniform or {top, right, bottom, left}
-    size: <number>               # Font size in pixels (default: 14)
+    font_size: <number>          # Font size in pixels (default: 14)
     color: <color|object>        # Color string or {active, inactive, unavailable}
     font_weight: <css-value>     # Font weight (default: bold)
     font_family: <css-value>     # Font family
+    text_transform: none | uppercase | lowercase | capitalize  # Text transformation
     anchor: start | middle | end # Text anchor (default: from position)
     baseline: hanging | central | alphabetic  # Baseline (default: from position)
     show: <boolean>              # Show/hide field (default: true)
@@ -41,6 +45,11 @@ icon:
   position: left | right         # Default: left
   size: <number>                 # Pixels (default: 24)
   color: <color>                 # CSS color (default: inherit)
+  show: <boolean>                # Explicitly show/hide icon (overrides show_icon)
+
+# Auto-Icon Behavior:
+# If show_icon: true (or preset sets it) but no icon specified, and entity exists,
+# automatically uses entity's icon attribute (equivalent to icon: 'entity')
 
 # Style (CB-LCARS schema)
 style:
@@ -187,23 +196,7 @@ These properties support state-specific values (active/inactive/unavailable):
 
 ---
 
-## Backward Compatibility
 
-### Flat Keys (Deprecated but Supported)
-
-These flat keys still work for backward compatibility:
-- `background_color` → Read as `card.color.background.active`
-- `text_color` → Read as `text.default.color.active`
-- `border_color` → Read as `border.color.active`
-- `border_width` → Read as `border.width`
-- `border_radius` → Read as `border.radius`
-- `font_size` → Read as `text.default.font_size`
-- `font_weight` → Read as `text.default.font_weight`
-- `font_family` → Read as `text.default.font_family`
-
-**Recommendation:** Use nested schema for new configs. Flat keys will be removed in v2.0.
-
----
 
 ## Border Flexibility
 
@@ -384,20 +377,20 @@ icon:
   position: left         # or 'right'
   size: 24              # pixels
   color: 'black'        # CSS color
+  show: true            # explicitly show/hide
 ```
 
-### Old Syntax (Deprecated but Supported)
+**Auto-Icon Behavior:**
 
-❌ **Deprecated:**
-```yaml
-icon:
-  type: mdi            # Don't specify type separately
-  icon: lightbulb
-```
+When using presets like `lozenge` that set `show_icon: true`, if you don't specify an icon and an entity is present, the entity's icon is automatically used:
 
-✅ **Use instead:**
 ```yaml
-icon: 'mdi:lightbulb'
+type: custom:lcards-simple-button
+entity: light.living_room
+preset: lozenge
+label: "Living Room"
+# Icon automatically uses light.living_room's icon attribute
+# No need to explicitly set icon: 'entity'
 ```
 
 ---
@@ -505,10 +498,10 @@ Nine pre-defined positions with automatic anchor/baseline:
 ### Basic Syntax
 
 ```yaml
-# Legacy (still supported)
+# Simple shorthand
 label: "Button Text"
 
-# New multi-text syntax
+# Full multi-text syntax
 text:
   label:
     content: "Button Text"
@@ -522,18 +515,18 @@ text:
   title:
     content: "Room Control"
     position: top-center
-    size: 16
+    font_size: 16
     font_weight: bold
 
   subtitle:
     content: "Living Room"
     position: center
-    size: 14
+    font_size: 14
 
   status:
     content: "Active"
     position: bottom-center
-    size: 12
+    font_size: 12
     color: "#66FF66"
 ```
 
@@ -703,73 +696,40 @@ text:
 To implement this schema:
 
 ### 1. Theme Tokens
-- [ ] Update `lcarsClassicTokens.js`
-- [ ] Change `components.button.base` structure
-- [ ] Use `border.{width|radius|color.state}`
-- [ ] Use `text.default.{color.state|font_*}`
+- [x] Update `lcarsClassicTokens.js` to use consistent `font_size`
+- [x] Organize `components.button.base` structure clearly
+- [x] Use `border.{width|radius|color.state}` nested structure
+- [x] Use `text.default.{color.state|font_size|font_weight|font_family}` structure
 
 ### 2. Presets
-- [ ] Update button presets (e.g., `lozenge`)
-- [ ] Use `border.radius` instead of flat `border_radius`
-- [ ] Use nested schema throughout
+- [x] Update button presets (e.g., `lozenge`) in `loadBuiltinPacks.js`
+- [x] Use `border.radius` nested structure
+- [x] Use `text.default.font_size` (not `size`)
+- [x] Ensure all presets follow nested schema
 
 ### 3. Button Code
-- [ ] Update `_resolveButtonStyleSync()` to write to nested paths
-- [ ] Update `_generateSimpleButtonSVG()` to read from nested paths
-- [ ] Add backward compatibility fallbacks for flat keys
-- [ ] Update `_resolveBorderConfiguration()` to read from `border.radius`
+- [x] Remove all backward compatibility code for flat keys
+- [x] Only support nested schema paths
+- [x] Update `_resolveButtonStyleSync()` to only use nested paths
+- [x] Update `_generateSimpleButtonSVG()` to only read nested paths
+- [x] Update `_resolveBorderConfiguration()` for nested schema only
 
 ### 4. Documentation
-- [ ] Update `simple-button-card.md` with this schema
-- [ ] Fix rules syntax examples
-- [ ] Fix icon syntax examples
-- [ ] Add comprehensive YAML example at bottom
+- [x] Update `simple-button-schema-definition.md` with finalized schema
+- [x] Update `simple-button-quick-reference.md` to match exactly
+- [x] Remove all backward compatibility references
+- [x] Standardize on `font_size` everywhere
+- [x] Add BREAKING CHANGES notice
 
 ### 5. Testing
-- [ ] Update all test configs in `simple-button-testing.md`
-- [ ] Test backward compatibility with flat keys
-- [ ] Verify rules engine integration
-- [ ] Verify computed tokens work in nested paths
+- [ ] Update all test configs to use nested schema
+- [ ] Verify buttons render correctly
+- [ ] Test rules engine integration
+- [ ] Test computed tokens in nested paths
 
 ---
 
-## Migration Guide
 
-### For Users
-
-**Migrating from flat to nested:**
-
-```yaml
-# OLD (flat schema)
-style:
-  background_color: 'var(--lcars-orange)'
-  text_color: 'black'
-  border_color: 'black'
-  border_width: 2px
-  border_radius: 12px
-  font_size: 16px
-
-# NEW (nested schema)
-style:
-  card:
-    color:
-      background:
-        active: 'var(--lcars-orange)'
-  border:
-    width: 2px
-    radius: 12px
-    color:
-      active: 'black'
-  text:
-    default:
-      color:
-        active: 'black'
-      font_size: 16px
-```
-
-**Note:** Old syntax still works! No breaking changes.
-
----
 
 ## Complete Example
 
@@ -823,5 +783,6 @@ rules:
 ---
 
 **Status:** 🎯 DEFINITIVE SCHEMA - Use this to update all implementations
-**Version:** 1.10.69+
-**Date:** November 15, 2025
+**Version:** 1.14.18+
+**Date:** November 20, 2025
+**Breaking Changes:** Removed all legacy flat-key support (background_color, text_color, etc.)

@@ -1,9 +1,12 @@
 # Simple Button Card - Quick Reference
 
 **Component:** `custom:lcards-simple-button`
-**Version:** 1.14.16+
+**Version:** 1.14.18+
 **Schema:** CB-LCARS Nested Schema with Multi-Text Support
-**Last Updated:** November 16, 2025
+**Last Updated:** November 20, 2025
+
+**BREAKING CHANGES:** v1.14.18 removes all legacy/backward compatibility support.
+Only the nested schema is supported going forward.
 
 ---
 
@@ -12,20 +15,29 @@
 ```yaml
 type: custom:lcards-simple-button
 entity: <entity_id>           # Optional: Home Assistant entity
-label: <string>                # Legacy: Button text (use 'text:' for new multi-text)
 preset: <preset_name>          # Optional: 'lozenge', 'lozenge-right', etc.
 icon: <icon_string>            # Optional: 'mdi:lightbulb', 'si:github', 'entity'
 
-# NEW: Multi-text label system
+# Multi-text label system
 text:
   <field-id>:                  # Any field ID (e.g., 'label', 'title', 'status')
     content: <string>          # Text to display
     position: <position-name>  # Named position (see below)
+    x: <number>                # Explicit x coordinate (overrides position)
+    y: <number>                # Explicit y coordinate (overrides position)
+    x_percent: <number>        # Percentage x position (0-100)
+    y_percent: <number>        # Percentage y position (0-100)
+    rotation: <number>         # Rotation angle in degrees (positive = clockwise)
     padding: <number>          # Uniform padding OR {top, right, bottom, left}
-    size: <number>             # Font size in pixels (default: 14)
+    font_size: <number>        # Font size in pixels (default: 14)
     color: <color>             # Color OR {active, inactive, unavailable}
     font_weight: <css-value>   # Font weight (default: bold)
     font_family: <css-value>   # Font family
+    text_transform: none | uppercase | lowercase | capitalize  # Text transformation
+    anchor: start | middle | end  # Text anchor (default: from position)
+    baseline: hanging | central | alphabetic  # Baseline (default: from position)
+    show: <boolean>            # Show/hide field (default: true)
+    template: <boolean>        # Enable template processing (default: true)
 
 style:
   # Card background colors (state-based)
@@ -130,7 +142,24 @@ icon: 'entity'                     # Use entity's own icon
 icon:
   icon: 'mdi:lightbulb'
   position: left                   # 'left' or 'right' (default: left)
+  size: 24                         # pixels (default: 24)
+  color: 'black'                   # CSS color
+  show: true                       # explicitly show/hide
 ```
+
+**Auto-Icon Behavior:**
+
+Presets like `lozenge` set `show_icon: true` by default. If you don't specify an icon and an entity exists, it automatically uses the entity's icon:
+
+```yaml
+type: custom:lcards-simple-button
+entity: light.kitchen
+preset: lozenge
+label: "Kitchen"
+# No icon specified - automatically uses light.kitchen's icon
+```
+
+This is equivalent to explicitly setting `icon: 'entity'`.
 
 ---
 
@@ -433,10 +462,10 @@ Nine pre-defined positions:
 ### Basic Example
 
 ```yaml
-# Legacy (still works)
+# Simple shorthand
 label: "Button"
 
-# New multi-text
+# Full multi-text syntax
 text:
   label:
     content: "Button"
@@ -450,13 +479,13 @@ text:
   title:
     content: "Living Room"
     position: top-center
-    size: 16
+    font_size: 16
     font_weight: bold
 
   status:
     content: "2 lights on"
     position: bottom-center
-    size: 12
+    font_size: 12
     color: "#66FF66"
 ```
 
@@ -485,6 +514,7 @@ text:
 
   other:
     content: "More"
+    position: top-right
     padding:
       top: 25
       left: 30
@@ -495,7 +525,6 @@ text:
 ### State-Based Colors
 
 ```yaml
-entity: light.living_room
 text:
   label:
     content: "Light"
@@ -574,25 +603,7 @@ text:
 3. Named `position`
 4. Default: center
 
----
 
-## Migration Notes
-
-**Old flat schema is NO LONGER SUPPORTED:**
-- ❌ `background_color` → ✅ `card.color.background.{state}`
-- ❌ `text_color` → ✅ `text.default.color.{state}`
-- ❌ `border_width` → ✅ `border.width`
-- ❌ `border_radius` → ✅ `border.radius`
-- ❌ `border_color` → ✅ `border.color.{state}`
-- ❌ `font_size` → ✅ `text.default.font_size`
-
-**Rules Engine:**
-- ❌ `conditions:` array → ✅ `when:` / `apply:` blocks
-
-**Icons:**
-- ❌ `icon: {type: 'mdi', icon: 'lightbulb'}` → ✅ `icon: 'mdi:lightbulb'`
-
----
 
 ## Troubleshooting
 
@@ -617,6 +628,6 @@ text:
 ---
 
 **For complete implementation details, see:**
-- `SIMPLE_BUTTON_SCHEMA_DEFINITION.md` - Full schema specification
+- `simple-button-schema-definition.md` - Full schema specification (v1.14.18)
 - `doc/user-guide/testing/simple-button-testing.md` - Testing guide
 - `doc/architecture/rules-engine-template-syntax.md` - Rules Engine reference
