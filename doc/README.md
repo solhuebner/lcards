@@ -1,75 +1,67 @@
 # LCARdS Documentation
 
-**Version:** 1.10.70+
-**Last Updated:** November 15, 2025
+> **Complete documentation for the LCARdS Home Assistant card system**
 
 ---
 
-## Documentation Structure
+## 📚 Documentation Structure
 
-```
-doc/
-├── README.md                          (this file)
-├── archive/                           Legacy documentation
-├── architecture/                      Technical specifications
-│   ├── simple-button-schema-definition.md
-│   ├── simple-button-migration-plan.md
-│   └── rules-engine-template-syntax.md
-├── user-guide/                        End-user documentation
-│   ├── configuration/                 Component configuration
-│   │   ├── simple-button-quick-reference.md  ⭐ START HERE
-│   │   ├── simple-button-card-legacy.md      (archived)
-│   │   └── ...
-│   └── testing/                       Testing guides
-│       ├── simple-button-testing.md   ⭐ 20 TEST SCENARIOS
-│       └── simple-button-testing-legacy.md   (archived)
-└── ...
-```
+### 👤 [User Documentation](./user/)
+Everything users need to build LCARS dashboards in Home Assistant:
+- **[Getting Started](./user/getting-started/)** - Installation, quick start, first card
+- **[Configuration](./user/configuration/)** - Complete configuration guides for all overlays, datasources, rules
+- **[Examples](./user/examples/)** - Real-world dashboard examples
+- **[Guides](./user/guides/)** - Step-by-step tutorials
+- **[Advanced](./user/advanced/)** - Console API, debugging tools, advanced techniques
 
----
+### 🏗️ [Architecture Documentation](./architecture/)
+Internal architecture and developer documentation:
+- **[Subsystems](./architecture/subsystems/)** - Core system architecture (RulesEngine, DataSources, Theme, etc.)
+- **[Schemas](./architecture/schemas/)** - Card schemas and configuration structure
+- **[Diagrams](./architecture/diagrams/)** - System flow diagrams and architecture visualizations
+- **API References** - Debug API, Runtime API documentation
 
-## Quick Links
-
-### Simple Button Card
-- **Quick Reference** → `user-guide/configuration/simple-button-quick-reference.md`
-- **Testing Guide** → `user-guide/testing/simple-button-testing.md`
-- **Schema Definition** → `architecture/simple-button-schema-definition.md`
-- **Migration Plan** → `architecture/simple-button-migration-plan.md`
-
-### Rules Engine
-- **Template Syntax** → `architecture/rules-engine-template-syntax.md`
+### 🗄️ [Archive](./archive/)
+Historical documents, implementation notes, and work-in-progress documentation.
 
 ---
 
-## Documentation Philosophy
+## 🎯 Quick Links
 
-1. **Lowercase filenames** - All documentation uses kebab-case naming
-2. **Clear hierarchy** - User guides separate from technical specs
-3. **Archive old docs** - Don't delete, move to archive with `-legacy` suffix
-4. **Single source of truth** - One primary doc per topic, reference others
-5. **Examples first** - Show working code, explain after
+### For Users
+- 🚀 [Quick Start Guide](./user/getting-started/quickstart.md)
+- 📖 [Simple Button Card Reference](./user/configuration/simple-button-quick-reference.md)
+- 🎨 [Rules Engine Guide](./user/configuration/rules.md)
+- 🔍 [Console Help](./user/advanced/CONSOLE_HELP_QUICK_REF.md)
 
----
-
-## Contributing
-
-When updating documentation:
-1. Use lowercase kebab-case for filenames
-2. Keep examples up-to-date with latest schema
-3. Archive old versions, don't overwrite
-4. Update this README when adding new docs
-5. Cross-reference related documents
+### For Developers
+- 🏛️ [Architecture Overview](./architecture/overview.md)
+- 🧩 [Simple Card Foundation](./architecture/simple-card-foundation.md)
+- 🔌 [Debug API Reference](./architecture/API_REFERENCE.md)
+- 🎭 [Subsystems Overview](./architecture/subsystems/README.md)
 
 ---
 
-## Schema Version: 1.10.70+
+## 📊 Documentation Philosophy
 
-**Breaking Change:** Flat schema keys removed. Use nested CB-LCARS schema only.
+All documentation in this tree reflects the **current state of the code**. Documents are:
+- ✅ **Accurate** - Verified against implementation
+- ✅ **Complete** - No placeholder sections
+- ✅ **Current** - Actively maintained
+- ✅ **Clear** - Written for comprehension
 
-**Migration:**
-- ❌ `background_color` → ✅ `card.color.background.{state}`
-- ❌ `text_color` → ✅ `text.default.color.{state}`
-- ❌ `border_width` → ✅ `border.width`
-- ❌ Rules `conditions:` → ✅ Rules `when:`/`apply:`
+Implementation notes, work-in-progress documents, and historical references are in the [archive](./archive/).
 
-See `architecture/simple-button-migration-plan.md` for details.
+---
+
+## 🔄 Documentation Updates
+
+When making code changes:
+1. Update relevant documentation files
+2. Verify examples still work
+3. Update schemas if configuration changed
+4. Keep diagrams in sync with code
+
+---
+
+*Last Updated: November 2025*

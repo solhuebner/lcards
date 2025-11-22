@@ -1,6 +1,6 @@
 # Architecture Overview
 
-> **LCARdS System Architecture**  
+> **LCARdS System Architecture**
 > High-level overview of the singleton-based rendering system, card types, and component relationships.
 
 ---
@@ -217,5 +217,5 @@ Most singletons extend `BaseService` for consistent lifecycle:
 
 ---
 
-**Last Updated:** November 22, 2025  
+**Last Updated:** November 22, 2025
 **Status:** Current - reflects singleton architecture with Simple Card foundation
