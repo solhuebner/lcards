@@ -52,7 +52,7 @@ import { TemplateParser } from '../core/templates/TemplateParser.js';
  * ### _renderCard()
  * Called on every render. Return card content HTML.
  *
- * ### _onRulePatchesChanged(patches) ⭐ NEW
+ * ### _onRulePatchesChanged(patches)
  * Called when rule patches change. Use for:
  * - Re-resolving styles with new patches
  * - Triggering re-render
@@ -175,7 +175,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
         // Config provenance tracking (from CoreConfigManager)
         this._provenance = null;
 
-        // ✨ Rules integration state
+        // Rules integration state
         this._overlayId = null;           // Unique overlay ID for this card
         this._overlayTags = [];           // Tags for rule targeting
         this._rulesCallbackIndex = null;  // Callback index from RulesEngine (SINGLE callback)
@@ -184,7 +184,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
         this._hasRulesToLoad = false;     // Flag to defer rule loading until singletons are ready
         this._hassMonitoringSetup = false; // Flag to prevent duplicate monitoring setup
 
-        lcardsLog.debug(`[LCARdSSimpleCard] Constructor called for ${this._getDisplayId()}`);
+        lcardsLog.trace(`[LCARdSSimpleCard] Constructor called for ${this._getDisplayId()}`);
     }
 
     /**
@@ -206,10 +206,10 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             throw new Error('Invalid configuration');
         }
 
-        // ✅ CRITICAL: setConfig MUST be synchronous for Home Assistant!
+        // CRITICAL: setConfig MUST be synchronous for Home Assistant!
         // Store raw config immediately, then process asynchronously
 
-        lcardsLog.debug(`[LCARdSSimpleCard] setConfig called`, {
+        lcardsLog.trace(`[LCARdSSimpleCard] setConfig called`, {
             hasId: !!config.id,
             id: config.id,
             hasPreset: !!config.preset,
@@ -236,14 +236,14 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
         const core = window.lcardsCore || window.lcards?.core;
 
         if (!core?.configManager?.initialized) {
-            lcardsLog.debug(`[LCARdSSimpleCard] CoreConfigManager not available`);
+            lcardsLog.trace(`[LCARdSSimpleCard] CoreConfigManager not available`);
             return;
         }
 
         try {
             const cardType = this.constructor.CARD_TYPE || rawConfig.type || 'simple-card';
 
-            lcardsLog.debug(`[LCARdSSimpleCard] Processing config with CoreConfigManager`, {
+            lcardsLog.trace(`[LCARdSSimpleCard] Processing config with CoreConfigManager`, {
                 cardType,
                 hasPreset: !!rawConfig.preset
             });
@@ -265,7 +265,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             // Store provenance for debugging
             this._provenance = result.provenance;
 
-            lcardsLog.debug(`[LCARdSSimpleCard] Config processed`, {
+            lcardsLog.trace(`[LCARdSSimpleCard] Config processed`, {
                 valid: result.valid,
                 hasProvenance: !!result.provenance,
                 mergeOrder: result.provenance?.merge_order
@@ -358,7 +358,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
         }
 
         // Set up efficient entity-based rule monitoring on first HASS (once only)
-        lcardsLog.debug(`[LCARdSSimpleCard] Checking monitoring setup for ${this._getDisplayId()}`, {
+        lcardsLog.trace(`[LCARdSSimpleCard] Checking monitoring setup for ${this._getDisplayId()}`, {
             _hassMonitoringSetup: this._hassMonitoringSetup,
             hasRulesManager: !!(this._singletons?.rulesEngine),
             hasNewHass: !!newHass,
@@ -370,12 +370,12 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
 
         if (!this._hassMonitoringSetup && this._singletons?.rulesEngine && newHass && !oldHass) {
             this._hassMonitoringSetup = true;
-            lcardsLog.debug(`[LCARdSSimpleCard] 🔧 Setting up entity-based monitoring for ${this._getDisplayId()}`);
+            lcardsLog.trace(`[LCARdSSimpleCard] Setting up entity-based monitoring for ${this._getDisplayId()}`);
             try {
                 await this._singletons.rulesEngine.setupHassMonitoring(newHass);
-                lcardsLog.debug(`[LCARdSSimpleCard] ✅ Entity-based rule monitoring enabled for ${this._getDisplayId()}`);
+                lcardsLog.trace(`[LCARdSSimpleCard] Entity-based rule monitoring enabled for ${this._getDisplayId()}`);
             } catch (error) {
-                lcardsLog.error(`[LCARdSSimpleCard] ❌ Failed to setup rule monitoring:`, error);
+                lcardsLog.error(`[LCARdSSimpleCard] Failed to setup rule monitoring:`, error);
             }
         }
 
@@ -391,14 +391,14 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             );
 
             if (!oldHass || cardEntityChanged || trackedEntitiesChanged) {
-                lcardsLog.trace(`[LCARdSSimpleCard] 📡 Forwarding HASS to core.ingestHass() for ${this._cardGuid}`, {
+                lcardsLog.trace(`[LCARdSSimpleCard] Forwarding HASS to core.ingestHass() for ${this._cardGuid}`, {
                     reason: !oldHass ? 'initial' : cardEntityChanged ? 'card entity' : 'tracked entity',
                     cardEntity: this.config?.entity,
                     trackedCount: this._trackedEntities?.length || 0
                 });
                 window.lcards.core.ingestHass(newHass);
             } else {
-                lcardsLog.trace(`[LCARdSSimpleCard] ⏭️ Skipping core.ingestHass() - no relevant entity changes for ${this._cardGuid}`);
+                lcardsLog.trace(`[LCARdSSimpleCard] Skipping core.ingestHass() - no relevant entity changes for ${this._cardGuid}`);
             }
         } else {
             lcardsLog.warn(`[LCARdSSimpleCard] ⚠️ No core singleton available for ${this._cardGuid}`);
@@ -443,7 +443,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             // Try to setup monitoring now that we have singletons AND rules (if HASS already arrived)
             if (!this._hassMonitoringSetup && this._singletons?.rulesEngine && this._hass) {
                 this._hassMonitoringSetup = true;
-                lcardsLog.debug(`[LCARdSSimpleCard] 🔧 Setting up entity-based monitoring (after rules loaded) for ${this._getDisplayId()}`, {
+                lcardsLog.trace(`[LCARdSSimpleCard] Setting up entity-based monitoring (after rules loaded) for ${this._getDisplayId()}`, {
                     hasRulesEngine: !!this._singletons.rulesEngine,
                     hasHass: !!this._hass,
                     hasConnection: !!this._hass?.connection,
@@ -453,17 +453,17 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
                     await this._singletons.rulesEngine.setupHassMonitoring(this._hass);
                     // Verify it actually worked
                     if (this._singletons.rulesEngine.hassUnsubscribe) {
-                        lcardsLog.debug(`[LCARdSSimpleCard] ✅ Entity-based rule monitoring enabled for ${this._getDisplayId()}`);
+                        lcardsLog.trace(`[LCARdSSimpleCard] Entity-based rule monitoring enabled for ${this._getDisplayId()}`);
                     } else {
-                        lcardsLog.warn(`[LCARdSSimpleCard] ⚠️ setupHassMonitoring() completed but no subscription created for ${this._getDisplayId()}`);
+                        lcardsLog.warn(`[LCARdSSimpleCard] setupHassMonitoring() completed but no subscription created for ${this._getDisplayId()}`);
                     }
                 } catch (error) {
-                    lcardsLog.error(`[LCARdSSimpleCard] ❌ Failed to setup rule monitoring:`, error);
+                    lcardsLog.error(`[LCARdSSimpleCard] Failed to setup rule monitoring:`, error);
                 }
             }
         }
 
-        lcardsLog.debug(`[LCARdSSimpleCard] Connected: ${this._getDisplayId()}`);
+        lcardsLog.trace(`[LCARdSSimpleCard] Connected: ${this._getDisplayId()}`);
     }
 
     /**
@@ -485,7 +485,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             this._handleFirstUpdate(changedProperties);
         }
 
-        lcardsLog.debug(`[LCARdSSimpleCard] First updated: ${this._getDisplayId()}`);
+        lcardsLog.trace(`[LCARdSSimpleCard] First updated: ${this._getDisplayId()}`);
     }
 
     /**
@@ -517,7 +517,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             this._resizeObserver = null;
         }
 
-        lcardsLog.debug(`[LCARdSSimpleCard] Disconnected and cleaned up: ${this._getDisplayId()}`);
+        lcardsLog.trace(`[LCARdSSimpleCard] Disconnected and cleaned up: ${this._getDisplayId()}`);
     }
 
     /**
@@ -562,7 +562,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
                     this._containerSize = { width, height };
                 }
 
-                lcardsLog.debug(`[LCARdSSimpleCard] Container resized to ${width}x${height} for ${this._getDisplayId()}`);
+                lcardsLog.trace(`[LCARdSSimpleCard] Container resized to ${width}x${height} for ${this._getDisplayId()}`);
 
                 // Call custom callback if provided
                 if (onResize && typeof onResize === 'function') {
@@ -578,7 +578,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
         // The web component should fill its container via CSS (width: 100%, height: 100%)
         this._resizeObserver.observe(this);
 
-        lcardsLog.debug(`[LCARdSSimpleCard] Auto-sizing enabled for ${this._getDisplayId()}`, {
+        lcardsLog.trace(`[LCARdSSimpleCard] Auto-sizing enabled for ${this._getDisplayId()}`, {
             element: this.tagName,
             hasCallback: !!onResize
         });
@@ -599,7 +599,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             }
 
             const animationManager = core.getAnimationManager();
-            lcardsLog.debug(`[LCARdSSimpleCard] AnimationManager singleton check for ${this._cardGuid}`, {
+            lcardsLog.trace(`[LCARdSSimpleCard] AnimationManager singleton check for ${this._cardGuid}`, {
                 hasGetMethod: typeof core.getAnimationManager === 'function',
                 managerResult: !!animationManager,
                 managerType: animationManager?.constructor?.name,
@@ -625,10 +625,10 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
                     this,
                     this.config
                 );
-                lcardsLog.debug(`[LCARdSSimpleCard] Registered with CoreSystemsManager: ${this._cardGuid}`);
+                lcardsLog.trace(`[LCARdSSimpleCard] Registered with CoreSystemsManager: ${this._cardGuid}`);
             }
 
-            lcardsLog.debug(`[LCARdSSimpleCard] Singletons initialized for ${this._cardGuid}`, {
+            lcardsLog.trace(`[LCARdSSimpleCard] Singletons initialized for ${this._cardGuid}`, {
                 hasSystemsManager: !!this._singletons.systemsManager,
                 hasTheme: !!this._singletons.themeManager,
                 hasRules: !!this._singletons.rulesEngine,
@@ -692,7 +692,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
                 rulesEngine._compileRules();
                 rulesEngine.markAllDirty(); // Mark all rules dirty for initial evaluation
 
-                lcardsLog.info(`[LCARdSSimpleCard] ✅ Loaded ${addedCount} rules from config. Total rules in engine: ${rulesEngine.rules.length}`);
+                lcardsLog.info(`[LCARdSSimpleCard] Loaded ${addedCount} rules from config. Total rules in engine: ${rulesEngine.rules.length}`);
             }
 
         } catch (error) {
@@ -756,7 +756,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             return;
         }
 
-        // ✅ SIMPLIFIED: Use the provided overlayId directly (no suffix appending)
+        // Use the provided overlayId directly (no suffix appending)
         // For simple cards with single overlays, pass the card ID directly
         // This makes rule targeting intuitive: user sets id:my_button, rule targets my_button
         this._overlayId = overlayId;
@@ -777,7 +777,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             try {
                 // Evaluate dirty rules to get patches
                 const ruleResults = await this._singletons.rulesEngine.evaluateDirty({
-                    entity: this.config?.entity,  // ✨ Pass bound entity ID for JavaScript context
+                    entity: this.config?.entity,  // Pass bound entity ID for JavaScript context
                     getEntity: (entityId) => {
                         const state = this.hass?.states?.[entityId];
                         lcardsLog.trace(`[LCARdSSimpleCard] getEntity(${entityId}) => ${state?.state}`);
@@ -929,7 +929,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
      * 2. Config styles
      * 3. Theme token resolution
      * 4. State overrides
-     * 5. Rule patches ⭐ (applied by this method)
+     * 5. Rule patches (applied by this method)
      *
      * **Performance:**
      * - Returns immediately if no rule patches active
@@ -955,7 +955,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
      *     style = this.resolveStyle(style, ['colors.primary']);
      *
      *     // 4. Apply rule patches (highest priority)
-     *     style = this._getMergedStyleWithRules(style); // ⭐ Call this last
+     *     style = this._getMergedStyleWithRules(style); // Call this last
      *
      *     this._buttonStyle = style;
      *     this.requestUpdate();
@@ -1015,12 +1015,13 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
             const dataSourceManager = window.lcards?.debug?.msd?.pipelineInstance?.systemsManager?.dataSourceManager;
 
             // Check if template has datasource references but manager not available yet
-            const hasDatasources = template.includes('{datasource:') || /\{[a-z_]+\.[a-z_]+/.test(template);
+            // Only match actual datasource syntax: {datasource:name} or {ds:name}
+            const hasDatasources = template.includes('{datasource:') || template.includes('{ds:');
             if (hasDatasources && !dataSourceManager) {
                 // Schedule a retry when DataSourceManager becomes available
                 this._scheduleDatasourceRetry();
 
-                lcardsLog.debug('[LCARdSSimpleCard] Datasource template detected but DataSourceManager not ready, will retry', {
+                lcardsLog.trace('[LCARdSSimpleCard] Datasource template detected but DataSourceManager not ready, will retry', {
                     cardGuid: this._cardGuid,
                     template: template.substring(0, 50)
                 });
@@ -1061,6 +1062,10 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
 
             if (dataSourceManager) {
                 clearInterval(checkInterval);
+                if (this._datasourceTimeoutId) {
+                    clearTimeout(this._datasourceTimeoutId);
+                    this._datasourceTimeoutId = null;
+                }
                 this._datasourceRetryScheduled = false;
 
                 lcardsLog.info('[LCARdSSimpleCard] DataSourceManager now available, re-processing templates', {
@@ -1073,10 +1078,11 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
         }, 100); // Check every 100ms
 
         // Give up after 10 seconds
-        setTimeout(() => {
+        this._datasourceTimeoutId = setTimeout(() => {
             if (this._datasourceRetryScheduled) {
                 clearInterval(checkInterval);
                 this._datasourceRetryScheduled = false;
+                this._datasourceTimeoutId = null;
                 lcardsLog.warn('[LCARdSSimpleCard] DataSourceManager not available after timeout', {
                     cardGuid: this._cardGuid
                 });

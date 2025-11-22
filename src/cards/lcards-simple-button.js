@@ -1,25 +1,52 @@
 /**
  * LCARdS Simple Button Card
  *
- * A clean, straightforward button implementation using the SimpleCard foundation.
- * Demonstrates the proper use of the simplified architecture.
+ * A feature-complete button implementation using the SimpleCard foundation.
+ * Supports multi-text labels, flexible positioning, state-based styling, and dynamic rules.
  *
  * Features:
- * - Template processing for label/content
- * - Theme token integration
- * - Style preset support
- * - Action handling
- * - SVG rendering via ButtonRenderer
+ * - Multi-text label system with flexible positioning and rotation
+ * - Icon area support (left, right, top, bottom, or absolute positioning)
+ * - Template processing with Jinja2 syntax
+ * - Theme token integration with computed token support
+ * - Style preset system with deep merging
+ * - Rules engine integration for dynamic styling
+ * - Action handling (tap, hold, double-tap)
+ * - SVG rendering with per-corner border radii
+ * - Responsive auto-sizing for HA grid layouts
  *
- * Configuration:
+ * @example Basic Button
  * ```yaml
  * type: custom:lcards-simple-button
  * entity: light.bedroom
- * label: "Bedroom Light"
- * preset: lozenge  # Optional: button style preset
+ * preset: lozenge
+ * text:
+ *   name:
+ *     content: "Bedroom Light"
  * tap_action:
  *   action: toggle
  * ```
+ *
+ * @example Advanced Button with Multi-Text
+ * ```yaml
+ * type: custom:lcards-simple-button
+ * entity: sensor.temperature
+ * preset: bullet
+ * icon_area: left
+ * icon:
+ *   icon: mdi:thermometer
+ * text:
+ *   label:
+ *     content: "Temperature"
+ *     position: top-right
+ *   value:
+ *     content: "{entity.state}°C"
+ *     position: bottom-right
+ *     font_size: 20
+ * ```
+ *
+ * @see {@link ../doc/architecture/simple-button-schema-definition.md} for complete schema
+ * @version 1.14.18
  */
 
 import { html, css } from 'lit';
@@ -73,9 +100,6 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 .button-svg:hover {
                     opacity: 0.8;
                 }
-
-                /* These styles are now applied inline for dynamic rule-based changes
-                   Removed !important to allow inline styles to work */
             `
         ];
     }
@@ -83,8 +107,8 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
     constructor() {
         super();
         this._buttonStyle = null;
-        this._lastActionElement = null; // Track last element actions were attached to
-        this._containerSize = { width: 200, height: 56 }; // Default size (1-row HA grid cell = 56px), updated by ResizeObserver
+        this._lastActionElement = null;
+        this._containerSize = { width: 200, height: 56 };
         this._resizeObserver = null;
     }
 
@@ -136,14 +160,12 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                     entity: this._entity
                 });
 
-                // ✨ ENHANCEMENT: Re-resolve button style when entity state changes
-                // This makes the button color update reactively (without requiring page refresh)
-                // State-based colors are applied in _resolveButtonStyleSync()
+                // Re-resolve button style when entity state changes for reactive color updates
                 this._resolveButtonStyleSync();
 
                 lcardsLog.debug(`[LCARdSSimpleButtonCard] Button style re-resolved after state change`);
 
-                // Schedule template processing AFTER style resolution (so preset text fields are available)
+                // Schedule template processing AFTER style resolution
                 this._scheduleTemplateUpdate();
             }
         }
@@ -155,7 +177,6 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      */
     _handleFirstUpdate(changedProperties) {
         // Register this button with RulesEngine for dynamic styling
-        // Tags: button type and preset (if any)
         const tags = ['button'];
         if (this.config.preset) {
             tags.push(this.config.preset);
@@ -164,13 +185,12 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             tags.push('entity-based');
         }
 
-        // ⭐ Merge custom tags from config
+        // Merge custom tags from config for bulk rule targeting
         if (this.config.tags && Array.isArray(this.config.tags)) {
             tags.push(...this.config.tags);
         }
 
-        // ✅ SIMPLIFIED: Use card ID directly (no suffix)
-        // If user sets id:my_button, overlay registers as "my_button" (not "my_button_button")
+        // Use card ID directly - config.id takes precedence over entity ID
         const overlayId = this.config.id || this.config.entity || this._cardGuid;
 
         lcardsLog.debug(`[LCARdSSimpleButtonCard] Registering overlay with ID: ${overlayId}`, {
@@ -180,21 +200,21 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             entity: this.config.entity,
             cardGuid: this._cardGuid,
             finalOverlayId: overlayId,
-            tags: tags  // ⭐ Log tags for debugging
+            tags: tags
         });
 
         this._registerOverlayForRules(overlayId, tags);
 
-        // Setup actions after DOM is ready (original simple approach)
+        // Setup actions after DOM is ready
         this.updateComplete.then(() => {
             this._setupButtonActions();
             this._actionsInitialized = true;
         });
 
-        // ✨ Setup auto-sizing via base class (triggers requestUpdate on resize)
+        // Setup auto-sizing to respond to container size changes
         this._setupAutoSizing();
 
-        // Process initial templates if needed (after button style is resolved)
+        // Process initial templates if needed
         if (this._needsInitialTemplateProcessing) {
             lcardsLog.debug(`[LCARdSSimpleButtonCard] Processing initial templates after firstUpdated`);
             this._scheduleTemplateUpdate();
@@ -409,7 +429,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             const configWithTokens = resolveThemeTokensRecursive(configStyleCopy, this._singletons?.themeManager);
             // Then deep merge (handles nested objects)
             style = deepMerge(style, configWithTokens);
-            lcardsLog.trace(`[LCARdSSimpleButtonCard] Deep merged config styles`);
+            lcardsLog.trace(`[LCARdSSimpleButtonCard] Config styles merged`);
         }
 
         // 3. Get current button state
@@ -437,7 +457,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 if (!style.card.color.background) style.card.color.background = {};
                 style.card.color.background[buttonState] = resolved;
 
-                lcardsLog.trace(`[LCARdSSimpleButtonCard] Applied theme default: card.color.background.${buttonState} = ${resolved}`);
+                lcardsLog.trace(`[LCARdSSimpleButtonCard] Theme default applied: card.color.background.${buttonState}`);
             }
         }
 
@@ -459,7 +479,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 if (!style.text.default.color) style.text.default.color = {};
                 style.text.default.color[buttonState] = textColor;
 
-                lcardsLog.trace(`[LCARdSSimpleButtonCard] Applied theme default: text.default.color.${buttonState} = ${textColor}`);
+                lcardsLog.trace(`[LCARdSSimpleButtonCard] Theme default applied: text.default.color.${buttonState}`);
             }
         }
 
@@ -628,12 +648,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Parse the icon string to get type (mdi, si, entity) and icon name
         const parsedIcon = this._parseIconString(iconName);
 
-        lcardsLog.debug('[LCARdSSimpleButtonCard] Icon parsing result:', {
-            iconName,
-            parsedIcon,
-            hasEntity: !!this._entity,
-            entityIcon: this._entity?.attributes?.icon
-        });
+        lcardsLog.trace('[LCARdSSimpleButtonCard] Icon parsed:', parsedIcon);
 
         if (parsedIcon) {
             // Handle 'entity' icon - either type='entity' OR type='mdi' with icon='entity'
@@ -642,20 +657,12 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 // Use HA's state-aware icon resolution (respects entity.attributes.icon + state-based defaults)
                 const entityIcon = this._resolveEntityIcon(this._entity);
 
-                lcardsLog.debug('[LCARdSSimpleButtonCard] Resolving entity icon:', {
-                    entityId: this._entity?.entity_id,
-                    entityState: this._entity?.state,
-                    resolvedIcon: entityIcon,
-                    timestamp: Date.now(),
-                    note: 'Using HA stateIcon() for state-aware resolution'
-                });
+                lcardsLog.trace('[LCARdSSimpleButtonCard] Resolved entity icon:', entityIcon);
+
                 // Re-parse the resolved entity icon to get its type (mdi/si) and name
                 const resolvedParsed = this._parseIconString(entityIcon);
                 if (resolvedParsed) {
-                    lcardsLog.debug('[LCARdSSimpleButtonCard] Parsed icon result:', {
-                        type: resolvedParsed.type,
-                        icon: resolvedParsed.icon
-                    });
+                    lcardsLog.trace('[LCARdSSimpleButtonCard] Parsed entity icon:', resolvedParsed);
                     parsedIcon.type = resolvedParsed.type;
                     parsedIcon.icon = resolvedParsed.icon;
                 }
@@ -671,13 +678,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             // Priority: config > preset > theme token (state-based) > text color (state-based) > hardcoded
             let iconColor;
 
-            lcardsLog.debug('[LCARdSSimpleButtonCard] Icon color resolution:', {
-                buttonState,
-                'config.icon': this.config.icon,
-                'resolvedStyle.icon': resolvedStyle.icon,
-                'iconTokens.color': iconTokens.color,
-                '_buttonStyle.text': this._buttonStyle?.text
-            });
+            lcardsLog.trace('[LCARdSSimpleButtonCard] Resolving icon color for state:', buttonState);
 
             // 1. Check explicit config color
             if (typeof this.config.icon === 'object' && this.config.icon?.color) {
@@ -689,7 +690,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 } else {
                     iconColor = this.config.icon.color;
                 }
-                lcardsLog.debug('[LCARdSSimpleButtonCard] Icon color from config:', iconColor);
+                lcardsLog.trace('[LCARdSSimpleButtonCard] Icon color from config:', iconColor);
             }
             // 2. Check preset/resolvedStyle color
             else if (resolvedStyle.icon?.color) {
@@ -701,7 +702,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 } else {
                     iconColor = resolvedStyle.icon.color;
                 }
-                lcardsLog.debug('[LCARdSSimpleButtonCard] Icon color from preset/resolvedStyle:', iconColor);
+                lcardsLog.trace('[LCARdSSimpleButtonCard] Icon color from preset:', iconColor);
             }
             // 3. Check theme token (can be state-based)
             else if (iconTokens.color) {
@@ -709,16 +710,10 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                     iconColor = iconTokens.color[buttonState] ||
                                iconTokens.color.default ||
                                iconTokens.color.active;
-                    lcardsLog.debug('[LCARdSSimpleButtonCard] Icon color from theme token (state-based):', {
-                        buttonState,
-                        'iconTokens.color[buttonState]': iconTokens.color[buttonState],
-                        'iconTokens.color.default': iconTokens.color.default,
-                        'iconTokens.color.active': iconTokens.color.active,
-                        resolved: iconColor
-                    });
+                    lcardsLog.trace('[LCARdSSimpleButtonCard] Icon color from theme token (state-based):', iconColor);
                 } else {
                     iconColor = iconTokens.color;
-                    lcardsLog.debug('[LCARdSSimpleButtonCard] Icon color from theme token (static):', iconColor);
+                    lcardsLog.trace('[LCARdSSimpleButtonCard] Icon color from theme token:', iconColor);
                 }
             }
             // 4. Fall back to text color (also state-based)
@@ -731,7 +726,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 } else {
                     iconColor = textColor;
                 }
-                lcardsLog.debug('[LCARdSSimpleButtonCard] Icon color from text color:', iconColor);
+                lcardsLog.trace('[LCARdSSimpleButtonCard] Icon color from text color:', iconColor);
             }
             // 5. Final hardcoded fallback
             else {
@@ -925,20 +920,13 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
     }
 
     /**
-     * Override base class _processIcon() to prevent it from overwriting
-     * the icon configuration we've already processed via _processIconConfiguration()
-     *
-     * The base class's _processIcon() doesn't understand presets and would
-     * reset the icon position to 'left' instead of using the preset's position.
-     *
+     * Override base class _processIcon() to prevent conflicts with preset icon configuration.
+     * Button card handles icon processing in _processIconConfiguration() which properly
+     * supports preset icon positioning and state-based colors.
      * @override
      */
     async _processIcon() {
-        // Button card handles icon processing in _processIconConfiguration()
-        // which is called from _resolveButtonStyleSync() and properly handles
-        // preset icon configuration including position.
-        // Do nothing here to prevent base class from overwriting it.
-        lcardsLog.trace(`[LCARdSSimpleButtonCard] _processIcon called (no-op, using _processIconConfiguration instead)`);
+        lcardsLog.trace(`[LCARdSSimpleButtonCard] _processIcon override (no-op)`);
     }
 
     /**
@@ -977,14 +965,10 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             // If field doesn't exist in config, add it from preset
             if (!this.config.text[fieldId]) {
                 this.config.text[fieldId] = { ...presetFieldConfig };
-                lcardsLog.debug(`[LCARdSSimpleButtonCard] Added preset field '${fieldId}' to config`, {
-                    content: presetFieldConfig.content,
-                    cardGuid: this._cardGuid
-                });
-                hasChanges = true; // Mark as changed since we added a field
+                lcardsLog.trace(`[LCARdSSimpleButtonCard] Added preset text field '${fieldId}'`);
+                hasChanges = true;
             } else {
                 // Field exists in config - merge preset properties as defaults
-                // Only add preset properties that aren't in the config
                 const configField = this.config.text[fieldId];
                 let fieldChanged = false;
 
@@ -992,11 +976,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                     if (configField[propKey] === undefined && propValue !== undefined) {
                         configField[propKey] = propValue;
                         fieldChanged = true;
-
-                        lcardsLog.debug(`[LCARdSSimpleButtonCard] Merged preset property '${propKey}' into field '${fieldId}'`, {
-                            value: propValue,
-                            cardGuid: this._cardGuid
-                        });
+                        lcardsLog.trace(`[LCARdSSimpleButtonCard] Merged preset property '${propKey}' into '${fieldId}'`);
                     }
                 }
 
@@ -1022,42 +1002,29 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                         fieldConfig._originalContent = fieldConfig.content;
                     }
 
-                    lcardsLog.debug(`[LCARdSSimpleButtonCard] Processing template for field '${fieldId}'`, {
-                        originalContent: fieldConfig._originalContent,
-                        cardGuid: this._cardGuid
-                    });
+                    lcardsLog.trace(`[LCARdSSimpleButtonCard] Processing template field '${fieldId}'`);
 
                     // Always process from original template, not previously processed content
                     const processedContent = await this.processTemplate(fieldConfig._originalContent);
 
-                    lcardsLog.debug(`[LCARdSSimpleButtonCard] Template processed for field '${fieldId}'`, {
-                        originalContent: fieldConfig._originalContent,
-                        processedContent,
-                        changed: fieldConfig.content !== processedContent,
-                        cardGuid: this._cardGuid
-                    });
-
                     // Check if content actually changed
                     if (fieldConfig.content !== processedContent) {
-                        // Store processed content for rendering (overwrite previous processed value)
                         fieldConfig.content = processedContent;
                         hasChanges = true;
+                        lcardsLog.trace(`[LCARdSSimpleButtonCard] Template field '${fieldId}' changed:`, processedContent);
                     }
                 }
             }
         }
 
-        lcardsLog.debug(`[LCARdSSimpleButtonCard] _processCustomTemplates complete`, {
+        lcardsLog.debug(`[LCARdSSimpleButtonCard] Template processing complete`, {
             hasChanges,
-            finalFieldIds: Object.keys(this.config.text),
-            cardGuid: this._cardGuid
+            fieldCount: this.config.text ? Object.keys(this.config.text).length : 0
         });
 
         if (hasChanges) {
             // Extract and track entities from templates for auto-updates
             this._updateTrackedEntities();
-
-            lcardsLog.debug(`[LCARdSSimpleButtonCard] Multi-text templates processed for ${this._cardGuid}`);
 
             // Call subclass hook for style resolution after template changes
             if (typeof this._onTemplatesChanged === 'function') {
@@ -1093,7 +1060,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
 
         this._trackedEntities = Array.from(trackedEntities);
 
-        lcardsLog.trace(`[LCARdSSimpleButtonCard] Tracking ${this._trackedEntities.length} entities for ${this._cardGuid}:`, this._trackedEntities);
+        lcardsLog.trace(`[LCARdSSimpleButtonCard] Tracking ${this._trackedEntities.length} entities`, this._trackedEntities);
     }
 
     /**
@@ -1169,7 +1136,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             }
         );
 
-        lcardsLog.trace(`[LCARdSSimpleButtonCard] Actions attached successfully`);
+        lcardsLog.trace(`[LCARdSSimpleButtonCard] Actions attached to button element`);
     }
 
     /**
@@ -1207,7 +1174,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      * @private
      */
     _renderButtonContent() {
-        lcardsLog.trace(`[LCARdSSimpleButtonCard] Rendering button for ${this._overlayId}`);
+        lcardsLog.trace(`[LCARdSSimpleButtonCard] Rendering button ${this._overlayId}`);
 
         // ✨ Use container size if available, otherwise config or defaults
         // This enables auto-sizing for HA grid cards and responsive layouts
@@ -1728,14 +1695,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                     ? (this._entity?.attributes?.icon || 'mdi:help-circle')
                     : `${iconConfig.type}:${iconConfig.icon}`;
 
-                // Debug logging for entity icon resolution
-                if (iconConfig.type === 'entity') {
-                    lcardsLog.debug('[LCARdSSimpleButtonCard] Normal mode - Resolving entity icon:', {
-                        entityId: this._entity?.entity_id,
-                        entityIcon: this._entity?.attributes?.icon,
-                        resolvedIconName: iconName
-                    });
-                }
+                lcardsLog.trace('[LCARdSSimpleButtonCard] Icon resolved:', iconName);
 
                 // Calculate rotation transform if needed
                 // Rotation is around the center of the icon
@@ -3178,20 +3138,19 @@ if (window.lcardsCore?.configManager) {
 
     // Register behavioral defaults (NO STYLES - those come from theme/presets)
     configManager.registerCardDefaults('simple-button', {
-        show_label: true,           // Display label by default
-        show_icon: false,           // No icon by default
         enable_hold_action: true,   // Hold actions enabled
         enable_double_tap: false    // Double-tap disabled by default
     });
 
-    // Register JSON schema for validation
+    // Register JSON schema for validation (v1.14.18+)
+    // Based on: doc/architecture/simple-button-schema-definition.md
     configManager.registerCardSchema('simple-button', {
         type: 'object',
         properties: {
             // Core Properties
             entity: {
                 type: 'string',
-                description: 'Entity ID to control'
+                description: 'Entity ID to control (optional - if omitted, always uses "active" state)'
             },
             id: {
                 type: 'string',
@@ -3203,56 +3162,281 @@ if (window.lcardsCore?.configManager) {
                 description: 'Tags for bulk rule targeting (e.g., ["controlled", "indicator"])'
             },
 
-            // Display Properties
-            label: {
-                type: 'string',
-                description: 'Button label text (supports Jinja2 templates)'
-            },
-            content: {
-                type: 'string',
-                description: 'Additional content text (supports Jinja2 templates)'
-            },
+            // Preset
             preset: {
                 type: 'string',
-                description: 'Style preset name (e.g., "lozenge", "pill", "bullet")'
+                description: 'Style preset name (e.g., "lozenge", "bullet", "capped", "barrel", "outline", "icon")'
             },
-            show_label: {
-                type: 'boolean',
-                description: 'Whether to display the label'
+
+            // Multi-Text Label System
+            text: {
+                type: 'object',
+                description: 'Multi-text label system with flexible positioning',
+                patternProperties: {
+                    '^[a-zA-Z_][a-zA-Z0-9_]*$': {
+                        type: 'object',
+                        properties: {
+                            content: { type: 'string', description: 'Text content (supports templates like {entity.state})' },
+                            position: {
+                                type: 'string',
+                                enum: ['top-left', 'top-center', 'top-right', 'left-center', 'center', 'right-center', 'bottom-left', 'bottom-center', 'bottom-right', 'top', 'bottom', 'left', 'right'],
+                                description: 'Named position (edge shortcuts: top=top-center, bottom=bottom-center, left=left-center, right=right-center)'
+                            },
+                            x: { type: 'number', description: 'Explicit x coordinate (overrides position)' },
+                            y: { type: 'number', description: 'Explicit y coordinate (overrides position)' },
+                            x_percent: { type: 'number', minimum: 0, maximum: 100, description: 'Percentage x position (0-100)' },
+                            y_percent: { type: 'number', minimum: 0, maximum: 100, description: 'Percentage y position (0-100)' },
+                            rotation: { type: 'number', description: 'Rotation angle in degrees (positive = clockwise)' },
+                            padding: {
+                                oneOf: [
+                                    { type: 'number', description: 'Uniform padding' },
+                                    {
+                                        type: 'object',
+                                        properties: {
+                                            top: { type: 'number' },
+                                            right: { type: 'number' },
+                                            bottom: { type: 'number' },
+                                            left: { type: 'number' }
+                                        }
+                                    }
+                                ]
+                            },
+                            font_size: { type: 'number', description: 'Font size in pixels' },
+                            color: {
+                                oneOf: [
+                                    { type: 'string', description: 'Uniform color' },
+                                    {
+                                        type: 'object',
+                                        properties: {
+                                            active: { type: 'string' },
+                                            inactive: { type: 'string' },
+                                            unavailable: { type: 'string' },
+                                            default: { type: 'string' }
+                                        }
+                                    }
+                                ]
+                            },
+                            font_weight: { type: 'string', description: 'Font weight (e.g., "normal", "bold", "600")' },
+                            font_family: { type: 'string', description: 'Font family' },
+                            text_transform: {
+                                type: 'string',
+                                enum: ['none', 'uppercase', 'lowercase', 'capitalize'],
+                                description: 'Text transformation'
+                            },
+                            anchor: {
+                                type: 'string',
+                                enum: ['start', 'middle', 'end'],
+                                description: 'Text anchor (default: from position)'
+                            },
+                            baseline: {
+                                type: 'string',
+                                enum: ['hanging', 'middle', 'central', 'alphabetic'],
+                                description: 'Baseline alignment (default: from position)'
+                            },
+                            show: { type: 'boolean', description: 'Show/hide field (default: true)' },
+                            template: { type: 'boolean', description: 'Enable template processing (default: true)' }
+                        }
+                    }
+                }
             },
-            show_icon: {
-                type: 'boolean',
-                description: 'Whether to display an icon'
+
+            // Icon Area Configuration
+            icon_area: {
+                type: 'string',
+                enum: ['left', 'right', 'top', 'bottom', 'none'],
+                description: 'Where icon\'s reserved space is (default: left). "none" = no divider, absolute positioning'
             },
+            icon_area_size: {
+                type: 'number',
+                description: 'Override calculated area size (width for left/right, height for top/bottom)'
+            },
+
+            // Icon Configuration
             icon: {
                 oneOf: [
-                    { type: 'string' },
+                    { type: 'string', description: 'Simple icon: "mdi:lightbulb", "si:github", "entity", or null' },
                     {
                         type: 'object',
                         properties: {
-                            icon: { type: 'string', description: 'Icon name (e.g., "mdi:lightbulb", "entity")' },
+                            icon: { type: 'string', description: 'Icon name ("mdi:lightbulb", "si:github", "entity")' },
                             position: {
                                 type: 'string',
-                                enum: ['left', 'right', 'center', 'top', 'bottom'],
-                                description: 'Icon position relative to text'
+                                enum: ['top-left', 'top-center', 'top-right', 'left-center', 'center', 'right-center', 'bottom-left', 'bottom-center', 'bottom-right', 'top', 'bottom', 'left', 'right'],
+                                description: 'Position within icon area (if icon_area set) or absolute on button (if icon_area: none)'
                             },
-                            size: { type: 'number', description: 'Icon size in pixels (controls area width)' },
-                            color: { type: 'string', description: 'Icon color (CSS color or "inherit")' },
-                            padding_left: { type: 'number', description: 'Left padding in pixels' },
-                            padding_right: { type: 'number', description: 'Right padding in pixels' },
-                            padding_top: { type: 'number', description: 'Top padding in pixels' },
-                            padding_bottom: { type: 'number', description: 'Bottom padding in pixels' }
+                            x: { type: 'number', description: 'Explicit x coordinate (within area or absolute)' },
+                            y: { type: 'number', description: 'Explicit y coordinate (within area or absolute)' },
+                            x_percent: { type: 'number', minimum: 0, maximum: 100, description: 'Percentage x position (0-100)' },
+                            y_percent: { type: 'number', minimum: 0, maximum: 100, description: 'Percentage y position (0-100)' },
+                            size: { type: 'number', description: 'Icon size in pixels (default: 24)' },
+                            color: {
+                                oneOf: [
+                                    { type: 'string', description: 'Uniform color' },
+                                    {
+                                        type: 'object',
+                                        properties: {
+                                            active: { type: 'string' },
+                                            inactive: { type: 'string' },
+                                            unavailable: { type: 'string' },
+                                            default: { type: 'string' }
+                                        }
+                                    }
+                                ]
+                            },
+                            background: {
+                                type: 'object',
+                                description: 'Background for badge/indicator style',
+                                properties: {
+                                    color: {
+                                        oneOf: [
+                                            { type: 'string' },
+                                            {
+                                                type: 'object',
+                                                properties: {
+                                                    active: { type: 'string' },
+                                                    inactive: { type: 'string' },
+                                                    unavailable: { type: 'string' },
+                                                    default: { type: 'string' }
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    radius: {
+                                        oneOf: [
+                                            { type: 'number' },
+                                            { type: 'string', description: 'Percentage (e.g., "50%" for circle)' }
+                                        ]
+                                    },
+                                    padding: { type: 'number', description: 'Space between icon and background edge' }
+                                }
+                            },
+                            padding: {
+                                oneOf: [
+                                    { type: 'number', description: 'Uniform padding' },
+                                    {
+                                        type: 'object',
+                                        properties: {
+                                            top: { type: 'number' },
+                                            right: { type: 'number' },
+                                            bottom: { type: 'number' },
+                                            left: { type: 'number' }
+                                        }
+                                    }
+                                ]
+                            },
+                            rotation: { type: 'number', description: 'Rotation angle in degrees (positive = clockwise)' },
+                            show: { type: 'boolean', description: 'Explicitly show/hide icon' }
                         }
                     }
-                ],
-                description: 'Icon configuration: string ("entity", "mdi:lightbulb") or object with options'
+                ]
             },
 
-            // Style Properties
+            // Style Properties (CB-LCARS nested schema)
             style: {
                 type: 'object',
-                description: 'Style overrides (color, textColor, fontSize, etc.)'
+                description: 'Style overrides following CB-LCARS nested schema',
+                properties: {
+                    card: {
+                        type: 'object',
+                        properties: {
+                            color: {
+                                type: 'object',
+                                properties: {
+                                    background: {
+                                        type: 'object',
+                                        description: 'Background colors by state',
+                                        properties: {
+                                            active: { type: 'string' },
+                                            inactive: { type: 'string' },
+                                            unavailable: { type: 'string' },
+                                            default: { type: 'string' }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    border: {
+                        type: 'object',
+                        properties: {
+                            width: {
+                                oneOf: [
+                                    { type: ['number', 'string'], description: 'Uniform width' },
+                                    {
+                                        type: 'object',
+                                        properties: {
+                                            top: { type: ['number', 'string'] },
+                                            right: { type: ['number', 'string'] },
+                                            bottom: { type: ['number', 'string'] },
+                                            left: { type: ['number', 'string'] }
+                                        }
+                                    }
+                                ]
+                            },
+                            radius: {
+                                oneOf: [
+                                    { type: ['number', 'string'], description: 'Uniform radius' },
+                                    {
+                                        type: 'object',
+                                        properties: {
+                                            top_left: { type: ['number', 'string'] },
+                                            top_right: { type: ['number', 'string'] },
+                                            bottom_left: { type: ['number', 'string'] },
+                                            bottom_right: { type: ['number', 'string'] }
+                                        }
+                                    }
+                                ]
+                            },
+                            color: {
+                                oneOf: [
+                                    { type: 'string', description: 'Uniform color' },
+                                    {
+                                        type: 'object',
+                                        properties: {
+                                            active: { type: 'string' },
+                                            inactive: { type: 'string' },
+                                            unavailable: { type: 'string' },
+                                            default: { type: 'string' }
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    text: {
+                        type: 'object',
+                        properties: {
+                            default: {
+                                type: 'object',
+                                description: 'Default text styling for all fields',
+                                properties: {
+                                    font_size: { type: 'number' },
+                                    font_weight: { type: 'string' },
+                                    font_family: { type: 'string' },
+                                    text_transform: { type: 'string' },
+                                    color: {
+                                        oneOf: [
+                                            { type: 'string' },
+                                            {
+                                                type: 'object',
+                                                properties: {
+                                                    active: { type: 'string' },
+                                                    inactive: { type: 'string' },
+                                                    unavailable: { type: 'string' },
+                                                    default: { type: 'string' }
+                                                }
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    opacity: { type: 'number', minimum: 0, maximum: 1, description: 'Opacity (0-1, applied to entire button)' }
+                }
             },
+
+            // Sizing
             width: {
                 type: 'number',
                 description: 'Fixed width in pixels (optional - auto-sizes to container by default)'
@@ -3287,18 +3471,27 @@ if (window.lcardsCore?.configManager) {
             // Action Properties
             tap_action: {
                 type: 'object',
-                description: 'Action to perform on tap'
+                description: 'Action to perform on tap',
+                properties: {
+                    action: {
+                        type: 'string',
+                        enum: ['toggle', 'call-service', 'navigate', 'more-info', 'none']
+                    },
+                    service: { type: 'string' },
+                    service_data: { type: 'object' },
+                    navigation_path: { type: 'string' }
+                }
             },
             hold_action: {
                 type: 'object',
-                description: 'Action to perform on hold'
+                description: 'Action to perform on hold (same structure as tap_action)'
             },
             double_tap_action: {
                 type: 'object',
-                description: 'Action to perform on double-tap'
+                description: 'Action to perform on double-tap (same structure as tap_action)'
             },
 
-            // Rules & Animations
+            // Rules Engine
             rules: {
                 type: 'array',
                 description: 'Card-local rules for dynamic styling based on entity states',
@@ -3306,20 +3499,28 @@ if (window.lcardsCore?.configManager) {
                     type: 'object',
                     properties: {
                         id: { type: 'string' },
-                        when: { type: 'object' },
-                        apply: { type: 'object' }
+                        when: {
+                            type: 'object',
+                            description: 'Condition object (entity, condition, all, any, not)'
+                        },
+                        apply: {
+                            type: 'object',
+                            description: 'Style patches to apply when condition is true'
+                        }
                     },
-                    required: ['id', 'when', 'apply']
+                    required: ['when', 'apply']
                 }
             },
+
+            // Animations
             animations: {
                 type: 'array',
-                description: 'Animation configurations (experimental)',
+                description: 'Animation configurations',
                 items: { type: 'object' }
             }
         }
         // No required fields - allows decorative/static buttons without entities
-    }, { version: '1.0' });
+    }, { version: '1.14.18' });
 
     lcardsLog.debug('[LCARdSSimpleButtonCard] Registered with CoreConfigManager');
 }
