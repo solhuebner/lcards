@@ -1495,9 +1495,12 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         }
 
         // Horizontal divider positioning
-        const strokeInset = strokeWidth / 2;
-        const dividerX = strokeInset;
-        const dividerLength = buttonWidth - (strokeInset * 2);
+        // Account for border stroke width - divider should NOT overlap with border strokes
+        // Left border stroke fills space from x=0 to x=strokeWidth
+        // Right border stroke fills space from x=(width-strokeWidth) to x=width
+        // Divider should start after left border ends and end before right border starts
+        const dividerX = strokeWidth;
+        const dividerLength = buttonWidth - (strokeWidth * 2);
 
         // Determine icon type and rendering
         let iconElement = '';
@@ -1684,22 +1687,24 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 ? strokeWidth + iconXOffset
                 : availableWidth + strokeWidth - iconAreaWidth + dividerWidth + iconXOffset;
 
-            // Smart divider height logic:
-            // - If button has visible border (strokeWidth > 1), divider is "interior" (respects stroke)
-            // - If button has no/minimal border (strokeWidth <= 1), divider goes full height (visual separator)
-            const hasBorder = strokeWidth > 1;
-
-            // Position X
-            dividerX = position === 'left'
-                ? strokeWidth + iconAreaContentWidth
-                : availableWidth + strokeWidth - iconAreaWidth;
-
-            // Divider positioning for expanded viewBox system:
-            // Border strokes are centered on paths (e.g., at Y=0), extending ±strokeWidth/2
-            // Divider should be inset by strokeWidth/2 to sit just inside the border strokes
+            // Divider positioning - account for border inset and stroke width
+            // Borders are drawn with centered strokes, so they occupy full strokeWidth of space
             const strokeInset = strokeWidth / 2;
-            dividerY = strokeInset;
-            dividerHeight = buttonHeight - (strokeInset * 2);
+
+            // Position divider X at the boundary between icon area and text area
+            // For left position: divider is at the right edge of icon area
+            // For right position: divider is at the left edge of icon area
+            // The icon area starts at strokeInset (aligned with left border inset)
+            dividerX = position === 'left'
+                ? strokeInset + iconAreaContentWidth
+                : buttonWidth - strokeInset - iconAreaWidth;
+
+            // Divider Y and height - should NOT overlap with border strokes
+            // Top border stroke fills space from y=0 to y=strokeWidth
+            // Bottom border stroke fills space from y=(height-strokeWidth) to y=height
+            // Divider should start after top border ends and end before bottom border starts
+            dividerY = strokeWidth;
+            dividerHeight = buttonHeight - (strokeWidth * 2);
 
             // Determine icon type and rendering
             let iconElement = '';
@@ -1860,27 +1865,13 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Generate separate border paths for clean corner joins
         const borderMarkup = this._renderIndividualBorderPaths(width, height, border);
 
-        // Calculate maximum border width for viewBox expansion
-        // Stroke extends half its width on each side, so we need strokeWidth/2 padding
-        const maxBorderWidth = Math.max(
-            border.width || 0,
-            border.perSideWidth?.top || 0,
-            border.perSideWidth?.right || 0,
-            border.perSideWidth?.bottom || 0,
-            border.perSideWidth?.left || 0,
-            border.individualSides?.top?.width || 0,
-            border.individualSides?.right?.width || 0,
-            border.individualSides?.bottom?.width || 0,
-            border.individualSides?.left?.width || 0
-        );
-        const strokeOverhang = maxBorderWidth / 2;
-
-        // Expand viewBox horizontally only to match legacy CSS border appearance
-        // (top/bottom borders look correct, but left/right need expansion)
-        const viewBoxX = -strokeOverhang;
-        const viewBoxY = 0;  // No vertical expansion
-        const viewBoxWidth = width + (strokeOverhang * 2);
-        const viewBoxHeight = height;  // No vertical expansion
+        // ViewBox no longer needs expansion for stroke overhang
+        // Borders are now inset by strokeWidth/2, keeping them fully within natural dimensions
+        // This replicates CSS border behavior where borders are drawn "inside" the box
+        const viewBoxX = 0;
+        const viewBoxY = 0;
+        const viewBoxWidth = width;
+        const viewBoxHeight = height;
 
         // Check if we're in icon-only mode (hide text when icon is shown)
         const iconOnly = this._processedIcon?.iconOnly && this._processedIcon?.show;
@@ -2908,30 +2899,38 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Square caps extend by strokeWidth/2 perpendicular to path, creating seamless joins
         const lineCap = 'square';
 
-        // Top border (at top edge, not inset - let stroke extend outside viewBox)
+        // Inset borders by strokeWidth/2 to keep full stroke visible within viewBox
+        // This replicates CSS border behavior where borders are drawn "inside" the box
+
+        // Top border (inset by topWidth/2 to keep full stroke visible)
         if (topWidth > 0) {
             const topColor = safeGetBorderColor('top');
+            const inset = topWidth / 2;
             // Draw from corner radius positions (or edge if no radius)
             const startX = topLeft > 0 ? topLeft : 0;
             const endX = topRight > 0 ? w - topRight : w;
             borderMarkup += `
-                <path d="M ${startX} 0 L ${endX} 0"
+                <path d="M ${startX} ${inset} L ${endX} ${inset}"
                       stroke="${topColor}"
                       stroke-width="${topWidth}"
                       stroke-linecap="${lineCap}"
                       fill="none" />`;
         }
 
-        // Right border (at right edge)
+        // Right border (inset by rightWidth/2 to keep full stroke visible)
         if (rightWidth > 0) {
             const rightColor = safeGetBorderColor('right');
-            const startY = topRight > 0 ? topRight : 0;
-            const endY = bottomRight > 0 ? h - bottomRight : h;
+            const inset = rightWidth / 2;
+            // Start/end at the INSET positions of adjacent borders for perfect joins
+            const topBorderInset = topWidth > 0 ? topWidth / 2 : 0;
+            const bottomBorderInset = bottomWidth > 0 ? bottomWidth / 2 : 0;
+            const startY = topRight > 0 ? topRight : topBorderInset;
+            const endY = bottomRight > 0 ? h - bottomRight : h - bottomBorderInset;
             // Only render if corners don't meet/overlap and line is long enough
             // When endY <= startY, corners meet or overlap - skip the line
             if (endY > startY && (endY - startY) > rightWidth) {
                 borderMarkup += `
-                    <path d="M ${w} ${startY} L ${w} ${endY}"
+                    <path d="M ${w - inset} ${startY} L ${w - inset} ${endY}"
                           stroke="${rightColor}"
                           stroke-width="${rightWidth}"
                           stroke-linecap="${lineCap}"
@@ -2939,29 +2938,34 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             }
         }
 
-        // Bottom border (at bottom edge)
+        // Bottom border (inset by bottomWidth/2 to keep full stroke visible)
         if (bottomWidth > 0) {
             const bottomColor = safeGetBorderColor('bottom');
+            const inset = bottomWidth / 2;
             const startX = bottomRight > 0 ? w - bottomRight : w;
             const endX = bottomLeft > 0 ? bottomLeft : 0;
             borderMarkup += `
-                <path d="M ${startX} ${h} L ${endX} ${h}"
+                <path d="M ${startX} ${h - inset} L ${endX} ${h - inset}"
                       stroke="${bottomColor}"
                       stroke-width="${bottomWidth}"
                       stroke-linecap="${lineCap}"
                       fill="none" />`;
         }
 
-        // Left border (at left edge)
+        // Left border (inset by leftWidth/2 to keep full stroke visible)
         if (leftWidth > 0) {
             const leftColor = safeGetBorderColor('left');
-            const startY = bottomLeft > 0 ? h - bottomLeft : h;
-            const endY = topLeft > 0 ? topLeft : 0;
+            const inset = leftWidth / 2;
+            // Start/end at the INSET positions of adjacent borders for perfect joins
+            const topBorderInset = topWidth > 0 ? topWidth / 2 : 0;
+            const bottomBorderInset = bottomWidth > 0 ? bottomWidth / 2 : 0;
+            const startY = bottomLeft > 0 ? h - bottomLeft : h - bottomBorderInset;
+            const endY = topLeft > 0 ? topLeft : topBorderInset;
             // Only render if corners don't meet/overlap and line is long enough
             // When startY <= endY, corners meet or overlap - skip the line
             if (startY > endY && (startY - endY) > leftWidth) {
                 borderMarkup += `
-                    <path d="M 0 ${startY} L 0 ${endY}"
+                    <path d="M ${inset} ${startY} L ${inset} ${endY}"
                           stroke="${leftColor}"
                           stroke-width="${leftWidth}"
                           stroke-linecap="${lineCap}"
@@ -3014,53 +3018,57 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         };
 
         // Top-left corner arc using SVG arc command for perfect 90° tangency
+        // Arcs are inset to match the inset borders (replicating CSS border behavior)
         if (topLeft > 0) {
             const cornerWidth = getCornerWidth('top', 'left');
             const cornerColor = getCornerColor('top', 'left');
-            // Use SAME radius as background - stroke is centered on the edge
-            // The stroke extends outward by strokeWidth/2, which is handled by viewBox expansion
-            const arcRadius = topLeft;
+            const inset = cornerWidth / 2;
+            // Reduce arc radius by inset to keep stroke centered on the inset path
+            const arcRadius = Math.max(topLeft - inset, inset);
             arcMarkup += `
-                <path d="M 0 ${arcRadius} A ${arcRadius} ${arcRadius} 0 0 1 ${arcRadius} 0"
+                <path d="M ${inset} ${arcRadius + inset} A ${arcRadius} ${arcRadius} 0 0 1 ${arcRadius + inset} ${inset}"
                       stroke="${cornerColor}"
                       stroke-width="${cornerWidth}"
                       stroke-linecap="square"
                       fill="none" />`;
         }
 
-        // Top-right corner arc
+        // Top-right corner arc (inset from right and top edges)
         if (topRight > 0) {
             const cornerWidth = getCornerWidth('top', 'right');
             const cornerColor = getCornerColor('top', 'right');
-            const arcRadius = topRight;
+            const inset = cornerWidth / 2;
+            const arcRadius = Math.max(topRight - inset, inset);
             arcMarkup += `
-                <path d="M ${w - arcRadius} 0 A ${arcRadius} ${arcRadius} 0 0 1 ${w} ${arcRadius}"
+                <path d="M ${w - arcRadius - inset} ${inset} A ${arcRadius} ${arcRadius} 0 0 1 ${w - inset} ${arcRadius + inset}"
                       stroke="${cornerColor}"
                       stroke-width="${cornerWidth}"
                       stroke-linecap="square"
                       fill="none" />`;
         }
 
-        // Bottom-right corner arc
+        // Bottom-right corner arc (inset from right and bottom edges)
         if (bottomRight > 0) {
             const cornerWidth = getCornerWidth('right', 'bottom');
             const cornerColor = getCornerColor('right', 'bottom');
-            const arcRadius = bottomRight;
+            const inset = cornerWidth / 2;
+            const arcRadius = Math.max(bottomRight - inset, inset);
             arcMarkup += `
-                <path d="M ${w} ${h - arcRadius} A ${arcRadius} ${arcRadius} 0 0 1 ${w - arcRadius} ${h}"
+                <path d="M ${w - inset} ${h - arcRadius - inset} A ${arcRadius} ${arcRadius} 0 0 1 ${w - arcRadius - inset} ${h - inset}"
                       stroke="${cornerColor}"
                       stroke-width="${cornerWidth}"
                       stroke-linecap="square"
                       fill="none" />`;
         }
 
-        // Bottom-left corner arc
+        // Bottom-left corner arc (inset from left and bottom edges)
         if (bottomLeft > 0) {
             const cornerWidth = getCornerWidth('bottom', 'left');
             const cornerColor = getCornerColor('bottom', 'left');
-            const arcRadius = bottomLeft;
+            const inset = cornerWidth / 2;
+            const arcRadius = Math.max(bottomLeft - inset, inset);
             arcMarkup += `
-                <path d="M ${arcRadius} ${h} A ${arcRadius} ${arcRadius} 0 0 1 0 ${h - arcRadius}"
+                <path d="M ${arcRadius + inset} ${h - inset} A ${arcRadius} ${arcRadius} 0 0 1 ${inset} ${h - arcRadius - inset}"
                       stroke="${cornerColor}"
                       stroke-width="${cornerWidth}"
                       stroke-linecap="square"

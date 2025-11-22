@@ -183,13 +183,13 @@ const LCARDS_BUTTONS_PACK = {
         text: {
           name: {
             padding: {
-              right: 22,
+              right: 24,
               left: 0
             }
           },
           state: {
             padding: {
-              right: 22,
+              right: 24,
               left: 0
             }
           }
@@ -216,14 +216,14 @@ const LCARDS_BUTTONS_PACK = {
             position: 'bottom-left',
             padding: {
               right: 0,
-              left: 22
+              left: 24
             }
           },
           state: {
             position: 'top-left',
             padding: {
               right: 0,
-              left: 22
+              left: 24
             }
           }
         },
@@ -270,7 +270,7 @@ const LCARDS_BUTTONS_PACK = {
       // CAPPED BUTTONS - Single side rounded
       // =====================================
       capped: {
-        extends: 'button.base',
+        extends: 'button.lozenge',
         border: {
           width: 0,  // No border for capped (filled buttons)
           radius: {
@@ -279,11 +279,21 @@ const LCARDS_BUTTONS_PACK = {
             top_right: 'theme:components.button.base.radius.none',
             bottom_right: 'theme:components.button.base.radius.none'
           }
-        }
+        },
+        text: {
+          name: {
+            position: 'bottom-right',
+            padding: null,
+          },
+          state: {
+            position: 'top-right',
+            padding: null,
+            }
+        },
       },
 
       'capped-right': {
-        extends: 'button.base',
+        extends: 'button.lozenge-right',
         border: {
           width: 0,  // No border for capped (filled buttons)
           radius: {
@@ -292,8 +302,19 @@ const LCARDS_BUTTONS_PACK = {
             top_right: 'theme:components.button.base.radius.full',
             bottom_right: 'theme:components.button.base.radius.full'
           }
-        }
+        },
+        text: {
+          name: {
+            position: 'bottom-left',
+            padding: null,
+          },
+          state: {
+            position: 'top-left',
+            padding: null,
+            }
+        },
       },
+
 
       // =====================================
       // PICARD FILLED - Solid backgrounds
