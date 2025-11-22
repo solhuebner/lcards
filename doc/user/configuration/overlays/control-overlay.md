@@ -64,8 +64,7 @@ graph LR
 ### Minimal Example
 
 ```yaml
-type: custom:lcards-card
-config:
+type: custom:lcards-msd-card
   msd:
     overlays:
       - type: control
