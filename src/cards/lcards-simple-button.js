@@ -211,6 +211,11 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Note: This may be called before singletons are initialized
         // In that case, _onConnected() will re-resolve styles
         this._resolveButtonStyleSync();
+
+        // CRITICAL: Always trigger re-render when templates change
+        // Template changes affect text content even if button style doesn't change
+        // (e.g., {entity.state} templates need to re-render when state changes)
+        this.requestUpdate();
     }
 
     /**
@@ -1012,25 +1017,30 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 // Process template if enabled (default is true)
                 const shouldTemplate = fieldConfig.template !== false;
                 if (shouldTemplate && fieldConfig.content) {
+                    // Preserve original template string on first pass
+                    if (!fieldConfig._originalContent) {
+                        fieldConfig._originalContent = fieldConfig.content;
+                    }
+
                     lcardsLog.debug(`[LCARdSSimpleButtonCard] Processing template for field '${fieldId}'`, {
-                        originalContent: fieldConfig.content,
+                        originalContent: fieldConfig._originalContent,
                         cardGuid: this._cardGuid
                     });
 
-                    const processedContent = await this.processTemplate(fieldConfig.content);
+                    // Always process from original template, not previously processed content
+                    const processedContent = await this.processTemplate(fieldConfig._originalContent);
 
                     lcardsLog.debug(`[LCARdSSimpleButtonCard] Template processed for field '${fieldId}'`, {
-                        originalContent: fieldConfig.content,
+                        originalContent: fieldConfig._originalContent,
                         processedContent,
-                        changed: this.config.text[fieldId].content !== processedContent,
+                        changed: fieldConfig.content !== processedContent,
                         cardGuid: this._cardGuid
                     });
 
                     // Check if content actually changed
-                    if (this.config.text[fieldId].content !== processedContent) {
-                        // Store processed content back in config for rendering
-                        // (This modifies config in-place, which is safe since it's already been merged)
-                        this.config.text[fieldId].content = processedContent;
+                    if (fieldConfig.content !== processedContent) {
+                        // Store processed content for rendering (overwrite previous processed value)
+                        fieldConfig.content = processedContent;
                         hasChanges = true;
                     }
                 }
