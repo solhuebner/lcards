@@ -453,7 +453,7 @@ export class BaseOverlayUpdater {
       }
 
       // Import adapter for series conversion
-      const { ApexChartsAdapter } = require('../charts/ApexChartsAdapter.js');
+      const { ApexChartsAdapter } = require('../../charts/ApexChartsAdapter.js');
 
       // Convert data to series format
       const isMultiSeries = Array.isArray(sourceRef);

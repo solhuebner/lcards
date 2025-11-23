@@ -44,7 +44,7 @@ import { html, css } from 'lit';
 import { LCARdSSimpleCard } from '../base/LCARdSSimpleCard.js';
 import { lcardsLog } from '../utils/lcards-logging.js';
 import ApexCharts from 'apexcharts';
-import { ApexChartsAdapter } from '../msd/charts/ApexChartsAdapter.js';
+import { ApexChartsAdapter } from '../charts/ApexChartsAdapter.js';
 import { resolveThemeTokensRecursive } from '../utils/lcards-theme.js';
 
 export class LCARdSSimpleChart extends LCARdSSimpleCard {
@@ -786,6 +786,261 @@ export class LCARdSSimpleChart extends LCARdSSimpleCard {
       // This avoids creating data source subscriptions in preview
     };
   }
+}
+
+// Register with CoreConfigManager (behavioral defaults and schema)
+if (window.lcardsCore?.configManager) {
+    const configManager = window.lcardsCore.configManager;
+
+    // Register behavioral defaults
+    configManager.registerCardDefaults('simple-chart', {
+        chart_type: 'line',           // Default chart type
+        height: 300,                  // Default height in pixels
+        show_legend: false,           // Legend off by default
+        xaxis_type: 'datetime',       // Default x-axis type
+        max_points: 0                 // No point limit by default (0 = unlimited)
+    });
+
+    // Register JSON schema for validation (v1.16.22+)
+    // Based on: doc/architecture/schemas/simple-chart-schema-definition.md
+    configManager.registerCardSchema('simple-chart', {
+        type: 'object',
+        properties: {
+            // Core Properties
+            id: {
+                type: 'string',
+                description: 'Custom card ID for rule targeting (optional - auto-generated if omitted)'
+            },
+            tags: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Tags for bulk rule targeting'
+            },
+
+            // Data Source Configuration (3 levels of complexity)
+            source: {
+                type: 'string',
+                description: 'Single entity ID (auto-creates DataSource with defaults)'
+            },
+            sources: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Multiple entity IDs (auto-creates DataSource for each)'
+            },
+            attribute: {
+                type: 'string',
+                description: 'Entity attribute to track (optional - works with source)'
+            },
+            data_sources: {
+                type: 'object',
+                description: 'Advanced DataSource configurations with inline settings',
+                patternProperties: {
+                    '^[a-zA-Z_][a-zA-Z0-9_]*$': {
+                        type: 'object',
+                        properties: {
+                            entity: { type: 'string', description: 'Entity ID' },
+                            attribute: { type: 'string', description: 'Entity attribute' },
+                            window_seconds: { type: 'number', minimum: 0, description: 'Rolling window size (seconds)' },
+                            minEmitMs: { type: 'number', minimum: 0, description: 'Minimum time between emissions (throttling)' },
+                            coalesceMs: { type: 'number', minimum: 0, description: 'Coalesce rapid changes within window' },
+                            maxDelayMs: { type: 'number', minimum: 0, description: 'Maximum delay before forced emission' },
+                            history: {
+                                type: 'object',
+                                properties: {
+                                    preload: { type: 'boolean', description: 'Preload history on initialization' },
+                                    hours: { type: 'number', minimum: 0, description: 'Hours of history to preload' },
+                                    days: { type: 'number', minimum: 0, description: 'Days of history to preload' }
+                                }
+                            }
+                        },
+                        required: ['entity']
+                    }
+                }
+            },
+
+            // Chart Configuration
+            chart_type: {
+                type: 'string',
+                enum: ['line', 'area', 'bar', 'column', 'scatter', 'pie', 'donut', 'heatmap', 'radialBar', 'radar', 'candlestick', 'boxPlot', 'rangeBar', 'treemap', 'polarArea'],
+                description: 'ApexCharts chart type'
+            },
+            height: {
+                type: 'number',
+                minimum: 50,
+                description: 'Chart height in pixels'
+            },
+            width: {
+                type: 'number',
+                minimum: 50,
+                description: 'Chart width in pixels (defaults to container width)'
+            },
+            series_names: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Custom names for multi-series charts'
+            },
+            show_legend: {
+                type: 'boolean',
+                description: 'Show chart legend'
+            },
+            xaxis_type: {
+                type: 'string',
+                enum: ['datetime', 'category', 'numeric'],
+                description: 'X-axis data type'
+            },
+            time_window: {
+                type: 'number',
+                minimum: 0,
+                description: 'Time window in seconds (for datetime x-axis)'
+            },
+            max_points: {
+                type: 'number',
+                minimum: 0,
+                description: 'Maximum data points (0 = unlimited)'
+            },
+
+            // Style Properties (50+ via ApexChartsAdapter)
+            style: {
+                type: 'object',
+                description: 'Style overrides (50+ properties via ApexChartsAdapter)',
+                properties: {
+                    // Colors
+                    colors: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description: 'Series colors (supports theme tokens, CSS variables)'
+                    },
+                    stroke_colors: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description: 'Line/border colors'
+                    },
+                    fill_colors: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description: 'Fill colors (area/bar charts)'
+                    },
+
+                    // Stroke/Line
+                    stroke_width: { type: 'number', minimum: 0, description: 'Line width' },
+                    curve: {
+                        type: 'string',
+                        enum: ['smooth', 'straight', 'stepline', 'monotoneCubic'],
+                        description: 'Line curve style'
+                    },
+                    stroke_dash_array: { type: 'number', minimum: 0, description: 'Dashed lines (0 = solid)' },
+
+                    // Fill
+                    fill_type: {
+                        type: 'string',
+                        enum: ['solid', 'gradient', 'pattern', 'image'],
+                        description: 'Fill type'
+                    },
+                    fill_opacity: { type: 'number', minimum: 0, maximum: 1, description: 'Fill opacity (0-1)' },
+
+                    // Grid
+                    show_grid: { type: 'boolean', description: 'Show grid lines' },
+                    grid_color: { type: 'string', description: 'Grid line color' },
+                    grid_opacity: { type: 'number', minimum: 0, maximum: 1, description: 'Grid opacity' },
+
+                    // Axes
+                    axis_color: { type: 'string', description: 'Unified axis label color' },
+                    xaxis_color: { type: 'string', description: 'X-axis specific color' },
+                    yaxis_color: { type: 'string', description: 'Y-axis specific color' },
+
+                    // Markers
+                    marker_size: { type: 'number', minimum: 0, description: 'Data point marker size' },
+                    marker_colors: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description: 'Marker colors'
+                    },
+
+                    // Legend
+                    legend_position: {
+                        type: 'string',
+                        enum: ['top', 'bottom', 'left', 'right'],
+                        description: 'Legend position'
+                    },
+                    legend_color: { type: 'string', description: 'Legend text color' },
+
+                    // Typography
+                    font_family: { type: 'string', description: 'Font family' },
+                    font_size: { type: 'number', minimum: 0, description: 'Base font size' },
+
+                    // Display
+                    show_toolbar: { type: 'boolean', description: 'Show ApexCharts toolbar' },
+                    show_tooltip: { type: 'boolean', description: 'Show hover tooltips' },
+                    background_color: { type: 'string', description: 'Chart background color' },
+
+                    // Animation Presets
+                    animation_preset: {
+                        type: 'string',
+                        enum: ['lcars_standard', 'lcars_dramatic', 'lcars_minimal', 'lcars_realtime', 'lcars_alert', 'none'],
+                        description: 'LCARS animation preset'
+                    },
+
+                    // Monochrome Mode
+                    monochrome: {
+                        type: 'object',
+                        properties: {
+                            enabled: { type: 'boolean', description: 'Enable monochrome palette' },
+                            color: { type: 'string', description: 'Base color for palette generation' },
+                            shade_to: {
+                                type: 'string',
+                                enum: ['light', 'dark'],
+                                description: 'Shade direction'
+                            },
+                            shade_intensity: {
+                                type: 'number',
+                                minimum: 0,
+                                maximum: 1,
+                                description: 'Shading intensity (0-1)'
+                            }
+                        }
+                    },
+
+                    // Raw ApexCharts Options Pass-Through
+                    chart_options: {
+                        type: 'object',
+                        description: 'Raw ApexCharts options (highest precedence, bypasses validation)'
+                    }
+                }
+            },
+
+            // Rules Engine
+            rules: {
+                type: 'array',
+                description: 'Card-local rules for dynamic styling based on entity states',
+                items: {
+                    type: 'object',
+                    properties: {
+                        id: { type: 'string' },
+                        when: {
+                            type: 'object',
+                            description: 'Condition object (entity, condition, all, any, not)'
+                        },
+                        apply: {
+                            type: 'object',
+                            description: 'Style patches to apply when condition is true'
+                        }
+                    },
+                    required: ['when', 'apply']
+                }
+            },
+
+            // Animations
+            animations: {
+                type: 'array',
+                description: 'Animation configurations',
+                items: { type: 'object' }
+            }
+        }
+        // No required fields - allows minimal chart with just chart_type
+        // Data source can be configured via source, sources, or data_sources
+    }, { version: '1.16.22' });
+
+    lcardsLog.debug('[LCARdSSimpleChart] Registered with CoreConfigManager');
 }
 
 // NOTE: Card registration (customElements.define and window.customCards) handled in src/lcards.js

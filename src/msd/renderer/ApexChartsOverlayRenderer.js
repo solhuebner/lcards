@@ -27,7 +27,7 @@
  */
 
 import { OverlayUtils } from './OverlayUtils.js';
-import { ApexChartsAdapter } from '../charts/ApexChartsAdapter.js';
+import { ApexChartsAdapter } from '../../charts/ApexChartsAdapter.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import ApexCharts from 'apexcharts';
 import { chartTemplateRegistry } from '../templates/ChartTemplateRegistry.js';

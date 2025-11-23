@@ -12,7 +12,7 @@
  * @module msd/validation/schemas/apexChartOverlay
  */
 
-import { ApexChartsAdapter } from '../../charts/ApexChartsAdapter.js';
+import { ApexChartsAdapter } from '../../../charts/ApexChartsAdapter.js';
 import { ChartDataValidator } from '../ChartDataValidator.js';
 
 /**
