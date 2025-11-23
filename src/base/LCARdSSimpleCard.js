@@ -221,7 +221,8 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
         super.setConfig(config);
 
         // Start async config processing in background (don't await!)
-        this._processConfigAsync(config).catch(error => {
+        // Store the promise so subclasses can wait for it if needed
+        this._configProcessingPromise = this._processConfigAsync(config).catch(error => {
             lcardsLog.error(`[LCARdSSimpleCard] Async config processing failed:`, error);
         });
     }
@@ -288,7 +289,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
 
             // Process data_sources config if present (for advanced DataSource configs)
             if (result.mergedConfig?.data_sources) {
-                this._processDataSourcesConfig(result.mergedConfig.data_sources);
+                await this._processDataSourcesConfig(result.mergedConfig.data_sources);
             }
 
         } catch (error) {
@@ -352,7 +353,7 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
 
             await Promise.all(promises);
 
-            lcardsLog.debug(`[LCARdSSimpleChart] data_sources processing complete`);
+            lcardsLog.debug(`[LCARdSSimpleCard] data_sources processing complete`);
 
         } catch (error) {
             lcardsLog.error(`[LCARdSSimpleCard] data_sources processing failed:`, error);

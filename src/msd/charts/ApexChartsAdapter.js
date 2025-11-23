@@ -708,13 +708,13 @@ export class ApexChartsAdapter {
     // ============================================================================
 
     if (style.animation_preset) {
-      const animationPreset = this._getAnimationPreset(style.animation_preset);
+      const animationPreset = ApexChartsAdapter._getAnimationPreset(style.animation_preset);
       if (animationPreset) {
         optionsWithTypeDefaults.chart.animations = {
           ...optionsWithTypeDefaults.chart.animations,
           ...animationPreset
         };
-        lcardsLog.debug(`[ApexChartsAdapter] Applied animation preset: ${style.animation_preset}`);
+        lcardsLog.debug(`[ApexChartsAdapter] Applied animation preset: ${style.animation_preset}`, animationPreset);
       }
     }
 
@@ -766,28 +766,33 @@ export class ApexChartsAdapter {
   }
 
   /**
-   * Get animation preset from pack registry
+   * Get animation preset from pack registry or builtin presets
    * @private
    * @param {string} presetName - Animation preset name
    * @returns {Object|null} Animation configuration or null
    */
   static _getAnimationPreset(presetName) {
     try {
-      // Access pack registry via global debug object
-      const packRegistry = window.lcards.debug.msd?.pipelineInstance?.systemsManager?.packRegistry;
+      // First try: Access pack registry via CoreConfigManager singleton (works in both MSD and standalone)
+      const coreConfigManager = window.lcards?.core?.configManager;
+      const packRegistry = coreConfigManager?.context?.packRegistry;
 
-      if (!packRegistry) {
-        lcardsLog.warn('[ApexChartsAdapter] PackRegistry not available for animation presets');
-        return null;
+      if (packRegistry) {
+        // Check all packs for animation presets
+        const packs = packRegistry.getAllPacks();
+        for (const pack of packs) {
+          if (pack.chartAnimationPresets && pack.chartAnimationPresets[presetName]) {
+            lcardsLog.debug(`[ApexChartsAdapter] Found animation preset '${presetName}' in pack: ${pack.id}`);
+            return pack.chartAnimationPresets[presetName];
+          }
+        }
       }
 
-      // Check all packs for animation presets
-      const packs = packRegistry.getAllPacks();
-      for (const pack of packs) {
-        if (pack.chartAnimationPresets && pack.chartAnimationPresets[presetName]) {
-          lcardsLog.debug(`[ApexChartsAdapter] Found animation preset '${presetName}' in pack: ${pack.id}`);
-          return pack.chartAnimationPresets[presetName];
-        }
+      // Fallback: Use builtin presets (for cases where PackRegistry not available)
+      const builtinPresets = this._getBuiltinAnimationPresets();
+      if (builtinPresets[presetName]) {
+        lcardsLog.debug(`[ApexChartsAdapter] Using builtin animation preset: ${presetName}`);
+        return builtinPresets[presetName];
       }
 
       lcardsLog.warn(`[ApexChartsAdapter] Animation preset not found: ${presetName}`);
@@ -797,6 +802,90 @@ export class ApexChartsAdapter {
       lcardsLog.error('[ApexChartsAdapter] Error loading animation preset:', error);
       return null;
     }
+  }
+
+  /**
+   * Get builtin animation presets (for standalone cards without PackRegistry)
+   * @private
+   * @returns {Object} Builtin animation presets
+   */
+  static _getBuiltinAnimationPresets() {
+    return {
+      lcars_standard: {
+        enabled: true,
+        easing: 'easeinout',
+        speed: 800,
+        animateGradually: {
+          enabled: true,
+          delay: 150
+        },
+        dynamicAnimation: {
+          enabled: true,
+          speed: 350
+        }
+      },
+      lcars_dramatic: {
+        enabled: true,
+        easing: 'easeout',
+        speed: 1200,
+        animateGradually: {
+          enabled: true,
+          delay: 200
+        },
+        dynamicAnimation: {
+          enabled: true,
+          speed: 500
+        }
+      },
+      lcars_minimal: {
+        enabled: true,
+        easing: 'easein',
+        speed: 400,
+        animateGradually: {
+          enabled: false
+        },
+        dynamicAnimation: {
+          enabled: true,
+          speed: 200
+        }
+      },
+      lcars_realtime: {
+        enabled: false,
+        easing: 'linear',
+        speed: 0,
+        animateGradually: {
+          enabled: false
+        },
+        dynamicAnimation: {
+          enabled: true,
+          speed: 100
+        }
+      },
+      lcars_alert: {
+        enabled: true,
+        easing: 'easeout',
+        speed: 600,
+        animateGradually: {
+          enabled: true,
+          delay: 100
+        },
+        dynamicAnimation: {
+          enabled: true,
+          speed: 250
+        }
+      },
+      none: {
+        enabled: false,
+        easing: 'linear',
+        speed: 0,
+        animateGradually: {
+          enabled: false
+        },
+        dynamicAnimation: {
+          enabled: false
+        }
+      }
+    };
   }
 
   /**

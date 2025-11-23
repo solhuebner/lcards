@@ -164,6 +164,13 @@ export class LCARdSSimpleChart extends LCARdSSimpleCard {
       return;
     }
 
+    // Wait for config processing to complete (includes data_sources creation)
+    if (this._configProcessingPromise) {
+      lcardsLog.trace('[LCARdSSimpleChart] Waiting for config processing to complete...');
+      await this._configProcessingPromise;
+      lcardsLog.trace('[LCARdSSimpleChart] Config processing complete, continuing with subscription');
+    }
+
     // Subscribe to data sources (may auto-create them)
     await this._subscribeToDataSources();
 
@@ -180,6 +187,19 @@ export class LCARdSSimpleChart extends LCARdSSimpleCard {
     // Only initialize once, after data is ready, when not in preview mode
     if (this._chartInitialized || this._isPreviewMode || !this._chartData.length) {
       return;
+    }
+
+    // For multi-series: wait for ALL series to have data before initializing
+    const sourceRef = this.config.source || this.config.data_source || this.config.sources;
+    const sources = Array.isArray(sourceRef) ? sourceRef : [sourceRef];
+    const expectedSeriesCount = sources.length;
+
+    // Count how many series have data
+    const seriesWithData = this._chartData.filter(data => data && data.length > 0).length;
+
+    if (seriesWithData < expectedSeriesCount) {
+      lcardsLog.trace(`[LCARdSSimpleChart] Waiting for all series data: ${seriesWithData}/${expectedSeriesCount} ready`);
+      return; // Wait for all series to have data
     }
 
     // Get the container and check if it has dimensions
@@ -335,14 +355,25 @@ export class LCARdSSimpleChart extends LCARdSSimpleCard {
       return;
     }
 
-    // Transform data to ApexCharts format
-    const seriesData = this._transformDataForSeries(dataArray);
+    // For multi-series: rebuild ALL series data
+    const sourceRef = this.config.source || this.config.data_source || this.config.sources;
+    const sources = Array.isArray(sourceRef) ? sourceRef : [sourceRef];
 
-    // Update chart
+    const allSeriesData = sources.map((source, idx) => {
+      const data = this._chartData[idx] || [];
+      const transformed = this._transformDataForSeries(data);
+      const sourceName = typeof source === 'string' ? source : (source.name || source.id);
+      const displayName = this._seriesNames?.[idx] || sourceName;
+
+      return {
+        name: displayName,
+        data: transformed
+      };
+    });
+
+    // Update ALL series at once
     try {
-      this._chart.updateSeries([{
-        data: seriesData
-      }], false);
+      this._chart.updateSeries(allSeriesData, false);
     } catch (error) {
       lcardsLog.error(`[LCARdSSimpleChart] Error updating chart data:`, error);
     }
