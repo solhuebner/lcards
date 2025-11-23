@@ -12,19 +12,7 @@ export const core_fonts = [
 
 
 //CB-LARS yaml configuration files (templates, strategies, editor forms, etc.)
-export const templates_uri = '/hacsfiles/lcards/lcards-lovelace.yaml';
-export const stub_config_uri = '/hacsfiles/lcards/lcards-stub-config.yaml';
 export const theme_colors_uri = '/hacsfiles/lcards/lcards-themes.yaml';
-export const airlock_uri = '/hacsfiles/lcards/lcards-airlock.yaml';
-export const gallery_uri = '/hacsfiles/lcards/lcards-gallery.yaml';
-//export const card_editor_uri = '/hacsfiles/lcards/lcards-card-editor-forms.yaml'
-export const card_editor_uri = '/hacsfiles/lcards/editor'
-export const gallery_views_uris = [
-        '/hacsfiles/lcards/lcards-gallery.yaml',
-        '/hacsfiles/lcards/lcards-gallery-buttons.yaml',
-        '/hacsfiles/lcards/lcards-gallery-elbows.yaml',
-        '/hacsfiles/lcards/lcards-gallery-multimeter.yaml'
-    ]
 
 export const builtin_svg_keys = [
     'ncc-1701-a',
