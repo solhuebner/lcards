@@ -291,14 +291,32 @@ export class ApexChartsAdapter {
       return this._resolveCssVariable(tokenResolved);
     };
 
-    // Helper: resolve array of colors
+    // Helper: resolve array of colors with validation
     const resolveColorArray = (styleValue, tokenPath, fallback) => {
       let value = this._resolveTokenValue(styleValue, tokenPath, resolveToken, fallback, context);
       if (typeof value === 'string') {
         value = [value];  // Convert single color to array
       }
-      return this._resolveCssVariable(value);
+      const resolved = this._resolveCssVariable(value);
+
+      // Filter out unresolved theme token syntax (e.g., "alpha(colors.chart.grid, 0.05)")
+      // These look like function calls with theme paths and should not be passed to ApexCharts
+      if (Array.isArray(resolved)) {
+        const filtered = resolved.filter(c => {
+          if (typeof c !== 'string') return true;
+          // Reject strings that look like unresolved theme tokens
+          return !c.match(/^(alpha|colors?|var)\([^)]*$/i) && !c.includes('colors.');
+        });
+        // Return null if all values were filtered out
+        return filtered.length > 0 ? filtered : null;
+      }
+
+      return resolved;
     };
+
+    // Helper: convert null to undefined for ApexCharts compatibility
+    // ApexCharts doesn't handle null gracefully for optional color arrays
+    const nullToUndefined = (value) => value === null ? undefined : value;
 
     // ============================================================================
     // SERIES COLORS (Primary data visualization)
@@ -488,8 +506,14 @@ export class ApexChartsAdapter {
     const themeMode = style.theme_mode ||
       (resolveToken ? resolveToken('themeMode', 'dark', context) : 'dark');
 
-    const themePalette = style.theme_palette ||
+    let themePalette = style.theme_palette ||
       (resolveToken ? resolveToken('themePalette', null, context) : null);
+
+    // Filter out unresolved theme token paths (e.g., "colors.chart.themePalette")
+    if (themePalette && typeof themePalette === 'string' && themePalette.includes('colors.')) {
+      lcardsLog.trace(`[ApexChartsAdapter] Filtered unresolved themePalette token: ${themePalette}`);
+      themePalette = null;
+    }
 
     // Monochrome settings
     const monochrome = style.monochrome || {};
@@ -566,12 +590,12 @@ export class ApexChartsAdapter {
       stroke: {
         width: strokeWidth,
         curve: curve,
-        colors: strokeColors
+        colors: nullToUndefined(strokeColors)
       },
 
       // Fill (area/bar charts)
       fill: {
-        colors: fillColors,
+        colors: nullToUndefined(fillColors),
         type: fillType,
         opacity: fillOpacity
       },
@@ -590,7 +614,7 @@ export class ApexChartsAdapter {
       xaxis: {
         labels: {
           style: {
-            colors: xaxisColors || xaxisColor,
+            colors: nullToUndefined(xaxisColors) || xaxisColor,
             fontSize: `${fontSize}px`,
             fontFamily: fontFamily
           }
@@ -607,7 +631,7 @@ export class ApexChartsAdapter {
       yaxis: {
         labels: {
           style: {
-            colors: yaxisColors || yaxisColor,
+            colors: nullToUndefined(yaxisColors) || yaxisColor,
             fontSize: `${fontSize}px`,
             fontFamily: fontFamily
           }
@@ -626,14 +650,14 @@ export class ApexChartsAdapter {
         fontSize: `${fontSize + 2}px`,
         fontFamily: fontFamily,
         labels: {
-          colors: legendColors || legendColor
+          colors: nullToUndefined(legendColors) || legendColor
         }
       },
 
       // Markers (data points)
       markers: {
-        colors: markerColors,
-        strokeColors: markerStrokeColors,
+        colors: nullToUndefined(markerColors),
+        strokeColors: nullToUndefined(markerStrokeColors),
         strokeWidth: markerStrokeWidth
       },
 
@@ -641,7 +665,7 @@ export class ApexChartsAdapter {
       dataLabels: {
         enabled: showDataLabels,
         style: {
-          colors: dataLabelColors,
+          colors: nullToUndefined(dataLabelColors),
           fontSize: `${fontSize}px`,
           fontFamily: fontFamily
         }

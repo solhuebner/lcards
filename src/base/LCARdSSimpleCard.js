@@ -286,8 +286,76 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
                 this.requestUpdate();
             }
 
+            // Process data_sources config if present (for advanced DataSource configs)
+            if (result.mergedConfig?.data_sources) {
+                this._processDataSourcesConfig(result.mergedConfig.data_sources);
+            }
+
         } catch (error) {
             lcardsLog.error(`[LCARdSSimpleCard] CoreConfigManager processing failed:`, error);
+        }
+    }
+
+    /**
+     * Process data_sources configuration to create advanced DataSource instances
+     * Allows SimpleCards to define DataSources with full config (window_seconds,
+     * minEmitMs, coalesceMs, history preload, etc.) without requiring MSD.
+     *
+     * @example
+     * ```yaml
+     * type: custom:lcards-simple-chart
+     * data_sources:
+     *   cpu_temp:
+     *     entity: sensor.cpu_temp
+     *     window_seconds: 3600
+     *     minEmitMs: 250
+     *     coalesceMs: 120
+     *     history: { preload: true, hours: 6 }
+     * source: cpu_temp
+     * ```
+     *
+     * @param {Object} dataSourcesConfig - data_sources configuration object
+     * @private
+     */
+    async _processDataSourcesConfig(dataSourcesConfig) {
+        if (!dataSourcesConfig || typeof dataSourcesConfig !== 'object') {
+            return;
+        }
+
+        const dataSourceManager = this._singletons?.dataSourceManager;
+        if (!dataSourceManager) {
+            lcardsLog.warn(`[LCARdSSimpleCard] Cannot process data_sources: DataSourceManager not available`);
+            return;
+        }
+
+        lcardsLog.debug(`[LCARdSSimpleCard] Processing data_sources config`, {
+            sourceCount: Object.keys(dataSourcesConfig).length,
+            sources: Object.keys(dataSourcesConfig)
+        });
+
+        try {
+            // Create each data source using DataSourceManager.createDataSource()
+            const promises = Object.entries(dataSourcesConfig).map(async ([name, config]) => {
+                try {
+                    const source = await dataSourceManager.createDataSource(name, config);
+                    lcardsLog.debug(`[LCARdSSimpleCard] Created DataSource '${name}'`, {
+                        entity: config.entity,
+                        hasHistory: !!config.history,
+                        windowSeconds: config.window_seconds
+                    });
+                    return source;
+                } catch (error) {
+                    lcardsLog.error(`[LCARdSSimpleCard] Failed to create DataSource '${name}':`, error);
+                    return null;
+                }
+            });
+
+            await Promise.all(promises);
+
+            lcardsLog.debug(`[LCARdSSimpleChart] data_sources processing complete`);
+
+        } catch (error) {
+            lcardsLog.error(`[LCARdSSimpleCard] data_sources processing failed:`, error);
         }
     }
 

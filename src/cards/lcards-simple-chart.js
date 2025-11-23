@@ -45,6 +45,7 @@ import { LCARdSSimpleCard } from '../base/LCARdSSimpleCard.js';
 import { lcardsLog } from '../utils/lcards-logging.js';
 import ApexCharts from 'apexcharts';
 import { ApexChartsAdapter } from '../msd/charts/ApexChartsAdapter.js';
+import { resolveThemeTokensRecursive } from '../utils/lcards-theme.js';
 
 export class LCARdSSimpleChart extends LCARdSSimpleCard {
   static CARD_TYPE = 'simple-chart';
@@ -452,101 +453,61 @@ export class LCARdSSimpleChart extends LCARdSSimpleCard {
     // Get style with rule patches applied
     const style = this._getMergedStyleWithRules(this.config.style || {});
 
-    // Resolve theme tokens for colors
-    const primaryColor = this.getThemeToken('colors.accent.primary', 'var(--lcars-orange)');
-    const textColor = this.getThemeToken('colors.text.primary', 'var(--primary-text-color)');
-    const gridColor = this.getThemeToken('colors.border.default', 'rgba(255, 255, 255, 0.1)');
-
-    // Get chart type
-    const chartType = this.config.chart_type || 'line';
-
-    // Get series data
-    const series = this._getSeriesData();
-
-    // Build base options using ApexChartsAdapter if available
-    let baseOptions = {};
-
-    if (ApexChartsAdapter && typeof ApexChartsAdapter.createBaseOptions === 'function') {
-      baseOptions = ApexChartsAdapter.createBaseOptions(chartType, {
-        width: width,
-        height: height,
-        colors: style.colors || [primaryColor],
-        backgroundColor: style.background_color || 'transparent'
-      });
-    } else {
-      // Fallback options if adapter not available
-      baseOptions = {
-        chart: {
-          type: chartType,
-          width: width,
-          height: height,
-          background: style.background_color || 'transparent',
-          toolbar: {
-            show: false
-          },
-          animations: {
-            enabled: true,
-            easing: 'easeinout',
-            speed: 800
-          }
-        },
-        theme: {
-          mode: 'dark'
-        }
-      };
-    }
-
-    // Merge with custom options
-    const options = {
-      ...baseOptions,
-      series: series,
-      colors: style.colors || [primaryColor],
-      stroke: {
-        curve: style.curve || 'smooth',
-        width: style.stroke_width || 2,
-        colors: style.stroke_colors || undefined
-      },
-      fill: {
-        opacity: style.fill_opacity !== undefined ? style.fill_opacity : 1,
-        type: style.fill_type || 'solid'
-      },
-      dataLabels: {
-        enabled: style.show_labels || false
-      },
-      xaxis: {
-        type: this.config.xaxis_type || 'datetime',
-        labels: {
-          style: {
-            colors: textColor
-          }
-        }
-      },
-      yaxis: {
-        labels: {
-          style: {
-            colors: textColor
-          }
-        }
-      },
-      grid: {
-        borderColor: style.grid_color || gridColor,
-        strokeDashArray: 4
-      },
-      tooltip: {
-        enabled: true,
-        theme: 'dark'
-      },
-      legend: {
-        show: this.config.show_legend !== false,
-        labels: {
-          colors: textColor
-        }
-      }
+    // Merge chart_type from config root into style for adapter
+    let enhancedStyle = {
+      chart_type: this.config.chart_type || 'line',
+      xaxis_type: this.config.xaxis_type || 'datetime',
+      show_legend: this.config.show_legend,
+      series_names: this.config.series_names || this.config.seriesNames,
+      time_window: this.config.time_window,
+      max_points: this.config.max_points,
+      ...style
     };
 
-    lcardsLog.trace(`[LCARdSSimpleChart] Built chart options:`, options);
+    // CRITICAL: Resolve all theme tokens recursively BEFORE passing to adapter
+    // This handles tokens like 'theme:colors.chart.grid' and color manipulation
+    // functions like 'alpha(colors.chart.grid, 0.05)'
+    if (this._singletons?.themeManager) {
+      enhancedStyle = resolveThemeTokensRecursive(enhancedStyle, this._singletons.themeManager);
+      lcardsLog.trace(`[LCARdSSimpleChart] Resolved theme tokens in style:`, enhancedStyle);
+    }
 
-    return options;
+    // Check if we have actual data
+    const hasData = this._chartData && this._chartData.length > 0 &&
+                    this._chartData.some(s => s.data && Array.isArray(s.data) && s.data.length > 0);
+
+    // Use ApexChartsAdapter.generateOptions() for full feature parity with MSD
+    // This gives us all 50+ style properties that MSD overlays support:
+    // - colors, stroke_colors, fill_colors, marker_colors
+    // - grid_color, grid_row_colors, grid_column_colors, show_grid
+    // - axis_color, xaxis_color, yaxis_color, axis_border_color, axis_ticks_color
+    // - legend_color, legend_colors, show_legend
+    // - theme_mode, theme_palette, monochrome settings
+    // - font_family, font_size
+    // - show_toolbar, show_tooltip, tooltip_theme
+    // - animation_preset
+    // - and all chart-type-specific defaults
+    const options = ApexChartsAdapter.generateOptions(
+      enhancedStyle,
+      [width, height],
+      {
+        hasData,
+        // Pass context for theme token resolution
+        config: this.config,
+        card: this
+      }
+    );
+
+    // Get series data and merge into options
+    const series = this._getSeriesData();
+    const finalOptions = {
+      ...options,
+      series
+    };
+
+    lcardsLog.trace(`[LCARdSSimpleChart] Built chart options using ApexChartsAdapter:`, finalOptions);
+
+    return finalOptions;
   }
 
   /**
