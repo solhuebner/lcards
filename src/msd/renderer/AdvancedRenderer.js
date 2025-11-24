@@ -975,13 +975,13 @@ export class AdvancedRenderer {
     return { point, side: effectiveSide };
   }
 
-  _scheduleFontStabilization(overlays, anchorsRef, viewBox) {
-    // No-op: maintained for backwards compatibility
-  }
-
+  /**
+   * Schedule deferred line refresh
+   * No-op maintained for backwards compatibility with render pipeline
+   * @private
+   */
   _scheduleDeferredLineRefresh(overlays, anchorsRef, viewBox) {
-    // No-op: maintained for backwards compatibility
-    lcardsLog.debug('[AdvancedRenderer] Deferred line refresh scheduled (no-op)');
+    // No-op: Lines are now refreshed immediately during render
   }
 
   /**
@@ -1762,15 +1762,7 @@ export class AdvancedRenderer {
   }
 
   /**
-   * Perform final stabilization update (comprehensive pass)
-   * @private
-   */
-  _performFinalStabilizationUpdate(allOverlays, anchorsRef, viewBox) {
-    // No-op: maintained for backwards compatibility
-  }
-
-  /**
-   * Build virtual anchors from ALL overlay attachment points (not just attach_to targets)
+   * Build virtual anchors from ALL overlay attachment points
    * This allows lines to use ANY overlay as an anchor point
    * @private
    */
