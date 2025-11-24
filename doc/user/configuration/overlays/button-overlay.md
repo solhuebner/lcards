@@ -1,5 +1,32 @@
 # Button Overlay Configuration Guide
 
+> ⚠️ **DEPRECATED** - This overlay type was removed in v1.16.22+
+>
+> **Use SimpleCards instead:**
+> ```yaml
+> overlays:
+>   - id: light_button
+>     type: control
+>     position: [100, 100]
+>     size: [200, 60]
+>     card:
+>       type: custom:lcards-button-card
+>       entity: light.living_room
+>       name: "Living Room"
+>       tap_action:
+>         action: toggle
+> ```
+>
+> See the [Overlay System Guide](README.md) for migration instructions.
+
+---
+
+## Historical Documentation
+
+> The content below is preserved for reference but describes deprecated functionality.
+
+---
+
 > **Interactive buttons with full Home Assistant action support**
 > Create clickable controls with dynamic content, LCARS styling, and real-time datasource integration.
 

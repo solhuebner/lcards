@@ -629,9 +629,13 @@ animations:
       max_scale: 1.15
 
 overlays:
-  - id: my_button
-    type: button
+  - id: my_control
+    type: control
     position: [100, 100]
+    size: [200, 80]
+    card:
+      type: custom:lcards-button-card
+      entity: light.main
     animation_ref: pulse_anim
 ```
 
@@ -640,7 +644,7 @@ overlays:
 const instance = registry.getOrCreateInstance({
   preset: 'pulse',
   params: { duration: 1000, max_scale: 1.15 }
-}, ['#my_button']);
+}, ['#my_control']);
 
 // Creates new instance, caches it
 // Next call with same definition will reuse instance
@@ -656,52 +660,63 @@ animations:
       duration: 600
 
 overlays:
-  - id: button1
-    type: button
+  - id: line1
+    type: line
+    attach_start: anchor1.middle-right
+    attach_end: anchor2.middle-left
     animation_ref: fade_in
-  - id: button2
-    type: button
+  - id: line2
+    type: line
+    attach_start: anchor3.middle-right
+    attach_end: anchor4.middle-left
     animation_ref: fade_in
-  - id: button3
-    type: button
+  - id: control1
+    type: control
+    position: [100, 100]
+    size: [200, 80]
+    card:
+      type: custom:lcards-button-card
+      entity: light.main
     animation_ref: fade_in
 ```
 
 **Processing:**
 ```javascript
 // First overlay - creates instance
-const instance1 = registry.getOrCreateInstance(fadeDef, ['#button1']);
+const instance1 = registry.getOrCreateInstance(fadeDef, ['#line1']);
 // cacheMiss++, instancesCreated++
 
 // Second overlay - reuses instance
-const instance2 = registry.getOrCreateInstance(fadeDef, ['#button2']);
+const instance2 = registry.getOrCreateInstance(fadeDef, ['#line2']);
 // cacheHit++, instancesReused++
 
 // Third overlay - reuses instance
-const instance3 = registry.getOrCreateInstance(fadeDef, ['#button3']);
+const instance3 = registry.getOrCreateInstance(fadeDef, ['#control1']);
 // cacheHit++, instancesReused++
 
 // Result: 1 instance created, 2 reused
 ```
 
-### Example 3: Status Grid Cascade
+### Example 3: Cascade Animation
 
 ```yaml
 overlays:
-  - id: status_grid
-    type: status_grid
+  - id: control_panel
+    type: control
     position: [50, 50]
-    style:
-      animatable: true
-      reveal_animation: true
-      cascade_direction: 'right'
+    size: [400, 300]
+    card:
+      type: custom:lcards-grid-card
+      # Card handles its own cascade animation
 ```
+
+> **Note:** StatusGrid cascade animations are now handled via SimpleCards or embedded HA cards.
 
 **Animation:**
 ```javascript
-// anime.js cascade animation
+// anime.js cascade animation (for card-internal use)
 anime({
-  targets: '.status-grid-cell',
+  targets: '.grid-cell',
   opacity: [0, 1],
   scale: [0.8, 1],
   delay: anime.stagger(100, {direction: 'right'})
@@ -739,7 +754,11 @@ animations:
 
 overlays:
   - id: panel
-    type: text
+    type: control
+    position: [100, 100]
+    size: [300, 200]
+    card:
+      type: custom:lcards-panel-card
     animation_ref: slide_in
 ```
 

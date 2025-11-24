@@ -637,33 +637,34 @@ const themes = themeManager.getAllThemes();
 ```yaml
 # Overlays automatically use theme defaults
 overlays:
-  - id: title
-    type: text
-    position: [50, 50]
+  - id: power_line
+    type: line
+    attach_start: anchor1.middle-right
+    attach_end: anchor2.middle-left
     style:
-      content: "SYSTEMS STATUS"
-      # font_size, color, font_family from theme
+      # color, stroke_width from theme
+      marker_end: arrow
 
-  - id: control_btn
-    type: button
+  - id: control_panel
+    type: control
     position: [50, 100]
-    size: [200, 60]
-    style:
-      label: "Engage"
-      # color, text_color, border_radius from theme
+    size: [200, 120]
+    card:
+      type: custom:lcards-button-card
+      entity: light.main
+      # Card styling uses theme tokens
 ```
 
 ### Example 2: Overriding Theme Defaults
 
 ```yaml
 overlays:
-  - id: alert_text
-    type: text
-    position: [50, 50]
+  - id: alert_line
+    type: line
+    points: [[50, 50], [200, 50]]
     style:
-      content: "ALERT"
-      color: var(--lcars-red)    # Override theme default
-      font_size: 32px            # Override theme default
+      color: var(--lcars-red)      # Override theme default
+      stroke_width: 4              # Override theme default
 ```
 
 ### Example 3: Custom Theme

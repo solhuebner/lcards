@@ -1,5 +1,33 @@
 # ApexCharts Overlay Configuration Guide
 
+> ⚠️ **DEPRECATED** - This overlay type was removed in v1.16.22+
+>
+> **Use SimpleChart card instead:**
+> ```yaml
+> overlays:
+>   - id: temp_chart
+>     type: control
+>     position: [100, 100]
+>     size: [400, 200]
+>     card:
+>       type: custom:lcards-simple-chart
+>       entity: sensor.temperature
+>       chart_type: line
+>       hours_to_show: 24
+>       color: var(--lcars-blue)
+> ```
+>
+> See the [SimpleChart Guide](../../cards/simple-chart.md) for full documentation.
+> See the [Overlay System Guide](README.md) for migration instructions.
+
+---
+
+## Historical Documentation
+
+> The content below is preserved for reference but describes deprecated functionality.
+
+---
+
 > **Advanced charting with 15 chart types**
 > Create powerful, interactive charts with real-time data using the ApexCharts library, fully integrated with MSD's DataSource system.
 

@@ -1,5 +1,30 @@
 # Text Overlay Configuration Guide
 
+> ⚠️ **DEPRECATED** - This overlay type was removed in v1.16.22+
+>
+> **Use SimpleCards instead:**
+> ```yaml
+> overlays:
+>   - id: text_display
+>     type: control
+>     position: [100, 100]
+>     size: [200, 50]
+>     card:
+>       type: custom:lcards-text-card
+>       entity: sensor.temperature
+>       content: "Temperature: {{ state }}°F"
+> ```
+>
+> See the [Overlay System Guide](README.md) for migration instructions.
+
+---
+
+## Historical Documentation
+
+> The content below is preserved for reference but describes deprecated functionality.
+
+---
+
 > **Dynamic, styled text rendering with real-time updates**
 > Display sensor data, status information, labels, and interactive text elements with comprehensive styling options.
 
