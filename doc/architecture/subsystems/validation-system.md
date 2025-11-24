@@ -1,35 +1,36 @@
-# MSD Validation System (Singleton) - Architecture & Developer Guide
-
-**Location:** `/doc/architecture/validation_architecture.md`
+# LCARdS Validation System - Architecture & Developer Guide
 
 ## Table of Contents
 1. [Overview](#overview)
-2. [System Architecture](#system-architecture)
-3. [Core Components](#core-components)
-4. [Validation Flow](#validation-flow)
-5. [Schema System](#schema-system)
-6. [Token Resolution](#token-resolution)
-7. [Extension Guide](#extension-guide)
-8. [API Reference](#api-reference)
-9. [Performance Considerations](#performance-considerations)
-10. [Future Enhancements](#future-enhancements)
+2. [Dual Validation Architecture](#dual-validation-architecture)
+3. [CoreValidationService (Singleton)](#corevalidationservice-singleton)
+4. [MSD validateMerged (Structure Validation)](#msd-validatemerged-structure-validation)
+5. [Validation Flow](#validation-flow)
+6. [Schema System](#schema-system)
+7. [Token Resolution](#token-resolution)
+8. [Extension Guide](#extension-guide)
+9. [API Reference](#api-reference)
+10. [Performance Considerations](#performance-considerations)
+11. [Future Enhancements](#future-enhancements)
 
 ---
 
 ## Overview
 
-The MSD Validation System is a **singleton service** that provides comprehensive, schema-based validation of overlay configurations across all MSD cards. It supports design tokens, enhanced properties, cross-card validation, and context-aware requirements.
+The LCARdS validation system uses a **dual validation architecture** to provide comprehensive configuration validation:
+
+1. **CoreValidationService** (`lcardsCore.validationService`) - A core singleton that validates individual overlays, cards, tokens, and datasources. Available to ALL LCARdS cards (MSD, SimpleCards, etc.).
+
+2. **validateMerged** (`src/msd/validation/validateMerged.js`) - MSD-specific function that validates the overall MSD configuration structure (anchors, rules, profiles, duplicate IDs, routing).
 
 ### Key Features
 
-- 🌐 **Singleton Architecture** - Single validation service for all MSD cards
-- **Multi-Card Validation** - Validates overlays across multiple cards with cross-card references
-- **Schema-based validation** - Each overlay type has a declarative schema
+- 🌐 **Core Singleton Architecture** - Single validation service shared by all LCARdS cards via `lcardsCore.validationService`
+- **Universal Availability** - Token validation and datasource validation available for ALL cards (not just MSD)
+- **Schema-based validation** - Overlay types have declarative schemas in core
 - **Token-aware** - Resolves design tokens from singleton ThemeManager before validation
 - **Enhanced properties** - Supports complex object formats (font_size objects, marker objects, etc.)
-- **Conditional validation** - Fields can be conditionally required based on context
-- **Cross-Card Dependencies** - Validates overlay targeting and cross-card relationships
-- **Chart-specific** - Validates chart data format compatibility
+- **MSD Structure Validation** - Dedicated structure validation for MSD configs via validateMerged
 - **Extensible** - Easy to add new overlay types and validators
 - **Developer-friendly** - Rich error messages with suggestions and examples
 
@@ -43,78 +44,144 @@ The MSD Validation System is a **singleton service** that provides comprehensive
 
 ---
 
-## System Architecture
+## Dual Validation Architecture
 
 ```mermaid
 graph TB
-    VS[ValidationService<br/>Orchestrates validation<br/>Manages cache & integration]
+    subgraph "Core Singleton Layer"
+        CVS[CoreValidationService<br/>lcardsCore.validationService<br/>Individual config validation]
+        SR[SchemaRegistry<br/>Schema management]
+        OV[OverlayValidator<br/>Schema-based validation]
+        TV[TokenValidator<br/>Token references]
+        DSV[DataSourceValidator<br/>Data source validation]
+        EF[ErrorFormatter<br/>User-friendly messages]
+    end
 
-    SR[SchemaRegistry<br/>Manages schemas<br/>Handles inheritance]
+    subgraph "MSD-Specific Layer"
+        VM[validateMerged<br/>Structure validation<br/>~794 lines]
+    end
 
-    OV[OverlayValidator<br/>Schema-based validation]
-    VV[ValueValidator<br/>Tokens, types, formats]
+    subgraph "Consumers"
+        MSD[MSD Cards]
+        SC[SimpleCards]
+        SCH[SimpleChart]
+    end
 
-    TV[TokenValidator<br/>Theme token references]
+    MSD --> CVS
+    MSD --> VM
+    SC --> CVS
+    SCH --> CVS
 
-    DSV[DataSourceValidator<br/>Data source existence<br/>Path validation]
+    CVS --> SR
+    CVS --> OV
+    CVS --> TV
+    CVS --> DSV
+    CVS --> EF
 
-    CDV[ChartDataValidator<br/>Chart data format<br/>compatibility]
-
-    EF[ErrorFormatter<br/>User-friendly messages]
-
-    VS --> SR
-    VS --> OV
-    VS --> TV
-    VS --> DSV
-    VS --> CDV
-    VS --> EF
-
-    OV --> VV
-
-    style VS fill:#f9ef97,stroke:#ac943b,stroke-width:3px,color:#0c2a15
-    style SR fill:#80bb93,stroke:#083717,color:#0c2a15
-    style OV fill:#80bb93,stroke:#083717,color:#0c2a15
-    style VV fill:#b8e0c1,stroke:#266239,color:#0c2a15
-    style TV fill:#80bb93,stroke:#083717,color:#0c2a15
-    style DSV fill:#80bb93,stroke:#083717,color:#0c2a15
-    style CDV fill:#d91604,stroke:#ef1d10,color:#f3f4f7
-    style EF fill:#80bb93,stroke:#083717,color:#0c2a15
+    style CVS fill:#f9ef97,stroke:#ac943b,stroke-width:3px,color:#0c2a15
+    style VM fill:#80bb93,stroke:#083717,color:#0c2a15
+    style MSD fill:#4d94ff,stroke:#0066cc,color:#fff
+    style SC fill:#4d94ff,stroke:#0066cc,color:#fff
+    style SCH fill:#4d94ff,stroke:#0066cc,color:#fff
 ```
+
+### Validation Responsibilities
+
+| Component | Responsibility | Used By |
+|-----------|---------------|---------|
+| **CoreValidationService** | Individual overlay/card schemas, tokens, datasources, value types | All LCARdS cards |
+| **validateMerged** | MSD config structure: anchors, rules, profiles, duplicate IDs, routing | MSD only |
+
+---
+
+## CoreValidationService (Singleton)
+
+The CoreValidationService is the unified validation system accessible via `lcardsCore.validationService`. It consolidates all individual config validation.
 
 ### File Structure
 
 ```
-src/msd/validation/
-├── ValidationService.js       # Main orchestrator
-├── SchemaRegistry.js          # Schema management
-├── OverlayValidator.js        # Schema-based validation
-├── ValueValidator.js          # Type/format/token validation
-├── TokenValidator.js          # Theme token validation
-├── DataSourceValidator.js     # Data source validation
-├── ChartDataValidator.js      # Chart data format validation
-├── ErrorFormatter.js          # Error message formatting
+src/core/validation-service/
+├── index.js               # Main CoreValidationService class
+├── SchemaRegistry.js      # Schema management
+├── OverlayValidator.js    # Schema-based validation
+├── ValueValidator.js      # Type/format/token validation
+├── TokenValidator.js      # Theme token validation
+├── DataSourceValidator.js # Data source validation
+├── ErrorFormatter.js      # Error message formatting
 └── schemas/
-    ├── index.js               # Schema exports/registration
-    ├── common.js              # Common properties (all overlays)
-    ├── textOverlay.js         # Text overlay schema
-    ├── lineOverlay.js         # Line overlay schema
-    ├── buttonOverlay.js       # Button overlay schema
-    ├── apexChartOverlay.js    # ApexChart overlay schema
-    └── statusGridOverlay.js   # StatusGrid overlay schema
+    ├── index.js           # Schema exports/registration
+    ├── common.js          # Common properties (all overlays)
+    └── lineOverlay.js     # Line overlay schema
+```
+
+### Accessing the Singleton
+
+```javascript
+// Access via lcardsCore singleton
+const validationService = lcardsCore.validationService;
+
+// Validate an overlay config
+const result = validationService.validateOverlay(overlayConfig, context);
+
+// Validate token references
+const tokenResult = validationService.validateTokens(config, themeManager);
+
+// Validate datasource references
+const dsResult = validationService.validateDataSources(config, dataSourceManager);
+```
+
+---
+
+## MSD validateMerged (Structure Validation)
+
+The `validateMerged` function validates MSD-specific configuration structure. It does NOT validate individual overlays (that's CoreValidationService's job).
+
+### File Location
+
+```
+src/msd/validation/
+└── validateMerged.js     # MSD structure validation (~794 lines)
+```
+
+### What validateMerged Validates
+
+- **Config structure** - Overall MSD config object validity
+- **Anchors** - Anchor definitions and references
+- **Overlays** - Overlay array structure (not individual overlay schemas)
+- **Rules** - Rule definitions and references
+- **Actions** - Action configurations
+- **Animations** - Animation definitions
+- **Profiles** - Profile configurations
+- **Palettes** - Palette definitions
+- **Routing** - Line routing configuration
+- **Duplicate IDs** - Ensures unique overlay IDs
+
+### Usage
+
+```javascript
+import { validateMerged } from './validation/validateMerged.js';
+
+const issues = validateMerged(msdConfig);
+// Returns: { errors: [], warnings: [] }
+
+if (issues.errors.length > 0) {
+  console.error('MSD config validation failed:', issues.errors);
+}
 ```
 
 ---
 
 ## Core Components
 
-### 1. ValidationService
+### 1. CoreValidationService
 
-**Purpose:** Central orchestrator for all validation operations.
+**Purpose:** Central singleton orchestrator for all validation operations, accessible via `lcardsCore.validationService`.
 
 **Responsibilities:**
 - Coordinate validation across multiple validators
 - Manage validation cache for performance
-- Integrate with ThemeManager and DataSourceManager
+- Integrate with ThemeManager and DataSourceManager singletons
 - Collect and format validation statistics
 - Provide public API for validation operations
 
@@ -129,7 +196,7 @@ validateAll(overlays, context)
 // Format errors for display
 formatErrors(validationResult)
 
-// Set integrations
+// Integration with other singletons
 setThemeManager(themeManager)
 setDataSourceManager(dataSourceManager)
 
@@ -139,15 +206,17 @@ setCaching(enabled)
 getStats()
 ```
 
-**Configuration:**
+**Accessing the Service:**
 ```javascript
-new ValidationService({
-  strict: false,           // Treat warnings as errors
-  stopOnError: false,      // Stop at first error
-  validateTokens: true,    // Validate token references
-  validateDataSources: true, // Validate data sources
-  debug: false             // Enable debug logging
-})
+// Via lcardsCore singleton (recommended)
+const validationService = lcardsCore.validationService;
+
+// Validate overlay
+const result = validationService.validateOverlay(overlay, { 
+  strict: false,
+  validateTokens: true,
+  validateDataSources: true
+});
 ```
 
 ### 2. ValueValidator
@@ -369,7 +438,7 @@ sequenceDiagram
 
 ### Common Schema (Inherited by All)
 
-**File:** `src/msd/validation/schemas/common.js`
+**File:** `src/core/validation-service/schemas/common.js`
 
 ```javascript
 {
@@ -392,36 +461,16 @@ sequenceDiagram
 }
 ```
 
-### Type-Specific Schemas
+### Current Overlay Types
 
-Each overlay type extends the common schema:
+As of v1.16.22+, MSD supports only **2 overlay types**:
 
-**Text Overlay:**
-```javascript
-{
-  type: 'text',
-  extends: 'common',
-  required: ['position'], // text OR content via custom validator
+| Type | Description | Renderer |
+|------|-------------|----------|
+| **line** | SVG line/path overlays | LineOverlay.js |
+| **card** (control) | Embedded HA cards | MsdControlsRenderer.js |
 
-  properties: {
-    text: { type: 'string', optional: true },
-    content: { type: 'string', optional: true }, // Alternative to text
-    style: {
-      color: { type: 'string', format: 'color' },
-      font_size: { type: ['number', 'object'] }, // Enhanced format
-      text_anchor: {
-        type: 'string',
-        enum: ['start', 'middle', 'end', 'left', 'center', 'right']
-      }
-    }
-  },
-
-  validators: [
-    // Require text OR content
-    (overlay) => overlay.text || overlay.content
-  ]
-}
-```
+> **Note:** Previous overlay types (`button`, `text`, `lozenge`, `status_grid`, `history_bar`, `multimeter`, `apexchart`) have been removed. Use SimpleCards or embedded HA cards instead.
 
 **Line Overlay:**
 ```javascript
@@ -447,27 +496,17 @@ Each overlay type extends the common schema:
 }
 ```
 
-**ApexChart Overlay:**
+**Card/Control Overlay:**
 ```javascript
 {
-  type: 'apexchart',
+  type: 'control', // or 'card', 'custom:*', 'hui-*', etc.
   extends: 'common',
   required: ['position', 'size'],
 
   properties: {
-    source: { type: ['string', 'array'], optional: true },
-    data_source: { type: ['string', 'array'], optional: true },
-    sources: { type: ['array', 'string'], optional: true },
-    chart_type: { type: 'string', enum: [...VALID_CHART_TYPES] }
-  },
-
-  validators: [
-    // Require one of: source, data_source, sources
-    (overlay) => overlay.source || overlay.data_source || overlay.sources,
-
-    // Validate chart data format
-    (overlay, context) => ChartDataValidator.validate(overlay, context)
-  ]
+    card: { type: 'object', optional: true }, // HA card config
+    // Any valid HA card type and configuration
+  }
 }
 ```
 
@@ -970,14 +1009,22 @@ Support multiple schema versions for backwards compatibility:
 
 ## References
 
-- [ValidationService.js](../../src/msd/validation/ValidationService.js)
-- [ValueValidator.js](../../src/msd/validation/ValueValidator.js)
-- [ChartDataValidator.js](../../src/msd/validation/ChartDataValidator.js)
-- [Schema System](../../src/msd/validation/schemas/)
-- [User Guide](/doc/user/validation_guide.md)
-- [Troubleshooting Guide](/doc/user/validation_troubleshooting.md)
+### Core Validation Service
+- [CoreValidationService](../../../src/core/validation-service/index.js) - Main singleton service
+- [SchemaRegistry](../../../src/core/validation-service/SchemaRegistry.js) - Schema management
+- [OverlayValidator](../../../src/core/validation-service/OverlayValidator.js) - Schema-based validation
+- [ValueValidator](../../../src/core/validation-service/ValueValidator.js) - Type/format validation
+- [TokenValidator](../../../src/core/validation-service/TokenValidator.js) - Token validation
+- [DataSourceValidator](../../../src/core/validation-service/DataSourceValidator.js) - Datasource validation
+- [Schemas](../../../src/core/validation-service/schemas/) - Schema definitions
+
+### MSD Structure Validation
+- [validateMerged](../../../src/msd/validation/validateMerged.js) - MSD config structure validation
+
+### User Documentation
+- [Validation Guide](../../user/advanced/validation_guide.md) - User-facing validation documentation
 
 ---
 
-*Last Updated: 2025-01-19*
-*Version: 1.0*
+*Last Updated: 2025-11-24*
+*Version: 2.0 - Post-Architecture Refactor*

@@ -407,13 +407,14 @@ manager.clear();  // Reset manager state
 ### Pattern 1: Renderer Sets Attachment Points
 
 ```javascript
-class TextOverlayRenderer {
+class LineOverlay {
   render(overlay, anchors, viewBox, svgContainer) {
-    // Calculate overlay bounds
-    const x = overlay.position[0];
-    const y = overlay.position[1];
-    const width = 200;
-    const height = 30;
+    // Calculate overlay bounds based on line points
+    const points = overlay.points || [];
+    const x = Math.min(...points.map(p => p[0]));
+    const y = Math.min(...points.map(p => p[1]));
+    const width = Math.max(...points.map(p => p[0])) - x;
+    const height = Math.max(...points.map(p => p[1])) - y;
 
     // Create attachment point data
     const attachmentData = {
@@ -535,7 +536,15 @@ class AdvancedRenderer {
 
   renderOverlay(overlay, anchors, viewBox, svgContainer) {
     // Each renderer sets attachment points
-    const markup = TextOverlayRenderer.render(overlay, anchors, viewBox, svgContainer);
+    if (overlay.type === 'line') {
+      const markup = LineOverlay.render(overlay, anchors, viewBox, svgContainer);
+      return markup;
+    }
+    
+    // Card-based overlays handled by MsdControlsRenderer
+    if (overlay.type === 'control') {
+      return null; // Delegated to MsdControlsRenderer
+    }
 
     // Attachment points now available for line routing
     return markup;

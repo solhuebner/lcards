@@ -110,44 +110,35 @@ graph TB
 
     subgraph Renderers["Renderer Layer"]
         BR[BaseRenderer<br/>auto-integrated]
-        ACO[ApexChartsOverlay<br/>manual integration]
+        MCR[MsdControlsRenderer<br/>card embedding]
 
-        subgraph Specialized["Specialized Renderers"]
-            TOR[TextOverlayRenderer]
-            BtnR[ButtonRenderer]
-            LineR[LineRenderer]
+        subgraph Specialized["Current Renderers"]
+            LineR[LineOverlay]
         end
     end
 
-    subgraph Adapters["Adapters"]
-        ACA[ApexChartsAdapter<br/>Maps styles to ApexCharts]
-    end
-
     PC --> BR
-    PC --> ACO
+    PC --> MCR
 
-    BR --> TOR
-    BR --> BtnR
     BR --> LineR
 
     SRS --> TR
     TR --> TTR
 
-    ACO --> ACA
-
     style PC fill:#b8e0c1,stroke:#266239,stroke-width:2px,color:#0c2a15
     style SRS fill:#f9ef97,stroke:#ac943b,stroke-width:3px,color:#0c2a15
     style BR fill:#80bb93,stroke:#083717,stroke-width:2px,color:#0c2a15
-    style ACO fill:#80bb93,stroke:#083717,stroke-width:2px,color:#0c2a15
+    style MCR fill:#80bb93,stroke:#083717,stroke-width:2px,color:#0c2a15
 ```
 
 **Integration Points:**
 
 - **PipelineCore** - Creates StyleResolverService during initialization
 - **BaseRenderer** - Automatic integration via `this.styleResolver` property
-- **TextOverlayRenderer, ButtonRenderer, etc.** - Inherit from BaseRenderer
-- **ApexChartsOverlayRenderer** - Manual integration (singleton pattern)
-- **ApexChartsAdapter** - Maps resolved styles to ApexCharts options
+- **LineOverlay** - Inherits from OverlayBase
+- **MsdControlsRenderer** - Handles card-based overlays (SimpleCards, HA cards)
+
+> **Note:** Previous renderers (TextOverlayRenderer, ButtonRenderer, StatusGridRenderer, ApexChartsOverlayRenderer) were removed in v1.16.22+.
 
 **Resolution Chain:**
 
@@ -221,8 +212,8 @@ The Style Resolver follows a strict priority chain:
 
 ```yaml
 overlays:
-  - id: temp_display
-    type: text
+  - id: power_line
+    type: line
     style:
       color: '#FF0000'    # Explicit - used directly
 ```
@@ -233,8 +224,8 @@ overlays:
 
 ```yaml
 overlays:
-  - id: temp_display
-    type: text
+  - id: power_line
+    type: line
     style:
       color: 'colors.accent.primary'    # Token reference
 ```
@@ -245,33 +236,36 @@ overlays:
 
 ```yaml
 overlays:
-  - id: temp_display
-    type: text
+  - id: power_line
+    type: line
     style:
       # No color specified - uses theme default
 ```
 
 **Result:** `{value: '#FFFFFF', source: 'theme_default'}`
 
-#### 4. LCARS Preset
+#### 4. Card Styling
 
 ```yaml
 overlays:
-  - id: control_btn
-    type: button
-    style:
-      lcars_button_preset: 'lozenge'    # Preset applied
-      # color not specified - uses preset default
+  - id: control_panel
+    type: control
+    position: [100, 100]
+    size: [200, 80]
+    card:
+      type: custom:lcards-button-card
+      entity: light.main
+      # Card handles its own styling via themes
 ```
 
-**Result:** `{value: '#FF9966', source: 'preset'}`
+**Result:** Card uses LCARdS theme tokens internally
 
 #### 5. System Fallback
 
 ```yaml
 overlays:
-  - id: unknown
-    type: custom
+  - id: unknown_line
+    type: line
     style:
       # No value, token, theme, or preset available
 ```
@@ -306,17 +300,17 @@ category.subcategory.property
 
 ```yaml
 overlays:
-  - id: styled_text
-    type: text
-    position: [100, 100]
+  - id: styled_line
+    type: line
+    attach_start: anchor1.middle-right
+    attach_end: anchor2.middle-left
     style:
       # Token references
       color: 'colors.accent.primary'
-      font_size: 'typography.fontSize.xl'
-      font_family: 'typography.fontFamily.primary'
-
+      stroke_width: 3
+      
       # Explicit values override tokens
-      border_color: '#FF0000'
+      marker_end: 'arrow'
 ```
 
 ### Token Resolution
@@ -414,15 +408,15 @@ console.log(stats);
 
 ### LCARS Presets
 
-Presets provide predefined style bundles:
+Presets provide predefined style bundles for lines and cards:
 
 ```yaml
 overlays:
-  - id: control_button
-    type: button
+  - id: power_line
+    type: line
     style:
-      lcars_button_preset: 'lozenge'
-      # Preset provides: color, border_radius, padding
+      preset: 'dashed'
+      # Preset provides: dash_array, stroke_width
 
       # Override specific properties
       color: '#00FF00'    # Overrides preset color
@@ -430,20 +424,16 @@ overlays:
 
 ### Available Presets
 
-#### Button Presets
+#### Line Presets
 
 | Preset | Description | Style |
 |--------|-------------|-------|
-| `lozenge` | Rounded lozenge shape | `border_radius: 20px` |
-| `pill` | Full pill shape | `border_radius: 30px` |
-| `square` | Sharp corners | `border_radius: 0` |
-| `rounded` | Slightly rounded | `border_radius: 8px` |
+| `solid` | Solid line | `dash_array: none` |
+| `dashed` | Standard dashes | `dash_array: 5,5` |
+| `dotted` | Dotted line | `dash_array: 2,2` |
+| `thick` | Wide line | `stroke_width: 4` |
 
-#### Text Presets
-
-| Preset | Description | Style |
-|--------|-------------|-------|
-| `heading` | Large heading text | `font_size: 32px, text_transform: uppercase` |
+> **Note:** Card styling presets are handled by individual SimpleCards (e.g., `lcards-button-card`) via their own preset systems.
 | `label` | Small label text | `font_size: 14px, opacity: 0.8` |
 | `value` | Large value display | `font_size: 48px, font_weight: bold` |
 
@@ -451,11 +441,10 @@ overlays:
 
 ```javascript
 // Apply preset
-const presetStyles = presetManager.apply('lozenge', 'button');
+const presetStyles = presetManager.apply('dashed', 'line');
 // Returns: {
-//   color: '#FF9966',
-//   border_radius: 20,
-//   padding: '12px 24px'
+//   dash_array: '5,5',
+//   stroke_width: 2
 // }
 
 // Merge with explicit values
@@ -483,8 +472,9 @@ const styleResolver = new StyleResolverService(themeManager, {
 
   // Preset configuration
   presets: {
-    button: {
-      lozenge: { /* preset styles */ }
+    line: {
+      dashed: { /* preset styles */ },
+      dotted: { /* preset styles */ }
     }
   }
 });
@@ -655,24 +645,23 @@ data_sources:
     entity: sensor.temperature
 
 overlays:
-  - id: temp_display
-    type: text
-    source: temperature
-    position: [100, 100]
+  - id: power_line
+    type: line
+    attach_start: temp_sensor.middle-right
+    attach_end: display_panel.middle-left
     style:
-      content: "Temperature: {value}°F"
       color: 'colors.accent.primary'
-      font_size: 'typography.fontSize.xl'
-      font_family: 'typography.fontFamily.primary'
+      stroke_width: 3
+      marker_end: 'arrow'
 ```
 
 **Resolution:**
 ```javascript
-const styles = styleResolver.resolveStyles(overlay, 'text');
+const styles = styleResolver.resolveStyles(overlay, 'line');
 // {
 //   color: {value: '#FF9900', source: 'token'},
-//   font_size: {value: '24px', source: 'token'},
-//   font_family: {value: '"Antonio", sans-serif', source: 'token'}
+//   stroke_width: {value: 3, source: 'explicit'},
+//   marker_end: {value: 'arrow', source: 'explicit'}
 // }
 ```
 

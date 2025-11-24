@@ -448,12 +448,14 @@ applyNumberFormat(value, formatSpec, dataSourceData?.unit_of_measurement) {
 }
 ```
 
-**Usage in Text Overlays:**
+**Usage in Overlays/Cards:**
 ```javascript
-// TextOverlay.js
+// In any overlay or card that uses DataSources
 const unitOfMeasurement = dataSource?.getCurrentData()?.unit_of_measurement;
 return DataSourceMixin.applyNumberFormat(numericValue, formatSpec, unitOfMeasurement);
 ```
+
+> **Note:** DataSources are a core feature used by ALL LCARdS cards (MSD, SimpleCards, SimpleChart), not just MSD.
 
 ### Helper Methods
 

@@ -39,11 +39,10 @@ The renderer handles these overlay types:
 
 | Type | Renderer | Element | Description |
 |------|----------|---------|-------------|
-| **text** | TextOverlay | SVG text | Static/dynamic text display |
-| **button** | ButtonOverlay | SVG foreignObject | Interactive buttons |
-| **line** | LineOverlay | SVG line/path | Visual dividers |
-| **status_grid** | StatusGridOverlay | foreignObject | Multi-metric grids |
-| **apexchart** | ApexChartsOverlay | foreignObject | Charts and graphs |
+| **line** | LineOverlay | SVG line/path | Visual dividers and connectors |
+| **card** / **control** | MsdControlsRenderer | SVG foreignObject | Embedded HA cards (SimpleCards, custom cards) |
+
+> **Note:** Previous overlay types (`text`, `button`, `status_grid`, `apexchart`, etc.) were removed in v1.16.22+. Use SimpleCards or embedded HA cards instead.
 
 ---
 
@@ -64,11 +63,8 @@ graph TB
         Cache[Instance Cache]
 
         subgraph "Overlay Instances"
-            TO[TextOverlay]
-            BO[ButtonOverlay]
             LO[LineOverlay]
-            SG[StatusGridOverlay]
-            AC[ApexChartsOverlay]
+            MCR[MsdControlsRenderer]
         end
 
         subgraph "Utilities"
@@ -88,21 +84,15 @@ graph TB
     RE -.styles.-> AR
 
     AR --> Cache
-    Cache --> TO
-    Cache --> BO
     Cache --> LO
-    Cache --> SG
-    Cache --> AC
+    Cache --> MCR
 
     AR --> RU
     AR --> OU
     AR --> APM
 
-    TO --> SVG
-    BO --> DOM
     LO --> SVG
-    SG --> DOM
-    AC --> DOM
+    MCR --> DOM
 
     style AR fill:#ff9900,stroke:#cc7700,stroke-width:3px
 ```
@@ -114,18 +104,11 @@ graph TD
     AR[AdvancedRenderer]
 
     AR --> OB[OverlayBase]
+    AR --> MCR[MsdControlsRenderer]
 
-    OB --> TO[TextOverlay]
-    OB --> BO[ButtonOverlay]
     OB --> LO[LineOverlay]
-    OB --> SG[StatusGridOverlay]
-    OB --> AC[ApexChartsOverlay]
 
-    TO -.inherits.-> OB
-    BO -.inherits.-> OB
     LO -.inherits.-> OB
-    SG -.inherits.-> OB
-    AC -.inherits.-> OB
 
     style AR fill:#ff9900
     style OB fill:#99ccff
@@ -367,12 +350,10 @@ BaseRenderer (abstract base class)
 └── Container Resolution
     └── _resolveContainerElement()
 
-Renderers Extending BaseRenderer:
-├── TextOverlayRenderer
-├── StatusGridRenderer
-├── ButtonOverlayRenderer
-├── ButtonRenderer
-└── LineOverlayRenderer
+Current Renderers:
+└── LineOverlay (extends OverlayBase)
+
+Card-based overlays are handled by MsdControlsRenderer.
 ```
 
 ### Core Features
@@ -487,46 +468,7 @@ export class MyOverlayRenderer extends BaseRenderer {
 
 ---
 
-## Specialized Renderers
-
-### TextOverlay
-
-Renders SVG text elements:
-
-```javascript
-class TextOverlay extends OverlayBase {
-  render(overlay, data) {
-    const text = document.createElementNS(SVG_NS, 'text');
-    text.setAttribute('x', overlay.position[0]);
-    text.setAttribute('y', overlay.position[1]);
-    text.textContent = this.resolveContent(overlay.style.content, data);
-    // ... apply styles
-    return text;
-  }
-
-  update(element, overlay, data) {
-    // Update only text content
-    element.textContent = this.resolveContent(overlay.style.content, data);
-  }
-}
-```
-
-### ButtonOverlay
-
-Renders interactive buttons in foreignObject:
-
-```javascript
-class ButtonOverlay extends OverlayBase {
-  render(overlay, data) {
-    const fo = document.createElementNS(SVG_NS, 'foreignObject');
-    const button = document.createElement('button');
-    button.textContent = overlay.style.label;
-    // ... apply styles, attach actions
-    fo.appendChild(button);
-    return fo;
-  }
-}
-```
+## Current Overlay Renderers
 
 ### LineOverlay
 
@@ -546,65 +488,34 @@ class LineOverlay extends OverlayBase {
 }
 ```
 
-### StatusGridOverlay
+**Location:** `src/msd/overlays/LineOverlay.js`
 
-Renders multi-item grids:
+### MsdControlsRenderer (Card-based overlays)
+
+Renders Home Assistant cards and SimpleCards in foreignObject:
 
 ```javascript
-class StatusGridOverlay extends OverlayBase {
-  render(overlay, data) {
+class MsdControlsRenderer {
+  renderControlOverlay(overlay, svgContainer) {
     const fo = document.createElementNS(SVG_NS, 'foreignObject');
-    const grid = document.createElement('div');
-    grid.className = 'status-grid';
-
-    // Render grid items
-    overlay.style.items.forEach(item => {
-      const cell = this.renderGridCell(item, data);
-      grid.appendChild(cell);
-    });
-
-    fo.appendChild(grid);
+    // Position and size from overlay config
+    fo.setAttribute('x', overlay.position[0]);
+    fo.setAttribute('y', overlay.position[1]);
+    fo.setAttribute('width', overlay.size[0]);
+    fo.setAttribute('height', overlay.size[1]);
+    
+    // Create and embed HA card
+    const cardElement = this.createControlElement(overlay);
+    fo.appendChild(cardElement);
+    
     return fo;
-  }
-
-  update(element, overlay, data) {
-    // Update only changed cells
-    const cells = element.querySelectorAll('.grid-cell');
-    overlay.style.items.forEach((item, index) => {
-      this.updateGridCell(cells[index], item, data);
-    });
   }
 }
 ```
 
-### ApexChartsOverlay
+**Location:** `src/msd/controls/MsdControlsRenderer.js`
 
-Renders charts using ApexCharts library:
-
-```javascript
-class ApexChartsOverlay extends OverlayBase {
-  render(overlay, data) {
-    const fo = document.createElementNS(SVG_NS, 'foreignObject');
-    const container = document.createElement('div');
-
-    // Initialize ApexCharts
-    const chart = new ApexCharts(container, this.getChartOptions(overlay));
-    chart.render();
-
-    // Store chart instance
-    this.chartInstances.set(overlay.id, chart);
-
-    fo.appendChild(container);
-    return fo;
-  }
-
-  update(element, overlay, data) {
-    const chart = this.chartInstances.get(overlay.id);
-    // Update chart data
-    chart.updateSeries(this.formatData(data));
-  }
-}
-```
+> **Note:** Previous specialized renderers (TextOverlay, ButtonOverlay, StatusGridOverlay, ApexChartsOverlay) were removed in v1.16.22+. Their functionality is now provided through SimpleCards or embedded HA cards.
 
 ---
 
