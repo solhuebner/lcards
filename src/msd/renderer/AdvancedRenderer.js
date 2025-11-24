@@ -561,8 +561,7 @@ export class AdvancedRenderer {
     // NEW: schedule deferred line refresh to fix first-load orientation/position
     this._scheduleDeferredLineRefresh(overlays, this._staticAnchors, viewBox);
 
-    // NEW: schedule font stabilization pass (re-measure after real fonts load)
-    this._scheduleFontStabilization(overlays, this._staticAnchors, viewBox);
+    // CLEANED: Removed _scheduleFontStabilization call - text overlays removed in v1.16.22+
 
     this.lastRenderArgs = { resolvedModel, overlays, svg };
 
@@ -989,151 +988,9 @@ export class AdvancedRenderer {
     return { point, side: effectiveSide };
   }
 
-  // UPDATED: font stabilization pass using actual DOM glyph metrics (multi-pass) with better async handling
+  // DEPRECATED: Font stabilization removed (v1.16.22+) - text overlays no longer exist
   _scheduleFontStabilization(overlays, anchorsRef, viewBox) {
-    if (!overlays.some(o => o.type === 'text')) return;
-    const MAX_PASSES = 10;
-    const EXTRA_PASSES = 5; // safety extra passes after fonts load
-    const TOL = 0.01;
-    let pass = 0;
-    let globalStabilizationNeeded = true; // Track if we need comprehensive updates
-
-    const run = () => {
-      const changedTargets = new Set();
-      let anyUnstable = false;
-      let anyFontChanges = false;
-
-      overlays.filter(o=>o.type==='text').forEach(ov => {
-        const group = this.overlayElementCache.get(ov.id);
-        if (!group) return;
-        // For font stabilization, always measure from DOM (not stored bbox)
-        // because fonts may have loaded and changed the text dimensions
-        const bb = RendererUtils.getDomTextBBox(group);
-        if (!bb) { anyUnstable = true; return; }
-        const recordedW = parseFloat(group.getAttribute('data-text-width')||'0')||0;
-        const recordedH = parseFloat(group.getAttribute('data-text-height')||'0')||0;
-        const diffW = Math.abs(bb.width - recordedW);
-        const diffH = Math.abs(bb.height - recordedH);
-        const needsRerender = (diffW > TOL) || (diffH > TOL);
-
-        if (needsRerender) {
-          const newGroup = this._reRenderSingleTextOverlay(ov, anchorsRef, viewBox);
-          if (newGroup) {
-            // After re-render, also measure from DOM (new render may have different font metrics)
-            const bb2 = RendererUtils.getDomTextBBox(newGroup);
-            if (bb2) {
-              newGroup.setAttribute('data-text-width', String(bb2.width));
-              newGroup.setAttribute('data-text-height', String(bb2.height));
-              // Pass DOM-measured text bbox so it can be expanded
-              this._updateStatusIndicatorPosition(newGroup, bb2);
-
-              // ARCHITECTURAL FIX: Update attachment points after font stabilization
-              this._updateTextAttachmentPointsAfterStabilization(ov, newGroup, bb2, viewBox);
-            }
-            changedTargets.add(ov.id);
-            anyUnstable = true;
-            anyFontChanges = true;
-          }
-        } else {
-          if (diffW > 0 || diffH > 0) {
-            group.setAttribute('data-text-width', String(bb.width));
-            group.setAttribute('data-text-height', String(bb.height));
-            changedTargets.add(ov.id);
-            anyFontChanges = true;
-          }
-          if (group.getAttribute('data-font-stabilized') !== '1') {
-            group.setAttribute('data-font-stabilized','1');
-            anyFontChanges = true;
-          }
-          this._updateTextAttachmentPointsFromDom(ov, group, bb);
-          // NEW: also update attachment points after stabilization (even without re-render)
-          this._updateTextAttachmentPointsAfterStabilization(ov, group, bb, viewBox);
-          // NEW: always update status indicator position even without re-render
-          this._updateStatusIndicatorPosition(group, bb);
-
-          // CRITICAL: If overlay has status indicator, add to changedTargets since attachment points changed
-          const hasStatusIndicator = group.querySelector('[data-decoration="status-indicator"]');
-          if (hasStatusIndicator) {
-            changedTargets.add(ov.id);
-          }
-        }
-      });
-
-      // Phase 3: Line overlay attachment points are set per-instance during render
-      // (line overlays call setOverlayAttachmentPoints on their own instances)
-
-      // ENHANCED: Force comprehensive update after font stabilization
-      if (anyFontChanges || changedTargets.size) {
-        // Update dynamic anchors for changed text overlays
-        this._updateDynamicAnchorsForOverlays(changedTargets, overlays, this._staticAnchors);
-
-        // Re-render ALL dependent lines, not just immediate dependencies
-        this._rerenderAllDependentOverlays(overlays, changedTargets, viewBox);
-
-        // CRITICAL: Also update virtual anchors since attachment points changed
-        this._rebuildVirtualAnchorsFromChangedOverlays(changedTargets, overlays, this._staticAnchors);
-      }
-
-      pass++;
-      const morePassesAllowed = pass < (MAX_PASSES + EXTRA_PASSES);
-      if ((changedTargets.size || anyUnstable) && morePassesAllowed) {
-        requestAnimationFrame(run);
-      } else {
-        // FINAL COMPREHENSIVE UPDATE: Force one last update to catch any remaining issues
-        if (globalStabilizationNeeded) {
-          globalStabilizationNeeded = false;
-          this._performFinalStabilizationUpdate(overlays, this._staticAnchors, viewBox);
-        }
-
-        // NOTE: Line overlays are already updated during font stabilization via _rerenderAllDependentOverlays()
-        // No additional refresh needed here
-
-        lcardsLog.debug('[AdvancedRenderer] Font stabilization complete', {
-          passes: pass,
-          changed: Array.from(changedTargets),
-          hadFontChanges: anyFontChanges
-        });
-
-        // Final safety delayed pass in case font finished loading just after loop
-        // Increased timeout to give more time for fonts to apply
-        setTimeout(() => {
-          const remaining = overlays.filter(o=>o.type==='text')
-            .some(o => {
-              const g = this.overlayElementCache.get(o.id);
-              return g && g.getAttribute('data-font-stabilized') !== '1';
-            });
-          if (remaining) {
-            lcardsLog.debug('[AdvancedRenderer] 🔤 Running safety stabilization pass');
-            pass = 0;
-            globalStabilizationNeeded = true;
-            requestAnimationFrame(run);
-          }
-        }, 300); // Increased from 180ms to 300ms
-      }
-    };
-
-    // Wait for font faces if still loading
-    const fontAPI = document.fonts;
-    if (fontAPI && fontAPI.status !== 'loaded') {
-      // Wait for fonts to load, then give extra time for them to be applied
-      fontAPI.ready
-        .then(() => {
-          lcardsLog.debug('[AdvancedRenderer] Fonts loaded, waiting for render...');
-          // Double RAF to ensure fonts are applied before measuring
-          requestAnimationFrame(() => {
-            requestAnimationFrame(run);
-          });
-        })
-        .catch(() => {
-          lcardsLog.warn('[AdvancedRenderer] Font loading failed, proceeding anyway');
-          requestAnimationFrame(run);
-        });
-    } else {
-      // Fonts already loaded, but still give one RAF for safety
-      requestAnimationFrame(() => {
-        requestAnimationFrame(run);
-      });
-    }
+    // No-op: text overlays removed, font stabilization no longer needed
   }
 
   _scheduleDeferredLineRefresh(overlays, anchorsRef, viewBox) {
@@ -1182,18 +1039,7 @@ export class AdvancedRenderer {
     // - SimpleCards: custom:lcards-simple-button, custom:lcards-simple-chart
     // - HA cards: entities, grid, button, light, etc.
     // - Legacy control overlays with nested card definition
-    // - Legacy overlay types (button, text, apexchart, status_grid) - DEPRECATED
-
-    // Legacy overlay types - log deprecation warning
-    const legacyTypes = ['button', 'text', 'apexchart', 'status_grid'];
-    if (legacyTypes.includes(overlay.type)) {
-      lcardsLog.warn(`[AdvancedRenderer] ⚠️ DEPRECATED: overlay type '${overlay.type}' for ${overlay.id}. ` +
-        `Please migrate to SimpleCard pattern. See migration guide in doc/migration/`);
-
-      // Return null to trigger MsdControlsRenderer delegation
-      // The legacy overlays will still work but through the card system
-      return null;
-    }
+    // CLEANED: Removed legacy overlay type check (text, button, apexchart, status_grid removed in v1.16.22+)
 
     // Card-based overlays (SimpleCards, HA cards, controls)
     // Return null to signal that MsdControlsRenderer should handle this
@@ -1676,28 +1522,9 @@ export class AdvancedRenderer {
       // Fallback for any overlays without instance renderers (shouldn't happen with Phase 3 complete)
       lcardsLog.warn(`[AdvancedRenderer] No instance renderer found for overlay ${overlayId}, using legacy update`);
 
-      // Handle different overlay types
-      switch (overlay.type) {
-        case 'text':
-          // DEPRECATED: TextOverlay removed (v1.16.22+) - use custom:lcards-simple-button or other cards
-          lcardsLog.warn('[AdvancedRenderer] text overlay type is deprecated - use card overlays instead');
-          break;
-
-        case 'status_grid':
-          // DEPRECATED: StatusGridRenderer removed (v1.16.22+)
-          // Use custom:lcards-simple-chart with type: grid as MSD overlay instead
-          lcardsLog.warn('[AdvancedRenderer] status_grid overlay type is deprecated - use custom:lcards-simple-chart');
-          break;
-
-        case 'apexchart':
-          // DEPRECATED: ApexChartsOverlayRenderer removed (v1.16.22+)
-          // Use custom:lcards-simple-chart as MSD overlay instead
-          lcardsLog.warn('[AdvancedRenderer] apexchart overlay type is deprecated - use custom:lcards-simple-chart');
-          break;
-
-        default:
-          lcardsLog.debug(`[AdvancedRenderer] No update handler for overlay type: ${overlay.type}`);
-      }
+      // CLEANED: Removed deprecated overlay type cases (text, status_grid, apexchart removed in v1.16.22+)
+      // If we reach here, log that no update handler exists
+      lcardsLog.debug(`[AdvancedRenderer] No update handler for overlay type: ${overlay.type}`);
 
     } catch (error) {
       lcardsLog.error(`[AdvancedRenderer] Error updating overlay ${overlayId}:`, error);
@@ -2241,15 +2068,7 @@ export class AdvancedRenderer {
             </g>`;
   }
 
-  /**
-   * DEPRECATED: Re-render text overlay method removed (v1.16.22+)
-   * TextOverlay class deleted - use card overlays instead
-   * @private
-   */
-  _reRenderSingleTextOverlay(overlay, anchorsRef, viewBox) {
-    lcardsLog.warn('[AdvancedRenderer] _reRenderSingleTextOverlay called but text overlays are deprecated');
-    return null;
-  }
+  // DEPRECATED: _reRenderSingleTextOverlay removed (v1.16.22+) - text overlays no longer exist
 
   /**
    * Resolve card instance for action handling
