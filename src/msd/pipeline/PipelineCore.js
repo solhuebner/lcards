@@ -11,7 +11,6 @@ import { perfGetAll } from '../perf/PerfCounters.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import { StyleResolverService } from '../styles/StyleResolverService.js';
 // ✅ CONSOLIDATED: Use Core ValidationService singleton instead of MSD-specific ValidationService
-import { registerAllSchemas } from '../../core/validation-service/schemas/index.js';
 import { applyBaseSvgFilters } from '../utils/BaseSvgFilters.js';
 import { lcardsCore } from '../../core/lcards-core.js';
 
@@ -120,15 +119,11 @@ export async function initMsdPipeline(userMsdConfig, mountEl, hass = null) {
         validationService.config.validateDataSources = true;
         validationService.config.debug = mergedConfig?.debug?.validation || false;
 
-        // Initialize overlay validation subsystem if not done
+        // Initialize overlay validation subsystem (only happens once - has internal guard)
+        // This also registers all MSD overlay schemas
         validationService.initializeOverlayValidation();
 
-        // Register all MSD overlay schemas (if not already registered)
         const overlayRegistry = validationService.getOverlaySchemaRegistry();
-        if (overlayRegistry && overlayRegistry.getSchemaCount() === 0) {
-          registerAllSchemas(overlayRegistry);
-        }
-
         lcardsLog.debug('[PipelineCore] 📋 Core ValidationService configured:', {
           schemaCount: overlayRegistry?.getSchemaCount() || 0,
           types: overlayRegistry?.getRegisteredTypes() || []
