@@ -528,7 +528,6 @@ export class SystemsManager extends BaseService {
 
     lcardsLog.debug('[SystemsManager] 📊 Data source summary:', {
       configured: Object.keys(configuredDataSources).length,
-      autoCreated: Object.keys(dataSourcesWithTemplates).length - Object.keys(configuredDataSources).length,
       total: Object.keys(allDataSources).length,
       allDataSourceIds: Object.keys(allDataSources)
     });
