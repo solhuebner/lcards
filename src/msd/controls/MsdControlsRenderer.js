@@ -224,6 +224,11 @@ export class MsdControlsRenderer {
       this.lastRenderArgs = { controlOverlays, resolvedModel };
       this._lastSignature = signature;
 
+      // CRITICAL: Build virtual anchors now that all cards have registered their attachment points
+      // This enables line overlays to find and connect to card overlays
+      // NOTE: Virtual anchors are now automatically created by AttachmentPointManager.setAttachmentPoints()
+      // See AttachmentPointManager.js lines 74-89
+
       lcardsLog.debug('[MsdControlsRenderer] renderControls completed successfully');
 
     } catch (error) {
@@ -291,7 +296,10 @@ export class MsdControlsRenderer {
       lcardsLog.debug('[MsdControlsRenderer] Built card definition from overlay:', {
         overlayId: id,
         cardType: overlay.type,
-        cardProps
+        cardPropsKeys: Object.keys(cardProps),
+        hasEntities: !!cardProps.entities,
+        entitiesValue: cardProps.entities,
+        fullCardProps: JSON.stringify(cardProps, null, 2)
       });
 
       return cardProps;  // Everything except positioning metadata
@@ -345,25 +353,62 @@ export class MsdControlsRenderer {
     }
 
     // ADDED: Map HA built-in card types to their actual element names
+    // This matches the complete list from AdvancedRenderer._isHomeAssistantCardType
     const builtInCardMap = {
+      // Entity cards
+      'entities': 'hui-entities-card',
+      'entity': 'hui-entity-card',
+      'glance': 'hui-glance-card',
+      'grid': 'hui-grid-card',
+
+      // Layout cards
+      'horizontal-stack': 'hui-horizontal-stack-card',
+      'vertical-stack': 'hui-vertical-stack-card',
+
+      // Entity control cards
       'button': 'hui-button-card',
       'light': 'hui-light-card',
-      'switch': 'hui-switch-card',
+      'thermostat': 'hui-thermostat-card',
+      'gauge': 'hui-gauge-card',
       'sensor': 'hui-sensor-card',
+
+      // Visualization cards
+      'history-graph': 'hui-history-graph-card',
+      'picture': 'hui-picture-card',
+      'picture-entity': 'hui-picture-entity-card',
+      'picture-glance': 'hui-picture-glance-card',
+      'picture-elements': 'hui-picture-elements-card',
+
+      // Utility cards
+      'conditional': 'hui-conditional-card',
+      'markdown': 'hui-markdown-card',
+      'media-control': 'hui-media-control-card',
+      'alarm-panel': 'hui-alarm-panel-card',
+      'weather-forecast': 'hui-weather-forecast-card',
+      'shopping-list': 'hui-shopping-list-card',
+      'logbook': 'hui-logbook-card',
+      'map': 'hui-map-card',
+      'iframe': 'hui-iframe-card',
+
+      // Special cards
+      'area': 'hui-area-card',
+      'energy': 'hui-energy-card',
+      'humidifier': 'hui-humidifier-card',
+      'statistics-graph': 'hui-statistics-graph-card',
+      'tile': 'hui-tile-card',
+
+      // Legacy/other entity cards
+      'switch': 'hui-switch-card',
       'binary-sensor': 'hui-binary-sensor-card',
       'cover': 'hui-cover-card',
       'fan': 'hui-fan-card',
       'climate': 'hui-climate-card',
-      'thermostat': 'hui-thermostat-card',
-      'media-player': 'hui-media-control-card',
-      'alarm-panel': 'hui-alarm-panel-card',
       'input-number': 'hui-input-number-card',
       'input-select': 'hui-input-select-card',
       'input-text': 'hui-input-text-card',
       'lock': 'hui-lock-card',
       'vacuum': 'hui-vacuum-card',
-      'water-heater': 'hui-water-heater-card',
-      'weather': 'hui-weather-forecast-card'
+      'water-heater': 'hui-water-heater-card'
     };
 
     return builtInCardMap[cardType] || cardType;
@@ -493,25 +538,26 @@ export class MsdControlsRenderer {
       if (window.customElements && window.customElements.get(normalizedCardType)) {
         const CardClass = window.customElements.get(normalizedCardType);
         cardElement = new CardClass();
+        lcardsLog.debug('[MsdControls] HA card created via customElements.get:', normalizedCardType);
       } else {
-        // Strategy 2: Create via document and wait for upgrade
+        // Strategy 2: Create via document (HA cards need brief upgrade wait)
         cardElement = document.createElement(normalizedCardType);
-        await this._waitForElementUpgrade(cardElement, 3000);
-      }
+        lcardsLog.debug('[MsdControls] HA card created via createElement:', normalizedCardType);
 
-      // ADDED: HA cards need different configuration approach
-      if (cardElement && typeof cardElement.setConfig !== 'function') {
-        // Some HA cards expose setConfig later or via different mechanism
-        lcardsLog.debug('[MsdControls] HA card created but setConfig not available, trying alternative approach');
+        // HA cards need a brief moment to upgrade after creation
+        // Wait for setConfig to become available (shorter timeout than custom cards)
+        await this._waitForElementUpgrade(cardElement, 500);
 
-        // Wait a bit more for HA card to fully initialize
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        if (typeof cardElement.setConfig !== 'function') {
-          lcardsLog.warn('[MsdControls] HA card does not have setConfig method:', normalizedCardType);
-          return null;
+        if (typeof cardElement.setConfig === 'function') {
+          lcardsLog.debug('[MsdControls] ✅ HA card upgraded successfully:', normalizedCardType);
+        } else {
+          lcardsLog.warn('[MsdControls] ⚠️ HA card created but setConfig not available after upgrade:', normalizedCardType);
         }
       }
+
+      // NOTE: HA built-in cards (hui-*) handle their own lifecycle and configuration
+      // They need a brief upgrade wait (500ms) for setConfig to become available
+      // This is much faster than the old 5s timeout for custom overlays
 
       return cardElement;
 
@@ -525,6 +571,9 @@ export class MsdControlsRenderer {
   async _createCustomCard(normalizedCardType, cardDef, overlay) {
     let cardElement = null;
 
+    // Check if this is a SimpleCard (lcards-simple-*)
+    const isSimpleCard = normalizedCardType.startsWith('lcards-simple-');
+
     // Strategy 1: Try direct custom element creation
     if (window.customElements && typeof window.customElements.get === 'function') {
       try {
@@ -532,34 +581,39 @@ export class MsdControlsRenderer {
         if (CardClass) {
           cardElement = new CardClass();
           lcardsLog.debug('[MsdControls] ✅ Strategy 1 SUCCESS: Created via constructor:', normalizedCardType);
-        } else {
         }
       } catch (e) {
         lcardsLog.debug('[MsdControls] Strategy 1 failed:', normalizedCardType, e.message);
       }
     }
 
-    // Strategy 2: Try document.createElement with normalized type
+    // Strategy 2: Try document.createElement (simplified for SimpleCards)
     if (!cardElement) {
-      lcardsLog.debug('[MsdControls] Strategy 2: Attempting createElement with upgrade for:', normalizedCardType);
+      lcardsLog.debug('[MsdControls] Strategy 2: Attempting createElement for:', normalizedCardType);
       try {
         cardElement = document.createElement(normalizedCardType);
 
         // Check if this is actually a custom element (not a generic div)
         if (cardElement.tagName.toLowerCase() === normalizedCardType.toLowerCase()) {
-          lcardsLog.debug('[MsdControls] Strategy 2: Created element, waiting for upgrade:', normalizedCardType);
-          // Wait for potential custom element upgrade
-          await this._waitForElementUpgrade(cardElement);
-
-          if (typeof cardElement.setConfig === 'function') {
-            lcardsLog.debug('[MsdControls] ✅ Strategy 2 SUCCESS: Created via createElement with upgrade:', normalizedCardType);
+          if (isSimpleCard) {
+            // SimpleCards are already registered, no upgrade wait needed
+            lcardsLog.debug('[MsdControls] ✅ Strategy 2 SUCCESS: Created SimpleCard via createElement:', normalizedCardType);
           } else {
-            lcardsLog.debug('[MsdControls] ❌ Strategy 2 FAILED: Element created but no setConfig after upgrade:', normalizedCardType);
-            cardElement = null;
+            // Other custom cards might need upgrade waiting
+            lcardsLog.debug('[MsdControls] Strategy 2: Created element, checking for upgrade:', normalizedCardType);
+
+            // Quick check with shorter timeout (100ms instead of 5s)
+            await this._waitForElementUpgrade(cardElement, 100);
+
+            if (typeof cardElement.setConfig === 'function') {
+              lcardsLog.debug('[MsdControls] ✅ Strategy 2 SUCCESS: Created via createElement with upgrade:', normalizedCardType);
+            } else {
+              lcardsLog.debug('[MsdControls] ❌ Strategy 2 FAILED: Element created but no setConfig after upgrade:', normalizedCardType);
+              cardElement = null;
+            }
           }
         } else {
           lcardsLog.debug('[MsdControls] ❌ Strategy 2 FAILED: Generic element created, not custom card:', normalizedCardType);
-          // Generic element created, not the custom card
           cardElement = null;
         }
       } catch (e) {
@@ -567,8 +621,8 @@ export class MsdControlsRenderer {
       }
     }
 
-    // Strategy 3: Try creating in document body first (some cards need to be in DOM)
-    if (!cardElement) {
+    // Strategy 3: Try creating in document body (only for non-SimpleCards that failed above)
+    if (!cardElement && !isSimpleCard) {
       lcardsLog.debug('[MsdControls] Strategy 3: Attempting body attachment technique for:', normalizedCardType);
       try {
         cardElement = document.createElement(normalizedCardType);
@@ -579,9 +633,9 @@ export class MsdControlsRenderer {
         document.body.appendChild(tempParent);
         tempParent.appendChild(cardElement);
 
-        lcardsLog.debug('[MsdControls] Strategy 3: Element attached to body, waiting for upgrade:', normalizedCardType);
-        // Wait for upgrade
-        await this._waitForElementUpgrade(cardElement, 5000);
+        lcardsLog.debug('[MsdControls] Strategy 3: Element attached to body, checking for upgrade:', normalizedCardType);
+        // Shorter timeout for this fallback strategy
+        await this._waitForElementUpgrade(cardElement, 500);
 
         // Remove from temp parent
         cardElement.remove();
@@ -765,6 +819,14 @@ export class MsdControlsRenderer {
   _buildCardConfig(cardDef) {
     if (!cardDef) return null;
 
+    lcardsLog.debug('[MsdControls] Building card config from cardDef:', {
+      cardDefKeys: Object.keys(cardDef),
+      cardDefType: cardDef.type,
+      hasConfig: !!cardDef.config,
+      hasEntities: !!cardDef.entities,
+      entitiesValue: cardDef.entities
+    });
+
     let finalConfig;
 
     // Handle nested config structure: { type: "light", config: { entity: "light.example" } }
@@ -773,6 +835,10 @@ export class MsdControlsRenderer {
         type: cardDef.type,
         ...cardDef.config
       };
+      lcardsLog.debug('[MsdControls] Used nested config structure:', {
+        finalConfigKeys: Object.keys(finalConfig),
+        hasEntities: !!finalConfig.entities
+      });
     } else {
       // Handle flat structure: { type: "light", entity: "light.example", name: "My Light" }
       const { type, config, card, card_config, cardConfig, ...otherProps } = cardDef;
@@ -780,6 +846,13 @@ export class MsdControlsRenderer {
         type,
         ...otherProps
       };
+      lcardsLog.debug('[MsdControls] Used flat structure:', {
+        type,
+        otherPropsKeys: Object.keys(otherProps),
+        finalConfigKeys: Object.keys(finalConfig),
+        hasEntities: !!finalConfig.entities,
+        entitiesValue: finalConfig.entities
+      });
     }
 
     // FIXED: More precise detection for LCARdS and custom-button-card based cards
@@ -1092,6 +1165,57 @@ export class MsdControlsRenderer {
       svgContainer.appendChild(foreignObject);
       lcardsLog.debug('[MSD Controls] Control positioned in SVG coordinates:', overlay.id, { position, size });
     }
+
+    // CRITICAL: Compute and register attachment points for line anchoring
+    // This enables lines to connect to this control overlay
+    const attachmentPoints = this._computeAttachmentPointsFromBox(overlay.id, position, size);
+    if (attachmentPoints && this.renderer?.attachmentManager) {
+      this.renderer.attachmentManager.setAttachmentPoints(overlay.id, attachmentPoints);
+      lcardsLog.debug('[MsdControls] ✅ Registered attachment points for', overlay.id, attachmentPoints);
+    }
+  }
+
+  /**
+   * Compute attachment points from position and size
+   * @private
+   */
+  _computeAttachmentPointsFromBox(overlayId, position, size) {
+    const [x, y] = position;
+    const [width, height] = size;
+
+    const centerX = x + width / 2;
+    const centerY = y + height / 2;
+    const right = x + width;
+    const bottom = y + height;
+
+    return {
+      id: overlayId,
+      center: [centerX, centerY],
+      bbox: {
+        left: x,
+        right: right,
+        top: y,
+        bottom: bottom,
+        width: width,
+        height: height
+      },
+      points: {
+        center: [centerX, centerY],
+        top: [centerX, y],
+        bottom: [centerX, bottom],
+        left: [x, centerY],
+        right: [right, centerY],
+        topLeft: [x, y],
+        topRight: [right, y],
+        bottomLeft: [x, bottom],
+        bottomRight: [right, bottom],
+        // Aliases for compatibility
+        'top-left': [x, y],
+        'top-right': [right, y],
+        'bottom-left': [x, bottom],
+        'bottom-right': [right, bottom]
+      }
+    };
   }
 
   /**

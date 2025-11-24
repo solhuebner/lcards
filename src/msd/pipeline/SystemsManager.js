@@ -14,15 +14,9 @@ import { BaseOverlayUpdater } from '../renderer/BaseOverlayUpdater.js';
 import { TemplateEntityExtractor } from '../templates/TemplateEntityExtractor.js';
 
 import { StylePresetManager } from '../../core/presets/StylePresetManager.js';
-import { ApexChartsOverlayRenderer } from '../renderer/ApexChartsOverlayRenderer.js';
 
 // ✅ ADDED: Import theme system initialization
 import { initializeThemeSystem } from '../../core/themes/initializeThemeSystem.js';
-
-// ✅ ADDED: Import overlay renderers for incremental update capabilities
-import { StatusGridRenderer } from '../renderer/StatusGridRenderer.js';
-import { ButtonOverlay } from '../overlays/ButtonOverlay.js';
-import { TextOverlay } from '../overlays/TextOverlay.js';
 
 // ✨ ADDED: Import animation system components
 // AnimationManager now imported as shared singleton from lcardsCore
@@ -92,19 +86,10 @@ export class SystemsManager extends BaseService {
       }
     });
 
-    // ============================================================================
-    // OVERLAY RENDERER REGISTRY (Phase 1: Incremental Updates)
-    // ============================================================================
-    // Maps overlay type → renderer class with incremental update capability
-    this._overlayRenderers = new Map([
-      ['statusgrid', StatusGridRenderer],
-      ['status_grid', StatusGridRenderer],
-      ['apexchart', ApexChartsOverlayRenderer], // ✅ Phase 2: COMPLETE
-      ['button', ButtonOverlay], // ✅ Phase 3: COMPLETE
-      // ['text', TextOverlay], // ❌ REMOVED: Too complex due to bbox recalculation needs
-      // Add more renderers as they gain incremental update support:
-      // ['line', LineOverlayRenderer], // Phase 5: Future
-    ]);
+    // DEPRECATED: Overlay renderer registry removed (v1.16.22+)
+    // Old pattern: Custom overlay renderer classes (ButtonOverlay, ApexChartsOverlayRenderer, etc.)
+    // New pattern: Unified card overlays (SimpleCards, HA cards) handle their own lifecycle
+    // No registry needed - all overlays use MsdControlsRenderer for embedding
   }
 
   /**
@@ -721,11 +706,8 @@ export class SystemsManager extends BaseService {
 
 
   async destroy() {
-    // ADDED: Cleanup ApexCharts instances before destroying other systems
-    if (ApexChartsOverlayRenderer) {
-      ApexChartsOverlayRenderer.cleanupAll();
-      lcardsLog.debug('[SystemsManager] ApexCharts instances cleaned up');
-    }
+    // DEPRECATED: ApexChartsOverlayRenderer.cleanupAll() removed (v1.16.22+)
+    // SimpleChart instances are cleaned up by their own lifecycle
 
     // Clean up rules engine first
     if (this.rulesEngine) {
@@ -1106,15 +1088,9 @@ export class SystemsManager extends BaseService {
   // INCREMENTAL UPDATE SYSTEM (Phase 1)
   // ============================================================================
 
-  /**
-   * Get renderer class for overlay type
-   * @private
-   * @param {string} type - Overlay type
-   * @returns {Class|null} Renderer class or null
-   */
-  _getRendererForType(type) {
-    return this._overlayRenderers.get(type) || null;
-  }
+  // DEPRECATED: _getRendererForType removed (v1.16.22+)
+  // Old pattern: Custom overlay renderer registry for incremental updates
+  // New pattern: All overlays use unified card pattern, no custom renderers needed
 
   /**
    * Find overlay configuration by ID
@@ -1243,91 +1219,28 @@ export class SystemsManager extends BaseService {
         }
       }
 
-      // Get renderer for this overlay type
-      const RendererClass = this._getRendererForType(overlay.type);
-      if (!RendererClass) {
-        // Control overlays (embedded HA cards) don't have renderers - this is expected
-        const isControl = overlay.type === 'control';
-        if (isControl) {
-          lcardsLog.debug(`[SystemsManager] Control overlay "${overlay.id}" has no renderer - will use SELECTIVE RE-RENDER`);
-        } else {
-          lcardsLog.debug(`[SystemsManager] No renderer registered for type "${overlay.type}" - will use SELECTIVE RE-RENDER: ${overlay.id}`);
-        }
-        failedOverlays.push({ id: overlay.id, type: overlay.type, reason: 'No renderer registered', overlay, patch });
-        return;
-      }
-
-      // Check if renderer supports incremental updates
-      if (!RendererClass.supportsIncrementalUpdate || !RendererClass.supportsIncrementalUpdate()) {
-        // Normal behavior - many renderers don't support incremental updates yet
-        lcardsLog.debug(`[SystemsManager] Renderer for "${overlay.type}" does not support incremental updates - will use SELECTIVE RE-RENDER: ${overlay.id}`);
-        failedOverlays.push({ id: overlay.id, type: overlay.type, reason: 'Incremental not supported by renderer', overlay, patch });
-        return;
-      }
-
-      // Find existing overlay DOM element
-      const overlayElement = this._findOverlayElement(overlay);
-      if (!overlayElement) {
-        // Could happen during initialization or if overlay was removed
-        lcardsLog.debug(`[SystemsManager] Overlay element not found in DOM - will use SELECTIVE RE-RENDER: ${overlay.id}`);
-        failedOverlays.push({ id: overlay.id, type: overlay.type, reason: 'DOM element not found', overlay, patch });
-        return;
-      }
-
-      // Attempt incremental update
-      try {
-        const context = {
-          dataSourceManager: this.dataSourceManager,
-          systemsManager: this,
-          hass: this._hass,
-          patch: patch  // Pass the full patch object including cellTarget
-        };
-
-        const succeeded = RendererClass.updateIncremental(overlay, overlayElement, context);
-
-        if (!succeeded) {
-          // Incremental update declined - will fall back to full re-render (expected for some changes)
-          lcardsLog.debug(`[SystemsManager] Incremental update returned false - will use SELECTIVE RE-RENDER: ${overlay.id}`);
-          failedOverlays.push({ id: overlay.id, type: overlay.type, reason: 'Update method returned false', overlay, patch });
-        } else {
-          lcardsLog.debug(`[SystemsManager] ✅ INCREMENTAL UPDATE SUCCESS: ${overlay.type} "${overlay.id}"`);
-          successfulOverlays.push({ id: overlay.id, type: overlay.type });
-        }
-      } catch (error) {
-        lcardsLog.error(`[SystemsManager] ❌ Incremental update ERROR: ${overlay.id}`, error);
-        failedOverlays.push({ id: overlay.id, type: overlay.type, reason: `Exception: ${error.message}`, overlay, patch });
-      }
+      // DEPRECATED: Incremental update system removed (v1.16.22+)
+      // Old pattern: Custom renderers with incremental update support
+      // New pattern: Full selective re-render via AdvancedRenderer
+      // All overlays now use selective re-render
+      lcardsLog.debug(`[SystemsManager] Overlay "${overlay.id}" (type: ${overlay.type}) will use SELECTIVE RE-RENDER`);
+      failedOverlays.push({
+        id: overlay.id,
+        type: overlay.type,
+        reason: 'Incremental updates deprecated - using selective re-render',
+        overlay,
+        patch
+      });
     });
 
-    // Log detailed summary
-    const allSucceeded = failedOverlays.length === 0;
+    // DEPRECATED: Incremental updates removed - all overlays use selective re-render now
+    // Log summary: all overlays will be selectively re-rendered
+    lcardsLog.debug(`[SystemsManager] ${failedOverlays.length} overlay(s) will use SELECTIVE RE-RENDER (normal behavior):`);
+    failedOverlays.forEach(f => {
+      lcardsLog.debug(`  🔄 ${f.type || 'unknown'}: ${f.id}`);
+    });
 
-    if (allSucceeded) {
-      lcardsLog.info(`[SystemsManager] ✅ ALL ${overlayPatches.length} overlay(s) updated INCREMENTALLY - NO re-render needed`);
-      successfulOverlays.forEach(o => {
-        lcardsLog.debug(`  ✅ ${o.type}: ${o.id}`);
-      });
-    } else {
-      const successCount = successfulOverlays.length;
-      const failCount = failedOverlays.length;
-
-      // Selective re-render is normal behavior, not a warning
-      lcardsLog.debug(`[SystemsManager] ${failCount}/${overlayPatches.length} overlay(s) need SELECTIVE RE-RENDER`);
-
-      if (successCount > 0) {
-        lcardsLog.debug(`[SystemsManager] ✅ Successfully updated incrementally (${successCount}):`);
-        successfulOverlays.forEach(o => {
-          lcardsLog.debug(`  ✅ ${o.type}: ${o.id}`);
-        });
-      }
-
-      lcardsLog.debug(`[SystemsManager] Will selectively re-render (${failCount}):`);
-      failedOverlays.forEach(f => {
-        lcardsLog.debug(`  ❌ ${f.type || 'unknown'}: ${f.id} - ${f.reason}`);
-      });
-    }
-
-    return { successfulOverlays, failedOverlays, allSucceeded };
+    return { successfulOverlays: [], failedOverlays, allSucceeded: false };
   }
 
   /**

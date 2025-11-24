@@ -86,16 +86,18 @@ function validateFilterProperties(filters, issues, context) {
 }
 
 function validateStructure(config, issues) {
-  // Version validation
+  // Version validation (LEGACY - not enforced as of v1.16.22+)
+  // Version field is no longer used internally but we warn if it's wrong for backwards compatibility
   if (!config.version) {
-    issues.warnings.push({
-      code: 'version.missing',
-      message: 'Missing version field - assuming version 1'
-    });
+    // Don't warn about missing version - it's not actually used
+    // issues.warnings.push({
+    //   code: 'version.missing',
+    //   message: 'Missing version field - assuming version 1'
+    // });
   } else if (typeof config.version !== 'number' || config.version !== 1) {
-    issues.errors.push({
+    issues.warnings.push({
       code: 'version.invalid',
-      message: 'Version must be 1 (only supported version)'
+      message: 'Version field should be 1 if specified (field is legacy and not required)'
     });
   }
 

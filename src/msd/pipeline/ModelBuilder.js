@@ -104,46 +104,16 @@ export class ModelBuilder {
         // Resolve any theme token references in the style
         const resolvedStyle = this._resolveThemeTokensInStyle(baseStyle, o.type);
 
-        // Preserve ALL properties from raw overlay config
+        // FIXED: Preserve ALL properties from raw overlay config
+        // Start with all raw properties, then override with processed values
         const resolvedOverlay = {
+          ...o.raw,  // Start with ALL raw properties (includes entities, card, etc.)
           id: o.id,
           type: o.type,
           style: resolvedStyle,
           finalStyle: { ...resolvedStyle },
-          _raw: o.raw,
-          anchor: o.raw?.anchor,
-          attach_to: o.raw?.attach_to,
-          anchor_side: o.raw?.anchor_side,
-          attach_side: o.raw?.attach_side,
-          anchor_gap: o.raw?.anchor_gap,
-          attach_gap: o.raw?.attach_gap,
-          position: o.raw?.position,
-          size: o.raw?.size,
-          rows: o.raw?.rows,
-          columns: o.raw?.columns
+          _raw: o.raw
         };
-
-        // Preserve data source and routing properties
-        if (o.raw?.source) resolvedOverlay.source = o.raw.source;
-        if (o.raw?.route) resolvedOverlay.route = o.raw.route;
-        if (o.raw?.data_source) resolvedOverlay.data_source = o.raw.data_source;
-
-        // Preserve triggers_update for overlay subscriptions
-        if (o.raw?.triggers_update) resolvedOverlay.triggers_update = o.raw.triggers_update;
-
-        // Preserve action properties
-        if (o.raw?.tap_action) resolvedOverlay.tap_action = o.raw.tap_action;
-        if (o.raw?.hold_action) resolvedOverlay.hold_action = o.raw.hold_action;
-        if (o.raw?.double_tap_action) resolvedOverlay.double_tap_action = o.raw.double_tap_action;
-
-        // Preserve cells for status grids
-        if (o.raw?.cells) resolvedOverlay.cells = o.raw.cells;
-
-        // Preserve template reference
-        if (o.raw?.template) resolvedOverlay.template = o.raw.template;
-
-        // Preserve preset reference
-        if (o.raw?.preset) resolvedOverlay.preset = o.raw.preset;
 
         return resolvedOverlay;
       });

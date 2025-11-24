@@ -8,20 +8,12 @@
  */
 
 import { commonSchema } from './common.js';
-import { textOverlaySchema } from './textOverlay.js';
-import { buttonOverlaySchema } from './buttonOverlay.js';
 import { lineOverlaySchema } from './lineOverlay.js';
-import { apexChartOverlaySchema } from './apexChartOverlay.js';
-import { statusGridOverlaySchema } from './statusGridOverlay.js';
 
 // Re-export all schemas
 export {
   commonSchema,
-  textOverlaySchema,
-  buttonOverlaySchema,
-  lineOverlaySchema,
-  apexChartOverlaySchema,
-  statusGridOverlaySchema
+  lineOverlaySchema
 };
 
 /**
@@ -40,9 +32,11 @@ export function registerAllSchemas(schemaRegistry) {
   schemaRegistry.registerCommon(commonSchema);
 
   // Register type-specific schemas
-  schemaRegistry.register('text', textOverlaySchema);
-  schemaRegistry.register('button', buttonOverlaySchema);
   schemaRegistry.register('line', lineOverlaySchema);
-  schemaRegistry.register('apexchart', apexChartOverlaySchema);
-  schemaRegistry.register('status_grid', statusGridOverlaySchema);
+
+  // Note: button, text, apexchart, status_grid schemas removed (v1.16.22+)
+  // These overlay types are deprecated - use SimpleCards instead:
+  // - button/text → custom:lcards-simple-button
+  // - apexchart → custom:lcards-simple-chart
+  // - status_grid → type: grid (HA card)
 }

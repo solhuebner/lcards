@@ -4,7 +4,6 @@ import { ModelBuilder } from './ModelBuilder.js';
 import { setupDebugInterface } from '../debug/DebugInterface.js';
 import { buildCardModel } from '../model/CardModel.js';
 import { LCARdSUnifiedAPI } from '../../api/LCARdSUnifiedAPI.js';
-import { StatusGridRenderer } from '../renderer/StatusGridRenderer.js';
 import { exportCollapsed, exportCollapsedJson } from '../export/exportCollapsed.js';
 import { exportFullSnapshot, exportFullSnapshotJson } from '../export/exportFullSnapshot.js';
 import { diffItem } from '../export/diffItem.js';
@@ -926,8 +925,7 @@ function createPipelineApi(mergedConfig, cardModel, systemsManager, modelBuilder
         hasHandleAction: typeof cardInstance?._handleAction,
         hasHass: !!cardInstance?.hass
       });
-      StatusGridRenderer.setCardInstance(cardInstance);
-      // Store in SystemsManager too for broader access
+      // Store in SystemsManager for broader access
       systemsManager.cardInstance = cardInstance;
       lcardsLog.debug('[PipelineCore] Card instance set via API for action system');
 

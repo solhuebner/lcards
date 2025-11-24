@@ -373,13 +373,11 @@ export class BaseOverlayUpdater {
       const gridElement = this.systemsManager.renderer?.overlayElementCache?.get(overlayId);
 
       if (gridElement && overlay) {
-        // Use the static updateGridData method
-        const { StatusGridRenderer } = require('./StatusGridRenderer.js');
-        const updated = StatusGridRenderer.updateGridData(gridElement, overlay, sourceData);
-
-        if (updated) {
-          lcardsLog.debug(`[BaseOverlayUpdater] 📊 Successfully updated status grid ${overlayId}`);
-        }
+        // DEPRECATED: StatusGridRenderer removed (v1.16.22+)
+        // Use type: grid (HA card) instead
+        lcardsLog.warn(`[BaseOverlayUpdater] ⚠️ status_grid overlay type deprecated. Use type: grid (HA card) instead`);
+        // const { StatusGridRenderer } = require('./StatusGridRenderer.js');
+        // const updated = StatusGridRenderer.updateGridData(gridElement, overlay, sourceData);
       } else {
         // Fallback to renderer's updateOverlayData method
         if (this.systemsManager.renderer && this.systemsManager.renderer.updateOverlayData) {
@@ -427,11 +425,14 @@ export class BaseOverlayUpdater {
   _updateApexChart(overlayId, overlay, sourceData) {
     lcardsLog.debug(`[BaseOverlayUpdater] 📊 Updating ApexChart ${overlayId}`);
 
-    // CRITICAL FIX: Import the renderer class
-    const { ApexChartsOverlayRenderer } = require('./ApexChartsOverlayRenderer.js');
+    // DEPRECATED: ApexChartsOverlayRenderer removed (v1.16.22+)
+    // Use type: custom:lcards-simple-chart instead
+    lcardsLog.warn(`[BaseOverlayUpdater] ⚠️ apexchart overlay type deprecated. Use type: custom:lcards-simple-chart instead`);
+    return;
 
-    // Get the singleton instance
-    const instance = ApexChartsOverlayRenderer._getInstance();
+    // LEGACY CODE BELOW (commented out):
+    // const { ApexChartsOverlayRenderer } = require('./ApexChartsOverlayRenderer.js');
+    // const instance = ApexChartsOverlayRenderer._getInstance();
 
     // Check if chart exists
     const chart = instance.charts.get(overlayId);

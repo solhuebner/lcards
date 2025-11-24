@@ -136,9 +136,29 @@ export class LineOverlay extends OverlayBase {
 
     lcardsLog.trace(`[LineOverlay] 📍 Resolved anchors for ${overlay.id}: anchor=[${anchor}], anchor2=[${anchor2}], attach_gap=${overlay.attach_gap}, anchor_gap=${overlay.anchor_gap}`);
 
-    // Validate anchors
-    if (!anchor || !Array.isArray(anchor) || anchor.length !== 2) {
-      lcardsLog.error(`[LineOverlay] Invalid anchor for ${overlay.id}:`, { anchor });
+    // Validate anchors - must have at least anchor or attach_to
+    if (!overlay.anchor && !overlay.attach_to) {
+      lcardsLog.error(`[LineOverlay] ❌ Line ${overlay.id} requires either 'anchor' or 'attach_to' property. Both are missing.`);
+      return {
+        markup: '',
+        actionInfo: null,
+        overlayId: overlay.id,
+        metadata: { error: 'missing_anchor_config' },
+        provenance: this._getRendererProvenance(overlay.id, {
+          overlay_type: 'line',
+          error: 'missing_anchor_config',
+          message: 'Line overlays require either anchor or attach_to property'
+        })
+      };
+    }
+
+    // Validate primary anchor if specified
+    if (overlay.anchor && (!anchor || !Array.isArray(anchor) || anchor.length !== 2)) {
+      lcardsLog.error(`[LineOverlay] ❌ Invalid anchor for line ${overlay.id}:`, {
+        provided: overlay.anchor,
+        resolved: anchor,
+        message: `Anchor '${overlay.anchor}' could not be resolved to a valid position [x, y]`
+      });
       return {
         markup: '',
         actionInfo: null,
@@ -146,7 +166,30 @@ export class LineOverlay extends OverlayBase {
         metadata: { error: 'invalid_anchor' },
         provenance: this._getRendererProvenance(overlay.id, {
           overlay_type: 'line',
-          error: 'invalid_anchor'
+          error: 'invalid_anchor',
+          anchor_name: overlay.anchor,
+          message: `Anchor '${overlay.anchor}' not found or invalid format`
+        })
+      };
+    }
+
+    // Validate attach_to if specified
+    if (overlay.attach_to && (!anchor2 || !Array.isArray(anchor2) || anchor2.length !== 2)) {
+      lcardsLog.error(`[LineOverlay] ❌ Invalid attach_to for line ${overlay.id}:`, {
+        provided: overlay.attach_to,
+        resolved: anchor2,
+        message: `Attachment target '${overlay.attach_to}' could not be resolved to a valid position [x, y]`
+      });
+      return {
+        markup: '',
+        actionInfo: null,
+        overlayId: overlay.id,
+        metadata: { error: 'invalid_attach_to' },
+        provenance: this._getRendererProvenance(overlay.id, {
+          overlay_type: 'line',
+          error: 'invalid_attach_to',
+          attach_to_name: overlay.attach_to,
+          message: `Attachment target '${overlay.attach_to}' not found or invalid format`
         })
       };
     }

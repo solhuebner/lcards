@@ -8,8 +8,6 @@ import { RendererUtils } from './RendererUtils.js';
 import { OverlayUtils } from './OverlayUtils.js';
 import { AttachmentPointManager } from './AttachmentPointManager.js';
 
-import { StatusGridRenderer } from './StatusGridRenderer.js';
-import { ApexChartsOverlayRenderer } from './ApexChartsOverlayRenderer.js';
 import { MsdControlsRenderer } from '../controls/MsdControlsRenderer.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import { ActionHelpers } from './ActionHelpers.js';
@@ -17,11 +15,7 @@ import { TemplateProcessor } from '../utils/TemplateProcessor.js';
 
 // Phase 3: Instance-based overlay architecture (COMPLETE)
 import { OverlayBase } from '../overlays/OverlayBase.js';
-import { TextOverlay } from '../overlays/TextOverlay.js';
-import { ButtonOverlay } from '../overlays/ButtonOverlay.js';
 import { LineOverlay } from '../overlays/LineOverlay.js';
-import { ApexChartsOverlay } from '../overlays/ApexChartsOverlay.js';
-import { StatusGridOverlay } from '../overlays/StatusGridOverlay.js';
 
 export class AdvancedRenderer {
   constructor(mountEl, routerCore, systemsManager = null) {
@@ -64,9 +58,9 @@ export class AdvancedRenderer {
    * ✅ ENHANCED: Phase 5.3 - Now includes detailed performance tracking
    *
    * @param {Object} resolvedModel - Complete model with overlays and anchors
-   * @returns {Object} {svgMarkup, overlayCount, errors, provenance}
+   * @returns {Promise<Object>} {svgMarkup, overlayCount, errors, provenance}
    */
-  render(resolvedModel) {
+  async render(resolvedModel) {
     // ✅ NEW: Start overall performance tracking (Phase 5.3)
     this._performance.renderStart = performance.now();
     this._performance.overlayTimings.clear();
@@ -348,6 +342,16 @@ export class AdvancedRenderer {
     // This runs AFTER _buildVirtualAnchorsFromAllOverlays so gaps are preserved
     this._buildDynamicOverlayAnchors(overlays);
 
+    // CRITICAL: Wait for cards to fully position and register attachment points
+    // Cards may register attachment points during their connectedCallback/firstUpdated lifecycle
+    // which happens asynchronously after element creation
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+    lcardsLog.debug('[AdvancedRenderer] 🎯 Attachment points available:', {
+      totalAnchors: Object.keys(this._staticAnchors).length,
+      attachmentPointCount: this.attachmentManager?._attachmentPoints?.size || 0
+    });
+
     // Phase 2b: render line overlays (now ALL targets exist with attachment points)
     overlays.filter(o => o.type === 'line').forEach(ov => {
       try {
@@ -619,16 +623,24 @@ export class AdvancedRenderer {
     try {
       switch (overlay.type) {
         case 'text':
-          return this._computeTextAttachmentPoints(overlay, anchors, container, effectiveViewBox);
+          // DEPRECATED: TextOverlay removed (v1.16.22+) - use custom:lcards-simple-button or other cards
+          lcardsLog.warn('[AdvancedRenderer] text overlay type is deprecated - use card overlays instead');
+          return this._computeBasicAttachmentPoints(overlay, anchors, 'text');
         case 'status_grid':
-          return this._computeStatusGridAttachmentPoints(overlay, anchors, container, effectiveViewBox);
+          // DEPRECATED: StatusGridRenderer removed (v1.16.22+)
+          // Use custom:lcards-simple-chart with type: grid as MSD overlay instead
+          lcardsLog.warn('[AdvancedRenderer] status_grid overlay type is deprecated - use custom:lcards-simple-chart');
+          return this._computeBasicAttachmentPoints(overlay, anchors, 'status_grid');
         case 'control':
           return this._computeControlAttachmentPoints(overlay, anchors, container, effectiveViewBox);
         case 'line':
           // Lines don't have attachment points (they attach to others, not vice versa)
           return null;
         case 'apexchart':
-          return ApexChartsOverlayRenderer.computeAttachmentPoints(overlay, anchors, container, viewBox);
+          // DEPRECATED: ApexChartsOverlayRenderer removed (v1.16.22+)
+          // Use custom:lcards-simple-chart as MSD overlay instead
+          lcardsLog.warn('[AdvancedRenderer] apexchart overlay type is deprecated - use custom:lcards-simple-chart');
+          return this._computeBasicAttachmentPoints(overlay, anchors, 'apexchart');
         default:
           lcardsLog.warn(`[AdvancedRenderer] Unknown overlay type for attachment points: ${overlay.type}`);
           return null;
@@ -637,20 +649,12 @@ export class AdvancedRenderer {
       lcardsLog.warn(`[AdvancedRenderer] Failed to compute attachment points for ${overlay.id}:`, error);
       return null;
     }
-  }  // Individual attachment point computation methods for each overlay type
-
-  _computeTextAttachmentPoints(overlay, anchors, container, viewBox) {
-    // Use TextOverlay instance if available, otherwise create temporary instance
-    let textOverlay = this.overlayRenderers.get(overlay.id);
-    if (!textOverlay || !(textOverlay instanceof TextOverlay)) {
-      textOverlay = new TextOverlay(overlay, this.systemsManager);
-    }
-    return textOverlay.computeAttachmentPoints(overlay, anchors, container);
   }
 
-  _computeStatusGridAttachmentPoints(overlay, anchors, container, viewBox) {
-    return StatusGridRenderer.computeAttachmentPoints(overlay, anchors, container);
-  }
+  // Individual attachment point computation methods for each overlay type
+
+  // DEPRECATED: _computeTextAttachmentPoints removed (v1.16.22+)
+  // TextOverlay class deleted - use card overlays (custom:lcards-simple-button, etc.) instead
 
   _computeControlAttachmentPoints(overlay, anchors, container, viewBox) {
     return MsdControlsRenderer.computeAttachmentPoints(overlay, anchors, container);
@@ -1226,7 +1230,10 @@ export class AdvancedRenderer {
 
     // Card-based overlays (SimpleCards, HA cards, controls)
     // Return null to signal that MsdControlsRenderer should handle this
-    if (overlay.type === 'control' || overlay.type?.startsWith('custom:') || overlay.type?.startsWith('hui-')) {
+    if (overlay.type === 'control' ||
+        overlay.type?.startsWith('custom:') ||
+        overlay.type?.startsWith('hui-') ||
+        this._isHomeAssistantCardType(overlay.type)) {
       lcardsLog.trace(`[AdvancedRenderer] Card-based overlay ${overlay.id} (${overlay.type}) - delegating to MsdControlsRenderer`);
       return null;
     }
@@ -1234,6 +1241,26 @@ export class AdvancedRenderer {
     // Unknown overlay type
     lcardsLog.warn(`[AdvancedRenderer] ⚠️ No renderer available for overlay type: ${overlay.type}`);
     return null;
+  }
+
+  /**
+   * Check if a type string represents a Home Assistant built-in card
+   * @private
+   */
+  _isHomeAssistantCardType(type) {
+    if (!type || typeof type !== 'string') return false;
+
+    // Common HA card types (not exhaustive but covers most cases)
+    const haCardTypes = [
+      'entities', 'entity', 'glance', 'grid', 'horizontal-stack', 'vertical-stack',
+      'button', 'light', 'thermostat', 'gauge', 'sensor', 'history-graph',
+      'picture', 'picture-entity', 'picture-glance', 'picture-elements',
+      'conditional', 'markdown', 'media-control', 'alarm-panel',
+      'weather-forecast', 'shopping-list', 'logbook', 'map', 'iframe',
+      'area', 'energy', 'humidifier', 'statistics-graph', 'tile'
+    ];
+
+    return haCardTypes.includes(type);
   }
 
   /**
@@ -1450,9 +1477,9 @@ export class AdvancedRenderer {
    * @param {Object} anchors - Anchor positions
    * @param {Array} viewBox - SVG viewBox dimensions
    * @param {Element} svgContainer - SVG container element
-   * @returns {string} Empty string (MsdControlsRenderer handles DOM directly)
+   * @returns {Promise<string>} Empty string (MsdControlsRenderer handles DOM directly)
    */
-  _renderCardOverlayViaMsdControls(overlay, anchors, viewBox, svgContainer) {
+  async _renderCardOverlayViaMsdControls(overlay, anchors, viewBox, svgContainer) {
     if (!this.systemsManager?.controlsRenderer) {
       lcardsLog.error('[AdvancedRenderer] No controlsRenderer available for card overlay');
       return this.renderFallbackOverlay(overlay);
@@ -1466,12 +1493,9 @@ export class AdvancedRenderer {
         overlays: [overlay]
       };
 
-      // Delegate to MsdControlsRenderer
-      // Note: This is async but we don't await - MsdControlsRenderer handles timing
-      this.systemsManager.controlsRenderer.renderControlOverlay(overlay, resolvedModel)
-        .catch(error => {
-          lcardsLog.error(`[AdvancedRenderer] Error in MsdControlsRenderer for ${overlay.id}:`, error);
-        });
+      // CRITICAL: Await MsdControlsRenderer to ensure attachment points are registered
+      // BEFORE Phase 2b (line overlays) renders - lines need these attachment points!
+      await this.systemsManager.controlsRenderer.renderControlOverlay(overlay, resolvedModel);
 
       // Return empty string - MsdControlsRenderer manipulates DOM directly via foreignObject
       // The SVG markup is handled separately, we just need to trigger the card creation
@@ -1688,15 +1712,20 @@ export class AdvancedRenderer {
       // Handle different overlay types
       switch (overlay.type) {
         case 'text':
-          this._updateTextOverlayContent(overlayElement, overlay, sourceData);
+          // DEPRECATED: TextOverlay removed (v1.16.22+) - use custom:lcards-simple-button or other cards
+          lcardsLog.warn('[AdvancedRenderer] text overlay type is deprecated - use card overlays instead');
           break;
 
         case 'status_grid':
-          StatusGridRenderer.updateGridData(overlayElement, overlay, sourceData);
+          // DEPRECATED: StatusGridRenderer removed (v1.16.22+)
+          // Use custom:lcards-simple-chart with type: grid as MSD overlay instead
+          lcardsLog.warn('[AdvancedRenderer] status_grid overlay type is deprecated - use custom:lcards-simple-chart');
           break;
 
         case 'apexchart':
-          // ApexCharts already have their own subscription mechanism
+          // DEPRECATED: ApexChartsOverlayRenderer removed (v1.16.22+)
+          // Use custom:lcards-simple-chart as MSD overlay instead
+          lcardsLog.warn('[AdvancedRenderer] apexchart overlay type is deprecated - use custom:lcards-simple-chart');
           break;
 
         default:
@@ -1708,43 +1737,8 @@ export class AdvancedRenderer {
     }
   }
 
-
-  /**
-   * Update text overlay content with new data
-   * @private
-   * @param {Element} overlayElement - Overlay DOM element
-   * @param {Object} overlay - Overlay configuration
-   * @param {Object} sourceData - DataSource data
-   */
-  _updateTextOverlayContent(overlayElement, overlay, sourceData) {
-    try {
-      // Find the text element
-      const textElement = overlayElement.querySelector('text');
-      if (!textElement) {
-        lcardsLog.warn(`[AdvancedRenderer] Text element not found in overlay`);
-        return;
-      }
-
-      // Get the template string
-      const template = overlay.text || overlay.content || overlay._raw?.text || overlay._raw?.content || '';
-
-      // Process the template with current DataSource data
-      const processedContent = this._processTextTemplate(template);
-
-      // Update the text content if changed
-      if (processedContent && processedContent !== textElement.textContent) {
-        textElement.textContent = processedContent;
-
-        lcardsLog.debug(`[AdvancedRenderer] ✅ Updated text overlay content: ${overlay.id}`, {
-          oldContent: textElement.textContent.substring(0, 50),
-          newContent: processedContent.substring(0, 50)
-        });
-      }
-
-    } catch (error) {
-      lcardsLog.error(`[AdvancedRenderer] Error updating text overlay content:`, error);
-    }
-  }
+  // DEPRECATED: _updateTextOverlayContent removed (v1.16.22+)
+  // TextOverlay class deleted - use card overlays instead
 
   /**
    * Process text template with DataSource data
@@ -2005,30 +1999,18 @@ export class AdvancedRenderer {
    * @param {Array} viewBox - Current viewBox for rendering
    */
   _performFinalStabilizationUpdate(allOverlays, anchorsRef, viewBox) {
-    // Final pass: re-measure all text overlays and update dependent lines
-    allOverlays.filter(o => o.type === 'text').forEach(ov => {
-      const group = this.overlayElementCache.get(ov.id);
-      if (!group) return;
-
-      // Always measure from DOM to get current text dimensions
-      // _updateStatusIndicatorPosition will expand this bbox to include indicator
-      const bb = RendererUtils.getDomTextBBox(group);
-      if (!bb) return;
-
-      group.setAttribute('data-text-width', String(bb.width));
-      group.setAttribute('data-text-height', String(bb.height));
-
-      // Update attachment points and status indicators
-      // Pass DOM text bbox - it will be expanded inside these functions
-      this._updateTextAttachmentPointsFromDom(ov, group, bb);
-      this._updateStatusIndicatorPosition(group, bb);
-    });
+    // DEPRECATED: Text overlay stabilization removed (v1.16.22+)
+    // TextOverlay class deleted - use card overlays instead
+    // Skipping text overlay font stabilization pass
 
     // Phase 3: Line overlay attachment points are set per-instance during render
     // (line overlays call setOverlayAttachmentPoints on their own instances)
 
-    // Re-render all overlays to apply final updates
-    this._rerenderAllDependentOverlays(allOverlays, Object.keys(this._lineDeps), viewBox);
+    // Re-render all overlays to apply final updates (excluding deprecated text overlays)
+    const nonTextOverlays = allOverlays.filter(o => o.type !== 'text');
+    if (nonTextOverlays.length > 0) {
+      this._rerenderAllDependentOverlays(nonTextOverlays, Object.keys(this._lineDeps), viewBox);
+    }
   }
 
   /**
@@ -2293,96 +2275,13 @@ export class AdvancedRenderer {
   }
 
   /**
-   * Re-render a single text overlay (used during font stabilization)
-   * Phase 3: Updated to use TextOverlay instance
+   * DEPRECATED: Re-render text overlay method removed (v1.16.22+)
+   * TextOverlay class deleted - use card overlays instead
    * @private
    */
   _reRenderSingleTextOverlay(overlay, anchorsRef, viewBox) {
-    try {
-      const oldGroup = this.overlayElementCache.get(overlay.id);
-      if (!oldGroup) return null;
-
-      // CRITICAL: Check if old element had actions attached
-      const hadActions = oldGroup.hasAttribute('data-actions-attached');
-
-      // Get SVG element for proper container reference
-      const svg = this.mountEl?.querySelector('svg');
-      if (!svg) {
-        lcardsLog.warn('[AdvancedRenderer] ❌ SVG element not found for text overlay render');
-        return null;
-      }
-
-      // Get card instance for action support (same as initial render)
-      const textCardInstance = this._resolveCardInstance();
-
-      // Get or create TextOverlay instance
-      let textOverlay = this.overlayRenderers.get(overlay.id);
-      if (!textOverlay || !(textOverlay instanceof TextOverlay)) {
-        textOverlay = new TextOverlay(overlay, this.systemsManager);
-        this.overlayRenderers.set(overlay.id, textOverlay);
-      }
-
-      // Re-render the text overlay using instance
-      const result = textOverlay.render(overlay, anchorsRef, viewBox, svg, textCardInstance);
-
-      // Handle both string (old format) and object (new format) returns
-      let markup, actionInfo;
-      if (typeof result === 'string') {
-        markup = result;
-      } else if (result && typeof result === 'object' && result.markup) {
-        markup = result.markup;
-        actionInfo = result.actionInfo; // ADDED: Extract actionInfo from result
-      } else {
-        lcardsLog.warn(`[AdvancedRenderer] Invalid render result for ${overlay.id}`);
-        return null;
-      }
-
-      if (!markup || typeof markup !== 'string') {
-        lcardsLog.warn(`[AdvancedRenderer] No valid markup for ${overlay.id}`);
-        return null;
-      }
-
-      // Create new element from markup
-      const temp = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-      temp.innerHTML = markup.trim();
-      const newGroup = temp.firstElementChild;
-      if (!newGroup) return null;
-
-      // Replace old element
-      oldGroup.replaceWith(newGroup);
-      this.overlayElementCache.set(overlay.id, newGroup);
-
-      // CRITICAL FIX: Re-attach actions if they were attached before
-      if (hadActions && actionInfo) {
-        try {
-          lcardsLog.debug(`[AdvancedRenderer] 🔄 Re-attaching actions after font stabilization for ${overlay.id}`);
-
-          // Get animationManager from systemsManager to support animation triggers
-          const animationManager = this.systemsManager?.animationManager;
-
-          ActionHelpers.attachActions(
-            newGroup,
-            actionInfo.overlay,
-            actionInfo.config,
-            actionInfo.cardInstance,
-            { animationManager }
-          );
-          newGroup.setAttribute('data-actions-attached', 'true');
-          lcardsLog.debug(`[AdvancedRenderer] ✅ Actions re-attached to ${overlay.id}`);
-        } catch (error) {
-          lcardsLog.error(`[AdvancedRenderer] ❌ Failed to re-attach actions to ${overlay.id}:`, error);
-        }
-      }
-
-      // Update DOM-based attachment points immediately
-      const bb = RendererUtils.getDomTextBBox(newGroup);
-      if (bb) this._updateTextAttachmentPointsFromDom(overlay, newGroup, bb);
-
-      return newGroup;
-    } catch(e) {
-      lcardsLog.info('[AdvancedRenderer] Re-render text overlay failed', overlay.id, e);
-      return null;
-    }
+    lcardsLog.warn('[AdvancedRenderer] _reRenderSingleTextOverlay called but text overlays are deprecated');
+    return null;
   }
 
   /**
