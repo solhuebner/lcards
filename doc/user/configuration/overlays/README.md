@@ -323,8 +323,7 @@ overlays:
 - **[Control Overlay Guide](control-overlay.md)** - Embedded HA cards
 
 ### SimpleCards
-- **[SimpleChart Card](cards/simple-chart.md)** - Chart functionality
-- **[SimpleButton Card](cards/simple-button.md)** - Button controls
+- **[SimpleChart Card](../cards/simple-chart.md)** - Chart functionality
 
 ### Architecture
 - **[Control Overlay System](../../../architecture/subsystems/control-overlay-system.md)** - Technical details

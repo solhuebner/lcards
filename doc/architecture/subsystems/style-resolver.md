@@ -434,8 +434,6 @@ overlays:
 | `thick` | Wide line | `stroke_width: 4` |
 
 > **Note:** Card styling presets are handled by individual SimpleCards (e.g., `lcards-button-card`) via their own preset systems.
-| `label` | Small label text | `font_size: 14px, opacity: 0.8` |
-| `value` | Large value display | `font_size: 48px, font_weight: bold` |
 
 ### Preset Resolution
 

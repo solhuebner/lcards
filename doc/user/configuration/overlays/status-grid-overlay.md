@@ -1,5 +1,36 @@
 # Status Grid Overlay Configuration Guide
 
+> ⚠️ **DEPRECATED** - This overlay type was removed in v1.16.22+
+>
+> **Use SimpleCards with grid layouts instead:**
+> ```yaml
+> overlays:
+>   - id: status_grid
+>     type: control
+>     position: [100, 100]
+>     size: [400, 300]
+>     card:
+>       type: custom:lcards-grid-card
+>       columns: 2
+>       cards:
+>         - type: custom:lcards-text-card
+>           entity: sensor.living_temp
+>           name: "Living Room"
+>         - type: custom:lcards-text-card
+>           entity: sensor.bedroom_temp
+>           name: "Bedroom"
+> ```
+>
+> See the [Overlay System Guide](README.md) for migration instructions.
+
+---
+
+## Historical Documentation
+
+> The content below is preserved for reference but describes deprecated functionality.
+
+---
+
 > **Multi-cell status visualization with individual control**
 > Create sophisticated status grids with per-cell data binding, interactive actions, and LCARS styling.
 
