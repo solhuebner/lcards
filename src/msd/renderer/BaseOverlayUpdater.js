@@ -113,40 +113,7 @@ export class BaseOverlayUpdater {
       hasReference = true;
     }
 
-    // For history bars, check if source directly matches a changed DataSource
-    if (overlay.type === 'history_bar' && overlay.source) {
-      const sourceMatches = this._dataSourceMatchesChangedEntities(overlay.source, changedIds);
-      if (sourceMatches) {
-        hasReference = true;
-      }
-    }
-
-    // For status grids, check EACH CELL INDIVIDUALLY
-    if (overlay.type === 'status_grid') {
-      const cellsConfig = overlay.cells || overlay._raw?.cells || overlay.raw?.cells;
-      if (cellsConfig && Array.isArray(cellsConfig)) {
-        cellsConfig.forEach(cell => {
-          const cellContent = cell.content || cell.label || cell.value_format || '';
-          const cellReferencesChanged = this._contentReferencesChangedDataSources(cellContent, changedIds);
-
-          if (cellReferencesChanged) {
-            hasReference = true;
-          }
-        });
-      }
-    }
-
-    // For ApexCharts, check if source matches changed DataSource
-    if (overlay.type === 'apexchart') {
-      const sourceRef = overlay.source || overlay.data_source || overlay.sources;
-      const sources = Array.isArray(sourceRef) ? sourceRef : [sourceRef];
-
-      sources.forEach(source => {
-        if (this._dataSourceMatchesChangedEntities(source, changedIds)) {
-          hasReference = true;
-        }
-      });
-    }
+    // CLEANED: Removed history_bar, status_grid, apexchart checks (removed in v1.16.22+)
 
     return hasReference;
   }

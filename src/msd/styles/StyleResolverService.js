@@ -18,9 +18,9 @@
  */
 
 import { lcardsLog } from '../../utils/lcards-logging.js';
+import { lcardsCore } from '../../core/lcards-core.js';
 import { CacheManager } from './CacheManager.js';
 import { TokenResolver } from './TokenResolver.js';
-import { PresetManager } from './PresetManager.js';
 import { StyleValidator } from './StyleValidator.js';
 import { ProvenanceTracker } from './ProvenanceTracker.js';
 
@@ -38,7 +38,6 @@ export class StyleResolverService {
    *
    * @param {Object} themeManager - ThemeManager instance for token resolution
    * @param {Object} config - Service configuration
-   * @param {Object} config.presets - Style presets configuration
    * @param {boolean} config.cacheEnabled - Enable/disable caching (default: true)
    * @param {number} config.maxCacheSize - Maximum cache entries (default: 1000)
    * @param {boolean} config.debug - Enable debug logging (default: false)
@@ -55,9 +54,11 @@ export class StyleResolverService {
     // Initialize sub-components
     this.cache = new CacheManager(this.config);
     this.tokenResolver = new TokenResolver(themeManager);
-    this.presetManager = new PresetManager(config.presets || {});
     this.validator = new StyleValidator();
     this.provenanceTracker = new ProvenanceTracker();
+
+    // ✅ Use shared StylePresetManager from lcardsCore (no local PresetManager needed)
+    // Note: config.presets parameter removed - presets now come from packs via core system
 
     // Theme change callbacks
     this.themeChangeCallbacks = new Set();
@@ -349,10 +350,16 @@ export class StyleResolverService {
 
     this.stats.presetApplications++;
 
-    // Load preset
-    const preset = this.presetManager.getPreset(presetName, overlay.type);
+    // ✅ Load preset from core StylePresetManager
+    const stylePresetManager = lcardsCore.stylePresetManager;
+    if (!stylePresetManager) {
+      lcardsLog.warn('[StyleResolverService] Core StylePresetManager not available');
+      return this.resolveOverlayStyles(overlay, context);
+    }
+
+    const preset = stylePresetManager.getPreset(overlay.type, presetName, this.themeManager);
     if (!preset) {
-      lcardsLog.warn('[StyleResolverService] Preset not found:', presetName);
+      lcardsLog.warn('[StyleResolverService] Preset not found:', presetName, 'for type:', overlay.type);
       return this.resolveOverlayStyles(overlay, context);
     }
 
