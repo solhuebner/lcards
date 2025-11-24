@@ -291,16 +291,46 @@ export class SystemsManager extends BaseService {
         });
 
         if (ruleResults.overlayPatches && ruleResults.overlayPatches.length > 0) {
-          lcardsLog.debug(`[SystemsManager] 🎨 Rules produced patch(es)`);
+          lcardsLog.debug(`[SystemsManager] 🎨 Rules produced ${ruleResults.overlayPatches.length} patch(es) - triggering selective re-render`);
 
-          // Apply incremental updates
-          const updateResults = this._applyIncrementalUpdates(ruleResults.overlayPatches);
+          // Build failed overlay list for selective re-render
+          // Process animations and style merging before re-rendering
+          const overlaysToReRender = ruleResults.overlayPatches.map(patch => {
+            const overlay = this._findOverlayById(patch.id);
+            if (!overlay) {
+              lcardsLog.warn(`[SystemsManager] ⚠️ Overlay not found: ${patch.id}`);
+              return { id: patch.id, reason: 'Overlay config not found', patch };
+            }
 
-          // Selective re-render for overlays that failed incremental update
-          if (updateResults.failedOverlays.length > 0) {
-            lcardsLog.debug(`[SystemsManager] 🔄 Triggering SELECTIVE RE-RENDER for ${updateResults.failedOverlays.length} overlay(s)`);
-            this._scheduleSelectiveReRender(updateResults.failedOverlays);
-          }
+            // Merge patch style into finalStyle
+            if (patch.style && Object.keys(patch.style).length > 0) {
+              overlay.finalStyle = {
+                ...(overlay.finalStyle || overlay.style || {}),
+                ...patch.style
+              };
+            }
+
+            // Process animations from rule patches
+            if (patch.animations && Array.isArray(patch.animations) && patch.animations.length > 0) {
+              lcardsLog.debug(`[SystemsManager] 🎬 Triggering ${patch.animations.length} animation(s) for ${patch.id}`);
+              if (this.animationManager) {
+                patch.animations.forEach(animDef => {
+                  this.animationManager.playAnimation(patch.id, animDef);
+                });
+              }
+            }
+
+            return {
+              id: overlay.id,
+              type: overlay.type,
+              reason: 'Rule-based update',
+              overlay,
+              patch
+            };
+          });
+
+          // Trigger selective re-render for all patched overlays
+          this._scheduleSelectiveReRender(overlaysToReRender);
         }
 
         // ✅ NEW: Apply base_svg filter updates from rules
@@ -574,18 +604,46 @@ export class SystemsManager extends BaseService {
           });
 
           if (ruleResults.overlayPatches && ruleResults.overlayPatches.length > 0) {
-            lcardsLog.debug(`[SystemsManager] 🎨 Rules produced patch(es)`);
+            lcardsLog.debug(`[SystemsManager] 🎨 Rules produced ${ruleResults.overlayPatches.length} patch(es) - triggering selective re-render`);
 
-            // TRY: Incremental updates first (Phase 1: StatusGrid, Phase 2: ApexCharts, etc.)
-            const updateResults = this._applyIncrementalUpdates(ruleResults.overlayPatches);
+            // Build failed overlay list for selective re-render
+            // Process animations and style merging before re-rendering
+            const overlaysToReRender = ruleResults.overlayPatches.map(patch => {
+              const overlay = this._findOverlayById(patch.id);
+              if (!overlay) {
+                lcardsLog.warn(`[SystemsManager] ⚠️ Overlay not found: ${patch.id}`);
+                return { id: patch.id, reason: 'Overlay config not found', patch };
+              }
 
-            // SELECTIVE RE-RENDER: Only re-render overlays that failed incremental update
-            if (updateResults.failedOverlays.length > 0) {
-              lcardsLog.debug(`[SystemsManager] 🔄 Triggering SELECTIVE RE-RENDER for ${updateResults.failedOverlays.length} overlay(s)`);
-              this._scheduleSelectiveReRender(updateResults.failedOverlays);
-            } else {
-              lcardsLog.info('[SystemsManager] ✅ All updates completed INCREMENTALLY - NO full re-render needed');
-            }
+              // Merge patch style into finalStyle
+              if (patch.style && Object.keys(patch.style).length > 0) {
+                overlay.finalStyle = {
+                  ...(overlay.finalStyle || overlay.style || {}),
+                  ...patch.style
+                };
+              }
+
+              // Process animations from rule patches
+              if (patch.animations && Array.isArray(patch.animations) && patch.animations.length > 0) {
+                lcardsLog.debug(`[SystemsManager] 🎬 Triggering ${patch.animations.length} animation(s) for ${patch.id}`);
+                if (this.animationManager) {
+                  patch.animations.forEach(animDef => {
+                    this.animationManager.playAnimation(patch.id, animDef);
+                  });
+                }
+              }
+
+              return {
+                id: overlay.id,
+                type: overlay.type,
+                reason: 'Rule-based update',
+                overlay,
+                patch
+              };
+            });
+
+            // Trigger selective re-render for all patched overlays
+            this._scheduleSelectiveReRender(overlaysToReRender);
           } else {
             lcardsLog.debug('[SystemsManager] ℹ️ No rule patches needed');
           }
@@ -1103,144 +1161,6 @@ export class SystemsManager extends BaseService {
     if (!resolvedModel?.overlays) return null;
 
     return resolvedModel.overlays.find(o => o.id === overlayId) || null;
-  }
-
-  /**
-   * Find overlay element in DOM
-   * Uses same search pattern as AdvancedRenderer and StatusGridRenderer
-   * @private
-   * @param {Object} overlay - Overlay configuration
-   * @returns {Element|null} DOM element or null
-   */
-  _findOverlayElement(overlay) {
-    let element = null;
-
-    // Method 1: Search in renderer mount element (primary - shadowRoot or container)
-    if (this.renderer?.mountEl) {
-      const overlayGroup = this.renderer.mountEl.querySelector('#msd-overlay-container');
-      if (overlayGroup) {
-        element = overlayGroup.querySelector(`[data-overlay-id="${overlay.id}"]`);
-        if (element) {
-          lcardsLog.debug(`[SystemsManager] ✅ Found overlay element in #msd-overlay-container: ${overlay.id}`);
-          return element;
-        }
-      }
-
-      // Fallback: Direct search in mountEl
-      element = this.renderer.mountEl.querySelector(`[data-overlay-id="${overlay.id}"]`);
-      if (element) {
-        lcardsLog.debug(`[SystemsManager] ✅ Found overlay element in mountEl: ${overlay.id}`);
-        return element;
-      }
-    }
-
-    // Method 2: Card shadow DOM fallback (for compatibility)
-    const card = typeof window !== 'undefined' ? window.cb_lcars_card_instance : null;
-    if (!element && card?.shadowRoot) {
-      element = card.shadowRoot.querySelector(`[data-overlay-id="${overlay.id}"]`);
-      if (element) {
-        lcardsLog.debug(`[SystemsManager] ✅ Found overlay element in card shadowRoot: ${overlay.id}`);
-        return element;
-      }
-    }
-
-    // Method 3: Document search (last resort)
-    if (!element && typeof document !== 'undefined') {
-      element = document.querySelector(`[data-overlay-id="${overlay.id}"]`);
-      if (element) {
-        lcardsLog.debug(`[SystemsManager] ✅ Found overlay element in document: ${overlay.id}`);
-        return element;
-      }
-    }
-
-    lcardsLog.warn(`[SystemsManager] ❌ Could not find overlay element: ${overlay.id}`, {
-      hasMountEl: !!this.renderer?.mountEl,
-      hasOverlayContainer: !!this.renderer?.mountEl?.querySelector('#msd-overlay-container'),
-      hasCardShadowRoot: !!(typeof window !== 'undefined' && window.cb_lcars_card_instance?.shadowRoot)
-    });
-
-    return null;
-  }
-
-  /**
-   * Apply incremental updates to overlays when rules produce patches
-   * Falls back to full re-render if incremental not supported/available
-   * @private
-   * @param {Array} overlayPatches - Rule patches from rulesEngine.evaluateDirty()
-   * @returns {Object} Results with successfulOverlays and failedOverlays arrays
-   */
-  _applyIncrementalUpdates(overlayPatches) {
-    lcardsLog.debug(`[SystemsManager] 🎨 ATTEMPTING INCREMENTAL UPDATES for ${overlayPatches.length} overlay(s)`);
-
-    const failedOverlays = [];
-    const successfulOverlays = [];
-
-    overlayPatches.forEach(patch => {
-      // Find overlay config
-      const overlay = this._findOverlayById(patch.id);
-      if (!overlay) {
-        lcardsLog.warn(`[SystemsManager] ⚠️ Overlay not found: ${patch.id}`);
-        failedOverlays.push({ id: patch.id, reason: 'Overlay config not found', patch });
-        return;
-      }
-
-      // CRITICAL FIX: Merge patch style into finalStyle for incremental updates
-      // The overlay from resolvedModel has the OLD finalStyle from initial page load
-      // We need to apply the NEW patch to get the current style
-      if (patch.style && Object.keys(patch.style).length > 0) {
-        lcardsLog.debug(`[SystemsManager] 🎨 Merging patch style into finalStyle for ${patch.id}:`, {
-          oldColor: overlay.finalStyle?.color,
-          patchColor: patch.style.color,
-          patchKeys: Object.keys(patch.style)
-        });
-
-        // Merge patch style into finalStyle
-        overlay.finalStyle = {
-          ...(overlay.finalStyle || overlay.style || {}),
-          ...patch.style
-        };
-
-        lcardsLog.debug(`[SystemsManager] ✅ Merged finalStyle for ${patch.id}:`, {
-          newColor: overlay.finalStyle.color,
-          finalStyleKeys: Object.keys(overlay.finalStyle)
-        });
-      }
-
-      // ✨ NEW: Process animations from rule patches (Phase 2)
-      if (patch.animations && Array.isArray(patch.animations) && patch.animations.length > 0) {
-        lcardsLog.debug(`[SystemsManager] 🎬 Triggering ${patch.animations.length} animation(s) for ${patch.id} from rule`);
-
-        if (this.animationManager) {
-          patch.animations.forEach(animDef => {
-            this.animationManager.playAnimation(patch.id, animDef);
-          });
-        } else {
-          lcardsLog.warn(`[SystemsManager] AnimationManager not available - cannot trigger animations for ${patch.id}`);
-        }
-      }
-
-      // DEPRECATED: Incremental update system removed (v1.16.22+)
-      // Old pattern: Custom renderers with incremental update support
-      // New pattern: Full selective re-render via AdvancedRenderer
-      // All overlays now use selective re-render
-      lcardsLog.debug(`[SystemsManager] Overlay "${overlay.id}" (type: ${overlay.type}) will use SELECTIVE RE-RENDER`);
-      failedOverlays.push({
-        id: overlay.id,
-        type: overlay.type,
-        reason: 'Incremental updates deprecated - using selective re-render',
-        overlay,
-        patch
-      });
-    });
-
-    // DEPRECATED: Incremental updates removed - all overlays use selective re-render now
-    // Log summary: all overlays will be selectively re-rendered
-    lcardsLog.debug(`[SystemsManager] ${failedOverlays.length} overlay(s) will use SELECTIVE RE-RENDER (normal behavior):`);
-    failedOverlays.forEach(f => {
-      lcardsLog.debug(`  🔄 ${f.type || 'unknown'}: ${f.id}`);
-    });
-
-    return { successfulOverlays: [], failedOverlays, allSucceeded: false };
   }
 
   /**

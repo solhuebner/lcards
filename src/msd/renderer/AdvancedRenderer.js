@@ -259,7 +259,7 @@ export class AdvancedRenderer {
     // ADDED: Separate action queue for Phase 2
     const phase2ActionQueue = [];
 
-    // Phase 2a: render non-line overlays (buttons, status_grids, etc.) that lines may attach to
+    // Phase 2a: render non-line overlays (cards, etc.) that lines may attach to
     overlays.filter(o => !earlyTypes.has(o.type) && o.type !== 'line').forEach(ov => {
       try {
         // ✅ NEW: Track per-overlay timing (Phase 5.3)
@@ -329,11 +329,11 @@ export class AdvancedRenderer {
       }
     });
 
-    // Cache Phase 2a elements and populate attachment points for buttons/etc
+    // Cache Phase 2a elements and populate attachment points for cards
     this._cacheElementsFrom(overlayGroup);
     this._populateInitialAttachmentPoints(overlays, anchors);
 
-    // Rebuild virtual anchors now that we have Phase 2a overlays (buttons, status_grids, etc.)
+    // Rebuild virtual anchors now that we have Phase 2a overlays (cards, etc.)
     // IMPORTANT: This must run BEFORE _buildDynamicOverlayAnchors so that
     // gap-applied anchors don't get overwritten by non-gap anchors
     this._buildVirtualAnchorsFromAllOverlays(overlays);
@@ -549,8 +549,6 @@ export class AdvancedRenderer {
       total: this.overlayElementCache.size,
       text: overlayGroup.querySelectorAll('[data-overlay-type="text"]').length,
       lines: overlayGroup.querySelectorAll('[data-overlay-type="line"]').length,
-      status_grid: overlayGroup.querySelectorAll('[data-overlay-type="status_grid"]').length,
-      history_bars: overlayGroup.querySelectorAll('[data-overlay-type="history_bar"]').length,
       controls: overlayGroup.querySelectorAll('[data-overlay-type="control"]').length
     });
 
@@ -2189,7 +2187,7 @@ export class AdvancedRenderer {
       });
     });
 
-    // Process other Phase 1 overlay types (buttons, status_grids, etc.)
+    // Process other Phase 1 overlay types (cards, etc.)
     overlays.filter(o => o.type !== 'text' && o.type !== 'line').forEach(overlay => {
       const groupEl = this.overlayElementCache.get(overlay.id);
       if (!groupEl) return;
