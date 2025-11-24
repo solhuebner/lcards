@@ -114,8 +114,7 @@ export class AdvancedRenderer {
       }
     };
 
-    // Phase 1: render overlays that others may depend on
-    // CLEANED: Removed text overlay from earlyTypes (removed in v1.16.22+)
+    // Phase 1: render overlays that others may depend on (currently empty)
     const earlyTypes = new Set([]);
     let svgMarkupAccum = '';
     let processedCount = 0;
@@ -249,7 +248,6 @@ export class AdvancedRenderer {
     this._populateInitialAttachmentPoints(overlays, anchors);
 
     // Build virtual anchors from Phase 1 overlays for line anchoring
-    // CLEANED: Removed '(text)' comment - text overlays removed in v1.16.22+
     // These are base anchors without gaps - lines will overwrite with gap-applied versions
     this._buildVirtualAnchorsFromAllOverlays(overlays);
 
@@ -472,7 +470,6 @@ export class AdvancedRenderer {
     const domStart = performance.now();
 
     // ADDED: Attach Phase 2 actions AFTER Phase 2 DOM injection
-    // CLEANED: Removed '(buttons, status grids, etc.)' - those overlays removed in v1.16.22+
     lcardsLog.debug(`[AdvancedRenderer] 🎯 Attaching ${phase2ActionQueue.length} Phase 2 actions`);
 
     phase2ActionQueue.forEach(({ overlayId, actionInfo, overlay, cardInstance }) => {
@@ -493,7 +490,6 @@ export class AdvancedRenderer {
           // CHANGED: Handle different action config types
           if (actionInfo.config.simple) {
             // Simple overlay-level actions
-            // CLEANED: Removed '(text, buttons)' - those overlays removed in v1.16.22+
             ActionHelpers.attachActions(
               element,
               overlay,
@@ -561,8 +557,6 @@ export class AdvancedRenderer {
     // NEW: schedule deferred line refresh to fix first-load orientation/position
     this._scheduleDeferredLineRefresh(overlays, this._staticAnchors, viewBox);
 
-    // CLEANED: Removed _scheduleFontStabilization call - text overlays removed in v1.16.22+
-
     this.lastRenderArgs = { resolvedModel, overlays, svg };
 
     // ✅ NEW: Calculate total and store final metrics (Phase 5.3)
@@ -628,7 +622,6 @@ export class AdvancedRenderer {
           // Lines don't have attachment points (they attach to others, not vice versa)
           return null;
         default:
-          // CLEANED: Removed deprecated cases for text, status_grid, apexchart (removed in v1.16.22+)
           lcardsLog.warn(`[AdvancedRenderer] Unknown overlay type for attachment points: ${overlay.type}`);
           return null;
       }
@@ -639,12 +632,6 @@ export class AdvancedRenderer {
   }
 
   // Individual attachment point computation methods for each overlay type
-
-  // DEPRECATED: _computeTextAttachmentPoints removed (v1.16.22+)
-  // TextOverlay class deleted - use card overlays (custom:lcards-simple-button, etc.) instead
-
-  // DEPRECATED: _computeBasicAttachmentPoints removed (v1.16.22+)
-  // Was only used by deprecated text, status_grid, apexchart overlay types
 
   _computeControlAttachmentPoints(overlay, anchors, container, viewBox) {
     return MsdControlsRenderer.computeAttachmentPoints(overlay, anchors, container);
@@ -808,7 +795,7 @@ export class AdvancedRenderer {
     });
   }
 
-  // NEW: update dynamic anchors for changed text overlays
+  // Update dynamic anchors for changed overlays
   _updateDynamicAnchorsForOverlays(changedIds, overlays, anchorMap) {
     if (!changedIds.size) return;
     changedIds.forEach(id => {
@@ -988,16 +975,13 @@ export class AdvancedRenderer {
     return { point, side: effectiveSide };
   }
 
-  // DEPRECATED: Font stabilization removed (v1.16.22+) - text overlays no longer exist
-  _scheduleFontStabilization(overlays, anchorsRef, viewBox) {
-    // No-op: text overlays removed, font stabilization no longer needed
-  }
-
+  /**
+   * Schedule deferred line refresh
+   * No-op maintained for backwards compatibility with render pipeline
+   * @private
+   */
   _scheduleDeferredLineRefresh(overlays, anchorsRef, viewBox) {
-    // Phase 3: Deferred line refresh is now handled during font stabilization
-    // via _rerenderAllDependentOverlays() which properly updates lines
-    // This method kept for backwards compatibility but does nothing
-    lcardsLog.debug('[AdvancedRenderer] Deferred line refresh scheduled (handled during font stabilization)');
+    // No-op: Lines are now refreshed immediately during render
   }
 
   /**
@@ -1039,7 +1023,6 @@ export class AdvancedRenderer {
     // - SimpleCards: custom:lcards-simple-button, custom:lcards-simple-chart
     // - HA cards: entities, grid, button, light, etc.
     // - Legacy control overlays with nested card definition
-    // CLEANED: Removed legacy overlay type check (text, button, apexchart, status_grid removed in v1.16.22+)
 
     // Card-based overlays (SimpleCards, HA cards, controls)
     // Return null to signal that MsdControlsRenderer should handle this
@@ -1240,7 +1223,6 @@ export class AdvancedRenderer {
         // - SimpleCards (custom:lcards-simple-button, custom:lcards-simple-chart)
         // - HA cards (entities, grid, button, etc.)
         // - Control overlays (type: 'control')
-        // - Legacy overlays (button, text, apexchart, status_grid) - DEPRECATED
 
         if (overlay.type === 'line') {
           // Line without renderer is an error
@@ -1449,11 +1431,9 @@ export class AdvancedRenderer {
 
       // Verify injection
       const lines = overlayGroup.querySelectorAll('[data-overlay-type="line"]');
-      const texts = overlayGroup.querySelectorAll('[data-overlay-type="text"]');
 
       lcardsLog.debug('[AdvancedRenderer] Injected elements:', {
         lines: lines.length,
-        texts: texts.length,
         cached: this.overlayElementCache.size
       });
 
@@ -1468,7 +1448,6 @@ export class AdvancedRenderer {
 
   /**
    * Update overlay with new DataSource data
-   * ENHANCED: Now handles text overlays with template processing
    * @param {string} overlayId - Overlay ID
    * @param {Object} sourceData - DataSource data
    */
@@ -1522,7 +1501,6 @@ export class AdvancedRenderer {
       // Fallback for any overlays without instance renderers (shouldn't happen with Phase 3 complete)
       lcardsLog.warn(`[AdvancedRenderer] No instance renderer found for overlay ${overlayId}, using legacy update`);
 
-      // CLEANED: Removed deprecated overlay type cases (text, status_grid, apexchart removed in v1.16.22+)
       // If we reach here, log that no update handler exists
       lcardsLog.debug(`[AdvancedRenderer] No update handler for overlay type: ${overlay.type}`);
 
@@ -1530,9 +1508,6 @@ export class AdvancedRenderer {
       lcardsLog.error(`[AdvancedRenderer] Error updating overlay ${overlayId}:`, error);
     }
   }
-
-  // DEPRECATED: _updateTextOverlayContent removed (v1.16.22+)
-  // TextOverlay class deleted - use card overlays instead
 
   /**
    * Process text template with DataSource data
@@ -1787,16 +1762,7 @@ export class AdvancedRenderer {
   }
 
   /**
-   * Perform final stabilization update (comprehensive pass)
-   * DEPRECATED: Text overlay stabilization removed (v1.16.22+)
-   * @private
-   */
-  _performFinalStabilizationUpdate(allOverlays, anchorsRef, viewBox) {
-    // No-op: text overlays removed, stabilization no longer needed
-  }
-
-  /**
-   * Build virtual anchors from ALL overlay attachment points (not just attach_to targets)
+   * Build virtual anchors from ALL overlay attachment points
    * This allows lines to use ANY overlay as an anchor point
    * @private
    */
@@ -1846,8 +1812,6 @@ export class AdvancedRenderer {
     return staticAnchors;
   }
 
-  // DEPRECATED: _updateTextAttachmentPointsFromDom removed (v1.16.22+) - text overlays no longer exist
-
   /**
    * Populate initial attachment points from Phase 1 overlays
    * This reads the expanded bbox from DOM elements and populates overlayAttachmentPoints
@@ -1880,28 +1844,23 @@ export class AdvancedRenderer {
 
       // Fallback to measuring from DOM if no expanded bbox
       if (!bbox) {
-        // For text overlays, use specialized text bbox function
-        if (overlay.type === 'text') {
-          bbox = RendererUtils.getDomTextBBox(groupEl);
-        } else {
-          // For all other overlays, use generic SVG getBBox()
-          try {
-            const bb = groupEl.getBBox();
-            bbox = {
-              width: bb.width,
-              height: bb.height,
-              left: bb.x,
-              top: bb.y,
-              right: bb.x + bb.width,
-              bottom: bb.y + bb.height,
-              centerX: bb.x + bb.width / 2,
-              centerY: bb.y + bb.height / 2
-            };
-            lcardsLog.debug(`[AdvancedRenderer] 📍 Measured bbox from DOM for ${overlay.id}:`, bbox);
-          } catch (e) {
-            lcardsLog.warn(`[AdvancedRenderer] Failed to measure bbox for ${overlay.id}`, e);
-            return;
-          }
+        // For all overlays, use generic SVG getBBox()
+        try {
+          const bb = groupEl.getBBox();
+          bbox = {
+            width: bb.width,
+            height: bb.height,
+            left: bb.x,
+            top: bb.y,
+            right: bb.x + bb.width,
+            bottom: bb.y + bb.height,
+            centerX: bb.x + bb.width / 2,
+            centerY: bb.y + bb.height / 2
+          };
+          lcardsLog.debug(`[AdvancedRenderer] 📍 Measured bbox from DOM for ${overlay.id}:`, bbox);
+        } catch (e) {
+          lcardsLog.warn(`[AdvancedRenderer] Failed to measure bbox for ${overlay.id}`, e);
+          return;
         }
       }
 
@@ -2027,8 +1986,6 @@ export class AdvancedRenderer {
             </g>`;
   }
 
-  // DEPRECATED: _reRenderSingleTextOverlay removed (v1.16.22+) - text overlays no longer exist
-
   /**
    * Resolve card instance for action handling
    * @private
@@ -2055,10 +2012,6 @@ export class AdvancedRenderer {
 
     return null;
   }
-
-  // DEPRECATED: _updateStatusIndicatorPosition removed (v1.16.22+) - text overlays no longer exist
-  // DEPRECATED: _safeSetCircleRadius removed (v1.16.22+) - text overlays no longer exist
-  // DEPRECATED: _updateTextAttachmentPointsAfterStabilization removed (v1.16.22+) - text overlays no longer exist
 
   /**
    * ✅ NEW: Phase 5.3 - Get performance summary for current render

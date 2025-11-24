@@ -10,8 +10,6 @@ import { AnimationRegistry } from '../../core/animation/AnimationRegistry.js';
 import { ThemeManager } from '../../core/themes/ThemeManager.js';
 import { RulesEngine } from '../../core/rules/RulesEngine.js';
 import { DebugManager } from '../debug/DebugManager.js';
-import { BaseOverlayUpdater } from '../renderer/BaseOverlayUpdater.js';
-import { TemplateEntityExtractor } from '../templates/TemplateEntityExtractor.js';
 
 import { StylePresetManager } from '../../core/presets/StylePresetManager.js';
 
@@ -42,7 +40,6 @@ export class SystemsManager extends BaseService {
     this.animationManager = null; // ✨ NEW: Phase 5 - Animation system
     this.rulesEngine = null;
     this.debugManager = new DebugManager();
-    this.overlayUpdater = null; // ADDED: Unified overlay update system
     this._renderTimeout = null;
     this._reRenderCallback = null;
     this._queuedReRender = false; // ADDED: Flag for queued renders
@@ -376,10 +373,6 @@ export class SystemsManager extends BaseService {
     }
     this.animRegistry = lcardsCore.animationRegistry;
 
-    // ADDED: Initialize unified overlay update system
-    this.overlayUpdater = new BaseOverlayUpdater(this);
-    lcardsLog.debug('[SystemsManager] BaseOverlayUpdater initialized for unified overlay updates');
-
     // ✨ NEW: Phase 5 - Use shared AnimationManager from lcardsCore
     lcardsLog.debug('[SystemsManager] 🎬 Phase 5: Using shared AnimationManager from lcardsCore');
     if (!lcardsCore.animationManager) {
@@ -434,7 +427,6 @@ export class SystemsManager extends BaseService {
   // - ingestHassV2() for full HASS updates
   // - DataSource subscriptions for real-time entity updates (primary path)
   // - RulesEngine.ingestHass() for rule evaluation
-  // - BaseOverlayUpdater for unified overlay updates
   //
   // Benefits of new architecture:
   // - Single source of truth (_hass)
@@ -521,20 +513,18 @@ export class SystemsManager extends BaseService {
     // This ensures the listener is ready when data source subscriptions are set up
     this._entityChangeListenerRegistered = false;
 
-    // ENHANCED: Create auto-DataSources for template entities before processing configured ones
+    // Use configured data sources
     const configuredDataSources = mergedConfig.data_sources || {};
-    const dataSourcesWithTemplates = await this._createTemplateDataSources(mergedConfig, configuredDataSources);
 
-    lcardsLog.debug('[SystemsManager] 🔍 Using explicit + auto-template data sources mode');
+    lcardsLog.debug('[SystemsManager] 🔍 Using configured data sources mode');
     lcardsLog.debug('[SystemsManager] 🔍 Configured data sources:', Object.keys(configuredDataSources));
-    lcardsLog.debug('[SystemsManager] 🔍 Total data sources (including auto-template):', Object.keys(dataSourcesWithTemplates));
 
     // Controls use direct HASS - no data sources needed
     const controlEntities = this._extractControlEntities(mergedConfig);
     lcardsLog.debug('[SystemsManager] 🔍 Control entities (using direct HASS):', controlEntities);
 
-    // Use configured + auto-created data sources
-    const allDataSources = { ...dataSourcesWithTemplates };
+    // Use configured data sources
+    const allDataSources = { ...configuredDataSources };
 
     lcardsLog.debug('[SystemsManager] 📊 Data source summary:', {
       configured: Object.keys(configuredDataSources).length,
@@ -671,68 +661,6 @@ export class SystemsManager extends BaseService {
       lcardsLog.error('[SystemsManager] Error details:', error.stack);
       this.dataSourceManager = null;
     }
-  }
-
-  /**
-   * Create auto-DataSources for entities referenced in templates
-   * @param {Object} mergedConfig - The merged MSD configuration
-   * @param {Object} configuredDataSources - Already configured DataSources
-   * @returns {Object} Configuration with auto-created DataSources added
-   * @private
-   */
-  async _createTemplateDataSources(mergedConfig, configuredDataSources) {
-    const templateEntities = new Set();
-
-    // Extract template entities from all overlays
-    if (mergedConfig.overlays) {
-      mergedConfig.overlays.forEach(overlay => {
-        try {
-          const entities = TemplateEntityExtractor.extractFromOverlay(overlay);
-          entities.forEach(entity => templateEntities.add(entity));
-        } catch (error) {
-          lcardsLog.error('[SystemsManager] Error extracting entities from overlay:', overlay.id, error);
-        }
-      });
-    }
-
-    // Create auto-DataSources for entities not already configured
-    const autoDataSources = {};
-    let autoCreatedCount = 0;
-
-    templateEntities.forEach(entityId => {
-      // Check if entity already has a configured DataSource
-      const hasExistingDataSource = Object.values(configuredDataSources).some(ds =>
-        ds.entity === entityId
-      );
-
-      if (!hasExistingDataSource) {
-        const dataSourceName = `template_${entityId.replace(/\./g, '_')}`;
-
-        // Create lightweight DataSource config for template entity
-        autoDataSources[dataSourceName] = {
-          entity: entityId,
-          windowSeconds: 60,        // Small buffer for template updates
-          minEmitMs: 100,          // Responsive updates
-          coalesceMs: 50,          // Quick coalescing
-          history: { enabled: false }, // No history needed for templates
-          _autoCreated: true,      // Mark as auto-created
-          _templateEntity: true    // Mark as template entity
-        };
-
-        autoCreatedCount++;
-      }
-    });
-
-    if (autoCreatedCount > 0) {
-      lcardsLog.debug(`[SystemsManager] 📄 Auto-created DataSources for template entities:`,
-        Array.from(templateEntities).join(', '));
-    }
-
-    // Merge auto-created DataSources with configured ones
-    return {
-      ...configuredDataSources,
-      ...autoDataSources
-    };
   }
 
   /**
@@ -1369,7 +1297,8 @@ export class SystemsManager extends BaseService {
    */
 
   // REMOVED METHOD: _updateTextOverlaysForDataSourceChanges
-  // This method was deprecated and replaced by the unified BaseOverlayUpdater system.
+  // This method was deprecated and is no longer needed since text overlays
+  // have been replaced by SimpleCards.
   // Deleted in Phase 0 of architecture refactor.
 
   // REMOVED METHOD: _findDataSourceForEntity
@@ -1474,10 +1403,7 @@ export class SystemsManager extends BaseService {
   }
 }
 
-// CLEANUP NOTE: The old text-specific overlay update methods have been removed
-  // and replaced with the unified BaseOverlayUpdater system in BaseOverlayUpdater.js
-  // This provides consistent template processing across all overlay types.
-// CLEANUP NOTE: The old text-specific overlay update methods have been removed
-  // and replaced with the unified BaseOverlayUpdater system in BaseOverlayUpdater.js
-  // This provides consistent template processing across all overlay types.
+// CLEANUP NOTE: Text overlays have been removed and replaced by SimpleCards
+// All overlay-specific update logic has been removed as SimpleCards handle
+// their own lifecycle and updates.
 
