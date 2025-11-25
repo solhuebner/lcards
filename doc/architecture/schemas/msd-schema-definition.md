@@ -135,7 +135,8 @@ data_sources:
 
 # MSD supports 2 overlay types:
 #   - line: SVG lines/paths for visual connectors
-#   - control: Embedded Home Assistant cards (SimpleCards, HA cards)
+#   - control: Embedded Home Assistant cards (any card type including LCARdS
+#              SimpleCards, standard HA cards, and third-party custom cards)
 
 overlays:
   # --- LINE OVERLAY ---
@@ -631,7 +632,9 @@ The following features exist in legacy configurations but are no longer actively
 - **`profiles`** - Style profile groupings (use rules instead)
 - **`active_profiles`** - Profile activation (use rules instead)
 
-These are still validated for backward compatibility but should not be used in new configurations.
+**Validation Behavior:** These fields are still validated to provide helpful error messages if misconfigured, but they have no effect on rendering. The validation ensures configurations using these fields won't break, but the values are not processed by the rendering pipeline.
+
+**Recommendation:** Migrate to theme tokens and rules for equivalent functionality.
 
 ---
 

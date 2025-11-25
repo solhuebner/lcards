@@ -323,11 +323,11 @@ overlays:
 
 ## Overlay-to-Overlay Attachment
 
-Lines can attach to any overlay type, not just static anchors:
+Lines can attach to control overlays and static anchors:
 
 ### Attachment Points
 
-Each overlay provides 9 attachment points:
+Control overlays provide 9 attachment points (computed by MsdControlsRenderer):
 ```
     top-left     top-center     top-right
          ○────────────○────────────○

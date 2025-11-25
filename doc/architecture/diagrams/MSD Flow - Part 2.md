@@ -720,7 +720,7 @@ overlays:
     size: [400, 250]
     card:
       type: custom:lcards-simple-chart
-      source: temperature          # Uses MSD data source
+      source: sensor.temperature    # Can use entity directly
       chart_type: area
       height: 250
 
