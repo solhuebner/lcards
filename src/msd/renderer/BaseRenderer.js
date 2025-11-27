@@ -400,8 +400,8 @@ export class BaseRenderer {
         return pipelineInstance.styleResolver;
       }
 
-      // Priority 4: SystemsManager global reference
-      const systemsManager = window.__msdSystemsManager || window.lcards.debug.msd?.systemsManager;
+      // Priority 4: SystemsManager modern reference
+      const systemsManager = window.lcards.debug.msd?.systemsManager;
       if (systemsManager?.styleResolver) {
         return systemsManager.styleResolver;
       }

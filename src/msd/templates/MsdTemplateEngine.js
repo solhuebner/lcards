@@ -17,11 +17,6 @@ class MsdTemplateEngine {
             cacheHits: 0,
             lastUpdate: Date.now()
         };
-
-        // Expose debug interface
-        if (typeof window !== 'undefined') {
-            window.__msdTemplateEngine = this;
-        }
     }
 
     /**
@@ -453,14 +448,6 @@ class MsdTemplateEngine {
                     return hass.states;
                 }
             }
-
-            // MSD data manager context
-            if (window.__msdDataManager && window.__msdDataManager.cardContext) {
-                const hass = window.__msdDataManager.cardContext.hass;
-                if (hass && hass.states) {
-                    return hass.states;
-                }
-            }
         }
 
         return null;
@@ -530,9 +517,6 @@ class MsdTemplateEngine {
             const card = window.lcards.debug.msd?.cardInstance;
             if (card && (card.hass || card._hass)) {
                 return card.hass || card._hass;
-            }
-            if (window.__msdDataManager && window.__msdDataManager.cardContext) {
-                return window.__msdDataManager.cardContext.hass;
             }
         }
         return null;

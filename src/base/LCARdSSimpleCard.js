@@ -558,20 +558,6 @@ export class LCARdSSimpleCard extends LCARdSNativeCard {
     }
 
     /**
-     * Register callback with RulesEngine to be notified when rules need re-evaluation
-     * This allows the card to update when entity states change
-     *
-     * ⚠️ DEPRECATED - Use _registerOverlayForRules() instead
-     * This method is kept for backwards compatibility but should not be called
-     *
-     * @private
-     * @deprecated
-     */
-    _registerRulesCallback() {
-        lcardsLog.warn('[LCARdSSimpleCard] _registerRulesCallback() is deprecated - use _registerOverlayForRules() instead');
-    }
-
-    /**
      * Cleanup when card is removed from DOM
      */
     disconnectedCallback() {

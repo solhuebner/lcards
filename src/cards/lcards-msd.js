@@ -1019,9 +1019,6 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
             this._viewBox = viewBox;
             this._anchors = resolvedAnchors;
 
-            // Store globally for MSD system compatibility
-            window._msdTestAnchors = resolvedAnchors;
-
             lcardsLog.debug('[LCARdSMSDCard] Anchors processed:', {
                 svgAnchorCount: Object.keys(svgAnchors).length,
                 userAnchorCount: Object.keys(userAnchors).length,

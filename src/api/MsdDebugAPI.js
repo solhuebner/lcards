@@ -401,7 +401,7 @@ export class MsdDebugAPI {
         summary() {
           try {
             // Delegate to existing DebugInterface method
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg || typeof dbg.getPerformanceSummary !== 'function') {
               lcardsLog.warn('[DebugAPI] Performance summary not available');
               return null;
@@ -430,7 +430,7 @@ export class MsdDebugAPI {
          */
         slowestOverlays(n = 5) {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg || typeof dbg.getSlowestOverlays !== 'function') {
               lcardsLog.warn('[DebugAPI] Slowest overlays not available');
               return null;
@@ -458,7 +458,7 @@ export class MsdDebugAPI {
          */
         byRenderer() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg || typeof dbg.getRendererPerformance !== 'function') {
               lcardsLog.warn('[DebugAPI] Renderer performance not available');
               return null;
@@ -486,7 +486,7 @@ export class MsdDebugAPI {
          */
         byOverlay(overlayId) {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg || typeof dbg.getOverlayPerformance !== 'function') {
               lcardsLog.warn('[DebugAPI] Overlay performance not available');
               return null;
@@ -516,7 +516,7 @@ export class MsdDebugAPI {
          */
         warnings() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg || typeof dbg.getPerformanceWarnings !== 'function') {
               lcardsLog.warn('[DebugAPI] Performance warnings not available');
               return null;
@@ -543,7 +543,7 @@ export class MsdDebugAPI {
          */
         timeline() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg || typeof dbg.getRenderTimeline !== 'function') {
               lcardsLog.warn('[DebugAPI] Render timeline not available');
               return null;
@@ -601,7 +601,7 @@ export class MsdDebugAPI {
          */
         inspect(overlayId) {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.routing?.inspect) {
               lcardsLog.warn('[DebugAPI] Routing inspect not available');
               return null;
@@ -629,7 +629,7 @@ export class MsdDebugAPI {
          */
         stats() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.routing?.stats) {
               lcardsLog.warn('[DebugAPI] Routing stats not available');
               return null;
@@ -660,7 +660,7 @@ export class MsdDebugAPI {
          */
         invalidate(id = '*') {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.routing?.invalidate) {
               lcardsLog.warn('[DebugAPI] Routing invalidate not available');
               return false;
@@ -691,7 +691,7 @@ export class MsdDebugAPI {
          */
         inspectAs(overlayId, mode = 'smart') {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.routing?.inspectAs) {
               lcardsLog.warn('[DebugAPI] Routing inspectAs not available');
               return null;
@@ -750,7 +750,7 @@ export class MsdDebugAPI {
          */
         stats() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.dataSources?.stats) {
               lcardsLog.warn('[DebugAPI] Data source stats not available');
               return null;
@@ -776,7 +776,7 @@ export class MsdDebugAPI {
          */
         list() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.dataSources?.list) {
               lcardsLog.warn('[DebugAPI] Data source list not available');
               return [];
@@ -803,7 +803,7 @@ export class MsdDebugAPI {
          */
         get(sourceName) {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.dataSources?.get) {
               lcardsLog.warn('[DebugAPI] Data source get not available');
               return null;
@@ -829,7 +829,7 @@ export class MsdDebugAPI {
          */
         dump() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.dataSources?.dump) {
               lcardsLog.warn('[DebugAPI] Data source dump not available');
               return null;
@@ -856,7 +856,7 @@ export class MsdDebugAPI {
          */
         trace(entityId) {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             const dataManager = dbg?.pipelineInstance?.systemsManager?.dataSourceManager;
 
             if (!dataManager) {
@@ -942,7 +942,7 @@ export class MsdDebugAPI {
          */
         resolutions(overlayId) {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.getStyleResolutions) {
               lcardsLog.warn('[DebugAPI] Style resolutions not available');
               return null;
@@ -970,7 +970,7 @@ export class MsdDebugAPI {
          */
         findByToken(tokenPath) {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.findOverlaysByToken) {
               lcardsLog.warn('[DebugAPI] findOverlaysByToken not available');
               return null;
@@ -998,7 +998,7 @@ export class MsdDebugAPI {
          */
         provenance() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.getGlobalStyleSummary) {
               lcardsLog.warn('[DebugAPI] Global style summary not available');
               return null;
@@ -1117,7 +1117,7 @@ export class MsdDebugAPI {
          */
         validate(overlayId) {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.charts?.validate) {
               lcardsLog.warn('[DebugAPI] Chart validation not available');
               return null;
@@ -1144,7 +1144,7 @@ export class MsdDebugAPI {
          */
         validateAll() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.charts?.validateAll) {
               lcardsLog.warn('[DebugAPI] Chart validateAll not available');
               return null;
@@ -1171,7 +1171,7 @@ export class MsdDebugAPI {
          */
         getFormatSpec(chartType) {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.charts?.getFormatSpec) {
               lcardsLog.warn('[DebugAPI] Chart getFormatSpec not available');
               return null;
@@ -1196,7 +1196,7 @@ export class MsdDebugAPI {
          */
         listTypes() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.charts?.listTypes) {
               // Return known types as fallback
               return ['line', 'area', 'bar', 'scatter', 'heatmap', 'candlestick',
@@ -1231,7 +1231,7 @@ export class MsdDebugAPI {
          */
         trace() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.rules?.trace) {
               lcardsLog.warn('[DebugAPI] Rules trace not available');
               return null;
@@ -1293,7 +1293,7 @@ export class MsdDebugAPI {
         listActive(options = {}) {
           try {
             const { includeDisabled = false, verbose = false } = options;
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             const config = dbg?.pipelineInstance?.config;
             const rules = config?.rules || [];
 
@@ -1365,7 +1365,7 @@ export class MsdDebugAPI {
          */
         active() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             const animationManager = dbg?.pipelineInstance?.systemsManager?.animationManager;
 
             if (!animationManager) {
@@ -1396,7 +1396,7 @@ export class MsdDebugAPI {
          */
         dump() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             const animationManager = dbg?.pipelineInstance?.systemsManager?.animationManager;
 
             if (!animationManager) {
@@ -1425,7 +1425,7 @@ export class MsdDebugAPI {
          */
         registryStats() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             const registry = dbg?.pipelineInstance?.systemsManager?.animRegistry;
 
             if (!registry) {
@@ -1457,7 +1457,7 @@ export class MsdDebugAPI {
          */
         inspect(overlayId) {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             const animationManager = dbg?.pipelineInstance?.systemsManager?.animationManager;
 
             if (!animationManager) {
@@ -1485,7 +1485,7 @@ export class MsdDebugAPI {
          */
         timeline(timelineId) {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             const config = dbg?.pipelineInstance?.config;
             const timelines = config?.timelines || [];
             return timelines.find(tl => tl.id === timelineId) || null;
@@ -1510,7 +1510,7 @@ export class MsdDebugAPI {
          */
         trigger(overlayId, presetName, params = {}) {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             const animationManager = dbg?.pipelineInstance?.systemsManager?.animationManager;
 
             if (!animationManager) {
@@ -1572,7 +1572,7 @@ export class MsdDebugAPI {
          */
         list(type) {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.packs?.list) {
               lcardsLog.warn('[DebugAPI] Packs list not available');
               return type ? [] : {};
@@ -1599,7 +1599,7 @@ export class MsdDebugAPI {
          */
         get(type, id) {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.packs?.get) {
               lcardsLog.warn('[DebugAPI] Packs get not available');
               return null;
@@ -1625,7 +1625,7 @@ export class MsdDebugAPI {
          */
         issues() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.packs?.issues) {
               lcardsLog.warn('[DebugAPI] Packs issues not available');
               return null;
@@ -1691,7 +1691,7 @@ export class MsdDebugAPI {
          */
         enable(feature) {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.debug?.enable) {
               lcardsLog.warn('[DebugAPI] Visual debug not available');
               return false;
@@ -1723,7 +1723,7 @@ export class MsdDebugAPI {
          */
         disable(feature) {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.debug?.disable) {
               lcardsLog.warn('[DebugAPI] Visual debug not available');
               return false;
@@ -1784,7 +1784,7 @@ export class MsdDebugAPI {
          */
         status() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.debug?.getStatus) {
               lcardsLog.warn('[DebugAPI] Visual debug status not available');
               return null;
@@ -1835,7 +1835,7 @@ export class MsdDebugAPI {
          */
         refresh() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             if (!dbg?.debug?.refresh) {
               lcardsLog.warn('[DebugAPI] Visual debug refresh not available');
               return false;
@@ -1872,7 +1872,7 @@ export class MsdDebugAPI {
          */
         inspect(overlayId) {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             const pipelineInstance = dbg?.pipelineInstance;
             if (!pipelineInstance) {
               lcardsLog.warn('[DebugAPI] Pipeline instance not available');
@@ -1925,7 +1925,7 @@ export class MsdDebugAPI {
          */
         getBBox(overlayId) {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             const renderer = dbg?.pipelineInstance?.systemsManager?.renderer;
             const root = renderer?.mountEl;
 
@@ -1963,7 +1963,7 @@ export class MsdDebugAPI {
          */
         getTransform(overlayId) {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             const renderer = dbg?.pipelineInstance?.systemsManager?.renderer;
             const root = renderer?.mountEl;
 
@@ -2030,7 +2030,7 @@ export class MsdDebugAPI {
          */
         getState(overlayId) {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             const pipelineInstance = dbg?.pipelineInstance;
             const model = pipelineInstance?.getResolvedModel?.();
 
@@ -2062,7 +2062,7 @@ export class MsdDebugAPI {
          */
         findByType(type) {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             const model = dbg?.pipelineInstance?.getResolvedModel?.();
 
             if (!model) return [];
@@ -2094,7 +2094,7 @@ export class MsdDebugAPI {
          */
         findByEntity(entityId) {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             const model = dbg?.pipelineInstance?.getResolvedModel?.();
 
             if (!model) return [];
@@ -2127,7 +2127,7 @@ export class MsdDebugAPI {
          */
         tree() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             const model = dbg?.pipelineInstance?.getResolvedModel?.();
 
             if (!model) return [];
@@ -2163,7 +2163,7 @@ export class MsdDebugAPI {
          */
         list() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             const model = dbg?.pipelineInstance?.getResolvedModel?.();
 
             if (!model) return [];
@@ -2200,7 +2200,7 @@ export class MsdDebugAPI {
          */
         stages() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             const pipelineInstance = dbg?.pipelineInstance;
 
             if (!pipelineInstance) return [];
@@ -2238,7 +2238,7 @@ export class MsdDebugAPI {
          */
         timing() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             const config = dbg?.pipelineInstance?.config;
 
             if (!config?.__provenance) return null;
@@ -2279,7 +2279,7 @@ export class MsdDebugAPI {
          */
         config() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             return dbg?.pipelineInstance?.config || null;
           } catch (error) {
             lcardsLog.error('[DebugAPI] Error getting pipeline config:', error);
@@ -2302,7 +2302,7 @@ export class MsdDebugAPI {
          */
         errors() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             const config = dbg?.pipelineInstance?.config;
 
             // Check validation errors
@@ -2347,7 +2347,7 @@ export class MsdDebugAPI {
          */
         rerun() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             const pipelineInstance = dbg?.pipelineInstance;
 
             if (!pipelineInstance?.reRender) {
@@ -2376,7 +2376,7 @@ export class MsdDebugAPI {
          */
         getInstance() {
           try {
-            const dbg = window.__msdDebug;
+            const dbg = window.lcards.debug.msd;
             return dbg?.pipelineInstance || null;
           } catch (error) {
             lcardsLog.error('[DebugAPI] Error getting pipeline instance:', error);

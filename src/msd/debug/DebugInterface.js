@@ -16,23 +16,6 @@ export function setupDebugInterface(pipelineApi, mergedConfig, provenance, syste
   // Reference the existing namespace (do NOT reassign it)
   const dbg = window.lcards.debug.msd;
 
-  // ✅ PHASE 3: Add backward compatibility shim for window.__msdDebug
-  if (!window.__msdDebug) {
-    Object.defineProperty(window, '__msdDebug', {
-      get() {
-        console.warn('⚠️ [DebugInterface] window.__msdDebug is DEPRECATED.');
-        console.warn('   Use window.lcards.debug.msd instead.');
-        console.warn('   Migration guide: https://github.com/LCARdS/cb-lcars/blob/dev-animejs/doc/api/MIGRATION_GUIDE.md');
-        return window.lcards.debug.msd;
-      },
-      set(value) {
-        console.warn('⚠️ [DebugInterface] Setting window.__msdDebug is DEPRECATED. Use window.lcards.debug.msd instead.');
-        window.lcards.debug.msd = value;
-      },
-      configurable: true
-    });
-  }
-
   // Extract debug config from mergedConfig
   const debugConfig = mergedConfig?.debug || {};
 
@@ -140,32 +123,6 @@ function setupDataSourceDebugInterface(dbg, systemsManager) {
       lcardsLog.debug('[DebugInterface] Created dataSourcesDebug as alternative access due to getter conflict');
     }
   }
-
-  // ADDED: Legacy compatibility layer for any remaining entity access patterns
-  // This provides entity-like access through DataSourceManager
-  dbg.entities = {
-    list: () => {
-      lcardsLog.warn('[DebugInterface] ⚠️ entities.list() is deprecated. Use window.__msdDebug.dataSourceManager.listIds() instead.');
-      return systemsManager.dataSourceManager?.listIds() || [];
-    },
-    get: (id) => {
-      lcardsLog.warn('[DebugInterface] ⚠️ entities.get() is deprecated. Use window.__msdDebug.dataSourceManager.getEntity() instead.');
-      return systemsManager.dataSourceManager?.getEntity(id) || null;
-    },
-    stats: () => {
-      lcardsLog.warn('[DebugInterface] ⚠️ entities.stats() is deprecated. Use window.__msdDebug.dataSources.stats() instead.');
-      const dsStats = systemsManager.dataSourceManager?.getStats() || {};
-      const entityCount = systemsManager.dataSourceManager?.listIds()?.length || 0;
-
-      // Transform DataSourceManager stats to legacy format for compatibility
-      return {
-        count: entityCount,
-        subscribed: Object.keys(dsStats.sources || {}).length,
-        updated: Object.values(dsStats.sources || {}).reduce((sum, source) => sum + (source.received || 0), 0),
-        cacheHits: Object.values(dsStats.sources || {}).reduce((sum, source) => sum + (source.cacheHits || 0), 0)
-      };
-    }
-  };
 }
 
 function setupRenderingDebugInterface(dbg, systemsManager, modelBuilder, pipelineApi, debugConfig) {
@@ -185,7 +142,7 @@ function setupRenderingDebugInterface(dbg, systemsManager, modelBuilder, pipelin
       // FIXED: More aggressive re-render after enabling with proper timing
       setTimeout(() => {
         try {
-          const pipelineInstance = window.__msdDebug?.pipelineInstance;
+          const pipelineInstance = window.lcards.debug.msd?.pipelineInstance;
           if (pipelineInstance?.reRender) {
             lcardsLog.debug('[DebugInterface] Force re-render after enable:', feature);
             pipelineInstance.reRender();
@@ -206,7 +163,7 @@ function setupRenderingDebugInterface(dbg, systemsManager, modelBuilder, pipelin
       // FIXED: More aggressive re-render after disabling with proper timing
       setTimeout(() => {
         try {
-          const pipelineInstance = window.__msdDebug?.pipelineInstance;
+          const pipelineInstance = window.lcards.debug.msd?.pipelineInstance;
           if (pipelineInstance?.reRender) {
             lcardsLog.debug('[DebugInterface] Force re-render after disable:', feature);
             pipelineInstance.reRender();
@@ -225,7 +182,7 @@ function setupRenderingDebugInterface(dbg, systemsManager, modelBuilder, pipelin
         lcardsLog.debug('[DebugInterface] Current state:', debugState);
 
         // Get pipeline instance to access the shadowRoot context
-        const pipelineInstance = window.__msdDebug?.pipelineInstance;
+        const pipelineInstance = window.lcards.debug.msd?.pipelineInstance;
         if (!pipelineInstance) {
           lcardsLog.warn('[DebugInterface] No pipeline instance available');
           return;
@@ -281,7 +238,7 @@ function setupRenderingDebugInterface(dbg, systemsManager, modelBuilder, pipelin
     // Manual refresh triggers re-render
     refresh: () => {
       try {
-        const pipelineInstance = window.__msdDebug?.pipelineInstance;
+        const pipelineInstance = window.lcards.debug.msd?.pipelineInstance;
         if (pipelineInstance?.reRender) {
           pipelineInstance.reRender();
           lcardsLog.debug('[DebugInterface] Debug overlays refreshed');
@@ -304,7 +261,7 @@ function setupRenderingDebugInterface(dbg, systemsManager, modelBuilder, pipelin
       toggle: () => debugManager.toggle('bounding_boxes'),
       // ADDED: Test bounding box accuracy for specific overlay
       test: (overlayId) => {
-        const pipelineInstance = window.__msdDebug?.pipelineInstance;
+        const pipelineInstance = window.lcards.debug.msd?.pipelineInstance;
         if (!pipelineInstance) {
           lcardsLog.warn('[DebugInterface] No pipeline instance available');
           return null;
@@ -355,7 +312,7 @@ function setupRenderingDebugInterface(dbg, systemsManager, modelBuilder, pipelin
       },
       // ADDED: Compare bounding box calculation methods
       compare: (overlayId) => {
-        const pipelineInstance = window.__msdDebug?.pipelineInstance;
+        const pipelineInstance = window.lcards.debug.msd?.pipelineInstance;
         if (!pipelineInstance) {
           lcardsLog.warn('[DebugInterface] No pipeline instance available');
           return null;
@@ -718,7 +675,7 @@ function setupUtilityDebugInterface(dbg, mergedConfig, systemsManager) {
    * @returns {Object} Performance summary with stage breakdowns
    */
   dbg.getPerformanceSummary = function() {
-    const pipelineInstance = window.__msdDebug?.pipelineInstance;
+    const pipelineInstance = window.lcards.debug.msd?.pipelineInstance;
     if (!pipelineInstance) {
       console.warn('[MSD Debug] No pipeline instance available');
       return null;
@@ -759,7 +716,7 @@ function setupUtilityDebugInterface(dbg, mergedConfig, systemsManager) {
    * @returns {Array} Array of slowest overlay performance data
    */
   dbg.getSlowestOverlays = function(count = 5) {
-    const pipelineInstance = window.__msdDebug?.pipelineInstance;
+    const pipelineInstance = window.lcards.debug.msd?.pipelineInstance;
     if (!pipelineInstance) {
       console.warn('[MSD Debug] No pipeline instance available');
       return null;
@@ -787,7 +744,7 @@ function setupUtilityDebugInterface(dbg, mergedConfig, systemsManager) {
    * @returns {Object} Performance data grouped by type
    */
   dbg.getRendererPerformance = function() {
-    const pipelineInstance = window.__msdDebug?.pipelineInstance;
+    const pipelineInstance = window.lcards.debug.msd?.pipelineInstance;
     if (!pipelineInstance) {
       console.warn('[MSD Debug] No pipeline instance available');
       return null;
@@ -836,7 +793,7 @@ function setupUtilityDebugInterface(dbg, mergedConfig, systemsManager) {
    * @returns {Object|null} Performance data for the overlay
    */
   dbg.getOverlayPerformance = function(overlayId) {
-    const pipelineInstance = window.__msdDebug?.pipelineInstance;
+    const pipelineInstance = window.lcards.debug.msd?.pipelineInstance;
     if (!pipelineInstance) {
       console.warn('[MSD Debug] No pipeline instance available');
       return null;
@@ -869,7 +826,7 @@ function setupUtilityDebugInterface(dbg, mergedConfig, systemsManager) {
    * @returns {Object} Performance warnings with details
    */
   dbg.getPerformanceWarnings = function() {
-    const pipelineInstance = window.__msdDebug?.pipelineInstance;
+    const pipelineInstance = window.lcards.debug.msd?.pipelineInstance;
     if (!pipelineInstance) {
       console.warn('[MSD Debug] No pipeline instance available');
       return null;
@@ -912,7 +869,7 @@ function setupUtilityDebugInterface(dbg, mergedConfig, systemsManager) {
    * @returns {Object} Timeline of render stages
    */
   dbg.getRenderTimeline = function() {
-    const pipelineInstance = window.__msdDebug?.pipelineInstance;
+    const pipelineInstance = window.lcards.debug.msd?.pipelineInstance;
     if (!pipelineInstance) {
       console.warn('[MSD Debug] No pipeline instance available');
       return null;
@@ -982,7 +939,7 @@ function setupUtilityDebugInterface(dbg, mergedConfig, systemsManager) {
    * @returns {Object} Comparison of renderer performance
    */
   dbg.compareRendererPerformance = function() {
-    const pipelineInstance = window.__msdDebug?.pipelineInstance;
+    const pipelineInstance = window.lcards.debug.msd?.pipelineInstance;
     if (!pipelineInstance) {
       console.warn('[MSD Debug] No pipeline instance available');
       return null;
@@ -1029,23 +986,6 @@ function setupUtilityDebugInterface(dbg, mergedConfig, systemsManager) {
         return { errors: [], warnings: [] };
       }
     }
-  };
-
-  // ✅ DEPRECATED: Chart Data Validation Commands
-  // ApexChart overlay type is deprecated - use SimpleChart instead
-  const chartDeprecationWarning = () => {
-    console.warn('[Charts] ⚠️ DEPRECATED: ApexChart overlay type is deprecated.');
-    console.warn('[Charts] 💡 Use custom:lcards-simple-chart instead.');
-    console.warn('[Charts] 📖 See: https://docs.cb-lcars.com/simplecards/chart');
-    return null;
-  };
-
-  dbg.charts = {
-    validate: (overlayId) => chartDeprecationWarning(),
-    validateAll: () => chartDeprecationWarning(),
-    getFormatSpec: (chartType) => chartDeprecationWarning(),
-    listTypes: () => chartDeprecationWarning(),
-    checkCompatibility: (overlayId) => chartDeprecationWarning()
   };
 
   // Packs inspection

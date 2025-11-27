@@ -14,9 +14,6 @@ export class MsdControlsRenderer {
     this.lastRenderArgs = null;
     this._isRendering = false;
     this._lastSignature = null;
-    if (typeof window !== 'undefined') {
-      window._msdControlsRenderer = this;
-    }
 
     // DEBUGGING: Log when MsdControlsRenderer is created
     lcardsLog.debug('[MsdControlsRenderer] 🎮 Constructor called');
