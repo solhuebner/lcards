@@ -385,8 +385,7 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
                 'fireEvent',
                 'moreInfo',
                 'toggle',
-                'navigate',
-                'ActionHelpers'
+                'navigate'
             ];
 
             const isStackTriggered = controlPatterns.some(pattern => stackTrace.includes(pattern));
@@ -433,8 +432,7 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
         if (name === 'config' || name === '_config') {
             const stackTrace = new Error().stack;
             const isActionTriggered = stackTrace.includes('_handleAction') ||
-                                    stackTrace.includes('executeActionViaButtonCardBridge') ||
-                                    stackTrace.includes('ActionHelpers');
+                                    stackTrace.includes('executeActionViaButtonCardBridge');
 
             if (isActionTriggered) {
                 lcardsLog.trace('[LCARdSMSDCard] BLOCKED requestUpdate for action-triggered config change');
@@ -1278,3 +1276,52 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
 
 // NOTE: Card registration moved to src/lcards.js initializeCustomCard().then()
 // This ensures all core singletons are initialized before cards can be instantiated.
+
+// Register with CoreConfigManager (schema for validation)
+if (window.lcardsCore?.configManager) {
+    const configManager = window.lcardsCore.configManager;
+
+    // Register MSD card schema for validation
+    // Note: MSD has minimal card-level schema since most validation happens at overlay level
+    configManager.registerCardSchema('msd', {
+        type: 'object',
+        required: ['type'],
+        properties: {
+            type: {
+                type: 'string',
+                enum: ['custom:lcards-msd-card', 'custom:cb-lcars-card'],
+                description: 'Card type identifier'
+            },
+            base_svg: {
+                type: 'string',
+                description: 'Path to base SVG file'
+            },
+            overlays: {
+                type: 'array',
+                description: 'Array of overlay configurations (validated separately via CoreValidationService)'
+            },
+            anchors: {
+                type: 'object',
+                description: 'Named anchor points for overlay positioning'
+            },
+            routing: {
+                type: 'object',
+                description: 'Screen routing configuration'
+            },
+            rules: {
+                type: 'array',
+                description: 'Dynamic styling rules'
+            },
+            packs: {
+                type: 'array',
+                description: 'Configuration packs to merge'
+            },
+            debug: {
+                type: 'object',
+                description: 'Debug configuration'
+            }
+        }
+    });
+
+    lcardsLog.debug('[LCARdSMSDCard] Schema registered with CoreConfigManager');
+}

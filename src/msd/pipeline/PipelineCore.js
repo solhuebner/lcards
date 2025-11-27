@@ -936,11 +936,6 @@ function createPipelineApi(mergedConfig, cardModel, systemsManager, modelBuilder
       // Store in SystemsManager for broader access
       systemsManager.cardInstance = cardInstance;
       lcardsLog.debug('[PipelineCore] Card instance set via API for action system');
-
-      // Attach any pending ActionHelpers for animated overlays
-      if (systemsManager.animationManager) {
-        systemsManager.animationManager.attachPendingActionHelpers();
-      }
     }
   };
 

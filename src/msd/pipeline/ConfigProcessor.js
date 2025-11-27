@@ -1,66 +1,35 @@
-import { mergePacks } from '../../core/packs/mergePacks.js';
-import { validateMerged } from '../validation/validateMerged.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
-
-export { mergePacks, validateMerged };
 
 /**
  * Process and validate MSD config using CoreConfigManager
- * Falls back to direct mergePacks if ConfigManager unavailable
+ * Requires CoreConfigManager to be initialized (part of lcards-core.js startup)
  */
 export async function processAndValidateConfig(userMsdConfig) {
-  let mergedConfig;
-  let provenance;
-  let issues;
-
-  // Try to use CoreConfigManager (unified path)
   const core = window.lcardsCore || window.lcards?.core;
 
-  if (core?.configManager?.initialized) {
-    try {
-      lcardsLog.debug('[ConfigProcessor] Using CoreConfigManager for MSD processing');
-
-      const result = await core.configManager.processConfig(
-        userMsdConfig,
-        'msd',
-        { hass: window.hass }
-      );
-
-      mergedConfig = result.mergedConfig;
-      provenance = result.provenance;
-
-      // Convert CoreConfigManager result to MSD validation format
-      issues = {
-        errors: result.errors || [],
-        warnings: result.warnings || []
-      };
-
-      // Store result in mergedConfig for backward compatibility
-      mergedConfig.__issues = issues;
-
-    } catch (error) {
-      // FALLBACK: CoreConfigManager failed (network/load error) - use direct mergePacks
-      // This path should rarely execute - CoreConfigManager initialization is part of lcards-core.js startup
-      lcardsLog.warn('[ConfigProcessor] CoreConfigManager failed, falling back to mergePacks:', error);
-      mergedConfig = await mergePacks(userMsdConfig);
-      provenance = mergedConfig.__provenance;
-    }
-  } else {
-    // FALLBACK: CoreConfigManager not loaded yet (rare timing issue)
-    // This path should rarely execute - CoreConfigManager is loaded in lcards-core.js before MSD cards render
-    lcardsLog.warn('[ConfigProcessor] CoreConfigManager not available (timing issue), using mergePacks directly');
-    mergedConfig = await mergePacks(userMsdConfig);
-    provenance = mergedConfig.__provenance;
+  if (!core?.configManager?.initialized) {
+    throw new Error('[ConfigProcessor] CoreConfigManager not initialized - this is a fatal error');
   }
 
-  // If issues not set (legacy path), run validation
-  if (!issues) {
-    const t0 = performance.now();
-    issues = validateMerged(mergedConfig);
-    mergedConfig.__issues = issues;
-    const t1 = performance.now();
-    try { window.lcards.debug.msd && (window.lcards.debug.msd._validationMs = (t1 - t0)); } catch {}
-  }
+  lcardsLog.debug('[ConfigProcessor] Using CoreConfigManager for MSD processing');
+
+  const result = await core.configManager.processConfig(
+    userMsdConfig,
+    'msd',
+    { hass: window.hass }
+  );
+
+  const mergedConfig = result.mergedConfig;
+  const provenance = result.provenance;
+
+  // Convert CoreConfigManager result to MSD validation format
+  const issues = {
+    errors: result.errors || [],
+    warnings: result.warnings || []
+  };
+
+  // Store result in mergedConfig for backward compatibility
+  mergedConfig.__issues = issues;
 
   // Store original user config in debug namespace
   if (typeof window !== 'undefined') {
@@ -107,67 +76,38 @@ export async function processAndValidateConfig(userMsdConfig) {
 
 /**
  * Alternative MSD config processor (used by some parts of the system)
- * Uses CoreConfigManager when available, falls back to direct processing
+ * Uses CoreConfigManager exclusively
  */
 export async function processMsdConfig(userMsdConfig) {
-  try {
-    // Try unified path via CoreConfigManager
-    const core = window.lcardsCore || window.lcards?.core;
+  const core = window.lcardsCore || window.lcards?.core;
 
-    if (core?.configManager?.initialized) {
-      lcardsLog.debug('[ConfigProcessor] processMsdConfig using CoreConfigManager');
-
-      const result = await core.configManager.processConfig(
-        userMsdConfig,
-        'msd',
-        { hass: window.hass }
-      );
-
-      const issues = {
-        errors: result.errors || [],
-        warnings: result.warnings || []
-      };
-
-      if (issues.errors.length > 0) {
-        lcardsLog.error('MSD validation errors:', issues.errors);
-      }
-
-      if (issues.warnings.length > 0) {
-        lcardsLog.warn('MSD validation warnings:', issues.warnings);
-      }
-
-      return {
-        config: result.mergedConfig,
-        validation: issues
-      };
-    }
-
-    // Fallback: Legacy path
-    lcardsLog.debug('[ConfigProcessor] processMsdConfig using legacy path');
-    const preValidation = validateMerged(userMsdConfig);
-    const mergedConfig = await mergePacks(userMsdConfig);
-    const postValidation = validateMerged(mergedConfig);
-
-    const issues = {
-      errors: [...preValidation.errors, ...postValidation.errors],
-      warnings: [...preValidation.warnings, ...postValidation.warnings]
-    };
-
-    if (issues.errors.length > 0) {
-      lcardsLog.error('MSD validation errors:', issues.errors);
-    }
-
-    if (issues.warnings.length > 0) {
-      lcardsLog.warn('MSD validation warnings:', issues.warnings);
-    }
-
-    return {
-      config: mergedConfig,
-      validation: issues
-    };
-
-  } catch (error) {
-    lcardsLog.error('MSD processing failed:', error);
-    throw error;
+  if (!core?.configManager?.initialized) {
+    throw new Error('[ConfigProcessor] CoreConfigManager not initialized - this is a fatal error');
   }
+
+  lcardsLog.debug('[ConfigProcessor] processMsdConfig using CoreConfigManager');
+
+  const result = await core.configManager.processConfig(
+    userMsdConfig,
+    'msd',
+    { hass: window.hass }
+  );
+
+  const issues = {
+    errors: result.errors || [],
+    warnings: result.warnings || []
+  };
+
+  if (issues.errors.length > 0) {
+    lcardsLog.error('MSD validation errors:', issues.errors);
+  }
+
+  if (issues.warnings.length > 0) {
+    lcardsLog.warn('MSD validation warnings:', issues.warnings);
+  }
+
+  return {
+    config: result.mergedConfig,
+    validation: issues
+  };
 }

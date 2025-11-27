@@ -18,7 +18,6 @@
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import { AnimationRegistry } from './AnimationRegistry.js';
 import { TriggerManager } from './TriggerManager.js';
-import { ActionHelpers } from '../../msd/renderer/ActionHelpers.js';
 import { BaseService } from '../BaseService.js';
 
 export class AnimationManager extends BaseService {
@@ -38,9 +37,6 @@ export class AnimationManager extends BaseService {
 
     // Datasource subscriptions
     this.datasourceSubscriptions = new Map(); // datasource_id -> cleanup function
-
-    // Deferred ActionHelpers attachment (for overlays with interactive triggers)
-    this.pendingActionHelpers = new Map(); // overlayId -> { element, overlayConfig, actionConfig }
 
     // DOM root element (for reliable queries when elements become disconnected)
     this.mountEl = null;
@@ -166,24 +162,6 @@ export class AnimationManager extends BaseService {
       }
 
       lcardsLog.debug(`[AnimationManager] ✅ Initialized ${animations.length} animations for overlay: ${overlayId}`);
-
-      // Check if this overlay needs ActionHelpers integration for interactive triggers
-      const needsActionHelpers = this.overlayNeedsActionHelpers(animations, overlayConfig);
-
-      if (needsActionHelpers) {
-        const cardInstance = this.systemsManager?.cardInstance;
-
-        if (cardInstance) {
-          // Card instance available - attach immediately
-          this.attachActionHelpersForOverlay(overlayId, element, overlayConfig);
-        } else {
-          // Card instance not yet set - defer attachment
-          // Store overlayId and config, NOT the element (element reference may become stale)
-          const actionConfig = this.buildActionConfigForOverlay(overlayConfig);
-          this.pendingActionHelpers.set(overlayId, { overlayId, overlayConfig, actionConfig });
-          lcardsLog.debug(`[AnimationManager] 📌 Deferred ActionHelpers attachment for ${overlayId} (waiting for cardInstance)`);
-        }
-      }
 
     } catch (error) {
       lcardsLog.error(`[AnimationManager] Failed to initialize animations for ${overlayId}:`, error);
@@ -469,150 +447,6 @@ export class AnimationManager extends BaseService {
       lcardsLog.debug(`[AnimationManager] ⏸️ Stopped ${stopped} animation(s) via scope.children (fallback)`);
     }
   }  /**
-   * Check if overlay needs ActionHelpers integration for interactive triggers
-   *
-   * @param {Array} animations - Array of animation definitions
-   * @param {Object} overlayConfig - Overlay configuration
-   * @returns {boolean} True if ActionHelpers should be attached
-   */
-  overlayNeedsActionHelpers(animations, overlayConfig) {
-    // Check if any animation uses interactive triggers
-    // Include on_leave since it needs mouseleave handler
-    const interactiveTriggers = ['on_tap', 'on_hold', 'on_hover', 'on_leave', 'on_double_tap'];
-    const hasInteractiveTrigger = animations.some(anim =>
-      interactiveTriggers.includes(anim.trigger)
-    );
-
-    // If overlay has interactive animation triggers, AnimationManager should handle attachment
-    // Even if overlay has actions defined, we still need to ensure animationManager is passed
-    // AdvancedRenderer will also attach ActionHelpers if actions exist, but it will now pass animationManager too
-    return hasInteractiveTrigger;
-  }
-
-  /**
-   * Build action config for ActionHelpers from overlay configuration
-   *
-   * @param {Object} overlayConfig - Overlay configuration
-   * @returns {Object|null} Action config object or null if no actions
-   */
-  buildActionConfigForOverlay(overlayConfig) {
-    // For animation-only overlays, create minimal action config
-    // ActionHelpers needs this structure to attach event listeners
-    return {
-      simple: {
-        tap_action: overlayConfig.tap_action || { action: 'none' },
-        hold_action: overlayConfig.hold_action || { action: 'none' },
-        double_tap_action: overlayConfig.double_tap_action || { action: 'none' }
-      }
-    };
-  }
-
-  /**
-   * Attach ActionHelpers for a specific overlay
-   *
-   * @param {string} overlayId - Overlay identifier
-   * @param {Element} element - DOM element
-   * @param {Object} overlayConfig - Overlay configuration
-   */
-  attachActionHelpersForOverlay(overlayId, element, overlayConfig) {
-    const cardInstance = this.systemsManager?.cardInstance;
-
-    if (!cardInstance) {
-      lcardsLog.warn(`[AnimationManager] Cannot attach ActionHelpers for ${overlayId} - no cardInstance`);
-      return;
-    }
-
-    // Check if actions are already attached (by AdvancedRenderer)
-    if (element.hasAttribute('data-actions-attached')) {
-      lcardsLog.debug(`[AnimationManager] ⏭️ ActionHelpers already attached for ${overlayId} (skipping duplicate)`);
-      return;
-    }
-
-    const actionConfig = this.buildActionConfigForOverlay(overlayConfig);
-
-    if (actionConfig) {
-      lcardsLog.debug(`[AnimationManager] 🔗 Attaching ActionHelpers for animated overlay: ${overlayId}`);
-
-      // Attach actions with animationManager passed through options
-      ActionHelpers.attachActions(
-        element,
-        overlayConfig,
-        actionConfig,
-        cardInstance,
-        { animationManager: this }
-      );
-
-      lcardsLog.debug(`[AnimationManager] ✅ ActionHelpers attached for ${overlayId}`);
-    }
-  }
-
-  /**
-   * Attach ActionHelpers for all pending overlays (called when cardInstance becomes available)
-   * This is typically called from setCardInstance() in the pipeline API
-   */
-  attachPendingActionHelpers() {
-    if (this.pendingActionHelpers.size === 0) {
-      return;
-    }
-
-    const cardInstance = this.systemsManager?.cardInstance;
-
-    if (!cardInstance) {
-      lcardsLog.warn(`[AnimationManager] Cannot attach pending ActionHelpers - no cardInstance available`);
-      return;
-    }
-
-    lcardsLog.debug(`[AnimationManager] 🔄 Attaching ${this.pendingActionHelpers.size} pending ActionHelpers...`);
-
-    let attachedCount = 0;
-    this.pendingActionHelpers.forEach(({ overlayId, overlayConfig, actionConfig }) => {
-      try {
-        // Look up the element fresh from the DOM (element reference may have become stale)
-        const scopeData = this.scopes.get(overlayId);
-        if (!scopeData) {
-          lcardsLog.warn(`[AnimationManager] Cannot attach ActionHelpers for ${overlayId} - scope not found`);
-          return;
-        }
-
-        // Try to get element from scope first
-        let element = scopeData.element;
-
-        // Verify the element is still in the DOM
-        if (!element || !element.isConnected) {
-          // Use stored mountEl for reliable queries
-          if (this.mountEl) {
-            element = this.mountEl.querySelector(`[data-overlay-id="${overlayId}"]`);
-          } else {
-            // Fallback to element.getRootNode() if mountEl not available
-            const root = element?.getRootNode() || document;
-            element = root.querySelector(`[data-overlay-id="${overlayId}"]`);
-          }
-        }
-
-        if (!element) {
-          lcardsLog.warn(`[AnimationManager] Cannot attach ActionHelpers for ${overlayId} - element not found in DOM`);
-          return;
-        }        ActionHelpers.attachActions(
-          element,
-          overlayConfig,
-          actionConfig,
-          cardInstance,
-          { animationManager: this }
-        );
-
-        attachedCount++;
-      } catch (error) {
-        lcardsLog.error(`[AnimationManager] Failed to attach ActionHelpers for ${overlayId}:`, error);
-      }
-    });
-
-    // Clear pending queue
-    this.pendingActionHelpers.clear();
-
-    lcardsLog.debug(`[AnimationManager] ✅ Attached ${attachedCount} pending ActionHelpers`);
-  }
-
-  /**
    * Resolve animation definition from preset or custom preset
    *
    * @param {Object} animDef - Raw animation definition

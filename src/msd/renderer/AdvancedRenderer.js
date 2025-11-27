@@ -10,7 +10,6 @@ import { AttachmentPointManager } from './AttachmentPointManager.js';
 
 import { MsdControlsRenderer } from '../controls/MsdControlsRenderer.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
-import { ActionHelpers } from './ActionHelpers.js';
 import { TemplateProcessor } from '../utils/TemplateProcessor.js';
 
 // Phase 3: Instance-based overlay architecture (COMPLETE)
@@ -119,9 +118,6 @@ export class AdvancedRenderer {
     let svgMarkupAccum = '';
     let processedCount = 0;
 
-    // CHANGED: Separate action queues for each phase
-    const phase1ActionQueue = [];
-
     overlays.filter(o => earlyTypes.has(o.type)).forEach(ov => {
       try {
         // ✅ NEW: Track per-overlay timing (Phase 5.3)
@@ -142,16 +138,8 @@ export class AdvancedRenderer {
           // Backward compatibility - old renderers return strings
           svgMarkupAccum += result;
         } else if (result && result.markup) {
-          // New structure - extract markup and action info
-          svgMarkupAccum += result.markup;
-
-          if (result.actionInfo) {
-            lcardsLog.debug(`[AdvancedRenderer] 📝 Queuing Phase 1 action for ${result.overlayId}`);
-            phase1ActionQueue.push({
-              overlayId: result.overlayId,
-              actionInfo: result.actionInfo
-            });
-          }
+          // New structure - extract markup
+          svgMarkupAccum += result;
 
           // ✅ NEW: Collect provenance if available (Phase 5.3)
           if (result.provenance) {
@@ -200,46 +188,8 @@ export class AdvancedRenderer {
       }
     });
 
-    lcardsLog.trace(`[AdvancedRenderer] 📋 Phase 1 action queue:`, {
-      queueSize: phase1ActionQueue.length,
-      overlayIds: phase1ActionQueue.map(a => a.overlayId)
-    });
-
     // Inject Phase 1 DOM
     overlayGroup.innerHTML = svgMarkupAccum;
-
-    // ADDED: Attach Phase 1 actions immediately after Phase 1 DOM injection
-    lcardsLog.trace(`[AdvancedRenderer] 🎯 Attaching Phase 1 actions`);
-
-    phase1ActionQueue.forEach(({ overlayId, actionInfo }) => {
-      const element = this.mountEl.querySelector(`[data-overlay-id="${overlayId}"]`);
-
-      lcardsLog.debug(`[AdvancedRenderer] 🔍 Looking for Phase 1 element ${overlayId}:`, {
-        found: !!element,
-        alreadyAttached: element?.hasAttribute('data-actions-attached')
-      });
-
-      if (element) {
-        try {
-          // Get animationManager from systemsManager to support animation triggers
-          const animationManager = this.systemsManager?.animationManager;
-
-          ActionHelpers.attachActions(
-            element,
-            actionInfo.overlay,
-            actionInfo.config,
-            actionInfo.cardInstance,
-            { animationManager }
-          );
-          element.setAttribute('data-actions-attached', 'true');
-          lcardsLog.debug(`[AdvancedRenderer] ✅ Attached Phase 1 actions to ${overlayId}`);
-        } catch (error) {
-          lcardsLog.error(`[AdvancedRenderer] ❌ Failed to attach Phase 1 actions to ${overlayId}:`, error);
-        }
-      } else {
-        lcardsLog.warn(`[AdvancedRenderer] ⚠️ Phase 1 element not found for overlay ${overlayId}`);
-      }
-    });
 
     this._cacheElementsFrom(overlayGroup);
 
@@ -255,9 +205,6 @@ export class AdvancedRenderer {
     // This OVERWRITES the base anchors from _buildVirtualAnchorsFromAllOverlays with gap-applied versions
     this.attachmentManager.setAnchorsFromObject(anchors);
     this._buildDynamicOverlayAnchors(overlays);
-
-    // ADDED: Separate action queue for Phase 2
-    const phase2ActionQueue = [];
 
     // Phase 2a: render non-line overlays (cards, etc.) that lines may attach to
     overlays.filter(o => !earlyTypes.has(o.type) && o.type !== 'line').forEach(ov => {
@@ -281,16 +228,6 @@ export class AdvancedRenderer {
           markup = result;
         } else if (result && result.markup) {
           markup = result.markup;
-
-          if (result.actionInfo) {
-            lcardsLog.debug(`[AdvancedRenderer] 📝 Queuing Phase 2a action for ${result.overlayId}`);
-            phase2ActionQueue.push({
-              overlayId: result.overlayId,
-              actionInfo: result.actionInfo,
-              overlay: ov,
-              cardInstance: this.systemsManager ? this._resolveCardInstance() : null
-            });
-          }
 
           // NEW: Store renderer provenance
           if (result.provenance) {
@@ -373,17 +310,6 @@ export class AdvancedRenderer {
           markup = result;
         } else if (result && result.markup) {
           markup = result.markup;
-
-          // CHANGED: Collect Phase 2 actions in separate queue
-          if (result.actionInfo) {
-            lcardsLog.debug(`[AdvancedRenderer] 📝 Queuing Phase 2b action for ${result.overlayId}`);
-            phase2ActionQueue.push({
-              overlayId: result.overlayId,
-              actionInfo: result.actionInfo,
-              overlay: ov,
-              cardInstance: this.systemsManager ? this._resolveCardInstance() : null
-            });
-          }
 
           // ✅ NEW: Collect provenance if available (Phase 5.3)
           if (result.provenance) {
@@ -468,80 +394,6 @@ export class AdvancedRenderer {
 
     // ✅ NEW: Stage 3 - DOM Injection (Phase 5.3)
     const domStart = performance.now();
-
-    // ADDED: Attach Phase 2 actions AFTER Phase 2 DOM injection
-    lcardsLog.debug(`[AdvancedRenderer] 🎯 Attaching ${phase2ActionQueue.length} Phase 2 actions`);
-
-    phase2ActionQueue.forEach(({ overlayId, actionInfo, overlay, cardInstance }) => {
-      const element = this.mountEl.querySelector(`[data-overlay-id="${overlayId}"]`);
-
-      lcardsLog.debug(`[AdvancedRenderer] 🔍 Looking for Phase 2 element ${overlayId}:`, {
-        found: !!element,
-        alreadyAttached: element?.hasAttribute('data-actions-attached'),
-        hasActionInfo: !!actionInfo,
-        isEnhanced: !!actionInfo?.config?.enhanced
-      });
-
-      if (element && !element.hasAttribute('data-actions-attached')) {
-        try {
-          // Get animationManager from systemsManager to support animation triggers
-          const animationManager = this.systemsManager?.animationManager;
-
-          // CHANGED: Handle different action config types
-          if (actionInfo.config.simple) {
-            // Simple overlay-level actions
-            ActionHelpers.attachActions(
-              element,
-              overlay,
-              actionInfo.config,
-              cardInstance,
-              { animationManager }
-            );
-          } else if (actionInfo.config.enhanced) {
-            // Enhanced cell-level actions (status grids)
-            lcardsLog.debug(`[AdvancedRenderer] 🔲 Attaching enhanced cell actions for ${overlayId}`);
-
-            // Attach cell-specific actions using ActionHelpers
-            if (actionInfo.cells && actionInfo.cells.length > 0) {
-              ActionHelpers.attachCellActionsFromConfigs(
-                element,
-                actionInfo.cells,
-                cardInstance
-              );
-            }
-
-            // Attach overlay-level fallback actions if present
-            if (actionInfo.config.enhanced.default_tap ||
-                actionInfo.config.enhanced.default_hold ||
-                actionInfo.config.enhanced.default_double_tap) {
-
-              const fallbackConfig = {
-                simple: {
-                  tap_action: actionInfo.config.enhanced.default_tap,
-                  hold_action: actionInfo.config.enhanced.default_hold,
-                  double_tap_action: actionInfo.config.enhanced.default_double_tap
-                }
-              };
-
-              ActionHelpers.attachActions(
-                element,
-                overlay,
-                fallbackConfig,
-                cardInstance,
-                { animationManager }
-              );
-            }
-          }
-
-          element.setAttribute('data-actions-attached', 'true');
-          lcardsLog.debug(`[AdvancedRenderer] ✅ Attached Phase 2 actions to ${overlayId}`);
-        } catch (error) {
-          lcardsLog.error(`[AdvancedRenderer] ❌ Failed to attach Phase 2 actions to ${overlayId}:`, error);
-        }
-      } else if (!element) {
-        lcardsLog.warn(`[AdvancedRenderer] ⚠️ Phase 2 element not found for overlay ${overlayId}`);
-      }
-    });
 
     this._performance.stages.domInjection = performance.now() - domStart;
 

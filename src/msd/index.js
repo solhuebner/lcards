@@ -1,16 +1,13 @@
 import { initMsdPipeline } from './pipeline/PipelineCore.js';
 import { processMsdConfig } from './pipeline/ConfigProcessor.js';
-import { mergePacks, validateMerged } from './pipeline/ConfigProcessor.js';
 import { buildCardModel } from './model/CardModel.js';
 import { MsdInstanceManager } from './pipeline/MsdInstanceManager.js';
+import { mergePacks } from '../core/packs/mergePacks.js';
 
 import "./hud/hudService.js";
 
 // Main exports
 export { initMsdPipeline, processMsdConfig };
-
-// Utility exports
-export { mergePacks, validateMerged };
 
 // Debug exposure - IMMEDIATE execution at module load time
 (function attachDebug() {
