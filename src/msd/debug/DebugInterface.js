@@ -4,110 +4,6 @@ import { lcardsLog } from '../../utils/lcards-logging.js';
 // ✅ CONSOLIDATED: ChartDataValidator removed (chart overlay deprecated, use SimpleChart instead)
 // Chart validation debugging functions will log deprecation warnings
 
-/**
- * ✅ PHASE 4: Setup deprecation warnings for legacy methods
- * Wraps legacy methods with deprecation warnings that guide users to new API.
- * Non-breaking: Old methods still work, but log helpful migration messages.
- *
- * @param {Object} dbg - Debug interface object (window.lcards.debug.msd)
- */
-function setupDeprecationWarnings(dbg) {
-  // Store original implementations before wrapping
-  const originalMethods = {
-    getPerf: dbg.getPerf,
-    getPerformanceSummary: dbg.getPerformanceSummary,
-    getSlowestOverlays: dbg.getSlowestOverlays,
-    getRendererPerformance: dbg.getRendererPerformance,
-    getOverlayPerformance: dbg.getOverlayPerformance,
-    getPerformanceWarnings: dbg.getPerformanceWarnings,
-    getRenderTimeline: dbg.getRenderTimeline,
-    compareRendererPerformance: dbg.compareRendererPerformance,
-    getStyleResolutions: dbg.getStyleResolutions,
-    findOverlaysByToken: dbg.findOverlaysByToken,
-    getGlobalStyleSummary: dbg.getGlobalStyleSummary
-  };
-
-  // Wrap getPerf -> perf.summary()
-  dbg.getPerf = function() {
-    lcardsLog.warn('[DebugInterface] ⚠️ getPerf() is DEPRECATED. Use window.lcards.debug.msd.perf.summary() instead.');
-    lcardsLog.info('[DebugInterface] Migration: window.lcards.debug.msd.perf.summary()');
-    return dbg.perf?.summary?.() || originalMethods.getPerf?.();
-  };
-
-  // Wrap getPerformanceSummary -> perf.summary()
-  dbg.getPerformanceSummary = function() {
-    lcardsLog.warn('[DebugInterface] ⚠️ getPerformanceSummary() is DEPRECATED. Use window.lcards.debug.msd.perf.summary() instead.');
-    lcardsLog.info('[DebugInterface] Migration: window.lcards.debug.msd.perf.summary()');
-    return dbg.perf?.summary?.() || originalMethods.getPerformanceSummary?.();
-  };
-
-  // Wrap getSlowestOverlays -> perf.slowestOverlays()
-  dbg.getSlowestOverlays = function(count = 5) {
-    lcardsLog.warn('[DebugInterface] ⚠️ getSlowestOverlays() is DEPRECATED. Use window.lcards.debug.msd.perf.slowestOverlays() instead.');
-    lcardsLog.info('[DebugInterface] Migration: window.lcards.debug.msd.perf.slowestOverlays(' + count + ')');
-    return dbg.perf?.slowestOverlays?.(count) || originalMethods.getSlowestOverlays?.(count);
-  };
-
-  // Wrap getRendererPerformance -> perf.byRenderer()
-  dbg.getRendererPerformance = function() {
-    lcardsLog.warn('[DebugInterface] ⚠️ getRendererPerformance() is DEPRECATED. Use window.lcards.debug.msd.perf.byRenderer() instead.');
-    lcardsLog.info('[DebugInterface] Migration: window.lcards.debug.msd.perf.byRenderer()');
-    return dbg.perf?.byRenderer?.() || originalMethods.getRendererPerformance?.();
-  };
-
-  // Wrap getOverlayPerformance -> perf.byOverlay()
-  dbg.getOverlayPerformance = function(overlayId) {
-    lcardsLog.warn('[DebugInterface] ⚠️ getOverlayPerformance() is DEPRECATED. Use window.lcards.debug.msd.perf.byOverlay() instead.');
-    lcardsLog.info('[DebugInterface] Migration: window.lcards.debug.msd.perf.byOverlay("' + overlayId + '")');
-    return dbg.perf?.byOverlay?.(overlayId) || originalMethods.getOverlayPerformance?.(overlayId);
-  };
-
-  // Wrap getPerformanceWarnings -> perf.warnings()
-  dbg.getPerformanceWarnings = function() {
-    lcardsLog.warn('[DebugInterface] ⚠️ getPerformanceWarnings() is DEPRECATED. Use window.lcards.debug.msd.perf.warnings() instead.');
-    lcardsLog.info('[DebugInterface] Migration: window.lcards.debug.msd.perf.warnings()');
-    return dbg.perf?.warnings?.() || originalMethods.getPerformanceWarnings?.();
-  };
-
-  // Wrap getRenderTimeline -> perf.timeline()
-  dbg.getRenderTimeline = function() {
-    lcardsLog.warn('[DebugInterface] ⚠️ getRenderTimeline() is DEPRECATED. Use window.lcards.debug.msd.perf.timeline() instead.');
-    lcardsLog.info('[DebugInterface] Migration: window.lcards.debug.msd.perf.timeline()');
-    return dbg.perf?.timeline?.() || originalMethods.getRenderTimeline?.();
-  };
-
-  // Wrap compareRendererPerformance -> perf.compare()
-  dbg.compareRendererPerformance = function() {
-    lcardsLog.warn('[DebugInterface] ⚠️ compareRendererPerformance() is DEPRECATED. Use window.lcards.debug.msd.perf.compare() instead.');
-    lcardsLog.info('[DebugInterface] Migration: window.lcards.debug.msd.perf.compare()');
-    lcardsLog.info('[DebugInterface] Note: perf.compare() returns NOT_IMPLEMENTED - planned for Phase 5');
-    return dbg.perf?.compare?.() || originalMethods.compareRendererPerformance?.();
-  };
-
-  // Wrap getStyleResolutions -> styles.resolutions()
-  dbg.getStyleResolutions = function(overlayId) {
-    lcardsLog.warn('[DebugInterface] ⚠️ getStyleResolutions() is DEPRECATED. Use window.lcards.debug.msd.styles.resolutions() instead.');
-    lcardsLog.info('[DebugInterface] Migration: window.lcards.debug.msd.styles.resolutions("' + overlayId + '")');
-    return dbg.styles?.resolutions?.(overlayId) || originalMethods.getStyleResolutions?.(overlayId);
-  };
-
-  // Wrap findOverlaysByToken -> styles.findByToken()
-  dbg.findOverlaysByToken = function(tokenPath) {
-    lcardsLog.warn('[DebugInterface] ⚠️ findOverlaysByToken() is DEPRECATED. Use window.lcards.debug.msd.styles.findByToken() instead.');
-    lcardsLog.info('[DebugInterface] Migration: window.lcards.debug.msd.styles.findByToken("' + tokenPath + '")');
-    return dbg.styles?.findByToken?.(tokenPath) || originalMethods.findOverlaysByToken?.(tokenPath);
-  };
-
-  // Wrap getGlobalStyleSummary -> styles.provenance()
-  dbg.getGlobalStyleSummary = function() {
-    lcardsLog.warn('[DebugInterface] ⚠️ getGlobalStyleSummary() is DEPRECATED. Use window.lcards.debug.msd.styles.provenance() instead.');
-    lcardsLog.info('[DebugInterface] Migration: window.lcards.debug.msd.styles.provenance()');
-    return dbg.styles?.provenance?.() || originalMethods.getGlobalStyleSummary?.();
-  };
-
-  lcardsLog.debug('[DebugInterface] ✅ Phase 4 deprecation warnings installed (11 legacy methods wrapped)');
-}
-
 export function setupDebugInterface(pipelineApi, mergedConfig, provenance, systemsManager, modelBuilder) {
   if (typeof window === 'undefined') return;
 
@@ -170,9 +66,6 @@ export function setupDebugInterface(pipelineApi, mergedConfig, provenance, syste
 
   // Performance and validation
   setupUtilityDebugInterface(dbg, mergedConfig, systemsManager);
-
-  // ✅ PHASE 4: Add deprecation warnings for legacy duplicate methods
-  setupDeprecationWarnings(dbg);
 
  // lcardsLog.debug('[DebugInterface] Debug interface setup complete');
  // lcardsLog.debug('[DebugInterface] Available methods:', Object.keys(dbg));

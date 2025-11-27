@@ -1080,9 +1080,7 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
                 lcardsLog.debug('[LCARdSMSDCard] Generated instance GUID:', this._msdInstanceGuid);
             }
 
-            // Set global card instance references
-            window.cb_lcars_card_instance = this;
-            window._currentCardInstance = this;
+            // Set global card instance reference for debug HUD
             if (window.lcards.debug.msd) {
                 window.lcards.debug.msd.cardInstance = this;
             }

@@ -704,8 +704,8 @@ export class ActionHelpers {
     }
 
     // Method 3: From LCARdS global context
-    if (window.cb_lcars_card_instance) {
-      return window.cb_lcars_card_instance;
+    if (window.lcards.debug.msd?.cardInstance) {
+      return window.lcards.debug.msd.cardInstance;
     }
 
     lcardsLog.debug(`[ActionHelpers] Could not resolve card instance from global context`);

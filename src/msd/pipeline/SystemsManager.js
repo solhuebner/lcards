@@ -316,18 +316,11 @@ export class SystemsManager extends BaseService {
                 });
               }
             }
-
-            return {
-              id: overlay.id,
-              type: overlay.type,
-              reason: 'Rule-based update',
-              overlay,
-              patch
-            };
           });
 
-          // Trigger selective re-render for all patched overlays
-          this._scheduleSelectiveReRender(overlaysToReRender);
+          // Trigger full re-render when rules update overlays
+          // (Cards self-update via Lit lifecycle; lines are cheap to redraw entirely)
+          this._scheduleFullReRender();
         }
 
         // ✅ NEW: Apply base_svg filter updates from rules
@@ -442,16 +435,12 @@ export class SystemsManager extends BaseService {
   //
   // Reason for removal: Multiple HASS copies caused state synchronization issues
   // ============================================================================
-
-  /**
-   * Render the MSD display
-   */
-  render() {
-    // Rendering is handled automatically via pipeline
-    // This method exists for API compatibility
-  }
-
   _instrumentRulesEngine(mergedConfig) {
+    // Skip performance instrumentation unless explicitly enabled
+    if (!mergedConfig?.debug?.performance) {
+      return;
+    }
+
     try {
       const depIndex = new Map();
       (mergedConfig.rules||[]).forEach(r=>{
@@ -584,15 +573,14 @@ export class SystemsManager extends BaseService {
           });
 
           if (ruleResults.overlayPatches && ruleResults.overlayPatches.length > 0) {
-            lcardsLog.debug(`[SystemsManager] 🎨 Rules produced ${ruleResults.overlayPatches.length} patch(es) - triggering selective re-render`);
+            lcardsLog.debug(`[SystemsManager] 🎨 Rules produced ${ruleResults.overlayPatches.length} patch(es) - applying to model and triggering re-render`);
 
-            // Build failed overlay list for selective re-render
-            // Process animations and style merging before re-rendering
-            const overlaysToReRender = ruleResults.overlayPatches.map(patch => {
+            // Apply patches to overlays in the model
+            ruleResults.overlayPatches.forEach(patch => {
               const overlay = this._findOverlayById(patch.id);
               if (!overlay) {
                 lcardsLog.warn(`[SystemsManager] ⚠️ Overlay not found: ${patch.id}`);
-                return { id: patch.id, reason: 'Overlay config not found', patch };
+                return;
               }
 
               // Merge patch style into finalStyle
@@ -612,18 +600,11 @@ export class SystemsManager extends BaseService {
                   });
                 }
               }
-
-              return {
-                id: overlay.id,
-                type: overlay.type,
-                reason: 'Rule-based update',
-                overlay,
-                patch
-              };
             });
 
-            // Trigger selective re-render for all patched overlays
-            this._scheduleSelectiveReRender(overlaysToReRender);
+            // Trigger full re-render when rules update overlays
+            // (Cards self-update via Lit lifecycle; lines are cheap to redraw entirely)
+            this._scheduleFullReRender();
           } else {
             lcardsLog.debug('[SystemsManager] ℹ️ No rule patches needed');
           }
@@ -1192,91 +1173,6 @@ export class SystemsManager extends BaseService {
         });
       }
       this._renderTimeout = null;
-    }, 100);
-  }
-
-  /**
-   * Schedule a selective re-render for only specific overlays that failed incremental update
-   * @private
-   * @param {Array} failedOverlays - Array of overlay info objects with {id, type, overlay, patch}
-   */
-  _scheduleSelectiveReRender(failedOverlays) {
-    lcardsLog.debug(`[SystemsManager] 📅 SCHEDULED selective re-render for ${failedOverlays.length} overlay(s) (100ms delay)`);
-
-    if (this._selectiveRenderTimeout) {
-      lcardsLog.debug('[SystemsManager] ⏰ Clearing existing selective render timeout');
-      clearTimeout(this._selectiveRenderTimeout);
-    }
-
-    // Store failed overlays for the selective render
-    this._overlaysToReRender = failedOverlays;
-
-    this._selectiveRenderTimeout = setTimeout(() => {
-      lcardsLog.debug(`[SystemsManager] 🚀 EXECUTING selective re-render for ${failedOverlays.length} overlay(s)`);
-
-      failedOverlays.forEach(failedInfo => {
-        try {
-          const { overlay, patch } = failedInfo;
-
-          // Apply the patch to the overlay config (since it failed incremental update)
-          // This ensures the overlay has the correct styles when re-rendered
-          if (patch && overlay) {
-            lcardsLog.debug(`[SystemsManager] 🎨 Applying patch to overlay before selective re-render: ${overlay.id}`);
-
-            // The patch has already been applied by ModelBuilder during rule evaluation
-            // We just need to trigger a re-render of this specific overlay
-            // For now, we'll use the full re-render as a fallback since we need
-            // the renderer to re-render just this one overlay
-
-            // TODO: Implement per-overlay re-render capability in AdvancedRenderer
-            // For now, log and continue - the full re-render will handle it
-            lcardsLog.debug(`[SystemsManager] ℹ️ Overlay ${overlay.id} will be re-rendered in next full render`);
-          }
-        } catch (error) {
-          lcardsLog.error(`[SystemsManager] ❌ Error in selective re-render for ${failedInfo.id}:`, error);
-        }
-      });
-
-      // For now, trigger a full re-render if ANY overlay failed
-      // TODO: Implement true selective re-rendering at the renderer level
-      lcardsLog.debug('[SystemsManager] 🔄 Using AdvancedRenderer.reRenderOverlays() for selective re-rendering');
-
-      // Get the complete resolved model (needed for anchors, viewBox, etc.)
-      const resolvedModel = this.modelBuilder?.getResolvedModel();
-
-      if (!resolvedModel || !this.renderer) {
-        lcardsLog.warn('[SystemsManager] ⚠️ Cannot selective re-render - missing model or renderer');
-        lcardsLog.info('[SystemsManager] 🔄 Falling back to FULL re-render');
-        this._scheduleFullReRender();
-      } else {
-        // ✅ CRITICAL FIX: Get fresh overlays from resolvedModel (which has patches applied)
-        // not from failedOverlays (which has stale objects from before patches)
-        const overlayIdsToReRender = failedOverlays.map(f => f.overlay?.id).filter(id => id);
-        const overlaysToReRender = resolvedModel.overlays.filter(o => overlayIdsToReRender.includes(o.id));
-
-        if (overlaysToReRender.length === 0) {
-          lcardsLog.warn('[SystemsManager] ⚠️ No valid overlays to re-render');
-          return;
-        }
-
-        const success = this.renderer.reRenderOverlays(overlaysToReRender, resolvedModel);
-
-        if (success) {
-          lcardsLog.info('[SystemsManager] ✅ SELECTIVE RE-RENDER COMPLETE');
-
-          // ✅ NEW: Re-render debug visualizations after selective re-render
-          if (this.debugManager.isAnyEnabled()) {
-            lcardsLog.debug('[SystemsManager] 🔍 Updating debug visualizations after selective re-render');
-            this.renderDebugAndControls(resolvedModel);
-          }
-        } else {
-          lcardsLog.warn('[SystemsManager] ⚠️ Selective re-render failed - falling back to FULL re-render');
-          this._scheduleFullReRender();
-        }
-      }
-
-      this._selectiveRenderTimeout = null;
-      this._overlaysToReRender = null;
     }, 100);
   }
 

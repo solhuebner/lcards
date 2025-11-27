@@ -1059,133 +1059,6 @@ export class AdvancedRenderer {
     return haCardTypes.includes(type);
   }
 
-  /**
-   * Selectively re-render specific overlays (incremental update fallback)
-   * This method re-renders only the specified overlays without touching others
-   *
-   * @param {Array} overlaysToReRender - Array of overlay configs to re-render
-   * @param {Object} resolvedModel - Complete model with all overlays, anchors, and viewBox
-   * @returns {boolean} True if all overlays were successfully re-rendered
-   */
-  reRenderOverlays(overlaysToReRender, resolvedModel) {
-    lcardsLog.debug(`[AdvancedRenderer] 🔄 Selectively re-rendering overlay(s)`);
-
-    if (!resolvedModel || !overlaysToReRender || overlaysToReRender.length === 0) {
-      lcardsLog.warn('[AdvancedRenderer] ⚠️ Invalid parameters for selective re-render');
-      return false;
-    }
-
-    const { anchors = {}, viewBox, overlays: allOverlays } = resolvedModel;
-    const svg = this.mountEl?.querySelector('svg');
-
-    if (!svg) {
-      lcardsLog.error('[AdvancedRenderer] ❌ SVG element not found - cannot selective re-render');
-      return false;
-    }
-
-    const overlayGroup = svg.querySelector('#msd-overlay-container');
-    if (!overlayGroup) {
-      lcardsLog.error('[AdvancedRenderer] ❌ Overlay container not found - cannot selective re-render');
-      return false;
-    }
-
-    let allSucceeded = true;
-    const reRenderedIds = new Set();
-
-    overlaysToReRender.forEach(overlay => {
-      try {
-        lcardsLog.debug(`[AdvancedRenderer] 🎨 Re-rendering overlay: ${overlay.id}`);
-
-        // Find and remove existing overlay element
-        const existingElement = overlayGroup.querySelector(`[data-overlay-id="${overlay.id}"]`);
-        if (existingElement) {
-          existingElement.remove();
-          lcardsLog.debug(`[AdvancedRenderer] 🗑️ Removed existing overlay element: ${overlay.id}`);
-        }
-
-        // Re-render the overlay
-        const result = this.renderOverlay(overlay, anchors, viewBox, svg);
-
-        if (result && result.markup) {
-          // Parse SVG markup correctly using DOMParser (not innerHTML which uses HTML parser)
-          // HTML parser doesn't handle self-closing SVG tags correctly
-          // Wrap in SVG element since DOMParser expects a complete document
-          const parser = new DOMParser();
-          const wrappedMarkup = `<svg xmlns="http://www.w3.org/2000/svg">${result.markup}</svg>`;
-          const svgDoc = parser.parseFromString(wrappedMarkup, 'image/svg+xml');
-
-          // Check for parsing errors
-          const parserError = svgDoc.querySelector('parsererror');
-          if (parserError) {
-            lcardsLog.error(`[AdvancedRenderer] ❌ SVG parsing error for ${overlay.id}:`, parserError.textContent);
-            allSucceeded = false;
-            return;
-          }
-
-          // Get the rendered element (first child of the svg element)
-          const svgElement = svgDoc.documentElement;
-          const newElement = svgElement.firstElementChild;
-          if (newElement) {
-            // Import node into current document
-            const importedElement = document.importNode(newElement, true);
-            overlayGroup.appendChild(importedElement);
-            reRenderedIds.add(overlay.id);
-            lcardsLog.trace(`[AdvancedRenderer] ✅ Re-rendered overlay: ${overlay.id}`);
-
-            // Re-attach actions if present
-            if (result.actionInfo && !newElement.hasAttribute('data-actions-attached')) {
-              try {
-                // Get animationManager from systemsManager to support animation triggers
-                const animationManager = this.systemsManager?.animationManager;
-
-                ActionHelpers.attachActions(
-                  newElement,
-                  overlay,
-                  result.actionInfo.config,
-                  this.routerCore,
-                  { animationManager }
-                );
-                newElement.setAttribute('data-actions-attached', 'true');
-                lcardsLog.debug(`[AdvancedRenderer] 🎯 Re-attached actions for: ${overlay.id}`);
-              } catch (actionError) {
-                lcardsLog.warn(`[AdvancedRenderer] ⚠️ Failed to re-attach actions for ${overlay.id}:`, actionError);
-              }
-            }
-          } else {
-            lcardsLog.warn(`[AdvancedRenderer] ⚠️ No element created for overlay: ${overlay.id}`);
-            allSucceeded = false;
-          }
-        } else {
-          lcardsLog.warn(`[AdvancedRenderer] ⚠️ No markup returned for overlay: ${overlay.id}`);
-          allSucceeded = false;
-        }
-      } catch (error) {
-        lcardsLog.error(`[AdvancedRenderer] ❌ Failed to re-render overlay ${overlay.id}:`, error);
-        allSucceeded = false;
-      }
-    });
-
-    // ✅ NEW: Update dynamic anchors and re-render dependent lines
-    if (reRenderedIds.size > 0 && allOverlays && this._staticAnchors) {
-      lcardsLog.debug(`[AdvancedRenderer] 🔗 Updating dynamic anchors for ${reRenderedIds.size} re-rendered overlay(s)`);
-
-      // Update dynamic anchors for re-rendered overlays
-      this._updateDynamicAnchorsForOverlays(reRenderedIds, allOverlays, this._staticAnchors);
-
-      // Re-render dependent line overlays
-      lcardsLog.debug(`[AdvancedRenderer] 📍 Re-rendering dependent line overlays`);
-      this._rerenderAllDependentOverlays(allOverlays, Array.from(reRenderedIds), viewBox);
-    }
-
-    if (allSucceeded) {
-      lcardsLog.info(`[AdvancedRenderer] ✅ Successfully re-rendered all ${overlaysToReRender.length} overlay(s)`);
-    } else {
-      lcardsLog.warn(`[AdvancedRenderer] ⚠️ Some overlays failed to re-render`);
-    }
-
-    return allSucceeded;
-  }
-
 
   /**
    * Render individual overlay using appropriate renderer
@@ -2006,8 +1879,8 @@ export class AdvancedRenderer {
       return window._msdCardInstance;
     }
 
-    if (window.cb_lcars_card_instance) {
-      return window.cb_lcars_card_instance;
+    if (window.lcards.debug.msd?.cardInstance) {
+      return window.lcards.debug.msd.cardInstance;
     }
 
     return null;

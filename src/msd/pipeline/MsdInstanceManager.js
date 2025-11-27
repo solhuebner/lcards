@@ -44,10 +44,8 @@ export class MsdInstanceManager {
    */
   static _getCardInstanceFromMount(mountEl) {
     try {
-      // Method 1: Check global references (most reliable)
-      const globalCard = window.cb_lcars_card_instance ||
-                        window._currentCardInstance ||
-                        window.lcards.debug.msd?.cardInstance;
+      // Method 1: Check global reference
+      const globalCard = window.lcards.debug.msd?.cardInstance;
 
       if (globalCard && globalCard._msdInstanceGuid) {
         lcardsLog.debug('[MsdInstanceManager] Found card instance via globals:',
@@ -151,7 +149,7 @@ export class MsdInstanceManager {
     if (MsdInstanceManager._currentInstance && MsdInstanceManager._currentInstanceGuid) {
 
       // ✅ NEW: Check for stale instance (different card in global reference)
-      const currentCardInstance = window.cb_lcars_card_instance || window._currentCardInstance;
+      const currentCardInstance = window.lcards.debug.msd?.cardInstance;
       const currentCardGuid = currentCardInstance?._msdInstanceGuid;
 
       // If the "current" card instance doesn't match our tracked instance, the tracked instance is stale
@@ -251,7 +249,7 @@ export class MsdInstanceManager {
 
       // ADD BACK: setCardInstance call for StatusGridRenderer compatibility
       if (pipelineApi.setCardInstance && typeof pipelineApi.setCardInstance === 'function') {
-        const cardInstance = window.cb_lcars_card_instance || window._currentCardInstance;
+        const cardInstance = window.lcards.debug.msd?.cardInstance;
         if (cardInstance) {
           lcardsLog.debug('[MsdInstanceManager] 🔧 Setting card instance via pipeline setCardInstance');
           pipelineApi.setCardInstance(cardInstance);
@@ -472,8 +470,8 @@ export class MsdInstanceManager {
    * @private
    */
   static _findCardElement(mountEl) {
-    // Try to get the card instance from global references
-    const cardInstance = window.cb_lcars_card_instance || window._currentCardInstance || window.lcards.debug.msd?.cardInstance;
+    // Try to get the card instance from global reference
+    const cardInstance = window.lcards.debug.msd?.cardInstance;
 
     if (cardInstance) {
       return cardInstance; // This should be the lcards-msd-card element
@@ -516,7 +514,7 @@ export class MsdInstanceManager {
    */
   static _checkCardInstancePreview() {
     try {
-      const cardInstance = window.cb_lcars_card_instance || window._currentCardInstance;
+      const cardInstance = window.lcards.debug.msd?.cardInstance;
 
       if (cardInstance) {
         // Check if the card element has preview indicators in its ancestry
@@ -601,9 +599,10 @@ export class MsdInstanceManager {
         delete window.lcards.debug.msd?.routing;
         delete window.lcards.debug.msd?.hud;
 
-        // Clear card instance references
-        delete window.cb_lcars_card_instance;
-        delete window._currentCardInstance;
+        // Clear card instance reference
+        if (window.lcards.debug.msd) {
+          delete window.lcards.debug.msd.cardInstance;
+        }
         delete window._msdCardInstance;
 
         // Clear HUD references
@@ -1110,7 +1109,7 @@ if (typeof window !== 'undefined') {
       await MsdInstanceManager.destroyInstance();
 
       // Try to get the card instance to trigger a re-render
-      const cardInstance = window.cb_lcars_card_instance || window._currentCardInstance;
+      const cardInstance = window.lcards.debug.msd?.cardInstance;
       if (cardInstance && typeof cardInstance.requestUpdate === 'function') {
         cardInstance.requestUpdate();
       }
@@ -1120,7 +1119,7 @@ if (typeof window !== 'undefined') {
   };
 
   window.__msdStatus = () => {
-    const cardInstance = window.cb_lcars_card_instance || window._currentCardInstance;
+    const cardInstance = window.lcards.debug.msd?.cardInstance;
 
     const status = {
       'Has Active Instance': MsdInstanceManager.hasActiveInstance(),
@@ -1139,7 +1138,7 @@ if (typeof window !== 'undefined') {
 
   // ✅ NEW: GUID inspection helper
   window.__msdInspectGuid = () => {
-    const cardInstance = window.cb_lcars_card_instance || window._currentCardInstance;
+    const cardInstance = window.lcards.debug.msd?.cardInstance;
 
     console.group('🔍 MSD GUID Inspection');
     console.log('Active Instance GUID:', MsdInstanceManager._currentInstanceGuid);

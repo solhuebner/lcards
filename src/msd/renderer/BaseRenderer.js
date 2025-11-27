@@ -734,7 +734,7 @@ export class BaseRenderer {
       // Method 2: From card instance shadow root
       const cardInstance = window.lcards.debug.msd?.pipelineInstance?.cardInstance ||
                            window._msdCardInstance ||
-                           window.cb_lcars_card_instance;
+                           window.lcards.debug.msd?.cardInstance;
 
       if (cardInstance?.shadowRoot) {
         this._logDebug('Resolved container from card instance shadow root');
