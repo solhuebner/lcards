@@ -2,9 +2,9 @@
 
 ## Table of Contents
 1. [Overview](#overview)
-2. [Dual Validation Architecture](#dual-validation-architecture)
+2. [Unified Validation Architecture](#unified-validation-architecture)
 3. [CoreValidationService (Singleton)](#corevalidationservice-singleton)
-4. [MSD validateMerged (Structure Validation)](#msd-validatemerged-structure-validation)
+4. [CoreConfigManager Integration](#coreconfigmanager-integration)
 5. [Validation Flow](#validation-flow)
 6. [Schema System](#schema-system)
 7. [Token Resolution](#token-resolution)
@@ -17,20 +17,16 @@
 
 ## Overview
 
-The LCARdS validation system uses a **dual validation architecture** to provide comprehensive configuration validation:
-
-1. **CoreValidationService** (`lcardsCore.validationService`) - A core singleton that validates individual overlays, cards, tokens, and datasources. Available to ALL LCARdS cards (MSD, SimpleCards, etc.).
-
-2. **validateMerged** (`src/msd/validation/validateMerged.js`) - MSD-specific function that validates the overall MSD configuration structure (anchors, rules, profiles, duplicate IDs, routing).
+The LCARdS validation system uses **CoreValidationService** as the single source of truth for all configuration validation, accessed via `lcardsCore.validationService`.
 
 ### Key Features
 
 - 🌐 **Core Singleton Architecture** - Single validation service shared by all LCARdS cards via `lcardsCore.validationService`
-- **Universal Availability** - Token validation and datasource validation available for ALL cards (not just MSD)
-- **Schema-based validation** - Overlay types have declarative schemas in core
+- **Universal Availability** - Token validation and datasource validation available for ALL cards (MSD, SimpleCards, etc.)
+- **Schema-based validation** - Card types and overlay types have declarative schemas
 - **Token-aware** - Resolves design tokens from singleton ThemeManager before validation
 - **Enhanced properties** - Supports complex object formats (font_size objects, marker objects, etc.)
-- **MSD Structure Validation** - Dedicated structure validation for MSD configs via validateMerged
+- **Unified through CoreConfigManager** - All cards use CoreConfigManager for config processing and validation
 - **Extensible** - Easy to add new overlay types and validators
 - **Developer-friendly** - Rich error messages with suggestions and examples
 
@@ -44,21 +40,18 @@ The LCARdS validation system uses a **dual validation architecture** to provide 
 
 ---
 
-## Dual Validation Architecture
+## Unified Validation Architecture
 
 ```mermaid
 graph TB
     subgraph "Core Singleton Layer"
-        CVS[CoreValidationService<br/>lcardsCore.validationService<br/>Individual config validation]
+        CCM[CoreConfigManager<br/>Config processing & validation orchestration]
+        CVS[CoreValidationService<br/>lcardsCore.validationService<br/>Schema-based validation]
         SR[SchemaRegistry<br/>Schema management]
         OV[OverlayValidator<br/>Schema-based validation]
         TV[TokenValidator<br/>Token references]
         DSV[DataSourceValidator<br/>Data source validation]
         EF[ErrorFormatter<br/>User-friendly messages]
-    end
-
-    subgraph "MSD-Specific Layer"
-        VM[validateMerged<br/>Structure validation<br/>~794 lines]
     end
 
     subgraph "Consumers"
@@ -67,10 +60,11 @@ graph TB
         SCH[SimpleChart]
     end
 
-    MSD --> CVS
-    MSD --> VM
-    SC --> CVS
-    SCH --> CVS
+    MSD --> CCM
+    SC --> CCM
+    SCH --> CCM
+
+    CCM --> CVS
 
     CVS --> SR
     CVS --> OV
@@ -78,8 +72,8 @@ graph TB
     CVS --> DSV
     CVS --> EF
 
+    style CCM fill:#ff9999,stroke:#cc0000,stroke-width:3px,color:#000
     style CVS fill:#f9ef97,stroke:#ac943b,stroke-width:3px,color:#0c2a15
-    style VM fill:#80bb93,stroke:#083717,color:#0c2a15
     style MSD fill:#4d94ff,stroke:#0066cc,color:#fff
     style SC fill:#4d94ff,stroke:#0066cc,color:#fff
     style SCH fill:#4d94ff,stroke:#0066cc,color:#fff
@@ -89,8 +83,8 @@ graph TB
 
 | Component | Responsibility | Used By |
 |-----------|---------------|---------|
-| **CoreValidationService** | Individual overlay/card schemas, tokens, datasources, value types | All LCARdS cards |
-| **validateMerged** | MSD config structure: anchors, rules, profiles, duplicate IDs, routing | MSD only |
+| **CoreConfigManager** | Config processing pipeline, orchestrates validation | All LCARdS cards |
+| **CoreValidationService** | Schema validation, tokens, datasources, value types | CoreConfigManager |
 
 ---
 
@@ -133,40 +127,99 @@ const dsResult = validationService.validateDataSources(config, dataSourceManager
 
 ---
 
-## MSD validateMerged (Structure Validation)
+## CoreConfigManager Integration
 
-The `validateMerged` function validates MSD-specific configuration structure. It does NOT validate individual overlays (that's CoreValidationService's job).
+All LCARdS cards (both MSD and SimpleCards) use **CoreConfigManager** for configuration processing and validation. This provides a unified pipeline:
 
-### File Location
+1. **Config Merging** - Merges card defaults, theme defaults, presets, and user config
+2. **Schema Validation** - Validates against registered card schema via CoreValidationService
+3. **Provenance Tracking** - Tracks the source of every configuration value
+4. **Error Reporting** - Returns structured validation results
 
-```
-src/msd/validation/
-└── validateMerged.js     # MSD structure validation (~794 lines)
-```
+### Card Registration
 
-### What validateMerged Validates
-
-- **Config structure** - Overall MSD config object validity
-- **Anchors** - Anchor definitions and references
-- **Overlays** - Overlay array structure (not individual overlay schemas)
-- **Rules** - Rule definitions and references
-- **Actions** - Action configurations
-- **Animations** - Animation definitions
-- **Profiles** - Profile configurations
-- **Palettes** - Palette definitions
-- **Routing** - Line routing configuration
-- **Duplicate IDs** - Ensures unique overlay IDs
-
-### Usage
+Each card type registers its schema with CoreConfigManager:
 
 ```javascript
-import { validateMerged } from './validation/validateMerged.js';
+// SimpleCard registration (e.g., lcards-simple-button.js)
+if (window.lcardsCore?.configManager) {
+    const configManager = window.lcardsCore.configManager;
 
-const issues = validateMerged(msdConfig);
-// Returns: { errors: [], warnings: [] }
+    configManager.registerCardDefaults('simple-button', {
+        enable_hold_action: true,
+        enable_double_tap: false
+    });
 
-if (issues.errors.length > 0) {
-  console.error('MSD config validation failed:', issues.errors);
+    configManager.registerCardSchema('simple-button', {
+        type: 'object',
+        properties: {
+            entity: { type: 'string' },
+            preset: { type: 'string' },
+            // ... more properties
+        }
+    });
+}
+
+// MSD registration (lcards-msd.js)
+if (window.lcardsCore?.configManager) {
+    configManager.registerCardSchema('msd', {
+        type: 'object',
+        required: ['type'],
+        properties: {
+            type: { type: 'string', enum: ['custom:lcards-msd-card', 'custom:cb-lcars-card'] },
+            base_svg: { type: 'string' },
+            overlays: { type: 'array' },
+            anchors: { type: 'object' },
+            rules: { type: 'array' },
+            // ... more properties
+        }
+    });
+}
+```
+
+### Config Processing Flow
+
+```javascript
+// All cards use the same pattern
+const result = await configManager.processConfig(
+    userConfig,
+    'simple-button',  // or 'msd'
+    { hass: this.hass }
+);
+
+if (result.valid) {
+    this._config = result.mergedConfig;
+    this._provenance = result.provenance;
+} else {
+    console.error('Validation errors:', result.errors);
+}
+```
+
+### MSD-Specific Processing
+
+MSD's `ConfigProcessor.js` wraps CoreConfigManager and adds MSD-specific post-processing:
+
+```javascript
+// src/msd/pipeline/ConfigProcessor.js
+export async function processAndValidateConfig(userMsdConfig) {
+    const core = window.lcardsCore;
+
+    if (!core?.configManager?.initialized) {
+        throw new Error('CoreConfigManager not initialized');
+    }
+
+    // Use CoreConfigManager for validation
+    const result = await core.configManager.processConfig(
+        userMsdConfig,
+        'msd',
+        { hass: window.hass }
+    );
+
+    // Add MSD-specific anchor validation
+    // (validates anchor references across overlays)
+    validateAnchorReferences(result.mergedConfig, result.issues);
+
+    return { mergedConfig, issues, provenance };
 }
 ```
 
@@ -212,7 +265,7 @@ getStats()
 const validationService = lcardsCore.validationService;
 
 // Validate overlay
-const result = validationService.validateOverlay(overlay, { 
+const result = validationService.validateOverlay(overlay, {
   strict: false,
   validateTokens: true,
   validateDataSources: true
@@ -801,13 +854,32 @@ _validateMyFormat(value, schema, meta) {
 
 ## API Reference
 
-### ValidationService
+### CoreConfigManager
+
+**Location:** `src/core/config-manager/index.js`
 
 ```javascript
-class ValidationService {
+// Register card schema
+configManager.registerCardSchema(cardType, schema)
+
+// Register behavioral defaults
+configManager.registerCardDefaults(cardType, defaults)
+
+// Process configuration (merging + validation)
+const result = await configManager.processConfig(userConfig, cardType, context)
+// Returns: { valid, mergedConfig, errors, warnings, provenance }
+```
+
+### CoreValidationService
+
+**Location:** `src/core/validation-service/index.js`
+
+```javascript
+class CoreValidationService {
   constructor(config)
 
   // Validation
+  validate(data, schema, context): ValidationResult
   validateOverlay(overlay, context): ValidationResult
   validateAll(overlays, context): ValidationSummary
 
@@ -830,8 +902,8 @@ ValidationResult = {
   valid: boolean,
   errors: Array<Error>,
   warnings: Array<Warning>,
-  overlayId: string,
-  overlayType: string
+  data: Object,
+  schema: string
 }
 
 ValidationSummary = {
@@ -1007,8 +1079,9 @@ Support multiple schema versions for backwards compatibility:
 
 ## References
 
-### Core Validation Service
-- [CoreValidationService](../../../src/core/validation-service/index.js) - Main singleton service
+### Core Configuration & Validation
+- [CoreConfigManager](../../../src/core/config-manager/index.js) - Unified config processing and validation orchestration
+- [CoreValidationService](../../../src/core/validation-service/index.js) - Main singleton validation service
 - [SchemaRegistry](../../../src/core/validation-service/SchemaRegistry.js) - Schema management
 - [OverlayValidator](../../../src/core/validation-service/OverlayValidator.js) - Schema-based validation
 - [ValueValidator](../../../src/core/validation-service/ValueValidator.js) - Type/format validation
@@ -1016,13 +1089,13 @@ Support multiple schema versions for backwards compatibility:
 - [DataSourceValidator](../../../src/core/validation-service/DataSourceValidator.js) - Datasource validation
 - [Schemas](../../../src/core/validation-service/schemas/) - Schema definitions
 
-### MSD Structure Validation
-- [validateMerged](../../../src/msd/validation/validateMerged.js) - MSD config structure validation
+### MSD Processing
+- [ConfigProcessor](../../../src/msd/pipeline/ConfigProcessor.js) - MSD config processing wrapper (uses CoreConfigManager)
 
 ### User Documentation
 - [Validation Guide](../../user/advanced/validation_guide.md) - User-facing validation documentation
 
 ---
 
-*Last Updated: 2025-11-24*
-*Version: 2.0 - Post-Architecture Refactor*
+*Last Updated: 2025-11-26*
+*Version: 3.0 - Unified CoreConfigManager Architecture*
