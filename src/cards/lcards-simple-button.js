@@ -494,15 +494,13 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 hold_action: segment.hold_action,
                 double_tap_action: segment.double_tap_action,
 
-                // Styles for different states
+                // Style configuration with state-based values
+                // Follows existing SimpleButton convention: style.{property}.{state}
+                // States: default, active, inactive, unavailable, hover
                 style: segment.style || {},
-                hover_style: segment.hover_style || {},
-                active_style: segment.active_style || {},
-                disabled_style: segment.disabled_style || {},
 
                 // Entity-driven state (optional)
                 entity: segment.entity,  // Different entity per segment
-                state_styles: segment.state_styles,  // Styles based on entity state
 
                 // Animation config (optional)
                 animations: segment.animations
@@ -549,14 +547,45 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             lcardsLog.debug(`[LCARdSSimpleButtonCard] Setting up segment "${segment.id}" on ${elements.length} elements`);
 
             elements.forEach(element => {
-                // Apply initial style
-                this._applySegmentStyle(element, segment.style);
+                // Apply initial style (default state)
+                const defaultStyle = this._resolveSegmentStyleForState(segment.style, 'default');
+                this._applySegmentStyle(element, defaultStyle);
 
                 // Setup event listeners for this segment
                 const cleanup = this._attachSegmentListeners(element, segment);
                 this._segmentCleanups.push(cleanup);
             });
         });
+    }
+
+    /**
+     * Resolve segment style for a given state
+     * Follows SimpleButton convention: style.{property}.{state}
+     * States: default, active, inactive, unavailable, hover
+     * @private
+     * @param {Object} style - Style configuration object
+     * @param {string} state - Target state (default, active, inactive, unavailable, hover)
+     * @returns {Object} Resolved style object with concrete values
+     */
+    _resolveSegmentStyleForState(style, state) {
+        if (!style || typeof style !== 'object') {
+            return {};
+        }
+
+        const resolvedStyle = {};
+
+        Object.entries(style).forEach(([property, value]) => {
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                // State-based value: { default: "color1", active: "color2", hover: "color3" }
+                // Priority: requested state > default > first available value
+                resolvedStyle[property] = value[state] ?? value.default ?? Object.values(value)[0];
+            } else {
+                // Direct value (not state-based)
+                resolvedStyle[property] = value;
+            }
+        });
+
+        return resolvedStyle;
     }
 
     /**
@@ -568,21 +597,25 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      * @returns {Function} Cleanup function
      */
     _attachSegmentListeners(element, segment) {
-        // Track original styles for restore
-        const originalStyle = { ...segment.style };
+        // Resolve styles for different states
+        const defaultStyle = this._resolveSegmentStyleForState(segment.style, 'default');
+        const hoverStyle = this._resolveSegmentStyleForState(segment.style, 'hover');
+        const activeStyle = this._resolveSegmentStyleForState(segment.style, 'active');
         let isActive = false;
 
         // Hover handlers
         const handleMouseEnter = (e) => {
             if (!isActive) {
-                this._applySegmentStyle(element, { ...originalStyle, ...segment.hover_style });
+                // Apply hover style, falling back to default if hover not defined
+                const hasHoverStyle = Object.keys(hoverStyle).length > 0;
+                this._applySegmentStyle(element, hasHoverStyle ? hoverStyle : defaultStyle);
             }
             e.stopPropagation(); // Prevent button-level hover
         };
 
         const handleMouseLeave = (e) => {
             if (!isActive) {
-                this._applySegmentStyle(element, originalStyle);
+                this._applySegmentStyle(element, defaultStyle);
             }
             e.stopPropagation();
         };
@@ -609,7 +642,10 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Active (pressed) handlers - combined with hold start
         const handleMouseDown = (e) => {
             isActive = true;
-            this._applySegmentStyle(element, { ...originalStyle, ...segment.active_style });
+            // Apply active style, falling back to hover then default
+            const hasActiveStyle = Object.keys(activeStyle).length > 0;
+            const hasHoverStyle = Object.keys(hoverStyle).length > 0;
+            this._applySegmentStyle(element, hasActiveStyle ? activeStyle : (hasHoverStyle ? hoverStyle : defaultStyle));
             handleHoldStart(); // Start hold timer
             e.stopPropagation(); // Prevent button-level action
         };
@@ -618,7 +654,8 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             isActive = false;
             handleHoldCancel(); // Cancel hold timer
             // Return to hover style (mouse still over element)
-            this._applySegmentStyle(element, { ...originalStyle, ...segment.hover_style });
+            const hasHoverStyle = Object.keys(hoverStyle).length > 0;
+            this._applySegmentStyle(element, hasHoverStyle ? hoverStyle : defaultStyle);
             e.stopPropagation();
         };
 
@@ -3857,17 +3894,74 @@ if (window.lcardsCore?.configManager) {
                                 double_tap_action: { type: 'object', description: 'Action on double tap' },
                                 style: {
                                     type: 'object',
-                                    description: 'Default style for segment',
+                                    description: 'State-based style for segment. Properties can be direct values or state objects with: default, active, inactive, unavailable, hover',
                                     properties: {
-                                        fill: { type: 'string' },
-                                        stroke: { type: 'string' },
-                                        'stroke-width': { type: ['number', 'string'] },
-                                        opacity: { type: 'number' }
+                                        fill: {
+                                            oneOf: [
+                                                { type: 'string', description: 'Uniform fill color' },
+                                                {
+                                                    type: 'object',
+                                                    description: 'State-based fill colors',
+                                                    properties: {
+                                                        default: { type: 'string' },
+                                                        active: { type: 'string' },
+                                                        inactive: { type: 'string' },
+                                                        unavailable: { type: 'string' },
+                                                        hover: { type: 'string' }
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        stroke: {
+                                            oneOf: [
+                                                { type: 'string', description: 'Uniform stroke color' },
+                                                {
+                                                    type: 'object',
+                                                    description: 'State-based stroke colors',
+                                                    properties: {
+                                                        default: { type: 'string' },
+                                                        active: { type: 'string' },
+                                                        inactive: { type: 'string' },
+                                                        unavailable: { type: 'string' },
+                                                        hover: { type: 'string' }
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        'stroke-width': {
+                                            oneOf: [
+                                                { type: ['number', 'string'], description: 'Uniform stroke width' },
+                                                {
+                                                    type: 'object',
+                                                    description: 'State-based stroke widths',
+                                                    properties: {
+                                                        default: { type: ['number', 'string'] },
+                                                        active: { type: ['number', 'string'] },
+                                                        inactive: { type: ['number', 'string'] },
+                                                        unavailable: { type: ['number', 'string'] },
+                                                        hover: { type: ['number', 'string'] }
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        opacity: {
+                                            oneOf: [
+                                                { type: 'number', description: 'Uniform opacity' },
+                                                {
+                                                    type: 'object',
+                                                    description: 'State-based opacity values',
+                                                    properties: {
+                                                        default: { type: 'number' },
+                                                        active: { type: 'number' },
+                                                        inactive: { type: 'number' },
+                                                        unavailable: { type: 'number' },
+                                                        hover: { type: 'number' }
+                                                    }
+                                                }
+                                            ]
+                                        }
                                     }
-                                },
-                                hover_style: { type: 'object', description: 'Style when hovering' },
-                                active_style: { type: 'object', description: 'Style when pressed' },
-                                disabled_style: { type: 'object', description: 'Style when disabled' }
+                                }
                             },
                             required: ['selector']
                         }

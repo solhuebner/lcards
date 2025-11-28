@@ -70,6 +70,8 @@
 # ==============================================================================
 
 # Example 6: D-Pad with interactive segments
+# Uses state-based styling convention: style.{property}.{state}
+# States: default, active, inactive, unavailable, hover
 - type: custom:lcards-simple-button
   entity: remote.living_room
   svg:
@@ -100,11 +102,10 @@
           data:
             command: UP
         style:
-          fill: "var(--lcars-blue)"
-        hover_style:
-          fill: "var(--lcars-yellow)"
-        active_style:
-          fill: "var(--lcars-red)"
+          fill:
+            default: "var(--lcars-blue)"
+            hover: "var(--lcars-yellow)"
+            active: "var(--lcars-red)"
       
       - id: down
         selector: "#arrow-down"
@@ -114,11 +115,10 @@
           data:
             command: DOWN
         style:
-          fill: "var(--lcars-blue)"
-        hover_style:
-          fill: "var(--lcars-yellow)"
-        active_style:
-          fill: "var(--lcars-red)"
+          fill:
+            default: "var(--lcars-blue)"
+            hover: "var(--lcars-yellow)"
+            active: "var(--lcars-red)"
       
       - id: left
         selector: "#arrow-left"
@@ -128,11 +128,10 @@
           data:
             command: LEFT
         style:
-          fill: "var(--lcars-blue)"
-        hover_style:
-          fill: "var(--lcars-yellow)"
-        active_style:
-          fill: "var(--lcars-red)"
+          fill:
+            default: "var(--lcars-blue)"
+            hover: "var(--lcars-yellow)"
+            active: "var(--lcars-red)"
       
       - id: right
         selector: "#arrow-right"
@@ -142,11 +141,10 @@
           data:
             command: RIGHT
         style:
-          fill: "var(--lcars-blue)"
-        hover_style:
-          fill: "var(--lcars-yellow)"
-        active_style:
-          fill: "var(--lcars-red)"
+          fill:
+            default: "var(--lcars-blue)"
+            hover: "var(--lcars-yellow)"
+            active: "var(--lcars-red)"
       
       - id: center
         selector: "#center-circle"
@@ -156,11 +154,10 @@
           data:
             command: SELECT
         style:
-          fill: "var(--lcars-purple)"
-        hover_style:
-          fill: "var(--lcars-yellow)"
-        active_style:
-          fill: "var(--lcars-red)"
+          fill:
+            default: "var(--lcars-purple)"
+            hover: "var(--lcars-yellow)"
+            active: "var(--lcars-red)"
 
 # Example 7: Media controls with segments
 - type: custom:lcards-simple-button
@@ -188,9 +185,9 @@
           action: call-service
           service: media_player.media_previous_track
         style:
-          fill: "var(--lcars-blue)"
-        hover_style:
-          fill: "var(--lcars-yellow)"
+          fill:
+            default: "var(--lcars-blue)"
+            hover: "var(--lcars-yellow)"
       
       - id: play-pause
         selector: "#play-pause"
@@ -198,9 +195,9 @@
           action: call-service
           service: media_player.media_play_pause
         style:
-          fill: "var(--lcars-orange)"
-        hover_style:
-          fill: "var(--lcars-yellow)"
+          fill:
+            default: "var(--lcars-orange)"
+            hover: "var(--lcars-yellow)"
       
       - id: skip-forward
         selector: "#skip-forward"
@@ -208,9 +205,9 @@
           action: call-service
           service: media_player.media_next_track
         style:
-          fill: "var(--lcars-blue)"
-        hover_style:
-          fill: "var(--lcars-yellow)"
+          fill:
+            default: "var(--lcars-blue)"
+            hover: "var(--lcars-yellow)"
 
 # Example 8: Using data-segment attributes for cleaner selection
 - type: custom:lcards-simple-button
@@ -229,32 +226,40 @@
         tap_action:
           action: navigate
           navigation_path: /lovelace/zone1
-        hover_style:
-          fill: "var(--lcars-yellow)"
+        style:
+          fill:
+            default: "var(--lcars-blue)"
+            hover: "var(--lcars-yellow)"
       
       - id: zone2
         selector: "[data-segment='zone2']"
         tap_action:
           action: navigate
           navigation_path: /lovelace/zone2
-        hover_style:
-          fill: "var(--lcars-yellow)"
+        style:
+          fill:
+            default: "var(--lcars-orange)"
+            hover: "var(--lcars-yellow)"
       
       - id: zone3
         selector: "[data-segment='zone3']"
         tap_action:
           action: navigate
           navigation_path: /lovelace/zone3
-        hover_style:
-          fill: "var(--lcars-yellow)"
+        style:
+          fill:
+            default: "var(--lcars-purple)"
+            hover: "var(--lcars-yellow)"
       
       - id: zone4
         selector: "[data-segment='zone4']"
         tap_action:
           action: navigate
           navigation_path: /lovelace/zone4
-        hover_style:
-          fill: "var(--lcars-yellow)"
+        style:
+          fill:
+            default: "var(--lcars-red)"
+            hover: "var(--lcars-yellow)"
 
 # Example 9: Segment with different entities
 - type: custom:lcards-simple-button
@@ -272,9 +277,9 @@
         tap_action:
           action: toggle
         style:
-          fill: "gray"
-        hover_style:
-          fill: "var(--lcars-yellow)"
+          fill:
+            default: "gray"
+            hover: "var(--lcars-yellow)"
       
       - id: light2
         selector: "#light2"
@@ -282,9 +287,9 @@
         tap_action:
           action: toggle
         style:
-          fill: "gray"
-        hover_style:
-          fill: "var(--lcars-yellow)"
+          fill:
+            default: "gray"
+            hover: "var(--lcars-yellow)"
 
 # Example 10: Hold action for more-info
 - type: custom:lcards-simple-button
@@ -303,11 +308,10 @@
         hold_action:
           action: more-info
         style:
-          fill: "var(--lcars-orange)"
-        hover_style:
-          fill: "var(--lcars-yellow)"
-        active_style:
-          fill: "var(--lcars-red)"
+          fill:
+            default: "var(--lcars-orange)"
+            hover: "var(--lcars-yellow)"
+            active: "var(--lcars-red)"
   text:
     label:
       content: "All Lights"
