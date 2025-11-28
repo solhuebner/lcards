@@ -650,7 +650,7 @@ rules:
       above: 30
     apply:
       overlays:
-        - id: temp_display
+        temp_display:           # Overlay ID as object key
           style:
             color: 'colors.warning'    # From theme
 ```

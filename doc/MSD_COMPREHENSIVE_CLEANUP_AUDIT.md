@@ -97,55 +97,44 @@ valueMap/           ⚠️  REVIEW - Value mapping system
 
 ## 🔴 HIGH PRIORITY: Validation System Redundancy
 
-### Problem Statement
-**MSD has its own complete validation system** that may be redundant with the **Core ValidationService** singleton.
+### Status: ✅ CONSOLIDATED (2025-11-26)
 
-### MSD Validation Files (`src/msd/validation/`)
-```
-ChartDataValidator.js       - Chart data format validation (520 lines)
-DataSourceValidator.js      - Data source validation
-ErrorFormatter.js           - Error message formatting
-OverlayValidator.js         - Overlay configuration validation
-SchemaRegistry.js           - Schema storage and retrieval
-TokenValidator.js           - Token reference validation
-ValidationService.js        - Main validation orchestrator (396 lines)
-ValueValidator.js           - Value type/range validation
-validateMerged.js           - Post-merge validation
-schemas/                    - Overlay type schemas
-```
+**Resolution:** MSD validation has been consolidated into the CoreValidationService singleton architecture.
 
-### Core Validation (`src/core/validation-service/`)
+### Changes Made
+
+1. **Removed validateMerged.js** - No longer needed, validation handled by CoreConfigManager
+2. **Updated ConfigProcessor.js** - Now uses CoreConfigManager exclusively, removed legacy fallback
+3. **Registered MSD schema** - MSD card schema registered with CoreConfigManager (like SimpleCards)
+4. **Unified validation flow** - All cards use CoreConfigManager → CoreValidationService
+
+### Current Architecture
+
+**All Cards (MSD & SimpleCards):**
 ```
-index.js                    - CoreValidationService (637 lines)
+User Config → CoreConfigManager.processConfig()
+            → CoreValidationService.validate()
+            → Validated merged config
 ```
 
-### Key Questions
+**MSD Overlay Validation:**
+- Overlay schemas registered via `CoreValidationService.initializeOverlayValidation()`
+- Individual overlay validation happens in CoreValidationService
+- MSD-specific anchor validation added in ConfigProcessor post-processing
 
-#### 1. **Is MSD ValidationService still needed?**
-- ✅ **Currently used:** PipelineCore creates `new ValidationService()` at line 112
-- ❓ **Purpose:** MSD-specific overlay validation (position, size, anchors, viewBox)
-- ❓ **Could it use Core?** Core ValidationService is "simplified" - lacks overlay-specific schemas
+### Files Status
+```
+✅ validateMerged.js           - DELETED (redundant)
+✅ ConfigProcessor.js           - Refactored to use CoreConfigManager only
+✅ lcards-msd.js               - Registered schema with CoreConfigManager
+```
 
-**Finding:** MSD ValidationService provides overlay-specific validation that Core doesn't. However, **structure is very similar** - could be consolidated.
-
-#### 2. **Is ChartDataValidator still needed?**
-- 🔴 **Problem:** Used by `ApexChartsOverlayRenderer` which **no longer exists!**
-- ✅ **Still referenced by:** DebugInterface.js (chart validation commands)
-- 📊 **Charts now use:** `custom:lcards-simple-chart` cards, not ApexCharts overlays
-- ❓ **Decision:** If charts are now just cards, do we need chart-specific data validation?
-
-**Finding:** ChartDataValidator appears to be **mostly obsolete** - only used by debug commands for a removed renderer.
-
-#### 3. **ValidationService Architectural Question**
-**Current:**
-- MSD creates its own ValidationService instance
-- Core has CoreValidationService for basic config validation
-- **Two parallel validation systems** with similar structure
-
-**Options:**
-1. **Keep separate** - MSD validation is complex, overlay-specific
-2. **Extend Core** - Make CoreValidationService support MSD schemas
-3. **Merge into Core** - Move MSD validation to core, deprecate MSD version
+### Benefits
+- Single validation path for all cards
+- No duplicate validation systems
+- Consistent error reporting
+- ~20 KB bundle size reduction
+- Cleaner, more maintainable code
 
 ---
 

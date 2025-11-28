@@ -477,29 +477,29 @@ window.lcards = {
 
 ## Migration Path
 
-### Phase 1: Backwards Compatibility ✅
+### Phase 1: Direct Overlay IDs ✅
 
-Direct overlay IDs still work:
+Direct overlay IDs as object keys:
 
 ```yaml
 rules:
   - apply:
       overlays:
-        - id: text1  # ✅ Works
+        text1:  # ✅ Direct overlay ID as key
           style: {color: "red"}
 ```
 
 ### Phase 2: Mixed Usage ✅
 
-Old and new syntax together:
+Direct IDs and bulk selectors together:
 
 ```yaml
 rules:
   - apply:
       overlays:
-        all:  # NEW
+        all:      # Bulk selector - all overlays
           style: {opacity: 0.8}
-        text1:  # OLD
+        text1:    # Direct overlay ID
           style: {color: "red"}
 ```
 

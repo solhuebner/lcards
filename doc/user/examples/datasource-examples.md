@@ -517,10 +517,10 @@ rules:
           equals: "increasing"
     apply:
       overlays:
-        - id: temp_display
+        temp_display:             # Overlay ID as object key
           style:
             fill: var(--lcars-red)
-        - id: temp_sparkline_smooth
+        temp_sparkline_smooth:    # Second overlay
           style:
             stroke: var(--lcars-red)
 
@@ -535,7 +535,7 @@ rules:
           below: 5
     apply:
       overlays:
-        - id: temp_display
+        temp_display:             # Overlay ID as object key
           style:
             fill: var(--lcars-blue)
 
@@ -550,7 +550,7 @@ rules:
           below: 25
     apply:
       overlays:
-        - id: temp_display
+        temp_display:             # Overlay ID as object key
           style:
             fill: var(--lcars-green)
 ```
@@ -755,10 +755,10 @@ rules:
           above: 100  # More than 100W/min increase
     apply:
       overlays:
-        - id: power_dashboard
+        power_dashboard:          # Overlay ID as object key
           style:
             fill: var(--lcars-red)
-        - id: power_sparkline
+        power_sparkline:          # Second overlay
           style:
             stroke: var(--lcars-red)
             strokeWidth: 3
@@ -774,7 +774,7 @@ rules:
           above: 9
     apply:
       overlays:
-        - id: power_dashboard
+        power_dashboard:          # Overlay ID as object key
           style:
             fill: var(--lcars-orange)
 
@@ -789,7 +789,7 @@ rules:
           equals: "stable"
     apply:
       overlays:
-        - id: power_dashboard
+        power_dashboard:          # Overlay ID as object key
           style:
             fill: var(--lcars-green)
 ```
@@ -996,7 +996,7 @@ rules:
           above: 70
     apply:
       overlays:
-        - id: env_dashboard
+        env_dashboard:            # Overlay ID as object key
           style:
             fill: var(--lcars-orange)
 
@@ -1011,7 +1011,7 @@ rules:
           above: 2  # Anomaly detected
     apply:
       overlays:
-        - id: env_dashboard
+        env_dashboard:            # Overlay ID as object key
           style:
             fill: var(--lcars-red)
 
@@ -1026,7 +1026,7 @@ rules:
           below: 35
     apply:
       overlays:
-        - id: env_dashboard
+        env_dashboard:            # Overlay ID as object key
           style:
             fill: var(--lcars-green)
 ```
@@ -1257,7 +1257,6 @@ overlays:
     style:
       stroke: var(--lcars-purple)
       strokeWidth: 2
-
 rules:
   # High activity mode
   - id: high_activity
@@ -1270,10 +1269,10 @@ rules:
           equals: "increasing"
     apply:
       overlays:
-        - id: smart_home_panel
+        smart_home_panel:         # Overlay ID as object key
           style:
             fill: var(--lcars-green)
-        - id: activity_sparkline
+        activity_sparkline:       # Second overlay
           style:
             stroke: var(--lcars-green)
 
@@ -1286,7 +1285,7 @@ rules:
           above: 10  # Open for more than 10 minutes
     apply:
       overlays:
-        - id: smart_home_panel
+        smart_home_panel:         # Overlay ID as object key
           style:
             fill: var(--lcars-orange)
 
@@ -1301,7 +1300,7 @@ rules:
           below: 10
     apply:
       overlays:
-        - id: smart_home_panel
+        smart_home_panel:         # Overlay ID as object key
           style:
             fill: var(--lcars-blue)
 
@@ -1316,7 +1315,7 @@ rules:
           below: 5
     apply:
       overlays:
-        - id: smart_home_panel
+        smart_home_panel:         # Overlay ID as object key
           style:
             fill: var(--lcars-gray)
 ```
@@ -1594,10 +1593,10 @@ rules:
           above: 15
     apply:
       overlays:
-        - id: solar_dashboard
+        solar_dashboard:          # Overlay ID as object key
           style:
             fill: var(--lcars-green)
-        - id: solar_sparkline
+        solar_sparkline:          # Second overlay
           style:
             stroke: var(--lcars-green)
             strokeWidth: 3
@@ -1611,7 +1610,7 @@ rules:
           above: 1  # Exporting more than 1kW
     apply:
       overlays:
-        - id: solar_dashboard
+        solar_dashboard:          # Overlay ID as object key
           style:
             fill: var(--lcars-blue)
 
@@ -1626,10 +1625,10 @@ rules:
           below: 10  # But low efficiency
     apply:
       overlays:
-        - id: solar_dashboard
+        solar_dashboard:          # Overlay ID as object key
           style:
             fill: var(--lcars-orange)
-        - id: efficiency_sparkline
+        efficiency_sparkline:     # Second overlay
           style:
             stroke: var(--lcars-orange)
 
@@ -1644,7 +1643,7 @@ rules:
           below: 10
     apply:
       overlays:
-        - id: solar_dashboard
+        solar_dashboard:          # Overlay ID as object key
           style:
             fill: var(--lcars-gray)
 ```
@@ -1968,7 +1967,6 @@ overlays:
     style:
       stroke: var(--lcars-green)
       strokeWidth: 2
-
 rules:
   # High efficiency operation
   - id: high_efficiency
@@ -1981,10 +1979,10 @@ rules:
           above: 80
     apply:
       overlays:
-        - id: hvac_dashboard
+        hvac_dashboard:           # Overlay ID as object key
           style:
             fill: var(--lcars-green)
-        - id: hvac_efficiency_sparkline
+        hvac_efficiency_sparkline: # Second overlay
           style:
             stroke: var(--lcars-green)
 
@@ -1999,10 +1997,10 @@ rules:
           above: 80
     apply:
       overlays:
-        - id: hvac_dashboard
+        hvac_dashboard:           # Overlay ID as object key
           style:
             fill: var(--lcars-orange)
-        - id: hvac_power_sparkline
+        hvac_power_sparkline:     # Second overlay
           style:
             stroke: var(--lcars-orange)
             strokeWidth: 3
@@ -2018,7 +2016,7 @@ rules:
           below: 30
     apply:
       overlays:
-        - id: hvac_dashboard
+        hvac_dashboard:           # Overlay ID as object key
           style:
             fill: var(--lcars-red)
 
@@ -2035,10 +2033,10 @@ rules:
           above: 85
     apply:
       overlays:
-        - id: hvac_dashboard
+        hvac_dashboard:           # Overlay ID as object key
           style:
             fill: var(--lcars-blue)
-        - id: comfort_sparkline
+        comfort_sparkline:        # Second overlay
           style:
             stroke: var(--lcars-blue)
 ```

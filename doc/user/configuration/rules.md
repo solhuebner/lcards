@@ -72,7 +72,7 @@ msd:
         state: "on"
       apply:
         overlays:
-          - id: status_light
+          status_light:           # Overlay ID as object key
             style:
               color: var(--lcars-green)
               text: "Light ON"
@@ -90,7 +90,7 @@ rules:
       above: 25
     apply:
       overlays:
-        - id: temp_display
+        temp_display:             # Overlay ID as object key
           style:
             color: var(--lcars-red)
 ```
@@ -389,7 +389,7 @@ rules:
       above: 30
     apply:
       overlays:
-        - id: temp_display
+        temp_display:             # Overlay ID as object key
           style:
             color: var(--lcars-red)
             font_size: 32
@@ -405,17 +405,17 @@ rules:
       state: "on"
     apply:
       overlays:
-        - id: status_text
+        status_text:              # First overlay
           style:
             color: var(--lcars-red)
             text: "⚠️ ALERT"
 
-        - id: indicator_light
+        indicator_light:          # Second overlay
           style:
             color: var(--lcars-red)
             visible: true
 
-        - id: background_overlay
+        background_overlay:       # Third overlay
           style:
             opacity: 0.5
 ```
@@ -1050,7 +1050,7 @@ rules:
       state: "on"
     apply:
       overlays:
-        - id: test_overlay
+        test_overlay:             # Overlay ID as object key
           style:
             color: var(--lcars-green)
 
@@ -1063,7 +1063,10 @@ rules:
 #       - time:
 #           after: "08:00"
 #   apply:
-#     # ...
+#     overlays:
+#       test_overlay:
+#         style:
+#           color: var(--lcars-red)
 ```
 
 ---

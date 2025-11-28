@@ -1662,7 +1662,7 @@ rules:
           above: 50              # More than 50W/min increase
     apply:
       overlays:
-        - id: power_warning
+        power_warning:            # Overlay ID as object key
           style:
             color: "var(--lcars-red)"
 
@@ -1731,7 +1731,7 @@ rules:
           above: 70              # High humidity
     apply:
       overlays:
-        - id: storm_warning
+        storm_warning:            # Overlay ID as object key
           style:
             color: "var(--lcars-orange)"
 

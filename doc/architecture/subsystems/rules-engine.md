@@ -200,7 +200,7 @@ rules:
       above: 25
     apply:
       overlays:
-        - id: temp_display
+        temp_display:             # Overlay ID as key
           style:
             color: var(--lcars-red)
 ```
@@ -215,10 +215,23 @@ rules:
       # Single condition or composition
 
     apply:                        # Required: Changes to apply
-      overlays:                   # Overlay style changes
-        - id: string              # Overlay ID
+      overlays:                   # Overlay style changes (object with overlay IDs as keys)
+        overlay_id:               # Direct overlay ID
           style:                  # Style overrides
             # ... style properties
+
+        # OR use selectors:
+        all:                      # Target all overlays
+          style: { ... }
+        type:typename:            # Target by type (e.g., type:line)
+          style: { ... }
+        tag:tagname:              # Target by tag
+          style: { ... }
+        pattern:regex:            # Target by ID pattern
+          style: { ... }
+        exclude:                  # Exclude specific IDs
+          - overlay_id_1
+          - overlay_id_2
 
       base_svg:                   # Base SVG filter updates (NEW)
         filters: object           # Filter properties
@@ -234,6 +247,40 @@ rules:
     stop: boolean                 # Optional: Stop evaluation after this rule
     priority: number              # Optional: Rule priority (higher = first)
     enabled: boolean              # Optional: Enable/disable rule
+```
+
+### Overlay Selector Syntax
+
+The `apply.overlays` section uses **object keys** for powerful targeting:
+
+**Direct targeting:**
+```yaml
+overlays:
+  my_overlay_id:      # Key is the overlay ID
+    style:
+      color: red
+```
+
+**Bulk selectors:**
+- `all:` - Target all overlays
+- `type:typename:` - Target by overlay type (e.g., `type:line:`, `type:button:`)
+- `tag:tagname:` - Target by tag (e.g., `tag:alerts:`)
+- `pattern:regex:` - Target by ID pattern (e.g., `pattern:^temp_.*:`)
+- `exclude: [id1, id2]` - Exclude specific overlay IDs
+
+**Example:**
+```yaml
+apply:
+  overlays:
+    type:line:        # All line overlays
+      style:
+        stroke: red
+    tag:alerts:       # All overlays with 'alerts' tag
+      style:
+        color: yellow
+    exclude:          # Except these
+      - line_1
+      - line_2
 ```
 
 ---
@@ -734,7 +781,7 @@ rules:
       above: 25
     apply:
       overlays:
-        - id: temp_display
+        temp_display:
           style:
             color: var(--lcars-red)
 ```
@@ -790,7 +837,7 @@ rules:
       above: 40
     apply:
       overlays:
-        - id: temp_display
+        temp_display:
           style:
             color: var(--lcars-red)
     stop: true           # Stop after this rule
@@ -803,7 +850,7 @@ rules:
       above: 30
     apply:
       overlays:
-        - id: temp_display
+        temp_display:
           style:
             color: var(--lcars-yellow)
 ```
@@ -872,7 +919,7 @@ rules:
       above: 25
     apply:
       overlays:
-        - id: temp_display
+        temp_display:
           style:
             color: var(--lcars-red)
 ```
@@ -887,14 +934,13 @@ rules:
       above: 30
     apply:
       overlays:
-        - id: temp_display
+        temp_display:
           style:
             color: var(--lcars-red)
             font_size: 32px
             border_color: var(--lcars-red)
             border_width: 3px
-
-        - id: warning_icon
+        warning_icon:
           style:
             color: var(--lcars-red)
             visible: true
@@ -1008,7 +1054,7 @@ rules:
       above: 35
     apply:
       overlays:
-        - id: temp_display
+        temp_display:
           style:
             color: var(--lcars-red)
             font_size: 32px
@@ -1022,7 +1068,7 @@ rules:
       above: 28
     apply:
       overlays:
-        - id: temp_display
+        temp_display:
           style:
             color: var(--lcars-yellow)
             font_size: 28px
@@ -1035,7 +1081,7 @@ rules:
       between: [18, 28]
     apply:
       overlays:
-        - id: temp_display
+        temp_display:
           style:
             color: var(--lcars-blue)
             font_size: 24px
@@ -1084,7 +1130,7 @@ rules:
             state: "on"
     apply:
       overlays:
-        - id: climate_warning
+        climate_warning:
           style:
             color: var(--lcars-red)
             visible: true
@@ -1111,7 +1157,7 @@ rules:
           filter_preset: "red-alert"
           transition: 500
       overlays:
-        - id: temp_display
+        temp_display:
           style:
             color: var(--lcars-red)
             text: "⚠️ CRITICAL: {{ cpu_temp }}°C"
@@ -1131,7 +1177,7 @@ rules:
             hue_rotate: "30deg"
           transition: 1000
       overlays:
-        - id: temp_display
+        temp_display:
           style:
             color: var(--lcars-yellow)
             text: "Warning: {{ cpu_temp }}°C"
@@ -1150,7 +1196,7 @@ rules:
             brightness: 0.9
           transition: 1500
       overlays:
-        - id: temp_display
+        temp_display:
           style:
             color: var(--lcars-blue)
             text: "Normal: {{ cpu_temp }}°C"

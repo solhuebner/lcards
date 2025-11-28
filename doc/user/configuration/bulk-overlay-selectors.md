@@ -12,10 +12,9 @@ The **Bulk Overlay Selector System** allows you to target multiple overlays in a
 - ✅ Maintain backwards compatibility with direct overlay IDs
 
 ---
-
 ## Quick Example
 
-### Before (Old Way - Unmaintainable)
+### Before (Tedious - Multiple Overlay Updates)
 
 ```yaml
 rules:
@@ -23,16 +22,16 @@ rules:
     when: {entity: input_select.alert, state: "red_alert"}
     apply:
       overlays:
-        - id: text1
+        text1:                    # Each overlay needs explicit ID
           style: {color: "red"}
-        - id: text2
+        text2:
           style: {color: "red"}
-        - id: chart1
+        chart1:
           style: {color: "red"}
         # ... must list ALL 50+ overlays 😱
 ```
 
-### After (New Way - Maintainable)
+### After (Efficient - Bulk Selector)
 
 ```yaml
 rules:
@@ -469,32 +468,34 @@ Selector resolution is **O(n)** where n = number of overlays.
 
 ---
 
-## Backwards Compatibility
+## Overlay Selector Syntax
 
-Direct overlay IDs still work (unchanged):
+The `apply.overlays` section uses **object keys** for overlay targeting:
+
+### Direct Overlay IDs
 
 ```yaml
 rules:
-  - id: legacy_rule
+  - id: direct_rule
     apply:
       overlays:
-        - id: text1  # ✅ Still works
+        text1:                    # Overlay ID as object key
           style: {color: "red"}
-        - id: text2  # ✅ Still works
+        text2:                    # Another overlay ID
           style: {color: "blue"}
 ```
 
-Mix old and new styles:
+### Mix Direct IDs and Bulk Selectors
 
 ```yaml
 rules:
   - id: mixed_rule
     apply:
       overlays:
-        all:  # NEW: Bulk selector
+        all:                      # Bulk selector - all overlays
           style: {opacity: 0.8}
 
-        text1:  # OLD: Direct ID
+        text1:                    # Direct overlay ID
           style: {color: "red"}
 ```
 
@@ -531,28 +532,27 @@ window.lcards.debug.msd.resolvedModel.overlays
 - Check for complex regex patterns
 - Reduce number of selectors per rule
 - Report issue to developers
-
 ---
 
 ## Migration Guide
 
-### From Individual Targeting
+### From Individual Targeting to Bulk Selectors
 
-**Before:**
+**Before (Repetitive Individual IDs):**
 ```yaml
 rules:
   - id: my_rule
     apply:
       overlays:
-        - id: text1
+        text1:                    # Each overlay needs explicit entry
           style: {color: "red"}
-        - id: text2
+        text2:
           style: {color: "red"}
-        - id: chart1
+        chart1:
           style: {color: "red"}
 ```
 
-**After (Step 1 - Add tags):**
+**After (Step 1 - Add tags to overlays):**
 ```yaml
 overlays:
   - id: text1
@@ -563,7 +563,7 @@ overlays:
     tags: ["critical"]
 ```
 
-**After (Step 2 - Use selector):**
+**After (Step 2 - Use tag selector in rule):**
 ```yaml
 rules:
   - id: my_rule
@@ -607,9 +607,9 @@ rules:
   - when: {entity: input_select.alert, state: "yellow_alert"}
     apply:
       overlays:
-        - id: ship_systems
+        ship_systems:             # Overlay ID as object key
           cell_target:
-            tag: "critical"  # ✨ Target cells with "critical" tag
+            tag: "critical"       # ✨ Target cells with "critical" tag
           style:
             color: "var(--lcars-yellow)"
 ```
@@ -620,7 +620,7 @@ rules:
   - when: {entity: input_select.alert, state: "engineering_alert"}
     apply:
       overlays:
-        - id: ship_systems
+        ship_systems:             # Overlay ID as object key
           cell_target:
             tags: ["engineering", "propulsion"]  # ✨ Match cells with ANY tag
           style:
@@ -633,10 +633,10 @@ rules:
   - when: {entity: input_select.alert, state: "warp_failure"}
     apply:
       overlays:
-        - id: ship_systems
+        ship_systems:             # Overlay ID as object key
           cell_target:
             tags: ["critical", "propulsion"]  # ✨ Match cells with BOTH tags
-            match_all: true  # ✨ AND logic
+            match_all: true       # ✨ AND logic
           style:
             color: "var(--lcars-red)"
 ```
@@ -685,7 +685,7 @@ rules:
   - when: {state: "red_alert"}
     apply:
       overlays:
-        - id: ship_systems
+        ship_systems:             # Overlay ID as object key
           cell_target: {tag: "critical"}
           style: {color: "red"}
 
@@ -693,7 +693,7 @@ rules:
   - when: {state: "engineering_alert"}
     apply:
       overlays:
-        - id: ship_systems
+        ship_systems:             # Overlay ID as object key
           cell_target: {tag: "engineering"}
           style: {color: "orange"}
 ```

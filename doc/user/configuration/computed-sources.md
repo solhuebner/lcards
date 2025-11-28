@@ -457,7 +457,7 @@ rules:
           equals: "decreasing"
     apply:
       overlays:
-        - id: efficiency_warning
+        efficiency_warning:       # Overlay ID as object key
           style:
             color: "var(--lcars-orange)"
 ```
