@@ -482,8 +482,22 @@ text:
 
 Built-in style presets extend `button.base` theme:
 
-- **`lozenge`** - Fully rounded (50% radius all corners), icon on left
-- **`lozenge-right`** - Lozenge with icon on right
+| Preset | Description |
+|--------|-------------|
+| **`lozenge`** | Fully rounded (50% radius all corners), icon on left |
+| **`lozenge-right`** | Lozenge with icon on right |
+| **`bullet`** | Half rounded (right side), icon on left |
+| **`bullet-right`** | Half rounded (left side), icon on right |
+| **`capped`** | Single side rounded (left), icon on left |
+| **`capped-right`** | Single side rounded (right), icon on right |
+| **`barrel`** | Square corners, solid background |
+| **`barrel-right`** | Square corners with icon on right |
+| **`filled`** | Larger text (Picard style), icon on left |
+| **`filled-right`** | Larger text with icon on right |
+| **`outline`** | Transparent background with colored border |
+| **`outline-right`** | Outline style with icon on right |
+| **`icon`** | Icon-only compact button |
+| **`text-only`** | Pure text label with no background or border |
 
 **Usage:**
 ```yaml
@@ -506,6 +520,28 @@ style:
     color:
       active: 'var(--lcars-yellow)'
 ```
+
+### Text-Only Labels
+
+Use the `text-only` preset for pure text labels without button appearance:
+
+```yaml
+type: custom:lcards-simple-button
+preset: text-only
+text:
+  label:
+    content: "ENVIRONMENTAL CONTROLS"
+    font_size: 18
+    color: "var(--lcars-orange)"
+```
+
+**Use Cases:**
+- Section headers
+- Status indicators (without entity binding)
+- Decorative labels
+- Panel titles
+
+**Note:** Text-only labels still support actions (`tap_action`, etc.) and entity binding for dynamic content.
 
 ---
 

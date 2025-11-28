@@ -533,6 +533,54 @@ const LCARDS_BUTTONS_PACK = {
           }
         }
       },
+
+      // =====================================
+      // TEXT-ONLY - Pure text label with no background or border
+      // =====================================
+      'text-only': {
+        description: 'Pure text label with no background or border',
+
+        // No border
+        border: {
+          width: 0,
+          color: 'transparent'
+        },
+
+        // Transparent background for all states
+        card: {
+          color: {
+            background: {
+              active: 'transparent',
+              inactive: 'transparent',
+              unavailable: 'transparent',
+              default: 'transparent'
+            }
+          }
+        },
+
+        // Text styling with theme token references
+        text: {
+          default: {
+            font_size: 16,
+            font_weight: 'normal',
+            color: {
+              active: 'theme:colors.ui.foreground',
+              inactive: 'theme:colors.ui.disabled',
+              unavailable: 'theme:colors.ui.disabled',
+              default: 'theme:colors.ui.foreground'
+            }
+          },
+          label: {
+            position: 'center'
+          }
+        },
+
+        // No icon by default
+        show_icon: false,
+
+        // Full opacity
+        opacity: 1.0
+      },
     },
 
   },
