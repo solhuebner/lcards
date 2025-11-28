@@ -110,6 +110,13 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         this._lastActionElement = null;
         this._containerSize = { width: 200, height: 56 };
         this._resizeObserver = null;
+        
+        // SVG background support (Phase 1)
+        this._processedSvg = null;
+        
+        // Segmented SVG support (Phase 2)
+        this._processedSegments = null;
+        this._segmentCleanups = [];
     }
 
     /**
@@ -118,6 +125,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      */
     _onConfigSet(config) {
         super._onConfigSet(config);
+
+        // Process SVG configuration if present (Phase 1)
+        this._processSvgConfig();
 
         // Resolve button style early (before template processing)
         // This ensures _buttonStyle is populated with preset text fields
@@ -168,6 +178,649 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 // Schedule template processing AFTER style resolution
                 this._scheduleTemplateUpdate();
             }
+        }
+    }
+
+    // ============================================================================
+    // PHASE 1: FULL SVG BACKGROUND SUPPORT
+    // ============================================================================
+
+    /**
+     * Process SVG configuration from card config
+     * Handles inline content, external URLs, and data URIs
+     * @private
+     */
+    _processSvgConfig() {
+        if (!this.config?.svg) {
+            this._processedSvg = null;
+            this._processedSegments = null;
+            return;
+        }
+
+        const svgConfig = this.config.svg;
+        let svgContent = null;
+
+        // Priority 1: Inline content
+        if (svgConfig.content) {
+            svgContent = svgConfig.content;
+            this._finalizeSvgProcessing(svgContent, svgConfig);
+        }
+        // Priority 2: External URL or data URI (async)
+        else if (svgConfig.src) {
+            // Handle data URIs synchronously
+            if (svgConfig.src.startsWith('data:')) {
+                try {
+                    // Extract SVG content from data URI
+                    const dataContent = this._extractDataUriContent(svgConfig.src);
+                    this._finalizeSvgProcessing(dataContent, svgConfig);
+                } catch (error) {
+                    lcardsLog.error(`[LCARdSSimpleButtonCard] Data URI parse failed:`, error);
+                    this._processedSvg = null;
+                }
+            } else {
+                // Fetch external URL asynchronously
+                this._fetchExternalSvg(svgConfig.src, svgConfig);
+            }
+        } else {
+            this._processedSvg = null;
+            this._processedSegments = null;
+        }
+    }
+
+    /**
+     * Extract content from a data URI
+     * @private
+     * @param {string} dataUri - Data URI string
+     * @returns {string} Decoded content
+     */
+    _extractDataUriContent(dataUri) {
+        // Format: data:image/svg+xml,<svg>...</svg> or data:image/svg+xml;base64,...
+        const commaIndex = dataUri.indexOf(',');
+        if (commaIndex === -1) {
+            throw new Error('Invalid data URI format');
+        }
+
+        const header = dataUri.substring(0, commaIndex);
+        const content = dataUri.substring(commaIndex + 1);
+
+        if (header.includes(';base64')) {
+            // Base64 encoded
+            return atob(content);
+        } else {
+            // URL encoded
+            return decodeURIComponent(content);
+        }
+    }
+
+    /**
+     * Fetch external SVG file asynchronously
+     * @private
+     * @param {string} url - URL to fetch
+     * @param {Object} svgConfig - SVG configuration
+     */
+    async _fetchExternalSvg(url, svgConfig) {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Failed to load SVG: ${response.statusText}`);
+            }
+            const svgContent = await response.text();
+            this._finalizeSvgProcessing(svgContent, svgConfig);
+            
+            // Trigger re-render after async fetch
+            this.requestUpdate();
+        } catch (error) {
+            lcardsLog.error(`[LCARdSSimpleButtonCard] SVG fetch failed:`, error);
+            this._processedSvg = null;
+        }
+    }
+
+    /**
+     * Finalize SVG processing after content is available
+     * @private
+     * @param {string} svgContent - Raw SVG content
+     * @param {Object} svgConfig - SVG configuration
+     */
+    _finalizeSvgProcessing(svgContent, svgConfig) {
+        if (!svgContent) {
+            this._processedSvg = null;
+            return;
+        }
+
+        // Sanitize SVG (remove scripts, event handlers, javascript: URLs)
+        const sanitized = this._sanitizeSvg(svgContent, svgConfig.allow_scripts !== true);
+
+        // Process tokens if enabled ({{entity.state}}, theme:tokens)
+        let withTokens = sanitized;
+        if (svgConfig.enable_tokens !== false) {
+            withTokens = this._processTokensInSvg(sanitized);
+        }
+
+        // Extract viewBox from SVG or use config
+        const viewBox = svgConfig.viewBox || this._extractViewBox(withTokens) || '0 0 100 100';
+
+        this._processedSvg = {
+            content: withTokens,
+            viewBox: viewBox,
+            preserveAspectRatio: svgConfig.preserveAspectRatio || 'xMidYMid meet'
+        };
+
+        lcardsLog.debug(`[LCARdSSimpleButtonCard] SVG processed`, {
+            hasContent: !!this._processedSvg.content,
+            viewBox: this._processedSvg.viewBox,
+            preserveAspectRatio: this._processedSvg.preserveAspectRatio
+        });
+
+        // Process segments if defined (Phase 2)
+        if (svgConfig.segments && Array.isArray(svgConfig.segments)) {
+            this._processSegmentConfig(svgConfig.segments);
+        }
+    }
+
+    /**
+     * Sanitize SVG content to prevent XSS attacks
+     * Strips dangerous elements and attributes while preserving visual content
+     * @private
+     * @param {string} svgContent - Raw SVG markup
+     * @param {boolean} stripScripts - Remove <script> tags (default: true)
+     * @returns {string} Sanitized SVG markup
+     */
+    _sanitizeSvg(svgContent, stripScripts = true) {
+        // Parse SVG to DOM (in memory, not attached to document)
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(svgContent, 'image/svg+xml');
+
+        // Check for parsing errors
+        const parserError = doc.querySelector('parsererror');
+        if (parserError) {
+            lcardsLog.error('[LCARdSSimpleButtonCard] Invalid SVG markup:', parserError.textContent);
+            return '';
+        }
+
+        const svg = doc.documentElement;
+
+        // Strip dangerous elements
+        if (stripScripts) {
+            const dangerousElements = svg.querySelectorAll('script, iframe, embed, object, foreignObject[src], use[href^="data:"], use[xlink\\:href^="data:"]');
+            dangerousElements.forEach(el => el.remove());
+        }
+
+        // Strip event handlers (onclick, onload, onerror, etc.)
+        const allElements = svg.querySelectorAll('*');
+        allElements.forEach(el => {
+            Array.from(el.attributes).forEach(attr => {
+                if (attr.name.startsWith('on')) {
+                    el.removeAttribute(attr.name);
+                }
+            });
+        });
+
+        // Strip dangerous URL schemes in href/xlink:href
+        // Checks for javascript:, data:, and vbscript: schemes
+        const dangerousSchemes = ['javascript:', 'data:', 'vbscript:'];
+        allElements.forEach(el => {
+            ['href', 'xlink:href'].forEach(attr => {
+                const value = el.getAttribute(attr);
+                if (value) {
+                    const trimmedLower = value.trim().toLowerCase();
+                    if (dangerousSchemes.some(scheme => trimmedLower.startsWith(scheme))) {
+                        el.removeAttribute(attr);
+                    }
+                }
+            });
+        });
+
+        return new XMLSerializer().serializeToString(svg);
+    }
+
+    /**
+     * Process template tokens in SVG content
+     * Supports {{entity.state}}, theme:tokens
+     * @private
+     * @param {string} svgContent - Sanitized SVG markup
+     * @returns {string} SVG with tokens replaced
+     */
+    _processTokensInSvg(svgContent) {
+        if (!svgContent) return svgContent;
+
+        let processed = svgContent;
+
+        // Process entity tokens: {{entity.state}}, {{entity.attributes.friendly_name}}, etc.
+        const entityTokenPattern = /\{\{entity\.([^}]+)\}\}/g;
+        processed = processed.replace(entityTokenPattern, (match, path) => {
+            if (!this._entity) return match;
+            
+            const parts = path.split('.');
+            let value = this._entity;
+            for (const part of parts) {
+                if (value === null || value === undefined) return match;
+                value = value[part];
+            }
+            return value !== undefined ? String(value) : match;
+        });
+
+        // Process theme tokens: theme:colors.lcars.orange, etc.
+        const themeTokenPattern = /theme:([a-zA-Z0-9._]+)/g;
+        processed = processed.replace(themeTokenPattern, (match, tokenPath) => {
+            const value = this.getThemeToken(tokenPath);
+            return value !== null ? String(value) : match;
+        });
+
+        // Process conditional expressions for fill colors: {{entity.state == 'on' ? 'color1' : 'color2'}}
+        const conditionalPattern = /\{\{entity\.state\s*==\s*['"]([^'"]+)['"]\s*\?\s*['"]([^'"]+)['"]\s*:\s*['"]([^'"]+)['"]\}\}/g;
+        processed = processed.replace(conditionalPattern, (match, compareValue, trueValue, falseValue) => {
+            if (!this._entity) return match;
+            return this._entity.state === compareValue ? trueValue : falseValue;
+        });
+
+        return processed;
+    }
+
+    /**
+     * Extract viewBox attribute from SVG content
+     * @private
+     * @param {string} svgContent - SVG markup
+     * @returns {string|null} ViewBox value or null
+     */
+    _extractViewBox(svgContent) {
+        const viewBoxMatch = svgContent.match(/viewBox=["']([^"']+)["']/);
+        return viewBoxMatch ? viewBoxMatch[1] : null;
+    }
+
+    /**
+     * Render full SVG content as button background
+     * Handles viewBox scaling and aspect ratio preservation
+     * @private
+     * @param {Object} processedSvg - Processed SVG configuration
+     * @param {number} buttonWidth - Button width
+     * @param {number} buttonHeight - Button height
+     * @returns {string} SVG markup
+     */
+    _renderSvgBackground(processedSvg, buttonWidth, buttonHeight) {
+        const { content, viewBox, preserveAspectRatio } = processedSvg;
+
+        // Extract inner SVG content (strip outer <svg> tag if present)
+        let innerContent = content;
+        const svgMatch = content.match(/<svg[^>]*>([\s\S]*)<\/svg>/i);
+        if (svgMatch) {
+            innerContent = svgMatch[1];
+        }
+
+        // Wrap in a nested SVG with proper scaling
+        // The outer button SVG has viewBox matching button dimensions
+        // The inner SVG scales the custom content to fit
+        return `
+            <g class="button-bg-svg" style="pointer-events: all;">
+                <svg x="0" y="0" 
+                     width="${buttonWidth}" 
+                     height="${buttonHeight}"
+                     viewBox="${viewBox}"
+                     preserveAspectRatio="${preserveAspectRatio}">
+                    ${innerContent}
+                </svg>
+            </g>
+        `;
+    }
+
+    // ============================================================================
+    // PHASE 2: SEGMENTED SVG (MULTI-ACTION REGIONS)
+    // ============================================================================
+
+    /**
+     * Process SVG segment configuration
+     * Sets up interactive regions with independent actions and styles
+     * @private
+     * @param {Array} segments - Array of segment configurations
+     */
+    _processSegmentConfig(segments) {
+        if (!segments || !Array.isArray(segments) || segments.length === 0) {
+            this._processedSegments = null;
+            return;
+        }
+
+        this._processedSegments = segments.map(segment => {
+            // Validate segment config
+            if (!segment.selector) {
+                lcardsLog.warn('[LCARdSSimpleButtonCard] Segment missing selector:', segment);
+                return null;
+            }
+
+            return {
+                id: segment.id || `segment-${Math.random().toString(36).substring(2, 11)}`,
+                selector: segment.selector,
+
+                // Actions
+                tap_action: segment.tap_action,
+                hold_action: segment.hold_action,
+                double_tap_action: segment.double_tap_action,
+
+                // Style configuration with state-based values
+                // Follows existing SimpleButton convention: style.{property}.{state}
+                // States: default, active, inactive, unavailable, hover
+                style: segment.style || {},
+
+                // Entity-driven state (optional)
+                entity: segment.entity,  // Different entity per segment
+
+                // Animation config (optional)
+                animations: segment.animations
+            };
+        }).filter(s => s !== null);
+
+        lcardsLog.debug(`[LCARdSSimpleButtonCard] Processed ${this._processedSegments.length} segments`);
+    }
+
+    /**
+     * Setup interactive segments in rendered SVG
+     * Attaches event listeners and applies initial styles
+     * Called in updated() lifecycle after SVG is in DOM
+     * @private
+     */
+    _setupSegmentInteractivity() {
+        if (!this._processedSegments || this._processedSegments.length === 0) {
+            return;
+        }
+
+        // Find the rendered SVG in shadow DOM
+        const svgContainer = this.shadowRoot?.querySelector('[data-button-id="simple-button"]');
+        if (!svgContainer) {
+            lcardsLog.warn('[LCARdSSimpleButtonCard] Cannot find SVG container for segments');
+            return;
+        }
+
+        // Clean up previous segment listeners
+        if (this._segmentCleanups && this._segmentCleanups.length > 0) {
+            this._segmentCleanups.forEach(cleanup => cleanup());
+        }
+        this._segmentCleanups = [];
+
+        // Setup each segment
+        this._processedSegments.forEach(segment => {
+            // Find target elements using CSS selector
+            const elements = svgContainer.querySelectorAll(segment.selector);
+
+            if (elements.length === 0) {
+                lcardsLog.warn(`[LCARdSSimpleButtonCard] No elements found for segment selector: ${segment.selector}`);
+                return;
+            }
+
+            lcardsLog.debug(`[LCARdSSimpleButtonCard] Setting up segment "${segment.id}" on ${elements.length} elements`);
+
+            elements.forEach(element => {
+                // Apply initial style (default state)
+                const defaultStyle = this._resolveSegmentStyleForState(segment.style, 'default');
+                this._applySegmentStyle(element, defaultStyle);
+
+                // Setup event listeners for this segment
+                const cleanup = this._attachSegmentListeners(element, segment);
+                this._segmentCleanups.push(cleanup);
+            });
+        });
+    }
+
+    /**
+     * Resolve segment style for a given state
+     * Follows SimpleButton convention: style.{property}.{state}
+     * States: default, active, inactive, unavailable, hover
+     * @private
+     * @param {Object} style - Style configuration object
+     * @param {string} state - Target state (default, active, inactive, unavailable, hover)
+     * @returns {Object} Resolved style object with concrete values
+     */
+    _resolveSegmentStyleForState(style, state) {
+        if (!style || typeof style !== 'object') {
+            return {};
+        }
+
+        const resolvedStyle = {};
+
+        Object.entries(style).forEach(([property, value]) => {
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                // State-based value: { default: "color1", active: "color2", hover: "color3" }
+                // Priority: requested state > default > first available value
+                resolvedStyle[property] = value[state] ?? value.default ?? Object.values(value)[0];
+            } else {
+                // Direct value (not state-based)
+                resolvedStyle[property] = value;
+            }
+        });
+
+        return resolvedStyle;
+    }
+
+    /**
+     * Attach event listeners to a segment element
+     * Handles hover, active, and action events
+     * @private
+     * @param {SVGElement} element - SVG element to attach listeners to
+     * @param {Object} segment - Segment configuration
+     * @returns {Function} Cleanup function
+     */
+    _attachSegmentListeners(element, segment) {
+        // Resolve styles for different states
+        const defaultStyle = this._resolveSegmentStyleForState(segment.style, 'default');
+        const hoverStyle = this._resolveSegmentStyleForState(segment.style, 'hover');
+        const activeStyle = this._resolveSegmentStyleForState(segment.style, 'active');
+        let isActive = false;
+
+        // Hover handlers
+        const handleMouseEnter = (e) => {
+            if (!isActive) {
+                // Apply hover style, falling back to default if hover not defined
+                const hasHoverStyle = Object.keys(hoverStyle).length > 0;
+                this._applySegmentStyle(element, hasHoverStyle ? hoverStyle : defaultStyle);
+            }
+            e.stopPropagation(); // Prevent button-level hover
+        };
+
+        const handleMouseLeave = (e) => {
+            if (!isActive) {
+                this._applySegmentStyle(element, defaultStyle);
+            }
+            e.stopPropagation();
+        };
+
+        // Hold action handler (long press)
+        let holdTimer = null;
+        const handleHoldStart = () => {
+            if (segment.hold_action) {
+                holdTimer = setTimeout(() => {
+                    lcardsLog.debug(`[LCARdSSimpleButtonCard] Segment "${segment.id}" held`);
+                    this._executeSegmentAction(segment.hold_action, segment);
+                    holdTimer = null;
+                }, 500); // 500ms hold threshold
+            }
+        };
+
+        const handleHoldCancel = () => {
+            if (holdTimer) {
+                clearTimeout(holdTimer);
+                holdTimer = null;
+            }
+        };
+
+        // Active (pressed) handlers - combined with hold start
+        const handleMouseDown = (e) => {
+            isActive = true;
+            // Apply active style, falling back to hover then default
+            const hasActiveStyle = Object.keys(activeStyle).length > 0;
+            const hasHoverStyle = Object.keys(hoverStyle).length > 0;
+            this._applySegmentStyle(element, hasActiveStyle ? activeStyle : (hasHoverStyle ? hoverStyle : defaultStyle));
+            handleHoldStart(); // Start hold timer
+            e.stopPropagation(); // Prevent button-level action
+        };
+
+        const handleMouseUp = (e) => {
+            isActive = false;
+            handleHoldCancel(); // Cancel hold timer
+            // Return to hover style (mouse still over element)
+            const hasHoverStyle = Object.keys(hoverStyle).length > 0;
+            this._applySegmentStyle(element, hasHoverStyle ? hoverStyle : defaultStyle);
+            e.stopPropagation();
+        };
+
+        // Tap action handler
+        const handleClick = (e) => {
+            e.preventDefault();
+            e.stopPropagation(); // CRITICAL: prevent button-level action
+
+            lcardsLog.debug(`[LCARdSSimpleButtonCard] Segment "${segment.id}" clicked`);
+
+            if (segment.tap_action) {
+                this._executeSegmentAction(segment.tap_action, segment);
+            }
+        };
+
+        // Handle mouse leave while pressed - cancel hold and reset style
+        const handleMouseLeaveWhilePressed = (e) => {
+            if (isActive) {
+                handleHoldCancel();
+            }
+            handleMouseLeave(e);
+        };
+
+        // Attach listeners
+        element.addEventListener('mouseenter', handleMouseEnter);
+        element.addEventListener('mouseleave', handleMouseLeaveWhilePressed);
+        element.addEventListener('mousedown', handleMouseDown);
+        element.addEventListener('mouseup', handleMouseUp);
+        element.addEventListener('click', handleClick);
+
+        // Touch support
+        element.addEventListener('touchstart', (e) => {
+            handleMouseDown(e);
+        }, { passive: true });
+        element.addEventListener('touchend', (e) => {
+            handleMouseUp(e);
+        });
+        element.addEventListener('touchcancel', handleHoldCancel);
+
+        // Make element pointer-interactive
+        element.style.pointerEvents = 'all';
+        element.style.cursor = 'pointer';
+
+        // Return cleanup function
+        return () => {
+            element.removeEventListener('mouseenter', handleMouseEnter);
+            element.removeEventListener('mouseleave', handleMouseLeaveWhilePressed);
+            element.removeEventListener('mousedown', handleMouseDown);
+            element.removeEventListener('mouseup', handleMouseUp);
+            element.removeEventListener('click', handleClick);
+            // Note: anonymous functions for touch events can't be removed exactly,
+            // but the element will be garbage collected when the SVG is regenerated
+            if (holdTimer) clearTimeout(holdTimer);
+        };
+    }
+
+    /**
+     * Apply style object to SVG element
+     * Handles fill, stroke, opacity, transform, etc.
+     * @private
+     * @param {SVGElement} element - Target SVG element
+     * @param {Object} style - Style object to apply
+     */
+    _applySegmentStyle(element, style) {
+        if (!style || Object.keys(style).length === 0) return;
+
+        Object.entries(style).forEach(([key, value]) => {
+            // Convert camelCase to kebab-case for SVG attributes
+            const attrName = key.replace(/([A-Z])/g, '-$1').toLowerCase();
+
+            // Handle special cases
+            if (key === 'fill' || key === 'stroke' || key === 'opacity') {
+                element.setAttribute(attrName, value);
+            } else if (key === 'strokeWidth' || key === 'stroke-width') {
+                element.setAttribute('stroke-width', value);
+            } else if (key === 'transform') {
+                element.setAttribute('transform', value);
+            } else {
+                // Generic attribute setting
+                element.setAttribute(attrName, value);
+            }
+        });
+    }
+
+    /**
+     * Execute action for a segment
+     * Uses unified action handler from base class
+     * @private
+     * @param {Object} action - Action configuration
+     * @param {Object} segment - Segment configuration (for entity context)
+     */
+    async _executeSegmentAction(action, segment) {
+        if (!action || action.action === 'none') return;
+
+        // Use segment's entity if specified, otherwise card's entity
+        const entityId = segment.entity || this.config.entity;
+
+        // Build action context
+        const actionContext = {
+            entity: entityId,
+            segment: segment.id
+        };
+
+        lcardsLog.debug(`[LCARdSSimpleButtonCard] Executing segment action`, {
+            action: action.action,
+            entityId,
+            segmentId: segment.id
+        });
+
+        switch (action.action) {
+            case 'toggle':
+                if (entityId) {
+                    const [domain] = entityId.split('.');
+                    await this.hass?.callService(domain, 'toggle', { entity_id: entityId });
+                }
+                break;
+
+            case 'call-service':
+                if (action.service) {
+                    const [domain, service] = action.service.split('.');
+                    const serviceData = {
+                        ...(action.service_data || action.data || {}),
+                    };
+                    // Only add entity_id if entityId is defined and not already in service data
+                    if (entityId && !serviceData.entity_id) {
+                        serviceData.entity_id = entityId;
+                    }
+                    await this.hass?.callService(domain, service, serviceData);
+                }
+                break;
+
+            case 'navigate':
+                if (action.navigation_path) {
+                    window.history.pushState(null, '', action.navigation_path);
+                    window.dispatchEvent(new CustomEvent('location-changed'));
+                }
+                break;
+
+            case 'more-info':
+                if (entityId) {
+                    const event = new CustomEvent('hass-more-info', {
+                        detail: { entityId },
+                        bubbles: true,
+                        composed: true
+                    });
+                    this.dispatchEvent(event);
+                }
+                break;
+
+            case 'fire-dom-event':
+                // Custom event for advanced integrations
+                const customEvent = new CustomEvent(action.event_type || 'segment-action', {
+                    detail: {
+                        segment: segment.id,
+                        action: action,
+                        context: actionContext
+                    },
+                    bubbles: true,
+                    composed: true
+                });
+                this.dispatchEvent(customEvent);
+                break;
+
+            default:
+                lcardsLog.warn(`[LCARdSSimpleButtonCard] Unknown segment action: ${action.action}`);
         }
     }
 
@@ -341,6 +994,11 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 this._setupButtonActions();
                 this._lastActionElement = buttonElement;
             }
+        }
+
+        // Setup segment interactivity after render (Phase 2)
+        if (this._processedSegments && this._processedSegments.length > 0) {
+            this._setupSegmentInteractivity();
         }
     }
 
@@ -1830,14 +2488,22 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         }
 
         // Generate button background (fill only, no stroke)
-        const backgroundMarkup = normalizedPath
-            ? this._renderCustomPathBackground(normalizedPath, backgroundColor)
-            : needsComplexPath
-                ? this._renderComplexButtonPath(width, height, border, backgroundColor)
-                : this._renderSimpleButtonRect(width, height, border, backgroundColor);
+        // Priority: SVG background (Phase 1) > custom path > complex path > simple rect
+        let backgroundMarkup;
+        if (this._processedSvg && this._processedSvg.content) {
+            // Use full SVG content as background (Phase 1)
+            backgroundMarkup = this._renderSvgBackground(this._processedSvg, width, height);
+        } else if (normalizedPath) {
+            backgroundMarkup = this._renderCustomPathBackground(normalizedPath, backgroundColor);
+        } else if (needsComplexPath) {
+            backgroundMarkup = this._renderComplexButtonPath(width, height, border, backgroundColor);
+        } else {
+            backgroundMarkup = this._renderSimpleButtonRect(width, height, border, backgroundColor);
+        }
 
         // Generate separate border paths for clean corner joins
-        const borderMarkup = this._renderIndividualBorderPaths(width, height, border);
+        // Note: Borders are rendered on top of SVG backgrounds when svg config is used
+        const borderMarkup = this._processedSvg ? '' : this._renderIndividualBorderPaths(width, height, border);
 
         // ViewBox no longer needs expansion for stroke overhang
         // Borders are now inset by strokeWidth/2, keeping them fully within natural dimensions
@@ -3075,6 +3741,12 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             this._actionCleanup = null;
         }
 
+        // Clean up segment listeners (Phase 2)
+        if (this._segmentCleanups && this._segmentCleanups.length > 0) {
+            this._segmentCleanups.forEach(cleanup => cleanup());
+            this._segmentCleanups = [];
+        }
+
         // Clean up ResizeObserver
         if (this._resizeObserver) {
             this._resizeObserver.disconnect();
@@ -3170,6 +3842,131 @@ if (window.lcardsCore?.configManager) {
             preset: {
                 type: 'string',
                 description: 'Style preset name (e.g., "lozenge", "bullet", "capped", "barrel", "outline", "icon")'
+            },
+
+            // SVG Background Support (Phase 1)
+            svg: {
+                type: 'object',
+                description: 'Full SVG background support with optional segmented interaction',
+                properties: {
+                    content: {
+                        type: 'string',
+                        description: 'Inline SVG content (without outer <svg> tag, or with it)'
+                    },
+                    src: {
+                        type: 'string',
+                        description: 'External SVG path ("/local/shapes/icon.svg") or data URI'
+                    },
+                    viewBox: {
+                        type: 'string',
+                        description: 'ViewBox for SVG (auto-detected if not specified)',
+                        pattern: '^-?\\d+(\\.\\d+)?\\s+-?\\d+(\\.\\d+)?\\s+\\d+(\\.\\d+)?\\s+\\d+(\\.\\d+)?$'
+                    },
+                    preserveAspectRatio: {
+                        type: 'string',
+                        description: 'Aspect ratio preservation (default: xMidYMid meet)',
+                        enum: ['none', 'xMinYMin meet', 'xMidYMin meet', 'xMaxYMin meet',
+                               'xMinYMid meet', 'xMidYMid meet', 'xMaxYMid meet',
+                               'xMinYMax meet', 'xMidYMax meet', 'xMaxYMax meet',
+                               'xMinYMin slice', 'xMidYMin slice', 'xMaxYMin slice',
+                               'xMinYMid slice', 'xMidYMid slice', 'xMaxYMid slice',
+                               'xMinYMax slice', 'xMidYMax slice', 'xMaxYMax slice']
+                    },
+                    enable_tokens: {
+                        type: 'boolean',
+                        description: 'Enable token replacement ({{entity.state}}, theme:tokens). Default: true'
+                    },
+                    allow_scripts: {
+                        type: 'boolean',
+                        description: 'Allow script elements in SVG (SECURITY RISK). Default: false'
+                    },
+                    segments: {
+                        type: 'array',
+                        description: 'Interactive segments within the SVG (Phase 2)',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                id: { type: 'string', description: 'Unique segment identifier' },
+                                selector: { type: 'string', description: 'CSS selector for SVG elements (e.g., "#arrow-up", "[data-segment=up]")' },
+                                entity: { type: 'string', description: 'Override entity for this segment' },
+                                tap_action: { type: 'object', description: 'Action on tap (same structure as card tap_action)' },
+                                hold_action: { type: 'object', description: 'Action on hold' },
+                                double_tap_action: { type: 'object', description: 'Action on double tap' },
+                                style: {
+                                    type: 'object',
+                                    description: 'State-based style for segment. Properties can be direct values or state objects with: default, active, inactive, unavailable, hover',
+                                    properties: {
+                                        fill: {
+                                            oneOf: [
+                                                { type: 'string', description: 'Uniform fill color' },
+                                                {
+                                                    type: 'object',
+                                                    description: 'State-based fill colors',
+                                                    properties: {
+                                                        default: { type: 'string' },
+                                                        active: { type: 'string' },
+                                                        inactive: { type: 'string' },
+                                                        unavailable: { type: 'string' },
+                                                        hover: { type: 'string' }
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        stroke: {
+                                            oneOf: [
+                                                { type: 'string', description: 'Uniform stroke color' },
+                                                {
+                                                    type: 'object',
+                                                    description: 'State-based stroke colors',
+                                                    properties: {
+                                                        default: { type: 'string' },
+                                                        active: { type: 'string' },
+                                                        inactive: { type: 'string' },
+                                                        unavailable: { type: 'string' },
+                                                        hover: { type: 'string' }
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        'stroke-width': {
+                                            oneOf: [
+                                                { type: ['number', 'string'], description: 'Uniform stroke width' },
+                                                {
+                                                    type: 'object',
+                                                    description: 'State-based stroke widths',
+                                                    properties: {
+                                                        default: { type: ['number', 'string'] },
+                                                        active: { type: ['number', 'string'] },
+                                                        inactive: { type: ['number', 'string'] },
+                                                        unavailable: { type: ['number', 'string'] },
+                                                        hover: { type: ['number', 'string'] }
+                                                    }
+                                                }
+                                            ]
+                                        },
+                                        opacity: {
+                                            oneOf: [
+                                                { type: 'number', description: 'Uniform opacity' },
+                                                {
+                                                    type: 'object',
+                                                    description: 'State-based opacity values',
+                                                    properties: {
+                                                        default: { type: 'number' },
+                                                        active: { type: 'number' },
+                                                        inactive: { type: 'number' },
+                                                        unavailable: { type: 'number' },
+                                                        hover: { type: 'number' }
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            required: ['selector']
+                        }
+                    }
+                }
             },
 
             // Multi-Text Label System
