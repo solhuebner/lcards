@@ -543,8 +543,7 @@ const LCARDS_BUTTONS_PACK = {
 
         // No border
         border: {
-          width: 0,
-          color: 'transparent'
+          width: 0
         },
 
         // Transparent background for all states
