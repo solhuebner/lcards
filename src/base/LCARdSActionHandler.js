@@ -214,6 +214,18 @@ export class LCARdSActionHandler {
         // Tap action handler with double-tap coordination
         if (actions.tap_action) {
             const tapHandler = async (event) => {
+                // Check if click target is a segment element (Phase 2 multi-action regions)
+                // Walk up the DOM tree to check for data-lcards-segment attribute
+                let targetElement = event.target;
+                while (targetElement && targetElement !== element) {
+                    if (targetElement.hasAttribute && targetElement.hasAttribute('data-lcards-segment')) {
+                        lcardsLog.trace(`[LCARdSActionHandler] Skipping tap - clicked on segment "${targetElement.getAttribute('data-lcards-segment')}"`);
+                        return; // Let segment handler deal with it
+                    }
+                    targetElement = targetElement.parentElement;
+                }
+
+                // Now safe to stop propagation - we know we're handling this
                 event.stopPropagation();
                 event.preventDefault();
 

@@ -110,10 +110,10 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         this._lastActionElement = null;
         this._containerSize = { width: 200, height: 56 };
         this._resizeObserver = null;
-        
+
         // SVG background support (Phase 1)
         this._processedSvg = null;
-        
+
         // Segmented SVG support (Phase 2)
         this._processedSegments = null;
         this._segmentCleanups = [];
@@ -191,6 +191,11 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      * @private
      */
     _processSvgConfig() {
+        lcardsLog.debug(`[LCARdSSimpleButtonCard] _processSvgConfig called`, {
+            hasSvgConfig: !!this.config?.svg,
+            config: this.config?.svg
+        });
+
         if (!this.config?.svg) {
             this._processedSvg = null;
             this._processedSegments = null;
@@ -202,6 +207,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
 
         // Priority 1: Inline content
         if (svgConfig.content) {
+            lcardsLog.debug(`[LCARdSSimpleButtonCard] Processing inline SVG content`, {
+                contentLength: svgConfig.content?.length
+            });
             svgContent = svgConfig.content;
             this._finalizeSvgProcessing(svgContent, svgConfig);
         }
@@ -266,7 +274,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             }
             const svgContent = await response.text();
             this._finalizeSvgProcessing(svgContent, svgConfig);
-            
+
             // Trigger re-render after async fetch
             this.requestUpdate();
         } catch (error) {
@@ -307,6 +315,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
 
         lcardsLog.debug(`[LCARdSSimpleButtonCard] SVG processed`, {
             hasContent: !!this._processedSvg.content,
+            contentLength: this._processedSvg.content?.length,
             viewBox: this._processedSvg.viewBox,
             preserveAspectRatio: this._processedSvg.preserveAspectRatio
         });
@@ -326,9 +335,19 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      * @returns {string} Sanitized SVG markup
      */
     _sanitizeSvg(svgContent, stripScripts = true) {
+        // Strip XML declaration if present (causes parsing errors when wrapping)
+        // Matches: <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+        let cleanedContent = svgContent.trim().replace(/^<\?xml[^?]*\?>\s*/i, '');
+
+        // Wrap content in <svg> if not already wrapped (allows fragments like <rect/><defs/>)
+        let wrappedContent = cleanedContent;
+        if (!wrappedContent.startsWith('<svg')) {
+            wrappedContent = `<svg xmlns="http://www.w3.org/2000/svg">${cleanedContent}</svg>`;
+        }
+
         // Parse SVG to DOM (in memory, not attached to document)
         const parser = new DOMParser();
-        const doc = parser.parseFromString(svgContent, 'image/svg+xml');
+        const doc = parser.parseFromString(wrappedContent, 'image/svg+xml');
 
         // Check for parsing errors
         const parserError = doc.querySelector('parsererror');
@@ -370,6 +389,8 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             });
         });
 
+        // Return the full SVG (including wrapper if we added one)
+        // _renderSvgBackground will strip the outer <svg> tag if present
         return new XMLSerializer().serializeToString(svg);
     }
 
@@ -389,7 +410,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         const entityTokenPattern = /\{\{entity\.([^}]+)\}\}/g;
         processed = processed.replace(entityTokenPattern, (match, path) => {
             if (!this._entity) return match;
-            
+
             const parts = path.split('.');
             let value = this._entity;
             for (const part of parts) {
@@ -451,8 +472,8 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // The inner SVG scales the custom content to fit
         return `
             <g class="button-bg-svg" style="pointer-events: all;">
-                <svg x="0" y="0" 
-                     width="${buttonWidth}" 
+                <svg x="0" y="0"
+                     width="${buttonWidth}"
                      height="${buttonHeight}"
                      viewBox="${viewBox}"
                      preserveAspectRatio="${preserveAspectRatio}">
@@ -662,7 +683,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Tap action handler
         const handleClick = (e) => {
             e.preventDefault();
-            e.stopPropagation(); // CRITICAL: prevent button-level action
+            e.stopPropagation();
 
             lcardsLog.debug(`[LCARdSSimpleButtonCard] Segment "${segment.id}" clicked`);
 
@@ -698,6 +719,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Make element pointer-interactive
         element.style.pointerEvents = 'all';
         element.style.cursor = 'pointer';
+
+        // Mark as segment for button-level action filtering
+        element.setAttribute('data-lcards-segment', segment.id);
 
         // Return cleanup function
         return () => {
@@ -761,6 +785,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
 
         lcardsLog.debug(`[LCARdSSimpleButtonCard] Executing segment action`, {
             action: action.action,
+            service: action.service,
+            target: action.target,
+            serviceData: action.service_data || action.data,
             entityId,
             segmentId: segment.id
         });
@@ -776,14 +803,27 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             case 'call-service':
                 if (action.service) {
                     const [domain, service] = action.service.split('.');
+
+                    // Build service data from multiple possible sources
                     const serviceData = {
                         ...(action.service_data || action.data || {}),
                     };
-                    // Only add entity_id if entityId is defined and not already in service data
-                    if (entityId && !serviceData.entity_id) {
+
+                    // Handle target parameter (new HA format)
+                    // target can contain: entity_id, device_id, area_id, label_id
+                    let target = action.target ? { ...action.target } : undefined;
+
+                    // If no target specified but entityId exists, add it to service data
+                    if (!target && entityId && !serviceData.entity_id) {
                         serviceData.entity_id = entityId;
                     }
-                    await this.hass?.callService(domain, service, serviceData);
+
+                    // Call service with target if provided, otherwise just service data
+                    if (target) {
+                        await this.hass?.callService(domain, service, serviceData, target);
+                    } else {
+                        await this.hass?.callService(domain, service, serviceData);
+                    }
                 }
                 break;
 
@@ -970,7 +1010,11 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      * @protected
      */
     _onConfigUpdated() {
-        lcardsLog.debug(`[LCARdSSimpleButtonCard] Config updated by CoreConfigManager, re-resolving button style`);
+        lcardsLog.debug(`[LCARdSSimpleButtonCard] Config updated by CoreConfigManager, re-resolving button style and SVG`);
+
+        // Re-process SVG configuration (in case config was replaced by CoreConfigManager)
+        this._processSvgConfig();
+
         // Re-resolve button style with the new merged config
         this._resolveButtonStyleSync();
     }
@@ -2489,15 +2533,23 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
 
         // Generate button background (fill only, no stroke)
         // Priority: SVG background (Phase 1) > custom path > complex path > simple rect
+        lcardsLog.debug(`[LCARdSSimpleButtonCard] Rendering button background`, {
+            hasProcessedSvg: !!this._processedSvg,
+            hasContent: !!this._processedSvg?.content,
+            contentLength: this._processedSvg?.content?.length
+        });
+
         let backgroundMarkup;
         if (this._processedSvg && this._processedSvg.content) {
             // Use full SVG content as background (Phase 1)
+            lcardsLog.debug(`[LCARdSSimpleButtonCard] Using SVG background`);
             backgroundMarkup = this._renderSvgBackground(this._processedSvg, width, height);
         } else if (normalizedPath) {
             backgroundMarkup = this._renderCustomPathBackground(normalizedPath, backgroundColor);
         } else if (needsComplexPath) {
             backgroundMarkup = this._renderComplexButtonPath(width, height, border, backgroundColor);
         } else {
+            lcardsLog.debug(`[LCARdSSimpleButtonCard] Using simple rect background`);
             backgroundMarkup = this._renderSimpleButtonRect(width, height, border, backgroundColor);
         }
 

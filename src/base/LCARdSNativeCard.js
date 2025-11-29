@@ -148,8 +148,20 @@ export class LCARdSNativeCard extends LitElement {
 
         if (hass && oldHass !== hass) {
             lcardsLog.debug(`[LCARdSNativeCard] HASS object changed for ${this._cardGuid} - calling _onHassChanged`);
+
+            // Determine if this HASS change is relevant to this card
+            const shouldUpdate = this._shouldUpdateOnHassChange(hass, oldHass);
+
+            // Always call _onHassChanged (for monitoring, core updates, etc.)
             this._onHassChanged(hass, oldHass);
-            this.requestUpdate();
+
+            // Only trigger re-render if relevant entities changed
+            if (shouldUpdate) {
+                lcardsLog.trace(`[LCARdSNativeCard] Requesting re-render for ${this._cardGuid} due to relevant entity changes`);
+                this.requestUpdate();
+            } else {
+                lcardsLog.trace(`[LCARdSNativeCard] Skipping re-render for ${this._cardGuid} - no relevant entity changes`);
+            }
         } else if (hass && oldHass === hass) {
             // This is normal - HA often mutates the HASS object in place
             lcardsLog.trace(`[LCARdSNativeCard] HASS object mutated in place for ${this._cardGuid}`);
@@ -255,6 +267,45 @@ export class LCARdSNativeCard extends LitElement {
     // ============================================================================
     // Protected Methods for Subclasses
     // ============================================================================
+
+    /**
+     * Determine if the card should re-render based on HASS changes
+     * Checks if the card's entity or any tracked entities changed
+     * @param {Object} newHass - New HASS object
+     * @param {Object} oldHass - Previous HASS object
+     * @returns {boolean} True if re-render needed
+     * @private
+     */
+    _shouldUpdateOnHassChange(newHass, oldHass) {
+        // First HASS update - always render
+        if (!oldHass) {
+            return true;
+        }
+
+        // Check if card's configured entity changed
+        if (this.config?.entity) {
+            const oldState = oldHass?.states?.[this.config.entity];
+            const newState = newHass?.states?.[this.config.entity];
+            if (oldState !== newState) {
+                return true;
+            }
+        }
+
+        // Check if any tracked entities changed (from templates)
+        if (this._trackedEntities && this._trackedEntities.length > 0) {
+            const hasTrackedChanges = this._trackedEntities.some(entityId => {
+                const oldState = oldHass?.states?.[entityId];
+                const newState = newHass?.states?.[entityId];
+                return oldState !== newState;
+            });
+            if (hasTrackedChanges) {
+                return true;
+            }
+        }
+
+        // No relevant changes - skip re-render
+        return false;
+    }
 
     /**
      * Called when config is set - override in subclasses
