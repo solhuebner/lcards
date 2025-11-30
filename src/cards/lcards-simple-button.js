@@ -861,70 +861,104 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
     }
 
     /**
-     * DEPRECATED: Replaced by _setupSegmentActionHandler
-     * Register animations for a segment with the AnimationManager
+     * Setup segment animations after interactivity is established
+     * Called after _setupSegmentInteractivity() in updated()
      * @private
-     * @param {Object} segment - Segment configuration with animations
-     * @param {Element} element - DOM element to animate
      */
-    async _registerSegmentAnimations(segment, element) {
-        if (!this._singletons?.animationManager) {
-            lcardsLog.warn(`[LCARdSSimpleButtonCard] Cannot register segment animations - AnimationManager not available`);
+    _setupSegmentAnimations() {
+        if (!this._processedSegments || this._processedSegments.length === 0) {
             return;
         }
 
-        const animationManager = this._singletons.animationManager;
-        const segmentOverlayId = `${this._overlayId}-segment-${segment.id}`;
-
-        lcardsLog.debug(`[LCARdSSimpleButtonCard] Registering ${segment.animations.length} animations for segment "${segment.id}"`);
-
-        try {
-            // Create full scope structure for this segment if it doesn't exist
-            if (!animationManager.scopes.has(segmentOverlayId)) {
-                // Import TriggerManager dynamically
-                const { TriggerManager } = await import('../core/animation/TriggerManager.js');
-
-                // Create anime.js scope
-                const scope = animationManager.createScopeForOverlay(segmentOverlayId, element);
-
-                // Create trigger manager
-                const triggerManager = new TriggerManager(segmentOverlayId, element, animationManager);
-
-                // Store full scope data structure
-                animationManager.scopes.set(segmentOverlayId, {
-                    scope: scope,
-                    overlay: { animations: segment.animations },
-                    element: element,
-                    activeAnimations: new Set(),
-                    triggerManager: triggerManager,
-                    runningInstances: new Map()
-                });
-
-                lcardsLog.debug(`[LCARdSSimpleButtonCard] Created animation scope for segment "${segment.id}"`);
-            }
-
-            // Register each animation for this segment
-            for (const animConfig of segment.animations) {
-                await animationManager.registerAnimation(segmentOverlayId, {
-                    ...animConfig,
-                    // Provide element reference for animation targeting
-                    _targetElement: element
-                });
-            }
-
-            lcardsLog.debug(`[LCARdSSimpleButtonCard] Registered animations for segment "${segment.id}" with overlay ID: ${segmentOverlayId}`);
-        } catch (error) {
-            lcardsLog.error(`[LCARdSSimpleButtonCard] Failed to register segment animations:`, error);
+        const animationManager = this._singletons?.animationManager;
+        if (!animationManager) {
+            lcardsLog.debug('[LCARdSSimpleButtonCard] AnimationManager not available, skipping segment animations');
+            return;
         }
+
+        // Generate unique card ID for animation scope
+        const cardId = this._getAnimationCardId();
+
+        this._processedSegments.forEach(segment => {
+            // Skip segments without animations
+            if (!segment.animations || segment.animations.length === 0) {
+                return;
+            }
+
+            // Skip if already registered
+            if (this._registeredSegmentAnimations.has(segment.id)) {
+                return;
+            }
+
+            const element = this.shadowRoot?.querySelector('.button-bg-svg svg')?.querySelector(segment.selector);
+            if (!element) {
+                lcardsLog.warn(`[LCARdSSimpleButtonCard] Segment element not found for animation: ${segment.selector}`);
+                return;
+            }
+
+            // Register animations with AnimationManager
+            animationManager.registerSegmentAnimations(
+                cardId,
+                segment.id,
+                segment.animations,
+                element
+            );
+
+            // Mark as registered
+            this._registeredSegmentAnimations.add(segment.id);
+
+            lcardsLog.debug(`[LCARdSSimpleButtonCard] Registered animations for segment: ${segment.id}`, {
+                animationCount: segment.animations.length
+            });
+        });
     }
 
     /**
-     * DEPRECATED: Replaced by ActionHandler integration
-     * This method is no longer used - ActionHandler handles all animation triggers
+     * Generate unique card ID for animation scoping
      * @private
+     * @returns {string} Card ID for animation scope
      */
-    _triggerSegmentAnimation(segment, trigger) {
-        lcardsLog.warn(`[LCARdSSimpleButtonCard] _triggerSegmentAnimation is deprecated - use ActionHandler instead`);
+    _getAnimationCardId() {
+        return `simple-button-${this.config?.id || this._cardGuid}`;
+    }
+
+    /**
+     * Trigger segment animation via AnimationManager
+     * @private
+     * @param {string} segmentId - Segment identifier
+     * @param {string} trigger - Animation trigger (on_tap, on_hover, on_leave, on_entity_change)
+     */
+    async _triggerSegmentAnimation(segmentId, trigger) {
+        const animationManager = this._singletons?.animationManager;
+        if (!animationManager) {
+            return;
+        }
+
+        const cardId = this._getAnimationCardId();
+
+        lcardsLog.debug(`[LCARdSSimpleButtonCard] Triggering segment animation`, {
+            cardId,
+            segmentId,
+            trigger
+        });
+
+        await animationManager.playSegmentAnimation(cardId, segmentId, trigger);
+    }
+
+    /**
+     * Stop segment animation via AnimationManager
+     * @private
+     * @param {string} segmentId - Segment identifier
+     * @param {string} [trigger] - Optional trigger to stop (stops all if not specified)
+     */
+    _stopSegmentAnimation(segmentId, trigger = null) {
+        const animationManager = this._singletons?.animationManager;
+        if (!animationManager) {
+            return;
+        }
+
+        const cardId = this._getAnimationCardId();
+        animationManager.stopSegmentAnimations(cardId, segmentId, trigger);
     }
 
     /**
@@ -1078,6 +1112,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         const initialStyle = this._resolveSegmentStyleForState(segment.style, null, entityState);
         this._applySegmentStyle(element, initialStyle);
 
+        // Check if segment has animations
+        const hasAnimations = segment.animations && segment.animations.length > 0;
+
         let isPressed = false;
 
         // Hover handlers
@@ -1088,6 +1125,11 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 if (hasHoverStyle) {
                     this._applySegmentStyle(element, hoverStyle);
                 }
+
+                // Trigger hover animation
+                if (hasAnimations) {
+                    this._triggerSegmentAnimation(segment.id, 'on_hover');
+                }
             }
             e.stopPropagation(); // Prevent button-level hover
         };
@@ -1096,6 +1138,12 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             if (!isPressed) {
                 // Return to entity state style
                 this._applySegmentStyle(element, initialStyle);
+
+                // Stop hover animations and trigger leave animation
+                if (hasAnimations) {
+                    this._stopSegmentAnimation(segment.id, 'on_hover');
+                    this._triggerSegmentAnimation(segment.id, 'on_leave');
+                }
             }
             e.stopPropagation();
         };
@@ -1106,6 +1154,12 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             if (segment.hold_action) {
                 holdTimer = setTimeout(() => {
                     lcardsLog.debug(`[LCARdSSimpleButtonCard] Segment "${segment.id}" held`);
+
+                    // Trigger hold animation
+                    if (hasAnimations) {
+                        this._triggerSegmentAnimation(segment.id, 'on_hold');
+                    }
+
                     this._executeSegmentAction(segment.hold_action, segment);
                     holdTimer = null;
                 }, 500); // 500ms hold threshold
@@ -1150,6 +1204,11 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             e.stopPropagation();
 
             lcardsLog.debug(`[LCARdSSimpleButtonCard] Segment "${segment.id}" clicked`);
+
+            // Trigger tap animation
+            if (hasAnimations) {
+                this._triggerSegmentAnimation(segment.id, 'on_tap');
+            }
 
             if (segment.tap_action) {
                 this._executeSegmentAction(segment.tap_action, segment);
@@ -1270,6 +1329,11 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 // Resolve and apply new style (no interaction state, just entity state)
                 const newStyle = this._resolveSegmentStyleForState(segment.style, null, newEntityState);
                 this._applySegmentStyle(element, newStyle);
+
+                // Trigger entity change animation if segment has animations
+                if (segment.animations && segment.animations.length > 0) {
+                    this._triggerSegmentAnimation(segmentId, 'on_entity_change');
+                }
 
                 lcardsLog.debug(`[LCARdSSimpleButtonCard] Updated segment "${segmentId}" style`, {
                     entityId,
@@ -1559,6 +1623,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Setup segment interactivity after render (Phase 2)
         if (this._processedSegments && this._processedSegments.length > 0) {
             this._setupSegmentInteractivity();
+
+            // Setup segment animations after interactivity
+            this._setupSegmentAnimations();
         }
     }
 
@@ -4350,6 +4417,16 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             this._segmentCleanups = [];
         }
 
+        // Clean up segment animations
+        if (this._registeredSegmentAnimations && this._registeredSegmentAnimations.size > 0) {
+            const animationManager = this._singletons?.animationManager;
+            if (animationManager) {
+                const cardId = this._getAnimationCardId();
+                animationManager.destroyCardSegmentScopes(cardId);
+            }
+            this._registeredSegmentAnimations.clear();
+        }
+
         // Clear segment tracking maps
         if (this._segmentElements) {
             this._segmentElements.clear();
@@ -4575,6 +4652,32 @@ if (window.lcardsCore?.configManager) {
                                                 }
                                             ]
                                         }
+                                    }
+                                },
+                                animations: {
+                                    type: 'array',
+                                    description: 'Segment animations triggered by user interactions or entity state changes',
+                                    items: {
+                                        type: 'object',
+                                        properties: {
+                                            trigger: {
+                                                type: 'string',
+                                                enum: ['on_load', 'on_tap', 'on_hold', 'on_hover', 'on_leave', 'on_entity_change'],
+                                                description: 'Animation trigger: on_load (initial), on_tap (click), on_hold (long press), on_hover (mouse enter), on_leave (mouse exit), on_entity_change (state change)'
+                                            },
+                                            preset: {
+                                                type: 'string',
+                                                description: 'Animation preset name (pulse, glow, fade, blink, shimmer, ripple, etc.)'
+                                            },
+                                            duration: { type: 'number', description: 'Animation duration in milliseconds' },
+                                            easing: { type: 'string', description: 'Easing function (e.g., easeInOutSine, linear)' },
+                                            loop: { type: 'boolean', description: 'Loop the animation continuously' },
+                                            alternate: { type: 'boolean', description: 'Alternate direction on each loop' },
+                                            delay: { type: 'number', description: 'Delay before animation starts (ms)' },
+                                            color: { type: 'string', description: 'Color for glow/shimmer presets' },
+                                            scale: { type: 'number', description: 'Scale factor for pulse/ripple presets' }
+                                        },
+                                        required: ['trigger', 'preset']
                                     }
                                 }
                             },

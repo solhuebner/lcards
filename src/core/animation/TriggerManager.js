@@ -68,10 +68,17 @@ export class TriggerManager {
    * @param {string} trigger - Trigger type
    */
   setupTriggerListener(trigger) {
-    // Interactive triggers (tap, hold, hover, leave, double_tap) are handled by ActionHelpers
+    // Interactive triggers (tap, hold, hover, leave, double_tap) are handled by the card
+    // For segments, these are triggered directly via playSegmentAnimation from the card's event handlers
     const interactiveTriggers = ['on_tap', 'on_hold', 'on_hover', 'on_leave', 'on_double_tap'];
     if (interactiveTriggers.includes(trigger)) {
-      lcardsLog.debug(`[TriggerManager] ${trigger} handled by ActionHelpers (skipping)`);
+      lcardsLog.debug(`[TriggerManager] ${trigger} handled by card event handlers (skipping)`);
+      return;
+    }
+
+    // Entity state change triggers are handled by the card's HASS update handler
+    if (trigger === 'on_entity_change') {
+      lcardsLog.debug(`[TriggerManager] on_entity_change handled by card HASS monitoring (skipping)`);
       return;
     }
 
