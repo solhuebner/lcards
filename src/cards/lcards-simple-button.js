@@ -919,7 +919,9 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      * @returns {string} Card ID for animation scope
      */
     _getAnimationCardId() {
-        return `simple-button-${this.config?.id || this._cardGuid}`;
+        // Use config ID, then card GUID, then generate a fallback random ID
+        const cardId = this.config?.id || this._cardGuid || `card-${Math.random().toString(36).substring(2, 11)}`;
+        return `simple-button-${cardId}`;
     }
 
     /**
@@ -1140,9 +1142,13 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 this._applySegmentStyle(element, initialStyle);
 
                 // Stop hover animations and trigger leave animation
+                // Use requestAnimationFrame to ensure hover animations are fully stopped
+                // before starting leave animations
                 if (hasAnimations) {
                     this._stopSegmentAnimation(segment.id, 'on_hover');
-                    this._triggerSegmentAnimation(segment.id, 'on_leave');
+                    requestAnimationFrame(() => {
+                        this._triggerSegmentAnimation(segment.id, 'on_leave');
+                    });
                 }
             }
             e.stopPropagation();
