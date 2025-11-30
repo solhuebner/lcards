@@ -540,6 +540,13 @@ Built-in style presets extend `button.base` theme:
 | **`outline-right`** | Outline style with icon on right |
 | **`icon`** | Icon-only compact button |
 | **`text-only`** | Pure text label with no background or border |
+| **`bar-label-left`** | Bar with left-aligned text in opaque box |
+| **`bar-label-center`** | Bar with centered text in opaque box |
+| **`bar-label-right`** | Bar with right-aligned text in opaque box |
+| **`bar-label-square`** | Square bar with centered text |
+| **`bar-label-lozenge`** | Pill-shaped bar with centered text |
+| **`bar-label-bullet-left`** | Half-pill bar with left text |
+| **`bar-label-bullet-right`** | Half-pill bar with right text |
 
 **Usage:**
 ```yaml
@@ -584,6 +591,43 @@ text:
 - Panel titles
 
 **Note:** Text-only labels still support actions (`tap_action`, etc.) and entity binding for dynamic content.
+
+### Bar Label Presets
+
+Bar label presets create LCARS-style horizontal bars with positioned text. The text sits in an opaque background box that "breaks" the colored bar.
+
+| Preset | Description | Text Position |
+|--------|-------------|---------------|
+| **`bar-label-left`** | Left-aligned text on bar | left-center |
+| **`bar-label-center`** | Centered text on bar | center |
+| **`bar-label-right`** | Right-aligned text on bar | right-center |
+| **`bar-label-square`** | Square corners, centered text | center |
+| **`bar-label-lozenge`** | Rounded ends (pill shape) | center |
+| **`bar-label-bullet-left`** | Half-lozenge, rounded left | left-center |
+| **`bar-label-bullet-right`** | Half-lozenge, rounded right | right-center |
+
+**Basic Usage:**
+```yaml
+type: custom:lcards-simple-button
+preset: bar-label-center
+text:
+  label:
+    content: "ENGINEERING DECK 12"
+```
+
+**Customize Background:**
+```yaml
+type: custom:lcards-simple-button
+preset: bar-label-left
+text:
+  label:
+    content: "STATUS"
+    background: "#1a1a1a"      # Dark background
+    background_padding: 15     # More padding around text
+    background_radius: 8       # Rounded corners on background
+```
+
+See [Bar Label Presets Reference](../reference/bar-label-presets.md) for detailed documentation.
 
 ---
 
