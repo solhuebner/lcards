@@ -584,6 +584,200 @@ const LCARDS_BUTTONS_PACK = {
         // Full opacity
         opacity: 1.0
       },
+
+      // =====================================
+      // BAR LABEL PRESETS - Horizontal bars with positioned text
+      // These create LCARS-style labels with opaque text backgrounds
+      // that "break" colored horizontal bars.
+      // =====================================
+      
+      // Base Bar Label - Foundation for all bar labels
+      'bar-label-base': {
+        extends: 'button.base',
+        description: 'Base bar label preset with transparent background and opaque text box',
+        
+        // Transparent background - bar is created by borders only
+        card: {
+          color: {
+            background: {
+              default: 'transparent',
+              active: 'transparent',
+              inactive: 'transparent',
+              unavailable: 'transparent'
+            }
+          }
+        },
+        
+        // Border creates the "bar" effect
+        border: {
+          width: 2,
+          color: {
+            default: 'theme:components.button.base.border.color.default',
+            active: 'theme:components.button.base.border.color.active',
+            inactive: 'theme:components.button.base.border.color.inactive',
+            unavailable: 'theme:components.button.base.border.color.unavailable'
+          }
+        },
+        
+        // Text styling with opaque background for bar-break effect
+        text: {
+          default: {
+            font_size: 20,
+            font_weight: 100,
+            text_transform: 'uppercase',
+            color: {
+              default: 'theme:components.button.base.text.default.color.default',
+              active: 'theme:components.button.base.text.default.color.active',
+              inactive: 'theme:components.button.base.text.default.color.inactive',
+              unavailable: 'theme:components.button.base.text.default.color.unavailable'
+            },
+            // Opaque background creates the bar "break" effect
+            background: 'black',
+            background_padding: 10,
+            background_radius: 4,
+            padding: {
+              top: 0,
+              bottom: 8,
+              left: 15,
+              right: 15
+            }
+          }
+        },
+        
+        // No icon by default for bar labels
+        show_icon: false
+      },
+      
+      // Bar Label Left - Text positioned on left side of bar
+      'bar-label-left': {
+        extends: 'button.bar-label-base',
+        description: 'Bar label with left-aligned text',
+        
+        border: {
+          left: { width: 60 },
+          right: { width: 40 }
+        },
+        
+        text: {
+          default: {
+            position: 'left-center'
+          }
+        }
+      },
+      
+      // Bar Label Center - Text centered in bar
+      'bar-label-center': {
+        extends: 'button.bar-label-base',
+        description: 'Bar label with centered text',
+        
+        border: {
+          left: { width: 50 },
+          right: { width: 50 }
+        },
+        
+        text: {
+          default: {
+            position: 'center'
+          }
+        }
+      },
+      
+      // Bar Label Right - Text positioned on right side of bar
+      'bar-label-right': {
+        extends: 'button.bar-label-base',
+        description: 'Bar label with right-aligned text',
+        
+        border: {
+          left: { width: 40 },
+          right: { width: 60 }
+        },
+        
+        text: {
+          default: {
+            position: 'right-center'
+          }
+        }
+      },
+      
+      // Bar Label Square - Full-height bar with square corners
+      'bar-label-square': {
+        extends: 'button.bar-label-base',
+        description: 'Bar label with square corners for large indicators',
+        
+        border: {
+          left: { width: 50 },
+          right: { width: 50 },
+          radius: {
+            top_left: 0,
+            top_right: 0,
+            bottom_left: 0,
+            bottom_right: 0
+          }
+        },
+        
+        text: {
+          default: {
+            position: 'center'
+          }
+        }
+      },
+      
+      // Bar Label Lozenge - Full-height bar with rounded ends (pill shape)
+      'bar-label-lozenge': {
+        extends: 'button.bar-label-square',
+        description: 'Bar label with rounded ends (pill shape)',
+        
+        border: {
+          radius: {
+            top_left: 'theme:components.button.base.radius.full',
+            top_right: 'theme:components.button.base.radius.full',
+            bottom_left: 'theme:components.button.base.radius.full',
+            bottom_right: 'theme:components.button.base.radius.full'
+          }
+        }
+      },
+      
+      // Bar Label Bullet Left - Half-lozenge with rounded left, flat right
+      'bar-label-bullet-left': {
+        extends: 'button.bar-label-square',
+        description: 'Bar label with rounded left side, flat right (left-pointing)',
+        
+        border: {
+          radius: {
+            top_left: 'theme:components.button.base.radius.full',
+            top_right: 0,
+            bottom_left: 'theme:components.button.base.radius.full',
+            bottom_right: 0
+          }
+        },
+        
+        text: {
+          default: {
+            position: 'left-center'
+          }
+        }
+      },
+      
+      // Bar Label Bullet Right - Half-lozenge with flat left, rounded right
+      'bar-label-bullet-right': {
+        extends: 'button.bar-label-square',
+        description: 'Bar label with flat left side, rounded right (right-pointing)',
+        
+        border: {
+          radius: {
+            top_left: 0,
+            top_right: 'theme:components.button.base.radius.full',
+            bottom_left: 0,
+            bottom_right: 'theme:components.button.base.radius.full'
+          }
+        },
+        
+        text: {
+          default: {
+            position: 'right-center'
+          }
+        }
+      },
     },
 
   },

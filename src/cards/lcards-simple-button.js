@@ -3509,7 +3509,12 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 baseline: fieldConfig.baseline || presetFieldConfig.baseline || presetDefault.baseline || null,
                 rotation: fieldConfig.rotation !== undefined ? fieldConfig.rotation : (presetFieldConfig.rotation !== undefined ? presetFieldConfig.rotation : 0),
                 show: fieldConfig.show !== undefined ? fieldConfig.show : (presetFieldConfig.show !== undefined ? presetFieldConfig.show : true),
-                template: fieldConfig.template !== undefined ? fieldConfig.template : (presetFieldConfig.template !== undefined ? presetFieldConfig.template : true)
+                template: fieldConfig.template !== undefined ? fieldConfig.template : (presetFieldConfig.template !== undefined ? presetFieldConfig.template : true),
+                
+                // Text background properties for "bar label" effect
+                background: fieldConfig.background !== undefined ? fieldConfig.background : (presetFieldConfig.background !== undefined ? presetFieldConfig.background : null),
+                background_padding: fieldConfig.background_padding !== undefined ? fieldConfig.background_padding : (presetFieldConfig.background_padding !== undefined ? presetFieldConfig.background_padding : 8),
+                background_radius: fieldConfig.background_radius !== undefined ? fieldConfig.background_radius : (presetFieldConfig.background_radius !== undefined ? presetFieldConfig.background_radius : 4)
             };
         }
 
@@ -3825,7 +3830,12 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 font_family: field.font_family,
                 anchor: anchor,
                 baseline: baseline,
-                rotation: field.rotation  // NEW: pass through rotation
+                rotation: field.rotation,  // NEW: pass through rotation
+                
+                // Text background properties for "bar label" effect
+                background: field.background,
+                background_padding: field.background_padding,
+                background_radius: field.background_radius
             });
         }
 
@@ -3842,6 +3852,64 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         const textElements = [];
 
         for (const field of processedFields) {
+            // Render background rectangle if specified (before text so text appears on top)
+            if (field.background) {
+                // Calculate background bounds based on text properties
+                const bgPadding = field.background_padding || 8;
+                const bgRadius = field.background_radius || 4;
+                
+                // Estimate text width (rough approximation based on content length and font size)
+                // For more accurate sizing, we'd need canvas measurement, but this works for LCARS aesthetics
+                const charWidth = field.size * 0.6; // Average character width heuristic
+                const textWidth = field.content.length * charWidth;
+                
+                const bgWidth = textWidth + (bgPadding * 2);
+                const bgHeight = field.size + (bgPadding * 2);
+                
+                // Calculate background position based on text anchor
+                let bgX = field.x;
+                let bgY = field.y;
+                
+                // Adjust X based on text-anchor
+                if (field.anchor === 'middle') {
+                    bgX = field.x - (bgWidth / 2);
+                } else if (field.anchor === 'end') {
+                    bgX = field.x - bgWidth;
+                }
+                // 'start' anchor: bgX = field.x (no adjustment needed)
+                
+                // Adjust Y based on dominant-baseline
+                if (field.baseline === 'middle' || field.baseline === 'central') {
+                    bgY = field.y - (bgHeight / 2);
+                } else if (field.baseline === 'hanging') {
+                    bgY = field.y;
+                } else if (field.baseline === 'alphabetic') {
+                    bgY = field.y - bgHeight + (bgPadding / 2); // Adjust for baseline offset
+                }
+                
+                // Build background rect attributes
+                const bgAttrs = [
+                    `class="text-background"`,
+                    `data-field-id="${field.id}-bg"`,
+                    `x="${bgX}"`,
+                    `y="${bgY}"`,
+                    `width="${bgWidth}"`,
+                    `height="${bgHeight}"`,
+                    `rx="${bgRadius}"`,
+                    `ry="${bgRadius}"`,
+                    `fill="${field.background}"`,
+                    `pointer-events="none"`
+                ];
+                
+                // Apply rotation transform if specified (same as text rotation)
+                if (field.rotation && field.rotation !== 0) {
+                    bgAttrs.push(`transform="rotate(${field.rotation} ${field.x} ${field.y})"`);
+                }
+                
+                const bgRect = `<rect ${bgAttrs.join(' ')} />`;
+                textElements.push(bgRect);
+            }
+            
             // Build SVG <text> element
             const textAttrs = [
                 `x="${field.x}"`,
