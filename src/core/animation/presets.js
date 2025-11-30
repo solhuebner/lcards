@@ -72,7 +72,7 @@ export function mergeAnimationParams(base, override) {
  * - min_opacity (default: 0.7)
  * - duration (default: 1200)
  * - easing (default: 'easeInOutSine')
- * - loop (default: true)
+ * - loop (default: true) - Can be true, false, or a number (e.g., 3 for 3 iterations)
  * - alternate (default: true)
  */
 registerAnimationPreset('pulse', (def) => {
@@ -108,7 +108,7 @@ registerAnimationPreset('pulse', (def) => {
  * - to (default: 1)
  * - duration (default: 1000)
  * - easing (default: 'linear')
- * - loop (default: false)
+ * - loop (default: false) - Can be true, false, or a number (e.g., 3 for 3 iterations)
  * - alternate (default: false)
  */
 registerAnimationPreset('fade', (def) => {
@@ -117,7 +117,7 @@ registerAnimationPreset('fade', (def) => {
   const to = p.to !== undefined ? p.to : 1;
   const duration = p.duration || 1000;
   const easing = p.easing || 'linear';
-  const loop = p.loop || false;
+  const loop = p.loop !== undefined ? p.loop : false;
   const alternate = p.alternate || false;
 
   return {
@@ -142,7 +142,7 @@ registerAnimationPreset('fade', (def) => {
  * - blur_max (default: 10)
  * - duration (default: 1500)
  * - easing (default: 'easeInOutSine')
- * - loop (default: true)
+ * - loop (default: true) - Can be true, false, or a number (e.g., 3 for 3 iterations)
  * - alternate (default: true)
  */
 registerAnimationPreset('glow', (def) => {
@@ -455,7 +455,7 @@ registerAnimationPreset('ripple', (def) => {
  * - from (default: 1) - Starting scale
  * - duration (default: 200)
  * - easing (default: 'easeOutQuad')
- * - loop (default: false)
+ * - loop (default: false) - Can be true, false, or a number (e.g., 3 for 3 iterations)
  * - alternate (default: false)
  */
 registerAnimationPreset('scale', (def) => {
@@ -464,7 +464,7 @@ registerAnimationPreset('scale', (def) => {
   const from = p.from !== undefined ? p.from : 1;
   const duration = p.duration || 200;
   const easing = p.easing || 'easeOutQuad';
-  const loop = p.loop || false;
+  const loop = p.loop !== undefined ? p.loop : false;
   const alternate = p.alternate || false;
 
   return {
@@ -474,6 +474,34 @@ registerAnimationPreset('scale', (def) => {
       easing,
       loop,
       direction: alternate ? 'alternate' : 'normal'
+    },
+    styles: {
+      transformOrigin: 'center',
+      transformBox: 'fill-box'
+    }
+  };
+});
+
+/**
+ * Scale Reset - Return element to original scale
+ * Use with on_leave trigger to reset hover scale animations
+ *
+ * Parameters:
+ * - duration (default: 200)
+ * - easing (default: 'easeOutQuad')
+ */
+registerAnimationPreset('scale-reset', (def) => {
+  const p = def.params || def;
+  const duration = p.duration || 200;
+  const easing = p.easing || 'easeOutQuad';
+
+  return {
+    anime: {
+      scale: [null, 1], // null means "from current value"
+      duration,
+      easing,
+      loop: false,
+      direction: 'normal'
     },
     styles: {
       transformOrigin: 'center',
