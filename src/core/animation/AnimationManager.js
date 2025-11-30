@@ -990,4 +990,162 @@ export class AnimationManager extends BaseService {
 
     lcardsLog.info('[AnimationManager] ✅ Animation system disposed');
   }
+
+  // ============================================================================
+  // SEGMENT ANIMATION SUPPORT
+  // Extends AnimationManager to support sub-scope animations for SVG segments
+  // ============================================================================
+
+  /**
+   * Register segment animations for a card
+   * Creates a "sub-scope" under the card's scope for segment-level animations
+   *
+   * @param {string} cardId - Unique card identifier (e.g., "simple-button-123")
+   * @param {string} segmentId - Segment identifier
+   * @param {Array} animations - Animation definitions array
+   * @param {Element} segmentElement - SVG element to animate
+   */
+  async registerSegmentAnimations(cardId, segmentId, animations, segmentElement) {
+    if (!animations || animations.length === 0) {
+      return;
+    }
+
+    const scopeKey = `${cardId}:segment:${segmentId}`;
+
+    lcardsLog.debug(`[AnimationManager] Registering segment animations`, {
+      cardId,
+      segmentId,
+      scopeKey,
+      animationCount: animations.length
+    });
+
+    try {
+      // Create scope for this segment if it doesn't exist
+      if (!this.scopes.has(scopeKey)) {
+        // Create anime.js scope
+        const scope = this.createScopeForOverlay(scopeKey, segmentElement);
+
+        // Create trigger manager for segment
+        const triggerManager = new TriggerManager(scopeKey, segmentElement, this);
+
+        // Store segment scope data
+        this.scopes.set(scopeKey, {
+          scope: scope,
+          overlay: { animations: animations },
+          element: segmentElement,
+          activeAnimations: new Set(),
+          triggerManager: triggerManager,
+          runningInstances: new Map(),
+          // Segment-specific metadata
+          isSegment: true,
+          cardId: cardId,
+          segmentId: segmentId
+        });
+
+        lcardsLog.debug(`[AnimationManager] Created segment scope: ${scopeKey}`);
+      }
+
+      const scopeData = this.scopes.get(scopeKey);
+
+      // Register each animation with its trigger
+      for (const animDef of animations) {
+        const trigger = animDef.trigger || 'on_load';
+
+        // Register with trigger manager
+        scopeData.triggerManager.register(trigger, this.resolveAnimationDefinition(animDef));
+
+        // For on_load triggers, execute immediately
+        if (trigger === 'on_load') {
+          await this.playAnimation(scopeKey, this.resolveAnimationDefinition(animDef));
+        }
+
+        // For on_entity_change triggers, setup is handled by the card
+        // (card tracks entity changes and calls playSegmentAnimation)
+      }
+
+      lcardsLog.debug(`[AnimationManager] ✅ Registered ${animations.length} animations for segment: ${scopeKey}`);
+
+    } catch (error) {
+      lcardsLog.error(`[AnimationManager] Failed to register segment animations:`, error);
+    }
+  }
+
+  /**
+   * Play animation on a specific segment
+   *
+   * @param {string} cardId - Card identifier
+   * @param {string} segmentId - Segment identifier
+   * @param {string} trigger - Animation trigger (on_tap, on_hover, on_entity_change, etc.)
+   */
+  async playSegmentAnimation(cardId, segmentId, trigger) {
+    const scopeKey = `${cardId}:segment:${segmentId}`;
+    const scopeData = this.scopes.get(scopeKey);
+
+    if (!scopeData) {
+      lcardsLog.debug(`[AnimationManager] No segment scope found: ${scopeKey}`);
+      return;
+    }
+
+    // Get animations registered for this trigger
+    const triggerManager = scopeData.triggerManager;
+    if (!triggerManager || !triggerManager.registrations.has(trigger)) {
+      lcardsLog.debug(`[AnimationManager] No segment animations for ${scopeKey} on trigger: ${trigger}`);
+      return;
+    }
+
+    const animations = triggerManager.registrations.get(trigger) || [];
+
+    if (animations.length === 0) {
+      return;
+    }
+
+    lcardsLog.debug(`[AnimationManager] 🎬 Playing ${animations.length} segment animation(s) for ${scopeKey} on ${trigger}`);
+
+    // Execute each animation
+    for (const animDef of animations) {
+      try {
+        await this.playAnimation(scopeKey, animDef);
+      } catch (error) {
+        lcardsLog.error(`[AnimationManager] Failed to play segment animation:`, error);
+      }
+    }
+  }
+
+  /**
+   * Stop animations for a specific segment
+   *
+   * @param {string} cardId - Card identifier
+   * @param {string} segmentId - Segment identifier
+   * @param {string} [trigger] - Optional trigger type to stop (stops all if not specified)
+   */
+  stopSegmentAnimations(cardId, segmentId, trigger = null) {
+    const scopeKey = `${cardId}:segment:${segmentId}`;
+    this.stopAnimations(scopeKey, trigger);
+  }
+
+  /**
+   * Destroy all segment scopes for a card
+   * Called when card is disconnected
+   *
+   * @param {string} cardId - Card identifier
+   */
+  destroyCardSegmentScopes(cardId) {
+    const keysToDestroy = [];
+
+    // Find all segment scopes for this card
+    this.scopes.forEach((scopeData, scopeKey) => {
+      if (scopeData.isSegment && scopeData.cardId === cardId) {
+        keysToDestroy.push(scopeKey);
+      }
+    });
+
+    // Destroy each segment scope
+    keysToDestroy.forEach(scopeKey => {
+      this.destroyOverlayScope(scopeKey);
+    });
+
+    if (keysToDestroy.length > 0) {
+      lcardsLog.debug(`[AnimationManager] 🗑️ Destroyed ${keysToDestroy.length} segment scopes for card: ${cardId}`);
+    }
+  }
 }
