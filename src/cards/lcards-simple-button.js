@@ -879,36 +879,64 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         // Generate unique card ID for animation scope
         const cardId = this._getAnimationCardId();
 
-        this._processedSegments.forEach(segment => {
-            // Skip segments without animations
-            if (!segment.animations || segment.animations.length === 0) {
-                return;
-            }
+        // Wait for next frame to ensure SVG is fully rendered in shadow DOM
+        requestAnimationFrame(() => {
+            this._processedSegments.forEach(segment => {
+                // Skip segments without animations
+                if (!segment.animations || segment.animations.length === 0) {
+                    return;
+                }
 
-            // Skip if already registered
-            if (this._registeredSegmentAnimations.has(segment.id)) {
-                return;
-            }
+                const element = this.shadowRoot?.querySelector('.button-bg-svg svg')?.querySelector(segment.selector);
+                if (!element) {
+                    lcardsLog.warn(`[LCARdSSimpleButtonCard] Segment element not found for animation: ${segment.selector}`);
+                    return;
+                }
 
-            const element = this.shadowRoot?.querySelector('.button-bg-svg svg')?.querySelector(segment.selector);
-            if (!element) {
-                lcardsLog.warn(`[LCARdSSimpleButtonCard] Segment element not found for animation: ${segment.selector}`);
-                return;
-            }
+                // Check if already registered and if the element reference is stale
+                const scopeKey = `${cardId}:segment:${segment.id}`;
+                const existingScope = animationManager.scopes.get(scopeKey);
 
-            // Register animations with AnimationManager
-            animationManager.registerSegmentAnimations(
-                cardId,
-                segment.id,
-                segment.animations,
-                element
-            );
+                // If scope exists but element is different (DOM was recreated), update the reference
+                if (existingScope && existingScope.element !== element) {
+                    lcardsLog.debug(`[LCARdSSimpleButtonCard] Updating stale element reference for segment: ${segment.id}`);
 
-            // Mark as registered
-            this._registeredSegmentAnimations.add(segment.id);
+                    // Update element reference in scope
+                    existingScope.element = element;
 
-            lcardsLog.debug(`[LCARdSSimpleButtonCard] Registered animations for segment: ${segment.id}`, {
-                animationCount: segment.animations.length
+                    // Update scope's anime.js root element
+                    if (existingScope.scope && existingScope.scope.root) {
+                        existingScope.scope.root = element;
+                    }
+
+                    // Update trigger manager's element reference
+                    if (existingScope.triggerManager) {
+                        existingScope.triggerManager.element = element;
+                    }
+
+                    lcardsLog.debug(`[LCARdSSimpleButtonCard] ✅ Updated element reference for segment: ${segment.id}`);
+                    return;
+                }
+
+                // Skip if already registered with valid element
+                if (this._registeredSegmentAnimations.has(segment.id)) {
+                    return;
+                }
+
+                // Register animations with AnimationManager
+                animationManager.registerSegmentAnimations(
+                    cardId,
+                    segment.id,
+                    segment.animations,
+                    element
+                );
+
+                // Mark as registered
+                this._registeredSegmentAnimations.add(segment.id);
+
+                lcardsLog.debug(`[LCARdSSimpleButtonCard] Registered animations for segment: ${segment.id}`, {
+                    animationCount: segment.animations.length
+                });
             });
         });
     }

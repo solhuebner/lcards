@@ -597,6 +597,21 @@ export class AnimationManager extends BaseService {
         targetElements.push(overlayElement);
       }
 
+      // Verify target elements are connected to DOM
+      const connectedTargets = targetElements.filter(el => el && el.isConnected);
+      if (connectedTargets.length === 0) {
+        lcardsLog.error(`[AnimationManager] All target elements disconnected from DOM for ${overlayId}`, {
+          totalTargets: targetElements.length,
+          targetSelectors: finalAnimDef.target || finalAnimDef.targets || 'default'
+        });
+        return null;
+      }
+
+      if (connectedTargets.length < targetElements.length) {
+        lcardsLog.warn(`[AnimationManager] Some targets disconnected, animating ${connectedTargets.length}/${targetElements.length} for ${overlayId}`);
+        targetElements = connectedTargets;
+      }
+
       lcardsLog.debug(`[AnimationManager] Resolved ${targetElements.length} target(s) for overlay ${overlayId}:`, {
         hasTarget: !!finalAnimDef.target,
         hasTargets: !!finalAnimDef.targets,
@@ -1083,6 +1098,12 @@ export class AnimationManager extends BaseService {
 
     if (!scopeData) {
       lcardsLog.debug(`[AnimationManager] No segment scope found: ${scopeKey}`);
+      return;
+    }
+
+    // Verify element is still connected to DOM
+    if (!scopeData.element || !scopeData.element.isConnected) {
+      lcardsLog.warn(`[AnimationManager] Segment element disconnected, skipping animation: ${scopeKey}`);
       return;
     }
 
