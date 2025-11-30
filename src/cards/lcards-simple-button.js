@@ -58,6 +58,8 @@ import { deepMerge } from '../utils/deepMerge.js';
 import { resolveThemeTokensRecursive } from '../utils/lcards-theme.js';
 import { escapeHtml } from '../utils/StringUtils.js';
 import { TemplateParser } from '../core/templates/TemplateParser.js';
+import { getComponent } from '../core/packs/components/index.js';
+import { getShape } from '../core/packs/shapes/index.js';
 
 export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
 
@@ -119,6 +121,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
         this._segmentCleanups = [];
         this._segmentElements = new Map(); // Stores segment ID → { element, segment config }
         this._segmentEntityStates = new Map(); // Stores entity ID → last known state
+        this._registeredSegmentAnimations = new Set(); // Tracks which segments have animations registered
     }
 
     /**
@@ -188,19 +191,186 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
     // ============================================================================
 
     /**
+     * Process component preset configuration
+     * Loads component preset from pack system, resolves shape, merges with user config,
+     * and resolves theme tokens.
+     *
+     * NOTE: Component presets are loaded directly from component registry for now.
+     * Future enhancement: Support external SVG files via /hacsfiles/lcards/ URL paths
+     * (similar to MSD base_svg files).
+     *
+     * @private
+     * @param {string} componentName - Name of component preset to load
+     */
+    _processComponentPreset(componentName) {
+        lcardsLog.debug(`[LCARdSSimpleButtonCard] Processing component preset`, { componentName });
+
+        // Load component preset
+        const componentPreset = getComponent(componentName);
+        if (!componentPreset) {
+            lcardsLog.error(`[LCARdSSimpleButtonCard] Component preset not found: ${componentName}`);
+            this._processedSvg = null;
+            this._processedSegments = null;
+            return;
+        }
+
+        // Load shape SVG
+        const shapeName = componentPreset.shape;
+        const shapeContent = getShape(shapeName);
+        if (!shapeContent) {
+            lcardsLog.error(`[LCARdSSimpleButtonCard] Shape not found for component: ${shapeName}`);
+            this._processedSvg = null;
+            this._processedSegments = null;
+            return;
+        }
+
+        lcardsLog.debug(`[LCARdSSimpleButtonCard] Loaded component preset`, {
+            id: componentPreset.id,
+            shape: shapeName,
+            hasSegments: !!componentPreset.segments
+        });
+
+        // Create SVG config from component preset
+        const svgConfig = {
+            content: shapeContent,
+            enable_tokens: true,
+            segments: []
+        };
+
+        // DON'T resolve tokens yet - singletons not available during config processing!
+        // Store component segments with token references, will resolve during render
+        // Merge component segments with user-provided segments
+        const userSegmentsConfig = this.config[componentName] || {};
+        const userSegments = userSegmentsConfig.segments || {};
+
+        const mergedSegments = this._mergeComponentSegments(componentPreset.segments, userSegments);
+
+        // Convert to segment array format expected by _finalizeSvgProcessing
+        // Auto-generate selector from segment ID if not explicitly provided
+        svgConfig.segments = Object.entries(mergedSegments).map(([id, config]) => ({
+            id,
+            selector: config.selector || `#${id}`,  // Default to ID selector if not specified
+            ...config
+        }));
+
+        lcardsLog.debug(`[LCARdSSimpleButtonCard] Component segments merged`, {
+            componentSegmentCount: Object.keys(componentPreset.segments).length,
+            userSegmentCount: Object.keys(userSegments).length,
+            finalSegmentCount: svgConfig.segments.length
+        });
+
+        // Process through normal SVG pipeline
+        this._finalizeSvgProcessing(svgConfig.content, svgConfig);
+    }
+
+    /**
+     * Resolve theme tokens in component segment definitions
+     * @private
+     * @param {Object} segments - Component preset segments with token references
+     * @returns {Object} Segments with resolved theme token values
+     */
+    _resolveComponentSegmentTokens(segments) {
+        const resolved = {};
+        const themeTokens = this._themeTokens || {};
+
+        for (const [segmentId, segmentConfig] of Object.entries(segments)) {
+            resolved[segmentId] = {};
+
+            // Resolve each property that might contain theme tokens
+            for (const [prop, value] of Object.entries(segmentConfig)) {
+                if (typeof value === 'string') {
+                    // Check if it's a theme token reference (e.g., "components.dpad.segment.directional.fill")
+                    resolved[segmentId][prop] = this._resolveThemeToken(value, themeTokens);
+                } else if (typeof value === 'object' && value !== null) {
+                    // Handle nested objects (e.g., fill: { active: '...', inactive: '...' })
+                    resolved[segmentId][prop] = {};
+                    for (const [state, stateValue] of Object.entries(value)) {
+                        resolved[segmentId][prop][state] =
+                            typeof stateValue === 'string'
+                                ? this._resolveThemeToken(stateValue, themeTokens)
+                                : stateValue;
+                    }
+                } else {
+                    resolved[segmentId][prop] = value;
+                }
+            }
+        }
+
+        return resolved;
+    }
+
+    /**
+     * Resolve a single theme token reference
+     * @private
+     * @param {string} tokenPath - Dot-notation path to theme token
+     * @param {Object} themeTokens - Theme token object (unused, kept for API compatibility)
+     * @returns {*} Resolved token value or original path if not found
+     */
+    _resolveThemeToken(tokenPath, themeTokens) {
+        // If not a token path, return as-is
+        if (!tokenPath.includes('.')) {
+            return tokenPath;
+        }
+
+        // Use ThemeManager resolver for proper token resolution
+        if (this._singletons?.themeManager?.resolver) {
+            const resolved = this._singletons.themeManager.resolver.resolve(tokenPath, tokenPath);
+            lcardsLog.trace(`[LCARdSSimpleButtonCard] Resolved component token "${tokenPath}" -> "${resolved}"`);
+            return resolved;
+        } else {
+            lcardsLog.warn(
+                `[LCARdSSimpleButtonCard] Cannot resolve component token "${tokenPath}" - ThemeManager not available`
+            );
+            return tokenPath;
+        }
+    }
+
+    /**
+     * Merge component preset segments with user-provided segments
+     * User config takes precedence, but preserves component defaults
+     * @private
+     * @param {Object} componentSegments - Resolved component preset segments
+     * @param {Object} userSegments - User-provided segment overrides
+     * @returns {Object} Merged segment configuration
+     */
+    _mergeComponentSegments(componentSegments, userSegments) {
+        const merged = { ...componentSegments };
+
+        // Deep merge user segments into component segments
+        for (const [segmentId, userConfig] of Object.entries(userSegments)) {
+            if (merged[segmentId]) {
+                // Merge user config into existing segment
+                merged[segmentId] = deepMerge(merged[segmentId], userConfig);
+            } else {
+                // User defined a new segment not in component preset
+                merged[segmentId] = userConfig;
+            }
+        }
+
+        return merged;
+    }
+
+    /**
      * Process SVG configuration from card config
-     * Handles inline content, external URLs, and data URIs
+     * Handles inline content, external URLs, data URIs, and component presets
      * @private
      */
     _processSvgConfig() {
         lcardsLog.debug(`[LCARdSSimpleButtonCard] _processSvgConfig called`, {
             hasSvgConfig: !!this.config?.svg,
+            hasComponent: !!this.config?.component,
             config: this.config?.svg
         });
 
-        if (!this.config?.svg) {
+        if (!this.config?.svg && !this.config?.component) {
             this._processedSvg = null;
             this._processedSegments = null;
+            return;
+        }
+
+        // Check for component preset first
+        if (this.config?.component) {
+            this._processComponentPreset(this.config.component);
             return;
         }
 
@@ -497,6 +667,53 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
     // ============================================================================
 
     /**
+     * Resolve theme tokens in segment style configuration
+     * Converts 'theme:token.path' strings to their resolved state objects
+     * Then resolves any computed tokens (darken/lighten/alpha) within those state objects
+     * @private
+     * @param {Object} style - Style object with potential theme token references
+     * @returns {Object} Style object with fully resolved theme and computed tokens
+     */
+    _resolveSegmentThemeTokens(style) {
+        if (!style || typeof style !== 'object') {
+            return {};
+        }
+
+        const resolved = {};
+
+        for (const [property, value] of Object.entries(style)) {
+            if (typeof value === 'string' && value.startsWith('theme:')) {
+                // Resolve theme token via ThemeManager
+                const tokenPath = value.replace('theme:', '');
+                if (this._singletons?.themeManager?.resolver) {
+                    const resolvedValue = this._singletons.themeManager.resolver.resolve(tokenPath, value);
+                    resolved[property] = resolvedValue;
+                    lcardsLog.trace(`[LCARdSSimpleButtonCard] Resolved segment theme token "${value}" -> `, resolvedValue);
+                } else {
+                    // Keep original token reference - will be resolved later when ThemeManager is available
+                    lcardsLog.trace(`[LCARdSSimpleButtonCard] Deferring resolution of segment token "${value}" (ThemeManager not yet available)`);
+                    resolved[property] = value;
+                }
+            } else if (typeof value === 'object' && value !== null) {
+                // Recursively resolve nested objects
+                resolved[property] = this._resolveSegmentThemeTokens(value);
+            } else {
+                // Keep as-is (already a concrete value)
+                resolved[property] = value;
+            }
+        }
+
+        // Now resolve any computed tokens (darken/lighten/alpha) within the resolved state objects
+        if (this._singletons?.themeManager) {
+            const fullyResolved = resolveThemeTokensRecursive(resolved, this._singletons.themeManager);
+            lcardsLog.trace(`[LCARdSSimpleButtonCard] Fully resolved segment tokens with computed tokens`);
+            return fullyResolved;
+        }
+
+        return resolved;
+    }
+
+    /**
      * Process SVG segment configuration
      * Sets up interactive regions with independent actions and styles
      * @private
@@ -515,6 +732,11 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 return null;
             }
 
+            // Resolve theme tokens in segment styles
+            // This converts 'theme:components.dpad.segment.directional.fill'
+            // into the state object {active: 'color', inactive: 'color', ...}
+            const resolvedStyle = this._resolveSegmentThemeTokens(segment.style);
+
             return {
                 id: segment.id || `segment-${Math.random().toString(36).substring(2, 11)}`,
                 selector: segment.selector,
@@ -527,7 +749,7 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                 // Style configuration with state-based values
                 // Follows existing SimpleButton convention: style.{property}.{state}
                 // States: default, active, inactive, unavailable, hover
-                style: segment.style || {},
+                style: resolvedStyle,
 
                 // Entity-driven state (optional)
                 entity: segment.entity,  // Different entity per segment
@@ -622,15 +844,87 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
             lcardsLog.debug(`[LCARdSSimpleButtonCard] Setting up segment "${segment.id}" on ${elements.length} elements`);
 
             elements.forEach(element => {
-                // Apply initial style (default state)
-                const defaultStyle = this._resolveSegmentStyleForState(segment.style, 'default');
-                this._applySegmentStyle(element, defaultStyle);
+                // Get entity state for initial styling
+                const entityId = segment.entity || this.config.entity;
+                const entityState = entityId ? this._getEntityState(entityId) : null;
 
-                // Setup event listeners for this segment
+                // Apply initial style based on entity state (or default if no entity)
+                // Pass null for interaction state, entity state for entity (or null if no entity)
+                const initialStyle = this._resolveSegmentStyleForState(segment.style, null, entityState);
+                this._applySegmentStyle(element, initialStyle);
+
+                // Always attach segment listeners for styling and interaction
                 const cleanup = this._attachSegmentListeners(element, segment);
                 this._segmentCleanups.push(cleanup);
             });
         });
+    }
+
+    /**
+     * DEPRECATED: Replaced by _setupSegmentActionHandler
+     * Register animations for a segment with the AnimationManager
+     * @private
+     * @param {Object} segment - Segment configuration with animations
+     * @param {Element} element - DOM element to animate
+     */
+    async _registerSegmentAnimations(segment, element) {
+        if (!this._singletons?.animationManager) {
+            lcardsLog.warn(`[LCARdSSimpleButtonCard] Cannot register segment animations - AnimationManager not available`);
+            return;
+        }
+
+        const animationManager = this._singletons.animationManager;
+        const segmentOverlayId = `${this._overlayId}-segment-${segment.id}`;
+
+        lcardsLog.debug(`[LCARdSSimpleButtonCard] Registering ${segment.animations.length} animations for segment "${segment.id}"`);
+
+        try {
+            // Create full scope structure for this segment if it doesn't exist
+            if (!animationManager.scopes.has(segmentOverlayId)) {
+                // Import TriggerManager dynamically
+                const { TriggerManager } = await import('../core/animation/TriggerManager.js');
+
+                // Create anime.js scope
+                const scope = animationManager.createScopeForOverlay(segmentOverlayId, element);
+
+                // Create trigger manager
+                const triggerManager = new TriggerManager(segmentOverlayId, element, animationManager);
+
+                // Store full scope data structure
+                animationManager.scopes.set(segmentOverlayId, {
+                    scope: scope,
+                    overlay: { animations: segment.animations },
+                    element: element,
+                    activeAnimations: new Set(),
+                    triggerManager: triggerManager,
+                    runningInstances: new Map()
+                });
+
+                lcardsLog.debug(`[LCARdSSimpleButtonCard] Created animation scope for segment "${segment.id}"`);
+            }
+
+            // Register each animation for this segment
+            for (const animConfig of segment.animations) {
+                await animationManager.registerAnimation(segmentOverlayId, {
+                    ...animConfig,
+                    // Provide element reference for animation targeting
+                    _targetElement: element
+                });
+            }
+
+            lcardsLog.debug(`[LCARdSSimpleButtonCard] Registered animations for segment "${segment.id}" with overlay ID: ${segmentOverlayId}`);
+        } catch (error) {
+            lcardsLog.error(`[LCARdSSimpleButtonCard] Failed to register segment animations:`, error);
+        }
+    }
+
+    /**
+     * DEPRECATED: Replaced by ActionHandler integration
+     * This method is no longer used - ActionHandler handles all animation triggers
+     * @private
+     */
+    _triggerSegmentAnimation(segment, trigger) {
+        lcardsLog.warn(`[LCARdSSimpleButtonCard] _triggerSegmentAnimation is deprecated - use ActionHandler instead`);
     }
 
     /**
@@ -730,6 +1024,12 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
                     // Priority 3: Default fallback
                     if ('default' in value) {
                         resolvedStyle[property] = value.default;
+                    } else if ('inactive' in value) {
+                        // Use 'inactive' as default if 'default' doesn't exist
+                        resolvedStyle[property] = value.inactive;
+                    } else if ('active' in value) {
+                        // Last resort: use 'active' state
+                        resolvedStyle[property] = value.active;
                     } else {
                         // Use first available value
                         resolvedStyle[property] = Object.values(value)[0];
@@ -908,12 +1208,15 @@ export class LCARdSSimpleButtonCard extends LCARdSSimpleCard {
      * Handles fill, stroke, opacity, transform, etc.
      * @private
      * @param {SVGElement} element - Target SVG element
-     * @param {Object} style - Style object to apply
+     * @param {Object} style - Style object to apply (already resolved from state objects)
      */
     _applySegmentStyle(element, style) {
         if (!style || Object.keys(style).length === 0) return;
 
         Object.entries(style).forEach(([key, value]) => {
+            // Value should already be resolved to a concrete string
+            // (state extraction happens in _resolveSegmentStyleForState)
+
             // Convert camelCase to kebab-case for SVG attributes
             const attrName = key.replace(/([A-Z])/g, '-$1').toLowerCase();
 

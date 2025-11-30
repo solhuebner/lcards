@@ -622,6 +622,179 @@ export const lcarsClassicTokens = {
       fontFamily: 'typography.fontFamily.primary',
       fontSize: 'typography.fontSize.sm',
       fontWeight: 'typography.fontWeight.normal'
+    },
+
+    /**
+     * D-Pad Component Tokens
+     * Interactive 9-segment directional control
+     */
+    dpad: {
+      segment: {
+        /**
+         * Directional segments (up, down, left, right)
+         * Primary interactive arrows
+         */
+        directional: {
+          fill: {
+            active: 'var(--lcars-orange, #FF9900)',
+            // Use a dimmed variant of the primary accent so directionals remain
+            // visually distinct when no entity is assigned
+            inactive: 'darken(colors.accent.primary, 0.35)',
+            hover: 'var(--lcars-yellow, #FFCC99)',
+            pressed: 'darken(colors.accent.primary, 0.15)',
+            unavailable: 'var(--lcars-gray, #999999)',
+            unknown: 'var(--lcars-gray, #999999)'
+          },
+          stroke: {
+            active: 'var(--lcars-white, #FFFFFF)',
+            inactive: 'var(--lcars-orange, #FF9900)',  // Colored stroke for definition
+            hover: 'var(--lcars-white, #FFFFFF)',
+            pressed: 'var(--lcars-white, #FFFFFF)',
+            unavailable: 'var(--lcars-gray, #999999)',
+            unknown: 'var(--lcars-gray, #999999)'
+          },
+          'stroke-width': {
+            active: 0.5,
+            inactive: 0.5,  // Match active for visibility
+            hover: 0.75,
+            pressed: 1,
+            unavailable: 0.25,
+            unknown: 0.25
+          }
+        },
+
+        /**
+         * Diagonal segments (up-left, up-right, down-left, down-right)
+         * Secondary corner controls
+         */
+        diagonal: {
+          fill: {
+            active: 'var(--lcars-blue, #9999FF)',
+            // Dim the diagonal active color for the inactive state so corners
+            // are visibly different from primary directionals when idle
+            inactive: 'darken(colors.accent.secondary, 0.35)',
+            hover: 'lighten(colors.accent.secondary, 0.15)',
+            pressed: 'darken(colors.accent.secondary, 0.15)',
+            unavailable: 'var(--lcars-gray, #999999)',
+            unknown: 'var(--lcars-gray, #999999)'
+          },
+          stroke: {
+            active: 'var(--lcars-white, #FFFFFF)',
+            inactive: 'var(--lcars-blue, #9999FF)',  // Colored stroke for definition
+            hover: 'var(--lcars-white, #FFFFFF)',
+            pressed: 'var(--lcars-white, #FFFFFF)',
+            unavailable: 'var(--lcars-gray, #999999)',
+            unknown: 'var(--lcars-gray, #999999)'
+          },
+          'stroke-width': {
+            active: 0.5,
+            inactive: 0.5,  // Match active for visibility
+            hover: 0.75,
+            pressed: 1,
+            unavailable: 0.25,
+            unknown: 0.25
+          }
+        },
+
+        /**
+         * Center segment
+         * Primary action button (e.g., select, play/pause)
+         */
+        center: {
+          fill: {
+            active: 'var(--lcars-purple, #CC99CC)',
+            // Center button uses a dimmed tertiary accent when inactive so it
+            // reads visually different from the directional/diagonal segments
+            inactive: 'darken(colors.accent.tertiary, 0.35)',
+            hover: 'lighten(colors.accent.tertiary, 0.15)',
+            pressed: 'darken(colors.accent.tertiary, 0.15)',
+            unavailable: 'var(--lcars-gray, #999999)',
+            unknown: 'var(--lcars-gray, #999999)'
+          },
+          stroke: {
+            active: 'var(--lcars-white, #FFFFFF)',
+            inactive: 'var(--lcars-purple, #CC99CC)',  // Colored stroke for definition
+            hover: 'var(--lcars-white, #FFFFFF)',
+            pressed: 'var(--lcars-white, #FFFFFF)',
+            unavailable: 'var(--lcars-gray, #999999)',
+            unknown: 'var(--lcars-gray, #999999)'
+          },
+          'stroke-width': {
+            active: 0.75,
+            inactive: 0.75,  // Match active for visibility
+            hover: 1,
+            pressed: 1.5,
+            unavailable: 0.25,
+            unknown: 0.25
+          }
+        }
+      }
+    }
+  },
+
+  // ============================================================================
+  // LAYOUT & SPACING
+  // ============================================================================
+  spacing: {
+    scale: {
+      0: 0,
+      1: 4,
+      2: 8,
+      3: 12,
+      4: 16,
+      5: 20,
+      6: 24,
+      7: 28,
+      8: 32
+    },
+
+    gap: {
+      none: 0,
+      xs: 2,
+      sm: 4,
+      base: 8,
+      md: 8,
+      lg: 12,
+      xl: 16
+    }
+  },
+
+  borders: {
+    width: {
+      none: 0,
+      thin: 1,
+      base: 2,
+      thick: 4
+    },
+
+    radius: {
+      none: 0,
+      sm: 2,
+      base: 4,
+      md: 4,
+      lg: 8,
+      xl: 12,
+      full: 9999
+    }
+  },
+
+  effects: {
+    opacity: {
+      base: 1.0,
+      high: 0.9,
+      medium: 0.7,
+      low: 0.5,
+      veryLow: 0.3,
+      subtle: 0.1
+    },
+
+    blur: {
+      none: 0,
+      sm: 2,
+      base: 4,
+      md: 4,
+      lg: 8,
+      xl: 16
     }
   }
 };

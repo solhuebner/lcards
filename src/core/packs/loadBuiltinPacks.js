@@ -2,6 +2,9 @@ import { lcarsClassicTokens } from '../themes/tokens/lcarsClassicTokens.js';
 import { lcarsDs9Tokens } from '../themes/tokens/lcarsDs9Tokens.js';
 import { lcarsVoyagerTokens } from '../themes/tokens/lcarsVoyagerTokens.js';
 import { lcarsHighContrastTokens } from '../themes/tokens/lcarsHighContrastTokens.js';
+import * as shapesRegistry from './shapes/index.js';
+import * as componentsRegistry from './components/index.js';
+import { dpadComponentPreset } from './components/dpad.js';
 
 /**
  * Core Builtin Pack
@@ -585,6 +588,11 @@ const LCARDS_BUTTONS_PACK = {
 
   },
 
+  // COMPONENT PRESETS: Reusable UI components with SVG shapes
+  component_presets: {
+    dpad: dpadComponentPreset
+  },
+
   anchors: {},
   routing: {}
 };
@@ -766,3 +774,17 @@ export function loadBuiltinPacks(requested = ['core', 'lcards_buttons']) {
 if (typeof window !== 'undefined') {
   window.loadBuiltinPacksModule = { loadBuiltinPacks };
 }
+
+/**
+ * Shape and Component Registries
+ *
+ * Shapes and components are imported above and made available
+ * through their respective index.js files:
+ *
+ * - shapesRegistry: Static SVG shapes with labeled segments
+ * - componentsRegistry: Component presets with theme token integration
+ *
+ * Access via:
+ * - import { getShape } from './shapes/index.js'
+ * - import { getComponent } from './components/index.js'
+ */
