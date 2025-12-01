@@ -17,8 +17,20 @@
  * - A curved corner connecting them (the "elbow")
  *
  * LCARS Arc Formula:
- * The outer arc radius equals the width of the vertical bar (sidebar).
- * The inner arc radius is typically the vertical bar width divided by inner_factor.
+ * The LCARS elbow uses a specific geometric relationship:
+ * - Outer arc radius (when 'auto') = horizontal / 2 (bar width divided by 2)
+ *   This creates a corner where the arc reaches the flat edge at 50% of the bar width
+ * - Inner arc circumference (semicircle) = (outer_radius / 2) × π
+ *
+ * Example: For horizontal border = 150px:
+ *   outer radius (auto) = 75px (tangent at halfway point)
+ *   inner radius = 37.5px (LCARS formula: outer / 2)
+ *   outer arc = 75 × π ≈ 235.62
+ *   inner arc = 37.5 × π ≈ 117.81
+ *
+ * For SVG rendering, this translates to:
+ *   outer SVG radius = outer_radius (e.g., 75px)
+ *   inner SVG radius = outer_radius / 2 (e.g., 37.5px)
  *
  * Configuration:
  * ```yaml
@@ -30,8 +42,9 @@
  *     horizontal: 90           # Width of vertical sidebar (pixels)
  *     vertical: 20             # Height of horizontal bar (pixels)
  *   radius:
- *     outer: 40                # Outer corner radius (or 'auto' to match horizontal)
- *     inner_factor: 4          # Inner radius = outer / factor
+ *     outer: 'auto'            # Outer corner radius (or 'auto' to match horizontal)
+ *     inner_factor: 2          # Legacy mode: inner radius = outer / factor
+ *                               # (omit for LCARS formula: inner = outer / 2)
  * ```
  *
  * @extends {LCARdSSimpleButtonCard}
@@ -141,19 +154,55 @@ export class LCARdSElbowButtonCard extends LCARdSSimpleButtonCard {
         const horizontal = this._parseUnit(elbowConfig.border?.horizontal ?? 90);
         const vertical = this._parseUnit(elbowConfig.border?.vertical ?? 20);
 
-        // Parse radius - 'auto' means use horizontal (sidebar width) as outer radius
+        // Parse radius - 'auto' means use half of horizontal (sidebar width) as outer radius
+        // This creates a tighter corner where the arc reaches the flat edge at 50% of bar width
         let outerRadius = elbowConfig.radius?.outer;
         if (outerRadius === 'auto' || outerRadius === undefined) {
-            outerRadius = horizontal;
+            outerRadius = horizontal / 2;
+            lcardsLog.debug(`[LCARdSElbowButton] Using auto outer radius = horizontal/2 = ${outerRadius}`);
         } else if (typeof outerRadius === 'string') {
             // Could be CSS variable or number string
             outerRadius = this._parseUnit(outerRadius);
             if (outerRadius === 0) {
-                outerRadius = horizontal; // Fallback to horizontal if parsing failed
+                outerRadius = horizontal / 2; // Fallback to horizontal/2 if parsing failed
+                lcardsLog.warn(`[LCARdSElbowButton] Failed to parse outer radius, falling back to horizontal/2 = ${outerRadius}`);
             }
         }
 
-        const innerFactor = elbowConfig.radius?.inner_factor ?? 4;
+        lcardsLog.debug(`[LCARdSElbowButton] Elbow dimensions:`, {
+            horizontal,
+            vertical,
+            outerRadius,
+            radiusConfig: elbowConfig.radius
+        });
+
+        // Calculate inner radius using LCARS elbow formula
+        // For legacy compatibility, allow inner_factor or explicit inner override
+        let innerRadius;
+        if (elbowConfig.radius?.inner !== undefined) {
+            // Explicit inner radius provided
+            innerRadius = this._parseUnit(elbowConfig.radius.inner);
+        } else if (elbowConfig.radius?.inner_factor !== undefined) {
+            // Legacy: inner_factor divides outer radius
+            const innerFactor = elbowConfig.radius.inner_factor;
+            innerRadius = outerRadius / innerFactor;
+        } else {
+            // LCARS elbow formula (from your example):
+            // For horizontal = 150px:
+            //   outer arc circumference = 150 × π ≈ 471.24 (semicircle)
+            //   inner arc circumference = (150/2) × π ≈ 235.62 (semicircle)
+            //
+            // Our SVG uses quarter circle arcs, so:
+            //   quarter_arc_length = (π/2) × svg_radius
+            //   semicircle_arc_length = π × svg_radius
+            //
+            // From LCARS formula: semicircle_arc = outer_radius × π
+            // Therefore: svg_radius = outer_radius (they're the same!)
+            //
+            // Inner: semicircle_arc = (outer_radius / 2) × π
+            // Therefore: inner_svg_radius = outer_radius / 2
+            innerRadius = outerRadius / 2;
+        }
 
         return {
             type,
@@ -165,8 +214,9 @@ export class LCARdSElbowButtonCard extends LCARdSSimpleButtonCard {
             },
             radius: {
                 outer: outerRadius,
-                inner: outerRadius / innerFactor,
-                inner_factor: innerFactor
+                inner: innerRadius,
+                // Store for reference/debugging
+                inner_factor: elbowConfig.radius?.inner_factor
             },
             colors: elbowConfig.colors || {}
         };
@@ -187,9 +237,9 @@ export class LCARdSElbowButtonCard extends LCARdSSimpleButtonCard {
                 gap: 4
             },
             radius: {
-                outer: 90, // Match horizontal by default
-                inner: 22.5, // 90/4
-                inner_factor: 4
+                outer: 45,  // horizontal / 2 for auto behavior
+                inner: 22.5,  // LCARS formula: outer / 2
+                inner_factor: undefined  // Not used when LCARS formula is active
             },
             colors: {}
         };
@@ -291,11 +341,11 @@ export class LCARdSElbowButtonCard extends LCARdSSimpleButtonCard {
 
     /**
      * Parse CSS unit value to number (pixels)
-     * 
+     *
      * Note: This is intentionally kept as a local method rather than using a shared
      * utility to ensure stable behavior independent of parent class changes and to
      * maintain encapsulation of elbow-specific configuration parsing.
-     * 
+     *
      * @param {string|number} value - Value with or without unit
      * @returns {number} Numeric value in pixels
      * @private
@@ -355,11 +405,13 @@ export class LCARdSElbowButtonCard extends LCARdSSimpleButtonCard {
 
         const { position, side, horizontal, vertical, outerRadius, innerRadius } = g;
 
-        // Clamp radii to prevent overflow
-        // Outer radius cannot exceed either the horizontal or vertical bar size
-        const maxOuterRadius = Math.min(horizontal, height - vertical);
+        // Basic validation: ensure radii are non-negative
+        // Allow large radii for LineOverlay-style arcs (uniform width curved lines)
+        // Only clamp to prevent extreme values that would break rendering
+        const maxOuterRadius = Math.max(width, height); // Allow up to the larger dimension
         const clampedOuterRadius = Math.max(0, Math.min(outerRadius, maxOuterRadius));
-        // Ensure inner radius is non-negative and less than outer radius
+
+        // Inner radius should be smaller than outer, with minimum 1px gap
         const clampedInnerRadius = Math.max(0, Math.min(innerRadius, clampedOuterRadius - 1));
 
         // Generate path based on elbow type
@@ -390,49 +442,57 @@ export class LCARdSElbowButtonCard extends LCARdSSimpleButtonCard {
      * Generate header-left elbow path
      * Elbow in top-left corner: vertical bar on left, horizontal bar on top
      *
-     * Shape description:
-     * - Starts at top-left of horizontal bar
-     * - Goes right along top edge
-     * - Down right edge of horizontal bar
-     * - Curves with inner arc toward the vertical bar
-     * - Down the right edge of vertical bar
-     * - Left along bottom of vertical bar
-     * - Up left edge of vertical bar
-     * - Outer arc curving to horizontal bar
-     * - Closes path
+     * Shape description (drawing clockwise from top-left):
+     * - Start at top edge where outer arc ends
+     * - Right along top edge
+     * - Down to horizontal bar bottom
+     * - Left to inner arc start
+     * - Inner arc (concave) to vertical bar
+     * - Down vertical bar
+     * - Left along bottom
+     * - Up vertical bar left edge
+     * - Outer arc (convex) back to start
+     *
+     * Arc geometry:
+     * - Outer arc center: (outerRadius, outerRadius)
+     * - Inner arc center: (horizontal, vertical)
      *
      * @private
      */
     _generateHeaderLeftPath(width, height, horizontal, vertical, outerRadius, innerRadius) {
-        // Key points:
-        // - Outer arc center: (horizontal, vertical)
-        // - Inner arc center: (horizontal, vertical)
-        // - Horizontal bar: y = 0 to y = vertical, x = horizontal to x = width
-        // - Vertical bar: x = 0 to x = horizontal, y = vertical to y = height
-
-        // SVG arc: A rx ry x-axis-rotation large-arc-flag sweep-flag x y
-        // sweep-flag: 0 = counter-clockwise, 1 = clockwise
+        // For seamless joins, arcs must be tangent to straight edges
+        // Outer arc: connects left edge (x=0) to top edge (y=0)
+        //   Start: (0, outerRadius) - tangent is horizontal (pointing right)
+        //   End: (outerRadius, 0) - tangent is vertical (pointing down)
+        //   Center: (outerRadius, outerRadius)
+        //
+        // Inner arc: connects horizontal bar to vertical bar
+        //   Start: (horizontal + innerRadius, vertical) - tangent is horizontal (pointing left)
+        //   End: (horizontal, vertical + innerRadius) - tangent is vertical (pointing up)
+        //   Center: (horizontal, vertical)
 
         const p = [
-            // Start at top of outer arc (on the top edge)
+            // Start at where outer arc meets top edge (tangent is vertical)
             `M ${outerRadius} 0`,
             // Line along top edge to the right
             `L ${width} 0`,
-            // Line down right edge of horizontal bar
+            // Line down to bottom of horizontal bar
             `L ${width} ${vertical}`,
-            // Line left along bottom of horizontal bar to where inner arc starts
+            // Line left along bottom of horizontal bar to inner arc start (tangent is horizontal)
             `L ${horizontal + innerRadius} ${vertical}`,
-            // Inner arc: curves from bottom of horizontal bar to right of vertical bar
-            // Goes clockwise (sweep-flag = 1) from horizontal to vertical
-            `A ${innerRadius} ${innerRadius} 0 0 1 ${horizontal} ${vertical + innerRadius}`,
-            // Line down the right edge of vertical bar
+            // Inner arc: curves inward (concave)
+            // From (horizontal + innerRadius, vertical) to (horizontal, vertical + innerRadius)
+            // Goes counter-clockwise (sweep-flag = 0) to curve inward
+            `A ${innerRadius} ${innerRadius} 0 0 0 ${horizontal} ${vertical + innerRadius}`,
+            // Line down right edge of vertical bar
             `L ${horizontal} ${height}`,
-            // Line left along bottom of vertical bar
+            // Line left along bottom
             `L 0 ${height}`,
-            // Line up left edge of vertical bar to outer arc start
+            // Line up left edge of vertical bar to outer arc start (tangent is horizontal)
             `L 0 ${outerRadius}`,
-            // Outer arc: curves from left edge to top edge
-            // Goes clockwise (sweep-flag = 1)
+            // Outer arc: curves outward (convex)
+            // From (0, outerRadius) to (outerRadius, 0)
+            // Goes clockwise (sweep-flag = 1) to curve outward
             `A ${outerRadius} ${outerRadius} 0 0 1 ${outerRadius} 0`,
             // Close path
             `Z`
@@ -464,8 +524,9 @@ export class LCARdSElbowButtonCard extends LCARdSSimpleButtonCard {
             `L ${vBarLeft} ${height}`,
             // Line up right edge of content area (left edge of vertical bar)
             `L ${vBarLeft} ${vertical + innerRadius}`,
-            // Inner arc: curves from vertical bar to horizontal bar
-            `A ${innerRadius} ${innerRadius} 0 0 1 ${vBarLeft - innerRadius} ${vertical}`,
+            // Inner arc: curves inward from vertical bar to horizontal bar
+            // Goes counter-clockwise (sweep-flag = 0) to curve inward
+            `A ${innerRadius} ${innerRadius} 0 0 0 ${vBarLeft - innerRadius} ${vertical}`,
             // Line left along bottom of horizontal bar
             `L 0 ${vertical}`,
             // Line up left edge
@@ -501,8 +562,9 @@ export class LCARdSElbowButtonCard extends LCARdSSimpleButtonCard {
             `L ${width} ${hBarTop}`,
             // Line left along top of horizontal bar to inner arc start
             `L ${horizontal + innerRadius} ${hBarTop}`,
-            // Inner arc: curves from horizontal bar to vertical bar
-            `A ${innerRadius} ${innerRadius} 0 0 0 ${horizontal} ${hBarTop - innerRadius}`,
+            // Inner arc: curves inward from horizontal bar to vertical bar
+            // Goes clockwise (sweep-flag = 1) to curve inward
+            `A ${innerRadius} ${innerRadius} 0 0 1 ${horizontal} ${hBarTop - innerRadius}`,
             // Line up left edge of vertical bar
             `L ${horizontal} 0`,
             // Line left along top
@@ -538,8 +600,9 @@ export class LCARdSElbowButtonCard extends LCARdSSimpleButtonCard {
             `L ${vBarLeft} 0`,
             // Line down left edge of vertical bar to inner arc start
             `L ${vBarLeft} ${hBarTop - innerRadius}`,
-            // Inner arc: curves from vertical bar to horizontal bar
-            `A ${innerRadius} ${innerRadius} 0 0 0 ${vBarLeft - innerRadius} ${hBarTop}`,
+            // Inner arc: curves inward from vertical bar to horizontal bar
+            // Goes clockwise (sweep-flag = 1) to curve inward
+            `A ${innerRadius} ${innerRadius} 0 0 1 ${vBarLeft - innerRadius} ${hBarTop}`,
             // Line left along top of horizontal bar
             `L 0 ${hBarTop}`,
             // Line down left edge
@@ -607,7 +670,9 @@ export class LCARdSElbowButtonCard extends LCARdSSimpleButtonCard {
         let textMarkup = '';
         if (!iconOnly) {
             const textFields = this._resolveTextConfiguration();
-            const processedFields = this._processTextFieldsForElbow(textFields, width, height);
+            // Convert object to array of field values
+            const textFieldsArray = Object.values(textFields);
+            const processedFields = this._processTextFieldsForElbow(textFieldsArray, width, height);
             textMarkup = this._generateTextElements(processedFields);
         }
 
@@ -615,7 +680,7 @@ export class LCARdSElbowButtonCard extends LCARdSSimpleButtonCard {
         const svgString = `
             <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
                 <g data-button-id="elbow-button"
-                   data-overlay-id="elbow-button"
+                   data-overlay-id="simple-button"
                    class="elbow-group"
                    style="pointer-events: visiblePainted; cursor: pointer;">
                     <!-- Elbow background shape -->
@@ -640,7 +705,7 @@ export class LCARdSElbowButtonCard extends LCARdSSimpleButtonCard {
      * @private
      */
     _processTextFieldsForElbow(textFields, width, height) {
-        if (!textFields || textFields.length === 0) {
+        if (!textFields || !Array.isArray(textFields) || textFields.length === 0) {
             return [];
         }
 
@@ -814,7 +879,6 @@ export class LCARdSElbowButtonCard extends LCARdSSimpleButtonCard {
     static getStubConfig() {
         return {
             type: 'custom:lcards-elbow-button',
-            entity: 'light.example',
             elbow: {
                 type: 'header-left',
                 border: {
@@ -822,17 +886,21 @@ export class LCARdSElbowButtonCard extends LCARdSSimpleButtonCard {
                     vertical: 20
                 },
                 radius: {
-                    outer: 'auto',
-                    inner_factor: 4
+                    outer: 'auto'
+                    // inner calculated automatically using LCARS formula (outer / 2)
+                    // or specify inner_factor for legacy behavior
                 }
             },
             text: {
                 name: {
-                    content: 'Engineering'
+                    show: false
+                },
+                state: {
+                    show: false
+                },
+                label: {
+                    show: false
                 }
-            },
-            tap_action: {
-                action: 'toggle'
             }
         };
     }
