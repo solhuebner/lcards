@@ -7,6 +7,7 @@
  *
  * Features:
  * - 4 elbow positions (header-left/right, footer-left/right)
+ * - 2 styles: 'simple' (single elbow) and 'segmented' (Picard-style double elbow)
  * - LCARS arc formula-based geometry for authentic curves
  * - Configurable bar dimensions (horizontal/vertical)
  * - Inherits all SimpleButton functionality (actions, rules, animations, templates)
@@ -15,6 +16,8 @@
  * - A horizontal bar (top or bottom edge)
  * - A vertical bar (left or right edge)
  * - A curved corner connecting them (the "elbow")
+ *
+ * Segmented style adds concentric elbows with gap (TNG aesthetic).
  *
  * LCARS Arc Formula:
  * The LCARS elbow uses a specific geometric relationship:
@@ -38,6 +41,7 @@
  * entity: light.example
  * elbow:
  *   type: header-left          # Position of the elbow corner
+ *   style: simple              # 'simple' (default) or 'segmented' (double elbow)
  *   border:
  *     horizontal: 90           # Width of vertical sidebar (pixels)
  *     vertical: 20             # Height of horizontal bar (pixels)
@@ -45,6 +49,13 @@
  *     outer: 'auto'            # Outer corner radius (or 'auto' to match horizontal)
  *     inner_factor: 2          # Legacy mode: inner radius = outer / factor
  *                               # (omit for LCARS formula: inner = outer / 2)
+ *   # For segmented style (TNG Picard aesthetic):
+ *   segments:
+ *     gap: 4                   # Gap between outer/inner segments (pixels)
+ *     factor: 4                # Segment sizing: outer = (total-gap)*3/4, inner = (total-gap)/4
+ *     colors:
+ *       outer: '#FF9C00'       # Outer segment color (optional, uses main color if omitted)
+ *       inner: '#FFCC99'       # Inner segment color (optional, uses main color if omitted)
  * ```
  *
  * @extends {LCARdSSimpleButtonCard}
@@ -118,16 +129,23 @@ export class LCARdSElbowButtonCard extends LCARdSSimpleButtonCard {
         // Extract and validate elbow config
         if (config.elbow) {
             this._elbowConfig = this._validateElbowConfig(config.elbow);
-            this._elbowGeometry = this._calculateElbowGeometry(this._elbowConfig);
+
+            // Calculate geometry based on style
+            if (this._elbowConfig.style === 'segmented') {
+                this._elbowGeometry = this._calculateSegmentedGeometry(this._elbowConfig);
+            } else {
+                this._elbowGeometry = this._calculateSimpleElbowGeometry(this._elbowConfig);
+            }
 
             lcardsLog.debug(`[LCARdSElbowButton] Elbow config processed`, {
                 type: this._elbowConfig.type,
+                style: this._elbowConfig.style,
                 geometry: this._elbowGeometry
             });
         } else {
             lcardsLog.warn(`[LCARdSElbowButton] No elbow config provided - using defaults`);
             this._elbowConfig = this._getDefaultElbowConfig();
-            this._elbowGeometry = this._calculateElbowGeometry(this._elbowConfig);
+            this._elbowGeometry = this._calculateSimpleElbowGeometry(this._elbowConfig);
         }
 
         // Adjust text positioning based on elbow type
@@ -150,74 +168,83 @@ export class LCARdSElbowButtonCard extends LCARdSSimpleButtonCard {
             lcardsLog.warn(`[LCARdSElbowButton] Invalid elbow type "${elbowConfig.type}", defaulting to "header-left"`);
         }
 
-        // Parse border dimensions
-        const horizontal = this._parseUnit(elbowConfig.border?.horizontal ?? 90);
-        const vertical = this._parseUnit(elbowConfig.border?.vertical ?? 20);
+        // Parse style (simple or segmented)
+        const validStyles = ['simple', 'segmented'];
+        const style = validStyles.includes(elbowConfig.style) ? elbowConfig.style : 'simple';
 
-        // Parse radius - 'auto' means use half of horizontal (sidebar width) as outer radius
-        // This creates a tighter corner where the arc reaches the flat edge at 50% of bar width
-        let outerRadius = elbowConfig.radius?.outer;
-        if (outerRadius === 'auto' || outerRadius === undefined) {
-            outerRadius = horizontal / 2;
-            lcardsLog.debug(`[LCARdSElbowButton] Using auto outer radius = horizontal/2 = ${outerRadius}`);
-        } else if (typeof outerRadius === 'string') {
-            // Could be CSS variable or number string
-            outerRadius = this._parseUnit(outerRadius);
-            if (outerRadius === 0) {
-                outerRadius = horizontal / 2; // Fallback to horizontal/2 if parsing failed
-                lcardsLog.warn(`[LCARdSElbowButton] Failed to parse outer radius, falling back to horizontal/2 = ${outerRadius}`);
+        // Parse segment configuration
+        let segmentConfig;
+
+        if (style === 'simple') {
+            // Simple style: single segment
+            const segment = elbowConfig.segment || {};
+
+            // Parse bar dimensions
+            const bar_width = this._parseUnit(segment.bar_width ?? 90);
+            const bar_height = segment.bar_height ?
+                this._parseUnit(segment.bar_height) : bar_width;
+
+            // Parse outer curve - 'auto' means use bar_width / 2
+            let outer_curve = segment.outer_curve;
+            if (outer_curve === 'auto' || outer_curve === undefined) {
+                outer_curve = bar_width / 2;
+            } else {
+                outer_curve = this._parseUnit(outer_curve);
             }
-        }
 
-        lcardsLog.debug(`[LCARdSElbowButton] Elbow dimensions:`, {
-            horizontal,
-            vertical,
-            outerRadius,
-            radiusConfig: elbowConfig.radius
-        });
+            // Parse inner curve - defaults to LCARS formula (outer_curve / 2)
+            let inner_curve;
+            if (segment.inner_curve !== undefined) {
+                inner_curve = this._parseUnit(segment.inner_curve);
+            } else {
+                // LCARS formula: inner = outer / 2
+                inner_curve = outer_curve / 2;
+            }
 
-        // Calculate inner radius using LCARS elbow formula
-        // For legacy compatibility, allow inner_factor or explicit inner override
-        let innerRadius;
-        if (elbowConfig.radius?.inner !== undefined) {
-            // Explicit inner radius provided
-            innerRadius = this._parseUnit(elbowConfig.radius.inner);
-        } else if (elbowConfig.radius?.inner_factor !== undefined) {
-            // Legacy: inner_factor divides outer radius
-            const innerFactor = elbowConfig.radius.inner_factor;
-            innerRadius = outerRadius / innerFactor;
+            segmentConfig = {
+                bar_width,
+                bar_height,
+                outer_curve,
+                inner_curve,
+                color: segment.color
+            };
+
         } else {
-            // LCARS elbow formula (from your example):
-            // For horizontal = 150px:
-            //   outer arc circumference = 150 × π ≈ 471.24 (semicircle)
-            //   inner arc circumference = (150/2) × π ≈ 235.62 (semicircle)
-            //
-            // Our SVG uses quarter circle arcs, so:
-            //   quarter_arc_length = (π/2) × svg_radius
-            //   semicircle_arc_length = π × svg_radius
-            //
-            // From LCARS formula: semicircle_arc = outer_radius × π
-            // Therefore: svg_radius = outer_radius (they're the same!)
-            //
-            // Inner: semicircle_arc = (outer_radius / 2) × π
-            // Therefore: inner_svg_radius = outer_radius / 2
-            innerRadius = outerRadius / 2;
+            // Segmented style: outer and inner segments
+            segmentConfig = {
+                gap: this._parseUnit(elbowConfig.segments?.gap ?? 4),
+
+                // Outer segment (the frame)
+                outer_segment: elbowConfig.segments?.outer_segment ? {
+                    bar_width: this._parseUnit(elbowConfig.segments.outer_segment.bar_width),
+                    bar_height: elbowConfig.segments.outer_segment.bar_height ?
+                        this._parseUnit(elbowConfig.segments.outer_segment.bar_height) : undefined,
+                    outer_curve: elbowConfig.segments.outer_segment.outer_curve ?
+                        this._parseUnit(elbowConfig.segments.outer_segment.outer_curve) : undefined,
+                    inner_curve: elbowConfig.segments.outer_segment.inner_curve ?
+                        this._parseUnit(elbowConfig.segments.outer_segment.inner_curve) : undefined,
+                    color: elbowConfig.segments.outer_segment.color
+                } : null,
+
+                // Inner segment (the content area)
+                inner_segment: elbowConfig.segments?.inner_segment ? {
+                    bar_width: this._parseUnit(elbowConfig.segments.inner_segment.bar_width),
+                    bar_height: elbowConfig.segments.inner_segment.bar_height ?
+                        this._parseUnit(elbowConfig.segments.inner_segment.bar_height) : undefined,
+                    outer_curve: elbowConfig.segments.inner_segment.outer_curve ?
+                        this._parseUnit(elbowConfig.segments.inner_segment.outer_curve) : undefined,
+                    inner_curve: elbowConfig.segments.inner_segment.inner_curve ?
+                        this._parseUnit(elbowConfig.segments.inner_segment.inner_curve) : undefined,
+                    color: elbowConfig.segments.inner_segment.color
+                } : null
+            };
         }
 
         return {
             type,
-            style: elbowConfig.style || 'simple',
-            border: {
-                horizontal: horizontal,
-                vertical: vertical,
-                gap: this._parseUnit(elbowConfig.border?.gap ?? 4)
-            },
-            radius: {
-                outer: outerRadius,
-                inner: innerRadius,
-                // Store for reference/debugging
-                inner_factor: elbowConfig.radius?.inner_factor
-            },
+            style,
+            segment: style === 'simple' ? segmentConfig : null,
+            segments: style === 'segmented' ? segmentConfig : null,
             colors: elbowConfig.colors || {}
         };
     }
@@ -231,65 +258,129 @@ export class LCARdSElbowButtonCard extends LCARdSSimpleButtonCard {
         return {
             type: 'header-left',
             style: 'simple',
-            border: {
-                horizontal: 90,
-                vertical: 20,
-                gap: 4
-            },
-            radius: {
-                outer: 45,  // horizontal / 2 for auto behavior
-                inner: 22.5,  // LCARS formula: outer / 2
-                inner_factor: undefined  // Not used when LCARS formula is active
-            },
-            colors: {}
+            segment: {
+                bar_width: 90,
+                bar_height: 90,
+                outer_curve: 45,  // bar_width / 2
+                inner_curve: 22.5 // outer_curve / 2 (LCARS formula)
+            }
         };
     }
 
     /**
-     * Calculate elbow layer geometry using LCARS formulas
-     *
-     * The elbow shape consists of:
-     * - A vertical bar (sidebar) on the left or right
-     * - A horizontal bar (top bar) on the top or bottom
-     * - A curved corner connecting them
-     *
-     * The geometry is calculated so that the outer arc radius matches
-     * the width of the vertical bar for authentic LCARS proportions.
-     *
+     * Calculate elbow geometry for simple style
      * @param {Object} config - Validated elbow configuration
      * @returns {Object} Computed geometry for rendering
      * @private
      */
-    _calculateElbowGeometry(config) {
-        const { type, border, radius } = config;
+    _calculateSimpleElbowGeometry(config) {
+        const { type, segment } = config;
         const [position, side] = type.split('-'); // 'header-left' → ['header', 'left']
-
-        // LCARS arc calculations
-        // The outer arc circumference follows: arc = radius² × π (for quarter circle)
-        // We use the horizontal (sidebar width) as the outer arc radius
-        const outerArcRadius = radius.outer;
-        const innerArcRadius = radius.inner;
-
-        // Calculate arc lengths (for reference/debugging)
-        const outerArcLength = (Math.PI / 2) * outerArcRadius; // Quarter circle arc
-        const innerArcLength = (Math.PI / 2) * innerArcRadius;
-
-        lcardsLog.trace(`[LCARdSElbowButton] Arc calculations`, {
-            outerRadius: outerArcRadius,
-            innerRadius: innerArcRadius,
-            outerArcLength: outerArcLength.toFixed(2),
-            innerArcLength: innerArcLength.toFixed(2)
-        });
 
         return {
             position,  // 'header' or 'footer'
             side,      // 'left' or 'right'
-            horizontal: border.horizontal,  // Sidebar width
-            vertical: border.vertical,      // Top bar height
-            outerRadius: outerArcRadius,
-            innerRadius: innerArcRadius,
-            outerArcLength,
-            innerArcLength
+            horizontal: segment.bar_width,   // Sidebar width
+            vertical: segment.bar_height,    // Top bar height
+            outerRadius: segment.outer_curve,
+            innerRadius: segment.inner_curve
+        };
+    }
+
+    /**
+     * Calculate segmented elbow geometry (Picard-style double elbow)
+     *
+     * Creates two concentric elbows with a gap between them.
+     * Each segment has 4 parameters: bar_width, bar_height, outer_curve, inner_curve
+     * Sensible defaults provided for all optional parameters.
+     *
+     * @param {Object} config - Validated elbow configuration
+     * @returns {Object} Computed segment geometries
+     * @private
+     */
+    _calculateSegmentedGeometry(config) {
+        const { type, segments } = config;
+        const [position, side] = type.split('-');
+
+        if (!segments || !segments.outer_segment || !segments.inner_segment) {
+            lcardsLog.error(`[LCARdSElbowButton] Segmented style requires outer_segment and inner_segment config`);
+            return null;
+        }
+
+        const { gap, outer_segment, inner_segment } = segments;
+
+        // Validate required parameters
+        if (!outer_segment.bar_width) {
+            lcardsLog.error(`[LCARdSElbowButton] outer_segment.bar_width is required`);
+            return null;
+        }
+        if (!inner_segment.bar_width) {
+            lcardsLog.error(`[LCARdSElbowButton] inner_segment.bar_width is required`);
+            return null;
+        }
+
+        // === OUTER SEGMENT ===
+        // Apply defaults
+        const outerHorizontal = outer_segment.bar_width;
+        const outerVertical = outer_segment.bar_height ?? outer_segment.bar_width;
+        const outerSegmentOuterRadius = outer_segment.outer_curve ?? outer_segment.bar_width / 2;
+        const outerSegmentInnerRadius = outer_segment.inner_curve ?? outerSegmentOuterRadius / 2;
+
+        // === INNER SEGMENT ===
+        // Apply defaults
+        const innerHorizontal = inner_segment.bar_width;
+        const innerVertical = inner_segment.bar_height ?? inner_segment.bar_width;
+
+        // Default for inner outer_curve: concentric calculation
+        const innerSegmentOuterRadius = inner_segment.outer_curve ??
+            Math.max(0, outerSegmentInnerRadius - gap);
+
+        // Default for inner inner_curve: LCARS formula
+        const innerSegmentInnerRadius = inner_segment.inner_curve ??
+            innerSegmentOuterRadius / 2;
+
+        // Calculate positioning offset for inner segment
+        const innerOffset = {
+            x: side === 'left' ? (outerHorizontal + gap) : 0,
+            y: position === 'header' ? (outerVertical + gap) : 0
+        };
+
+        lcardsLog.debug(`[LCARdSElbowButton] Segmented geometry:`, {
+            gap,
+            outer_segment: {
+                bar_width: outerHorizontal,
+                bar_height: outerVertical,
+                outer_curve: outerSegmentOuterRadius,
+                inner_curve: outerSegmentInnerRadius
+            },
+            inner_segment: {
+                bar_width: innerHorizontal,
+                bar_height: innerVertical,
+                outer_curve: innerSegmentOuterRadius,
+                inner_curve: innerSegmentInnerRadius
+            },
+            offset: innerOffset
+        });
+
+        return {
+            position,
+            side,
+            outer: {
+                horizontal: outerHorizontal,
+                vertical: outerVertical,
+                outerRadius: outerSegmentOuterRadius,
+                innerRadius: outerSegmentInnerRadius,
+                color: outer_segment.color
+            },
+            inner: {
+                horizontal: innerHorizontal,
+                vertical: innerVertical,
+                outerRadius: innerSegmentOuterRadius,
+                innerRadius: innerSegmentInnerRadius,
+                color: inner_segment.color
+            },
+            gap,
+            offset: innerOffset
         };
     }
 
@@ -307,9 +398,18 @@ export class LCARdSElbowButtonCard extends LCARdSSimpleButtonCard {
         // Initialize text config if needed
         if (!config.text) config.text = {};
 
-        // Calculate padding to clear elbow borders
-        const horizontalPadding = this._elbowConfig.border.horizontal + 20;
-        const verticalPadding = this._elbowConfig.border.vertical + 10;
+        // Calculate padding to clear elbow bars
+        let horizontalPadding, verticalPadding;
+
+        if (this._elbowConfig.style === 'simple') {
+            horizontalPadding = this._elbowConfig.segment.bar_width + 20;
+            verticalPadding = this._elbowConfig.segment.bar_height + 10;
+        } else {
+            // For segmented, use outer segment dimensions
+            horizontalPadding = this._elbowConfig.segments.outer_segment.bar_width + 20;
+            verticalPadding = (this._elbowConfig.segments.outer_segment.bar_height ||
+                              this._elbowConfig.segments.outer_segment.bar_width) + 10;
+        }
 
         // Set defaults for all text fields if not explicitly set
         Object.keys(config.text).forEach(fieldId => {
@@ -373,8 +473,8 @@ export class LCARdSElbowButtonCard extends LCARdSSimpleButtonCard {
 
         // Priority 2: Use button state color from _buttonStyle (includes rule patches)
         const state = this._getButtonState();
-        const stateColor = this._buttonStyle?.card?.color?.background?.[state] ||
-                          this._buttonStyle?.card?.color?.background?.default;
+        const backgroundColors = this._buttonStyle?.card?.color?.background;
+        const stateColor = backgroundColors?.[state] || backgroundColors?.default;
 
         if (stateColor) {
             return stateColor;
@@ -628,6 +728,12 @@ export class LCARdSElbowButtonCard extends LCARdSSimpleButtonCard {
      * @private
      */
     _generateSimpleButtonSVG(width, height, config) {
+        // Route to segmented rendering if style is 'segmented'
+        if (this._elbowConfig?.style === 'segmented') {
+            return this._generateSegmentedElbowSVG(width, height, config);
+        }
+
+        // Simple elbow rendering
         // Get elbow color (state-aware)
         const backgroundColor = this._getElbowColor();
 
@@ -697,6 +803,129 @@ export class LCARdSElbowButtonCard extends LCARdSSimpleButtonCard {
         `.trim();
 
         return svgString;
+    }
+
+    /**
+     * Generate segmented (Picard-style) elbow button SVG
+     * Renders two concentric elbows with a gap between them
+     * @param {number} width - SVG width
+     * @param {number} height - SVG height
+     * @param {Object} config - Button configuration
+     * @returns {string} SVG markup string
+     * @private
+     */
+    _generateSegmentedElbowSVG(width, height, config) {
+        // Calculate segmented geometry
+        const segmentGeom = this._calculateSegmentedGeometry(this._elbowConfig);
+
+        if (!segmentGeom) {
+            lcardsLog.error(`[LCARdSElbowButton] Failed to calculate segmented geometry`);
+            return this._generateSimpleElbowFallback(width, height, config);
+        }
+
+        const { position, side, outer, inner, offset } = segmentGeom;
+
+        // Get colors for outer and inner segments
+        const backgroundColor = this._getElbowColor();
+        const outerColor = outer.color || backgroundColor;
+        const innerColor = inner.color || outerColor;
+
+        // Generate outer segment path (larger elbow)
+        const outerPath = this._generateSegmentPath(
+            width, height,
+            outer.horizontal, outer.vertical,
+            outer.outerRadius, outer.innerRadius,
+            position, side
+        );
+
+        // Generate inner segment path (smaller elbow)
+        // Reduce dimensions by the offset since inner is positioned inside outer
+        const innerWidth = width - offset.x;
+        const innerHeight = height - offset.y;
+        const innerPath = this._generateSegmentPath(
+            innerWidth, innerHeight,
+            inner.horizontal, inner.vertical,
+            inner.outerRadius, inner.innerRadius,
+            position, side
+        );
+
+        // Process icon and text (same as simple elbow)
+        let iconData = { markup: '', widthUsed: 0 };
+        if (this._processedIcon) {
+            const iconArea = this._processedIcon?.area || 'none';
+            if (iconArea !== 'none') {
+                iconData = this._generateAreaBasedIconMarkup(this._processedIcon, width, height);
+            } else {
+                iconData = this._generateFlexibleIconMarkup(this._processedIcon, width, height);
+            }
+        }
+
+        const iconOnly = this._processedIcon?.iconOnly && this._processedIcon?.show;
+
+        let textMarkup = '';
+        if (!iconOnly) {
+            const textFields = this._resolveTextConfiguration();
+            const textFieldsArray = Object.values(textFields);
+            const processedFields = this._processTextFieldsForElbow(textFieldsArray, width, height);
+            textMarkup = this._generateTextElements(processedFields);
+        }
+
+        // Compose segmented SVG with two elbow paths
+        const svgString = `
+            <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+                <g data-button-id="elbow-button"
+                   data-overlay-id="simple-button"
+                   class="elbow-group segmented-elbow"
+                   style="pointer-events: visiblePainted; cursor: pointer;">
+                    <!-- Outer segment (larger) -->
+                    <path
+                        class="elbow-outer button-clickable"
+                        d="${outerPath}"
+                        fill="${outerColor}"
+                        style="pointer-events: all;"
+                    />
+                    <!-- Inner segment (smaller) -->
+                    <g transform="translate(${offset.x}, ${offset.y})">
+                        <path
+                            class="elbow-inner button-clickable"
+                            d="${innerPath}"
+                            fill="${innerColor}"
+                            style="pointer-events: all;"
+                        />
+                    </g>
+                    ${iconData.markup}
+                    ${textMarkup}
+                </g>
+            </svg>
+        `.trim();
+
+        return svgString;
+    }
+
+    /**
+     * Generate a single segment path for segmented elbows
+     * Wrapper around _generateElbowPath with segment-specific dimensions
+     * @private
+     */
+    _generateSegmentPath(width, height, horizontal, vertical, outerRadius, innerRadius, position, side) {
+        // Temporarily set geometry for path generation
+        const tempGeometry = {
+            position,
+            side,
+            horizontal,
+            vertical,
+            outerRadius,
+            innerRadius
+        };
+
+        const savedGeometry = this._elbowGeometry;
+        this._elbowGeometry = tempGeometry;
+
+        const path = this._generateElbowPath(width, height);
+
+        this._elbowGeometry = savedGeometry;
+
+        return path;
     }
 
     /**
@@ -828,11 +1057,11 @@ export class LCARdSElbowButtonCard extends LCARdSSimpleButtonCard {
 
         // Resolve color (state-aware)
         let color;
-        if (typeof field.color === 'object') {
+        if (field.color && typeof field.color === 'object') {
             color = field.color[state] || field.color.default || '#000000';
         } else {
             color = field.color || (
-                typeof defaultStyle.color === 'object'
+                defaultStyle.color && typeof defaultStyle.color === 'object'
                     ? defaultStyle.color[state] || defaultStyle.color.default
                     : defaultStyle.color
             ) || '#000000';
