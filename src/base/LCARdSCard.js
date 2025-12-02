@@ -304,7 +304,7 @@ export class LCARdSCard extends LCARdSNativeCard {
      *
      * @example
      * ```yaml
-     * type: custom:lcards-simple-chart
+     * type: custom:lcards-chart
      * data_sources:
      *   cpu_temp:
      *     entity: sensor.cpu_temp
