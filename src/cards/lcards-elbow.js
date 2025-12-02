@@ -137,13 +137,13 @@ export class LCARdSElbow extends LCARdSButton {
                 this._elbowGeometry = this._calculateSimpleElbowGeometry(this._elbowConfig);
             }
 
-            lcardsLog.debug(`[LCARdSElbowButton] Elbow config processed`, {
+            lcardsLog.debug(`[LCARdSElbow] Elbow config processed`, {
                 type: this._elbowConfig.type,
                 style: this._elbowConfig.style,
                 geometry: this._elbowGeometry
             });
         } else {
-            lcardsLog.warn(`[LCARdSElbowButton] No elbow config provided - using defaults`);
+            lcardsLog.warn(`[LCARdSElbow] No elbow config provided - using defaults`);
             this._elbowConfig = this._getDefaultElbowConfig();
             this._elbowGeometry = this._calculateSimpleElbowGeometry(this._elbowConfig);
         }
@@ -165,7 +165,7 @@ export class LCARdSElbow extends LCARdSButton {
             : 'header-left';
 
         if (!validTypes.includes(elbowConfig.type)) {
-            lcardsLog.warn(`[LCARdSElbowButton] Invalid elbow type "${elbowConfig.type}", defaulting to "header-left"`);
+            lcardsLog.warn(`[LCARdSElbow] Invalid elbow type "${elbowConfig.type}", defaulting to "header-left"`);
         }
 
         // Parse style (simple or segmented)
@@ -303,7 +303,7 @@ export class LCARdSElbow extends LCARdSButton {
         const [position, side] = type.split('-');
 
         if (!segments || !segments.outer_segment || !segments.inner_segment) {
-            lcardsLog.error(`[LCARdSElbowButton] Segmented style requires outer_segment and inner_segment config`);
+            lcardsLog.error(`[LCARdSElbow] Segmented style requires outer_segment and inner_segment config`);
             return null;
         }
 
@@ -311,11 +311,11 @@ export class LCARdSElbow extends LCARdSButton {
 
         // Validate required parameters
         if (!outer_segment.bar_width) {
-            lcardsLog.error(`[LCARdSElbowButton] outer_segment.bar_width is required`);
+            lcardsLog.error(`[LCARdSElbow] outer_segment.bar_width is required`);
             return null;
         }
         if (!inner_segment.bar_width) {
-            lcardsLog.error(`[LCARdSElbowButton] inner_segment.bar_width is required`);
+            lcardsLog.error(`[LCARdSElbow] inner_segment.bar_width is required`);
             return null;
         }
 
@@ -345,7 +345,7 @@ export class LCARdSElbow extends LCARdSButton {
             y: position === 'header' ? (outerVertical + gap) : 0
         };
 
-        lcardsLog.debug(`[LCARdSElbowButton] Segmented geometry:`, {
+        lcardsLog.debug(`[LCARdSElbow] Segmented geometry:`, {
             gap,
             outer_segment: {
                 bar_width: outerHorizontal,
@@ -436,7 +436,7 @@ export class LCARdSElbow extends LCARdSButton {
             }
         });
 
-        lcardsLog.trace(`[LCARdSElbowButton] Auto-adjusted text padding for ${this._elbowConfig.type}`);
+        lcardsLog.trace(`[LCARdSElbow] Auto-adjusted text padding for ${this._elbowConfig.type}`);
     }
 
     /**
@@ -720,14 +720,14 @@ export class LCARdSElbow extends LCARdSButton {
 
     /**
      * Generate the elbow button SVG
-     * Overrides the parent to render elbow shape instead of simple button
+     * Overrides the parent to render elbow shape instead of button
      * @param {number} width - SVG width
      * @param {number} height - SVG height
      * @param {Object} config - Button configuration
      * @returns {string} SVG markup string
      * @private
      */
-    _generateSimpleButtonSVG(width, height, config) {
+    _generateButtonSVG(width, height, config) {
         // Route to segmented rendering if style is 'segmented'
         if (this._elbowConfig?.style === 'segmented') {
             return this._generateSegmentedElbowSVG(width, height, config);
@@ -742,7 +742,7 @@ export class LCARdSElbow extends LCARdSButton {
 
         if (!elbowPath) {
             // Fallback to parent rendering if no elbow geometry
-            return super._generateSimpleButtonSVG(width, height, config);
+            return super._generateButtonSVG(width, height, config);
         }
 
         // Get button state for text color
@@ -786,7 +786,7 @@ export class LCARdSElbow extends LCARdSButton {
         const svgString = `
             <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
                 <g data-button-id="elbow"
-                   data-overlay-id="simple-button"
+                   data-overlay-id="button"
                    class="elbow-group"
                    style="pointer-events: visiblePainted; cursor: pointer;">
                     <!-- Elbow background shape -->
@@ -819,8 +819,8 @@ export class LCARdSElbow extends LCARdSButton {
         const segmentGeom = this._calculateSegmentedGeometry(this._elbowConfig);
 
         if (!segmentGeom) {
-            lcardsLog.error(`[LCARdSElbowButton] Failed to calculate segmented geometry`);
-            return this._generateSimpleElbowFallback(width, height, config);
+            lcardsLog.error(`[LCARdSElbow] Failed to calculate segmented geometry`);
+            return super._generateButtonSVG(width, height, config);
         }
 
         const { position, side, outer, inner, offset } = segmentGeom;
@@ -874,7 +874,7 @@ export class LCARdSElbow extends LCARdSButton {
         const svgString = `
             <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
                 <g data-button-id="elbow"
-                   data-overlay-id="simple-button"
+                   data-overlay-id="button"
                    class="elbow-group segmented-elbow"
                    style="pointer-events: visiblePainted; cursor: pointer;">
                     <!-- Outer segment (larger) -->
