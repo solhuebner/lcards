@@ -654,11 +654,12 @@ export class LCARdSSlider extends LCARdSCard {
 
             if (!boundsStr) {
                 lcardsLog.warn(`[LCARdSSlider] Zone "${zoneName}" missing data-bounds attribute`);
-                // Try to get bounds from element geometry
-                const bbox = el.getBBox?.() || { x: 0, y: 0, width: 100, height: 20 };
+                // Use sensible defaults for zones without explicit bounds
+                // Note: getBBox() is unreliable before SVG is rendered, so we use defaults
+                const defaultBounds = { x: 0, y: 0, width: 100, height: 20 };
                 this._zones.set(zoneName, {
                     element: el,
-                    bounds: { x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height }
+                    bounds: defaultBounds
                 });
                 return;
             }
@@ -690,18 +691,10 @@ export class LCARdSSlider extends LCARdSCard {
         const height = trackZone?.bounds?.height || 20;
 
         // Generate config hash for cache invalidation
-        const configHash = JSON.stringify({
-            count: trackConfig?.count,
-            gap: trackConfig?.gap,
-            radius: trackConfig?.shape?.radius,
-            pillHeight: trackConfig?.size?.height,
-            gradientStart: trackConfig?.gradient?.start,
-            gradientEnd: trackConfig?.gradient?.end,
-            interpolated: trackConfig?.gradient?.interpolated,
-            orientation: orientation,
-            width: width,
-            height: height
-        });
+        // Using concatenated string for efficiency instead of JSON.stringify
+        const configHash = `${trackConfig?.count || 10}|${trackConfig?.gap || 4}|${trackConfig?.shape?.radius ?? 4}|` +
+            `${trackConfig?.size?.height || 12}|${trackConfig?.gradient?.start || ''}|${trackConfig?.gradient?.end || ''}|` +
+            `${trackConfig?.gradient?.interpolated || false}|${orientation}|${width}|${height}`;
 
         // Check memoization cache
         if (this._memoizedTrack && this._memoizedTrackConfig === configHash) {
@@ -1113,7 +1106,8 @@ export class LCARdSSlider extends LCARdSCard {
         const isVertical = orientation === 'vertical';
         const valuePercent = this._calculateValuePercent();
 
-        if (indicator.tagName.toLowerCase() === 'line') {
+        // Use uppercase comparison for efficiency (tagName is always uppercase in SVG)
+        if (indicator.tagName === 'line' || indicator.tagName === 'LINE') {
             if (isVertical) {
                 const y = height - (valuePercent * height);
                 indicator.setAttribute('y1', y);
@@ -1123,7 +1117,7 @@ export class LCARdSSlider extends LCARdSCard {
                 indicator.setAttribute('x1', x);
                 indicator.setAttribute('x2', x);
             }
-        } else if (indicator.tagName.toLowerCase() === 'ellipse') {
+        } else if (indicator.tagName === 'ellipse' || indicator.tagName === 'ELLIPSE') {
             if (isVertical) {
                 const y = height - (valuePercent * height);
                 indicator.setAttribute('cy', y);
@@ -1206,8 +1200,13 @@ export class LCARdSSlider extends LCARdSCard {
 
         try {
             if (domain === 'light') {
-                // Convert to 0-255 for brightness
-                const brightness = Math.round((value / this._controlConfig.max) * 255);
+                // Convert value to 0-255 brightness range
+                // The value from the slider represents percentage (0-100 typically)
+                // We calculate brightness as percentage of the range, then scale to 0-255
+                const min = this._controlConfig.min;
+                const max = this._controlConfig.max;
+                const percent = (value - min) / (max - min);
+                const brightness = Math.round(percent * 255);
                 await this.hass.callService('light', 'turn_on', {
                     entity_id: entityId,
                     brightness: brightness
