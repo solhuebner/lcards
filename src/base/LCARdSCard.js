@@ -775,7 +775,7 @@ export class LCARdSCard extends LCARdSNativeCard {
      * - Cleanup handled automatically in _onDisconnected()
      *
      * @param {Object} overlay - Overlay configuration object
-     * @param {string} overlay.id - Unique overlay identifier (e.g., 'simple-button-' + cardGuid)
+     * @param {string} overlay.id - Unique overlay identifier (e.g., 'lcards-button-' + cardGuid)
      * @param {string} overlay.type - Overlay type ('button', 'label', 'status', etc.)
      * @param {Object} [overlay.metadata] - Additional metadata (entity, cardType, etc.)
      * @param {Array<string>} [overlay.tags] - Tags for rule targeting (optional)
@@ -786,11 +786,11 @@ export class LCARdSCard extends LCARdSNativeCard {
      *     super._handleFirstUpdate();
      *
      *     this._registerOverlayForRules({
-     *         id: `simple-button-${this._cardGuid}`,
+     *         id: `lcards-button-${this._cardGuid}`,
      *         type: 'button',
      *         metadata: {
      *             entity: this.config.entity,
-     *             cardType: 'simple-button'
+     *             cardType: 'button'
      *         }
      *     });
      *

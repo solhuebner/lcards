@@ -55,7 +55,7 @@ const LCARS_FX_PACK = {
  * Complete button presets for LCARdS cards and status grids.
  * All presets use nested CB-LCARS schema structure.
  *
- * Schema: doc/architecture/simple-button-schema-definition.md
+ * Schema: doc/architecture/button-schema-definition.md
  * Theme Tokens: src/core/themes/tokens/lcarsClassicTokens.js
  */
 const LCARDS_BUTTONS_PACK = {

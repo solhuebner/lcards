@@ -1015,7 +1015,7 @@ export class AnimationManager extends BaseService {
    * Register segment animations for a card
    * Creates a "sub-scope" under the card's scope for segment-level animations
    *
-   * @param {string} cardId - Unique card identifier (e.g., "simple-button-123")
+   * @param {string} cardId - Unique card identifier (e.g., "lcards-button-123")
    * @param {string} segmentId - Segment identifier
    * @param {Array} animations - Animation definitions array
    * @param {Element} segmentElement - SVG element to animate

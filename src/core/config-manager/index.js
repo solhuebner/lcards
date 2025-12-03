@@ -537,35 +537,40 @@ export class CoreConfigManager {
    * Map card type to theme component type
    * @private
    */
+  /**
+   * Map legacy card type names to component type
+   * @private
+   */
   _mapCardTypeToComponent(cardType) {
     const mapping = {
-      'simple-button': 'button',
-      'simple-label': 'text',
-      'simple-gauge': 'gauge',
+      'simple-button': 'button',  // Legacy alias
+      'simple-label': 'text',     // Legacy alias
+      'simple-gauge': 'gauge',    // Legacy alias
       'msd': 'msd'
     };
     return mapping[cardType] || cardType;
   }
 
   /**
-   * Map card type to preset overlay type
+   * Map legacy card type to preset overlay type
    * @private
    */
   _mapCardTypeToOverlay(cardType) {
     const mapping = {
-      'simple-button': 'button',
-      'simple-label': 'text',
-      'simple-gauge': 'gauge'
+      'simple-button': 'button',  // Legacy alias
+      'simple-label': 'text',     // Legacy alias
+      'simple-gauge': 'gauge'     // Legacy alias
     };
     return mapping[cardType] || cardType;
   }
 
   /**
    * Register builtin card types with behavioral defaults
+   * Includes legacy 'simple-*' aliases for backward compatibility
    * @private
    */
   _registerBuiltinCardTypes() {
-    // Simple Button: BEHAVIORAL defaults only
+    // Legacy Simple Button: BEHAVIORAL defaults only
     this.registerCardDefaults('simple-button', {
       show_label: true,
       show_icon: false,
@@ -573,7 +578,7 @@ export class CoreConfigManager {
       enable_double_tap: false
     });
 
-    // Simple Label
+    // Legacy Simple Label
     this.registerCardDefaults('simple-label', {
       show_label: true,
       show_name: true

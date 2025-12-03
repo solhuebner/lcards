@@ -5,7 +5,7 @@
  * All color values reference --lcars-* CSS variables from HA-LCARS theme.
  *
  * Schema aligned with v1.14.18 nested CB-LCARS structure.
- * See: doc/architecture/simple-button-schema-definition.md
+ * See: doc/architecture/button-schema-definition.md
  *
  * @module core/themes/tokens/lcarsClassicTokens
  */
@@ -304,8 +304,8 @@ export const lcarsClassicTokens = {
        * Base button tokens - Foundation for all button presets
        * Schema aligned with v1.14.18 nested CB-LCARS structure
        *
-       * Used by: simple-button card, status-grid cells, button overlays
-       * See: doc/architecture/simple-button-schema-definition.md
+       * Used by: lcards-button card, status-grid cells, button overlays
+       * See: doc/architecture/button-schema-definition.md
        */
       base: {
         // ============================================================================
