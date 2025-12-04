@@ -79,7 +79,7 @@ export class LCARdSSlider extends LCARdSCard {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    background: transparent;
+                    background: rgba(255, 0, 0, 0.1); /* TEMPORARY: Semi-transparent red for testing */
                     position: relative;
                 }
 
@@ -413,9 +413,10 @@ export class LCARdSSlider extends LCARdSCard {
             // Track configuration
             track: {
                 orientation: 'horizontal', // or 'vertical'
+                margin: 10, // Margin around track zone (can be number or {top, right, bottom, left})
                 segments: {
                     enabled: true,
-                    count: 10,
+                    count: undefined, // undefined = auto-calculate based on container size
                     gap: 4,
                     shape: {
                         radius: 4
@@ -531,10 +532,32 @@ export class LCARdSSlider extends LCARdSCard {
         lcardsLog.debug(`[LCARdSSlider] Loading component: ${componentName}`);
 
         try {
-            // Use static import for webpack compatibility
-            let svgContent = getSliderComponent(componentName);
+            // Get component metadata object
+            let component = getSliderComponent(componentName);
+            let svgContent;
 
-            if (!svgContent) {
+            if (component) {
+                // Component found in registry - use metadata
+                svgContent = component.svg;
+
+                // Set orientation from component metadata if not explicitly configured
+                if (!this.config.style?.track?.orientation) {
+                    if (!this._sliderStyle) {
+                        this._sliderStyle = {};
+                    }
+                    if (!this._sliderStyle.track) {
+                        this._sliderStyle.track = {};
+                    }
+                    this._sliderStyle.track.orientation = component.orientation;
+
+                    lcardsLog.debug(`[LCARdSSlider] Using component orientation: ${component.orientation}`);
+                }
+
+                // Log component features for debugging
+                lcardsLog.debug(`[LCARdSSlider] Component supports modes: ${component.supportsMode.join(', ')}`);
+                lcardsLog.debug(`[LCARdSSlider] Component features: ${component.features.join(', ')}`);
+
+            } else {
                 // Try to fetch from external URL
                 svgContent = await this._fetchExternalComponent(componentName);
             }
@@ -748,10 +771,8 @@ export class LCARdSSlider extends LCARdSCard {
      * @private
      */
     _generatePillsSVG(trackBounds, trackConfig, orientation = 'horizontal') {
-        const count = trackConfig?.count || 10;
         const gap = parseInt(trackConfig?.gap) || 4;
         const radius = trackConfig?.shape?.radius ?? 4;
-        const pillHeight = parseInt(trackConfig?.size?.height) || 12;
         const interpolated = trackConfig?.gradient?.interpolated ?? false;
         const gradientStart = this._resolveCssVariable(trackConfig?.gradient?.start || 'var(--error-color)');
         const gradientEnd = this._resolveCssVariable(trackConfig?.gradient?.end || 'var(--success-color)');
@@ -764,23 +785,98 @@ export class LCARdSSlider extends LCARdSCard {
 
         const isVertical = orientation === 'vertical';
 
+        // Calculate count and dimensions based on orientation
+        let count, pillWidth, pillHeight;
+
+        if (isVertical) {
+            // Vertical: pill width fills track width (expands with container)
+            pillWidth = trackWidth;
+
+            // Pill height is FIXED - doesn't change with container size
+            const fixedPillHeight = parseInt(trackConfig?.size?.height) || 12;
+
+            // Auto-calculate count to fill available height with fixed-size pills
+            const configCount = trackConfig?.count;
+
+            lcardsLog.debug(`[LCARdSSlider] Vertical config inspection:`, {
+                trackConfig,
+                configCount,
+                configCountType: typeof configCount,
+                isUndefined: configCount === undefined,
+                isNull: configCount === null,
+                isAuto: configCount === 'auto'
+            });
+
+            if (configCount === 'auto' || configCount === undefined || configCount === null) {
+                // Calculate how many fixed-size pills fit in the track height
+                count = Math.floor((trackHeight + gap) / (fixedPillHeight + gap));
+                pillHeight = fixedPillHeight; // Use the fixed height
+
+                lcardsLog.debug(`[LCARdSSlider] Vertical auto-count calculation:`, {
+                    trackHeight,
+                    fixedPillHeight,
+                    gap,
+                    calculatedCount: count
+                });
+            } else {
+                // User explicitly specified count - calculate pill height to fit
+                count = parseInt(configCount);
+                pillHeight = (trackHeight - (gap * (count - 1))) / count;
+
+                lcardsLog.debug(`[LCARdSSlider] Vertical fixed count:`, {
+                    count,
+                    trackHeight,
+                    recalculatedPillHeight: pillHeight
+                });
+            }
+        } else {
+            // Horizontal: pill height fills track height (expands with container)
+            pillHeight = trackHeight;
+
+            // Pill width is FIXED - doesn't change with container size
+            const fixedPillWidth = parseInt(trackConfig?.size?.width) || 12;
+
+            // Auto-calculate count to fill available width with fixed-size pills
+            const configCount = trackConfig?.count;
+            if (configCount === 'auto' || configCount === undefined || configCount === null) {
+                // Calculate how many fixed-size pills fit in the track width
+                count = Math.floor((trackWidth + gap) / (fixedPillWidth + gap));
+                // Use the FIXED width (don't recalculate to fill space)
+                pillWidth = fixedPillWidth;
+
+                lcardsLog.debug(`[LCARdSSlider] Horizontal auto-count calculation:`, {
+                    trackWidth,
+                    fixedPillWidth,
+                    gap,
+                    calculatedCount: count,
+                    pillWidth: pillWidth
+                });
+            } else {
+                count = parseInt(configCount) || 10;
+                // If user specifies count, recalculate pill width to fill space
+                pillWidth = (trackWidth - (gap * (count - 1))) / count;
+
+                lcardsLog.debug(`[LCARdSSlider] Horizontal fixed count:`, {
+                    count,
+                    trackWidth,
+                    recalculatedPillWidth: pillWidth
+                });
+            }
+        }
+
         // Calculate pill dimensions
-        let pillWidth, pills = '';
+        let pills = '';
         let defs = '<defs>';
 
         if (isVertical) {
             // Vertical: pills stack from bottom to top
-            const availableHeight = trackHeight - (gap * (count - 1));
-            const pillSize = availableHeight / count;
-            pillWidth = trackWidth;
-
             // Generate per-pill colors (interpolated across the range)
             defs += '</defs>';
 
             // Generate pills from bottom to top
             for (let i = 0; i < count; i++) {
-                const y = trackY + trackHeight - ((i + 1) * pillSize) - (i * gap);
-                const x = trackX + (trackWidth - pillWidth) / 2; // Center horizontally within track zone
+                const y = trackY + trackHeight - ((i + 1) * pillHeight) - (i * gap);
+                const x = trackX; // Fill entire track width
 
                 // Calculate solid color for this pill based on position
                 // Note: ColorUtils.mix(c1, c2, t) returns c2 at t=0, c1 at t=1
@@ -795,7 +891,7 @@ export class LCARdSSlider extends LCARdSCard {
                         x="${x}"
                         y="${y}"
                         width="${pillWidth}"
-                        height="${pillSize}"
+                        height="${pillHeight}"
                         rx="${radius}"
                         ry="${radius}"
                         fill="${color}"
@@ -814,10 +910,8 @@ export class LCARdSSlider extends LCARdSCard {
             // Generate pills from left to right
             for (let i = 0; i < count; i++) {
                 const x = trackX + (i * (pillWidth + gap));
-                // Center pill vertically within track zone, accounting for track zone's y offset
-                const idealY = trackY + (trackHeight - pillHeight) / 2;
-                // Clamp to ensure pill doesn't go above track zone (but allow overflow below)
-                const y = Math.max(trackY, idealY);
+                // Pills fill the entire track height
+                const y = trackY;
 
                 // Calculate solid color for this pill based on position
                 // Note: ColorUtils.mix(c1, c2, t) returns c2 at t=0, c1 at t=1
@@ -1312,55 +1406,74 @@ export class LCARdSSlider extends LCARdSCard {
         let svgContent;
 
         if (this._componentSvg) {
-            // For vertical sliders, adjust viewBox to match container aspect ratio
+            // Adjust viewBox to match container dimensions
+            // This prevents distortion when container aspect ratio differs from viewBox
             const orientation = this._sliderStyle?.track?.orientation || 'horizontal';
-            if (orientation === 'vertical') {
-                // Calculate appropriate viewBox based on container size
-                // Keep width at 56 (standard), adjust height to match aspect ratio
-                const targetHeight = Math.round((height / width) * 56);
-                this._componentSvg.setAttribute('viewBox', `0 0 56 ${targetHeight}`);
 
-                // Update track zone bounds proportionally
-                const trackZone = this._zones.get('track');
-                if (trackZone) {
-                    const oldHeight = 280; // Original track height
-                    const newHeight = targetHeight - 20; // Maintain 10px padding top/bottom
-                    const heightRatio = newHeight / oldHeight;
+            // Use actual container dimensions as viewBox
+            // This way, 1 viewBox unit = 1 rendered pixel
+            this._componentSvg.setAttribute('viewBox', `0 0 ${width} ${height}`);
 
-                    trackZone.bounds = {
-                        x: 8,
-                        y: 10,
-                        width: 40,
-                        height: newHeight
-                    };
+            // Parse margin configuration (can be number or {top, right, bottom, left})
+            const marginConfig = this._sliderStyle?.track?.margin ?? 10;
+            let margins;
+            if (typeof marginConfig === 'number') {
+                // Single value applies to all sides
+                margins = { top: marginConfig, right: marginConfig, bottom: marginConfig, left: marginConfig };
+            } else {
+                // Object with per-side values (with defaults)
+                margins = {
+                    top: marginConfig.top ?? 10,
+                    right: marginConfig.right ?? 10,
+                    bottom: marginConfig.bottom ?? 10,
+                    left: marginConfig.left ?? 10
+                };
+            }
 
-                    // Update data-bounds attribute on the element
-                    trackZone.element.setAttribute('data-bounds', `8,10,40,${newHeight}`);
-                }
+            lcardsLog.debug(`[LCARdSSlider] ${orientation} viewBox adjustment:`, {
+                containerWidth: width,
+                containerHeight: height,
+                margins
+            });
 
-                // Update control zone bounds
-                const controlZone = this._zones.get('control');
-                if (controlZone) {
-                    controlZone.bounds = {
-                        x: 0,
-                        y: 0,
-                        width: 56,
-                        height: targetHeight
-                    };
+            // Apply margins to track zone
+            const trackZone = this._zones.get('track');
+            if (trackZone) {
+                trackZone.bounds = {
+                    x: margins.left,
+                    y: margins.top,
+                    width: width - margins.left - margins.right,
+                    height: height - margins.top - margins.bottom
+                };
 
-                    // Update data-bounds attribute
-                    const controlElement = this._componentSvg.querySelector('#control-zone');
-                    if (controlElement) {
-                        controlElement.setAttribute('data-bounds', `0,0,56,${targetHeight}`);
-                        controlElement.setAttribute('height', targetHeight);
-                    }
+                lcardsLog.debug(`[LCARdSSlider] Track zone bounds:`, trackZone.bounds);
+
+                // Update data-bounds attribute
+                trackZone.element.setAttribute('data-bounds',
+                    `${trackZone.bounds.x},${trackZone.bounds.y},${trackZone.bounds.width},${trackZone.bounds.height}`);
+            }
+
+            // Control zone always fills entire container
+            const controlZone = this._zones.get('control');
+            if (controlZone) {
+                controlZone.bounds = {
+                    x: 0,
+                    y: 0,
+                    width: width,
+                    height: height
+                };
+
+                // Update control zone element
+                const controlElement = this._componentSvg.querySelector('#control-zone');
+                if (controlElement) {
+                    controlElement.setAttribute('data-bounds', `0,0,${width},${height}`);
+                    controlElement.setAttribute('width', width);
+                    controlElement.setAttribute('height', height);
                 }
             }
 
             // Inject dynamic content into zones
-            this._injectContentIntoZones();
-
-            // Serialize component SVG
+            this._injectContentIntoZones();            // Serialize component SVG
             svgContent = new XMLSerializer().serializeToString(this._componentSvg);
         } else {
             // Generate fallback slider

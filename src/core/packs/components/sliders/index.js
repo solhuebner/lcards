@@ -262,28 +262,89 @@ const gaugeHorizontalSvg = `<?xml version="1.0" encoding="UTF-8"?>
 </svg>`;
 
 /**
- * Slider component registry
- * @type {Object.<string, string>}
+ * Slider component registry with metadata
+ * Each component defines:
+ * - svg: The SVG markup
+ * - orientation: 'horizontal' or 'vertical'
+ * - supportsMode: Array of supported modes ['slider', 'gauge']
+ * - features: Array of feature flags ['bordered', 'segmented', etc.]
+ *
+ * @type {Object.<string, {svg: string, orientation: string, supportsMode: string[], features: string[]}>}
  */
 export const sliderComponents = {
-    'slider-horizontal': sliderHorizontalSvg,
-    'slider-vertical': sliderVerticalSvg,
-    'slider-bordered-horizontal': sliderBorderedHorizontalSvg,
-    'slider-picard-vertical': sliderPicardVerticalSvg,
-    'slider-minimal': sliderMinimalSvg,
-    'gauge-horizontal': gaugeHorizontalSvg,
-    // Aliases for convenience
-    'horizontal': sliderHorizontalSvg,
-    'vertical': sliderVerticalSvg,
-    'minimal': sliderMinimalSvg,
-    'picard-vertical': sliderPicardVerticalSvg,
-    'picard': sliderPicardVerticalSvg
+    'slider-horizontal': {
+        svg: sliderHorizontalSvg,
+        orientation: 'horizontal',
+        supportsMode: ['slider', 'gauge'],
+        features: ['minimal']
+    },
+    'slider-vertical': {
+        svg: sliderVerticalSvg,
+        orientation: 'vertical',
+        supportsMode: ['slider', 'gauge'],
+        features: ['minimal']
+    },
+    'slider-bordered-horizontal': {
+        svg: sliderBorderedHorizontalSvg,
+        orientation: 'horizontal',
+        supportsMode: ['slider', 'gauge'],
+        features: ['bordered', 'text-zone']
+    },
+    'slider-picard-vertical': {
+        svg: sliderPicardVerticalSvg,
+        orientation: 'vertical',
+        supportsMode: ['slider', 'gauge'],
+        features: ['bordered', 'segmented', 'text-zone']
+    },
+    'slider-minimal': {
+        svg: sliderMinimalSvg,
+        orientation: 'horizontal',
+        supportsMode: ['slider', 'gauge'],
+        features: ['minimal']
+    },
+    'gauge-horizontal': {
+        svg: gaugeHorizontalSvg,
+        orientation: 'horizontal',
+        supportsMode: ['gauge'],
+        features: ['bordered', 'text-zone', 'scale-marks']
+    },
+    // Aliases for convenience - reference existing definitions
+    'horizontal': {
+        svg: sliderHorizontalSvg,
+        orientation: 'horizontal',
+        supportsMode: ['slider', 'gauge'],
+        features: ['minimal']
+    },
+    'vertical': {
+        svg: sliderVerticalSvg,
+        orientation: 'vertical',
+        supportsMode: ['slider', 'gauge'],
+        features: ['minimal']
+    },
+    'minimal': {
+        svg: sliderMinimalSvg,
+        orientation: 'horizontal',
+        supportsMode: ['slider', 'gauge'],
+        features: ['minimal']
+    },
+    'picard-vertical': {
+        svg: sliderPicardVerticalSvg,
+        orientation: 'vertical',
+        supportsMode: ['slider', 'gauge'],
+        features: ['bordered', 'segmented', 'text-zone']
+    },
+    'picard': {
+        svg: sliderPicardVerticalSvg,
+        orientation: 'vertical',
+        supportsMode: ['slider', 'gauge'],
+        features: ['bordered', 'segmented', 'text-zone']
+    }
 };
 
 /**
  * Get a slider component by name
  * @param {string} name - Component name
- * @returns {string|undefined} SVG content or undefined if not found
+ * @returns {Object|undefined} Component object with svg, orientation, supportsMode, and features, or undefined if not found
  */
 export function getSliderComponent(name) {
     return sliderComponents[name];
