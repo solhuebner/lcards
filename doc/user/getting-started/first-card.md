@@ -352,7 +352,7 @@ Now that you have the basics, explore more features:
 ### Advanced Topics
 - 🏗️ [Core/Singleton Architecture](../../architecture/overview.md)
 - 🎬 [Animation System](../guides/animations.md)
-- 🔍 [Console API](../advanced/CONSOLE_HELP_QUICK_REF.md)
+- 🔍 [Console API](../advanced/console-help-quick-ref.md)
 
 ---
 

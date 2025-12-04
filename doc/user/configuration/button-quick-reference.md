@@ -1283,5 +1283,5 @@ dpad:
 **For complete implementation details, see:**
 - [Animation Presets Reference](../reference/animation-presets.md) - All animation presets and parameters
 - [Animation System Guide](../guides/animations.md) - Complete animation system documentation
-- [Segment Animation Guide](../../../SEGMENT_ANIMATION_GUIDE.md) - Detailed segment animation examples
+- [Segment Animation Guide](../../../segment-animation-guide.md) - Detailed segment animation examples
 - `button-schema-definition.md` - Full schema specification

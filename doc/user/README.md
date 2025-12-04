@@ -115,7 +115,7 @@ Deep dives into LCARdS features:
 | ✅ **Validation** | [Validation Guide](advanced/validation_guide.md) |
 | 🔑 **Theme Tokens** | [Token Reference](advanced/token_reference_card.md) |
 | 🎮 **MSD Controls** | [MSD Controls](advanced/msd-controls.md) |
-| 🔍 **Console Help** | [Console Reference](advanced/CONSOLE_HELP_QUICK_REF.md) |
+| 🔍 **Console Help** | [Console Reference](advanced/console-help-quick-ref.md) |
 
 ---
 
@@ -129,7 +129,7 @@ Detailed reference documentation:
 | 🎭 **Animation Presets** | [Animation Presets](reference/animation-presets.md) |
 | 📊 **Bar Label Presets** | [Bar Labels](reference/bar-label-presets.md) |
 | 🧩 **Component Presets** | [Components](reference/component-presets.md) |
-| 🔀 **Segment Animations** | [Segment Guide](reference/SEGMENT_ANIMATION_GUIDE.md) |
+| 🔀 **Segment Animations** | [Segment Guide](reference/segment-animation-guide.md) |
 | 🔲 **Segmented Elbow** | [Anatomy Guide](configuration/segmented-elbow-anatomy.md) |
 | 🖼️ **SVG Filters** | [SVG Filters](configuration/base-svg-filters.md) |
 
@@ -179,14 +179,14 @@ Detailed reference documentation:
 - [validation_guide.md](advanced/validation_guide.md) - Validation
 - [msd-controls.md](advanced/msd-controls.md) - Controls
 - [token_reference_card.md](advanced/token_reference_card.md) - Tokens
-- [CONSOLE_HELP_QUICK_REF.md](advanced/CONSOLE_HELP_QUICK_REF.md) - Console help
+- [console-help-quick-ref.md](advanced/console-help-quick-ref.md) - Console help
 
 ### 📖 Guides & Reference
 - [animations.md](guides/animations.md) - Animations guide
 - [animation-presets.md](reference/animation-presets.md) - Animation presets
 - [bar-label-presets.md](reference/bar-label-presets.md) - Bar labels
 - [component-presets.md](reference/component-presets.md) - Components
-- [SEGMENT_ANIMATION_GUIDE.md](reference/SEGMENT_ANIMATION_GUIDE.md) - Segment animations
+- [segment-animation-guide.md](reference/segment-animation-guide.md) - Segment animations
 
 ---
 

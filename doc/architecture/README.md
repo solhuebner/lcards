@@ -59,8 +59,8 @@ Official schema definitions (markdown with fully commented YAML):
 ## 📊 [Diagrams](./diagrams/)
 
 Visual documentation:
-- **[MSD Flow - Part 1](./diagrams/MSD%20Flow%20-%20Part%201.md)** - Initialization flow
-- **[MSD Flow - Part 2](./diagrams/MSD%20Flow%20-%20Part%202.md)** - Rendering flow
+- **[MSD Flow - Part 1](./diagrams/msd-flow-part-1.md)** - Initialization flow
+- **[MSD Flow - Part 2](./diagrams/msd-flow-part-2.md)** - Rendering flow
 
 ---
 

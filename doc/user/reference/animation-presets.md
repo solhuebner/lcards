@@ -580,5 +580,5 @@ animations:
 ## See Also
 
 - [Animation System Guide](../guides/animations.md) - Complete guide to animation system
-- [Segment Animation Guide](../../../SEGMENT_ANIMATION_GUIDE.md) - Using animations with SVG segments
+- [Segment Animation Guide](../../../segment-animation-guide.md) - Using animations with SVG segments
 - [Anime.js Documentation](https://animejs.com/documentation/) - Full anime.js reference

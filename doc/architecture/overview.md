@@ -247,7 +247,7 @@ The recommended approach combines MSD cards for layout with embedded LCARdS Card
 | **LCARdS Cards (embedded)** | Buttons, charts, interactive elements |
 | **LCARdS Cards (standalone)** | Individual controls outside MSD |
 
-**See:** [MSD Flow Part 2](diagrams/MSD%20Flow%20-%20Part%202.md#-msd--simple-cards-together) for detailed examples.
+**See:** [MSD Flow Part 2](diagrams/msd-flow-part-2.md#-msd--simple-cards-together) for detailed examples.
 
 ---
 
