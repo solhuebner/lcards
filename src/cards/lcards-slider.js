@@ -779,7 +779,7 @@ export class LCARdSSlider extends LCARdSCard {
 
             // Generate pills from bottom to top
             for (let i = 0; i < count; i++) {
-                const y = trackHeight - ((i + 1) * pillSize) - (i * gap);
+                const y = trackY + trackHeight - ((i + 1) * pillSize) - (i * gap);
                 const x = trackX + (trackWidth - pillWidth) / 2; // Center horizontally within track zone
 
                 // Calculate solid color for this pill based on position
@@ -1312,6 +1312,51 @@ export class LCARdSSlider extends LCARdSCard {
         let svgContent;
 
         if (this._componentSvg) {
+            // For vertical sliders, adjust viewBox to match container aspect ratio
+            const orientation = this._sliderStyle?.track?.orientation || 'horizontal';
+            if (orientation === 'vertical') {
+                // Calculate appropriate viewBox based on container size
+                // Keep width at 56 (standard), adjust height to match aspect ratio
+                const targetHeight = Math.round((height / width) * 56);
+                this._componentSvg.setAttribute('viewBox', `0 0 56 ${targetHeight}`);
+
+                // Update track zone bounds proportionally
+                const trackZone = this._zones.get('track');
+                if (trackZone) {
+                    const oldHeight = 280; // Original track height
+                    const newHeight = targetHeight - 20; // Maintain 10px padding top/bottom
+                    const heightRatio = newHeight / oldHeight;
+
+                    trackZone.bounds = {
+                        x: 8,
+                        y: 10,
+                        width: 40,
+                        height: newHeight
+                    };
+
+                    // Update data-bounds attribute on the element
+                    trackZone.element.setAttribute('data-bounds', `8,10,40,${newHeight}`);
+                }
+
+                // Update control zone bounds
+                const controlZone = this._zones.get('control');
+                if (controlZone) {
+                    controlZone.bounds = {
+                        x: 0,
+                        y: 0,
+                        width: 56,
+                        height: targetHeight
+                    };
+
+                    // Update data-bounds attribute
+                    const controlElement = this._componentSvg.querySelector('#control-zone');
+                    if (controlElement) {
+                        controlElement.setAttribute('data-bounds', `0,0,56,${targetHeight}`);
+                        controlElement.setAttribute('height', targetHeight);
+                    }
+                }
+            }
+
             // Inject dynamic content into zones
             this._injectContentIntoZones();
 
