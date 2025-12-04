@@ -130,6 +130,7 @@ Detailed reference documentation:
 | 📊 **Bar Label Presets** | [Bar Labels](reference/bar-label-presets.md) |
 | 🧩 **Component Presets** | [Components](reference/component-presets.md) |
 | 🔀 **Segment Animations** | [Segment Guide](reference/segment-animation-guide.md) |
+| 📦 **Segment Entity States** | [Entity States](reference/segment-entity-states-quick-reference.md) |
 | 🔲 **Segmented Elbow** | [Anatomy Guide](configuration/segmented-elbow-anatomy.md) |
 | 🖼️ **SVG Filters** | [SVG Filters](configuration/base-svg-filters.md) |
 
@@ -187,6 +188,7 @@ Detailed reference documentation:
 - [bar-label-presets.md](reference/bar-label-presets.md) - Bar labels
 - [component-presets.md](reference/component-presets.md) - Components
 - [segment-animation-guide.md](reference/segment-animation-guide.md) - Segment animations
+- [segment-entity-states-quick-reference.md](reference/segment-entity-states-quick-reference.md) - Entity states
 
 ---
 
