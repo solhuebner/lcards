@@ -678,7 +678,7 @@ console.log('Active routes:', sm.router.getActiveRoutes());
 
 - **[CoreSystemsManager](./core-systems-manager.md)** - Lightweight singleton for LCARdS Cards
 - **[Architecture Overview](../overview.md)** - System architecture
-- **[MSD Flow - Part 1](../diagrams/MSD%20Flow%20-%20Part%201.md)** - Initialization flow
-- **[MSD Flow - Part 2](../diagrams/MSD%20Flow%20-%20Part%202.md)** - Runtime flow
+- **[MSD Flow - Part 1](../diagrams/msd-flow-part-1.md)** - Initialization flow
+- **[MSD Flow - Part 2](../diagrams/msd-flow-part-2.md)** - Runtime flow
 - **[Advanced Renderer](./advanced-renderer.md)** - SVG rendering engine
 - **[DataSource System](./datasource-system.md)** - Data processing pipeline

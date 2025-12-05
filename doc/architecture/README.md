@@ -47,8 +47,8 @@ Detailed documentation for each singleton system:
 Official schema definitions (markdown with fully commented YAML):
 
 ### LCARdS Cards
-- **[simple-button-schema-definition.md](./schemas/simple-button-schema-definition.md)** - Complete SimpleButton schema
-- **[simple-chart-schema-definition.md](./schemas/simple-chart-schema-definition.md)** - Complete SimpleChart schema
+- **[button-schema-definition.md](./schemas/button-schema-definition.md)** - Complete Button card schema
+- **[chart-schema-definition.md](./schemas/chart-schema-definition.md)** - Complete Chart card schema
 
 ### MSD Cards
 - **[msd-schema-definition.md](./schemas/msd-schema-definition.md)** - Complete MSD card configuration ⭐
@@ -59,8 +59,8 @@ Official schema definitions (markdown with fully commented YAML):
 ## 📊 [Diagrams](./diagrams/)
 
 Visual documentation:
-- **[MSD Flow - Part 1](./diagrams/MSD%20Flow%20-%20Part%201.md)** - Initialization flow
-- **[MSD Flow - Part 2](./diagrams/MSD%20Flow%20-%20Part%202.md)** - Rendering flow
+- **[MSD Flow - Part 1](./diagrams/msd-flow-part-1.md)** - Initialization flow
+- **[MSD Flow - Part 2](./diagrams/msd-flow-part-2.md)** - Rendering flow
 
 ---
 
@@ -83,7 +83,7 @@ Visual documentation:
 - **Distributed Presentation** - Individual cards handle only rendering
 
 ### Card Types
-- **LCARdS Cards** (go-forward) - Lightweight, single-purpose (SimpleButton)
+- **LCARdS Cards** (go-forward) - Lightweight, single-purpose (lcards-button, lcards-elbow, lcards-chart, lcards-slider)
 - **MSD Cards** (current) - Complex multi-overlay displays
 
 ### Performance
