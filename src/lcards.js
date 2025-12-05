@@ -33,6 +33,7 @@ import { LCARdSButton } from './cards/lcards-button.js';
 import { LCARdSElbow } from './cards/lcards-elbow.js';
 import { LCARdSChart } from './cards/lcards-chart.js';
 import { LCARdSSlider } from './cards/lcards-slider.js';
+import { LCARdSDataGrid } from './cards/lcards-data-grid.js';
 
 // Unified API system import
 import { LCARdSUnifiedAPI } from './api/LCARdSUnifiedAPI.js';
@@ -155,6 +156,7 @@ initializeCustomCard()
         customElements.define('lcards-elbow', LCARdSElbow);
         customElements.define('lcards-chart', LCARdSChart);
         customElements.define('lcards-slider', LCARdSSlider);
+        customElements.define('lcards-data-grid', LCARdSDataGrid);
         customElements.define('lcards-msd-card', LCARdSMSDCard);
 
         lcardsLog.info('[lcards.js] ✅ All custom elements registered after core initialization');
@@ -247,6 +249,13 @@ const LCARdSCardClasses = [
         name: 'LCARdS Slider',
         preview: true,
         description: 'Interactive slider/gauge for lights, covers, fans, and sensors with LCARS styling',
+        documentationURL: "https://cb-lcars.unimatrix01.ca",
+    },
+    {
+        type: 'lcards-data-grid',
+        name: 'LCARdS Data Grid',
+        preview: true,
+        description: 'LCARS cascade text grid with random, template, or datasource data modes',
         documentationURL: "https://cb-lcars.unimatrix01.ca",
     },
     {
