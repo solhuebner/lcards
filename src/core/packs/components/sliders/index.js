@@ -210,6 +210,7 @@ const sliderMinimalSvg = `<?xml version="1.0" encoding="UTF-8"?>
 /**
  * Gauge with Scale
  * Horizontal gauge with tick marks and labels zone
+ * Zero margins for seamless ruler design
  */
 const gaugeHorizontalSvg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg viewBox="0 0 300 60" xmlns="http://www.w3.org/2000/svg">
@@ -218,44 +219,44 @@ const gaugeHorizontalSvg = `<?xml version="1.0" encoding="UTF-8"?>
     <description>Horizontal gauge with scale zone for tick marks</description>
   </metadata>
 
-  <!-- Border/frame -->
+  <!-- Border/frame (hidden for seamless ruler design) -->
   <rect id="frame"
         x="0" y="0"
         width="300" height="60"
         rx="8" ry="8"
         fill="none"
-        stroke="{{BORDER_COLOR}}"
-        stroke-width="2" />
+        stroke="none"
+        stroke-width="0" />
 
-  <!-- Track zone: main gauge area -->
+  <!-- Track zone: main gauge area (zero margins for seamless design) -->
   <g id="track-zone"
      data-zone="track"
-     data-bounds="10,10,280,25">
+     data-bounds="0,0,300,46">
     <!-- Card injects gauge content here -->
   </g>
 
-  <!-- Scale zone: for tick marks below track -->
+  <!-- Scale zone: for tick marks below track (currently unused) -->
   <g id="scale-zone"
      data-zone="scale"
-     data-bounds="10,38,280,15"
-     transform="translate(10, 38)">
+     data-bounds="0,46,300,14"
+     transform="translate(0, 46)">
     <!-- Card injects tick marks here -->
   </g>
 
   <!-- Text zone: value display -->
   <g id="text-zone"
      data-zone="text"
-     data-bounds="250,10,45,40"
-     transform="translate(250, 10)">
+     data-bounds="240,5,55,40"
+     transform="translate(240, 5)">
     <!-- Card injects value text here -->
   </g>
 
   <!-- Control zone: for potential interactive mode -->
   <rect id="control-zone"
         data-zone="control"
-        data-bounds="10,5,280,50"
-        x="10" y="5"
-        width="280" height="50"
+        data-bounds="0,0,300,60"
+        x="0" y="0"
+        width="300" height="60"
         fill="none"
         stroke="none"
         pointer-events="none" />

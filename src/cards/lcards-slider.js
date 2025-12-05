@@ -401,6 +401,9 @@ export class LCARdSSlider extends LCARdSCard {
      * @private
      */
     _resolveSliderStyle() {
+        // Default margin depends on mode: gauge = 0 (seamless), slider = 10
+        const defaultMargin = this._mode === 'gauge' ? 0 : 10;
+
         // Start with defaults
         let style = {
             // Border/frame colors
@@ -413,7 +416,7 @@ export class LCARdSSlider extends LCARdSCard {
             // Track configuration
             track: {
                 orientation: 'horizontal', // or 'vertical'
-                margin: 10, // Margin around track zone (can be number or {top, right, bottom, left})
+                margin: defaultMargin, // Margin around track zone (can be number or {top, right, bottom, left})
                 segments: {
                     enabled: true,
                     count: undefined, // undefined = auto-calculate based on container size
@@ -440,49 +443,56 @@ export class LCARdSSlider extends LCARdSCard {
                     }
                 }
             },
-            // Gauge configuration
+            // Gauge configuration (ruler style)
             gauge: {
-                indicator: {
-                    type: 'line', // 'line', 'thumb', 'triangle'
-                    color: 'var(--lcars-white, #ffffff)',
-                    size: {
-                        width: 4,
-                        height: 20
-                    },
-                    border: {
-                        color: 'var(--lcars-black, #000000)',
-                        width: 1
-                    }
+                progress_bar: {
+                    color: 'var(--picard-lightest-blue, #aaccff)',
+                    height: 12,
+                    radius: 2
                 },
                 scale: {
                     tick_marks: {
                         major: {
                             enabled: true,
-                            interval: 20,
-                            color: 'var(--lcars-white, #ffffff)',
-                            height: 12,
+                            interval: 10, // Value units (e.g., every 10 degrees, every 10 percent)
+                            color: 'var(--lcars-card-button, #ff9966)',
                             width: 2
                         },
                         minor: {
                             enabled: true,
-                            interval: 10,
-                            color: 'var(--lcars-gray, #999999)',
-                            height: 6,
+                            interval: 2, // Value units (e.g., every 2 degrees, every 2 percent)
+                            color: 'var(--lcars-card-button, #ff9966)',
+                            height: 10,
                             width: 1
                         }
                     },
                     labels: {
+                        enabled: true,
+                        unit: '', // Appended to numbers (e.g., '%', '°C')
+                        color: 'var(--lcars-card-button, #ff9966)',
+                        font_size: 14,
+                        padding: 3 // Space between tick and label
+                    }
+                },
+                indicator: {
+                    enabled: false, // Disabled by default
+                    type: 'line', // 'line' or 'thumb'
+                    color: 'var(--lcars-white, #ffffff)',
+                    size: {
+                        width: 4,
+                        height: 25
+                    },
+                    border: {
                         enabled: false,
-                        interval: 20,
-                        color: 'var(--lcars-white, #ffffff)',
-                        font_size: 10
+                        color: 'var(--lcars-black, #000000)',
+                        width: 1
                     }
                 }
             },
             // Text labels
             text: {
                 value: {
-                    enabled: true,
+                    enabled: this._mode !== 'gauge', // Gauge mode hides value text by default
                     template: '{entity.state}',
                     color: 'var(--lcars-white, #ffffff)',
                     font_size: 14,
@@ -940,7 +950,8 @@ export class LCARdSSlider extends LCARdSCard {
     }
 
     /**
-     * Generate gauge SVG elements
+     * Generate gauge SVG elements (ruler style with progress bar)
+     * Design: Transparent ruler with ticks/labels and a thin progress bar
      * @private
      */
     _generateGaugeSVG(trackWidth, trackHeight) {
@@ -953,7 +964,8 @@ export class LCARdSSlider extends LCARdSCard {
             gaugeConfig,
             width: trackWidth,
             height: trackHeight,
-            orientation
+            orientation,
+            value: this._sliderValue
         });
 
         if (this._memoizedGauge && this._memoizedGaugeConfig === configHash) {
@@ -962,136 +974,171 @@ export class LCARdSSlider extends LCARdSCard {
 
         let svg = '';
 
-        // Background gradient rect
-        const gradientStart = this._resolveCssVariable(
-            this._sliderStyle?.track?.segments?.gradient?.start || 'var(--error-color)'
-        );
-        const gradientEnd = this._resolveCssVariable(
-            this._sliderStyle?.track?.segments?.gradient?.end || 'var(--success-color)'
-        );
-
-        // Add gradient definition
-        svg += `<defs>
-            <linearGradient id="gauge-gradient" ${isVertical ? 'x1="0%" y1="100%" x2="0%" y2="0%"' : 'x1="0%" y1="0%" x2="100%" y2="0%"'}>
-                <stop offset="0%" stop-color="${gradientStart}" />
-                <stop offset="100%" stop-color="${gradientEnd}" />
-            </linearGradient>
-        </defs>`;
-
-        // Background fill
-        svg += `
-            <rect x="0" y="0"
-                  width="${trackWidth}"
-                  height="${trackHeight}"
-                  fill="url(#gauge-gradient)"
-                  opacity="0.85" />
-        `;
-
-        // Tick marks
+        // Get scale configuration
+        const min = this._controlConfig.min;
+        const max = this._controlConfig.max;
+        const range = max - min;
         const tickConfig = gaugeConfig?.scale?.tick_marks;
+        const labelConfig = gaugeConfig?.scale?.labels;
 
-        // Major ticks
-        if (tickConfig?.major?.enabled !== false) {
-            const interval = tickConfig?.major?.interval || 20;
-            const tickCount = Math.floor(100 / interval);
-            const tickColor = tickConfig?.major?.color || 'white';
-            const tickHeight = tickConfig?.major?.height || 12;
-            const tickWidth = tickConfig?.major?.width || 2;
+        // Major tick configuration
+        const majorEnabled = tickConfig?.major?.enabled !== false;
+        const majorInterval = tickConfig?.major?.interval || 10; // Value units (not percentage)
+        const majorColor = this._resolveCssVariable(tickConfig?.major?.color || 'var(--lcars-card-button, #ff9966)');
+        const majorHeight = tickConfig?.major?.height; // undefined = full height
+        const majorStrokeWidth = tickConfig?.major?.width || 2;
 
-            for (let i = 0; i <= tickCount; i++) {
-                const percent = i * interval;
+        // Minor tick configuration
+        const minorEnabled = tickConfig?.minor?.enabled !== false;
+        const minorInterval = tickConfig?.minor?.interval || 2; // Value units (not percentage)
+        const minorColor = this._resolveCssVariable(tickConfig?.minor?.color || 'var(--lcars-card-button, #ff9966)');
+        const minorHeight = tickConfig?.minor?.height || 10;
+        const minorStrokeWidth = tickConfig?.minor?.width || 1;
 
-                if (isVertical) {
-                    const y = trackHeight - ((percent / 100) * trackHeight);
-                    svg += `
-                        <line x1="0" y1="${y}" x2="${tickHeight}" y2="${y}"
-                              stroke="${tickColor}" stroke-width="${tickWidth}" />
-                    `;
-                } else {
-                    const x = (percent / 100) * trackWidth;
-                    svg += `
-                        <line x1="${x}" y1="0" x2="${x}" y2="${tickHeight}"
-                              stroke="${tickColor}" stroke-width="${tickWidth}" />
-                    `;
-                }
-            }
-        }
+        // Label configuration
+        const labelsEnabled = labelConfig?.enabled !== false;
+        const labelUnit = labelConfig?.unit || '';
+        const labelPadding = labelConfig?.padding || 3; // Padding between tick and label
 
-        // Minor ticks
-        if (tickConfig?.minor?.enabled) {
-            const interval = tickConfig?.minor?.interval || 10;
-            const majorInterval = tickConfig?.major?.interval || 20;
-            const tickColor = tickConfig?.minor?.color || 'gray';
-            const tickHeight = tickConfig?.minor?.height || 6;
-            const tickWidth = tickConfig?.minor?.width || 1;
+        // Progress bar configuration
+        const progressConfig = gaugeConfig?.progress_bar;
+        const progressColor = this._resolveCssVariable(progressConfig?.color || 'var(--picard-lightest-blue, #aaccff)');
+        const progressHeight = progressConfig?.height || 12;
+        const progressRadius = progressConfig?.radius !== undefined ? progressConfig?.radius : 2;
 
-            for (let percent = 0; percent <= 100; percent += interval) {
-                // Skip if this would be a major tick
-                if (percent % majorInterval === 0) continue;
+        // Calculate progress bar position (at bottom of minor ticks)
+        const progressY = minorHeight;
 
-                if (isVertical) {
-                    const y = trackHeight - ((percent / 100) * trackHeight);
-                    svg += `
-                        <line x1="0" y1="${y}" x2="${tickHeight}" y2="${y}"
-                              stroke="${tickColor}" stroke-width="${tickWidth}" />
-                    `;
-                } else {
-                    const x = (percent / 100) * trackWidth;
-                    svg += `
-                        <line x1="${x}" y1="0" x2="${x}" y2="${tickHeight}"
-                              stroke="${tickColor}" stroke-width="${tickWidth}" />
-                    `;
-                }
-            }
-        }
-
-        // Indicator (positioned dynamically)
-        const indicatorConfig = gaugeConfig?.indicator;
-        const indicatorType = indicatorConfig?.type || 'line';
-        const indicatorColor = indicatorConfig?.color || 'white';
-        const indicatorWidth = parseInt(indicatorConfig?.size?.width) || 4;
-        const indicatorHeight = parseInt(indicatorConfig?.size?.height) || trackHeight;
-
+        // Calculate current value percentage
         const valuePercent = this._calculateValuePercent();
 
-        if (indicatorType === 'line') {
-            if (isVertical) {
-                const y = trackHeight - (valuePercent * trackHeight);
-                svg += `
-                    <line class="gauge-indicator" id="gauge-indicator"
-                          x1="0" y1="${y}" x2="${trackWidth}" y2="${y}"
-                          stroke="${indicatorColor}" stroke-width="${indicatorWidth}" />
+        if (!isVertical) {
+            // === HORIZONTAL GAUGE ===
+
+            // Draw major ticks (full height or custom height) and labels
+            if (majorEnabled) {
+                // Calculate number of major ticks based on value range and interval
+                const tickCount = Math.floor(range / majorInterval) + 1;
+
+                for (let i = 0; i < tickCount; i++) {
+                    const scaleValue = min + (i * majorInterval);
+                    if (scaleValue > max) break;
+
+                    // Calculate x position as percentage of track width
+                    const percent = ((scaleValue - min) / range) * 100;
+                    const x = (percent / 100) * trackWidth;
+
+                    // Major tick - full height or custom height
+                    const tickY2 = majorHeight !== undefined ? majorHeight : '100%';
+                    svg += `
+                    <line x1="${x}" y1="0" x2="${x}" y2="${tickY2}"
+                          stroke="${majorColor}" stroke-width="${majorStrokeWidth}" />
                 `;
-            } else {
-                const x = valuePercent * trackWidth;
-                svg += `
-                    <line class="gauge-indicator" id="gauge-indicator"
-                          x1="${x}" y1="0" x2="${x}" y2="${trackHeight}"
-                          stroke="${indicatorColor}" stroke-width="${indicatorWidth}" />
-                `;
+
+                    // Label - positioned to the left of tick, aligned at bottom
+                    if (labelsEnabled) {
+                        const labelText = Math.round(scaleValue) + labelUnit;
+                        svg += `
+                        <text x="${x}" y="100%"
+                              font-size="14px" font-weight="400" font-family="Antonio"
+                              fill="${majorColor}"
+                              text-anchor="end"
+                              transform="translate(0, -5)"
+                              dx="${-labelPadding}" dy="3">${labelText}</text>
+                    `;
+                    }
+                }
             }
-        } else if (indicatorType === 'thumb') {
-            if (isVertical) {
-                const y = trackHeight - (valuePercent * trackHeight);
-                svg += `
-                    <ellipse class="gauge-indicator" id="gauge-indicator"
-                             cx="${trackWidth / 2}" cy="${y}"
-                             rx="${indicatorWidth / 2}" ry="${indicatorHeight / 2}"
-                             fill="${indicatorColor}"
-                             stroke="${indicatorConfig?.border?.color || 'black'}"
-                             stroke-width="${indicatorConfig?.border?.width || 1}" />
-                `;
-            } else {
-                const x = valuePercent * trackWidth;
-                svg += `
-                    <ellipse class="gauge-indicator" id="gauge-indicator"
-                             cx="${x}" cy="${trackHeight / 2}"
-                             rx="${indicatorWidth / 2}" ry="${indicatorHeight / 2}"
-                             fill="${indicatorColor}"
-                             stroke="${indicatorConfig?.border?.color || 'black'}"
-                             stroke-width="${indicatorConfig?.border?.width || 1}" />
-                `;
+
+            // Draw minor ticks (shorter, between majors)
+            if (minorEnabled) {
+                const minorTickCount = Math.floor(range / minorInterval) + 1;
+
+                for (let i = 0; i < minorTickCount; i++) {
+                    const scaleValue = min + (i * minorInterval);
+                    if (scaleValue > max) break;
+
+                    // Skip if this is a major tick position
+                    const offsetFromMin = scaleValue - min;
+                    if (offsetFromMin % majorInterval === 0) continue;
+
+                    // Calculate x position as percentage of track width
+                    const percent = ((scaleValue - min) / range) * 100;
+                    const x = (percent / 100) * trackWidth;
+
+                    // Minor tick - from top to minorHeight
+                    svg += `
+                        <line x1="${x}" y1="0" x2="${x}" y2="${minorHeight}"
+                              stroke="${minorColor}" stroke-width="${minorStrokeWidth}" />
+                    `;
+                }
             }
+
+            // Draw progress bar (at bottom of minor ticks, extends based on value)
+            const progressWidth = valuePercent * trackWidth;
+            svg += `
+                <rect x="0" y="${progressY}"
+                      width="${progressWidth}" height="${progressHeight}"
+                      fill="${progressColor}"
+                      rx="${progressRadius}" ry="${progressRadius}" />
+            `;
+
+            // Draw indicator if enabled
+            const indicatorConfig = gaugeConfig?.indicator;
+            // Enable indicator if explicitly enabled OR if indicator properties are configured
+            const indicatorEnabled = indicatorConfig?.enabled === true ||
+                                    (indicatorConfig?.enabled !== false &&
+                                     (indicatorConfig?.type || indicatorConfig?.color || indicatorConfig?.size));
+
+            if (indicatorEnabled) {
+                const indicatorType = indicatorConfig.type || 'line';
+                const indicatorColor = this._resolveCssVariable(indicatorConfig.color || 'var(--lcars-white, #ffffff)');
+                const indicatorWidth = indicatorConfig.size?.width || 4;
+                const indicatorHeight = indicatorConfig.size?.height || 25;
+                const borderEnabled = indicatorConfig.border?.enabled !== false;
+                const borderColor = this._resolveCssVariable(indicatorConfig.border?.color || 'var(--lcars-black, #000000)');
+                const borderWidth = indicatorConfig.border?.width || 1;
+
+                // Calculate indicator position
+                const indicatorX = valuePercent * trackWidth;
+
+                if (indicatorType === 'thumb') {
+                    // Circular thumb indicator
+                    const radius = indicatorWidth / 2;
+                    const centerY = trackHeight / 2;
+
+                    svg += `
+                        <circle cx="${indicatorX}" cy="${centerY}" r="${radius}"
+                                fill="${indicatorColor}"
+                                ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}"` : ''} />
+                    `;
+                } else {
+                    // Line indicator (default)
+                    const lineX = indicatorX - (indicatorWidth / 2); // Center the line
+                    const lineY = (trackHeight - indicatorHeight) / 2; // Center vertically
+
+                    svg += `
+                        <rect x="${lineX}" y="${lineY}"
+                              width="${indicatorWidth}" height="${indicatorHeight}"
+                              fill="${indicatorColor}"
+                              ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}"` : ''}
+                              rx="1" ry="1" />
+                    `;
+                }
+            }
+
+        } else {
+            // === VERTICAL GAUGE ===
+            // (Will implement after horizontal is working)
+
+            // For now, fall back to simple vertical indicator
+            const y = trackHeight - (valuePercent * trackHeight);
+            svg += `
+                <rect x="0" y="${y}"
+                      width="${trackWidth}" height="${progressHeight}"
+                      fill="${progressColor}"
+                      rx="${progressRadius}" ry="${progressRadius}" />
+            `;
         }
 
         // Cache result
@@ -1129,11 +1176,16 @@ export class LCARdSSlider extends LCARdSCard {
             trackZone.element.innerHTML = trackContent;
         }
 
-        // Inject text content
+        // Inject text content (disabled for gauge mode by default)
         const textZone = this._zones.get('text');
-        if (textZone && this._sliderStyle?.text?.value?.enabled) {
-            const textContent = this._generateTextContent();
-            textZone.element.innerHTML = textContent;
+        if (textZone && this._sliderStyle?.text?.value?.enabled !== false) {
+            // For gauge mode, default to disabled unless explicitly enabled
+            if (this._mode === 'gauge' && this._sliderStyle?.text?.value?.enabled !== true) {
+                textZone.element.innerHTML = '';
+            } else {
+                const textContent = this._generateTextContent();
+                textZone.element.innerHTML = textContent;
+            }
         }
     }
 
@@ -1216,36 +1268,16 @@ export class LCARdSSlider extends LCARdSCard {
      * @private
      */
     _updateGaugeIndicator() {
-        const indicator = this.shadowRoot?.querySelector('.gauge-indicator');
-        if (!indicator) return;
+        // In new gauge design, we need to regenerate the entire gauge
+        // because the progress bar width changes (it's not just a position update)
+        // The memoization will be invalidated by the value change in config hash
+        if (this._mode === 'gauge') {
+            // Force regeneration by clearing cache
+            this._memoizedGauge = null;
+            this._memoizedGaugeConfig = null;
 
-        const trackZone = this._zones.get('track');
-        if (!trackZone) return;
-
-        const { width, height } = trackZone.bounds;
-        const orientation = this._sliderStyle?.track?.orientation || 'horizontal';
-        const isVertical = orientation === 'vertical';
-        const valuePercent = this._calculateValuePercent();
-
-        // Use uppercase comparison for efficiency (tagName is always uppercase in SVG)
-        if (indicator.tagName === 'line' || indicator.tagName === 'LINE') {
-            if (isVertical) {
-                const y = height - (valuePercent * height);
-                indicator.setAttribute('y1', y);
-                indicator.setAttribute('y2', y);
-            } else {
-                const x = valuePercent * width;
-                indicator.setAttribute('x1', x);
-                indicator.setAttribute('x2', x);
-            }
-        } else if (indicator.tagName === 'ellipse' || indicator.tagName === 'ELLIPSE') {
-            if (isVertical) {
-                const y = height - (valuePercent * height);
-                indicator.setAttribute('cy', y);
-            } else {
-                const x = valuePercent * width;
-                indicator.setAttribute('cx', x);
-            }
+            // Re-inject content into zones
+            this._injectContentIntoZones();
         }
     }
 
@@ -1415,7 +1447,12 @@ export class LCARdSSlider extends LCARdSCard {
             this._componentSvg.setAttribute('viewBox', `0 0 ${width} ${height}`);
 
             // Parse margin configuration (can be number or {top, right, bottom, left})
-            const marginConfig = this._sliderStyle?.track?.margin ?? 10;
+            // Gauge mode defaults to zero margins for seamless ruler design
+            const defaultMargin = this._mode === 'gauge' ? 0 : 10;
+            const marginConfig = this._sliderStyle?.track?.margin ?? defaultMargin;
+
+            lcardsLog.debug(`[LCARdSSlider] Mode: ${this._mode}, Default margin: ${defaultMargin}, Margin config:`, marginConfig);
+
             let margins;
             if (typeof marginConfig === 'number') {
                 // Single value applies to all sides
@@ -1423,10 +1460,10 @@ export class LCARdSSlider extends LCARdSCard {
             } else {
                 // Object with per-side values (with defaults)
                 margins = {
-                    top: marginConfig.top ?? 10,
-                    right: marginConfig.right ?? 10,
-                    bottom: marginConfig.bottom ?? 10,
-                    left: marginConfig.left ?? 10
+                    top: marginConfig.top ?? defaultMargin,
+                    right: marginConfig.right ?? defaultMargin,
+                    bottom: marginConfig.bottom ?? defaultMargin,
+                    left: marginConfig.left ?? defaultMargin
                 };
             }
 
