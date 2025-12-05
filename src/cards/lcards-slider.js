@@ -1129,16 +1129,126 @@ export class LCARdSSlider extends LCARdSCard {
 
         } else {
             // === VERTICAL GAUGE ===
-            // (Will implement after horizontal is working)
+            // Vertical gauges have horizontal tick marks and fill from bottom to top
 
-            // For now, fall back to simple vertical indicator
-            const y = trackHeight - (valuePercent * trackHeight);
+            // Draw major ticks (horizontal lines) and labels
+            if (majorEnabled) {
+                const tickCount = Math.floor(range / majorInterval) + 1;
+
+                for (let i = 0; i < tickCount; i++) {
+                    const scaleValue = min + (i * majorInterval);
+                    if (scaleValue > max) break;
+
+                    // Calculate y position as percentage of track height
+                    // INVERTED: 0% = top (max value), 100% = bottom (min value)
+                    const percent = 100 - (((scaleValue - min) / range) * 100);
+                    const y = (percent / 100) * trackHeight;
+
+                    // Determine tick width (full width or custom)
+                    const tickX2 = majorHeight !== undefined ? majorHeight : '100%';
+
+                    // Draw horizontal tick line
+                    svg += `
+                    <line x1="0" y1="${y}" x2="${tickX2}" y2="${y}"
+                          stroke="${majorColor}" stroke-width="${majorStrokeWidth}" />
+                `;
+
+                    // Draw label if enabled (to the right, below the line)
+                    if (labelsEnabled) {
+                        const labelText = `${scaleValue}${labelUnit}`;
+                        const labelColor = this._resolveCssVariable(labelConfig?.color || 'var(--lcars-card-button, #ff9966)');
+                        const labelFontSize = labelConfig?.font_size || 14;
+
+                        svg += `
+                        <text x="100%" y="${y}" font-size="${labelFontSize}px" font-weight="400" font-family="Antonio"
+                              fill="${labelColor}" text-anchor="end"
+                              transform="translate(-5, 0)" dx="3" dy="18">${labelText}</text>
+                    `;
+                    }
+                }
+            }
+
+            // Draw minor ticks (short horizontal lines from left edge)
+            if (minorEnabled) {
+                const minorTickCount = Math.floor(range / minorInterval) + 1;
+
+                for (let i = 0; i < minorTickCount; i++) {
+                    const scaleValue = min + (i * minorInterval);
+                    if (scaleValue > max) break;
+
+                    // Skip if this position has a major tick
+                    const offsetFromMin = scaleValue - min;
+                    if (offsetFromMin % majorInterval === 0) continue;
+
+                    // Calculate y position (inverted like major ticks)
+                    const percent = 100 - (((scaleValue - min) / range) * 100);
+                    const y = (percent / 100) * trackHeight;
+
+                    // Minor tick - short horizontal line from left edge
+                    svg += `
+                        <line x1="0" y1="${y}" x2="${minorHeight}" y2="${y}"
+                              stroke="${minorColor}" stroke-width="${minorStrokeWidth}" />
+                    `;
+                }
+            }
+
+            // Draw progress bar (fills from bottom up)
+            // Position at left side after minor ticks
+            const progressX = minorHeight;
+            const progressBarHeight = valuePercent * trackHeight;
+            const progressY = trackHeight - progressBarHeight; // Start from bottom
+
             svg += `
-                <rect x="0" y="${y}"
-                      width="${trackWidth}" height="${progressHeight}"
+                <rect x="${progressX}" y="${progressY}"
+                      width="${progressHeight}" height="${progressBarHeight}"
                       fill="${progressColor}"
                       rx="${progressRadius}" ry="${progressRadius}" />
             `;
+
+            // Draw indicator if enabled
+            const indicatorConfig = gaugeConfig?.indicator;
+            // Enable indicator if explicitly enabled OR if indicator properties are configured
+            const indicatorEnabled = indicatorConfig?.enabled === true ||
+                                    (indicatorConfig?.enabled !== false &&
+                                     (indicatorConfig?.type || indicatorConfig?.color || indicatorConfig?.size));
+
+            if (indicatorEnabled) {
+                const indicatorType = indicatorConfig.type || 'line';
+                const indicatorColor = this._resolveCssVariable(indicatorConfig.color || 'var(--lcars-white, #ffffff)');
+                const indicatorWidth = indicatorConfig.size?.width || 4;
+                const indicatorHeight = indicatorConfig.size?.height || 25;
+                const borderEnabled = indicatorConfig.border?.enabled !== false;
+                const borderColor = this._resolveCssVariable(indicatorConfig.border?.color || 'var(--lcars-black, #000000)');
+                const borderWidth = indicatorConfig.border?.width || 1;
+
+                // Calculate indicator position (inverted Y)
+                const indicatorY = trackHeight - (valuePercent * trackHeight);
+
+                if (indicatorType === 'thumb') {
+                    // Circular thumb indicator
+                    const radius = indicatorWidth / 2;
+                    const centerX = trackWidth / 2;
+
+                    svg += `
+                        <circle cx="${centerX}" cy="${indicatorY}" r="${radius}"
+                                fill="${indicatorColor}"
+                                ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}"` : ''} />
+                    `;
+                } else {
+                    // Line indicator (horizontal for vertical gauge)
+                    // For vertical gauge: width controls line length (horizontal), height controls thickness (vertical)
+                    const lineY = indicatorY - (indicatorWidth / 2); // Center the line (width is now thickness)
+                    const lineX = (trackWidth - indicatorHeight) / 2; // Center horizontally (height is now length)
+
+                    svg += `
+                        <rect x="${lineX}" y="${lineY}"
+                              width="${indicatorHeight}" height="${indicatorWidth}"
+                              fill="${indicatorColor}"
+                              ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}"` : ''}
+                              rx="1" ry="1" />
+                    `;
+                }
+            }
         }
 
         // Cache result
