@@ -13,41 +13,82 @@
  * - Track System: Pills rendered using count/gap/shape parameters from config
  * - Control Overlay: HTML <input type="range"> overlayed as invisible control
  *
+ * Visual Styles:
+ * - Pills: Segmented bar style (style.track.type: 'pills')
+ * - Gauge: Ruler with tick marks (style.track.type: 'gauge')
+ *
+ * Interactivity:
+ * - Automatically determined by entity domain (lights, fans, etc. = interactive)
+ * - Can be explicitly controlled via control.locked: true|false
+ * - Sensors and unknown domains default to locked (display-only)
+ *
  * Features:
- * - Dual mode: slider (interactive) and gauge (display-only)
+ * - Separate visual style (pills/gauge) from interactivity (locked state)
  * - Support for light, cover, fan, input_number, number, sensor domains
+ * - Configurable control attribute (e.g., brightness, temperature, etc.)
  * - Dynamic pill generation with count, gap, radius, color interpolation
- * - Gauge mode with ruler, ticks, and indicator
+ * - Gauge mode with ruler, ticks, labels, and progress indicator
  * - Memoized content generation for performance
  * - SVG zone-based layout system for flexible visual designs
+ * - Inherits text field system from LCARdSButton for consistent API
  *
- * @example Basic Light Slider
+ * @example Basic Light Slider with Pills
  * ```yaml
  * type: custom:lcards-slider
  * entity: light.bedroom
  * component: slider-horizontal
- * control:
- *   attribute: brightness
- *   min: 0
- *   max: 100
  * style:
  *   track:
+ *     type: pills  # Visual style: 'pills' or 'gauge'
  *     segments:
  *       count: 15
  *       gap: 4px
+ * control:
+ *   attribute: brightness  # What to control (default for lights)
+ *   min: 0
+ *   max: 100
  * ```
  *
- * @extends {LCARdSCard}
+ * @example Interactive Gauge (ruler style, still controllable)
+ * ```yaml
+ * type: custom:lcards-slider
+ * entity: light.desk
+ * component: gauge-horizontal
+ * style:
+ *   track:
+ *     type: gauge  # Visual style: gauge ruler
+ *   gauge:
+ *     scale:
+ *       tick_marks:
+ *         major:
+ *           interval: 20
+ * control:
+ *   locked: false  # Explicitly enable interaction (auto for lights)
+ * ```
+ *
+ * @example Read-only Sensor Display
+ * ```yaml
+ * type: custom:lcards-slider
+ * entity: sensor.temperature
+ * style:
+ *   track:
+ *     type: gauge  # Gauge visual style
+ * control:
+ *   locked: true  # Auto-locked for sensors
+ * ```
+ *
+ * @extends {LCARdSButton}
  */
 
 import { html, css } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
-import { LCARdSCard } from '../base/LCARdSCard.js';
+import { LCARdSButton } from './lcards-button.js';
 import { lcardsLog } from '../utils/lcards-logging.js';
 import { deepMerge } from '../utils/deepMerge.js';
 import { ColorUtils } from '../core/themes/ColorUtils.js';
+import { getSliderComponent } from '../core/packs/components/sliders/index.js';
 
-export class LCARdSSlider extends LCARdSCard {
+export class LCARdSSlider extends LCARdSButton {
 
     /** Card type identifier for CoreConfigManager */
     static CARD_TYPE = 'slider';
@@ -78,14 +119,32 @@ export class LCARdSSlider extends LCARdSCard {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    background: transparent;
                     position: relative;
+                    box-sizing: border-box;
+                    /* CSS borders applied via inline styles from config */
                 }
 
                 .slider-svg {
                     display: block;
                     width: 100%;
                     height: 100%;
+                }
+
+                .text-overlay {
+                    position: absolute;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 2px;
+                    pointer-events: none;
+                    z-index: 5;
+                }
+
+                .text-field {
+                    font-family: 'LCARS', 'Antonio', sans-serif;
+                    font-size: 14px;
+                    line-height: 1.2;
+                    color: var(--lcars-white, #ffffff);
+                    white-space: nowrap;
                 }
 
                 .slider-input-overlay {
@@ -100,6 +159,7 @@ export class LCARdSSlider extends LCARdSCard {
                     opacity: 0;
                     cursor: pointer;
                     z-index: 10;
+                    pointer-events: auto;
                 }
 
                 /* Slider track styling */
@@ -107,25 +167,28 @@ export class LCARdSSlider extends LCARdSCard {
                     background: transparent;
                     border: none;
                     cursor: pointer;
+                    height: 100%;
                 }
 
                 .slider-input-overlay::-moz-range-track {
                     background: transparent;
                     border: none;
                     cursor: pointer;
+                    height: 100%;
                 }
 
                 .slider-input-overlay::-webkit-slider-thumb {
                     -webkit-appearance: none;
                     appearance: none;
-                    width: 100%;
+                    width: 20px;
                     height: 100%;
                     background: transparent;
                     cursor: pointer;
+                    border: none;
                 }
 
                 .slider-input-overlay::-moz-range-thumb {
-                    width: 100%;
+                    width: 20px;
                     height: 100%;
                     background: transparent;
                     cursor: pointer;
@@ -186,6 +249,10 @@ export class LCARdSSlider extends LCARdSCard {
 
         // Entity domain for behavior
         this._domain = null;
+
+        // Bind event handlers
+        this._handleSliderInput = this._handleSliderInput.bind(this);
+        this._handleSliderChange = this._handleSliderChange.bind(this);
     }
 
     /**
@@ -215,6 +282,18 @@ export class LCARdSSlider extends LCARdSCard {
     }
 
     /**
+     * Override button's SVG config processing
+     * Slider has its own component system and doesn't use button presets
+     * @protected
+     * @override
+     */
+    _processSvgConfig() {
+        // Skip button's preset loading - slider handles components via _loadSliderComponent()
+        // This prevents "Component preset not found" errors for slider components
+        lcardsLog.debug(`[LCARdSSlider] _processSvgConfig override - skipping button preset logic`);
+    }
+
+    /**
      * Handle HASS updates
      * @protected
      */
@@ -224,14 +303,17 @@ export class LCARdSSlider extends LCARdSCard {
             const oldState = oldHass?.states[this.config.entity];
             const newState = this._entity;
 
-            // Check if value changed
+            // Get values
             const oldValue = this._getEntityValue(oldState);
             const newValue = this._getEntityValue(newState);
 
-            if (oldValue !== newValue) {
+            // Initialize value on first load (oldHass is null/undefined)
+            // OR update if value changed
+            if (!oldHass || oldValue !== newValue) {
+                const previousValue = this._sliderValue;
                 this._sliderValue = newValue;
 
-                lcardsLog.debug(`[LCARdSSlider] Value changed: ${oldValue} -> ${newValue}`);
+                lcardsLog.debug(`[LCARdSSlider] Value ${!oldHass ? 'initialized' : 'changed'}: ${previousValue} -> ${newValue}`);
 
                 // Update pill opacities without regenerating track
                 this._updateDynamicElements();
@@ -247,7 +329,8 @@ export class LCARdSSlider extends LCARdSCard {
      * @protected
      */
     _handleFirstUpdate(changedProperties) {
-        super._handleFirstUpdate(changedProperties);
+        // NOTE: Do NOT call super._handleFirstUpdate() - it doesn't exist
+        // This is an optional hook called by parent's _onFirstUpdated()
 
         // Setup auto-sizing
         this._setupAutoSizing((width, height) => {
@@ -270,36 +353,50 @@ export class LCARdSSlider extends LCARdSCard {
     }
 
     /**
-     * Update entity context (domain, mode, etc.)
+     * Called after each render - update dynamic elements
+     * @protected
+     */
+    updated(changedProperties) {
+        super.updated(changedProperties);
+
+        // Update pill opacities after render completes
+        // This ensures pills reflect current value on first load and subsequent updates
+        if (this._mode === 'pills') {
+            this._updatePillOpacities();
+        } else {
+            this._updateGaugeIndicator();
+        }
+    }
+
+    /**
+     * Update entity context and determine track visual style
      * @private
      */
     _updateEntityContext() {
         if (!this.config.entity) {
             this._domain = null;
-            this._mode = 'gauge';
+            this._mode = 'gauge';  // Default visual style
             return;
         }
 
         // Extract domain from entity ID
         this._domain = this.config.entity.split('.')[0];
 
-        // Determine mode based on entity domain
-        const interactiveDomains = ['light', 'cover', 'fan', 'input_number', 'number'];
-        const gaugeDomains = ['sensor'];
-
-        if (this.config.mode) {
-            // Explicit mode from config
-            this._mode = this.config.mode;
-        } else if (interactiveDomains.includes(this._domain)) {
-            this._mode = 'slider';
-        } else if (gaugeDomains.includes(this._domain)) {
-            this._mode = 'gauge';
+        // Determine track visual style (pills vs gauge ruler)
+        // Priority: 1. style.track.type, 2. deprecated config.mode, 3. default based on domain
+        if (this.config.style?.track?.type) {
+            // New config path - style.track.type: 'pills' | 'gauge'
+            this._mode = this.config.style.track.type;
+        } else if (this.config.mode) {
+            // Legacy config - config.mode: 'slider' → 'pills', 'gauge' → 'gauge'
+            this._mode = this.config.mode === 'slider' ? 'pills' : 'gauge';
         } else {
-            // Default to gauge for unknown domains
-            this._mode = 'gauge';
+            // Default: pills for interactive entities, gauge for display-only
+            const interactiveDomains = ['light', 'cover', 'fan', 'input_number', 'number'];
+            this._mode = interactiveDomains.includes(this._domain) ? 'pills' : 'gauge';
         }
 
-        // Update control config
+        // Update control config (handles locked state based on domain)
         this._updateControlConfig();
     }
 
@@ -311,13 +408,18 @@ export class LCARdSSlider extends LCARdSCard {
         const config = this.config;
         const entity = this._entity;
 
+        // Determine if entity is controllable based on domain
+        const controllableDomains = ['light', 'cover', 'fan', 'input_number', 'number'];
+        const isControllable = controllableDomains.includes(this._domain);
+
         // Start with config values
         this._controlConfig = {
             min: config.control?.min ?? 0,
             max: config.control?.max ?? 100,
             step: config.control?.step ?? 1,
             attribute: config.control?.attribute ?? null,
-            locked: config.control?.locked ?? false
+            // Auto-set locked based on domain, but allow explicit override
+            locked: config.control?.locked ?? !isControllable
         };
 
         // Override from entity attributes if available
@@ -333,38 +435,63 @@ export class LCARdSSlider extends LCARdSCard {
             }
         }
 
-        // Domain-specific defaults
+        // Domain-specific defaults for attribute and range
         if (this._domain === 'light' && !this._controlConfig.attribute) {
             this._controlConfig.attribute = 'brightness';
-            this._controlConfig.min = 0;
-            this._controlConfig.max = 255;
+            // Only set default range if not explicitly configured
+            if (config.control?.min === undefined) {
+                this._controlConfig.min = 0;
+            }
+            if (config.control?.max === undefined) {
+                this._controlConfig.max = 100;  // Use percentage scale (0-100), will be converted to brightness (0-255) in service call
+            }
         } else if (this._domain === 'cover' && !this._controlConfig.attribute) {
             this._controlConfig.attribute = 'current_position';
-            this._controlConfig.min = 0;
-            this._controlConfig.max = 100;
+            if (config.control?.min === undefined) {
+                this._controlConfig.min = 0;
+            }
+            if (config.control?.max === undefined) {
+                this._controlConfig.max = 100;
+            }
         } else if (this._domain === 'fan' && !this._controlConfig.attribute) {
             this._controlConfig.attribute = 'percentage';
-            this._controlConfig.min = 0;
-            this._controlConfig.max = 100;
+            if (config.control?.min === undefined) {
+                this._controlConfig.min = 0;
+            }
+            if (config.control?.max === undefined) {
+                this._controlConfig.max = 100;
+            }
         }
     }
 
     /**
-     * Get value from entity state
+     * Get value from entity state and convert to control config range
      * @private
      */
     _getEntityValue(entity) {
         if (!entity) return 0;
 
         const attribute = this._controlConfig.attribute;
+        let rawValue = 0;
 
         if (attribute && entity.attributes?.[attribute] !== undefined) {
-            return parseFloat(entity.attributes[attribute]) || 0;
+            rawValue = parseFloat(entity.attributes[attribute]) || 0;
+        } else {
+            // Use state directly for input_number, number, sensor
+            const state = parseFloat(entity.state);
+            rawValue = isNaN(state) ? 0 : state;
         }
 
-        // Use state directly for input_number, number, sensor
-        const state = parseFloat(entity.state);
-        return isNaN(state) ? 0 : state;
+        // Convert from entity's native range to slider value range
+        // This is necessary for lights (brightness 0-255 → percentage 0-100)
+        if (this._domain === 'light' && attribute === 'brightness') {
+            // Convert brightness (0-255) to percentage (0-100)
+            // The slider operates in percentage space, regardless of control min/max
+            return (rawValue / 255) * 100;
+        }
+
+        // For other domains, return raw value (already in correct range)
+        return rawValue;
     }
 
     /**
@@ -372,10 +499,34 @@ export class LCARdSSlider extends LCARdSCard {
      * @private
      */
     _resolveSliderStyle() {
+        // Default margin depends on mode: gauge = 0 (seamless), slider = 10
+        const defaultMargin = this._mode === 'gauge' ? 0 : 10;
+
         // Start with defaults
         let style = {
             // Border/frame colors
             border: {
+                enabled: false, // CSS borders disabled by default
+                left: {
+                    enabled: false,
+                    width: 0,
+                    color: 'var(--lcars-orange)'
+                },
+                top: {
+                    enabled: false,
+                    width: 0,
+                    color: 'var(--lcars-orange)'
+                },
+                right: {
+                    enabled: false,
+                    width: 0,
+                    color: 'var(--lcars-orange)'
+                },
+                bottom: {
+                    enabled: false,
+                    width: 0,
+                    color: 'var(--lcars-orange)'
+                },
                 color: {
                     active: 'var(--lcars-orange)',
                     inactive: 'var(--lcars-gray)'
@@ -384,9 +535,10 @@ export class LCARdSSlider extends LCARdSCard {
             // Track configuration
             track: {
                 orientation: 'horizontal', // or 'vertical'
+                margin: defaultMargin, // Margin around track zone (can be number or {top, right, bottom, left})
                 segments: {
                     enabled: true,
-                    count: 10,
+                    count: undefined, // undefined = auto-calculate based on container size
                     gap: 4,
                     shape: {
                         radius: 4
@@ -410,49 +562,56 @@ export class LCARdSSlider extends LCARdSCard {
                     }
                 }
             },
-            // Gauge configuration
+            // Gauge configuration (ruler style)
             gauge: {
-                indicator: {
-                    type: 'line', // 'line', 'thumb', 'triangle'
-                    color: 'var(--lcars-white, #ffffff)',
-                    size: {
-                        width: 4,
-                        height: 20
-                    },
-                    border: {
-                        color: 'var(--lcars-black, #000000)',
-                        width: 1
-                    }
+                progress_bar: {
+                    color: 'var(--picard-lightest-blue, #aaccff)',
+                    height: 12,
+                    radius: 2
                 },
                 scale: {
                     tick_marks: {
                         major: {
                             enabled: true,
-                            interval: 20,
-                            color: 'var(--lcars-white, #ffffff)',
-                            height: 12,
+                            interval: 10, // Value units (e.g., every 10 degrees, every 10 percent)
+                            color: 'var(--lcars-card-button, #ff9966)',
                             width: 2
                         },
                         minor: {
                             enabled: true,
-                            interval: 10,
-                            color: 'var(--lcars-gray, #999999)',
-                            height: 6,
+                            interval: 2, // Value units (e.g., every 2 degrees, every 2 percent)
+                            color: 'var(--lcars-card-button, #ff9966)',
+                            height: 10,
                             width: 1
                         }
                     },
                     labels: {
+                        enabled: true,
+                        unit: '', // Appended to numbers (e.g., '%', '°C')
+                        color: 'var(--lcars-card-button, #ff9966)',
+                        font_size: 14,
+                        padding: 3 // Space between tick and label
+                    }
+                },
+                indicator: {
+                    enabled: false, // Disabled by default
+                    type: 'line', // 'line' or 'thumb'
+                    color: 'var(--lcars-white, #ffffff)',
+                    size: {
+                        width: 4,
+                        height: 25
+                    },
+                    border: {
                         enabled: false,
-                        interval: 20,
-                        color: 'var(--lcars-white, #ffffff)',
-                        font_size: 10
+                        color: 'var(--lcars-black, #000000)',
+                        width: 1
                     }
                 }
             },
             // Text labels
             text: {
                 value: {
-                    enabled: true,
+                    enabled: this._mode !== 'gauge', // Gauge mode hides value text by default
                     template: '{entity.state}',
                     color: 'var(--lcars-white, #ffffff)',
                     font_size: 14,
@@ -502,11 +661,33 @@ export class LCARdSSlider extends LCARdSCard {
         lcardsLog.debug(`[LCARdSSlider] Loading component: ${componentName}`);
 
         try {
-            // Try to get from component registry first
-            const { getSliderComponent } = await import('../core/packs/components/sliders/index.js');
-            let svgContent = getSliderComponent(componentName);
+            // Get component metadata object
+            let component = getSliderComponent(componentName);
+            let svgContent;
 
-            if (!svgContent) {
+            if (component) {
+                // Component found in registry - use metadata
+                svgContent = component.svg;
+
+                // Set orientation from component metadata if not explicitly configured
+                if (!this.config.style?.track?.orientation) {
+                    if (!this._sliderStyle) {
+                        this._sliderStyle = {};
+                    }
+                    if (!this._sliderStyle.track) {
+                        this._sliderStyle.track = {};
+                    }
+                    this._sliderStyle.track.orientation = component.orientation;
+
+                    lcardsLog.debug(`[LCARdSSlider] Using component orientation: ${component.orientation}`);
+                }
+
+                // Log component features for debugging
+                if (component.features && component.features.length > 0) {
+                    lcardsLog.debug(`[LCARdSSlider] Component features: ${component.features.join(', ')}`);
+                }
+
+            } else {
                 // Try to fetch from external URL
                 svgContent = await this._fetchExternalComponent(componentName);
             }
@@ -635,6 +816,265 @@ export class LCARdSSlider extends LCARdSCard {
     }
 
     /**
+     * Inject SVG border elements from config
+     * Generates rect elements for left/top/right/bottom borders
+     * @private
+     */
+    _injectBorders() {
+        if (!this._componentSvg) return;
+
+        const borderConfig = this._sliderStyle?.border;
+        if (!borderConfig) return;
+
+        const width = this._containerSize.width || 300;
+        const height = this._containerSize.height || 60;
+
+        // Find or create border-zone group
+        let borderZone = this._componentSvg.querySelector('#border-zone');
+        if (!borderZone) {
+            borderZone = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            borderZone.setAttribute('id', 'border-zone');
+            borderZone.setAttribute('data-zone', 'border');
+            // Insert before track-zone so borders render behind content
+            const trackZone = this._componentSvg.querySelector('#track-zone');
+            if (trackZone) {
+                this._componentSvg.insertBefore(borderZone, trackZone);
+            } else {
+                this._componentSvg.appendChild(borderZone);
+            }
+        }
+
+        // Clear existing borders
+        borderZone.innerHTML = '';
+
+        // Helper to get border size (prefer .size, fall back to .width for legacy configs)
+        const getBorderSize = (borderDef) => borderDef?.size ?? borderDef?.width ?? 0;
+
+        // Left border
+        const leftSize = getBorderSize(borderConfig.left);
+        if (borderConfig.left?.enabled && leftSize > 0) {
+            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            rect.setAttribute('id', 'border-left');
+            rect.setAttribute('x', '0');
+            rect.setAttribute('y', '0');
+            rect.setAttribute('width', leftSize);
+            rect.setAttribute('height', height);
+            rect.setAttribute('fill', this._resolveCssVariable(borderConfig.left.color));
+            borderZone.appendChild(rect);
+        }
+
+        // Top border
+        const topSize = getBorderSize(borderConfig.top);
+        if (borderConfig.top?.enabled && topSize > 0) {
+            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            rect.setAttribute('id', 'border-top');
+            rect.setAttribute('x', '0');
+            rect.setAttribute('y', '0');
+            rect.setAttribute('width', width);
+            rect.setAttribute('height', topSize);
+            rect.setAttribute('fill', this._resolveCssVariable(borderConfig.top.color));
+            borderZone.appendChild(rect);
+        }
+
+        // Right border
+        const rightSize = getBorderSize(borderConfig.right);
+        if (borderConfig.right?.enabled && rightSize > 0) {
+            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            rect.setAttribute('id', 'border-right');
+            rect.setAttribute('x', width - rightSize);
+            rect.setAttribute('y', '0');
+            rect.setAttribute('width', rightSize);
+            rect.setAttribute('height', height);
+            rect.setAttribute('fill', this._resolveCssVariable(borderConfig.right.color));
+            borderZone.appendChild(rect);
+        }
+
+        // Bottom border
+        const bottomSize = getBorderSize(borderConfig.bottom);
+        if (borderConfig.bottom?.enabled && bottomSize > 0) {
+            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            rect.setAttribute('id', 'border-bottom');
+            rect.setAttribute('x', '0');
+            rect.setAttribute('y', height - bottomSize);
+            rect.setAttribute('width', width);
+            rect.setAttribute('height', bottomSize);
+            rect.setAttribute('fill', this._resolveCssVariable(borderConfig.bottom.color));
+            borderZone.appendChild(rect);
+        }
+
+        lcardsLog.debug(`[LCARdSSlider] Injected borders:`, {
+            left: leftSize,
+            top: topSize,
+            right: rightSize,
+            bottom: bottomSize
+        });
+    }
+
+    /**
+     * Override button's text area calculation to support slider-specific areas
+     * Provides text positioning in border caps (left/top/right/bottom) and track area
+     * Includes adjacent borders when they form a continuous visual border
+     * @param {number} sliderWidth - Slider width
+     * @param {number} sliderHeight - Slider height
+     * @param {Object} iconConfig - Icon configuration (unused for slider)
+     * @returns {Object} Text area bounds {left, top, width, height}
+     * @override
+     */
+    _calculateTextAreaBounds(sliderWidth, sliderHeight, iconConfig) {
+        // Get border configuration
+        const borderConfig = this._sliderStyle?.border;
+
+        // Calculate border offsets
+        // Helper to get border size (prefer .size, fall back to .width for legacy configs)
+        const getBorderSize = (borderDef) => borderDef?.size ?? borderDef?.width ?? 0;
+
+        const borderOffsets = {
+            left: borderConfig?.left?.enabled ? getBorderSize(borderConfig.left) : 0,
+            top: borderConfig?.top?.enabled ? getBorderSize(borderConfig.top) : 0,
+            right: borderConfig?.right?.enabled ? getBorderSize(borderConfig.right) : 0,
+            bottom: borderConfig?.bottom?.enabled ? getBorderSize(borderConfig.bottom) : 0
+        };
+
+        // Determine text area from config (default: 'auto' uses largest border)
+        const textArea = this.config?.text?.area || 'auto';
+
+        // Auto-select: use left border if available, else top, else track
+        if (textArea === 'auto') {
+            if (borderOffsets.left > 0) {
+                // Left border cap - INCLUDE adjacent top/bottom borders for continuous visual area
+                return {
+                    left: 0,
+                    top: 0,  // Include top border if present
+                    width: borderOffsets.left,
+                    height: sliderHeight  // Full height including top and bottom borders
+                };
+            } else if (borderOffsets.top > 0) {
+                // Top border cap - INCLUDE adjacent left/right borders
+                return {
+                    left: 0,  // Include left border if present
+                    top: 0,
+                    width: sliderWidth,  // Full width including left and right borders
+                    height: borderOffsets.top
+                };
+            } else {
+                // No borders: use full track area
+                const margins = this._sliderStyle?.margins || { top: 0, right: 0, bottom: 0, left: 0 };
+                return {
+                    left: borderOffsets.left + margins.left,
+                    top: borderOffsets.top + margins.top,
+                    width: sliderWidth - borderOffsets.left - borderOffsets.right - margins.left - margins.right,
+                    height: sliderHeight - borderOffsets.top - borderOffsets.bottom - margins.top - margins.bottom
+                };
+            }
+        }
+
+        // Explicit area selection - INCLUDE adjacent borders for continuous visual area
+        if (textArea === 'left' && borderOffsets.left > 0) {
+            return {
+                left: 0,
+                top: 0,  // Include top border
+                width: borderOffsets.left,
+                height: sliderHeight  // Include bottom border
+            };
+        } else if (textArea === 'top' && borderOffsets.top > 0) {
+            return {
+                left: 0,  // Include left border
+                top: 0,
+                width: sliderWidth,  // Include right border
+                height: borderOffsets.top
+            };
+        } else if (textArea === 'right' && borderOffsets.right > 0) {
+            return {
+                left: sliderWidth - borderOffsets.right,
+                top: 0,  // Include top border
+                width: borderOffsets.right,
+                height: sliderHeight  // Include bottom border
+            };
+        } else if (textArea === 'bottom' && borderOffsets.bottom > 0) {
+            return {
+                left: 0,  // Include left border
+                top: sliderHeight - borderOffsets.bottom,
+                width: sliderWidth,  // Include right border
+                height: borderOffsets.bottom
+            };
+        } else if (textArea === 'track') {
+            // Track area (inset by borders and margins)
+            const margins = this._sliderStyle?.margins || { top: 0, right: 0, bottom: 0, left: 0 };
+            return {
+                left: borderOffsets.left + margins.left,
+                top: borderOffsets.top + margins.top,
+                width: sliderWidth - borderOffsets.left - borderOffsets.right - margins.left - margins.right,
+                height: sliderHeight - borderOffsets.top - borderOffsets.bottom - margins.top - margins.bottom
+            };
+        }
+
+        // Fallback: full slider area
+        return {
+            left: 0,
+            top: 0,
+            width: sliderWidth,
+            height: sliderHeight
+        };
+    }
+
+    /**
+     * Inject text fields using button's text processing system
+     * Creates SVG text elements in the configured text area
+     * @param {number} width - Slider width
+     * @param {number} height - Slider height
+     * @private
+     */
+    _injectTextFields(width, height) {
+        if (!this._componentSvg) return;
+
+        // Use button's _resolveTextConfiguration() to get processed templates
+        // This reads from this.config.text which has been modified by _processCustomTemplates
+        const textFields = this._resolveTextConfiguration();
+        if (!textFields || Object.keys(textFields).length === 0) return;
+
+        // Get text area from config (slider-specific property)
+        const textArea = this.config.text?.area || 'auto';
+
+        // Find or create text-zone group
+        let textZone = this._componentSvg.querySelector('#text-zone');
+        if (!textZone) {
+            textZone = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            textZone.setAttribute('id', 'text-zone');
+            textZone.setAttribute('data-zone', 'text');
+            // Insert before track-zone so text renders above borders but below track
+            const trackZone = this._componentSvg.querySelector('#track-zone');
+            if (trackZone) {
+                this._componentSvg.insertBefore(textZone, trackZone);
+            } else {
+                this._componentSvg.appendChild(textZone);
+            }
+        }
+
+        // Clear existing text
+        textZone.innerHTML = '';
+
+        // Process text fields using button's system
+        const processedFields = this._processTextFields(textFields, width, height, null);
+
+        // Generate SVG text elements (using button's method)
+        const textMarkup = this._generateTextElements(processedFields);
+
+        lcardsLog.debug(`[LCARdSSlider] Generated text markup:`, textMarkup);
+
+        // Parse markup and append to text zone
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(`<g>${textMarkup}</g>`, 'image/svg+xml');
+        const textElements = doc.documentElement.children;
+
+        // Append all text elements to text zone
+        Array.from(textElements).forEach(element => {
+            textZone.appendChild(element.cloneNode(true));
+        });
+
+        lcardsLog.debug(`[LCARdSSlider] Injected ${processedFields.length} text fields into text-zone`);
+    }
+
+    /**
      * Extract zone elements and bounds from component SVG
      * @private
      */
@@ -704,8 +1144,10 @@ export class LCARdSSlider extends LCARdSCard {
 
         lcardsLog.debug(`[LCARdSSlider] Generating track content (cache miss)`);
 
-        // Generate pills
-        const content = this._generatePillsSVG(width, height, trackConfig, orientation);
+        // Generate pills with track zone dimensions (relative to track zone origin)
+        // The track zone itself is positioned via transform, so pills use relative coords
+        const trackBounds = { x: 0, y: 0, width: trackZone?.bounds?.width || width, height: trackZone?.bounds?.height || height };
+        const content = this._generatePillsSVG(trackBounds, trackConfig, orientation);
 
         // Cache result
         this._memoizedTrack = content;
@@ -718,85 +1160,119 @@ export class LCARdSSlider extends LCARdSCard {
      * Generate pill SVG elements
      * @private
      */
-    _generatePillsSVG(trackWidth, trackHeight, trackConfig, orientation = 'horizontal') {
-        const count = trackConfig?.count || 10;
+    _generatePillsSVG(trackBounds, trackConfig, orientation = 'horizontal') {
         const gap = parseInt(trackConfig?.gap) || 4;
         const radius = trackConfig?.shape?.radius ?? 4;
-        const pillHeight = parseInt(trackConfig?.size?.height) || 12;
         const interpolated = trackConfig?.gradient?.interpolated ?? false;
         const gradientStart = this._resolveCssVariable(trackConfig?.gradient?.start || 'var(--error-color)');
         const gradientEnd = this._resolveCssVariable(trackConfig?.gradient?.end || 'var(--success-color)');
         const unfilledOpacity = trackConfig?.appearance?.unfilled?.opacity ?? 0.2;
 
+        const trackWidth = trackBounds.width;
+        const trackHeight = trackBounds.height;
+        const trackX = trackBounds.x || 0; // X offset of track zone within viewBox
+        const trackY = trackBounds.y || 0; // Y offset of track zone within viewBox
+
         const isVertical = orientation === 'vertical';
 
+        // Calculate count and dimensions based on orientation
+        let count, pillWidth, pillHeight;
+
+        if (isVertical) {
+            // Vertical: pill width fills track width (expands with container)
+            pillWidth = trackWidth;
+
+            // Pill height is FIXED - doesn't change with container size
+            const fixedPillHeight = parseInt(trackConfig?.size?.height) || 12;
+
+            // Auto-calculate count to fill available height with fixed-size pills
+            const configCount = trackConfig?.count;
+
+            lcardsLog.debug(`[LCARdSSlider] Vertical config inspection:`, {
+                trackConfig,
+                configCount,
+                configCountType: typeof configCount,
+                isUndefined: configCount === undefined,
+                isNull: configCount === null,
+                isAuto: configCount === 'auto'
+            });
+
+            if (configCount === 'auto' || configCount === undefined || configCount === null) {
+                // Calculate how many fixed-size pills fit in the track height
+                count = Math.floor((trackHeight + gap) / (fixedPillHeight + gap));
+                pillHeight = fixedPillHeight; // Use the fixed height
+
+                lcardsLog.debug(`[LCARdSSlider] Vertical auto-count calculation:`, {
+                    trackHeight,
+                    fixedPillHeight,
+                    gap,
+                    calculatedCount: count
+                });
+            } else {
+                // User explicitly specified count - calculate pill height to fit
+                count = parseInt(configCount);
+                pillHeight = (trackHeight - (gap * (count - 1))) / count;
+
+                lcardsLog.debug(`[LCARdSSlider] Vertical fixed count:`, {
+                    count,
+                    trackHeight,
+                    recalculatedPillHeight: pillHeight
+                });
+            }
+        } else {
+            // Horizontal: pill height fills track height (expands with container)
+            pillHeight = trackHeight;
+
+            // Pill width is FIXED - doesn't change with container size
+            const fixedPillWidth = parseInt(trackConfig?.size?.width) || 12;
+
+            // Auto-calculate count to fill available width with fixed-size pills
+            const configCount = trackConfig?.count;
+            if (configCount === 'auto' || configCount === undefined || configCount === null) {
+                // Calculate how many fixed-size pills fit in the track width
+                count = Math.floor((trackWidth + gap) / (fixedPillWidth + gap));
+                // Use the FIXED width (don't recalculate to fill space)
+                pillWidth = fixedPillWidth;
+
+                lcardsLog.debug(`[LCARdSSlider] Horizontal auto-count calculation:`, {
+                    trackWidth,
+                    fixedPillWidth,
+                    gap,
+                    calculatedCount: count,
+                    pillWidth: pillWidth
+                });
+            } else {
+                count = parseInt(configCount) || 10;
+                // If user specifies count, recalculate pill width to fill space
+                pillWidth = (trackWidth - (gap * (count - 1))) / count;
+
+                lcardsLog.debug(`[LCARdSSlider] Horizontal fixed count:`, {
+                    count,
+                    trackWidth,
+                    recalculatedPillWidth: pillWidth
+                });
+            }
+        }
+
         // Calculate pill dimensions
-        let pillWidth, pills = '';
+        let pills = '';
         let defs = '<defs>';
 
         if (isVertical) {
             // Vertical: pills stack from bottom to top
-            const availableHeight = trackHeight - (gap * (count - 1));
-            const pillSize = availableHeight / count;
-            pillWidth = trackWidth;
-
-            // Generate gradient definitions if interpolated
-            if (interpolated) {
-                for (let i = 0; i < count; i++) {
-                    const t = i / (count - 1 || 1);
-                    const color = ColorUtils.interpolateColor(gradientStart, gradientEnd, t);
-                    defs += `<linearGradient id="pill-grad-${i}"><stop offset="0%" stop-color="${color}"/></linearGradient>`;
-                }
-            }
+            // Generate per-pill colors (interpolated across the range)
             defs += '</defs>';
 
             // Generate pills from bottom to top
             for (let i = 0; i < count; i++) {
-                const y = trackHeight - ((i + 1) * pillSize) - (i * gap);
-                const x = 0;
+                const y = trackY + trackHeight - ((i + 1) * pillHeight) - (i * gap);
+                const x = trackX; // Fill entire track width
 
-                const fill = interpolated
-                    ? `url(#pill-grad-${i})`
-                    : (gradientStart || 'var(--lcars-orange)');
-
-                pills += `
-                    <rect
-                        id="pill-${i}"
-                        class="pill"
-                        x="${x}"
-                        y="${y}"
-                        width="${pillWidth}"
-                        height="${pillSize}"
-                        rx="${radius}"
-                        ry="${radius}"
-                        fill="${fill}"
-                        opacity="${unfilledOpacity}"
-                        data-pill-index="${i}" />
-                `;
-            }
-        } else {
-            // Horizontal: pills stretch from left to right
-            const availableWidth = trackWidth - (gap * (count - 1));
-            pillWidth = availableWidth / count;
-
-            // Generate gradient definitions if interpolated
-            if (interpolated) {
-                for (let i = 0; i < count; i++) {
-                    const t = i / (count - 1 || 1);
-                    const color = ColorUtils.interpolateColor(gradientStart, gradientEnd, t);
-                    defs += `<linearGradient id="pill-grad-${i}"><stop offset="0%" stop-color="${color}"/></linearGradient>`;
-                }
-            }
-            defs += '</defs>';
-
-            // Generate pills from left to right
-            for (let i = 0; i < count; i++) {
-                const x = i * (pillWidth + gap);
-                const y = (trackHeight - pillHeight) / 2;
-
-                const fill = interpolated
-                    ? `url(#pill-grad-${i})`
-                    : (gradientStart || 'var(--lcars-orange)');
+                // Calculate solid color for this pill based on position
+                // Note: ColorUtils.mix(c1, c2, t) returns c2 at t=0, c1 at t=1
+                // So we swap params: mix(end, start, t) to get start→end
+                const t = i / (count - 1 || 1);
+                const color = ColorUtils.mix(gradientEnd, gradientStart, t);
 
                 pills += `
                     <rect
@@ -808,7 +1284,42 @@ export class LCARdSSlider extends LCARdSCard {
                         height="${pillHeight}"
                         rx="${radius}"
                         ry="${radius}"
-                        fill="${fill}"
+                        fill="${color}"
+                        opacity="${unfilledOpacity}"
+                        data-pill-index="${i}" />
+                `;
+            }
+        } else {
+            // Horizontal: pills stretch from left to right
+            const availableWidth = trackWidth - (gap * (count - 1));
+            pillWidth = availableWidth / count;
+
+            // Generate per-pill colors (interpolated across the range)
+            defs += '</defs>';
+
+            // Generate pills from left to right
+            for (let i = 0; i < count; i++) {
+                const x = trackX + (i * (pillWidth + gap));
+                // Pills fill the entire track height
+                const y = trackY;
+
+                // Calculate solid color for this pill based on position
+                // Note: ColorUtils.mix(c1, c2, t) returns c2 at t=0, c1 at t=1
+                // So we swap params: mix(end, start, t) to get start→end
+                const t = i / (count - 1 || 1);
+                const color = ColorUtils.mix(gradientEnd, gradientStart, t);
+
+                pills += `
+                    <rect
+                        id="pill-${i}"
+                        class="pill"
+                        x="${x}"
+                        y="${y}"
+                        width="${pillWidth}"
+                        height="${pillHeight}"
+                        rx="${radius}"
+                        ry="${radius}"
+                        fill="${color}"
                         opacity="${unfilledOpacity}"
                         data-pill-index="${i}" />
                 `;
@@ -819,7 +1330,8 @@ export class LCARdSSlider extends LCARdSCard {
     }
 
     /**
-     * Generate gauge SVG elements
+     * Generate gauge SVG elements (ruler style with progress bar)
+     * Design: Transparent ruler with ticks/labels and a thin progress bar
      * @private
      */
     _generateGaugeSVG(trackWidth, trackHeight) {
@@ -832,7 +1344,8 @@ export class LCARdSSlider extends LCARdSCard {
             gaugeConfig,
             width: trackWidth,
             height: trackHeight,
-            orientation
+            orientation,
+            value: this._sliderValue
         });
 
         if (this._memoizedGauge && this._memoizedGaugeConfig === configHash) {
@@ -841,135 +1354,335 @@ export class LCARdSSlider extends LCARdSCard {
 
         let svg = '';
 
-        // Background gradient rect
-        const gradientStart = this._resolveCssVariable(
-            this._sliderStyle?.track?.segments?.gradient?.start || 'var(--error-color)'
-        );
-        const gradientEnd = this._resolveCssVariable(
-            this._sliderStyle?.track?.segments?.gradient?.end || 'var(--success-color)'
-        );
-
-        // Add gradient definition
-        svg += `<defs>
-            <linearGradient id="gauge-gradient" ${isVertical ? 'x1="0%" y1="100%" x2="0%" y2="0%"' : 'x1="0%" y1="0%" x2="100%" y2="0%"'}>
-                <stop offset="0%" stop-color="${gradientStart}" />
-                <stop offset="100%" stop-color="${gradientEnd}" />
-            </linearGradient>
-        </defs>`;
-
-        // Background fill
-        svg += `
-            <rect x="0" y="0"
-                  width="${trackWidth}"
-                  height="${trackHeight}"
-                  fill="url(#gauge-gradient)"
-                  opacity="0.85" />
-        `;
-
-        // Tick marks
+        // Get scale configuration
+        const min = this._controlConfig.min;
+        const max = this._controlConfig.max;
+        const range = max - min;
         const tickConfig = gaugeConfig?.scale?.tick_marks;
+        const labelConfig = gaugeConfig?.scale?.labels;
 
-        // Major ticks
-        if (tickConfig?.major?.enabled !== false) {
-            const interval = tickConfig?.major?.interval || 20;
-            const tickCount = Math.floor(100 / interval);
-            const tickColor = tickConfig?.major?.color || 'white';
-            const tickHeight = tickConfig?.major?.height || 12;
-            const tickWidth = tickConfig?.major?.width || 2;
+        // Major tick configuration
+        const majorEnabled = tickConfig?.major?.enabled !== false;
+        const majorInterval = tickConfig?.major?.interval || 10; // Value units (not percentage)
+        const majorColor = this._resolveCssVariable(tickConfig?.major?.color || 'var(--lcars-card-button, #ff9966)');
+        const majorHeight = tickConfig?.major?.height; // undefined = full height
+        const majorStrokeWidth = tickConfig?.major?.width || 2;
 
-            for (let i = 0; i <= tickCount; i++) {
-                const percent = i * interval;
+        // Minor tick configuration
+        const minorEnabled = tickConfig?.minor?.enabled !== false;
+        const minorInterval = tickConfig?.minor?.interval || 2; // Value units (not percentage)
+        const minorColor = this._resolveCssVariable(tickConfig?.minor?.color || 'var(--lcars-card-button, #ff9966)');
+        const minorHeight = tickConfig?.minor?.height || 10;
+        const minorStrokeWidth = tickConfig?.minor?.width || 1;
 
-                if (isVertical) {
-                    const y = trackHeight - ((percent / 100) * trackHeight);
-                    svg += `
-                        <line x1="0" y1="${y}" x2="${tickHeight}" y2="${y}"
-                              stroke="${tickColor}" stroke-width="${tickWidth}" />
-                    `;
-                } else {
-                    const x = (percent / 100) * trackWidth;
-                    svg += `
-                        <line x1="${x}" y1="0" x2="${x}" y2="${tickHeight}"
-                              stroke="${tickColor}" stroke-width="${tickWidth}" />
-                    `;
-                }
-            }
-        }
+        // Label configuration
+        const labelsEnabled = labelConfig?.enabled !== false;
+        const labelUnit = labelConfig?.unit || '';
+        const labelPadding = labelConfig?.padding || 3; // Padding between tick and label
 
-        // Minor ticks
-        if (tickConfig?.minor?.enabled) {
-            const interval = tickConfig?.minor?.interval || 10;
-            const majorInterval = tickConfig?.major?.interval || 20;
-            const tickColor = tickConfig?.minor?.color || 'gray';
-            const tickHeight = tickConfig?.minor?.height || 6;
-            const tickWidth = tickConfig?.minor?.width || 1;
+        // Progress bar configuration
+        const progressConfig = gaugeConfig?.progress_bar;
+        const progressColor = this._resolveCssVariable(progressConfig?.color || 'var(--picard-lightest-blue, #aaccff)');
+        const progressHeight = progressConfig?.height || 12;
+        const progressRadius = progressConfig?.radius !== undefined ? progressConfig?.radius : 2;
 
-            for (let percent = 0; percent <= 100; percent += interval) {
-                // Skip if this would be a major tick
-                if (percent % majorInterval === 0) continue;
+        // Calculate progress bar position (at bottom of minor ticks)
+        const progressY = minorHeight;
 
-                if (isVertical) {
-                    const y = trackHeight - ((percent / 100) * trackHeight);
-                    svg += `
-                        <line x1="0" y1="${y}" x2="${tickHeight}" y2="${y}"
-                              stroke="${tickColor}" stroke-width="${tickWidth}" />
-                    `;
-                } else {
-                    const x = (percent / 100) * trackWidth;
-                    svg += `
-                        <line x1="${x}" y1="0" x2="${x}" y2="${tickHeight}"
-                              stroke="${tickColor}" stroke-width="${tickWidth}" />
-                    `;
-                }
-            }
-        }
+        // Calculate label positioning
+        // Labels need space at the bottom - use height minus label space
+        const labelFontSize = 14; // px
+        const labelBottomMargin = 5; // px breathing room
+        const labelY = trackHeight - labelBottomMargin; // Position labels near bottom with margin (horizontal)
+        const labelX = trackWidth - labelBottomMargin; // Position labels near right edge with margin (vertical)
 
-        // Indicator (positioned dynamically)
-        const indicatorConfig = gaugeConfig?.indicator;
-        const indicatorType = indicatorConfig?.type || 'line';
-        const indicatorColor = indicatorConfig?.color || 'white';
-        const indicatorWidth = parseInt(indicatorConfig?.size?.width) || 4;
-        const indicatorHeight = parseInt(indicatorConfig?.size?.height) || trackHeight;
-
+        // Calculate current value percentage
         const valuePercent = this._calculateValuePercent();
 
-        if (indicatorType === 'line') {
-            if (isVertical) {
-                const y = trackHeight - (valuePercent * trackHeight);
-                svg += `
-                    <line class="gauge-indicator" id="gauge-indicator"
-                          x1="0" y1="${y}" x2="${trackWidth}" y2="${y}"
-                          stroke="${indicatorColor}" stroke-width="${indicatorWidth}" />
+        if (!isVertical) {
+            // === HORIZONTAL GAUGE ===
+
+            // Draw major ticks (full height or custom height) and labels
+            if (majorEnabled) {
+                // Calculate number of major ticks based on value range and interval
+                const tickCount = Math.floor(range / majorInterval) + 1;
+
+                for (let i = 0; i < tickCount; i++) {
+                    const scaleValue = min + (i * majorInterval);
+                    if (scaleValue > max) break;
+
+                    // Calculate x position as percentage of track width
+                    const percent = ((scaleValue - min) / range) * 100;
+                    let x = (percent / 100) * trackWidth;
+
+                    // Skip first tick (adjacent to left border when present)
+                    const edgeClearance = 5; // pixels
+                    const isFirstTick = x < edgeClearance;
+
+                    if (!isFirstTick) {
+                        // If tick is at the very edge (no border), inset by half stroke width
+                        // so the full stroke is visible instead of being cut off
+                        const isAtRightEdge = Math.abs(x - trackWidth) < 0.5; // floating point tolerance
+                        if (isAtRightEdge) {
+                            x = trackWidth - (majorStrokeWidth / 2);
+                        }
+
+                        // Major tick - full height or custom height
+                        const tickY2 = majorHeight !== undefined ? majorHeight : '100%';
+                        svg += `
+                    <line x1="${x}" y1="0" x2="${x}" y2="${tickY2}"
+                          stroke="${majorColor}" stroke-width="${majorStrokeWidth}" />
                 `;
-            } else {
-                const x = valuePercent * trackWidth;
-                svg += `
-                    <line class="gauge-indicator" id="gauge-indicator"
-                          x1="${x}" y1="0" x2="${x}" y2="${trackHeight}"
-                          stroke="${indicatorColor}" stroke-width="${indicatorWidth}" />
-                `;
+                    }
+
+                    // Label - positioned near bottom with proper spacing
+                    if (labelsEnabled && !isFirstTick) {
+                        // Estimate label width (rough approximation: ~8px per digit + unit)
+                        const labelText = Math.round(scaleValue) + labelUnit;
+                        const estimatedLabelWidth = labelText.length * 8;
+
+                        // Check if label would extend beyond track bounds
+                        // For text-anchor="end", text extends LEFT of x position
+                        const labelLeftEdge = x - estimatedLabelWidth - labelPadding;
+
+                        // Ensure label doesn't extend past left edge
+                        const shouldRenderLabel = labelLeftEdge >= edgeClearance;
+
+                        if (shouldRenderLabel) {
+                            svg += `
+                        <text x="${x}" y="${labelY}"
+                              font-size="${labelFontSize}px" font-weight="400" font-family="Antonio"
+                              fill="${majorColor}"
+                              text-anchor="end"
+                              dx="${-labelPadding}" dy="0">${labelText}</text>
+                    `;
+                        }
+                    }
+                }
             }
-        } else if (indicatorType === 'thumb') {
-            if (isVertical) {
-                const y = trackHeight - (valuePercent * trackHeight);
-                svg += `
-                    <ellipse class="gauge-indicator" id="gauge-indicator"
-                             cx="${trackWidth / 2}" cy="${y}"
-                             rx="${indicatorWidth / 2}" ry="${indicatorHeight / 2}"
-                             fill="${indicatorColor}"
-                             stroke="${indicatorConfig?.border?.color || 'black'}"
-                             stroke-width="${indicatorConfig?.border?.width || 1}" />
+
+            // Draw minor ticks (shorter, between majors)
+            if (minorEnabled) {
+                const minorTickCount = Math.floor(range / minorInterval) + 1;
+
+                for (let i = 0; i < minorTickCount; i++) {
+                    const scaleValue = min + (i * minorInterval);
+                    if (scaleValue > max) break;
+
+                    // Skip if this is a major tick position
+                    const offsetFromMin = scaleValue - min;
+                    if (offsetFromMin % majorInterval === 0) continue;
+
+                    // Calculate x position as percentage of track width
+                    const percent = ((scaleValue - min) / range) * 100;
+                    const x = (percent / 100) * trackWidth;
+
+                    // Minor tick - from top to minorHeight
+                    svg += `
+                        <line x1="${x}" y1="0" x2="${x}" y2="${minorHeight}"
+                              stroke="${minorColor}" stroke-width="${minorStrokeWidth}" />
+                    `;
+                }
+            }
+
+            // Draw progress bar (at bottom of minor ticks, extends based on value)
+            const progressWidth = valuePercent * trackWidth;
+            svg += `
+                <rect x="0" y="${progressY}"
+                      width="${progressWidth}" height="${progressHeight}"
+                      fill="${progressColor}"
+                      rx="${progressRadius}" ry="${progressRadius}" />
+            `;
+
+            // Draw indicator if enabled
+            const indicatorConfig = gaugeConfig?.indicator;
+            // Enable indicator if explicitly enabled OR if indicator properties are configured
+            const indicatorEnabled = indicatorConfig?.enabled === true ||
+                                    (indicatorConfig?.enabled !== false &&
+                                     (indicatorConfig?.type || indicatorConfig?.color || indicatorConfig?.size));
+
+            if (indicatorEnabled) {
+                const indicatorType = indicatorConfig.type || 'line';
+                const indicatorColor = this._resolveCssVariable(indicatorConfig.color || 'var(--lcars-white, #ffffff)');
+                const indicatorWidth = indicatorConfig.size?.width || 4;
+                const indicatorHeight = indicatorConfig.size?.height || 25;
+                const borderEnabled = indicatorConfig.border?.enabled !== false;
+                const borderColor = this._resolveCssVariable(indicatorConfig.border?.color || 'var(--lcars-black, #000000)');
+                const borderWidth = indicatorConfig.border?.width || 1;
+
+                // Calculate indicator position
+                const indicatorX = valuePercent * trackWidth;
+
+                if (indicatorType === 'thumb') {
+                    // Circular thumb indicator
+                    const radius = indicatorWidth / 2;
+                    const centerY = trackHeight / 2;
+
+                    svg += `
+                        <circle cx="${indicatorX}" cy="${centerY}" r="${radius}"
+                                fill="${indicatorColor}"
+                                ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}"` : ''} />
+                    `;
+                } else {
+                    // Line indicator (default)
+                    const lineX = indicatorX - (indicatorWidth / 2); // Center the line
+                    const lineY = (trackHeight - indicatorHeight) / 2; // Center vertically
+
+                    svg += `
+                        <rect x="${lineX}" y="${lineY}"
+                              width="${indicatorWidth}" height="${indicatorHeight}"
+                              fill="${indicatorColor}"
+                              ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}"` : ''}
+                              rx="1" ry="1" />
+                    `;
+                }
+            }
+
+        } else {
+            // === VERTICAL GAUGE ===
+            // Vertical gauges have horizontal tick marks and fill from bottom to top
+
+            // Draw major ticks (horizontal lines) and labels
+            if (majorEnabled) {
+                const tickCount = Math.floor(range / majorInterval) + 1;
+
+                for (let i = 0; i < tickCount; i++) {
+                    const scaleValue = min + (i * majorInterval);
+                    if (scaleValue > max) break;
+
+                    // Calculate y position as percentage of track height
+                    // INVERTED: 0% = top (max value), 100% = bottom (min value)
+                    const percent = 100 - (((scaleValue - min) / range) * 100);
+                    let y = (percent / 100) * trackHeight;
+
+                    // Skip bottom tick (adjacent to bottom border when present)
+                    const edgeClearance = 5; // pixels
+                    const isBottomTick = y > (trackHeight - edgeClearance); // bottom tick (min value)
+
+                    if (!isBottomTick) {
+                        // If tick is at the very top edge (no border), inset by half stroke width
+                        // so the full stroke is visible instead of being cut off
+                        const isAtTopEdge = y < 0.5; // floating point tolerance
+                        if (isAtTopEdge) {
+                            y = majorStrokeWidth / 2;
+                        }
+
+                        // Determine tick width (full width or custom)
+                        const tickX2 = majorHeight !== undefined ? majorHeight : '100%';
+
+                        // Draw horizontal tick line
+                        svg += `
+                    <line x1="0" y1="${y}" x2="${tickX2}" y2="${y}"
+                          stroke="${majorColor}" stroke-width="${majorStrokeWidth}" />
                 `;
-            } else {
-                const x = valuePercent * trackWidth;
-                svg += `
-                    <ellipse class="gauge-indicator" id="gauge-indicator"
-                             cx="${x}" cy="${trackHeight / 2}"
-                             rx="${indicatorWidth / 2}" ry="${indicatorHeight / 2}"
-                             fill="${indicatorColor}"
-                             stroke="${indicatorConfig?.border?.color || 'black'}"
-                             stroke-width="${indicatorConfig?.border?.width || 1}" />
-                `;
+                    }
+
+                    // Draw label if enabled (to the right, below the line)
+                    if (labelsEnabled && !isBottomTick) {
+                        const labelText = `${scaleValue}${labelUnit}`;
+                        const labelColor = this._resolveCssVariable(labelConfig?.color || 'var(--lcars-card-button, #ff9966)');
+                        const labelFontSizeVertical = labelConfig?.font_size || labelFontSize;
+
+                        // Estimate label width and check bounds
+                        const estimatedLabelWidth = labelText.length * 8;
+                        const labelLeftEdge = labelX - estimatedLabelWidth;
+
+                        // Ensure label doesn't extend past left edge
+                        // Position labels below tick line for better readability
+                        const labelVerticalOffset = labelFontSizeVertical + 2; // Position below tick, not at tick
+                        const shouldRenderLabel = labelLeftEdge >= edgeClearance;
+
+                        if (shouldRenderLabel) {
+                            svg += `
+                        <text x="${labelX}" y="${y}" font-size="${labelFontSizeVertical}px" font-weight="400" font-family="Antonio"
+                              fill="${labelColor}" text-anchor="end"
+                              dx="0" dy="${labelVerticalOffset}">${labelText}</text>
+                    `;
+                        }
+                    }
+                }
+            }
+
+            // Draw minor ticks (short horizontal lines from left edge)
+            if (minorEnabled) {
+                const minorTickCount = Math.floor(range / minorInterval) + 1;
+
+                for (let i = 0; i < minorTickCount; i++) {
+                    const scaleValue = min + (i * minorInterval);
+                    if (scaleValue > max) break;
+
+                    // Skip if this position has a major tick
+                    const offsetFromMin = scaleValue - min;
+                    if (offsetFromMin % majorInterval === 0) continue;
+
+                    // Calculate y position (inverted like major ticks)
+                    const percent = 100 - (((scaleValue - min) / range) * 100);
+                    const y = (percent / 100) * trackHeight;
+
+                    // Minor tick - short horizontal line from left edge
+                    svg += `
+                        <line x1="0" y1="${y}" x2="${minorHeight}" y2="${y}"
+                              stroke="${minorColor}" stroke-width="${minorStrokeWidth}" />
+                    `;
+                }
+            }
+
+            // Draw progress bar (fills from bottom up)
+            // Position at left side after minor ticks
+            const progressX = minorHeight;
+            const progressBarHeight = valuePercent * trackHeight;
+            const progressY = trackHeight - progressBarHeight; // Start from bottom
+
+            svg += `
+                <rect x="${progressX}" y="${progressY}"
+                      width="${progressHeight}" height="${progressBarHeight}"
+                      fill="${progressColor}"
+                      rx="${progressRadius}" ry="${progressRadius}" />
+            `;
+
+            // Draw indicator if enabled
+            const indicatorConfig = gaugeConfig?.indicator;
+            // Enable indicator if explicitly enabled OR if indicator properties are configured
+            const indicatorEnabled = indicatorConfig?.enabled === true ||
+                                    (indicatorConfig?.enabled !== false &&
+                                     (indicatorConfig?.type || indicatorConfig?.color || indicatorConfig?.size));
+
+            if (indicatorEnabled) {
+                const indicatorType = indicatorConfig.type || 'line';
+                const indicatorColor = this._resolveCssVariable(indicatorConfig.color || 'var(--lcars-white, #ffffff)');
+                const indicatorWidth = indicatorConfig.size?.width || 4;
+                const indicatorHeight = indicatorConfig.size?.height || 25;
+                const borderEnabled = indicatorConfig.border?.enabled !== false;
+                const borderColor = this._resolveCssVariable(indicatorConfig.border?.color || 'var(--lcars-black, #000000)');
+                const borderWidth = indicatorConfig.border?.width || 1;
+
+                // Calculate indicator position (inverted Y)
+                const indicatorY = trackHeight - (valuePercent * trackHeight);
+
+                if (indicatorType === 'thumb') {
+                    // Circular thumb indicator
+                    const radius = indicatorWidth / 2;
+                    const centerX = trackWidth / 2;
+
+                    svg += `
+                        <circle cx="${centerX}" cy="${indicatorY}" r="${radius}"
+                                fill="${indicatorColor}"
+                                ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}"` : ''} />
+                    `;
+                } else {
+                    // Line indicator (horizontal for vertical gauge)
+                    // For vertical gauge: width controls line length (horizontal), height controls thickness (vertical)
+                    const lineY = indicatorY - (indicatorWidth / 2); // Center the line (width is now thickness)
+                    const lineX = (trackWidth - indicatorHeight) / 2; // Center horizontally (height is now length)
+
+                    svg += `
+                        <rect x="${lineX}" y="${lineY}"
+                              width="${indicatorHeight}" height="${indicatorWidth}"
+                              fill="${indicatorColor}"
+                              ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}"` : ''}
+                              rx="1" ry="1" />
+                    `;
+                }
             }
         }
 
@@ -985,11 +1698,14 @@ export class LCARdSSlider extends LCARdSCard {
      * @private
      */
     _calculateValuePercent() {
-        const min = this._controlConfig.min;
-        const max = this._controlConfig.max;
+        // Calculate percentage within the VISUAL range, not the control range
+        // Visual range is implicitly 0-100 for most domains
+        // (Future: could be configurable via display.min/max)
+        const visualMin = 0;
+        const visualMax = 100;
         const value = this._sliderValue;
 
-        return Math.max(0, Math.min(1, (value - min) / (max - min)));
+        return Math.max(0, Math.min(1, (value - visualMin) / (visualMax - visualMin)));
     }
 
     /**
@@ -999,49 +1715,14 @@ export class LCARdSSlider extends LCARdSCard {
     _injectContentIntoZones() {
         if (!this._componentSvg) return;
 
-        // Inject track content
+        // Inject track content based on visual style
         const trackZone = this._zones.get('track');
         if (trackZone) {
-            const trackContent = this._mode === 'slider'
-                ? this._generateTrackContent()
-                : this._generateGaugeSVG(trackZone.bounds.width, trackZone.bounds.height);
+            const trackContent = this._mode === 'pills'
+                ? this._generateTrackContent()  // Pills (segmented bar)
+                : this._generateGaugeSVG(trackZone.bounds.width, trackZone.bounds.height);  // Gauge ruler
             trackZone.element.innerHTML = trackContent;
         }
-
-        // Inject text content
-        const textZone = this._zones.get('text');
-        if (textZone && this._sliderStyle?.text?.value?.enabled) {
-            const textContent = this._generateTextContent();
-            textZone.element.innerHTML = textContent;
-        }
-    }
-
-    /**
-     * Generate text content for text zone
-     * @private
-     */
-    _generateTextContent() {
-        const textConfig = this._sliderStyle?.text?.value;
-        if (!textConfig?.enabled) return '';
-
-        const value = this._sliderValue;
-        const unit = this._entity?.attributes?.unit_of_measurement || '';
-        const color = textConfig.color || 'var(--lcars-white)';
-        const fontSize = textConfig.font_size || 14;
-
-        // Simple value display
-        const displayValue = Number.isInteger(value) ? value : value.toFixed(1);
-
-        return `
-            <text x="50%" y="50%"
-                  text-anchor="middle"
-                  dominant-baseline="central"
-                  fill="${color}"
-                  font-size="${fontSize}"
-                  font-family="'LCARS', 'Antonio', sans-serif">
-                ${displayValue}${unit}
-            </text>
-        `;
     }
 
     /**
@@ -1095,36 +1776,16 @@ export class LCARdSSlider extends LCARdSCard {
      * @private
      */
     _updateGaugeIndicator() {
-        const indicator = this.shadowRoot?.querySelector('.gauge-indicator');
-        if (!indicator) return;
+        // In new gauge design, we need to regenerate the entire gauge
+        // because the progress bar width changes (it's not just a position update)
+        // The memoization will be invalidated by the value change in config hash
+        if (this._mode === 'gauge') {
+            // Force regeneration by clearing cache
+            this._memoizedGauge = null;
+            this._memoizedGaugeConfig = null;
 
-        const trackZone = this._zones.get('track');
-        if (!trackZone) return;
-
-        const { width, height } = trackZone.bounds;
-        const orientation = this._sliderStyle?.track?.orientation || 'horizontal';
-        const isVertical = orientation === 'vertical';
-        const valuePercent = this._calculateValuePercent();
-
-        // Use uppercase comparison for efficiency (tagName is always uppercase in SVG)
-        if (indicator.tagName === 'line' || indicator.tagName === 'LINE') {
-            if (isVertical) {
-                const y = height - (valuePercent * height);
-                indicator.setAttribute('y1', y);
-                indicator.setAttribute('y2', y);
-            } else {
-                const x = valuePercent * width;
-                indicator.setAttribute('x1', x);
-                indicator.setAttribute('x2', x);
-            }
-        } else if (indicator.tagName === 'ellipse' || indicator.tagName === 'ELLIPSE') {
-            if (isVertical) {
-                const y = height - (valuePercent * height);
-                indicator.setAttribute('cy', y);
-            } else {
-                const x = valuePercent * width;
-                indicator.setAttribute('cx', x);
-            }
+            // Re-inject content into zones
+            this._injectContentIntoZones();
         }
     }
 
@@ -1178,11 +1839,6 @@ export class LCARdSSlider extends LCARdSCard {
     async _handleSliderChange(event) {
         const value = parseFloat(event.target.value);
 
-        lcardsLog.debug(`[LCARdSSlider] Slider changed to ${value}`, {
-            domain: this._domain,
-            entity: this.config.entity
-        });
-
         // Call appropriate service based on entity domain
         await this._setEntityValue(value);
     }
@@ -1201,12 +1857,10 @@ export class LCARdSSlider extends LCARdSCard {
         try {
             if (domain === 'light') {
                 // Convert value to 0-255 brightness range
-                // The value from the slider represents percentage (0-100 typically)
-                // We calculate brightness as percentage of the range, then scale to 0-255
-                const min = this._controlConfig.min;
-                const max = this._controlConfig.max;
-                const percent = (value - min) / (max - min);
-                const brightness = Math.round(percent * 255);
+                // The slider value represents a percentage (e.g., min=10, max=50 means 10%-50% brightness)
+                // Convert the percentage directly to 0-255 range
+                const brightness = Math.round((value / 100) * 255);
+
                 await this.hass.callService('light', 'turn_on', {
                     entity_id: entityId,
                     brightness: brightness
@@ -1285,10 +1939,105 @@ export class LCARdSSlider extends LCARdSCard {
         let svgContent;
 
         if (this._componentSvg) {
-            // Inject dynamic content into zones
-            this._injectContentIntoZones();
+            // Adjust viewBox to match container dimensions
+            // This prevents distortion when container aspect ratio differs from viewBox
+            const orientation = this._sliderStyle?.track?.orientation || 'horizontal';
 
-            // Serialize component SVG
+            // Use container dimensions as viewBox
+            // 1 viewBox unit = 1 rendered pixel
+            this._componentSvg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+            // Helper function to get border size (supports both .size and .width properties)
+            const getBorderSize = (borderDef) => borderDef?.size ?? borderDef?.width ?? 0;
+
+            // Calculate border offsets for zone positioning
+            const borderConfig = this._sliderStyle?.border;
+            const borderOffsets = {
+                left: borderConfig?.left?.enabled ? getBorderSize(borderConfig.left) : 0,
+                top: borderConfig?.top?.enabled ? getBorderSize(borderConfig.top) : 0,
+                right: borderConfig?.right?.enabled ? getBorderSize(borderConfig.right) : 0,
+                bottom: borderConfig?.bottom?.enabled ? getBorderSize(borderConfig.bottom) : 0
+            };
+
+            // Parse margin configuration (can be number or {top, right, bottom, left})
+            // Gauge mode defaults to zero margins for seamless ruler design
+            const defaultMargin = this._mode === 'gauge' ? 0 : 10;
+            const marginConfig = this._sliderStyle?.track?.margin ?? defaultMargin;
+
+            lcardsLog.debug(`[LCARdSSlider] Mode: ${this._mode}, Default margin: ${defaultMargin}, Margin config:`, marginConfig);
+
+            let margins;
+            if (typeof marginConfig === 'number') {
+                // Single value applies to all sides
+                margins = { top: marginConfig, right: marginConfig, bottom: marginConfig, left: marginConfig };
+            } else {
+                // Object with per-side values (with defaults)
+                margins = {
+                    top: marginConfig.top ?? defaultMargin,
+                    right: marginConfig.right ?? defaultMargin,
+                    bottom: marginConfig.bottom ?? defaultMargin,
+                    left: marginConfig.left ?? defaultMargin
+                };
+            }
+
+            lcardsLog.debug(`[LCARdSSlider] ${orientation} viewBox adjustment:`, {
+                containerWidth: width,
+                containerHeight: height,
+                borderOffsets,
+                margins
+            });
+
+            // Apply margins and border offsets to track zone
+            // Track zone is inset from borders AND margins
+            const trackZone = this._zones.get('track');
+            if (trackZone) {
+                trackZone.bounds = {
+                    x: borderOffsets.left + margins.left,
+                    y: borderOffsets.top + margins.top,
+                    width: width - borderOffsets.left - borderOffsets.right - margins.left - margins.right,
+                    height: height - borderOffsets.top - borderOffsets.bottom - margins.top - margins.bottom
+                };
+
+                lcardsLog.debug(`[LCARdSSlider] Track zone bounds:`, trackZone.bounds);
+
+                // Update data-bounds attribute and position via transform
+                trackZone.element.setAttribute('data-bounds',
+                    `${trackZone.bounds.x},${trackZone.bounds.y},${trackZone.bounds.width},${trackZone.bounds.height}`);
+                trackZone.element.setAttribute('transform',
+                    `translate(${trackZone.bounds.x}, ${trackZone.bounds.y})`);
+            }
+
+            // Control zone should match track zone for proper slider alignment
+            // This ensures the slider input overlay aligns with the visual track area
+            const controlZone = this._zones.get('control');
+            if (controlZone && trackZone) {
+                controlZone.bounds = {
+                    x: trackZone.bounds.x,
+                    y: trackZone.bounds.y,
+                    width: trackZone.bounds.width,
+                    height: trackZone.bounds.height
+                };
+
+                // Update control zone element
+                const controlElement = this._componentSvg.querySelector('#control-zone');
+                if (controlElement) {
+                    controlElement.setAttribute('data-bounds',
+                        `${trackZone.bounds.x},${trackZone.bounds.y},${trackZone.bounds.width},${trackZone.bounds.height}`);
+                    controlElement.setAttribute('x', trackZone.bounds.x);
+                    controlElement.setAttribute('y', trackZone.bounds.y);
+                    controlElement.setAttribute('width', trackZone.bounds.width);
+                    controlElement.setAttribute('height', trackZone.bounds.height);
+                }
+            }
+
+            // Inject SVG borders from config
+            this._injectBorders();
+
+            // Inject text fields using button's text system
+            this._injectTextFields(width, height);
+
+            // Inject dynamic content into zones
+            this._injectContentIntoZones();            // Serialize component SVG
             svgContent = new XMLSerializer().serializeToString(this._componentSvg);
         } else {
             // Generate fallback slider
@@ -1300,26 +2049,68 @@ export class LCARdSSlider extends LCARdSCard {
         const orientation = this._sliderStyle?.track?.orientation || 'horizontal';
         const isVertical = orientation === 'vertical';
 
+        // Calculate scale factor from viewBox to actual container size
+        const svgViewBoxWidth = this._componentSvg ?
+            (parseFloat(this._componentSvg.getAttribute('viewBox')?.split(' ')[2]) || 200) : 200;
+        const svgViewBoxHeight = this._componentSvg ?
+            (parseFloat(this._componentSvg.getAttribute('viewBox')?.split(' ')[3]) || 30) : 30;
+
+        const scaleX = width / svgViewBoxWidth;
+        const scaleY = height / svgViewBoxHeight;
+
+        // Determine the full visual range (what pills/gauge display)
+        // For most domains, this is implicitly 0-100
+        // Future: could be configurable via display.min/max or scale.min/max
+        const visualMin = 0;
+        const visualMax = 100;
+        const visualRange = visualMax - visualMin;
+
+        // Calculate where the control range sits within the visual range
+        const controlMin = this._controlConfig.min;
+        const controlMax = this._controlConfig.max;
+
+        // What percentage of the visual range does the control span?
+        const controlStartPercent = (controlMin - visualMin) / visualRange;
+        const controlEndPercent = (controlMax - visualMin) / visualRange;
+        const controlWidthPercent = controlEndPercent - controlStartPercent;
+
+        // Scale and adjust the control bounds based on control range within visual range
+        const trackWidth = controlBounds.width * scaleX;
+        const trackHeight = controlBounds.height * scaleY;
+
+        const scaledBounds = {
+            x: (controlBounds.x * scaleX) + (trackWidth * controlStartPercent),
+            y: controlBounds.y * scaleY,
+            width: isVertical ? trackWidth : (trackWidth * controlWidthPercent),
+            height: isVertical ? (trackHeight * controlWidthPercent) : trackHeight
+        };
+
+        // For vertical sliders, adjust y position (top) instead of x
+        if (isVertical) {
+            scaledBounds.x = controlBounds.x * scaleX;
+            scaledBounds.y = (controlBounds.y * scaleY) + (trackHeight * (1 - controlEndPercent));
+        }
+
         return html`
             <div class="slider-container">
                 ${unsafeHTML(svgContent)}
 
-                ${this._mode === 'slider' ? html`
+                ${!this._controlConfig.locked ? html`
                     <input
                         type="range"
                         class="slider-input-overlay"
-                        .value="${this._sliderValue}"
-                        .min="${this._controlConfig.min}"
-                        .max="${this._controlConfig.max}"
-                        .step="${this._controlConfig.step}"
+                        value="${String(this._sliderValue)}"
+                        min="${String(this._controlConfig.min)}"
+                        max="${String(this._controlConfig.max)}"
+                        step="${this._controlConfig.step || 1}"
                         ?disabled="${this._controlConfig.locked}"
                         @input="${this._handleSliderInput}"
                         @change="${this._handleSliderChange}"
                         style="
-                            left: ${controlBounds.x}px;
-                            top: ${controlBounds.y}px;
-                            width: ${controlBounds.width}px;
-                            height: ${controlBounds.height}px;
+                            left: ${scaledBounds.x}px;
+                            top: ${scaledBounds.y}px;
+                            width: ${scaledBounds.width}px;
+                            height: ${scaledBounds.height}px;
                             ${isVertical ? '-webkit-appearance: slider-vertical; writing-mode: bt-lr;' : ''}
                         "
                     />
