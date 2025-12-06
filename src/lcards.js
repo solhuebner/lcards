@@ -60,6 +60,7 @@ async function initializeCustomCard() {
     window.lcards.anim = {
         animejs: anime,                // full animejs module
         anime: anime.animate,          // shortcut for anime.animate
+        stagger: anime.stagger,        // stagger function for animations
         utils: anime.utils,            // CENTRAL canonical utils reference
         animateElement: animHelpers.animateElement,
         animateWithRoot: animHelpers.animateWithRoot,
