@@ -826,10 +826,6 @@ export class LCARdSDataGrid extends LCARdSCard {
   // ============================================================================
 
   /**
-   * Setup cascade animation
-   * @private
-   */
-  /**
    * Setup cascade animation using AnimationManager
    * Called after grid is rendered
    * @private
