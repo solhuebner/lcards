@@ -129,6 +129,7 @@ import { html, css } from 'lit';
 import { LCARdSCard } from '../base/LCARdSCard.js';
 import { lcardsLog } from '../utils/lcards-logging.js';
 import { escapeHtml } from '../utils/StringUtils.js';
+import { resolveThemeTokensRecursive } from '../utils/lcards-theme.js';
 
 export class LCARdSDataGrid extends LCARdSCard {
   /** Card type identifier for CoreConfigManager */
@@ -376,13 +377,93 @@ export class LCARdSDataGrid extends LCARdSCard {
   // ============================================================================
 
   /**
+   * Parse CSS Grid dimension from template string
+   * Handles complex patterns: repeat(), minmax(), explicit values, or combinations
+   *
+   * Examples:
+   *   "repeat(6, auto)" -> 6
+   *   "100px 1fr 2fr" -> 3
+   *   "minmax(80px, 1fr) repeat(4, 2fr) minmax(80px, 1fr)" -> 6
+   *
+   * @private
+   * @param {string} template - CSS grid-template value
+   * @returns {number} Number of tracks
+   */
+  _parseGridDimension(template) {
+    if (!template) return null;
+
+    let count = 0;
+    let remaining = template.trim();
+
+    // Process repeat() functions - may be multiple
+    const repeatRegex = /repeat\((\d+),\s*[^)]+\)/g;
+    let repeatMatch;
+    while ((repeatMatch = repeatRegex.exec(template)) !== null) {
+      count += parseInt(repeatMatch[1], 10);
+      // Remove matched repeat from remaining string
+      remaining = remaining.replace(repeatMatch[0], '');
+    }
+
+    // Count remaining explicit values (including minmax(), fit-content(), etc.)
+    // These are separated by whitespace, but we need to handle nested parentheses
+    remaining = remaining.trim();
+    if (remaining) {
+      // Remove all matched repeat() expressions
+      const parts = [];
+      let depth = 0;
+      let current = '';
+
+      for (let i = 0; i < remaining.length; i++) {
+        const char = remaining[i];
+
+        if (char === '(') {
+          depth++;
+          current += char;
+        } else if (char === ')') {
+          depth--;
+          current += char;
+        } else if (char === ' ' && depth === 0) {
+          if (current.trim()) {
+            parts.push(current.trim());
+            current = '';
+          }
+        } else {
+          current += char;
+        }
+      }
+
+      if (current.trim()) {
+        parts.push(current.trim());
+      }
+
+      count += parts.length;
+    }
+
+    return count > 0 ? count : null;
+  }
+
+  /**
    * Initialize random/decorative mode
    * @private
    */
   _initializeRandomMode() {
     const grid = this.config.grid || {};
-    const rows = grid.rows || 8;
-    const columns = grid.columns || 12;
+
+    // Try new CSS Grid format first, fall back to old shorthand
+    let rows = null;
+    let columns = null;
+
+    if (grid['grid-template-rows']) {
+      rows = this._parseGridDimension(grid['grid-template-rows']);
+    }
+    if (grid['grid-template-columns']) {
+      columns = this._parseGridDimension(grid['grid-template-columns']);
+    }
+
+    // Fall back to old shorthand format
+    if (!rows) rows = grid.rows || 8;
+    if (!columns) columns = grid.columns || 12;
+
     const refreshInterval = this.config.refresh_interval || 0;
 
     lcardsLog.debug(`[LCARdSDataGrid] Random mode: ${rows}x${columns}`);
@@ -475,6 +556,17 @@ export class LCARdSDataGrid extends LCARdSCard {
       return;
     }
 
+    // Store row config for hierarchical styling
+    // Normalize to ensure _rowConfig always contains row objects
+    this._rowConfig = rows.map(row => {
+      // New object format: {values: [...], style: {...}, cellStyles: [...]}
+      if (row && typeof row === 'object' && !Array.isArray(row)) {
+        return row;
+      }
+      // Old array format: convert to object
+      return { values: row };
+    });
+
     // Extract entity dependencies from templates
     this._extractTemplateDependencies(rows);
 
@@ -484,6 +576,9 @@ export class LCARdSDataGrid extends LCARdSCard {
 
   /**
    * Process template-based grid data
+   * Supports both formats:
+   * 1. Old: rows = [['val1', 'val2'], ['val3', 'val4']]
+   * 2. New: rows = [{values: ['val1', 'val2'], style: {...}}, ...]
    * @private
    */
   async _processTemplateGrid() {
@@ -491,8 +586,27 @@ export class LCARdSDataGrid extends LCARdSCard {
 
     const processedRows = await Promise.all(
       rows.map(async (row) => {
+        // Handle new object format: {values: [...], style: {...}, cellStyles: [...]}
+        if (row && typeof row === 'object' && !Array.isArray(row)) {
+          if (!Array.isArray(row.values)) {
+            lcardsLog.warn('[LCARdSDataGrid] Row object must have "values" array:', row);
+            return [];
+          }
+
+          // Process the values array
+          const processedValues = await Promise.all(
+            row.values.map(async (cell) => {
+              if (typeof cell !== 'string') return String(cell);
+              return await this.processTemplate(cell);
+            })
+          );
+
+          return processedValues;
+        }
+
+        // Handle old array format: ['val1', 'val2', 'val3']
         if (!Array.isArray(row)) {
-          lcardsLog.warn('[LCARdSDataGrid] Template row must be an array:', row);
+          lcardsLog.warn('[LCARdSDataGrid] Template row must be an array or object with values:', row);
           return [];
         }
 
@@ -520,13 +634,24 @@ export class LCARdSDataGrid extends LCARdSCard {
 
   /**
    * Extract entity dependencies from template strings
+   * Supports both old array format and new object format
    * @private
-   * @param {Array<Array<string>>} rows - Template rows
+   * @param {Array} rows - Template rows (arrays or objects)
    */
   _extractTemplateDependencies(rows) {
     const entities = new Set();
 
-    rows.flat().forEach(cell => {
+    // Normalize rows to values arrays
+    const allValues = rows.flatMap(row => {
+      // New object format: {values: [...], style: {...}}
+      if (row && typeof row === 'object' && !Array.isArray(row)) {
+        return row.values || [];
+      }
+      // Old array format: ['val1', 'val2']
+      return row;
+    });
+
+    allValues.forEach(cell => {
       if (typeof cell !== 'string') return;
 
       // Match {{states.sensor.temp.state}} patterns
@@ -1445,34 +1570,21 @@ export class LCARdSDataGrid extends LCARdSCard {
   /**
    * Merge source style into target style, resolving theme tokens
    *
+   * Uses resolveThemeTokensRecursive() utility for consistency across all cards.
+   * Requires explicit 'theme:' prefix for all token references.
+   *
    * @param {Object} target - Target style object
    * @param {Object} source - Source style object to merge
    * @returns {Object} Merged style object
    * @private
    */
   _mergeStyle(target, source) {
-    const merged = { ...target };
+    // Merge styles first
+    const merged = { ...target, ...source };
 
-    for (const key in source) {
-      if (Object.prototype.hasOwnProperty.call(source, key)) {
-        let value = source[key];
-
-        // Resolve theme tokens for color-related properties
-        const colorProps = [
-          'color', 'background', 'background_color', 'backgroundColor',
-          'border_color', 'borderColor', 'border_bottom_color',
-          'border_top_color', 'border_left_color', 'border_right_color'
-        ];
-
-        if (colorProps.includes(key) && typeof value === 'string') {
-          // Check if it's a theme token path (e.g., 'colors.grid.cell-text')
-          if (value.startsWith('colors.') || value.startsWith('typography.')) {
-            value = this.getThemeToken(value, value);
-          }
-        }
-
-        merged[key] = value;
-      }
+    // Resolve all theme tokens recursively (requires 'theme:' prefix)
+    if (this._singletons?.themeManager) {
+      return resolveThemeTokensRecursive(merged, this._singletons.themeManager);
     }
 
     return merged;

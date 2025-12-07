@@ -123,22 +123,36 @@ export const lcarsClassicTokens = {
       caution: 'desaturate(darken(colors.alert.base, 0.1), 0.2)'
     },
 
+    // LCARS Classic Palette - Direct access to core LCARS colors
+    lcars: {
+      blue: 'var(--lcars-blue, #9999FF)',
+      orange: 'var(--lcars-orange, #FF9900)',
+      red: 'var(--lcars-red, #CC6666)',
+      yellow: 'var(--lcars-yellow, #FFCC99)',
+      green: 'var(--lcars-green, #99CC99)',
+      purple: 'var(--lcars-purple, #CC99CC)',
+      pink: 'var(--lcars-pink, #FF99CC)',
+      white: 'var(--lcars-white, #FFFFFF)',
+      gray: 'var(--lcars-gray, #999999)',
+      black: 'var(--lcars-black, #000000)'
+    },
+
     grid: {
       // Cell defaults
-      cellText: 'var(--lcars-blue, #99ccff)',
+      cellText: 'var(--picard-blue, #99ccff)',
       cellBackground: 'transparent',
-      cellHighlight: 'alpha(var(--lcars-orange, #FF9900), 0.3)',
+      cellHighlight: 'alpha(var(--picard-orange, #FF9900), 0.3)',
 
       // Header defaults
-      headerText: 'var(--lcars-white, #def)',
-      headerBackground: 'var(--lcars-black-alt, #1a1a1a)',
+      headerText: 'var(--picard-moonlight, #def)',
+      headerBackground: 'var(--picard-dark-gray, #1a1a1a)',
 
       // Row alternates
-      rowAlt: 'alpha(var(--lcars-white, #FFFFFF), 0.05)',
+      rowAlt: 'alpha(var(--picard-moonlight, #FFFFFF), 0.05)',
 
       // Borders/dividers
-      divider: 'var(--lcars-gray, #333)',
-      border: 'var(--lcars-gray, #555)',
+      divider: 'var(--picard-gray, #333)',
+      border: 'var(--picard-gray, #555)',
 
       // Cascade animation
       cascadeStart: 'var(--picard-blue, #99ccff)',
@@ -146,23 +160,23 @@ export const lcarsClassicTokens = {
       cascadeEnd: 'var(--picard-moonlight, #aaccff)',
 
       // States
-      error: 'var(--lcars-red, #ff0000)',
-      warning: 'var(--lcars-orange, #ff9900)',
-      success: 'var(--lcars-green, #00ff00)'
+      error: 'var(--picard-orange, #ff0000)',
+      warning: 'var(--picard-yellow, #ff9900)',
+      success: 'var(--picard-green, #00ff00)'
     },
 
     text: {
-      primary: 'var(--lcars-white, #ffffff)',
-      secondary: 'var(--lcars-gray, #999999)',
-      header: 'var(--lcars-white, #def)'
+      primary: 'var(--picard-moonlight, #ffffff)',
+      secondary: 'var(--picard-gray, #999999)',
+      header: 'var(--picard-moonlight, #def)'
     },
 
     background: {
-      header: 'var(--lcars-black-alt, #1a1a1a)',
+      header: 'var(--picard-dark-gray, #1a1a1a)',
       surface: 'transparent'
     },
 
-    divider: 'var(--lcars-gray, #333)'
+    divider: 'var(--picard-gray, #333)'
   },
 
   typography: {

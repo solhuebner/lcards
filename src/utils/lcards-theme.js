@@ -90,9 +90,12 @@ export async function loadCoreFonts() {
  * Recursively resolve theme tokens and computed tokens in an object
  *
  * Handles:
- * - `theme:` tokens (e.g., `theme:colors.primary`)
- * - Computed tokens (e.g., `alpha(theme:colors.primary, 0.5)`)
+ * - Theme tokens with `theme:` prefix: `theme:colors.primary`, `theme:typography.fontSize.base`
+ * - Computed tokens: `alpha(theme:colors.primary, 0.5)`, `darken(theme:colors.accent.primary, 0.2)`
  * - Nested objects and arrays
+ *
+ * The `theme:` prefix is required to explicitly distinguish theme tokens from other
+ * dotted notation (e.g., entity references like `sensor.temperature`).
  *
  * @param {Object|Array} obj - Object or array to resolve tokens in
  * @param {Object} themeManager - ThemeManager instance with getToken() and resolver
@@ -101,8 +104,10 @@ export async function loadCoreFonts() {
  * @example
  * const style = {
  *   color: 'theme:colors.primary',
+ *   fontSize: 'theme:typography.fontSize.base',
+ *   padding: 'theme:spacing.gap.base',
  *   background: 'alpha(theme:colors.background, 0.8)',
- *   nested: { border: 'theme:colors.border' }
+ *   nested: { borderRadius: 'theme:borders.radius.lg' }
  * };
  * const resolved = resolveThemeTokensRecursive(style, themeManager);
  */
