@@ -1424,7 +1424,7 @@ export class LCARdSDataGrid extends LCARdSCard {
     const merged = { ...target };
 
     for (const key in source) {
-      if (source.hasOwnProperty(key)) {
+      if (Object.prototype.hasOwnProperty.call(source, key)) {
         let value = source[key];
 
         // Resolve theme tokens for color-related properties
@@ -1502,7 +1502,7 @@ export class LCARdSDataGrid extends LCARdSCard {
     };
 
     for (const [key, value] of Object.entries(style)) {
-      if (value === null || value === undefined) continue;
+      if (value == null) continue;
 
       // Skip non-style properties
       if (key === 'width' && typeof value === 'number') {
@@ -1579,11 +1579,12 @@ export class LCARdSDataGrid extends LCARdSCard {
     const hasShorthand = gridConfig.rows || gridConfig.columns || gridConfig.cell_width;
     
     if (hasShorthand) {
-      // Log deprecation warning
+      // Log deprecation warning with migration guidance
       if (!this._hasLoggedDeprecation) {
         lcardsLog.warn(
           '[LCARdSDataGrid] Shorthand grid config (rows, columns, gap, cell_width) is deprecated. ' +
-          'Use standard CSS Grid properties (grid-template-columns, grid-template-rows, gap) instead.'
+          'Use standard CSS Grid properties (grid-template-columns, grid-template-rows, gap) instead. ' +
+          'See documentation: doc/user/configuration/cards/data-grid.md#grid-configuration'
         );
         this._hasLoggedDeprecation = true;
       }
