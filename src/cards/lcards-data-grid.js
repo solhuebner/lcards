@@ -253,6 +253,7 @@ export class LCARdSDataGrid extends LCARdSCard {
     this._columnConfig = [];
     this._rowConfig = [];
     this._isInitialized = false;
+    this._styleCache = new Map(); // Style cache for performance
   }
 
   /**
@@ -295,6 +296,9 @@ export class LCARdSDataGrid extends LCARdSCard {
    */
   async _onConfigSet(config) {
     super._onConfigSet(config);
+
+    // Invalidate style cache when config changes
+    this._invalidateStyleCache();
 
     // Re-initialize if already initialized and config changes
     if (this._isInitialized) {
@@ -1295,6 +1299,348 @@ export class LCARdSDataGrid extends LCARdSCard {
   }
 
   // ============================================================================
+  // HIERARCHICAL CELL STYLING SYSTEM
+  // ============================================================================
+
+  /**
+   * Get default grid-wide style with theme token defaults
+   * @private
+   * @returns {Object} Default style object
+   */
+  _getDefaultGridStyle() {
+    return {
+      font_size: 18,
+      font_family: "'Antonio', 'Helvetica Neue', sans-serif",
+      font_weight: 400,
+      color: this.getThemeToken('colors.grid.cellText', this.getThemeToken('colors.text.primary', '#99ccff')),
+      background: this.getThemeToken('colors.grid.cellBackground', 'transparent'),
+      align: 'right',
+      padding: '8px'
+    };
+  }
+
+  /**
+   * Get default header style with theme token defaults
+   * @private
+   * @returns {Object} Default header style object
+   */
+  _getDefaultHeaderStyle() {
+    return {
+      background: this.getThemeToken('colors.grid.headerBackground', this.getThemeToken('colors.background.header', '#1a1a1a')),
+      color: this.getThemeToken('colors.grid.headerText', this.getThemeToken('colors.text.header', '#def')),
+      font_size: 16,
+      font_weight: 700,
+      text_transform: 'uppercase',
+      padding: '12px 8px',
+      border_bottom_width: 2,
+      border_bottom_color: this.getThemeToken('colors.grid.divider', this.getThemeToken('colors.divider', '#333')),
+      border_bottom_style: 'solid'
+    };
+  }
+
+  /**
+   * Resolve cell style through hierarchy: grid → header → column → row → cell
+   * 
+   * Style hierarchy (lower overrides higher):
+   * 1. Grid-wide defaults (config.style)
+   * 2. Header defaults (config.header_style) - only for header rows
+   * 3. Column-level overrides (columns[i].style)
+   * 4. Row-level overrides (rows[i].style)
+   * 5. Cell-level overrides (rows[i].sources[j].style or rows[i].values[j].style)
+   * 
+   * @param {number} rowIndex - Row index (0-based)
+   * @param {number} colIndex - Column index (0-based)
+   * @param {boolean} isHeader - Whether this is a header cell
+   * @returns {Object} Resolved style object
+   * @private
+   */
+  _resolveCellStyle(rowIndex, colIndex, isHeader = false) {
+    // Check cache first
+    const cacheKey = `${rowIndex}-${colIndex}-${isHeader}`;
+    if (this._styleCache?.has(cacheKey)) {
+      return this._styleCache.get(cacheKey);
+    }
+
+    // Start with theme-based defaults
+    let style = this._getDefaultGridStyle();
+
+    // Merge with user-configured grid-wide style
+    if (this.config.style) {
+      style = this._mergeStyle(style, this.config.style);
+    }
+
+    // Apply header defaults and user header style if this is a header row
+    if (isHeader) {
+      const headerDefaults = this._getDefaultHeaderStyle();
+      style = this._mergeStyle(style, headerDefaults);
+      
+      if (this.config.header_style) {
+        style = this._mergeStyle(style, this.config.header_style);
+      }
+    }
+
+    // Apply column-level style (if column config exists)
+    if (this._columnConfig && this._columnConfig[colIndex]?.style) {
+      style = this._mergeStyle(style, this._columnConfig[colIndex].style);
+    }
+
+    // Apply row-level style
+    const rowConfig = this._rowConfig?.[rowIndex];
+    if (rowConfig?.style) {
+      style = this._mergeStyle(style, rowConfig.style);
+    }
+
+    // Apply cell-level style (highest priority)
+    // For spreadsheet mode: check sources array
+    if (rowConfig?.sources) {
+      const cellSource = rowConfig.sources.find(s => s.column === colIndex);
+      if (cellSource?.style) {
+        style = this._mergeStyle(style, cellSource.style);
+      }
+    }
+    // For template mode: check if row has style array
+    else if (rowConfig?.cellStyles && rowConfig.cellStyles[colIndex]) {
+      style = this._mergeStyle(style, rowConfig.cellStyles[colIndex]);
+    }
+
+    // Cache the resolved style
+    if (!this._styleCache) {
+      this._styleCache = new Map();
+    }
+    this._styleCache.set(cacheKey, style);
+
+    return style;
+  }
+
+  /**
+   * Merge source style into target style, resolving theme tokens
+   * 
+   * @param {Object} target - Target style object
+   * @param {Object} source - Source style object to merge
+   * @returns {Object} Merged style object
+   * @private
+   */
+  _mergeStyle(target, source) {
+    const merged = { ...target };
+
+    for (const key in source) {
+      if (Object.prototype.hasOwnProperty.call(source, key)) {
+        let value = source[key];
+
+        // Resolve theme tokens for color-related properties
+        const colorProps = [
+          'color', 'background', 'background_color', 'backgroundColor',
+          'border_color', 'borderColor', 'border_bottom_color', 
+          'border_top_color', 'border_left_color', 'border_right_color'
+        ];
+
+        if (colorProps.includes(key) && typeof value === 'string') {
+          // Check if it's a theme token path (e.g., 'colors.grid.cell-text')
+          if (value.startsWith('colors.') || value.startsWith('typography.')) {
+            value = this.getThemeToken(value, value);
+          }
+        }
+
+        merged[key] = value;
+      }
+    }
+
+    return merged;
+  }
+
+  /**
+   * Convert style object to inline CSS string
+   * 
+   * Handles special cases:
+   * - align → justify-content mapping
+   * - Numeric values → px units (except font_weight, opacity, etc.)
+   * - Underscore properties → kebab-case CSS properties
+   * 
+   * @param {Object} style - Style object
+   * @returns {string} CSS string for inline style attribute
+   * @private
+   */
+  _styleToCSS(style) {
+    if (!style || typeof style !== 'object') {
+      return '';
+    }
+
+    const cssProps = [];
+    
+    // Properties that should not get 'px' suffix when numeric
+    const unitlessProps = [
+      'opacity', 'font_weight', 'fontWeight', 'z_index', 'zIndex',
+      'flex_grow', 'flexGrow', 'flex_shrink', 'flexShrink',
+      'line_height', 'lineHeight'
+    ];
+
+    // Map of property name conversions
+    const propertyMap = {
+      'align': 'justify-content',
+      'font_size': 'font-size',
+      'font_family': 'font-family',
+      'font_weight': 'font-weight',
+      'text_transform': 'text-transform',
+      'background': 'background',
+      'border_width': 'border-width',
+      'border_color': 'border-color',
+      'border_style': 'border-style',
+      'border_bottom_width': 'border-bottom-width',
+      'border_bottom_color': 'border-bottom-color',
+      'border_bottom_style': 'border-bottom-style',
+      'border_top_width': 'border-top-width',
+      'border_top_color': 'border-top-color',
+      'border_top_style': 'border-top-style',
+      'border_radius': 'border-radius'
+    };
+
+    // Alignment value mapping
+    const alignMap = {
+      'left': 'flex-start',
+      'center': 'center',
+      'right': 'flex-end'
+    };
+
+    for (const [key, value] of Object.entries(style)) {
+      if (value == null) continue;
+
+      // Skip non-style properties
+      if (key === 'width' && typeof value === 'number') {
+        // Column width is handled separately
+        continue;
+      }
+
+      let cssProp = propertyMap[key] || key.replace(/_/g, '-');
+      let cssValue = value;
+
+      // Special handling for align property
+      if (key === 'align' && typeof value === 'string') {
+        cssProp = 'justify-content';
+        cssValue = alignMap[value] || value;
+      }
+
+      // Add px unit to numeric values (except unitless properties)
+      if (typeof cssValue === 'number' && !unitlessProps.includes(key)) {
+        cssValue = `${cssValue}px`;
+      }
+
+      cssProps.push(`${cssProp}: ${cssValue}`);
+    }
+
+    return cssProps.join('; ');
+  }
+
+  /**
+   * Get cached cell style with cache invalidation on config changes
+   * 
+   * @param {number} rowIndex - Row index
+   * @param {number} colIndex - Column index
+   * @param {boolean} isHeader - Whether this is a header cell
+   * @returns {Object} Cached or newly resolved style
+   * @private
+   */
+  _getCachedCellStyle(rowIndex, colIndex, isHeader = false) {
+    return this._resolveCellStyle(rowIndex, colIndex, isHeader);
+  }
+
+  /**
+   * Invalidate the style cache (call when config changes)
+   * @private
+   */
+  _invalidateStyleCache() {
+    if (this._styleCache) {
+      this._styleCache.clear();
+    }
+  }
+
+  // ============================================================================
+  // CSS GRID CONFIGURATION
+  // ============================================================================
+
+  /**
+   * Convert grid configuration to CSS Grid properties
+   * 
+   * Supports both:
+   * 1. Standard CSS Grid properties (new format):
+   *    grid-template-columns, grid-template-rows, gap, etc.
+   * 
+   * 2. Backward-compatible shorthand (old format):
+   *    rows: 8, columns: 12, gap: 8, cell_width: 'auto'
+   * 
+   * @param {Object} gridConfig - Grid configuration object
+   * @param {number} [cols] - Optional column count override (for dynamic grids)
+   * @returns {Object} Object with CSS Grid properties
+   * @private
+   */
+  _parseGridConfig(gridConfig = {}, cols = null) {
+    const cssProps = {};
+
+    // Check if using old shorthand format
+    const hasShorthand = gridConfig.rows || gridConfig.columns || gridConfig.cell_width;
+    
+    if (hasShorthand) {
+      // Log deprecation warning with migration guidance
+      if (!this._hasLoggedDeprecation) {
+        lcardsLog.warn(
+          '[LCARdSDataGrid] Shorthand grid config (rows, columns, gap, cell_width) is deprecated. ' +
+          'Use standard CSS Grid properties (grid-template-columns, grid-template-rows, gap) instead. ' +
+          'See documentation: doc/user/configuration/cards/data-grid.md#grid-configuration'
+        );
+        this._hasLoggedDeprecation = true;
+      }
+
+      // Convert shorthand to CSS Grid properties
+      const columns = cols || gridConfig.columns || 12;
+      const rows = gridConfig.rows || 8;
+      const cellWidth = gridConfig.cell_width || 'auto';
+      const gap = gridConfig.gap || 8;
+
+      // Convert cell_width to grid-template-columns
+      const cellWidthValue = cellWidth === 'auto'
+        ? '1fr'
+        : (typeof cellWidth === 'number' ? `${cellWidth}px` : cellWidth);
+      
+      cssProps['grid-template-columns'] = `repeat(${columns}, ${cellWidthValue})`;
+      cssProps['grid-template-rows'] = `repeat(${rows}, auto)`;
+      cssProps['gap'] = typeof gap === 'number' ? `${gap}px` : gap;
+    } else {
+      // Use standard CSS Grid properties
+      // Copy all CSS Grid properties from config
+      const validGridProps = [
+        'grid-template-columns', 'grid-template-rows', 'grid-template-areas',
+        'grid-template', 'grid-auto-columns', 'grid-auto-rows', 'grid-auto-flow',
+        'gap', 'row-gap', 'column-gap', 'grid-gap', 'grid-row-gap', 'grid-column-gap',
+        'justify-items', 'align-items', 'place-items',
+        'justify-content', 'align-content', 'place-content'
+      ];
+
+      for (const prop of validGridProps) {
+        if (gridConfig[prop]) {
+          let value = gridConfig[prop];
+          
+          // Add px unit to numeric gap values
+          if ((prop === 'gap' || prop.includes('gap')) && typeof value === 'number') {
+            value = `${value}px`;
+          }
+          
+          cssProps[prop] = value;
+        }
+      }
+
+      // Set defaults if not specified
+      if (!cssProps['grid-template-columns']) {
+        const columns = cols || 12;
+        cssProps['grid-template-columns'] = `repeat(${columns}, 1fr)`;
+      }
+      if (!cssProps['gap']) {
+        cssProps['gap'] = '8px';
+      }
+    }
+
+    return cssProps;
+  }
+
+  // ============================================================================
   // RENDERING
   // ============================================================================
 
@@ -1337,46 +1683,49 @@ export class LCARdSDataGrid extends LCARdSCard {
    */
   _renderCascadeGrid() {
     const grid = this.config.grid || {};
-    const gap = grid.gap || 8;
-    const cellWidth = grid.cell_width || 'auto';
-    const fontSize = this.config.font_size || 18;
-    const fontFamily = this.config.font_family || "'Antonio', 'Helvetica Neue', sans-serif";
-    const fontWeight = this.config.font_weight || 400;
-    const align = this.config.align || 'right';
-
-    // Calculate columns
+    
+    // Calculate columns from actual grid data
     const cols = this._gridData[0]?.length || 12;
-
-    // Calculate cell width value
-    const cellWidthValue = cellWidth === 'auto'
-      ? '1fr'
-      : (typeof cellWidth === 'number' ? `${cellWidth}px` : cellWidth);
-
-    // Get colors
-    const defaultColor = this.getThemeToken('colors.text.primary') || '#ffffff';
-
-    // Generate grid styles
-    const gridStyle = `
-      grid-template-columns: repeat(${cols}, ${cellWidthValue});
-      gap: ${gap}px;
-      font-family: ${fontFamily};
-      font-size: ${fontSize}px;
-      font-weight: ${fontWeight};
-    `;
+    
+    // Parse grid configuration (handles both old and new formats)
+    const gridCssProps = this._parseGridConfig(grid, cols);
+    
+    // Build grid style string from CSS properties
+    const gridStyleParts = [];
+    for (const [prop, value] of Object.entries(gridCssProps)) {
+      gridStyleParts.push(`${prop}: ${value}`);
+    }
+    
+    // Add typography from grid-wide style or config defaults
+    const gridStyle = this.config.style || {};
+    const fontSize = gridStyle.font_size || this.config.font_size || 18;
+    const fontFamily = gridStyle.font_family || this.config.font_family || "'Antonio', 'Helvetica Neue', sans-serif";
+    const fontWeight = gridStyle.font_weight || this.config.font_weight || 400;
+    
+    gridStyleParts.push(`font-family: ${fontFamily}`);
+    gridStyleParts.push(`font-size: ${typeof fontSize === 'number' ? fontSize + 'px' : fontSize}`);
+    gridStyleParts.push(`font-weight: ${fontWeight}`);
+    
+    const gridStyleStr = gridStyleParts.join('; ');
 
     return html`
       <div class="lcards-card-container">
         <div class="data-grid-container">
-          <div class="data-grid" style="${gridStyle}">
+          <div class="data-grid" style="${gridStyleStr}">
             ${this._gridData.map((row, rowIndex) =>
               row.map((cellValue, colIndex) => {
-                const cellPadding = `${gap / 2}px ${gap}px`;
+                // Resolve cell style through hierarchy
+                const cellStyle = this._getCachedCellStyle(rowIndex, colIndex, false);
+                const cellCss = this._styleToCSS(cellStyle);
+                
+                // Get alignment (default to right for cascade grid)
+                const align = cellStyle.align || this.config.align || 'right';
 
                 return html`
                   <div class="grid-cell align-${align}"
                        data-row="${rowIndex}"
                        data-col="${colIndex}"
-                       style="padding: ${cellPadding};">
+                       style="${cellCss}">
                     ${escapeHtml(String(cellValue))}
                   </div>
                 `;
@@ -1394,58 +1743,54 @@ export class LCARdSDataGrid extends LCARdSCard {
    */
   _renderSpreadsheetGrid() {
     const grid = this.config.grid || {};
-    const gap = grid.gap || 8;
-    const fontSize = this.config.font_size || 16;
-    const fontFamily = this.config.font_family || "'Antonio', 'Helvetica Neue', sans-serif";
-    const fontWeight = this.config.font_weight || 400;
-
-    // Build grid-template-columns from column config
-    const gridTemplateColumns = this._columnConfig
-      .map(col => col.width ? `${col.width}px` : '1fr')
-      .join(' ');
-
-    const gridStyle = `
-      grid-template-columns: ${gridTemplateColumns};
-      gap: ${gap}px;
-      font-family: ${fontFamily};
-      font-size: ${fontSize}px;
-      font-weight: ${fontWeight};
-    `;
-
-    // Get default colors
-    const textColor = this.getThemeToken('colors.text.primary') || '#ffffff';
-    const defaultHeaderBg = this.getThemeToken('colors.background.header') || '#1a1a1a';
-    const defaultHeaderText = this.getThemeToken('colors.text.header') || '#def';
-    const defaultDivider = this.getThemeToken('colors.divider') || '#333';
-
-    // Header styling configuration
-    const headerStyle = this.config.header_style || {};
-    const headerBgColor = this.getThemeToken(headerStyle.background, defaultHeaderBg);
-    const headerTextColor = this.getThemeToken(headerStyle.color, defaultHeaderText);
-    const headerFontSize = headerStyle.font_size || fontSize;
-    const headerFontWeight = headerStyle.font_weight || 700;
-    const headerTextTransform = headerStyle.text_transform || 'uppercase';
-    const dividerColor = this.getThemeToken(headerStyle.divider_color, defaultDivider);
-    const dividerWidth = headerStyle.divider_width || 2;
+    
+    // Build grid-template-columns from column config or parse from grid config
+    let gridCssProps;
+    if (this._columnConfig && this._columnConfig.length > 0) {
+      // Use column widths from column config
+      const gridTemplateColumns = this._columnConfig
+        .map(col => col.width ? `${col.width}px` : '1fr')
+        .join(' ');
+      
+      gridCssProps = this._parseGridConfig(grid);
+      gridCssProps['grid-template-columns'] = gridTemplateColumns;
+    } else {
+      gridCssProps = this._parseGridConfig(grid);
+    }
+    
+    // Build grid style string
+    const gridStyleParts = [];
+    for (const [prop, value] of Object.entries(gridCssProps)) {
+      gridStyleParts.push(`${prop}: ${value}`);
+    }
+    
+    // Add typography from grid-wide style or config defaults
+    const gridStyle = this.config.style || {};
+    const fontSize = gridStyle.font_size || this.config.font_size || 16;
+    const fontFamily = gridStyle.font_family || this.config.font_family || "'Antonio', 'Helvetica Neue', sans-serif";
+    const fontWeight = gridStyle.font_weight || this.config.font_weight || 400;
+    
+    gridStyleParts.push(`font-family: ${fontFamily}`);
+    gridStyleParts.push(`font-size: ${typeof fontSize === 'number' ? fontSize + 'px' : fontSize}`);
+    gridStyleParts.push(`font-weight: ${fontWeight}`);
+    
+    const gridStyleStr = gridStyleParts.join('; ');
 
     return html`
       <div class="lcards-card-container">
         <div class="data-grid-container">
-          <div class="data-grid" style="${gridStyle}">
+          <div class="data-grid" style="${gridStyleStr}">
             <!-- Column headers -->
-            ${this._columnConfig.map(col => {
-              const headerCellStyle = `
-                background: ${headerBgColor};
-                color: ${headerTextColor};
-                font-size: ${headerFontSize}px;
-                font-weight: ${headerFontWeight};
-                text-transform: ${headerTextTransform};
-                border-bottom: ${dividerWidth}px solid ${dividerColor};
-                padding: ${gap}px;
-              `;
+            ${this._columnConfig.map((col, colIndex) => {
+              // Resolve header cell style through hierarchy
+              const headerStyle = this._getCachedCellStyle(0, colIndex, true);
+              const headerCss = this._styleToCSS(headerStyle);
+              const align = col.align || headerStyle.align || 'left';
+
               return html`
-                <div class="grid-cell grid-header align-${col.align || 'left'}"
-                     style="${headerCellStyle}">
+                <div class="grid-cell grid-header align-${align}"
+                     data-col="${colIndex}"
+                     style="${headerCss}">
                   ${col.header || ''}
                 </div>
               `;
@@ -1454,12 +1799,19 @@ export class LCARdSDataGrid extends LCARdSCard {
             <!-- Data rows -->
             ${this._gridData.map((row, rowIndex) =>
               row.map((cellValue, colIndex) => {
+                // Resolve cell style through hierarchy
+                const cellStyle = this._getCachedCellStyle(rowIndex, colIndex, false);
+                const cellCss = this._styleToCSS(cellStyle);
+                
+                // Get alignment from resolved style or column config
                 const col = this._columnConfig[colIndex] || {};
+                const align = cellStyle.align || col.align || 'left';
+
                 return html`
-                  <div class="grid-cell align-${col.align || 'left'}"
+                  <div class="grid-cell align-${align}"
                        data-row="${rowIndex}"
                        data-col="${colIndex}"
-                       style="color: ${textColor}; padding: ${gap / 2}px ${gap}px;">
+                       style="${cellCss}">
                     ${escapeHtml(String(cellValue))}
                   </div>
                 `;
