@@ -68,45 +68,90 @@ src/editor/
 │   └── yaml/
 │       └── lcards-monaco-yaml-editor.js   # YAML editor with validation
 │
-├── schemas/
-│   └── button-schema.js          # JSON Schema for button card
-│
 └── utils/
-    ├── yaml-utils.js             # YAML ↔ JSON conversion
-    ├── config-merger.js          # Deep merge utilities
+    ├── yaml-utils.js             # YAML ↔ JSON conversion (uses js-yaml)
     └── schema-utils.js           # Schema validation
+
+Note: Schemas are NOT stored in editor directory. Cards register their schemas 
+with CoreConfigManager, and editors query them via window.lcardsCore.configManager.
 ```
 
 ## Creating a New Card Editor
 
-### Step 1: Create the Schema
+### Step 1: Register Schema in Card Class
+
+Schemas are registered by the card class itself, not stored in separate files. This ensures a single source of truth.
 
 ```javascript
-// src/editor/schemas/mycard-schema.js
-export const MYCARD_SCHEMA = {
-    $schema: 'http://json-schema.org/draft-07/schema#',
-    type: 'object',
-    title: 'My Card',
-    properties: {
-        type: { type: 'string', const: 'custom:lcards-mycard' },
-        entity: { type: 'string', description: 'Entity ID' },
-        // ... other properties
-    },
-    required: ['type']
-};
+// src/cards/lcards-mycard.js
+import { LCARdSCard } from '../base/LCARdSCard.js';
+
+// Import editor component for getConfigElement()
+import '../editor/cards/lcards-mycard-editor.js';
+
+export class LCARdSMyCard extends LCARdSCard {
+    
+    static CARD_TYPE = 'mycard';
+    
+    static getStubConfig() {
+        return {
+            type: 'custom:lcards-mycard',
+            entity: 'light.example'
+        };
+    }
+    
+    static getConfigElement() {
+        // Static import - editor bundled with card
+        return document.createElement('lcards-mycard-editor');
+    }
+}
+
+// Register schema with CoreConfigManager
+if (window.lcardsCore?.configManager) {
+    const configManager = window.lcardsCore.configManager;
+    
+    // Register behavioral defaults
+    configManager.registerCardDefaults('mycard', {
+        enable_hold_action: true
+    });
+    
+    // Register JSON schema for validation
+    configManager.registerCardSchema('mycard', {
+        type: 'object',
+        properties: {
+            entity: {
+                type: 'string',
+                description: 'Entity ID to control'
+            },
+            preset: {
+                type: 'string',
+                enum: ['lozenge', 'bullet', 'capped'],
+                description: 'Style preset'
+            }
+            // ... other properties
+        },
+        required: ['type']
+    });
+}
 ```
 
 ### Step 2: Create the Editor Component
+
+The editor queries the schema from the singleton rather than importing it.
 
 ```javascript
 // src/editor/cards/lcards-mycard-editor.js
 import { html } from 'lit';
 import { LCARdSBaseEditor } from '../base/LCARdSBaseEditor.js';
-import { MYCARD_SCHEMA } from '../schemas/mycard-schema.js';
 import '../components/common/lcards-card-config-section.js';
 import '../components/yaml/lcards-monaco-yaml-editor.js';
 
 export class LCARdSMyCardEditor extends LCARdSBaseEditor {
+    
+    constructor() {
+        super();
+        this.cardType = 'mycard'; // Set card type for schema lookup
+    }
     
     _getTabDefinitions() {
         return [
@@ -121,9 +166,8 @@ export class LCARdSMyCardEditor extends LCARdSBaseEditor {
         ];
     }
     
-    _getSchema() {
-        return MYCARD_SCHEMA;
-    }
+    // Note: _getSchema() is NOT overridden - base class queries singleton
+    // using this.cardType to call window.lcardsCore.configManager.getCardSchema()
     
     _renderConfigTab() {
         return html`
@@ -153,25 +197,13 @@ export class LCARdSMyCardEditor extends LCARdSBaseEditor {
 customElements.define('lcards-mycard-editor', LCARdSMyCardEditor);
 ```
 
-### Step 3: Register Editor in Card
+### Key Architecture Points
 
-```javascript
-// src/cards/lcards-mycard.js
-export class LCARdSMyCard extends LCARdSCard {
-    
-    static getStubConfig() {
-        return {
-            type: 'custom:lcards-mycard',
-            entity: 'light.example'
-        };
-    }
-    
-    static getConfigElement() {
-        import('../editor/cards/lcards-mycard-editor.js');
-        return document.createElement('lcards-mycard-editor');
-    }
-}
-```
+1. **Schema Registration**: Cards register schemas with `CoreConfigManager` during initialization
+2. **Schema Retrieval**: Editors query schemas via `window.lcardsCore.configManager.getCardSchema(cardType)`
+3. **Single Source of Truth**: Schema lives in card file, editor consumes it
+4. **Static Imports**: Editor is imported statically at top of card file (webpack compatibility)
+5. **CardType Property**: Editor sets `this.cardType` in constructor for schema lookup
 
 ## Components
 
@@ -243,6 +275,8 @@ export class LCARdSMyCard extends LCARdSCard {
 
 ### yaml-utils.js
 
+Uses `js-yaml` package (already in project) for YAML parsing.
+
 ```javascript
 import { configToYaml, yamlToConfig, validateYaml } from '../utils/yaml-utils.js';
 
@@ -254,18 +288,6 @@ const config = yamlToConfig(yamlString);
 
 // Validate YAML syntax (returns { valid, error, lineNumber })
 const result = validateYaml(yamlString);
-```
-
-### config-merger.js
-
-```javascript
-import { deepMerge, deepClone } from '../utils/config-merger.js';
-
-// Deep merge source into target
-const merged = deepMerge(target, source);
-
-// Deep clone an object
-const cloned = deepClone(original);
 ```
 
 ### schema-utils.js
@@ -281,35 +303,76 @@ const errors = validateAgainstSchema(config, schema);
 const desc = getSchemaDescription(schema, 'text.name.content');
 ```
 
-## Schema Definition
+### Deep Merge
 
-### JSON Schema Format
+The editor uses the existing `deepMerge` utility from the core config manager:
 
 ```javascript
-export const CARD_SCHEMA = {
-    $schema: 'http://json-schema.org/draft-07/schema#',
-    type: 'object',
-    title: 'Card Title',
-    description: 'Card description',
-    properties: {
-        entity: {
-            type: 'string',
-            description: 'Entity ID to control'
+// In LCARdSBaseEditor.js
+import { deepMerge } from '../../core/config-manager/merge-helpers.js';
+
+// Use for merging partial config updates
+this.config = deepMerge(this.config, updates);
+```
+
+## Schema Definition
+
+### Schema Registration Pattern
+
+Schemas are registered by card classes, not stored in separate files:
+
+```javascript
+// In card file (e.g., src/cards/lcards-button.js)
+if (window.lcardsCore?.configManager) {
+    const configManager = window.lcardsCore.configManager;
+    
+    configManager.registerCardSchema('button', {
+        type: 'object',
+        title: 'Button Card',
+        description: 'Interactive button card',
+        properties: {
+            entity: {
+                type: 'string',
+                description: 'Entity ID to control'
+            },
+            preset: {
+                type: 'string',
+                enum: ['lozenge', 'bullet', 'capped'],
+                description: 'Style preset'
+            },
+            tap_action: {
+                type: 'object',
+                description: 'Action on tap'
+            }
         },
-        preset: {
-            type: 'string',
-            enum: ['option1', 'option2', 'option3'],
-            description: 'Style preset'
-        },
-        count: {
-            type: 'number',
-            minimum: 1,
-            maximum: 100,
-            description: 'Count value'
-        }
-    },
-    required: ['entity']
-};
+        required: ['type']
+    });
+}
+```
+
+### Editor Schema Query
+
+Editors retrieve schemas from the singleton:
+
+```javascript
+// In LCARdSBaseEditor._getSchema()
+_getSchema() {
+    const configManager = window.lcardsCore?.configManager;
+    
+    if (!configManager) {
+        console.warn('[LCARdSBaseEditor] CoreConfigManager not available');
+        return {};
+    }
+    
+    const schema = configManager.getCardSchema(this.cardType);
+    
+    if (!schema) {
+        console.warn(`[LCARdSBaseEditor] No schema registered for card type: ${this.cardType}`);
+        return {};
+    }
+    
+    return schema;
+}
 ```
 
 ### Supported Schema Features
@@ -324,24 +387,16 @@ export const CARD_SCHEMA = {
 
 ## Code Splitting
 
-Editors are automatically code-split by Webpack:
+Editors are bundled with the card using static imports (current webpack configuration):
 
 ```
-lcards.js (main bundle)
-    - All card implementations
-    - Core functionality
-    
-vendors-[hash].lcards.js (vendor bundle)
-    - Third-party libraries
-    - Custom card helpers
-    - YAML parser
-    
-src_editor_cards_lcards-button-editor_js.lcards.js (editor bundle)
-    - Editor components
-    - Only loaded when editor is opened
+Main bundle: lcards.js (includes all cards and editors)
+  - Cards register schemas at initialization
+  - Editors query schemas from singleton at runtime
+  - Editor components statically imported in card files
 ```
 
-This keeps the main card bundle small and only loads the editor when needed.
+Future webpack configuration could enable code splitting for smaller initial bundle size.
 
 ## Styling
 
