@@ -21,6 +21,7 @@
     "build": "webpack --mode production",
     "build:dev": "webpack --mode development",
     "generate-editor-json": "node src/editor/cb-lcars_generate_editor_forms.js",
+    "verify-editor": "node scripts/verify-editor-imports.js",
     "analyze": "webpack --profile --json > stats.json && webpack-bundle-analyzer stats.json"
   },
   "devDependencies": {
