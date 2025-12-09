@@ -71,6 +71,39 @@ export class LCARdSBaseEditor extends LitElement {
                     padding: 16px 0;
                     min-height: 400px;
                 }
+
+                /* Section styles */
+                ha-expansion-panel {
+                    margin-bottom: 16px;
+                    border-radius: var(--ha-card-border-radius, 12px);
+                }
+                
+                ha-expansion-panel[outlined] {
+                    border: 2px solid var(--divider-color);
+                }
+                
+                ha-expansion-panel[expanded] {
+                    background-color: var(--secondary-background-color);
+                }
+                
+                /* Form field spacing */
+                .form-field {
+                    margin-bottom: 16px;
+                }
+                
+                /* Two-column grid */
+                .form-row-group {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 16px;
+                    margin-bottom: 16px;
+                }
+                
+                @media (max-width: 768px) {
+                    .form-row-group {
+                        grid-template-columns: 1fr;
+                    }
+                }
             `
         ];
     }
@@ -139,6 +172,8 @@ export class LCARdSBaseEditor extends LitElement {
                 <div class="tab-content">
                     ${this._renderTabContent(tabs[this._selectedTab])}
                 </div>
+
+                ${this._renderValidationErrors()}
             </div>
         `;
     }
@@ -325,5 +360,124 @@ export class LCARdSBaseEditor extends LitElement {
         }
 
         return schema;
+    }
+
+    /**
+     * Get config value by dot-notation path
+     * @param {string} path - Path like 'style.color.border.default'
+     * @returns {*} Value at path or undefined
+     * @public
+     */
+    _getConfigValue(path) {
+        if (!path) return undefined;
+        
+        const keys = path.split('.');
+        let value = this.config;
+        
+        for (const key of keys) {
+            if (value === null || value === undefined) {
+                return undefined;
+            }
+            value = value[key];
+        }
+        
+        return value;
+    }
+
+    /**
+     * Set config value by dot-notation path
+     * @param {string} path - Path like 'style.color.border.default'
+     * @param {*} value - Value to set
+     * @public
+     */
+    _setConfigValue(path, value) {
+        if (!path) {
+            console.warn('[LCARdSBaseEditor] Cannot set config value with empty path');
+            return;
+        }
+
+        const keys = path.split('.');
+        const updates = {};
+        let current = updates;
+
+        // Build nested object structure
+        for (let i = 0; i < keys.length - 1; i++) {
+            current[keys[i]] = {};
+            current = current[keys[i]];
+        }
+
+        // Set final value
+        current[keys[keys.length - 1]] = value;
+
+        // Merge and update
+        this._updateConfig(updates);
+    }
+
+    /**
+     * Get schema for specific path
+     * @param {string} path - Dot-notation path
+     * @returns {Object|null} Schema object for property
+     * @public
+     */
+    _getSchemaForPath(path) {
+        if (!path) return null;
+
+        const schema = this._getSchema();
+        if (!schema || !schema.properties) return null;
+
+        const keys = path.split('.');
+        let currentSchema = schema;
+
+        for (const key of keys) {
+            if (!currentSchema.properties || !currentSchema.properties[key]) {
+                return null;
+            }
+            currentSchema = currentSchema.properties[key];
+        }
+
+        return currentSchema;
+    }
+
+    /**
+     * Evaluate condition for visibility/disabled states
+     * Conditions can reference:
+     * - config (current config)
+     * - hass (Home Assistant instance)
+     * 
+     * @param {string} condition - JavaScript expression to evaluate
+     * @returns {boolean} Evaluation result
+     * @protected
+     */
+    _evaluateCondition(condition) {
+        if (!condition) return true;
+
+        try {
+            const func = new Function('config', 'hass', `return ${condition};`);
+            return func(this.config, this.hass);
+        } catch (err) {
+            console.warn('[LCARdSBaseEditor] Condition evaluation failed:', condition, err);
+            return true; // Default to visible on error
+        }
+    }
+
+    /**
+     * Render validation errors
+     * @returns {TemplateResult}
+     * @protected
+     */
+    _renderValidationErrors() {
+        if (!this._validationErrors || this._validationErrors.length === 0) {
+            return html``;
+        }
+
+        return html`
+            <ha-alert alert-type="error" title="Validation Errors">
+                <ul>
+                    ${this._validationErrors.map(err => html`
+                        <li>${err.path ? `${err.path}: ` : ''}${err.message}</li>
+                    `)}
+                </ul>
+            </ha-alert>
+        `;
     }
 }
