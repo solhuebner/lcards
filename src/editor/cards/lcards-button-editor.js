@@ -1,7 +1,7 @@
 /**
  * LCARdS Button Editor
  *
- * Visual editor for LCARdS Button card. Demonstrates tab structure and component integration.
+ * Visual editor for LCARdS Button card. Demonstrates schema-driven form components.
  */
 
 import { html } from 'lit';
@@ -9,6 +9,10 @@ import { LCARdSBaseEditor } from '../base/LCARdSBaseEditor.js';
 import '../components/common/lcards-card-config-section.js';
 import '../components/common/lcards-action-editor.js';
 import '../components/yaml/lcards-monaco-yaml-editor.js';
+// Import new form components
+import '../components/form/lcards-form-field.js';
+import '../components/form/lcards-form-section.js';
+import '../components/form/lcards-grid-layout.js';
 
 export class LCARdSButtonEditor extends LCARdSBaseEditor {
 
@@ -25,8 +29,12 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
     _getTabDefinitions() {
         return [
             {
-                label: 'Card Config',
+                label: 'Configuration',
                 content: () => this._renderCardConfigTab()
+            },
+            {
+                label: 'Text & Icon',
+                content: () => this._renderTextIconTab()
             },
             {
                 label: 'Actions',
@@ -40,33 +48,85 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
     }
 
     /**
-     * Render Card Configuration tab
+     * Render Card Configuration tab (using new components)
      * @returns {TemplateResult}
      * @private
      */
     _renderCardConfigTab() {
         return html`
-            <lcards-card-config-section
-                .hass=${this.hass}
-                .config=${this.config}
-                .schema=${this._getSchema()}>
-            </lcards-card-config-section>
+            <!-- Basic Configuration Section -->
+            <lcards-form-section
+                header="Basic Configuration"
+                description="Core card settings"
+                ?expanded=${true}>
+                
+                <lcards-form-field
+                    .editor=${this}
+                    path="entity"
+                    label="Entity">
+                </lcards-form-field>
 
-            <div class="section" style="margin-top: 24px;">
-                <div class="section-header">Text Content</div>
-                <div class="section-description">
-                    Configure the button's text labels. Each text field can be positioned independently.
-                </div>
+                <lcards-form-field
+                    .editor=${this}
+                    path="id"
+                    label="Card ID"
+                    helper="Optional custom ID for targeting with rules">
+                </lcards-form-field>
+
+                <lcards-form-field
+                    .editor=${this}
+                    path="preset"
+                    label="Preset Style">
+                </lcards-form-field>
+            </lcards-form-section>
+
+            <!-- Layout Section -->
+            <lcards-form-section
+                header="Layout"
+                description="Grid positioning and sizing"
+                ?expanded=${false}>
+                
+                <lcards-grid-layout>
+                    <lcards-form-field
+                        .editor=${this}
+                        path="grid_columns"
+                        label="Grid Columns">
+                    </lcards-form-field>
+
+                    <lcards-form-field
+                        .editor=${this}
+                        path="grid_rows"
+                        label="Grid Rows">
+                    </lcards-form-field>
+                </lcards-grid-layout>
+            </lcards-form-section>
+        `;
+    }
+
+    /**
+     * Render Text & Icon tab (using new components)
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderTextIconTab() {
+        return html`
+            <!-- Text Configuration -->
+            <lcards-form-section
+                header="Text Content"
+                description="Configure button text labels"
+                ?expanded=${true}>
+                
                 ${this._renderTextConfig()}
-            </div>
+            </lcards-form-section>
 
-            <div class="section" style="margin-top: 24px;">
-                <div class="section-header">Icon</div>
-                <div class="section-description">
-                    Configure the button's icon. Use "entity" to automatically use the entity's icon.
-                </div>
+            <!-- Icon Configuration -->
+            <lcards-form-section
+                header="Icon"
+                description="Configure button icon"
+                ?expanded=${false}>
+                
                 ${this._renderIconConfig()}
-            </div>
+            </lcards-form-section>
         `;
     }
 
@@ -199,47 +259,47 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
     }
 
     /**
-     * Render Actions tab
+     * Render Actions tab (using new form components)
      * @returns {TemplateResult}
      * @private
      */
     _renderActionsTab() {
         return html`
-            <div class="section">
-                <div class="section-header">Tap Action</div>
-                <div class="section-description">
-                    Action to perform when the button is tapped
-                </div>
+            <lcards-form-section
+                header="Tap Action"
+                description="Action to perform when the button is tapped"
+                ?expanded=${true}>
+                
                 <lcards-action-editor
                     .hass=${this.hass}
                     .action=${this.config.tap_action || { action: 'toggle' }}
-                    @value-changed=${(e) => this._updateConfig({ tap_action: e.detail.value })}>
+                    @value-changed=${(e) => this._setConfigValue('tap_action', e.detail.value)}>
                 </lcards-action-editor>
-            </div>
+            </lcards-form-section>
 
-            <div class="section">
-                <div class="section-header">Double Tap Action (Optional)</div>
-                <div class="section-description">
-                    Action to perform when the button is double-tapped
-                </div>
+            <lcards-form-section
+                header="Double Tap Action"
+                description="Action to perform when the button is double-tapped (optional)"
+                ?expanded=${false}>
+                
                 <lcards-action-editor
                     .hass=${this.hass}
                     .action=${this.config.double_tap_action || { action: 'none' }}
-                    @value-changed=${(e) => this._updateConfig({ double_tap_action: e.detail.value })}>
+                    @value-changed=${(e) => this._setConfigValue('double_tap_action', e.detail.value)}>
                 </lcards-action-editor>
-            </div>
+            </lcards-form-section>
 
-            <div class="section">
-                <div class="section-header">Hold Action (Optional)</div>
-                <div class="section-description">
-                    Action to perform when the button is held
-                </div>
+            <lcards-form-section
+                header="Hold Action"
+                description="Action to perform when the button is held (optional)"
+                ?expanded=${false}>
+                
                 <lcards-action-editor
                     .hass=${this.hass}
                     .action=${this.config.hold_action || { action: 'more-info' }}
-                    @value-changed=${(e) => this._updateConfig({ hold_action: e.detail.value })}>
+                    @value-changed=${(e) => this._setConfigValue('hold_action', e.detail.value)}>
                 </lcards-action-editor>
-            </div>
+            </lcards-form-section>
         `;
     }
 

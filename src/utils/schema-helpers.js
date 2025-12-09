@@ -39,7 +39,7 @@ export function getSchemaAtPath(schema, path) {
  * @returns {boolean}
  * 
  * @example
- * if (hasFormat(schema, 'entity')) { /* render entity picker */ }
+ * if (hasFormat(schema, 'entity')) render entity picker
  */
 export function hasFormat(propertySchema, format) {
     return propertySchema?.format === format;
@@ -52,7 +52,7 @@ export function hasFormat(propertySchema, format) {
  * @returns {boolean}
  * 
  * @example
- * if (isType(schema, 'boolean')) { /* render checkbox */ }
+ * if (isType(schema, 'boolean')) render checkbox
  */
 export function isType(propertySchema, type) {
     return propertySchema?.type === type;
@@ -64,7 +64,7 @@ export function isType(propertySchema, type) {
  * @returns {boolean}
  * 
  * @example
- * if (hasEnum(schema)) { /* render select dropdown */ }
+ * if (hasEnum(schema)) render select dropdown
  */
 export function hasEnum(propertySchema) {
     return Array.isArray(propertySchema?.enum) && propertySchema.enum.length > 0;
@@ -166,7 +166,7 @@ export function getEffectiveHelper(propertySchema, explicitHelper) {
  * @returns {boolean}
  * 
  * @example
- * if (isRequired(schema, 'entity')) { /* show required indicator */ }
+ * if (isRequired(schema, 'entity')) show required indicator
  */
 export function isRequired(parentSchema, propertyName) {
     return Array.isArray(parentSchema?.required) && 
