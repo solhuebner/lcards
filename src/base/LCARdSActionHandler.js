@@ -448,7 +448,7 @@ export class LCARdSActionHandler {
                 this._handleToggle(hass, entityId);
                 break;
             case 'more-info':
-                this._handleMoreInfo(hass, entityId);
+                this._handleMoreInfo(hass, entityId, element);
                 break;
             case 'call-service':
                 this._handleCallService(hass, actionConfig);
@@ -635,7 +635,7 @@ export class LCARdSActionHandler {
      * Handle more-info action
      * @private
      */
-    _handleMoreInfo(hass, entityId) {
+    _handleMoreInfo(hass, entityId, element) {
         if (!entityId) {
             lcardsLog.warn(`[LCARdSActionHandler] More info action requires entity`);
             return;
@@ -648,7 +648,14 @@ export class LCARdSActionHandler {
             bubbles: true,
             composed: true
         });
-        document.dispatchEvent(event);
+
+        // Dispatch from the element to ensure proper bubbling through shadow DOM
+        if (element) {
+            element.dispatchEvent(event);
+        } else {
+            // Fallback to document if element not available
+            document.dispatchEvent(event);
+        }
     }
 
     /**
