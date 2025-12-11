@@ -4865,6 +4865,7 @@ export class LCARdSButton extends LCARdSCard {
             // Core Properties
             entity: {
                 type: 'string',
+                format: 'entity',
                 description: 'Entity ID to control (optional - if omitted, always uses "active" state)'
             },
             id: {
@@ -5125,11 +5126,11 @@ export class LCARdSButton extends LCARdSCard {
             // Icon Configuration
             icon: {
                 oneOf: [
-                    { type: 'string', description: 'Simple icon: "mdi:lightbulb", "si:github", "entity", or null' },
+                    { type: 'string', format: 'icon', description: 'Simple icon: "mdi:lightbulb", "si:github", "entity", or null' },
                     {
                         type: 'object',
                         properties: {
-                            icon: { type: 'string', description: 'Icon name ("mdi:lightbulb", "si:github", "entity")' },
+                            icon: { type: 'string', format: 'icon', description: 'Icon name ("mdi:lightbulb", "si:github", "entity")' },
                             position: {
                                 type: 'string',
                                 enum: ['top-left', 'top-center', 'top-right', 'left-center', 'center', 'right-center', 'bottom-left', 'bottom-center', 'bottom-right', 'top', 'bottom', 'left', 'right'],

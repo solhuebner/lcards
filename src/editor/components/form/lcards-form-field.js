@@ -67,6 +67,7 @@ export class LCARdSFormField extends LitElement {
                 display: flex;
                 align-items: center;
                 gap: 4px;
+                padding: 2px 8px;
             }
 
             label .required {
@@ -77,12 +78,22 @@ export class LCARdSFormField extends LitElement {
                 font-size: 12px;
                 color: var(--secondary-text-color, #727272);
                 line-height: 1.4;
+                padding: 0 8px;
+            }
+
+            .form-control {
+                padding: 2px 8px;
             }
 
             ha-selector,
             ha-entity-picker,
             ha-textfield {
                 width: 100%;
+                display: block;
+            }
+
+            ha-entity-picker {
+                --ha-select-min-width: 200px;
             }
         `;
     }
@@ -153,9 +164,11 @@ export class LCARdSFormField extends LitElement {
                     ${this._effectiveLabel}
                     ${this.required ? html`<span class="required">*</span>` : ''}
                 </label>
-                
-                ${this._renderControl(schema)}
-                
+
+                <div class="form-control">
+                    ${this._renderControl(schema)}
+                </div>
+
                 ${this._effectiveHelper ? html`
                     <div class="helper-text">${this._effectiveHelper}</div>
                 ` : ''}
@@ -177,6 +190,10 @@ export class LCARdSFormField extends LitElement {
 
         if (hasFormat(schema, 'color')) {
             return this._renderColorSelector();
+        }
+
+        if (hasFormat(schema, 'icon')) {
+            return this._renderIconSelector();
         }
 
         if (hasFormat(schema, 'action')) {
@@ -218,28 +235,49 @@ export class LCARdSFormField extends LitElement {
      * @private
      */
     _renderEntityPicker() {
+        // Use ha-selector with entity selector (modern approach)
+        // This is more consistent and better supported than ha-entity-picker
         return html`
-            <ha-entity-picker
+            <ha-selector
                 .hass=${this.editor.hass}
-                .value=${this._value}
+                .selector=${{ entity: {} }}
+                .value=${this._value || ''}
                 .disabled=${this.disabled}
+                .required=${this.required}
                 @value-changed=${this._handleValueChange}>
-            </ha-entity-picker>
+            </ha-selector>
         `;
     }
 
     /**
-     * Render color selector (custom component)
+     * Render color selector
      * @returns {TemplateResult}
      * @private
      */
     _renderColorSelector() {
-        // TODO: Implement lcards-color-selector component
-        // For now, use a text input as fallback
+        // Use HA's ui-color selector for color picking
         return html`
             <ha-selector
                 .hass=${this.editor.hass}
-                .selector=${{ text: {} }}
+                .selector=${{ ui_color: {} }}
+                .value=${this._value || ''}
+                .disabled=${this.disabled}
+                @value-changed=${this._handleValueChange}>
+            </ha-selector>
+        `;
+    }
+
+    /**
+     * Render icon selector
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderIconSelector() {
+        // Use HA's icon selector for icon picking
+        return html`
+            <ha-selector
+                .hass=${this.editor.hass}
+                .selector=${{ icon: {} }}
                 .value=${this._value || ''}
                 .disabled=${this.disabled}
                 @value-changed=${this._handleValueChange}>
@@ -385,7 +423,7 @@ export class LCARdSFormField extends LitElement {
      */
     _handleValueChange(ev) {
         ev.stopPropagation();
-        
+
         if (!this.editor || !this.path) return;
 
         const newValue = ev.detail.value;

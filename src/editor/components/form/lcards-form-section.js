@@ -24,7 +24,11 @@ export class LCARdSFormSection extends LitElement {
             description: { type: String },    // Optional description
             expanded: { type: Boolean },      // Expanded state
             outlined: { type: Boolean },      // Show border
-            leftChevron: { type: Boolean }    // Chevron position
+            leftChevron: { type: Boolean },   // Chevron position
+            icon: { type: String },           // Icon for section header
+            headerLevel: { type: Number },    // Header level (h1-h6)
+            secondary: { type: String },      // Secondary text for header
+            noCollapse: { type: Boolean }     // Disable collapsing
         };
     }
 
@@ -33,8 +37,12 @@ export class LCARdSFormSection extends LitElement {
         this.header = '';
         this.description = '';
         this.expanded = false;
-        this.outlined = false;
+        this.outlined = true;
         this.leftChevron = false;
+        this.icon = '';
+        this.headerLevel = 4;
+        this.secondary = '';
+        this.noCollapse = false;
     }
 
     static get styles() {
@@ -45,11 +53,15 @@ export class LCARdSFormSection extends LitElement {
             }
 
             ha-expansion-panel {
-                border-radius: var(--ha-card-border-radius, 12px);
+                border-radius: var(--ha-card-border-radius, 24px);
             }
 
             ha-expansion-panel[outlined] {
-                border: 2px solid var(--divider-color, #e0e0e0);
+                border: 2px solid var(--chip-background-color, #e0e0e0);
+            }
+
+            ha-expansion-panel[expanded] {
+                background-color: var(--chip-background-color, #f5f5f5);
             }
 
             .section-content {
@@ -66,6 +78,17 @@ export class LCARdSFormSection extends LitElement {
             ::slotted(*) {
                 display: block;
             }
+
+            /* Icon spacing in headers */
+            h1 ha-icon,
+            h2 ha-icon,
+            h3 ha-icon,
+            h4 ha-icon,
+            h5 ha-icon,
+            h6 ha-icon {
+                margin-right: 8px;
+                vertical-align: middle;
+            }
         `;
     }
 
@@ -77,13 +100,31 @@ export class LCARdSFormSection extends LitElement {
             return this._renderFallback();
         }
 
+        // Build header HTML with icon and secondary text
+        const headerTag = `h${this.headerLevel}`;
+        const headerContent = `
+            <${headerTag} slot="header">
+                ${this.icon ? `<ha-icon icon="${this.icon}"></ha-icon>` : ''}
+                ${this.header}
+            </${headerTag}>
+        `;
+
         return html`
             <ha-expansion-panel
                 .header=${this.header}
                 ?expanded=${this.expanded}
                 ?outlined=${this.outlined}
                 ?leftChevron=${this.leftChevron}
+                .noCollapse=${this.noCollapse}
+                .secondary=${this.secondary}
                 @expanded-changed=${this._handleExpandedChange}>
+                ${this.icon || this.secondary ? html`
+                    <div slot="header">
+                        ${this.icon ? html`<ha-icon icon="${this.icon}"></ha-icon>` : ''}
+                        <span>${this.header}</span>
+                        ${this.secondary ? html`<span slot="secondary">${this.secondary}</span>` : ''}
+                    </div>
+                ` : ''}
                 <div class="section-content">
                     ${this.description ? html`
                         <div class="section-description">${this.description}</div>
@@ -108,11 +149,14 @@ export class LCARdSFormSection extends LitElement {
                     padding: 12px;
                     background: var(--secondary-background-color, #f5f5f5);
                     border-radius: 4px;
-                    cursor: pointer;
-                " @click=${this._toggleExpanded}>
-                    ${this.expanded ? '▼' : '▶'} ${this.header}
+                    cursor: ${this.noCollapse ? 'default' : 'pointer'};
+                " @click=${this.noCollapse ? null : this._toggleExpanded}>
+                    ${!this.noCollapse ? (this.expanded ? '▼' : '▶') : ''}
+                    ${this.icon ? html`<ha-icon icon="${this.icon}" style="margin-right: 8px;"></ha-icon>` : ''}
+                    ${this.header}
+                    ${this.secondary ? html`<span style="color: var(--secondary-text-color); margin-left: 8px;">${this.secondary}</span>` : ''}
                 </div>
-                ${this.expanded ? html`
+                ${this.expanded || this.noCollapse ? html`
                     <div style="padding: 16px;">
                         ${this.description ? html`
                             <div class="section-description">${this.description}</div>

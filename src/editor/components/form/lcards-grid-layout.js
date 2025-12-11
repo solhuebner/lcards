@@ -25,7 +25,7 @@ export class LCARdSGridLayout extends LitElement {
     constructor() {
         super();
         this.columns = 2;
-        this.gap = '16px';
+        this.gap = '8px';
     }
 
     static get styles() {
@@ -37,7 +37,7 @@ export class LCARdSGridLayout extends LitElement {
 
             .grid-layout {
                 display: grid;
-                gap: var(--grid-gap, 16px);
+                gap: var(--grid-gap, 8px);
                 grid-template-columns: var(--grid-columns, 1fr 1fr);
             }
 
@@ -49,6 +49,11 @@ export class LCARdSGridLayout extends LitElement {
 
             ::slotted(*) {
                 display: block;
+            }
+
+            /* Match legacy two-controls styling */
+            ::slotted(lcards-form-field) {
+                margin-bottom: 0;
             }
         `;
     }

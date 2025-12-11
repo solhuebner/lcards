@@ -8,6 +8,8 @@ import { html } from 'lit';
 import { LCARdSBaseEditor } from '../base/LCARdSBaseEditor.js';
 import '../components/common/lcards-card-config-section.js';
 import '../components/common/lcards-action-editor.js';
+import '../components/common/lcards-message.js';
+import '../components/common/lcards-divider.js';
 import '../components/yaml/lcards-monaco-yaml-editor.js';
 // Import new form components
 import '../components/form/lcards-form-field.js';
@@ -54,12 +56,21 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
      */
     _renderCardConfigTab() {
         return html`
+            <!-- Info Message -->
+            <lcards-message
+                type="info"
+                message="Configure the basic settings for your LCARS button card. Select an entity to control or leave blank for a static button.">
+            </lcards-message>
+
             <!-- Basic Configuration Section -->
             <lcards-form-section
                 header="Basic Configuration"
                 description="Core card settings"
-                ?expanded=${true}>
-                
+                icon="mdi:cog"
+                ?expanded=${true}
+                ?outlined=${true}
+                headerLevel="4">
+
                 <lcards-form-field
                     .editor=${this}
                     path="entity"
@@ -84,8 +95,11 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
             <lcards-form-section
                 header="Layout"
                 description="Grid positioning and sizing"
-                ?expanded=${false}>
-                
+                icon="mdi:grid"
+                ?expanded=${false}
+                ?outlined=${true}
+                headerLevel="4">
+
                 <lcards-grid-layout>
                     <lcards-form-field
                         .editor=${this}
@@ -114,8 +128,11 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
             <lcards-form-section
                 header="Text Content"
                 description="Configure button text labels"
-                ?expanded=${true}>
-                
+                icon="mdi:format-textbox"
+                ?expanded=${true}
+                ?outlined=${true}
+                headerLevel="4">
+
                 ${this._renderTextConfig()}
             </lcards-form-section>
 
@@ -123,8 +140,11 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
             <lcards-form-section
                 header="Icon"
                 description="Configure button icon"
-                ?expanded=${false}>
-                
+                icon="mdi:alpha-i-circle-outline"
+                ?expanded=${false}
+                ?outlined=${true}
+                headerLevel="4">
+
                 ${this._renderIconConfig()}
             </lcards-form-section>
         `;
@@ -199,37 +219,24 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
      * @private
      */
     _renderIconConfig() {
-        const icon = this.config.icon || {};
-        const iconValue = typeof icon === 'string' ? icon : icon.icon;
+        // Note: icon can be either a string or an object with { icon, position, etc }
+        // For simplicity in the editor, we'll handle the simple string case
+        // TODO: Add support for complex icon object configuration
 
         return html`
-            <div class="form-row">
-                <label>Icon</label>
-                <input
-                    type="text"
-                    .value=${iconValue || ''}
-                    @input=${(e) => this._updateIcon('icon', e.target.value)}
-                    placeholder="mdi:lightbulb or 'entity' for entity icon">
-                <div class="helper-text">
-                    Use "entity" to use the entity's icon, or specify an MDI icon like "mdi:lightbulb"
-                </div>
-            </div>
+            <lcards-form-field
+                .editor=${this}
+                path="icon"
+                label="Icon"
+                helper="Use 'entity' for entity's icon, or specify an MDI icon like 'mdi:lightbulb'">
+            </lcards-form-field>
 
-            <div class="form-row">
-                <label>Icon Area</label>
-                <select
-                    .value=${this.config.icon_area || 'left'}
-                    @change=${(e) => this._updateConfig({ icon_area: e.target.value })}>
-                    <option value="left">Left</option>
-                    <option value="right">Right</option>
-                    <option value="top">Top</option>
-                    <option value="bottom">Bottom</option>
-                    <option value="none">None (Absolute Position)</option>
-                </select>
-                <div class="helper-text">
-                    Where the icon's reserved space is located
-                </div>
-            </div>
+            <lcards-form-field
+                .editor=${this}
+                path="icon_area"
+                label="Icon Area"
+                helper="Where the icon's reserved space is located">
+            </lcards-form-field>
         `;
     }
 
@@ -268,8 +275,11 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
             <lcards-form-section
                 header="Tap Action"
                 description="Action to perform when the button is tapped"
-                ?expanded=${true}>
-                
+                icon="mdi:gesture-tap"
+                ?expanded=${true}
+                ?outlined=${true}
+                headerLevel="4">
+
                 <lcards-action-editor
                     .hass=${this.hass}
                     .action=${this.config.tap_action || { action: 'toggle' }}
@@ -280,8 +290,11 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
             <lcards-form-section
                 header="Double Tap Action"
                 description="Action to perform when the button is double-tapped (optional)"
-                ?expanded=${false}>
-                
+                icon="mdi:gesture-double-tap"
+                ?expanded=${false}
+                ?outlined=${true}
+                headerLevel="4">
+
                 <lcards-action-editor
                     .hass=${this.hass}
                     .action=${this.config.double_tap_action || { action: 'none' }}
@@ -292,8 +305,11 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
             <lcards-form-section
                 header="Hold Action"
                 description="Action to perform when the button is held (optional)"
-                ?expanded=${false}>
-                
+                icon="mdi:gesture-tap-hold"
+                ?expanded=${false}
+                ?outlined=${true}
+                headerLevel="4">
+
                 <lcards-action-editor
                     .hass=${this.hass}
                     .action=${this.config.hold_action || { action: 'more-info' }}
