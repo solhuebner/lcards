@@ -2024,7 +2024,8 @@ export class LCARdSButton extends LCARdSCard {
 
         lcardsLog.trace('[LCARdSButton] Icon parsed:', parsedIcon);
 
-        if (parsedIcon) {
+        // Only process icon if both icon exists AND show_icon is true
+        if (parsedIcon && show_icon) {
             // Handle 'entity' icon - either type='entity' OR type='mdi' with icon='entity'
             // This covers both cases from base class _parseIconString
             if (parsedIcon.type === 'entity' || (parsedIcon.type === 'mdi' && parsedIcon.icon === 'entity')) {
