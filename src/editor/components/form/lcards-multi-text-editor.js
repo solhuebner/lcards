@@ -53,10 +53,6 @@ export class LCARdSMultiTextEditor extends LitElement {
 
             .add-field-select {
                 flex: 1;
-                padding: 8px;
-                border: 1px solid var(--divider-color, #e0e0e0);
-                border-radius: 4px;
-                background: white;
             }
 
             .add-field-button {
@@ -436,20 +432,24 @@ export class LCARdSMultiTextEditor extends LitElement {
      * @private
      */
     _renderAddFieldSection() {
-        const commonFields = ['name', 'label', 'state', 'value', 'unit'];
+        const commonFields = ['name', 'label', 'state'];
         const textConfig = this.editor.config?.text || {};
         const existingFields = Object.keys(textConfig).filter(k => k !== 'default');
         const availableFields = commonFields.filter(f => !existingFields.includes(f));
 
         return html`
             <div class="add-field-section">
-                <select class="add-field-select" id="fieldSelect">
-                    <option value="">-- Select field to add --</option>
+                <ha-select
+                    class="add-field-select"
+                    id="fieldSelect"
+                    @selected=${this._handleFieldSelected}
+                    @closed=${(e) => e.stopPropagation()}>
+                    <mwc-list-item value="">-- Select field to add --</mwc-list-item>
                     ${availableFields.map(field => html`
-                        <option value="${field}">${field}</option>
+                        <mwc-list-item value="${field}">${field}</mwc-list-item>
                     `)}
-                    <option value="custom">Custom field name...</option>
-                </select>
+                    <mwc-list-item value="custom">Custom field name...</mwc-list-item>
+                </ha-select>
                 <button
                     class="add-field-button"
                     @click=${this._handleAddField}>
@@ -460,12 +460,20 @@ export class LCARdSMultiTextEditor extends LitElement {
     }
 
     /**
+     * Handle field selection change
+     * @private
+     */
+    _handleFieldSelected(e) {
+        // Store the selected value for the add button click
+        this._selectedField = e.target.value;
+    }
+
+    /**
      * Handle add field button click
      * @private
      */
     _handleAddField() {
-        const select = this.shadowRoot.getElementById('fieldSelect');
-        const fieldName = select.value;
+        const fieldName = this._selectedField;
 
         if (!fieldName) return;
 
@@ -481,7 +489,11 @@ export class LCARdSMultiTextEditor extends LitElement {
         }
 
         // Reset select
-        select.value = '';
+        const select = this.shadowRoot.getElementById('fieldSelect');
+        if (select) {
+            select.value = '';
+            this._selectedField = '';
+        }
     }
 
     /**
