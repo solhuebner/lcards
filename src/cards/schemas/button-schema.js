@@ -406,38 +406,9 @@ export function getButtonSchema(options = {}) {
             dpad: {
                 type: 'object',
                 properties: {
-                    default: {
-                        type: 'object',
-                        description: 'Default configuration applied to all segments (can be overridden per-segment)',
-                        properties: {
-                            color: stateColorSchema,
-                            tap_action: actionSchema,
-                            hold_action: actionSchema,
-                            double_tap_action: actionSchema,
-                            style: {
-                                type: 'object',
-                                description: 'Default SVG styling for all segments',
-                                properties: {
-                                    fill: stateColorSchema,
-                                    stroke: stateColorSchema,
-                                    'stroke-width': {
-                                        anyOf: [
-                                            { type: 'number' },
-                                            { type: 'string' },
-                                            stateColorSchema
-                                        ]
-                                    }
-                                }
-                            },
-                            animations: {
-                                type: 'array',
-                                items: animationSchema
-                            }
-                        }
-                    },
                     segments: {
                         type: 'object',
-                        description: 'Per-segment configuration (supports all 9 segments: up, down, left, right, up-left, up-right, down-left, down-right, center). Segment-specific config overrides default config.',
+                        description: 'Segment configurations. Use "default" key for common properties applied to all segments. Other keys are segment IDs (up, down, left, right, up-left, up-right, down-left, down-right, center).',
                         additionalProperties: {
                             type: 'object',
                             properties: {
@@ -453,7 +424,6 @@ export function getButtonSchema(options = {}) {
                                 tap_action: actionSchema,
                                 hold_action: actionSchema,
                                 double_tap_action: actionSchema,
-                                color: stateColorSchema,
                                 style: {
                                     type: 'object',
                                     description: 'SVG styling for the segment',

@@ -57,7 +57,7 @@ export class LCARdSMultiActionEditor extends LitElement {
                     ?expanded=${true}
                     ?outlined=${true}
                     headerLevel="5">
-                    
+
                     <lcards-action-editor
                         .hass=${this.hass}
                         .action=${this.actions.tap_action || { action: 'toggle' }}
@@ -73,7 +73,7 @@ export class LCARdSMultiActionEditor extends LitElement {
                     ?expanded=${false}
                     ?outlined=${true}
                     headerLevel="5">
-                    
+
                     <lcards-action-editor
                         .hass=${this.hass}
                         .action=${this.actions.hold_action || { action: 'more-info' }}
@@ -89,7 +89,7 @@ export class LCARdSMultiActionEditor extends LitElement {
                     ?expanded=${false}
                     ?outlined=${true}
                     headerLevel="5">
-                    
+
                     <lcards-action-editor
                         .hass=${this.hass}
                         .action=${this.actions.double_tap_action || { action: 'none' }}
@@ -107,6 +107,9 @@ export class LCARdSMultiActionEditor extends LitElement {
      * @private
      */
     _handleActionChange(actionType, event) {
+        // Stop the inner action-editor event from bubbling
+        event.stopPropagation();
+
         const updatedActions = {
             ...this.actions,
             [actionType]: event.detail.value

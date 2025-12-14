@@ -284,32 +284,73 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                 render: () => html`
                     <lcards-message
                         type="info"
-                        message="Configure your D-pad remote control. Each segment can have its own entity, actions, and colors.">
+                        message="Configure your D-pad remote control. Use 'Default' to set common properties for all segments, then override per-segment as needed.">
                     </lcards-message>
                 `
             },
-            // Default segment colors
+            // Default segment configuration
             {
                 type: 'section',
-                header: 'Default Segment Colors',
-                description: 'Default colors for all segments (can be overridden per segment)',
-                icon: 'mdi:palette',
-                expanded: false,
+                header: 'Default Configuration',
+                description: 'Default settings applied to all segments (use segments.default.* config path)',
+                icon: 'mdi:cog-outline',
+                expanded: true,
                 outlined: true,
                 children: [
+                    // Default actions
                     {
                         type: 'custom',
                         render: () => html`
-                            <lcards-color-section
-                                .editor=${this}
-                                .config=${this.config}
-                                basePath="dpad.default.color"
-                                header="Default Colors"
-                                description="State-based colors for all segments"
-                                .states=${['default', 'active', 'inactive', 'unavailable']}
-                                ?expanded=${true}>
-                            </lcards-color-section>
+                            <div class="section-label">Default Actions</div>
+                            <div class="section-description" style="margin-bottom: 8px;">
+                                Applied to all segments unless overridden (dpad.segments.default)
+                            </div>
+                            <lcards-multi-action-editor
+                                .hass=${this.hass}
+                                .actions=${this._getDefaultActions()}
+                                @value-changed=${this._handleDefaultActionsChange.bind(this)}>
+                            </lcards-multi-action-editor>
                         `
+                    },
+                    // Default style
+                    {
+                        type: 'section',
+                        header: 'Default SVG Style',
+                        description: 'Default SVG styling properties (dpad.segments.default.style)',
+                        icon: 'mdi:palette-outline',
+                        expanded: false,
+                        outlined: false,
+                        children: [
+                            {
+                                type: 'custom',
+                                render: () => html`
+                                    <lcards-color-section
+                                        .editor=${this}
+                                        .config=${this.config}
+                                        basePath="dpad.segments.default.style.fill"
+                                        header="Fill"
+                                        description="SVG fill color states"
+                                        .states=${['default', 'active', 'inactive', 'unavailable']}
+                                        ?expanded=${false}>
+                                    </lcards-color-section>
+                                    <lcards-color-section
+                                        .editor=${this}
+                                        .config=${this.config}
+                                        basePath="dpad.segments.default.style.stroke"
+                                        header="Stroke"
+                                        description="SVG stroke color states"
+                                        .states=${['default', 'active', 'inactive', 'unavailable']}
+                                        ?expanded=${false}>
+                                    </lcards-color-section>
+                                `
+                            },
+                            {
+                                type: 'field',
+                                path: 'dpad.segments.default.style.stroke-width',
+                                label: 'Stroke Width',
+                                helper: 'SVG stroke width (number or string)'
+                            }
+                        ]
                     }
                 ]
             },
@@ -317,11 +358,18 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
             ...segments.map(segmentId => ({
                 type: 'section',
                 header: this._formatSegmentLabel(segmentId),
-                description: `Configure ${this._formatSegmentLabel(segmentId)} segment`,
+                description: `Configure ${this._formatSegmentLabel(segmentId)} segment (overrides defaults)`,
                 icon: this._getSegmentIcon(segmentId),
-                expanded: segmentId === 'center',
+                expanded: false,
                 outlined: true,
                 children: [
+                    // Selector override (advanced)
+                    {
+                        type: 'field',
+                        path: `dpad.segments.${segmentId}.selector`,
+                        label: 'CSS Selector (Advanced)',
+                        helper: `Defaults to #${segmentId} if not specified`
+                    },
                     // Entity override
                     {
                         type: 'field',
@@ -333,6 +381,10 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                     {
                         type: 'custom',
                         render: () => html`
+                            <div class="section-label">Actions</div>
+                            <div class="section-description" style="margin-bottom: 8px;">
+                                Override default actions for this segment
+                            </div>
                             <lcards-multi-action-editor
                                 .hass=${this.hass}
                                 .actions=${this._getSegmentActions(segmentId)}
@@ -340,20 +392,45 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                             </lcards-multi-action-editor>
                         `
                     },
-                    // State colors
+                    // SVG Style
                     {
-                        type: 'custom',
-                        render: () => html`
-                            <lcards-color-section
-                                .editor=${this}
-                                .config=${this.config}
-                                basePath="dpad.segments.${segmentId}.color"
-                                header="Segment Colors"
-                                description="State-based colors (overrides defaults)"
-                                .states=${['default', 'active', 'inactive', 'unavailable']}
-                                ?expanded=${false}>
-                            </lcards-color-section>
-                        `
+                        type: 'section',
+                        header: 'SVG Style Override',
+                        description: 'Override default SVG styling',
+                        icon: 'mdi:palette-outline',
+                        expanded: false,
+                        outlined: false,
+                        children: [
+                            {
+                                type: 'custom',
+                                render: () => html`
+                                    <lcards-color-section
+                                        .editor=${this}
+                                        .config=${this.config}
+                                        basePath="dpad.segments.${segmentId}.style.fill"
+                                        header="Fill"
+                                        description="SVG fill color states"
+                                        .states=${['default', 'active', 'inactive', 'unavailable']}
+                                        ?expanded=${false}>
+                                    </lcards-color-section>
+                                    <lcards-color-section
+                                        .editor=${this}
+                                        .config=${this.config}
+                                        basePath="dpad.segments.${segmentId}.style.stroke"
+                                        header="Stroke"
+                                        description="SVG stroke color states"
+                                        .states=${['default', 'active', 'inactive', 'unavailable']}
+                                        ?expanded=${false}>
+                                    </lcards-color-section>
+                                `
+                            },
+                            {
+                                type: 'field',
+                                path: `dpad.segments.${segmentId}.style.stroke-width`,
+                                label: 'Stroke Width',
+                                helper: 'SVG stroke width (overrides default)'
+                            }
+                        ]
                     }
                 ]
             }))
@@ -379,6 +456,51 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
     }
 
     /**
+     * Get default actions
+     */
+    _getDefaultActions() {
+        const defaultConfig = this.config.dpad?.segments?.default || {};
+        return {
+            tap_action: defaultConfig.tap_action || { action: 'none' },
+            hold_action: defaultConfig.hold_action || { action: 'none' },
+            double_tap_action: defaultConfig.double_tap_action || { action: 'none' }
+        };
+    }
+
+    /**
+     * Handle default actions change
+     */
+    _handleDefaultActionsChange(event) {
+        const actions = event.detail.value;
+        const defaultConfig = this.config.dpad?.segments?.default || {};
+
+        const updatedDefault = {
+            ...defaultConfig,
+            tap_action: actions.tap_action,
+            hold_action: actions.hold_action,
+            double_tap_action: actions.double_tap_action
+        };
+
+        // Remove actions if they're set to 'none'
+        ['tap_action', 'hold_action', 'double_tap_action'].forEach(key => {
+            if (updatedDefault[key]?.action === 'none') {
+                delete updatedDefault[key];
+            }
+        });
+
+        const segmentConfigs = this.config.dpad?.segments || {};
+        this._updateConfig({
+            dpad: {
+                ...(this.config.dpad || {}),
+                segments: {
+                    ...segmentConfigs,
+                    default: updatedDefault
+                }
+            }
+        });
+    }
+
+    /**
      * Get segment actions
      */
     _getSegmentActions(segmentId) {
@@ -396,6 +518,7 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
     _handleSegmentActionsChange(segmentId, event) {
         const actions = event.detail.value;
         const segmentConfigs = this.config.dpad?.segments || {};
+
         const updatedSegmentConfig = {
             ...(segmentConfigs[segmentId] || {}),
             tap_action: actions.tap_action,
