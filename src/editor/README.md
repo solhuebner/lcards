@@ -80,6 +80,8 @@ editor/
 │   └── lcards-button-editor.js  # Reference implementation
 ├── components/              # Reusable editor components
 │   ├── common/             # Common UI components
+│   ├── dashboard/          # Dashboard components
+│   │   └── lcards-rules-dashboard.js  # Read-only rules viewer
 │   ├── form/               # Schema-driven form components
 │   │   ├── lcards-form-field.js         # Smart auto-rendering field
 │   │   ├── lcards-form-section.js       # Collapsible sections
@@ -171,6 +173,16 @@ Validation is performed by CoreValidationService singleton.
   - Tap, hold, and double-tap actions in one view
   - Uses existing lcards-action-editor for each type
   - Collapsible sections per action type
+
+### Dashboard Components
+- **lcards-rules-dashboard** - Read-only rules viewer (NEW v1.18.0)
+  - Displays all rules from `window.lcards.core.rulesManager`
+  - Highlights rules targeting the current card
+  - Sortable table with rule ID, type, enabled status, target, conditions, and actions
+  - Stats header showing total rules, targeting rules, and enabled rules
+  - Help section with YAML examples
+  - **Read-only**: No ability to add/edit/delete rules (edit in YAML instead)
+  - Usage: Add `_renderRulesTab()` to card editor tabs
 
 ### Legacy Components
 - **LCARdSCardConfigSection** - Common card properties (entity, ID, tags, layout)
@@ -398,6 +410,33 @@ _handleActionsChange(event) {
 }
 ```
 
+#### Rules Dashboard
+```javascript
+import '../components/dashboard/lcards-rules-dashboard.js';
+
+_renderRulesTab() {
+    return html`
+        <lcards-rules-dashboard
+            .editor=${this}
+            .cardId=${this.config.id || this.config.cardId || ''}
+            .hass=${this.hass}>
+        </lcards-rules-dashboard>
+    `;
+}
+
+// Add to tab definitions
+_getTabDefinitions() {
+    return [
+        { label: 'Config', content: () => this._renderConfigTab() },
+        { label: 'Actions', content: () => this._renderActionsTab() },
+        { label: 'Rules', content: () => this._renderRulesTab() },  // NEW
+        { label: 'YAML', content: () => this._renderYamlTab() }
+    ];
+}
+```
+
+**Note**: The Rules Dashboard is read-only. It displays rules from `window.lcards.core.rulesManager` but does not allow editing. Users must edit rules in YAML configuration.
+
 ### Complete Example
 
 See `src/editor/cards/lcards-button-editor.js` for a complete reference implementation using all new components.
@@ -514,6 +553,7 @@ See `doc/user/examples/button-visual-editor-test.yaml` for comprehensive test co
 - ✅ Button schema with 45 font families
 - ✅ Complete alignment enums (justify, align, position)
 - ✅ Match Light Colour support (CSS variable export)
+- ✅ Rules Dashboard (read-only display of all rules in system)
 
 ### Phase 2: Advanced Features (Future)
 - 🔜 Animation editor with visual timeline
