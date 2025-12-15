@@ -157,7 +157,7 @@ export class LCARdSFormSection extends LitElement {
                     ${this.secondary ? html`<span style="color: var(--secondary-text-color); margin-left: 8px;">${this.secondary}</span>` : ''}
                 </div>
                 ${this.expanded || this.noCollapse ? html`
-                    <div style="padding: 16px;">
+                    <div style="padding: 12px;"> <!-- Reduced from 16px for consistency -->
                         ${this.description ? html`
                             <div class="section-description">${this.description}</div>
                         ` : ''}

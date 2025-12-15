@@ -176,7 +176,7 @@ export class LCARdSMultiTextEditor extends LitElement {
                 headerLevel="4">
 
                 ${configuredFields.length === 0 ? html`
-                    <div style="padding: 16px; text-align: center; color: var(--secondary-text-color);">
+                    <div style="padding: 12px; text-align: center; color: var(--secondary-text-color);"> <!-- Reduced from 16px for consistency -->
                         No text fields configured. Add one below.
                     </div>
                 ` : ''}

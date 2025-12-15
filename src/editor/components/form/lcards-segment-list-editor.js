@@ -101,7 +101,7 @@ export class LCARdSSegmentListEditor extends LitElement {
             }
 
             .form-row {
-                margin-bottom: 16px;
+                margin-bottom: 12px; /* Reduced from 16px for consistency */
             }
 
             .form-row label {
