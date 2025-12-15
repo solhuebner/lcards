@@ -48,8 +48,8 @@ export class LCARdSMultiTextEditor extends LitElement {
             }
 
             .add-field-section {
-                margin-top: 16px;
-                padding: 16px;
+                margin-top: 12px; /* Reduced from 16px for consistency */
+                padding: 12px; /* Reduced from 16px for consistency */
                 background: var(--secondary-background-color, #f5f5f5);
                 border-radius: 8px;
                 display: flex;

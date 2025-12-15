@@ -25,19 +25,19 @@ export class LCARdSGridLayout extends LitElement {
     constructor() {
         super();
         this.columns = 2;
-        this.gap = '8px';
+        this.gap = '12px'; /* Changed from 8px to 12px per Phase 2 requirements */
     }
 
     static get styles() {
         return css`
             :host {
                 display: block;
-                margin-bottom: 16px;
+                margin-bottom: 12px; /* Reduced from 16px for consistency */
             }
 
             .grid-layout {
                 display: grid;
-                gap: var(--grid-gap, 8px);
+                gap: var(--grid-gap, 12px); /* Changed from 8px to 12px for tighter layout */
                 grid-template-columns: var(--grid-columns, 1fr 1fr);
             }
 

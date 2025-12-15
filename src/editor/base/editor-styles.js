@@ -30,7 +30,7 @@ export const editorStyles = css`
     }
 
     .section {
-        margin-bottom: 16px;
+        margin-bottom: 12px; /* Reduced from 16px for consistency */
     }
 
     .section-header {
@@ -45,12 +45,12 @@ export const editorStyles = css`
     .section-description {
         font-size: 14px;
         color: var(--secondary-text-color, #727272);
-        margin-bottom: 16px;
+        margin-bottom: 12px; /* Reduced from 16px for consistency */
         line-height: 1.5;
     }
 
     .form-row {
-        margin-bottom: 16px;
+        margin-bottom: 12px; /* Reduced from 16px for consistency */
         display: grid;
         grid-template-columns: 100%;
         grid-gap: 8px;
@@ -63,8 +63,8 @@ export const editorStyles = css`
     .form-row-group {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        margin-bottom: 16px;
+        gap: 12px; /* Increased from 8px to 12px for consistency with grid-layout */
+        margin-bottom: 12px; /* Reduced from 16px for consistency */
     }
 
     .form-row label {

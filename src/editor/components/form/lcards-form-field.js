@@ -61,7 +61,7 @@ export class LCARdSFormField extends LitElement {
                 display: flex;
                 flex-direction: column;
                 gap: 8px;
-                margin-bottom: 16px;
+                margin-bottom: 12px; /* Reduced from 16px for consistency */
             }
 
             label {

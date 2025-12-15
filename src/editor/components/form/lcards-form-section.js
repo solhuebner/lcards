@@ -49,7 +49,7 @@ export class LCARdSFormSection extends LitElement {
         return css`
             :host {
                 display: block;
-                margin-bottom: 16px;
+                margin-bottom: 12px; /* Reduced from 16px for consistency */
             }
 
             ha-expansion-panel {
@@ -65,13 +65,13 @@ export class LCARdSFormSection extends LitElement {
             }
 
             .section-content {
-                padding: 16px;
+                padding: 12px; /* Reduced from 16px for denser layout */
             }
 
             .section-description {
                 font-size: 14px;
                 color: var(--secondary-text-color, #727272);
-                margin-bottom: 16px;
+                margin-bottom: 12px; /* Reduced from 16px for consistency */
                 line-height: 1.5;
             }
 
