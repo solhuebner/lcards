@@ -159,6 +159,36 @@ This document describes the visual and layout refinements applied to the LCARdS 
 
 **Rationale:** Ensures consistent spacing in border configuration sections and preview areas.
 
+#### Segment List Editor
+
+**File:** `src/editor/components/form/lcards-segment-list-editor.js`
+
+**Changes:**
+- Reduced `.form-row` margin-bottom from 16px to 12px
+
+**Rationale:** Maintains consistent form row spacing in segment configuration.
+
+#### Color Section
+
+**File:** `src/editor/components/form/lcards-color-section.js`
+
+**Changes:**
+- Reduced inline margin-bottom from 16px to 12px in color picker wrapper
+
+**Rationale:** Aligns color picker spacing with overall form spacing pattern.
+
+#### Additional Inline Styles
+
+**Files:** 
+- `src/editor/components/form/lcards-form-section.js` (fallback mode)
+- `src/editor/components/form/lcards-multi-text-editor.js` (empty state)
+
+**Changes:**
+- Updated inline `padding: 16px` to `padding: 12px` in fallback rendering
+- Updated inline `padding: 16px` to `padding: 12px` in empty state message
+
+**Rationale:** Ensures consistent spacing even in fallback scenarios and edge cases.
+
 #### Form Section
 
 **File:** `src/editor/components/form/lcards-form-section.js`
@@ -235,10 +265,10 @@ If needed, changes can be rolled back by reverting the following files:
 - `src/editor/components/form/lcards-form-section.js`
 - `src/editor/components/form/lcards-grid-layout.js`
 - `src/editor/components/form/lcards-form-field.js`
-- `src/editor/components/form/lcards-icon-editor.js` (no changes)
-- `src/editor/components/form/lcards-multi-action-editor.js` (no changes)
 - `src/editor/components/form/lcards-multi-text-editor.js`
 - `src/editor/components/form/lcards-border-editor.js`
+- `src/editor/components/form/lcards-segment-list-editor.js`
+- `src/editor/components/form/lcards-color-section.js`
 
 ---
 
@@ -314,6 +344,7 @@ If needed, changes can be rolled back by reverting the following files:
    - Updated `:host` margin-bottom
    - Updated `.section-content` padding
    - Updated `.section-description` margin-bottom
+   - Updated inline padding in fallback mode
 
 4. **src/editor/components/form/lcards-grid-layout.js**
    - Updated `:host` margin-bottom
@@ -325,10 +356,17 @@ If needed, changes can be rolled back by reverting the following files:
 
 6. **src/editor/components/form/lcards-multi-text-editor.js**
    - Updated `.add-field-section` margin-top and padding
+   - Updated inline padding in empty state message
 
 7. **src/editor/components/form/lcards-border-editor.js**
    - Updated `.form-row` margin-bottom
    - Updated `.preview-container` margin-bottom
+
+8. **src/editor/components/form/lcards-segment-list-editor.js**
+   - Updated `.form-row` margin-bottom
+
+9. **src/editor/components/form/lcards-color-section.js**
+   - Updated inline margin-bottom in color picker wrapper
 
 ### Code Patterns
 
