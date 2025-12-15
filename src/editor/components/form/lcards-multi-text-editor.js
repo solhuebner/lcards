@@ -48,8 +48,8 @@ export class LCARdSMultiTextEditor extends LitElement {
             }
 
             .add-field-section {
-                margin-top: 16px;
-                padding: 16px;
+                margin-top: 12px; /* Reduced from 16px for consistency */
+                padding: 12px; /* Reduced from 16px for consistency */
                 background: var(--secondary-background-color, #f5f5f5);
                 border-radius: 8px;
                 display: flex;
@@ -176,7 +176,7 @@ export class LCARdSMultiTextEditor extends LitElement {
                 headerLevel="4">
 
                 ${configuredFields.length === 0 ? html`
-                    <div style="padding: 16px; text-align: center; color: var(--secondary-text-color);">
+                    <div style="padding: 12px; text-align: center; color: var(--secondary-text-color);"> <!-- Reduced from 16px for consistency -->
                         No text fields configured. Add one below.
                     </div>
                 ` : ''}

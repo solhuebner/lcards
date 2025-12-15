@@ -97,6 +97,7 @@ export class LCARdSBaseEditor extends LitElement {
                 .tab.active {
                     color: var(--primary-color, #03a9f4);
                     border-bottom-color: var(--primary-color, #03a9f4);
+                    border-bottom-width: 4px; /* Increased from 3px for better visual feedback */
                 }
 
                 .tab-content {

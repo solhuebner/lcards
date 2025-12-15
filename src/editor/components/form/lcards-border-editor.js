@@ -71,7 +71,7 @@ export class LCARdSBorderEditor extends LitElement {
             }
 
             .form-row {
-                margin-bottom: 16px;
+                margin-bottom: 12px; /* Reduced from 16px for consistency */
             }
 
             .form-row label {
@@ -97,7 +97,7 @@ export class LCARdSBorderEditor extends LitElement {
                 padding: 24px;
                 background: var(--card-background-color, #fff);
                 border-radius: 8px;
-                margin-bottom: 16px;
+                margin-bottom: 12px; /* Reduced from 16px for consistency */
             }
 
             .preview-container svg {

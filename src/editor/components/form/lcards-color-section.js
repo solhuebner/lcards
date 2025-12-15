@@ -263,7 +263,7 @@ export class LCARdSColorSection extends LitElement {
         if (this.useColorPicker) {
             const value = this.editor._getConfigValue(path);
             return html`
-                <div style="margin-bottom: 16px;">
+                <div style="margin-bottom: 12px;"> <!-- Reduced from 16px for consistency -->
                     <div style="font-size: 14px; font-weight: 500; margin-bottom: 8px; padding: 2px 8px;">
                         ${label}
                     </div>
