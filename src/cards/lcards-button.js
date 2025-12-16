@@ -1662,9 +1662,33 @@ export class LCARdSButton extends LCARdSCard {
 
     /**
      * Hook called after rule patches change (from base class)
+     * Card-specific handling for rule patches
      * @protected
      */
     _onRulePatchesChanged() {
+        // If text was patched, clear the processed template cache so it re-evaluates
+        if (this._lastRulePatches?.text) {
+            lcardsLog.debug(`[LCARdSButton] Text patched by rules, clearing template cache and _originalContent`);
+
+            // Clear processed templates cache
+            this._processedTemplates = {};
+
+            // Clear _originalContent from all text fields so they re-evaluate
+            if (this.config.text && typeof this.config.text === 'object') {
+                for (const [fieldId, fieldConfig] of Object.entries(this.config.text)) {
+                    if (fieldConfig && typeof fieldConfig === 'object' && fieldConfig._originalContent) {
+                        delete fieldConfig._originalContent;
+                        lcardsLog.trace(`[LCARdSButton] Cleared _originalContent for field: ${fieldId}`);
+                    }
+                }
+            }
+
+            // Trigger template reprocessing (async)
+            this._processTemplates().then(() => {
+                lcardsLog.debug(`[LCARdSButton] Template reprocessing complete after rule patch`);
+            });
+        }
+
         // Re-resolve button style to merge new rule patches
         this._resolveButtonStyleSync();
     }

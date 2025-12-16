@@ -8,6 +8,7 @@ import { lcardsLog } from '../../utils/lcards-logging.js';
 import { lcardsCore } from '../../core/lcards-core.js';
 import { AnimationRegistry } from '../../core/animation/AnimationRegistry.js';
 import { ThemeManager } from '../../core/themes/ThemeManager.js';
+import { deepMerge } from '../../core/config-manager/merge-helpers.js';
 import { RulesEngine } from '../../core/rules/RulesEngine.js';
 import { DebugManager } from '../debug/DebugManager.js';
 
@@ -291,7 +292,7 @@ export class SystemsManager extends BaseService {
           lcardsLog.debug(`[SystemsManager] 🎨 Rules produced ${ruleResults.overlayPatches.length} patch(es) - triggering selective re-render`);
 
           // Build failed overlay list for selective re-render
-          // Process animations and style merging before re-rendering
+          // Process animations and config merging before re-rendering
           const overlaysToReRender = ruleResults.overlayPatches.map(patch => {
             const overlay = this._findOverlayById(patch.id);
             if (!overlay) {
@@ -299,7 +300,11 @@ export class SystemsManager extends BaseService {
               return { id: patch.id, reason: 'Overlay config not found', patch };
             }
 
-            // Merge patch style into finalStyle
+            // Deep merge entire patch into overlay config (not just style)
+            // This allows rules to patch text, dpad, icon, and other properties
+            deepMerge(overlay, patch);
+
+            // Also update finalStyle if style property exists in patch
             if (patch.style && Object.keys(patch.style).length > 0) {
               overlay.finalStyle = {
                 ...(overlay.finalStyle || overlay.style || {}),
@@ -583,7 +588,11 @@ export class SystemsManager extends BaseService {
                 return;
               }
 
-              // Merge patch style into finalStyle
+              // Deep merge entire patch into overlay config (not just style)
+              // This allows rules to patch text, dpad, icon, and other properties
+              deepMerge(overlay, patch);
+
+              // Also update finalStyle if style property exists in patch
               if (patch.style && Object.keys(patch.style).length > 0) {
                 overlay.finalStyle = {
                   ...(overlay.finalStyle || overlay.style || {}),

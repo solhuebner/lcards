@@ -28,6 +28,7 @@ import { LCARdSNativeCard } from './LCARdSNativeCard.js';
 import { LCARdSActionHandler } from './LCARdSActionHandler.js';
 import { UnifiedTemplateEvaluator } from '../core/templates/UnifiedTemplateEvaluator.js';
 import { TemplateParser } from '../core/templates/TemplateParser.js';
+import { deepMerge } from '../core/config-manager/merge-helpers.js';
 import { ColorUtils } from '../core/themes/ColorUtils.js';
 
 /**
@@ -425,7 +426,7 @@ export class LCARdSCard extends LCARdSNativeCard {
         // Update entity reference
         if (this.config.entity) {
             this._entity = newHass.states[this.config.entity];
-            
+
             // Export light color CSS variable if this is a light entity
             this._updateLightColorVariable();
         }
@@ -966,11 +967,16 @@ export class LCARdSCard extends LCARdSNativeCard {
         this._lastRulePatches = mergedPatch;
 
         lcardsLog.debug(`[LCARdSCard] Applied rule patches to ${this._overlayId}`, {
-            patchCount: myPatches.length
+            patchCount: myPatches.length,
+            patchKeys: Object.keys(mergedPatch)
         });
 
-        // Call subclass hook to handle style resolution after patch changes
-        // This allows subclasses to re-resolve styles without forcing a render
+        // Deep merge patches into config (for non-style properties like text, dpad, etc.)
+        // This ensures rules can patch any config property, not just style
+        this.config = deepMerge({ ...this.config }, this._lastRulePatches);
+
+        // Call subclass hook to handle card-specific updates after patch changes
+        // Subclasses can use this to clear caches, reprocess templates, etc.
         if (typeof this._onRulePatchesChanged === 'function') {
             this._onRulePatchesChanged();
         }
@@ -986,6 +992,10 @@ export class LCARdSCard extends LCARdSNativeCard {
      * override any matching properties from the config style. This method should be
      * called as the final step in your style resolution logic.
      *
+     * **IMPORTANT:** As of v1.26+, this now performs a DEEP MERGE of the entire
+     * patch config, not just the `style` property. This allows rules to patch any
+     * config property including `text.*`, `dpad.*`, `icon.*`, etc.
+     *
      * **Style Resolution Priority (low to high):**
      * 1. Preset styles
      * 2. Config styles
@@ -995,11 +1005,11 @@ export class LCARdSCard extends LCARdSNativeCard {
      *
      * **Performance:**
      * - Returns immediately if no rule patches active
-     * - Shallow merge with spread operator (fast)
+     * - Deep merge for nested objects (text, dpad, etc.)
      * - No DOM interaction (pure computation)
      *
-     * @param {Object} configStyle - Base style from config/preset/theme resolution
-     * @returns {Object} Merged style with rule patches applied (rules override config)
+     * @param {Object} configStyle - Base style/config from preset/theme resolution
+     * @returns {Object} Merged config with rule patches applied (rules override config)
      *
      * @example
      * // In your style resolution method:
@@ -1016,7 +1026,7 @@ export class LCARdSCard extends LCARdSNativeCard {
      *     // 3. Apply theme tokens
      *     style = this.resolveStyle(style, ['colors.primary']);
      *
-     *     // 4. Apply rule patches (highest priority)
+     *     // 4. Apply rule patches (highest priority - can patch ANY config property)
      *     style = this._getMergedStyleWithRules(style); // Call this last
      *
      *     this._buttonStyle = style;
@@ -1026,15 +1036,13 @@ export class LCARdSCard extends LCARdSNativeCard {
      * @protected
      */
     _getMergedStyleWithRules(configStyle = {}) {
-        if (!this._lastRulePatches || !this._lastRulePatches.style) {
+        if (!this._lastRulePatches) {
             return configStyle;
         }
 
-        // Merge config style with rule patches (rules override)
-        return {
-            ...configStyle,
-            ...this._lastRulePatches.style
-        };
+        // Deep merge entire patch into config (not just .style)
+        // This allows rules to patch text, dpad, icon, and other top-level properties
+        return deepMerge(configStyle, this._lastRulePatches);
     }
 
     // ============================================================================

@@ -9,6 +9,7 @@ import { lcardsLog } from '../../utils/lcards-logging.js';
 import { BaseService } from '../../core/BaseService.js';
 import { compileRule, evalCompiled } from './compileConditions.js';  // ✨ NEW
 import { UnifiedTemplateEvaluator } from '../templates/UnifiedTemplateEvaluator.js';  // ✨ NEW
+import { deepMerge } from '../config-manager/merge-helpers.js';
 
 export class RulesEngine extends BaseService {
   constructor(rules = [], dataSourceManager = null) {
@@ -1336,13 +1337,12 @@ export function applyOverlayPatches(overlays, patches) {
     if (!patch) {
       return overlay;
     }
-
     lcardsLog.debug('[RulesEngine] 🎯 Applying patch to overlay:', {
       id: overlay.id,
       type: overlay.type,
       cellTarget: patch.cell_target || patch.cellTarget,
       originalStyle: overlay.style,
-      patch: patch.style
+      patchKeys: Object.keys(patch)
     });
 
     // Handle cell-specific patches for status_grid overlays
@@ -1358,30 +1358,20 @@ export function applyOverlayPatches(overlays, patches) {
       });
     }
 
-    // FIXED: For non-cell-targeted patches, apply to overlay level
-    // But mark them so they don't cascade to individual cells
-    const patchedOverlay = {
-      ...overlay,
-      ...patch.style,  // ✨ NEW: Also apply patch properties at top level for overlays like text/button
-      style: {
-        ...overlay.style,
-        ...patch.style
-      },
-      finalStyle: {
-        ...(overlay.finalStyle || overlay.style || {}),
-        ...patch.style
-      },
-      // ADDED: Mark that this is an overlay-level patch, not cell-level
-      _hasOverlayLevelPatch: !patch.cell_target && !patch.cellTarget
-    };
+    // Deep merge entire patch into overlay (not just .style)
+    // This allows rules to patch text, dpad, icon, and other properties
+    const patchedOverlay = deepMerge({ ...overlay }, patch);
+
+    // Mark that this is an overlay-level patch, not cell-level
+    patchedOverlay._hasOverlayLevelPatch = !patch.cell_target && !patch.cellTarget;
 
     lcardsLog.debug('[RulesEngine] ✅ Patched overlay result:', {
       id: patchedOverlay.id,
       type: patchedOverlay.type,
-      topLevelColor: patchedOverlay.color,
-      topLevelStatusIndicator: patchedOverlay.status_indicator,
-      newStyle: patchedOverlay.style,
-      newFinalStyle: patchedOverlay.finalStyle
+      patchedKeys: Object.keys(patch),
+      hasText: !!patchedOverlay.text,
+      hasStyle: !!patchedOverlay.style,
+      hasFinalStyle: !!patchedOverlay.finalStyle
     });
 
     return patchedOverlay;
