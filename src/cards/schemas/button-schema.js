@@ -364,12 +364,65 @@ export function getButtonSchema(options = {}) {
                     enable_tokens: { type: 'boolean' },
                     allow_scripts: { type: 'boolean' },
                     segments: {
-                        type: 'array',
-                        items: {
+                        type: 'object',
+                        description: 'Segment configurations keyed by ID. Use "default" for shared config.',
+                        properties: {
+                            default: {
+                                type: 'object',
+                                description: 'Default configuration inherited by all segments',
+                                properties: {
+                                    entity: { type: 'string', format: 'entity' },
+                                    tap_action: actionSchema,
+                                    hold_action: actionSchema,
+                                    double_tap_action: actionSchema,
+                                    style: {
+                                        type: 'object',
+                                        properties: {
+                                            fill: stateColorSchema,
+                                            stroke: stateColorSchema,
+                                            'stroke-width': {
+                                                oneOf: [
+                                                    { type: ['number', 'string'] },
+                                                    {
+                                                        type: 'object',
+                                                        properties: {
+                                                            default: { type: ['number', 'string'] },
+                                                            active: { type: ['number', 'string'] },
+                                                            inactive: { type: ['number', 'string'] }
+                                                        }
+                                                    }
+                                                ]
+                                            },
+                                            opacity: {
+                                                oneOf: [
+                                                    { type: 'number' },
+                                                    {
+                                                        type: 'object',
+                                                        properties: {
+                                                            default: { type: 'number' },
+                                                            active: { type: 'number' },
+                                                            inactive: { type: 'number' }
+                                                        }
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    animations: {
+                                        type: 'array',
+                                        items: animationSchema
+                                    }
+                                }
+                            }
+                        },
+                        additionalProperties: {
                             type: 'object',
+                            description: 'Per-segment configuration (overrides default)',
                             properties: {
-                                id: { type: 'string' },
-                                selector: { type: 'string' },
+                                selector: {
+                                    type: 'string',
+                                    description: 'CSS selector override (defaults to "#<segment-id>")'
+                                },
                                 entity: { type: 'string', format: 'entity' },
                                 tap_action: actionSchema,
                                 hold_action: actionSchema,

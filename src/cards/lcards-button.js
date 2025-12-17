@@ -533,10 +533,118 @@ export class LCARdSButton extends LCARdSCard {
             tokensWereProcessed: svgConfig.enable_tokens !== false
         });
 
-        // Process segments if defined (Phase 2)
-        if (svgConfig.segments && Array.isArray(svgConfig.segments)) {
-            this._processSegmentConfig(svgConfig.segments);
+        // Process segments if defined
+        if (svgConfig.segments) {
+            // Check if it's object-based (new format) or array-based (legacy)
+            if (typeof svgConfig.segments === 'object' && !Array.isArray(svgConfig.segments)) {
+                // New object-based format - auto-discover segment IDs from SVG
+                const availableSegmentIds = this._extractSegmentIdsFromSvg(withTokens);
+                
+                // Convert object-based config to internal array format
+                const segmentsArray = this._convertSegmentsObjectToArray(
+                    svgConfig.segments,
+                    availableSegmentIds
+                );
+                
+                this._processSegmentConfig(segmentsArray);
+            } else if (Array.isArray(svgConfig.segments)) {
+                // Legacy array-based format - process directly
+                this._processSegmentConfig(svgConfig.segments);
+            }
         }
+    }
+
+    /**
+     * Extract segment IDs from SVG content
+     * Scans for elements with id attributes to enable auto-discovery
+     * @private
+     * @param {string} svgContent - SVG markup
+     * @returns {Array<string>} Array of discovered segment IDs
+     */
+    _extractSegmentIdsFromSvg(svgContent) {
+        if (!svgContent) return [];
+        
+        try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(svgContent, 'image/svg+xml');
+            
+            // Check for parse errors
+            const parseError = doc.querySelector('parsererror');
+            if (parseError) {
+                lcardsLog.warn('[LCARdSButton] SVG parse error during ID extraction:', parseError.textContent);
+                return [];
+            }
+            
+            // Find all elements with ID attributes
+            const elementsWithIds = doc.querySelectorAll('[id]');
+            const segmentIds = Array.from(elementsWithIds).map(el => el.id);
+            
+            lcardsLog.debug(`[LCARdSButton] Discovered ${segmentIds.length} segment IDs from SVG:`, segmentIds);
+            
+            return segmentIds;
+        } catch (error) {
+            lcardsLog.error('[LCARdSButton] Failed to extract segment IDs from SVG:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Convert object-based segment config to internal array format
+     * Merges default config with per-segment overrides
+     * @private
+     * @param {Object} segmentsObject - User segment configuration (keyed by ID)
+     * @param {Array<string>} availableIds - Segment IDs discovered from SVG
+     * @returns {Array<Object>} Segment configuration array
+     */
+    _convertSegmentsObjectToArray(segmentsObject, availableIds) {
+        const defaultConfig = segmentsObject.default || {};
+        const segmentsArray = [];
+        
+        // Get all segment IDs to process (discovered + user-defined)
+        const userSegmentIds = Object.keys(segmentsObject).filter(id => id !== 'default');
+        const allSegmentIds = new Set([...availableIds, ...userSegmentIds]);
+        
+        // Validate user-defined segments exist in SVG
+        userSegmentIds.forEach(id => {
+            if (!availableIds.includes(id)) {
+                lcardsLog.warn(`[LCARdSButton] Segment "${id}" configured but not found in SVG (no matching id attribute)`);
+            }
+        });
+        
+        // Convert each segment to array item
+        allSegmentIds.forEach(id => {
+            const userConfig = segmentsObject[id] || {};
+            
+            // Skip if no user config and no default (nothing to do)
+            if (!userConfig.tap_action && 
+                !userConfig.hold_action && 
+                !userConfig.double_tap_action && 
+                !userConfig.style && 
+                !userConfig.animations &&
+                !userConfig.entity &&
+                Object.keys(defaultConfig).length === 0) {
+                return;
+            }
+            
+            // Merge default + user config
+            const mergedConfig = deepMerge(defaultConfig, userConfig);
+            
+            // Auto-generate selector if not provided
+            const selector = userConfig.selector || `#${id}`;
+            
+            segmentsArray.push({
+                id,
+                selector,
+                ...mergedConfig
+            });
+        });
+        
+        lcardsLog.debug(`[LCARdSButton] Converted segments: ${segmentsArray.length} configured, ${availableIds.length} discovered`, {
+            configured: segmentsArray.map(s => s.id),
+            discovered: availableIds
+        });
+        
+        return segmentsArray;
     }
 
     /**
