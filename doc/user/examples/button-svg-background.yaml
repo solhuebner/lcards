@@ -69,9 +69,10 @@
 # PHASE 2: Segmented SVG (Multi-Action Regions)
 # ==============================================================================
 
-# Example 6: D-Pad with interactive segments
+# Example 6: D-Pad with interactive segments (NEW OBJECT FORMAT)
 # Uses state-based styling convention: style.{property}.{state}
 # States: default, active, inactive, unavailable, hover
+# NOTE: Segments are now defined as an object keyed by segment ID
 - type: custom:lcards-button
   entity: remote.living_room
   svg:
@@ -94,8 +95,15 @@
       </svg>
     viewBox: "0 0 100 100"
     segments:
-      - id: up
-        selector: "#arrow-up"
+      # Default configuration applies to all segments
+      default:
+        style:
+          fill:
+            hover: "var(--lcars-yellow)"
+            active: "var(--lcars-red)"
+      
+      # Segment-specific configurations (key = element id)
+      arrow-up:
         tap_action:
           action: call-service
           service: remote.send_command
@@ -104,11 +112,8 @@
         style:
           fill:
             default: "var(--lcars-blue)"
-            hover: "var(--lcars-yellow)"
-            active: "var(--lcars-red)"
       
-      - id: down
-        selector: "#arrow-down"
+      arrow-down:
         tap_action:
           action: call-service
           service: remote.send_command
@@ -117,11 +122,8 @@
         style:
           fill:
             default: "var(--lcars-blue)"
-            hover: "var(--lcars-yellow)"
-            active: "var(--lcars-red)"
       
-      - id: left
-        selector: "#arrow-left"
+      arrow-left:
         tap_action:
           action: call-service
           service: remote.send_command
@@ -130,11 +132,8 @@
         style:
           fill:
             default: "var(--lcars-blue)"
-            hover: "var(--lcars-yellow)"
-            active: "var(--lcars-red)"
       
-      - id: right
-        selector: "#arrow-right"
+      arrow-right:
         tap_action:
           action: call-service
           service: remote.send_command
@@ -143,11 +142,8 @@
         style:
           fill:
             default: "var(--lcars-blue)"
-            hover: "var(--lcars-yellow)"
-            active: "var(--lcars-red)"
       
-      - id: center
-        selector: "#center-circle"
+      center-circle:
         tap_action:
           action: call-service
           service: remote.send_command
@@ -156,10 +152,8 @@
         style:
           fill:
             default: "var(--lcars-purple)"
-            hover: "var(--lcars-yellow)"
-            active: "var(--lcars-red)"
 
-# Example 7: Media controls with segments
+# Example 7: Media controls with segments (NEW OBJECT FORMAT)
 - type: custom:lcards-button
   entity: media_player.living_room
   svg:
@@ -179,37 +173,37 @@
       </svg>
     viewBox: "0 0 200 60"
     segments:
-      - id: skip-back
-        selector: "#skip-back"
+      # Default hover color for all segments
+      default:
+        style:
+          fill:
+            hover: "var(--lcars-yellow)"
+      
+      skip-back:
         tap_action:
           action: call-service
           service: media_player.media_previous_track
         style:
           fill:
             default: "var(--lcars-blue)"
-            hover: "var(--lcars-yellow)"
       
-      - id: play-pause
-        selector: "#play-pause"
+      play-pause:
         tap_action:
           action: call-service
           service: media_player.media_play_pause
         style:
           fill:
             default: "var(--lcars-orange)"
-            hover: "var(--lcars-yellow)"
       
-      - id: skip-forward
-        selector: "#skip-forward"
+      skip-forward:
         tap_action:
           action: call-service
           service: media_player.media_next_track
         style:
           fill:
             default: "var(--lcars-blue)"
-            hover: "var(--lcars-yellow)"
 
-# Example 8: Using data-segment attributes for cleaner selection
+# Example 8: Using data-segment attributes for cleaner selection (NEW OBJECT FORMAT)
 - type: custom:lcards-button
   svg:
     content: |
@@ -221,17 +215,22 @@
       </svg>
     viewBox: "0 0 100 100"
     segments:
-      - id: zone1
-        selector: "[data-segment='zone1']"
+      # Default hover behavior for all zones
+      default:
+        style:
+          fill:
+            hover: "var(--lcars-yellow)"
+      
+      zone1:
+        selector: "[data-segment='zone1']"  # Manual selector for non-id elements
         tap_action:
           action: navigate
           navigation_path: /lovelace/zone1
         style:
           fill:
             default: "var(--lcars-blue)"
-            hover: "var(--lcars-yellow)"
       
-      - id: zone2
+      zone2:
         selector: "[data-segment='zone2']"
         tap_action:
           action: navigate
@@ -239,9 +238,8 @@
         style:
           fill:
             default: "var(--lcars-orange)"
-            hover: "var(--lcars-yellow)"
       
-      - id: zone3
+      zone3:
         selector: "[data-segment='zone3']"
         tap_action:
           action: navigate
@@ -249,9 +247,8 @@
         style:
           fill:
             default: "var(--lcars-purple)"
-            hover: "var(--lcars-yellow)"
       
-      - id: zone4
+      zone4:
         selector: "[data-segment='zone4']"
         tap_action:
           action: navigate
@@ -259,9 +256,8 @@
         style:
           fill:
             default: "var(--lcars-red)"
-            hover: "var(--lcars-yellow)"
 
-# Example 9: Segment with different entities
+# Example 9: Segment with different entities (NEW OBJECT FORMAT)
 - type: custom:lcards-button
   svg:
     content: |
@@ -271,9 +267,8 @@
       </svg>
     viewBox: "0 0 100 100"
     segments:
-      - id: light1
-        selector: "#light1"
-        entity: light.bedroom  # This segment controls bedroom light
+      # Default behavior for all lights
+      default:
         tap_action:
           action: toggle
         style:
@@ -281,17 +276,13 @@
             default: "gray"
             hover: "var(--lcars-yellow)"
       
-      - id: light2
-        selector: "#light2"
+      light1:
+        entity: light.bedroom  # This segment controls bedroom light
+      
+      light2:
         entity: light.living_room  # This segment controls living room light
-        tap_action:
-          action: toggle
-        style:
-          fill:
-            default: "gray"
-            hover: "var(--lcars-yellow)"
 
-# Example 10: Hold action for more-info
+# Example 10: Hold action for more-info (NEW OBJECT FORMAT)
 - type: custom:lcards-button
   entity: light.all_lights
   svg:
@@ -301,8 +292,7 @@
       </svg>
     viewBox: "0 0 100 100"
     segments:
-      - id: main
-        selector: "#main-button"
+      main-button:
         tap_action:
           action: toggle
         hold_action:
