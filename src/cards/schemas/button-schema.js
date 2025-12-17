@@ -12,14 +12,12 @@
  * Get complete button card schema
  * @param {Object} options - Schema options
  * @param {Array<string>} options.availablePresets - Available preset names
- * @param {Array<string>} options.fontFamilyEnum - Available font families
  * @param {Array<string>} options.positionEnum - Available positions
  * @returns {Object} Complete button schema
  */
 export function getButtonSchema(options = {}) {
     const {
         availablePresets = [],
-        fontFamilyEnum = [],
         positionEnum = []
     } = options;
 
@@ -154,7 +152,11 @@ export function getButtonSchema(options = {}) {
                                 type: 'string',
                                 enum: ['normal', 'bold', '100', '200', '300', '400', '500', '600', '700', '800', '900']
                             },
-                            font_family: { type: 'string', format: 'font-family', enum: fontFamilyEnum },
+                            font_family: {
+                                type: 'string',
+                                format: 'font-family',
+                                description: 'Any valid CSS font-family (system fonts, Google Fonts, lcards_* fonts, or font stacks)'
+                            },
                             text_transform: {
                                 type: 'string',
                                 enum: ['none', 'uppercase', 'lowercase', 'capitalize']
@@ -183,7 +185,11 @@ export function getButtonSchema(options = {}) {
                             type: 'string',
                             enum: ['normal', 'bold', '100', '200', '300', '400', '500', '600', '700', '800', '900']
                         },
-                        font_family: { type: 'string', format: 'font-family', enum: fontFamilyEnum },
+                        font_family: {
+                            type: 'string',
+                            format: 'font-family',
+                            description: 'Any valid CSS font-family (system fonts, Google Fonts, lcards_* fonts, or font stacks)'
+                        },
                         text_transform: {
                             type: 'string',
                             enum: ['none', 'uppercase', 'lowercase', 'capitalize']

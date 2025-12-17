@@ -4898,55 +4898,6 @@ export class LCARdSButton extends LCARdSCard {
             enable_double_tap: false    // Double-tap disabled by default
         });
 
-        // Font family options (40+ fonts with proper labels)
-        const fontFamilyEnum = [
-            "'LCARS', 'Antonio', sans-serif",
-            "'Antonio', sans-serif",
-            "'Helvetica Neue', Helvetica, Arial, sans-serif",
-            "Arial, sans-serif",
-            "Verdana, sans-serif",
-            "'Segoe UI', Tahoma, sans-serif",
-            "'Trebuchet MS', sans-serif",
-            "'Gill Sans', sans-serif",
-            "Calibri, sans-serif",
-            "'Franklin Gothic Medium', sans-serif",
-            "'Arial Black', sans-serif",
-            "Impact, sans-serif",
-            "'Lucida Sans', sans-serif",
-            "Tahoma, sans-serif",
-            "'Century Gothic', sans-serif",
-            "Georgia, serif",
-            "'Times New Roman', Times, serif",
-            "'Palatino Linotype', 'Book Antiqua', serif",
-            "Garamond, serif",
-            "'Bookman Old Style', serif",
-            "'Courier New', Courier, monospace",
-            "'Lucida Console', Monaco, monospace",
-            "Consolas, monospace",
-            "'Roboto', sans-serif",
-            "'Open Sans', sans-serif",
-            "'Lato', sans-serif",
-            "'Montserrat', sans-serif",
-            "'Oswald', sans-serif",
-            "'Raleway', sans-serif",
-            "'PT Sans', sans-serif",
-            "'Nunito', sans-serif",
-            "'Ubuntu', sans-serif",
-            "'Playfair Display', serif",
-            "'Merriweather', serif",
-            "'Noto Sans', sans-serif",
-            "'Source Sans Pro', sans-serif",
-            "'Poppins', sans-serif",
-            "'Inter', sans-serif",
-            "'Fira Sans', sans-serif",
-            "'Work Sans', sans-serif",
-            "'Rubik', sans-serif",
-            "'Barlow', sans-serif",
-            "'Titillium Web', sans-serif",
-            "'Oxygen', sans-serif",
-            "'Quicksand', sans-serif"
-        ];
-
         // Position options with proper labels
         const positionEnum = [
             'top-left', 'top-center', 'top-right',
@@ -4955,15 +4906,9 @@ export class LCARdSButton extends LCARdSCard {
             'top', 'bottom', 'left', 'right'
         ];
 
-        // Alignment options
-        const justifyEnum = ['left', 'center', 'right', 'justify', 'start', 'end'];
-        const alignEnum = ['top', 'middle', 'bottom', 'baseline', 'start', 'end'];
-        const transformEnum = ['none', 'uppercase', 'lowercase', 'capitalize'];
-
         // Build simplified schema (no $ref resolution needed)
         const buttonSchema = getButtonSchema({
             availablePresets,
-            fontFamilyEnum,
             positionEnum
         });
 
