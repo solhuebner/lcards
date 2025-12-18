@@ -149,7 +149,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
      */
     _formatSegmentLabel(segmentId) {
         if (!segmentId) return 'Segment';
-        return segmentId.split('-').map(word => 
+        return segmentId.split('-').map(word =>
             word.charAt(0).toUpperCase() + word.slice(1)
         ).join(' ');
     }
@@ -161,7 +161,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
      * @private
      */
     _getBasePath(segmentId) {
-        return this.mode === 'dpad' 
+        return this.mode === 'dpad'
             ? `dpad.segments.${segmentId}`
             : `svg.segments.${segmentId}`;
     }
@@ -174,7 +174,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
     _deleteSegment(segmentId) {
         const newSegments = { ...this.segments };
         delete newSegments[segmentId];
-        
+
         const basePath = this.mode === 'dpad' ? 'dpad.segments' : 'svg.segments';
         this.editor._setConfigValue(basePath, newSegments);
     }
@@ -194,20 +194,20 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
 
     render() {
         const segmentIds = this._getSegmentIdList();
-        
+
         return html`
             ${this.showDefaults ? this._renderDefaultSection() : ''}
-            
+
             <div class="segments-list">
                 ${segmentIds.map(id => this._renderSegment(id))}
             </div>
-            
+
             ${this.mode === 'custom' ? html`
                 <mwc-button
                     class="add-button"
                     outlined
-                    icon="mdi:plus"
                     @click=${this._handleAddSegment}>
+                    <ha-icon slot="icon" icon="mdi:plus"></ha-icon>
                     Add Segment
                 </mwc-button>
             ` : ''}
@@ -222,7 +222,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
     _renderDefaultSection() {
         const basePath = this.mode === 'dpad' ? 'dpad.segments.default' : 'svg.segments.default';
         const defaultConfig = this.segments?.default || {};
-        
+
         return html`
             <lcards-form-section
                 header="Default Configuration"
@@ -230,7 +230,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
                 icon="mdi:cog-outline"
                 ?expanded=${true}
                 ?outlined=${true}>
-                
+
                 <!-- Default Actions -->
                 <div class="section-label">Default Actions</div>
                 <div class="section-description">
@@ -241,14 +241,14 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
                     .actions=${this._getDefaultActions()}
                     @value-changed=${this._handleDefaultActionsChange}>
                 </lcards-multi-action-editor>
-                
+
                 <!-- Default Style -->
-                <lcards-form-section 
+                <lcards-form-section
                     header="Default SVG Style"
                     description="Default SVG styling properties"
                     icon="mdi:palette-outline"
                     ?expanded=${false}>
-                    
+
                     <lcards-color-section
                         .editor=${this.editor}
                         .config=${this.editor.config}
@@ -258,7 +258,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
                         .states=${['default', 'active', 'inactive', 'unavailable']}
                         ?expanded=${false}>
                     </lcards-color-section>
-                    
+
                     <lcards-color-section
                         .editor=${this.editor}
                         .config=${this.editor.config}
@@ -305,7 +305,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
     _handleDefaultActionsChange(event) {
         const actions = event.detail.value;
         const basePath = this.mode === 'dpad' ? 'dpad.segments.default' : 'svg.segments.default';
-        
+
         // Update each action
         ['tap_action', 'hold_action', 'double_tap_action'].forEach(key => {
             if (actions[key]?.action !== 'none') {
@@ -333,7 +333,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
         const isExpanded = this._expandedSegments.has(segmentId);
         const isPredefined = this.mode === 'dpad';
         const isDiscovered = this.discoveredSegmentIds.includes(segmentId);
-        
+
         return html`
             <lcards-form-section
                 header="${label}"
@@ -343,7 +343,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
                 ?outlined=${true}
                 headerLevel="4"
                 @expanded-changed=${(e) => this._handleSegmentToggle(segmentId, e)}>
-                
+
                 ${isExpanded ? html`
                     <!-- Show manual selector field for custom mode if not auto-discovered -->
                     ${!isPredefined && !isDiscovered ? html`
@@ -357,7 +357,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
                             <div class="helper-text">Element selector (e.g., #id, .class, [data-segment='name'])</div>
                         </div>
                     ` : ''}
-                    
+
                     <!-- Entity Override -->
                     <div class="form-row">
                         <label>Entity Override</label>
@@ -369,7 +369,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
                         </ha-entity-picker>
                         <div class="helper-text">Optional entity for this segment (overrides card entity)</div>
                     </div>
-                    
+
                     <!-- Actions -->
                     <div class="section-label">Actions</div>
                     <div class="section-description">
@@ -380,15 +380,16 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
                         .actions=${this._getSegmentActions(segmentId)}
                         @value-changed=${(e) => this._handleSegmentActionsChange(segmentId, e)}>
                     </lcards-multi-action-editor>
-                    
+
                     <!-- SVG Style -->
                     ${this._renderSegmentStyle(segmentId)}
-                    
+
                     <!-- Delete Button (custom mode only) -->
                     ${!isPredefined ? html`
                         <mwc-button
                             class="delete-button"
                             @click=${() => this._deleteSegment(segmentId)}>
+                            <ha-icon slot="icon" icon="mdi:delete"></ha-icon>
                             Delete Segment
                         </mwc-button>
                     ` : ''}
@@ -436,7 +437,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
     _handleSegmentActionsChange(segmentId, event) {
         const actions = event.detail.value;
         const basePath = this._getBasePath(segmentId);
-        
+
         // Update each action
         ['tap_action', 'hold_action', 'double_tap_action'].forEach(key => {
             if (actions[key]?.action !== 'none') {
@@ -459,14 +460,14 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
      */
     _renderSegmentStyle(segmentId) {
         const basePath = this._getBasePath(segmentId);
-        
+
         return html`
             <lcards-form-section
                 header="SVG Style Override"
                 description="Override default SVG styling"
                 icon="mdi:palette-outline"
                 ?expanded=${false}>
-                
+
                 <lcards-color-section
                     .editor=${this.editor}
                     .config=${this.editor.config}
@@ -476,7 +477,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
                     .states=${['default', 'active', 'inactive', 'unavailable']}
                     ?expanded=${false}>
                 </lcards-color-section>
-                
+
                 <lcards-color-section
                     .editor=${this.editor}
                     .config=${this.editor.config}
@@ -486,7 +487,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
                     .states=${['default', 'active', 'inactive', 'unavailable']}
                     ?expanded=${false}>
                 </lcards-color-section>
-                
+
                 <div class="form-row">
                     <label>Stroke Width</label>
                     <ha-textfield

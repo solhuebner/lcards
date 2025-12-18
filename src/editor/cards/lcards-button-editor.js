@@ -7,6 +7,7 @@
 
 import { html } from 'lit';
 import { LCARdSBaseEditor } from '../base/LCARdSBaseEditor.js';
+import { configToYaml } from '../utils/yaml-utils.js';
 import '../components/common/lcards-message.js';
 import '../components/yaml/lcards-monaco-yaml-editor.js';
 // Import form components
@@ -18,10 +19,8 @@ import '../components/form/lcards-color-section.js';
 import '../components/form/lcards-multi-text-editor.js';
 import '../components/form/lcards-icon-editor.js';
 import '../components/form/lcards-border-editor.js';
-import '../components/form/lcards-segment-list-editor.js';
 import '../components/form/lcards-unified-segment-editor.js';
 import '../components/form/lcards-multi-action-editor.js';
-import '../components/form/lcards-dpad-segment-picker.js';
 // Import dashboard components
 import '../components/dashboard/lcards-rules-dashboard.js';
 
@@ -33,13 +32,21 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
     }
 
     /**
+     * Get current editor mode
+     * @returns {'preset'|'component'|'svg'}
+     * @private
+     */
+    _getMode() {
+        if (this.config.component) return 'component';
+        if (this.config.svg !== undefined) return 'svg'; // Check for svg object existence, not content
+        return 'preset';
+    }
+
+    /**
      * Get tab definitions
      */
     _getTabDefinitions() {
-        const mode = this.config.component ? 'component' : 'preset';
-        // Check for segments - support both array (legacy) and object format
-        const hasSegments = this.config.svg?.segments && 
-                          (Array.isArray(this.config.svg.segments) ? this.config.svg.segments.length > 0 : Object.keys(this.config.svg.segments).length > 0);
+        const mode = this._getMode();
 
         const tabs = [
             { label: 'Config', content: () => this._renderFromConfig(this._getConfigTabConfig()) }
@@ -53,13 +60,13 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
             );
         }
 
-        if (mode === 'component') {
-            tabs.push({ label: 'Component', content: () => this._renderComponentTab() });
+        // Show Actions tab only in preset mode (component/svg have per-segment actions)
+        if (mode === 'preset') {
+            tabs.push({ label: 'Actions', content: () => this._renderActionsTab() });
         }
 
-        tabs.push({ label: 'Actions', content: () => this._renderActionsTab() });
-
-        if (hasSegments || mode === 'component') {
+        // Show Segments tab for component (dpad) and svg modes
+        if (mode === 'component' || mode === 'svg') {
             tabs.push({ label: 'Segments', content: () => this._renderSegmentsTab() });
         }
 
@@ -76,7 +83,7 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
      * Config tab - declarative configuration
      */
     _getConfigTabConfig() {
-        const mode = this.config.component ? 'component' : 'preset';
+        const mode = this._getMode();
 
         return [
             {
@@ -91,7 +98,7 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
             {
                 type: 'section',
                 header: 'Configuration Mode',
-                description: 'Choose between preset-based buttons or component-based controls',
+                description: 'Choose between preset buttons, custom SVG, or interactive components',
                 icon: 'mdi:cog',
                 expanded: true,
                 outlined: true,
@@ -106,11 +113,14 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                                     @selected=${this._handleModeChange}
                                     @closed=${(e) => e.stopPropagation()}>
                                     <mwc-list-item value="preset">Preset (lozenge, bullet, etc.)</mwc-list-item>
+                                    <mwc-list-item value="svg">Custom SVG (with segments)</mwc-list-item>
                                     <mwc-list-item value="component">Component (dpad, sliders, etc.)</mwc-list-item>
                                 </ha-select>
                                 <div class="helper-text">
                                     ${mode === 'preset'
                                         ? 'Preset mode: Use shape presets with text, icons, and styling'
+                                        : mode === 'svg'
+                                        ? 'Custom SVG mode: Use your own SVG with interactive segments'
                                         : 'Component mode: Use complex interactive components like dpads'}
                                 </div>
                             </div>
@@ -126,7 +136,13 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                 expanded: true,
                 outlined: true,
                 children: [
-                    { type: 'field', path: mode === 'preset' ? 'preset' : 'component', label: mode === 'preset' ? 'Preset Style' : 'Component Type' },
+                    ...(mode === 'preset' ? [
+                        { type: 'field', path: 'preset', label: 'Preset Style' }
+                    ] : []),
+                    ...(mode === 'component' ? [
+                        { type: 'field', path: 'component', label: 'Component Type' }
+                    ] : []),
+                    // SVG content moved to Segments tab for better context
                     { type: 'field', path: 'entity', label: 'Entity' },
                     { type: 'field', path: 'id', label: 'Card ID', helper: '[Optional] Custom ID for targeting with rules and animations' }
                 ]
@@ -248,45 +264,105 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
     }
 
     /**
-     * Segments tab - uses segment list editor
+     * Segments tab - uses unified segment editor for both modes
      */
     _renderSegmentsTab() {
-        // Check if segments are in object format (new) or array format (legacy)
-        const segments = this.config.svg?.segments;
-        const isObjectFormat = segments && typeof segments === 'object' && !Array.isArray(segments);
-        
-        if (isObjectFormat) {
-            // New unified editor for object-based segments
+        const mode = this._getMode();
+
+        if (mode === 'component') {
+            // Component mode (e.g., dpad): predefined segments
+            const componentType = this.config.component || 'dpad';
+
+            if (componentType === 'dpad') {
+                const predefinedSegments = ['center', 'up', 'down', 'left', 'right', 'up-left', 'up-right', 'down-left', 'down-right'];
+                return html`
+                    <lcards-message
+                        type="info"
+                        message="Configure your D-pad remote control. Use 'Default' to set common properties for all segments, then override per-segment as needed.">
+                    </lcards-message>
+                    <lcards-unified-segment-editor
+                        .editor=${this}
+                        mode="dpad"
+                        .segments=${this.config.dpad?.segments || {}}
+                        .predefinedSegmentIds=${predefinedSegments}
+                        ?showDefaults=${true}
+                        .hass=${this.hass}>
+                    </lcards-unified-segment-editor>
+                `;
+            }
+
+            // Other component types
             return html`
                 <lcards-message
                     type="info"
-                    message="Configure SVG segment interactions. Segments are auto-discovered from your SVG content. Use 'Default' to set common properties for all segments.">
+                    message="Segment editor for ${componentType} is not yet implemented.">
                 </lcards-message>
+            `;
+        } else if (mode === 'svg') {
+            // Custom SVG mode: auto-discovered segments
+            const discoveredIds = this._getDiscoveredSegmentIds();
+            const parseError = this._getSvgParseError();
+
+            return html`
+                <lcards-message
+                    type="info"
+                    message="Paste your SVG markup below. Elements with 'id' attributes become interactive segments.">
+                </lcards-message>
+
+                <!-- SVG Content Field -->
+                <lcards-form-section
+                    header="SVG Content"
+                    description="Paste or edit your SVG markup here"
+                    icon="mdi:xml"
+                    ?expanded=${true}
+                    ?outlined=${true}>
+                    <div class="form-row">
+                        <ha-textarea
+                            .value=${this.config.svg?.content || ''}
+                            @input=${(e) => this.editor._setConfigValue('svg.content', e.target.value)}
+                            placeholder="<svg viewBox='0 0 100 100'>...</svg>"
+                            rows="10"
+                            style="width: 100%; font-family: monospace;">
+                        </ha-textarea>
+                        <div class="helper-text">
+                            ${discoveredIds.length > 0
+                                ? `✓ Found ${discoveredIds.length} segment(s): ${discoveredIds.join(', ')}`
+                                : 'No segments found. Add id attributes to your SVG elements.'}
+                        </div>
+                    </div>
+                </lcards-form-section>
+
+                ${parseError ? html`
+                    <lcards-message
+                        type="error"
+                        message="SVG Parse Error: ${parseError}">
+                    </lcards-message>
+                ` : ''}
+
+                <!-- Segment Configuration -->
+                <lcards-message
+                    type="info"
+                    message="Configure segment interactions below. Use 'Default' to set common properties for all segments.">
+                </lcards-message>
+
                 <lcards-unified-segment-editor
                     .editor=${this}
                     mode="custom"
                     .segments=${this.config.svg?.segments || {}}
-                    .discoveredSegmentIds=${this._getDiscoveredSegmentIds()}
+                    .discoveredSegmentIds=${discoveredIds}
                     ?showDefaults=${true}
                     .hass=${this.hass}>
                 </lcards-unified-segment-editor>
             `;
-        } else {
-            // Legacy array-based editor (fallback)
-            return html`
-                <lcards-message
-                    type="warning"
-                    message="You are using the legacy array-based segment format. Consider migrating to the new object-based format for better consistency.">
-                </lcards-message>
-                <lcards-segment-list-editor
-                    .editor=${this}
-                    .segments=${this.config.svg?.segments || []}
-                    .hass=${this.hass}
-                    ?expanded=${true}
-                    @value-changed=${this._handleSegmentsChange}>
-                </lcards-segment-list-editor>
-            `;
         }
+
+        // Should never reach here, but just in case
+        return html`
+            <lcards-message
+                type="warning"
+                message="Segments tab is only available in SVG or Component mode.">
+            </lcards-message>
+        `;
     }
 
     /**
@@ -297,54 +373,39 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
     _getDiscoveredSegmentIds() {
         const svgContent = this.config.svg?.content;
         if (!svgContent) return [];
-        
+
         // Reuse button card's extraction logic
         try {
             const parser = new DOMParser();
             const doc = parser.parseFromString(svgContent, 'image/svg+xml');
-            
+
             // Check for parse errors
             const parseError = doc.querySelector('parsererror');
             if (parseError) {
+                this._svgParseError = parseError.textContent || 'Invalid SVG markup';
+                console.error('[LCARdS Button Editor] SVG parse error:', this._svgParseError);
                 return [];
             }
-            
+
+            // Clear any previous parse errors
+            this._svgParseError = null;
+
             const elementsWithIds = doc.querySelectorAll('[id]');
             return Array.from(elementsWithIds).map(el => el.id);
         } catch (error) {
+            this._svgParseError = error.message || 'Failed to parse SVG';
+            console.error('[LCARdS Button Editor] SVG parse exception:', error);
             return [];
         }
     }
 
     /**
-     * Component tab - for component mode
+     * Get SVG parse error if any
+     * @returns {string|null}
+     * @private
      */
-    _renderComponentTab() {
-        const componentType = this.config.component || 'dpad';
-        if (componentType === 'dpad') {
-            // Use unified segment editor for dpad
-            const segments = ['center', 'up', 'down', 'left', 'right', 'up-left', 'up-right', 'down-left', 'down-right'];
-            return html`
-                <lcards-message
-                    type="info"
-                    message="Configure your D-pad remote control. Use 'Default' to set common properties for all segments, then override per-segment as needed.">
-                </lcards-message>
-                <lcards-unified-segment-editor
-                    .editor=${this}
-                    mode="dpad"
-                    .segments=${this.config.dpad?.segments || {}}
-                    .predefinedSegmentIds=${segments}
-                    ?showDefaults=${true}
-                    .hass=${this.hass}>
-                </lcards-unified-segment-editor>
-            `;
-        }
-        return html`
-            <lcards-message
-                type="info"
-                message="Component editor for ${componentType} is not yet implemented.">
-            </lcards-message>
-        `;
+    _getSvgParseError() {
+        return this._svgParseError || null;
     }
 
     /**
@@ -383,11 +444,79 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
 
     _handleModeChange(event) {
         const newMode = event.target.value;
-        if (newMode === 'component') {
-            this._updateConfig({ component: 'dpad', preset: undefined });
-        } else {
-            this._updateConfig({ component: undefined, dpad: undefined, preset: 'lozenge' });
+        const currentMode = this._getMode();
+
+        if (newMode === currentMode) return; // No change
+
+        // Build new config based on mode, clearing unrelated properties
+        const newConfig = {
+            type: this.config.type, // CRITICAL: Must preserve type
+            // Keep common properties
+            entity: this.config.entity,
+            id: this.config.id,
+            tap_action: this.config.tap_action,
+            hold_action: this.config.hold_action,
+            double_tap_action: this.config.double_tap_action,
+            style: this.config.style,
+            css_class: this.config.css_class
+        };
+
+        if (newMode === 'preset') {
+            // Preset mode: clear component and svg configs
+            newConfig.preset = 'lozenge';
+            // component, dpad, svg intentionally omitted (cleared)
+        } else if (newMode === 'component') {
+            // Component mode: clear preset and svg configs
+            newConfig.component = 'dpad';
+            newConfig.dpad = { segments: {} }; // Initialize with empty segments
+            // preset, svg intentionally omitted (cleared)
+        } else if (newMode === 'svg') {
+            // SVG mode: clear preset and component configs
+            // Provide example SVG if no existing content
+            const exampleSvg = `<svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Example interactive segments -->
+  <rect id="segment-1" x="10" y="10" width="80" height="80" fill="#ff9800" rx="8"/>
+  <text x="50" y="55" text-anchor="middle" fill="white" font-size="14">Segment 1</text>
+
+  <circle id="segment-2" cx="150" cy="50" r="40" fill="#2196f3"/>
+  <text x="150" y="55" text-anchor="middle" fill="white" font-size="14">Segment 2</text>
+
+  <rect id="segment-3" x="210" y="10" width="80" height="80" fill="#4caf50" rx="8"/>
+  <text x="250" y="55" text-anchor="middle" fill="white" font-size="14">Segment 3</text>
+
+  <path id="segment-4" d="M 10 120 L 140 120 L 75 180 Z" fill="#9c27b0"/>
+  <text x="75" y="150" text-anchor="middle" fill="white" font-size="14">Segment 4</text>
+
+  <ellipse id="segment-5" cx="220" cy="150" rx="70" ry="40" fill="#f44336"/>
+  <text x="220" y="155" text-anchor="middle" fill="white" font-size="14">Segment 5</text>
+</svg>`;
+
+            newConfig.svg = {
+                content: this.config.svg?.content || exampleSvg,
+                segments: {} // Initialize with empty segments
+            };
+            // preset, component, dpad intentionally omitted (cleared)
         }
+
+        // Clean up undefined values
+        Object.keys(newConfig).forEach(key => {
+            if (newConfig[key] === undefined) {
+                delete newConfig[key];
+            }
+        });
+
+        // Replace config and notify Home Assistant
+        this.config = newConfig;
+        this._yamlValue = configToYaml(this.config);
+        this._validateConfig();
+
+        // Fire config-changed event for Home Assistant
+        this.dispatchEvent(new CustomEvent('config-changed', {
+            detail: { config: this.config },
+            bubbles: true,
+            composed: true
+        }));
+
         this.requestUpdate();
     }
 
@@ -397,12 +526,6 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
             tap_action: actions.tap_action,
             hold_action: actions.hold_action,
             double_tap_action: actions.double_tap_action
-        });
-    }
-
-    _handleSegmentsChange(event) {
-        this._updateConfig({
-            svg: { ...(this.config.svg || {}), segments: event.detail.value }
         });
     }
 }

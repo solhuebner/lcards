@@ -146,7 +146,12 @@ export function getButtonSchema(options = {}) {
                             position: { type: 'string', enum: positionEnum },
                             rotation: { type: 'number' },
                             padding: paddingSchema,
-                            font_size: { type: 'number' },
+                            font_size: {
+                                oneOf: [
+                                    { type: 'number' },
+                                    { type: 'string', description: 'CSS value or theme token (e.g., "14px", "var(--lcars-text-size)")' }
+                                ]
+                            },
                             color: stateColorSchema,
                             font_weight: {
                                 type: 'string',
@@ -179,7 +184,12 @@ export function getButtonSchema(options = {}) {
                         y_percent: { type: 'number', minimum: 0, maximum: 100 },
                         rotation: { type: 'number', minimum: -360, maximum: 360 },
                         padding: paddingSchema,
-                        font_size: { type: 'number', minimum: 1, maximum: 200 },
+                        font_size: {
+                            oneOf: [
+                                { type: 'number', minimum: 1, maximum: 200 },
+                                { type: 'string', description: 'CSS value or theme token (e.g., "14px", "var(--lcars-text-size)")' }
+                            ]
+                        },
                         color: stateColorSchema,
                         font_weight: {
                             type: 'string',
@@ -323,7 +333,12 @@ export function getButtonSchema(options = {}) {
                                 type: 'object',
                                 properties: {
                                     color: stateColorSchema,
-                                    font_size: { type: 'number' },
+                                    font_size: {
+                                        oneOf: [
+                                            { type: 'number' },
+                                            { type: 'string', description: 'CSS value or theme token (e.g., "14px", "var(--lcars-text-size)")' }
+                                        ]
+                                    },
                                     font_weight: { type: 'string' },
                                     font_family: { type: 'string', format: 'font-family' }
                                 }
