@@ -18,6 +18,8 @@
 import { LitElement, html, css } from 'lit';
 import { fireEvent } from 'custom-card-helpers';
 import '../form/lcards-form-section.js';
+import './lcards-transformation-list-editor.js';
+import './lcards-aggregation-list-editor.js';
 
 export class LCARdSDataSourceDialog extends LitElement {
   static get properties() {
@@ -238,10 +240,19 @@ export class LCARdSDataSourceDialog extends LitElement {
           ` : ''}
         </lcards-form-section>
 
-        <!-- Phase 3 Placeholder -->
-        <ha-alert alert-type="info">
-          Transformations and Aggregations will be available in Phase 3.
-        </ha-alert>
+        <!-- Transformations -->
+        <lcards-transformation-list-editor
+          .transformations=${this._config.transformations || {}}
+          .hass=${this.hass}
+          @transformations-changed=${this._handleTransformationsChange}>
+        </lcards-transformation-list-editor>
+
+        <!-- Aggregations -->
+        <lcards-aggregation-list-editor
+          .aggregations=${this._config.aggregations || {}}
+          .hass=${this.hass}
+          @aggregations-changed=${this._handleAggregationsChange}>
+        </lcards-aggregation-list-editor>
       </div>
     `;
   }
@@ -504,6 +515,32 @@ export class LCARdSDataSourceDialog extends LitElement {
     return true;
   }
 
+  _handleTransformationsChange(event) {
+    const transformations = event.detail.value;
+    
+    // Remove transformations if empty, otherwise set
+    if (Object.keys(transformations).length === 0) {
+      delete this._config.transformations;
+    } else {
+      this._config.transformations = transformations;
+    }
+    
+    this.requestUpdate();
+  }
+
+  _handleAggregationsChange(event) {
+    const aggregations = event.detail.value;
+    
+    // Remove aggregations if empty, otherwise set
+    if (Object.keys(aggregations).length === 0) {
+      delete this._config.aggregations;
+    } else {
+      this._config.aggregations = aggregations;
+    }
+    
+    this.requestUpdate();
+  }
+
   _isValid() {
     return this._validateName() && this._entityValid && this._config.entity;
   }
@@ -524,6 +561,13 @@ export class LCARdSDataSourceDialog extends LitElement {
     }
     if (cleanConfig.max_delay_ms === undefined) {
       delete cleanConfig.max_delay_ms;
+    }
+    // Clean up empty transformations and aggregations
+    if (cleanConfig.transformations && Object.keys(cleanConfig.transformations).length === 0) {
+      delete cleanConfig.transformations;
+    }
+    if (cleanConfig.aggregations && Object.keys(cleanConfig.aggregations).length === 0) {
+      delete cleanConfig.aggregations;
     }
 
     this.dispatchEvent(new CustomEvent('save', {
