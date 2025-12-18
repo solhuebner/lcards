@@ -51,7 +51,7 @@ export class LCARdSRulesDashboard extends LitElement {
 
             .dashboard-stats {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
                 gap: 12px;
                 margin-bottom: 16px;
             }
@@ -60,7 +60,7 @@ export class LCARdSRulesDashboard extends LitElement {
                 background: var(--card-background-color, #fff);
                 border: 2px solid var(--divider-color, #e0e0e0);
                 border-radius: 12px;
-                padding: 16px;
+                padding: 12px;
                 text-align: center;
             }
 
