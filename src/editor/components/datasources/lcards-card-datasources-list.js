@@ -1,12 +1,12 @@
 /**
  * Card Datasources List
- * 
+ *
  * Displays datasources configured on this card in expandable list format.
  * Read-only in Phase 1, CRUD operations added in Phase 2.
- * 
+ *
  * @element lcards-card-datasources-list
  * @property {Object} editor - Parent editor instance
- * @property {Object} config - Card configuration
+ * @property {Object} config - Card configuration (passed explicitly for reactivity)
  * @property {Object} hass - Home Assistant instance
  */
 
@@ -17,12 +17,12 @@ export class LCARdSCardDataSourcesList extends LitElement {
   static get properties() {
     return {
       editor: { type: Object },
-      config: { type: Object },
+      config: { type: Object },  // Track config explicitly so Lit detects changes
       hass: { type: Object },
-      _expandedSources: { type: Set, state: true }
+      _expandedSources: { state: true }  // Internal state, no type needed
     };
   }
-  
+
   constructor() {
     super();
     this._expandedSources = new Set();
@@ -97,34 +97,34 @@ export class LCARdSCardDataSourcesList extends LitElement {
       }
     `;
   }
-  
+
   render() {
     const datasources = this.config?.data_sources || {};
     const sourceKeys = Object.keys(datasources);
-    
+
     if (sourceKeys.length === 0) {
       return html`
         <div class="empty-state">
           <ha-icon icon="mdi:database-off-outline"></ha-icon>
           <p>No datasources configured for this card.</p>
           <p class="helper-text">
-            Click "+ Add Source" to create a new datasource, 
+            Click "+ Add Source" to create a new datasource,
             or edit the YAML tab to configure datasources manually.
           </p>
         </div>
       `;
     }
-    
+
     return html`
       <div class="datasources-list">
         ${sourceKeys.map(key => this._renderDataSource(key, datasources[key]))}
       </div>
     `;
   }
-  
+
   _renderDataSource(name, config) {
     const isExpanded = this._expandedSources.has(name);
-    
+
     return html`
       <lcards-form-section
         header="${name}"
@@ -134,7 +134,7 @@ export class LCARdSCardDataSourcesList extends LitElement {
         ?outlined=${true}
         headerLevel="4"
         @expanded-changed=${(e) => this._toggleExpanded(name, e)}>
-        
+
         ${isExpanded ? html`
           <div class="datasource-details">
             <!-- Basic Info -->
@@ -142,19 +142,19 @@ export class LCARdSCardDataSourcesList extends LitElement {
               <span class="label">Entity:</span>
               <span class="value">${config.entity || 'N/A'}</span>
             </div>
-            
+
             ${config.attribute ? html`
               <div class="info-row">
                 <span class="label">Attribute:</span>
                 <span class="value">${config.attribute}</span>
               </div>
             ` : ''}
-            
+
             <div class="info-row">
               <span class="label">Window:</span>
               <span class="value">${config.window_seconds || 60}s</span>
             </div>
-            
+
             <!-- Transformations -->
             ${config.transformations ? html`
               <div class="info-row">
@@ -162,7 +162,7 @@ export class LCARdSCardDataSourcesList extends LitElement {
                 <span class="value">${Object.keys(config.transformations).length}</span>
               </div>
             ` : ''}
-            
+
             <!-- Aggregations -->
             ${config.aggregations ? html`
               <div class="info-row">
@@ -170,7 +170,7 @@ export class LCARdSCardDataSourcesList extends LitElement {
                 <span class="value">${Object.keys(config.aggregations).length}</span>
               </div>
             ` : ''}
-            
+
             <!-- History -->
             ${config.history?.preload ? html`
               <div class="info-row">
@@ -180,27 +180,27 @@ export class LCARdSCardDataSourcesList extends LitElement {
                 </span>
               </div>
             ` : ''}
-            
+
             <!-- Phase 2: Edit and Remove Actions -->
             <div class="action-buttons">
-              <mwc-button
-                outlined
+              <ha-button
                 @click=${() => this._handleEdit(name, config)}>
+                <ha-icon icon="mdi:pencil" slot="icon"></ha-icon>
                 Edit
-              </mwc-button>
-              <mwc-button
-                outlined
-                style="color: var(--error-color)"
+              </ha-button>
+              <ha-button
+                style="--mdc-theme-primary: var(--error-color);"
                 @click=${() => this._handleDelete(name)}>
+                <ha-icon icon="mdi:delete" slot="icon"></ha-icon>
                 Remove
-              </mwc-button>
+              </ha-button>
             </div>
           </div>
         ` : ''}
       </lcards-form-section>
     `;
   }
-  
+
   _toggleExpanded(name, event) {
     if (event.detail.expanded) {
       this._expandedSources.add(name);

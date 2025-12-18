@@ -1,13 +1,13 @@
 /**
  * LCARdS Datasource Add/Edit Dialog
- * 
- * Modal dialog for creating or editing datasource configurations. 
+ *
+ * Modal dialog for creating or editing datasource configurations.
  * Uses ha-dialog with form validation and real-time entity checking.
- * 
+ *
  * @element lcards-datasource-dialog
  * @fires save - When datasource is saved (detail: {name, config})
  * @fires cancel - When dialog is cancelled
- * 
+ *
  * @property {Object} hass - Home Assistant instance
  * @property {string} mode - 'add' | 'edit'
  * @property {string} sourceName - Existing name (edit mode only)
@@ -16,6 +16,7 @@
  */
 
 import { LitElement, html, css } from 'lit';
+import { fireEvent } from 'custom-card-helpers';
 import '../form/lcards-form-section.js';
 
 export class LCARdSDataSourceDialog extends LitElement {
@@ -34,18 +35,23 @@ export class LCARdSDataSourceDialog extends LitElement {
       _errors: { type: Object, state: true }
     };
   }
-  
+
   constructor() {
     super();
     this.mode = 'add';
     this.open = false;
     this._resetForm();
   }
-  
+
   static get styles() {
     return css`
       :host {
         display: block;
+      }
+
+      ha-dialog {
+        --mdc-dialog-min-width: 600px;
+        --mdc-dialog-max-width: 800px;
       }
 
       .form-content {
@@ -95,7 +101,7 @@ export class LCARdSDataSourceDialog extends LitElement {
       }
     `;
   }
-  
+
   _resetForm() {
     this._name = this.sourceName || '';
     this._config = this.sourceConfig ? { ...this.sourceConfig } : {
@@ -115,7 +121,7 @@ export class LCARdSDataSourceDialog extends LitElement {
     this._showHistory = this._config.history?.preload || false;
     this._errors = {};
   }
-  
+
   willUpdate(changedProperties) {
     if (changedProperties.has('open') && this.open) {
       this._resetForm();
@@ -124,12 +130,9 @@ export class LCARdSDataSourceDialog extends LitElement {
       }
     }
   }
-  
+
   render() {
-    // Check if ha-dialog is available
-    const hasDialog = customElements.get('ha-dialog');
-    
-    if (!hasDialog || !this.open) {
+    if (!this.open) {
       return html``;
     }
 
@@ -137,28 +140,35 @@ export class LCARdSDataSourceDialog extends LitElement {
       <ha-dialog
         .open=${this.open}
         @closed=${this._handleCancel}
-        .heading=${this.mode === 'add' ? 'Add Datasource' : `Edit Datasource: ${this.sourceName}`}>
-        
-        <div slot="content">
+        .heading=${this.mode === 'add' ? 'Add Datasource' : `Edit Datasource: ${this.sourceName}`}
+        scrimClickAction=""
+        escapeKeyAction="">
+
+        <div style="padding: 0 24px 8px;">
           ${this._renderForm()}
         </div>
-        
-        <mwc-button
+
+        <ha-button
           slot="secondaryAction"
-          @click=${this._handleCancel}>
+          appearance="plain"
+          @click=${this._handleCancel}
+          dialogAction="cancel">
           Cancel
-        </mwc-button>
-        
-        <mwc-button
+        </ha-button>
+
+        <ha-button
           slot="primaryAction"
+          variant="brand"
+          appearance="accent"
           @click=${this._handleSave}
-          ?disabled=${!this._isValid()}>
+          ?disabled=${!this._isValid()}
+          dialogAction="ok">
           ${this.mode === 'add' ? 'Create' : 'Save'}
-        </mwc-button>
+        </ha-button>
       </ha-dialog>
     `;
   }
-  
+
   _renderForm() {
     return html`
       <div class="form-content">
@@ -175,10 +185,10 @@ export class LCARdSDataSourceDialog extends LitElement {
         ${this.mode === 'edit' ? html`
           <div class="helper-text">Name cannot be changed after creation</div>
         ` : ''}
-        
+
         <!-- Entity -->
         ${this._renderEntityPicker()}
-        
+
         ${!this._entityValid && this._config.entity ? html`
           <ha-alert alert-type="warning">
             Entity "${this._config.entity}" not found in Home Assistant.
@@ -189,37 +199,37 @@ export class LCARdSDataSourceDialog extends LitElement {
             ` : ''}
           </ha-alert>
         ` : ''}
-        
+
         <!-- Attribute -->
         ${this._entityValid ? html`
           ${this._renderAttributeSelect()}
         ` : ''}
-        
+
         <!-- Timing Settings -->
         <lcards-form-section
           header="Timing Settings"
           ?expanded=${false}
           ?outlined=${false}>
-          
+
           <div class="timing-grid">
             ${this._renderNumberInput('Window Seconds', 'window_seconds', 60, 1, 3600, 's', 'Time window for buffered data')}
             ${this._renderNumberInput('Min Emit (ms)', 'min_emit_ms', 100, 10, 5000, 'ms', 'Minimum time between emissions')}
             ${this._renderNumberInput('Coalesce (ms)', 'coalesce_ms', 0, 0, 1000, 'ms', 'Batch rapid updates (0 = disabled)')}
             ${this._renderNumberInput('Max Delay (ms)', 'max_delay_ms', undefined, 0, 10000, 'ms', 'Maximum emission delay (optional)')}
           </div>
-          
+
           ${this._renderBooleanSwitch('Emit on Same Value', 'emit_on_same_value', true)}
         </lcards-form-section>
-        
+
         <!-- History Preload -->
         <lcards-form-section
           header="History Preload"
           ?expanded=${this._showHistory}
           ?outlined=${false}
           @expanded-changed=${(e) => this._showHistory = e.detail.expanded}>
-          
+
           ${this._renderBooleanSwitch('Preload History', 'history.preload', false, 'Load historical data on initialization')}
-          
+
           ${this._config.history?.preload ? html`
             <div class="timing-grid">
               ${this._renderNumberInput('Hours', 'history.hours', 24, 0, 168, 'h')}
@@ -227,7 +237,7 @@ export class LCARdSDataSourceDialog extends LitElement {
             </div>
           ` : ''}
         </lcards-form-section>
-        
+
         <!-- Phase 3 Placeholder -->
         <ha-alert alert-type="info">
           Transformations and Aggregations will be available in Phase 3.
@@ -238,7 +248,7 @@ export class LCARdSDataSourceDialog extends LitElement {
 
   _renderEntityPicker() {
     const hasEntityPicker = customElements.get('ha-entity-picker');
-    
+
     if (hasEntityPicker) {
       return html`
         <ha-entity-picker
@@ -250,7 +260,7 @@ export class LCARdSDataSourceDialog extends LitElement {
         </ha-entity-picker>
       `;
     }
-    
+
     // Fallback to textfield if ha-entity-picker not available
     return html`
       <ha-textfield
@@ -269,7 +279,7 @@ export class LCARdSDataSourceDialog extends LitElement {
   _renderAttributeSelect() {
     const hasSelect = customElements.get('ha-select');
     const options = this._getAttributeOptions(this._config.entity);
-    
+
     if (hasSelect) {
       return html`
         <ha-select
@@ -282,10 +292,10 @@ export class LCARdSDataSourceDialog extends LitElement {
         </ha-select>
       `;
     }
-    
+
     // Fallback to native select
     return html`
-      <select 
+      <select
         @change=${this._handleAttributeChange}
         .value=${this._config.attribute || '__state__'}>
         ${options.map(opt => html`
@@ -298,7 +308,7 @@ export class LCARdSDataSourceDialog extends LitElement {
   _renderNumberInput(label, path, defaultValue, min, max, unit, helper) {
     const hasSelector = customElements.get('ha-selector');
     const value = this._getConfigValue(path, defaultValue);
-    
+
     if (hasSelector) {
       return html`
         <div>
@@ -313,7 +323,7 @@ export class LCARdSDataSourceDialog extends LitElement {
         </div>
       `;
     }
-    
+
     // Fallback to number input
     return html`
       <div>
@@ -333,7 +343,7 @@ export class LCARdSDataSourceDialog extends LitElement {
   _renderBooleanSwitch(label, path, defaultValue, helper) {
     const hasSelector = customElements.get('ha-selector');
     const value = this._getConfigValue(path, defaultValue);
-    
+
     if (hasSelector) {
       return html`
         <div>
@@ -348,7 +358,7 @@ export class LCARdSDataSourceDialog extends LitElement {
         </div>
       `;
     }
-    
+
     // Fallback to checkbox
     return html`
       <div>
@@ -368,7 +378,7 @@ export class LCARdSDataSourceDialog extends LitElement {
   _getConfigValue(path, defaultValue) {
     const parts = path.split('.');
     let value = this._config;
-    
+
     for (const part of parts) {
       if (value && typeof value === 'object' && part in value) {
         value = value[part];
@@ -376,13 +386,13 @@ export class LCARdSDataSourceDialog extends LitElement {
         return defaultValue;
       }
     }
-    
+
     return value !== undefined ? value : defaultValue;
   }
 
   _setConfigValue(path, value) {
     const parts = path.split('.');
-    
+
     if (parts.length === 1) {
       this._config[parts[0]] = value;
     } else if (parts[0] === 'history') {
@@ -391,36 +401,36 @@ export class LCARdSDataSourceDialog extends LitElement {
       }
       this._config.history[parts[1]] = value;
     }
-    
+
     this.requestUpdate();
   }
-  
+
   _handleEntityChange(event) {
     const entityId = event.detail.value;
     this._config.entity = entityId;
     this._validateEntity(entityId);
     this.requestUpdate();
   }
-  
+
   _validateEntity(entityId) {
     if (!entityId) {
       this._entityValid = false;
       this._entitySuggestions = [];
       return;
     }
-    
+
     const validation = this._getEntityValidation(entityId);
     this._entityValid = validation.valid;
     this._entitySuggestions = validation.suggestions || [];
   }
-  
+
   _getEntityValidation(entityId) {
     if (!this.hass?.states) {
       return { valid: false, message: 'HASS not available' };
     }
-    
+
     const exists = !!this.hass.states[entityId];
-    
+
     if (!exists) {
       const similar = this._findSimilarEntities(entityId);
       return {
@@ -429,10 +439,10 @@ export class LCARdSDataSourceDialog extends LitElement {
         suggestions: similar
       };
     }
-    
+
     return { valid: true };
   }
-  
+
   _findSimilarEntities(entityId) {
     if (!this.hass?.states) {
       return [];
@@ -440,7 +450,7 @@ export class LCARdSDataSourceDialog extends LitElement {
 
     const allEntities = Object.keys(this.hass.states);
     const domain = entityId.split('.')[0];
-    
+
     return allEntities
       .filter(id => id.startsWith(domain))
       .filter(id => {
@@ -450,57 +460,57 @@ export class LCARdSDataSourceDialog extends LitElement {
       })
       .slice(0, 5);
   }
-  
+
   _selectSuggestion(event, entityId) {
     event.preventDefault();
     this._config.entity = entityId;
     this._validateEntity(entityId);
     this.requestUpdate();
   }
-  
+
   _getAttributeOptions(entityId) {
     if (!this.hass?.states?.[entityId]) {
       return [{ value: '__state__', label: '(State)' }];
     }
-    
+
     const state = this.hass.states[entityId];
     const attributes = Object.keys(state.attributes || {});
-    
+
     return [
       { value: '__state__', label: '(State)' },
       ...attributes.map(attr => ({ value: attr, label: attr }))
     ];
   }
-  
+
   _handleAttributeChange(event) {
     const value = event.target.value || event.detail?.value;
     this._config.attribute = value === '__state__' ? undefined : value;
     this.requestUpdate();
   }
-  
+
   _validateName() {
     if (!this._name || this._name.trim().length === 0) {
       this._errors.name = 'Name is required';
       return false;
     }
-    
+
     // Check for valid identifier (alphanumeric + underscore)
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(this._name)) {
       this._errors.name = 'Name must be a valid identifier (letters, numbers, underscore)';
       return false;
     }
-    
+
     delete this._errors.name;
     return true;
   }
-  
+
   _isValid() {
     return this._validateName() && this._entityValid && this._config.entity;
   }
-  
+
   _handleSave() {
     if (!this._isValid()) return;
-    
+
     // Clean up config (remove empty/default values)
     const cleanConfig = { ...this._config };
     if (!cleanConfig.attribute || cleanConfig.attribute === '__state__') {
@@ -515,7 +525,7 @@ export class LCARdSDataSourceDialog extends LitElement {
     if (cleanConfig.max_delay_ms === undefined) {
       delete cleanConfig.max_delay_ms;
     }
-    
+
     this.dispatchEvent(new CustomEvent('save', {
       detail: {
         name: this._name,
@@ -524,10 +534,10 @@ export class LCARdSDataSourceDialog extends LitElement {
       bubbles: true,
       composed: true
     }));
-    
+
     this.open = false;
   }
-  
+
   _handleCancel() {
     this.open = false;
     this.dispatchEvent(new CustomEvent('cancel', {
