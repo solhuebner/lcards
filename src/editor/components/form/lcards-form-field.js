@@ -368,10 +368,7 @@ export class LCARdSFormField extends LitElement {
                         options
                     }
                 }}
-                .configValue=${this.path}
                 .value=${this._value}
-                .label=${this._effectiveLabel}
-                .helper=${this._effectiveHelper}
                 .disabled=${this.disabled}
                 @value-changed=${this._handleValueChange}>
             </ha-selector>

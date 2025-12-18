@@ -112,9 +112,9 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                                     .value=${mode}
                                     @selected=${this._handleModeChange}
                                     @closed=${(e) => e.stopPropagation()}>
-                                    <mwc-list-item value="preset">Preset (lozenge, bullet, etc.)</mwc-list-item>
-                                    <mwc-list-item value="svg">Custom SVG (with segments)</mwc-list-item>
-                                    <mwc-list-item value="component">Component (dpad, sliders, etc.)</mwc-list-item>
+                                    <mwc-list-item value="preset">Buttons (preset: lozenge, bullet, etc.)</mwc-list-item>
+                                    <mwc-list-item value="component">SVG Components (component: dpad, etc.)</mwc-list-item>
+                                    <mwc-list-item value="svg">Custom SVG with Segments (svg: )</mwc-list-item>
                                 </ha-select>
                                 <div class="helper-text">
                                     ${mode === 'preset'
@@ -125,7 +125,24 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                                 </div>
                             </div>
                         `
-                    }
+                    },
+                    ...(mode === 'preset' ? [
+                        { type: 'field', path: 'preset', label: 'Preset Style' }
+                    ] : []),
+                    ...(mode === 'component' ? [
+                        { type: 'field', path: 'component', label: 'Component Type' }
+                    ] : []),
+                    ...(mode === 'svg' ? [
+                        {
+                            type: 'custom',
+                            render: () => html`
+                                <lcards-message
+                                    type="info"
+                                    message="Use the Segments tab to configure your custom SVG content and segment interactions.">
+                                </lcards-message>
+                            `
+                        }
+                    ] : [])
                 ]
             },
             {
@@ -136,13 +153,6 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                 expanded: true,
                 outlined: true,
                 children: [
-                    ...(mode === 'preset' ? [
-                        { type: 'field', path: 'preset', label: 'Preset Style' }
-                    ] : []),
-                    ...(mode === 'component' ? [
-                        { type: 'field', path: 'component', label: 'Component Type' }
-                    ] : []),
-                    // SVG content moved to Segments tab for better context
                     { type: 'field', path: 'entity', label: 'Entity' },
                     { type: 'field', path: 'id', label: 'Card ID', helper: '[Optional] Custom ID for targeting with rules and animations' }
                 ]
@@ -254,9 +264,9 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
             <lcards-multi-action-editor
                 .hass=${this.hass}
                 .actions=${{
-                    tap_action: this.config.tap_action || { action: 'toggle' },
-                    hold_action: this.config.hold_action || { action: 'more-info' },
-                    double_tap_action: this.config.double_tap_action || { action: 'none' }
+                    tap_action: this.config.tap_action,
+                    hold_action: this.config.hold_action,
+                    double_tap_action: this.config.double_tap_action
                 }}
                 @value-changed=${this._handleActionsChange}>
             </lcards-multi-action-editor>
@@ -522,11 +532,46 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
 
     _handleActionsChange(event) {
         const actions = event.detail.value;
-        this._updateConfig({
-            tap_action: actions.tap_action,
-            hold_action: actions.hold_action,
-            double_tap_action: actions.double_tap_action
-        });
+
+        // Create update object, only including defined actions
+        const updates = {};
+
+        // Add actions that are actually configured
+        if (actions.tap_action) {
+            updates.tap_action = actions.tap_action;
+        }
+        if (actions.hold_action) {
+            updates.hold_action = actions.hold_action;
+        }
+        if (actions.double_tap_action) {
+            updates.double_tap_action = actions.double_tap_action;
+        }
+
+        // Remove actions that are no longer in the actions object
+        // by explicitly setting them to undefined in the new config
+        const newConfig = { ...this.config, ...updates };
+
+        if (!actions.tap_action && this.config.tap_action) {
+            delete newConfig.tap_action;
+        }
+        if (!actions.hold_action && this.config.hold_action) {
+            delete newConfig.hold_action;
+        }
+        if (!actions.double_tap_action && this.config.double_tap_action) {
+            delete newConfig.double_tap_action;
+        }
+
+        // Update entire config with cleaned version
+        this.config = newConfig;
+        this._validateConfig();
+        this._yamlValue = configToYaml(this.config);
+
+        // Fire config-changed event
+        this.dispatchEvent(new CustomEvent('config-changed', {
+            detail: { config: this.config },
+            bubbles: true,
+            composed: true
+        }));
     }
 }
 

@@ -29,11 +29,7 @@ export class LCARdSMultiActionEditor extends LitElement {
     constructor() {
         super();
         this.hass = null;
-        this.actions = {
-            tap_action: { action: 'toggle' },
-            hold_action: { action: 'more-info' },
-            double_tap_action: { action: 'none' }
-        };
+        this.actions = {};
     }
 
     static get styles() {
@@ -49,18 +45,24 @@ export class LCARdSMultiActionEditor extends LitElement {
     }
 
     render() {
+        // Show actual config values - no display defaults
+        // If undefined, action-editor will show its own empty state
+        const tapAction = this.actions.tap_action || { action: 'none' };
+        const holdAction = this.actions.hold_action || { action: 'none' };
+        const doubleTapAction = this.actions.double_tap_action || { action: 'none' };
+
         return html`
             <div class="action-section">
                 <lcards-form-section
                     header="👆 Tap Action"
-                    description="Action to perform when tapped"
+                    description="Action to perform when tapped (default: none)"
                     ?expanded=${true}
                     ?outlined=${true}
                     headerLevel="5">
 
                     <lcards-action-editor
                         .hass=${this.hass}
-                        .action=${this.actions.tap_action || { action: 'toggle' }}
+                        .action=${tapAction}
                         @value-changed=${(e) => this._handleActionChange('tap_action', e)}>
                     </lcards-action-editor>
                 </lcards-form-section>
@@ -69,14 +71,14 @@ export class LCARdSMultiActionEditor extends LitElement {
             <div class="action-section">
                 <lcards-form-section
                     header="✋ Hold Action"
-                    description="Action to perform when held"
+                    description="Action to perform when held (default: none)"
                     ?expanded=${false}
                     ?outlined=${true}
                     headerLevel="5">
 
                     <lcards-action-editor
                         .hass=${this.hass}
-                        .action=${this.actions.hold_action || { action: 'more-info' }}
+                        .action=${holdAction}
                         @value-changed=${(e) => this._handleActionChange('hold_action', e)}>
                     </lcards-action-editor>
                 </lcards-form-section>
@@ -85,14 +87,14 @@ export class LCARdSMultiActionEditor extends LitElement {
             <div class="action-section">
                 <lcards-form-section
                     header="👆👆 Double-Tap Action"
-                    description="Action to perform when double-tapped"
+                    description="Action to perform when double-tapped (default: none)"
                     ?expanded=${false}
                     ?outlined=${true}
                     headerLevel="5">
 
                     <lcards-action-editor
                         .hass=${this.hass}
-                        .action=${this.actions.double_tap_action || { action: 'none' }}
+                        .action=${doubleTapAction}
                         @value-changed=${(e) => this._handleActionChange('double_tap_action', e)}>
                     </lcards-action-editor>
                 </lcards-form-section>
@@ -110,10 +112,19 @@ export class LCARdSMultiActionEditor extends LitElement {
         // Stop the inner action-editor event from bubbling
         event.stopPropagation();
 
-        const updatedActions = {
-            ...this.actions,
-            [actionType]: event.detail.value
-        };
+        const actionValue = event.detail.value;
+
+        // Build updated actions object
+        const updatedActions = { ...this.actions };
+
+        // If action is set to 'none', remove it from config entirely
+        // This prevents polluting config with default/empty actions
+        if (actionValue?.action === 'none') {
+            delete updatedActions[actionType];
+        } else {
+            // Only add action if it's actually configured with something meaningful
+            updatedActions[actionType] = actionValue;
+        }
 
         this.actions = updatedActions;
 

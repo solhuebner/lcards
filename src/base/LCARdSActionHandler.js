@@ -294,6 +294,7 @@ export class LCARdSActionHandler {
         if (actions.hold_action) {
             const holdStart = (event) => {
                 event.stopPropagation();
+                event.preventDefault(); // Prevent click from firing
                 isHolding = false;
 
                 lcardsLog.debug(`[LCARdSActionHandler] 🔲 Hold timer started`);
@@ -315,11 +316,20 @@ export class LCARdSActionHandler {
                 }, 500);
             };
 
-            const holdEnd = () => {
+            const holdEnd = (event) => {
                 if (holdTimer) {
                     clearTimeout(holdTimer);
                     holdTimer = null;
-                    lcardsLog.debug(`[LCARdSActionHandler] 🔲 Hold timer cleared`);
+                    lcardsLog.debug(`[LCARdSActionHandler] 🔲 Hold timer cleared (cancelled)`);
+                } else if (isHolding) {
+                    // Hold completed - prevent click event from firing
+                    event.preventDefault();
+                    event.stopPropagation();
+                    lcardsLog.debug(`[LCARdSActionHandler] 🔲 Hold completed, preventing click`);
+                    // Reset flag after a short delay to ensure click is blocked
+                    setTimeout(() => {
+                        isHolding = false;
+                    }, 100);
                 }
             };
 
