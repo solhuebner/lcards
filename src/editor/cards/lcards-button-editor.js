@@ -23,6 +23,8 @@ import '../components/form/lcards-unified-segment-editor.js';
 import '../components/form/lcards-multi-action-editor.js';
 // Import dashboard components
 import '../components/dashboard/lcards-rules-dashboard.js';
+// Import datasource components
+import '../components/datasources/lcards-datasource-editor-tab.js';
 
 export class LCARdSButtonEditor extends LCARdSBaseEditor {
 
@@ -72,6 +74,7 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
 
         tabs.push(
             { label: 'Advanced', content: () => this._renderFromConfig(this._getAdvancedTabConfig()) },
+            { label: 'Data Sources', content: () => this._renderDataSourcesTab() },
             { label: 'Rules', content: () => this._renderRulesTab() },
             { label: 'YAML', content: () => this._renderYamlTab() }
         );
@@ -416,6 +419,19 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
      */
     _getSvgParseError() {
         return this._svgParseError || null;
+    }
+
+    /**
+     * Data Sources tab - datasource editor with ribbon navigation
+     */
+    _renderDataSourcesTab() {
+        return html`
+            <lcards-datasource-editor-tab
+                .editor=${this}
+                .config=${this.config}
+                .hass=${this.hass}>
+            </lcards-datasource-editor-tab>
+        `;
     }
 
     /**
