@@ -558,7 +558,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       const themeManager = window.lcards?.core?.themeManager;
 
       if (!themeManager) {
-        lcardsLog.error('[ThemeTokenBrowser] ThemeManager not available - this should not happen at editor load time');
+        lcardsLog.warn('[ThemeTokenBrowser] ThemeManager not available (unexpected at editor load time)');
         this._tokens = [];
         this._filteredTokens = [];
         this._isLoading = false;
@@ -732,35 +732,34 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
    */
   async _copyTokenSyntax(tokenPath, event) {
     const syntax = `{theme:${tokenPath}}`;
+    const button = event.target.closest('ha-icon-button');
+    if (!button) return;
+    
+    const originalIcon = button.icon;
+    
     try {
       await navigator.clipboard.writeText(syntax);
       lcardsLog.info('[ThemeTokenBrowser] Copied token syntax:', syntax);
       
       // Show success feedback
-      const button = event.target.closest('ha-icon-button');
-      if (button) {
-        const originalIcon = button.icon;
-        button.icon = 'mdi:check';
-        button.style.color = 'var(--success-color, #4caf50)';
-        
-        setTimeout(() => {
-          button.icon = originalIcon;
-          button.style.color = '';
-        }, 2000);
-      }
+      button.icon = 'mdi:check';
+      button.style.color = 'var(--success-color, #4caf50)';
+      
+      setTimeout(() => {
+        button.icon = originalIcon;
+        button.style.color = '';
+      }, 2000);
     } catch (error) {
       lcardsLog.error('[ThemeTokenBrowser] Failed to copy to clipboard:', error);
       
       // Show error feedback
-      const button = event.target.closest('ha-icon-button');
-      if (button) {
-        button.icon = 'mdi:alert-circle';
-        button.style.color = 'var(--error-color, #f44336)';
-        
-        setTimeout(() => {
-          button.style.color = '';
-        }, 2000);
-      }
+      button.icon = 'mdi:alert-circle';
+      button.style.color = 'var(--error-color, #f44336)';
+      
+      setTimeout(() => {
+        button.icon = originalIcon;
+        button.style.color = '';
+      }, 2000);
     }
   }
 
@@ -768,35 +767,34 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
    * Copy resolved value to clipboard with visual feedback
    */
   async _copyValue(value, event) {
+    const button = event.target.closest('ha-icon-button');
+    if (!button) return;
+    
+    const originalIcon = button.icon;
+    
     try {
       await navigator.clipboard.writeText(String(value));
       lcardsLog.info('[ThemeTokenBrowser] Copied value:', value);
       
       // Show success feedback
-      const button = event.target.closest('ha-icon-button');
-      if (button) {
-        const originalIcon = button.icon;
-        button.icon = 'mdi:check';
-        button.style.color = 'var(--success-color, #4caf50)';
-        
-        setTimeout(() => {
-          button.icon = originalIcon;
-          button.style.color = '';
-        }, 2000);
-      }
+      button.icon = 'mdi:check';
+      button.style.color = 'var(--success-color, #4caf50)';
+      
+      setTimeout(() => {
+        button.icon = originalIcon;
+        button.style.color = '';
+      }, 2000);
     } catch (error) {
       lcardsLog.error('[ThemeTokenBrowser] Failed to copy to clipboard:', error);
       
       // Show error feedback
-      const button = event.target.closest('ha-icon-button');
-      if (button) {
-        button.icon = 'mdi:alert-circle';
-        button.style.color = 'var(--error-color, #f44336)';
-        
-        setTimeout(() => {
-          button.style.color = '';
-        }, 2000);
-      }
+      button.icon = 'mdi:alert-circle';
+      button.style.color = 'var(--error-color, #f44336)';
+      
+      setTimeout(() => {
+        button.icon = originalIcon;
+        button.style.color = '';
+      }, 2000);
     }
   }
 }

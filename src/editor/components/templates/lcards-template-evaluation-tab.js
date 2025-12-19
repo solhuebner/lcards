@@ -679,7 +679,7 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
             entity,
             config: this.config,
             hass: this.hass,
-            theme: themeManager?.getActiveTheme?.()
+            theme: themeManager?.getActiveTheme?.(),
             // Note: NO 'variables' property - this was legacy custom-button-card only
           },
           dataSourceManager
