@@ -25,7 +25,9 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       _searchQuery: { type: String, state: true },
       _selectedCategory: { type: String, state: true },
       _isLoading: { type: Boolean, state: true },
-      _activeTheme: { type: Object, state: true }
+      _activeTheme: { type: Object, state: true },
+      _expandedCategories: { type: Set, state: true },
+      _expandedPaths: { type: Set, state: true }
     };
   }
 
@@ -37,6 +39,8 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
     this._selectedCategory = 'all';
     this._isLoading = false;
     this._activeTheme = null;
+    this._expandedCategories = new Set(['colors']); // Default expand colors
+    this._expandedPaths = new Set();
   }
 
   static get styles() {
@@ -90,122 +94,107 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         min-width: 200px;
       }
 
-      .category-filter {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
+      ha-chip-set {
         margin-bottom: 16px;
       }
 
-      .filter-chip {
-        padding: 6px 16px;
-        border-radius: 16px;
-        border: 1px solid var(--divider-color);
-        background: var(--card-background-color);
-        color: var(--primary-text-color);
-        cursor: pointer;
-        font-size: 14px;
-        font-family: var(--mdc-typography-body1-font-family, var(--mdc-typography-font-family, Roboto, sans-serif));
-        transition: all 0.2s;
-      }
-
-      .filter-chip:hover {
-        background: var(--secondary-background-color);
-      }
-
-      .filter-chip.selected {
-        background: rgba(var(--rgb-primary-color), 0.15);
-        border-color: var(--primary-color);
-        color: var(--primary-color);
-      }
-
       .tokens-grid {
-        display: grid;
-        gap: 16px;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        display: block;
       }
 
-      .token-card {
+      .tokens-tree {
+        display: block;
+      }
+
+      .tree-category {
+        margin-bottom: 16px;
+      }
+
+      .tree-node {
+        padding-left: 20px;
+      }
+
+      .tree-leaf {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 12px;
         background: var(--card-background-color);
-        border: 2px solid var(--divider-color);
-        border-radius: 12px;
-        padding: 16px;
+        border: 1px solid var(--divider-color);
+        border-radius: 8px;
+        margin: 4px 0;
         transition: all 0.2s;
       }
 
-      .token-card:hover {
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      }
-
-      /* Color-coded left borders by token category */
-      .token-card.category-colors {
-        border-left: 4px solid #e91e63;
-      }
-
-      .token-card.category-typography {
-        border-left: 4px solid #9c27b0;
-      }
-
-      .token-card.category-spacing {
-        border-left: 4px solid #2196f3;
-      }
-
-      .token-card.category-borders {
-        border-left: 4px solid #ff9800;
-      }
-
-      .token-card.category-effects {
-        border-left: 4px solid #00bcd4;
-      }
-
-      .token-card.category-animations {
-        border-left: 4px solid #4caf50;
-      }
-
-      .token-card.category-components {
-        border-left: 4px solid #ff5722;
-      }
-
-      .token-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 12px;
-      }
-
-      .token-path {
-        font-family: 'Courier New', monospace;
-        font-size: 12px;
-        color: var(--primary-color);
-        word-break: break-all;
-      }
-
-      .token-category {
-        font-size: 10px;
-        padding: 3px 6px;
-        border-radius: 4px;
+      .tree-leaf:hover {
         background: var(--secondary-background-color);
-        color: var(--secondary-text-color);
-        text-transform: uppercase;
-        font-weight: 500;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       }
 
-      .token-value {
-        margin: 12px 0;
-        padding: 12px;
-        background: var(--secondary-background-color);
-        border-radius: 4px;
+      .tree-leaf .token-path {
+        flex: 1;
         font-family: 'Courier New', monospace;
         font-size: 13px;
-        word-break: break-word;
-        position: relative;
+        color: var(--primary-color);
+        min-width: 200px;
       }
 
-      .token-preview {
-        margin-top: 8px;
+      .tree-leaf .token-value {
+        flex: 1;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 200px;
+      }
+
+      .tree-leaf .token-preview {
+        flex-shrink: 0;
+      }
+
+      .tree-leaf .token-actions {
+        display: flex;
+        gap: 4px;
+        flex-shrink: 0;
+      }
+
+      details {
+        margin-left: 12px;
+      }
+
+      summary {
+        cursor: pointer;
+        padding: 8px;
+        font-weight: 500;
+        color: var(--primary-text-color);
+        user-select: none;
+        list-style: none;
         display: flex;
         align-items: center;
         gap: 8px;
+      }
+
+      summary::-webkit-details-marker {
+        display: none;
+      }
+
+      summary::before {
+        content: '▶';
+        display: inline-block;
+        width: 12px;
+        transition: transform 0.2s;
+        color: var(--secondary-text-color);
+      }
+
+      details[open] > summary::before {
+        transform: rotate(90deg);
+      }
+
+      summary:hover {
+        background: var(--secondary-background-color);
+        border-radius: 4px;
       }
 
       .color-preview {
@@ -213,39 +202,6 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         height: 40px;
         border-radius: 4px;
         border: 2px solid var(--divider-color);
-      }
-
-      .font-preview {
-        padding: 8px;
-        border: 1px solid var(--divider-color);
-        border-radius: 4px;
-        background: var(--card-background-color);
-      }
-
-      .spacing-preview {
-        height: 20px;
-        background: var(--primary-color);
-        border-radius: 2px;
-      }
-
-      .token-actions {
-        display: flex;
-        gap: 8px;
-        margin-top: 12px;
-      }
-
-      .usage-list {
-        margin-top: 8px;
-        padding: 8px;
-        background: var(--secondary-background-color);
-        border-radius: 4px;
-        font-size: 12px;
-      }
-
-      .usage-item {
-        padding: 4px 0;
-        color: var(--secondary-text-color);
-        font-family: 'Courier New', monospace;
       }
 
       .empty-state {
@@ -283,8 +239,8 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
     if (!this._activeTheme) {
       return html`
         <lcards-message
-          type="warning"
-          message="Theme system not available. Make sure LCARdS is properly initialized.">
+          type="info"
+          message="Loading theme information...">
         </lcards-message>
       `;
     }
@@ -328,15 +284,15 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         </ha-textfield>
       </div>
 
-      <div class="category-filter">
+      <ha-chip-set>
         ${filters.map(filter => html`
-          <button
-            class="filter-chip ${this._selectedCategory === filter.value ? 'selected' : ''}"
+          <ha-filter-chip
+            .label="${filter.label} (${filter.count})"
+            ?selected=${this._selectedCategory === filter.value}
             @click=${() => this._selectedCategory = filter.value}>
-            ${filter.label} (${filter.count})
-          </button>
+          </ha-filter-chip>
         `)}
-      </div>
+      </ha-chip-set>
     `;
   }
 
@@ -364,92 +320,192 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       `;
     }
 
+    // Build tree structure from flat tokens
+    return this._renderTokensTree();
+  }
+
+  /**
+   * Render tokens as a tree structure grouped by category
+   */
+  _renderTokensTree() {
+    const tokensByCategory = this._groupTokensByCategory();
+
     return html`
-      <div class="tokens-grid">
-        ${this._filteredTokens.map(token => this._renderTokenCard(token))}
+      <div class="tokens-tree">
+        ${Object.entries(tokensByCategory).map(([category, tokens]) => html`
+          <lcards-form-section
+            class="tree-category"
+            header="${this._formatCategoryName(category)} (${tokens.length})"
+            icon="mdi:palette"
+            ?expanded=${this._expandedCategories.has(category)}
+            @expanded-changed=${() => this._toggleCategory(category)}>
+            ${this._renderTokenTree(tokens, category)}
+          </lcards-form-section>
+        `)}
       </div>
     `;
   }
 
-  _renderTokenCard(token) {
-    const categoryClass = `category-${token.category}`;
+  /**
+   * Group tokens by their top-level category
+   */
+  _groupTokensByCategory() {
+    const grouped = {};
+    
+    this._filteredTokens.forEach(token => {
+      const category = token.category || 'other';
+      if (!grouped[category]) {
+        grouped[category] = [];
+      }
+      grouped[category].push(token);
+    });
 
+    return grouped;
+  }
+
+  /**
+   * Format category name for display
+   */
+  _formatCategoryName(category) {
+    return category.charAt(0).toUpperCase() + category.slice(1);
+  }
+
+  /**
+   * Toggle category expansion
+   */
+  _toggleCategory(category) {
+    if (this._expandedCategories.has(category)) {
+      this._expandedCategories.delete(category);
+    } else {
+      this._expandedCategories.add(category);
+    }
+    this.requestUpdate();
+  }
+
+  /**
+   * Render token tree for a category
+   */
+  _renderTokenTree(tokens, category) {
+    // Build nested structure from flat token paths
+    const tree = this._buildTokenTree(tokens);
+    return this._renderTreeNodes(tree, '');
+  }
+
+  /**
+   * Build hierarchical tree structure from flat token list
+   */
+  _buildTokenTree(tokens) {
+    const tree = {};
+
+    tokens.forEach(token => {
+      const parts = token.path.split('.');
+      let current = tree;
+
+      parts.forEach((part, index) => {
+        if (index === parts.length - 1) {
+          // Leaf node
+          current[part] = {
+            _leaf: true,
+            token: token
+          };
+        } else {
+          // Branch node
+          if (!current[part]) {
+            current[part] = {};
+          }
+          current = current[part];
+        }
+      });
+    });
+
+    return tree;
+  }
+
+  /**
+   * Recursively render tree nodes
+   */
+  _renderTreeNodes(node, path) {
+    const entries = Object.entries(node);
+    
     return html`
-      <div class="token-card ${categoryClass}">
-        <div class="token-header">
-          <div class="token-path">{theme:${token.path}}</div>
-          <div class="token-category">${token.category}</div>
-        </div>
+      ${entries.map(([key, value]) => {
+        if (value._leaf) {
+          // Render leaf node (actual token)
+          return this._renderTreeLeaf(value.token, path);
+        } else {
+          // Render branch node (nested tokens)
+          const newPath = path ? `${path}.${key}` : key;
+          const hasChildren = Object.keys(value).length > 0;
+          
+          if (!hasChildren) return '';
+          
+          return html`
+            <details 
+              ?open=${this._expandedPaths.has(newPath)}
+              @toggle=${(e) => this._handleDetailsToggle(newPath, e)}>
+              <summary>${key}</summary>
+              <div class="tree-node">
+                ${this._renderTreeNodes(value, newPath)}
+              </div>
+            </details>
+          `;
+        }
+      })}
+    `;
+  }
 
-        <div class="token-value">
-          ${token.value}
-        </div>
-
-        ${this._renderTokenPreview(token)}
-
+  /**
+   * Render a leaf token in the tree
+   */
+  _renderTreeLeaf(token) {
+    return html`
+      <div class="tree-leaf">
+        <div class="token-path">{theme:${token.path}}</div>
+        <div class="token-value">${token.value}</div>
+        ${this._renderTokenPreviewCompact(token)}
         <div class="token-actions">
-          <ha-button
-            raised
-            @click=${() => this._copyTokenSyntax(token.path)}
-            title="Copy token syntax to clipboard">
-            <ha-icon icon="mdi:code-braces" slot="icon"></ha-icon>
-            Copy Token
-          </ha-button>
-          <ha-button
-            @click=${() => this._copyValue(token.value)}
-            title="Copy resolved value to clipboard">
-            <ha-icon icon="mdi:content-copy" slot="icon"></ha-icon>
-            Copy Value
-          </ha-button>
+          <ha-icon-button
+            icon="mdi:code-braces"
+            @click=${(e) => this._copyTokenSyntax(token.path, e)}
+            title="Copy token syntax">
+          </ha-icon-button>
+          <ha-icon-button
+            icon="mdi:content-copy"
+            @click=${(e) => this._copyValue(token.value, e)}
+            title="Copy value">
+          </ha-icon-button>
         </div>
-
-        ${token.usage && token.usage.length > 0 ? html`
-          <div class="usage-list">
-            <strong>Used in:</strong>
-            ${token.usage.map(path => html`
-              <div class="usage-item">${path}</div>
-            `)}
-          </div>
-        ` : ''}
       </div>
     `;
   }
 
-  _renderTokenPreview(token) {
+  /**
+   * Render compact token preview for tree view
+   */
+  _renderTokenPreviewCompact(token) {
     const valueStr = String(token.value);
 
     // Color preview
     if (token.category === 'colors' || this._isColorValue(valueStr)) {
       return html`
         <div class="token-preview">
-          <div class="color-preview" style="background-color: ${valueStr}"></div>
-          <span>Color</span>
+          <div class="color-preview" style="background-color: ${valueStr}; width: 24px; height: 24px; border-radius: 4px; border: 1px solid var(--divider-color);"></div>
         </div>
       `;
     }
 
-    // Font preview
-    if (token.category === 'typography' && token.path.includes('fontFamily')) {
-      return html`
-        <div class="token-preview">
-          <div class="font-preview" style="font-family: ${valueStr}">
-            The quick brown fox
-          </div>
-        </div>
-      `;
-    }
+    return html``;
+  }
 
-    // Spacing preview
-    if (token.category === 'spacing' && typeof token.value === 'number') {
-      return html`
-        <div class="token-preview">
-          <div class="spacing-preview" style="width: ${token.value}px"></div>
-          <span>${token.value}px</span>
-        </div>
-      `;
+  /**
+   * Handle details toggle event in tree
+   */
+  _handleDetailsToggle(path, event) {
+    if (event.target.open) {
+      this._expandedPaths.add(path);
+    } else {
+      this._expandedPaths.delete(path);
     }
-
-    return null;
   }
 
   _handleSearchInput(e) {
@@ -503,7 +559,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       const themeManager = window.lcards?.core?.themeManager;
 
       if (!themeManager) {
-        lcardsLog.warn('[ThemeTokenBrowser] ThemeManager not available');
+        lcardsLog.warn('[ThemeTokenBrowser] ThemeManager not available (unexpected at editor load time)');
         this._tokens = [];
         this._filteredTokens = [];
         this._isLoading = false;
@@ -511,11 +567,11 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         return;
       }
 
-      // Get active theme - the getActiveTheme() method returns tokens in the structure
+      // Get active theme - using correct API
       const activeTheme = themeManager.getActiveTheme();
 
-      if (!activeTheme) {
-        lcardsLog.warn('[ThemeTokenBrowser] No active theme');
+      if (!activeTheme || !activeTheme.tokens) {
+        lcardsLog.warn('[ThemeTokenBrowser] No active theme or tokens available');
         this._tokens = [];
         this._filteredTokens = [];
         this._isLoading = false;
@@ -529,30 +585,8 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         description: activeTheme.description || ''
       };
 
-      // Extract tokens - the tokens are spread at the top level now
-      // We need to look at the actual token structure
-      let tokenSource = null;
-
-      // Try multiple ways to access tokens based on ThemeManager implementation
-      if (activeTheme.tokens) {
-        tokenSource = activeTheme.tokens;
-      } else if (themeManager.activeTheme?.tokens) {
-        tokenSource = themeManager.activeTheme.tokens;
-      } else if (themeManager.resolver?.tokens) {
-        tokenSource = themeManager.resolver.tokens;
-      }
-
-      if (!tokenSource) {
-        lcardsLog.warn('[ThemeTokenBrowser] No tokens found in theme', { activeTheme });
-        this._tokens = [];
-        this._filteredTokens = [];
-        this._isLoading = false;
-        this.requestUpdate();
-        return;
-      }
-
-      // Get theme tokens from the token source
-      const tokens = this._extractTokensFromObject(tokenSource);
+      // Extract tokens - use the correct API: activeTheme.tokens
+      const tokens = this._extractTokensFromObject(activeTheme.tokens);
 
       // Find usage in current config
       tokens.forEach(token => {
@@ -564,7 +598,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
 
       lcardsLog.debug('[ThemeTokenBrowser] Loaded tokens', {
         count: tokens.length,
-        tokenSource: Object.keys(tokenSource)
+        categories: Object.keys(activeTheme.tokens)
       });
     } catch (error) {
       lcardsLog.error('[ThemeTokenBrowser] Error loading tokens:', error);
@@ -695,29 +729,73 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
   }
 
   /**
-   * Copy token syntax to clipboard
+   * Copy token syntax to clipboard with visual feedback
    */
-  async _copyTokenSyntax(tokenPath) {
+  async _copyTokenSyntax(tokenPath, event) {
     const syntax = `{theme:${tokenPath}}`;
+    const button = event.target.closest('ha-icon-button');
+    if (!button) return;
+    
+    const originalIcon = button.icon;
+    
     try {
       await navigator.clipboard.writeText(syntax);
       lcardsLog.info('[ThemeTokenBrowser] Copied token syntax:', syntax);
-      // Could show a toast notification here
+      
+      // Show success feedback
+      button.icon = 'mdi:check';
+      button.style.color = 'var(--success-color, #4caf50)';
+      
+      setTimeout(() => {
+        button.icon = originalIcon;
+        button.style.color = '';
+      }, 2000);
     } catch (error) {
       lcardsLog.error('[ThemeTokenBrowser] Failed to copy to clipboard:', error);
+      
+      // Show error feedback
+      button.icon = 'mdi:alert-circle';
+      button.style.color = 'var(--error-color, #f44336)';
+      
+      setTimeout(() => {
+        button.icon = originalIcon;
+        button.style.color = '';
+      }, 2000);
     }
   }
 
   /**
-   * Copy resolved value to clipboard
+   * Copy resolved value to clipboard with visual feedback
    */
-  async _copyValue(value) {
+  async _copyValue(value, event) {
+    const button = event.target.closest('ha-icon-button');
+    if (!button) return;
+    
+    const originalIcon = button.icon;
+    
     try {
       await navigator.clipboard.writeText(String(value));
       lcardsLog.info('[ThemeTokenBrowser] Copied value:', value);
-      // Could show a toast notification here
+      
+      // Show success feedback
+      button.icon = 'mdi:check';
+      button.style.color = 'var(--success-color, #4caf50)';
+      
+      setTimeout(() => {
+        button.icon = originalIcon;
+        button.style.color = '';
+      }, 2000);
     } catch (error) {
       lcardsLog.error('[ThemeTokenBrowser] Failed to copy to clipboard:', error);
+      
+      // Show error feedback
+      button.icon = 'mdi:alert-circle';
+      button.style.color = 'var(--error-color, #f44336)';
+      
+      setTimeout(() => {
+        button.icon = originalIcon;
+        button.style.color = '';
+      }, 2000);
     }
   }
 }
