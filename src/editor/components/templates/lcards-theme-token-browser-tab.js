@@ -338,7 +338,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
             header="${this._formatCategoryName(category)} (${tokens.length})"
             icon="mdi:palette"
             ?expanded=${this._expandedCategories.has(category)}
-            @toggle=${() => this._toggleCategory(category)}>
+            @expanded-changed=${() => this._toggleCategory(category)}>
             ${this._renderTokenTree(tokens, category)}
           </lcards-form-section>
         `)}
@@ -440,8 +440,10 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
           if (!hasChildren) return '';
           
           return html`
-            <details ?open=${this._expandedPaths.has(newPath)}>
-              <summary @click=${() => this._togglePath(newPath)}>${key}</summary>
+            <details 
+              ?open=${this._expandedPaths.has(newPath)}
+              @toggle=${(e) => this._handleDetailsToggle(newPath, e)}>
+              <summary>${key}</summary>
               <div class="tree-node">
                 ${this._renderTreeNodes(value, newPath)}
               </div>
@@ -496,15 +498,14 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
   }
 
   /**
-   * Toggle path expansion in tree
+   * Handle details toggle event in tree
    */
-  _togglePath(path) {
-    if (this._expandedPaths.has(path)) {
-      this._expandedPaths.delete(path);
-    } else {
+  _handleDetailsToggle(path, event) {
+    if (event.target.open) {
       this._expandedPaths.add(path);
+    } else {
+      this._expandedPaths.delete(path);
     }
-    this.requestUpdate();
   }
 
   _handleSearchInput(e) {
