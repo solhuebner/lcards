@@ -15,7 +15,6 @@
 
 import { LitElement, html, css } from 'lit';
 import { TemplateDetector } from '../../../core/templates/TemplateDetector.js';
-import { LCARdSCardTemplateEvaluator } from '../../../core/templates/LCARdSCardTemplateEvaluator.js';
 import { UnifiedTemplateEvaluator } from '../../../core/templates/UnifiedTemplateEvaluator.js';
 import { lcardsLog } from '../../../utils/lcards-logging.js';
 import '../common/lcards-message.js';
@@ -561,8 +560,11 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
 
     // Simple tokens (excluding theme, datasource, and jinja2)
     if (types.hasTokens && !types.hasJinja2) {
-      const matches = str.matchAll(/\{(?!theme:)(?!datasource:)(?!ds:)(?!\{)([^{}]+)\}/g);
-      for (const match of matches) {
+      // More careful regex to match simple tokens like {entity.state}
+      // but exclude theme:, datasource:, ds:, and Jinja2 {{
+      const tokenRegex = /\{(?!theme:)(?!datasource:)(?!ds:)(?!\{)([^{}]+)\}/g;
+      let match;
+      while ((match = tokenRegex.exec(str)) !== null) {
         templates.push({
           path,
           type: 'Token',
@@ -606,8 +608,13 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
 
         if (template.type === 'Theme') {
           // Evaluate theme token
-          const tokenPath = template.raw.match(/\{theme:([^}]+)\}/)[1];
-          result = themeManager?.getToken(tokenPath, template.raw) || '(not found)';
+          const match = template.raw.match(/\{theme:([^}]+)\}/);
+          if (match && match[1]) {
+            const tokenPath = match[1];
+            result = themeManager?.getToken(tokenPath, template.raw) || '(not found)';
+          } else {
+            result = '(invalid token format)';
+          }
         } else if (template.type === 'Datasource') {
           // Evaluate datasource token
           const dsMatch = template.raw.match(/\{(?:datasource|ds):([^}]+)\}/);
@@ -633,7 +640,7 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
           if (template.type === 'Jinja2') {
             result = await evaluator.evaluateAsync(template.fullString);
           } else {
-            result = evaluator.evaluate(template.fullString);
+            result = evaluator.evaluateSync(template.fullString);
           }
         }
 

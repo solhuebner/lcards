@@ -496,7 +496,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         return;
       }
 
-      this._activeTheme = themeManager.getCurrentTheme?.() || { name: 'Unknown' };
+      this._activeTheme = themeManager?.getCurrentTheme?.() || { name: 'Unknown' };
       
       // Get theme tokens from the theme manager
       const tokens = this._extractTokensFromTheme(themeManager);
@@ -523,6 +523,11 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
    */
   _extractTokensFromTheme(themeManager) {
     const tokens = [];
+    
+    if (!themeManager) {
+      return tokens;
+    }
+    
     const theme = themeManager.getCurrentTheme?.();
     
     if (!theme || !theme.tokens) {
@@ -596,7 +601,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
   _isColorValue(value) {
     if (typeof value !== 'string') return false;
     
-    // Check for hex colors
+    // Check for hex colors (#RGB, #RGBA, #RRGGBB, #RRGGBBAA)
     if (/^#[0-9A-Fa-f]{3,8}$/.test(value)) return true;
     
     // Check for rgb/rgba
@@ -605,8 +610,35 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
     // Check for hsl/hsla
     if (/^hsla?\(/.test(value)) return true;
     
-    // Check for CSS color names (basic check)
-    const cssColors = ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink', 'black', 'white', 'gray'];
+    // Check for CSS color functions (color(), lab(), lch(), oklab(), oklch())
+    if (/^(color|lab|lch|oklab|oklch)\(/.test(value)) return true;
+    
+    // Check for CSS color names (comprehensive list of common colors)
+    const cssColors = [
+      'aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure', 'beige', 'bisque', 'black',
+      'blanchedalmond', 'blue', 'blueviolet', 'brown', 'burlywood', 'cadetblue', 'chartreuse',
+      'chocolate', 'coral', 'cornflowerblue', 'cornsilk', 'crimson', 'cyan', 'darkblue',
+      'darkcyan', 'darkgoldenrod', 'darkgray', 'darkgrey', 'darkgreen', 'darkkhaki',
+      'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 'darksalmon',
+      'darkseagreen', 'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise',
+      'darkviolet', 'deeppink', 'deepskyblue', 'dimgray', 'dimgrey', 'dodgerblue',
+      'firebrick', 'floralwhite', 'forestgreen', 'fuchsia', 'gainsboro', 'ghostwhite',
+      'gold', 'goldenrod', 'gray', 'grey', 'green', 'greenyellow', 'honeydew', 'hotpink',
+      'indianred', 'indigo', 'ivory', 'khaki', 'lavender', 'lavenderblush', 'lawngreen',
+      'lemonchiffon', 'lightblue', 'lightcoral', 'lightcyan', 'lightgoldenrodyellow',
+      'lightgray', 'lightgrey', 'lightgreen', 'lightpink', 'lightsalmon', 'lightseagreen',
+      'lightskyblue', 'lightslategray', 'lightslategrey', 'lightsteelblue', 'lightyellow',
+      'lime', 'limegreen', 'linen', 'magenta', 'maroon', 'mediumaquamarine', 'mediumblue',
+      'mediumorchid', 'mediumpurple', 'mediumseagreen', 'mediumslateblue', 'mediumspringgreen',
+      'mediumturquoise', 'mediumvioletred', 'midnightblue', 'mintcream', 'mistyrose',
+      'moccasin', 'navajowhite', 'navy', 'oldlace', 'olive', 'olivedrab', 'orange',
+      'orangered', 'orchid', 'palegoldenrod', 'palegreen', 'paleturquoise', 'palevioletred',
+      'papayawhip', 'peachpuff', 'peru', 'pink', 'plum', 'powderblue', 'purple', 'red',
+      'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 'seashell',
+      'sienna', 'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'snow',
+      'springgreen', 'steelblue', 'tan', 'teal', 'thistle', 'tomato', 'turquoise', 'violet',
+      'wheat', 'white', 'whitesmoke', 'yellow', 'yellowgreen', 'transparent', 'currentcolor'
+    ];
     return cssColors.includes(value.toLowerCase());
   }
 
