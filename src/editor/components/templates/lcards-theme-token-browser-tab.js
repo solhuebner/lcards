@@ -94,26 +94,29 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
+        margin-bottom: 16px;
       }
 
-      .category-chip {
-        padding: 6px 12px;
+      .filter-chip {
+        padding: 6px 16px;
         border-radius: 16px;
         border: 1px solid var(--divider-color);
         background: var(--card-background-color);
+        color: var(--primary-text-color);
         cursor: pointer;
-        font-size: 13px;
+        font-size: 14px;
+        font-family: var(--mdc-typography-body1-font-family, var(--mdc-typography-font-family, Roboto, sans-serif));
         transition: all 0.2s;
       }
 
-      .category-chip:hover {
+      .filter-chip:hover {
         background: var(--secondary-background-color);
       }
 
-      .category-chip.active {
-        background: var(--primary-color);
-        color: white;
+      .filter-chip.selected {
+        background: rgba(var(--rgb-primary-color), 0.15);
         border-color: var(--primary-color);
+        color: var(--primary-color);
       }
 
       .tokens-grid {
@@ -231,35 +234,6 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         margin-top: 12px;
       }
 
-      .action-button {
-        flex: 1;
-        padding: 8px;
-        font-size: 12px;
-        cursor: pointer;
-        border-radius: 4px;
-        border: 1px solid var(--divider-color);
-        background: var(--card-background-color);
-        transition: background 0.2s;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 4px;
-      }
-
-      .action-button:hover {
-        background: var(--secondary-background-color);
-      }
-
-      .action-button.primary {
-        background: var(--primary-color);
-        color: white;
-        border-color: var(--primary-color);
-      }
-
-      .action-button.primary:hover {
-        opacity: 0.9;
-      }
-
       .usage-list {
         margin-top: 8px;
         padding: 8px;
@@ -289,6 +263,12 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
 
   firstUpdated() {
     this._loadTokens();
+  }
+
+  updated(changedProperties) {
+    if (changedProperties.has('_selectedCategory')) {
+      this._applyFilters();
+    }
   }
 
   render() {
@@ -327,6 +307,15 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
   _renderControls() {
     const categories = this._getCategories();
 
+    const filters = [
+      { label: 'All', value: 'all', count: this._tokens.length },
+      ...categories.map(cat => ({
+        label: cat.label,
+        value: cat.key,
+        count: cat.count
+      }))
+    ];
+
     return html`
       <div class="controls">
         <ha-textfield
@@ -340,16 +329,11 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       </div>
 
       <div class="category-filter">
-        <button
-          class="category-chip ${this._selectedCategory === 'all' ? 'active' : ''}"
-          @click=${() => this._selectCategory('all')}>
-          All (${this._tokens.length})
-        </button>
-        ${categories.map(cat => html`
+        ${filters.map(filter => html`
           <button
-            class="category-chip ${this._selectedCategory === cat.key ? 'active' : ''}"
-            @click=${() => this._selectCategory(cat.key)}>
-            ${cat.label} (${cat.count})
+            class="filter-chip ${this._selectedCategory === filter.value ? 'selected' : ''}"
+            @click=${() => this._selectedCategory = filter.value}>
+            ${filter.label} (${filter.count})
           </button>
         `)}
       </div>
@@ -404,18 +388,19 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         ${this._renderTokenPreview(token)}
 
         <div class="token-actions">
-          <button
-            class="action-button primary"
+          <ha-button
+            raised
             @click=${() => this._copyTokenSyntax(token.path)}
             title="Copy token syntax to clipboard">
-            📋 Copy Token
-          </button>
-          <button
-            class="action-button"
+            <ha-icon icon="mdi:code-braces" slot="icon"></ha-icon>
+            Copy Token
+          </ha-button>
+          <ha-button
             @click=${() => this._copyValue(token.value)}
             title="Copy resolved value to clipboard">
-            📄 Copy Value
-          </button>
+            <ha-icon icon="mdi:content-copy" slot="icon"></ha-icon>
+            Copy Value
+          </ha-button>
         </div>
 
         ${token.usage && token.usage.length > 0 ? html`

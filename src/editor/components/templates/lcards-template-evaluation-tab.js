@@ -77,17 +77,19 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
       .filter-bar {
         display: flex;
         gap: 8px;
-        margin-bottom: 16px;
         flex-wrap: wrap;
+        margin-bottom: 16px;
       }
 
       .filter-chip {
-        padding: 6px 12px;
+        padding: 6px 16px;
         border-radius: 16px;
         border: 1px solid var(--divider-color);
         background: var(--card-background-color);
+        color: var(--primary-text-color);
         cursor: pointer;
-        font-size: 13px;
+        font-size: 14px;
+        font-family: var(--mdc-typography-body1-font-family, var(--mdc-typography-font-family, Roboto, sans-serif));
         transition: all 0.2s;
       }
 
@@ -95,10 +97,10 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
         background: var(--secondary-background-color);
       }
 
-      .filter-chip.active {
-        background: var(--primary-color);
-        color: white;
+      .filter-chip.selected {
+        background: rgba(var(--rgb-primary-color), 0.15);
         border-color: var(--primary-color);
+        color: var(--primary-color);
       }
 
       .templates-grid {
@@ -198,6 +200,19 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
         line-height: 1.5;
       }
 
+      .result-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .status-icon {
+        font-size: 20px;
+        display: inline-block;
+        flex-shrink: 0;
+        margin-top: 12px;
+      }
+
       .template-result {
         font-family: 'Courier New', monospace;
         padding: 12px;
@@ -208,6 +223,7 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
         overflow-x: auto;
         word-break: break-word;
         line-height: 1.5;
+        flex: 1;
       }
 
       .template-result.success {
@@ -220,44 +236,17 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
         background: rgba(244, 67, 54, 0.05);
       }
 
-      .status-row {
+      .button-row {
         display: flex;
         align-items: center;
         gap: 8px;
-      }
-
-      .status-icon {
-        font-size: 18px;
-        display: inline-block;
+        justify-content: flex-end;
+        margin-top: 8px;
       }
 
       .status-success { color: #4caf50; }
       .status-error { color: #f44336; }
       .status-warning { color: #ff9800; }
-
-      .action-buttons {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        margin-top: 4px;
-      }
-
-      .action-button {
-        padding: 6px 12px;
-        font-size: 12px;
-        cursor: pointer;
-        border-radius: 4px;
-        border: 1px solid var(--divider-color);
-        background: var(--card-background-color);
-        transition: background 0.2s;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-      }
-
-      .action-button:hover {
-        background: var(--secondary-background-color);
-      }
 
       .empty-state {
         text-align: center;
@@ -334,38 +323,24 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
   _renderFilterBar() {
     const counts = this._getTypeCounts();
 
+    const filters = [
+      { label: 'All', value: 'all', count: counts.total },
+      { label: 'JavaScript', value: 'javascript', count: counts.javascript },
+      { label: 'Theme', value: 'theme', count: counts.theme },
+      { label: 'Datasource', value: 'datasource', count: counts.datasource },
+      { label: 'Token', value: 'token', count: counts.token },
+      { label: 'Jinja2', value: 'jinja2', count: counts.jinja2 }
+    ];
+
     return html`
       <div class="filter-bar">
-        <button
-          class="filter-chip ${this._filterType === 'all' ? 'active' : ''}"
-          @click=${() => this._filterType = 'all'}>
-          All (${counts.total})
-        </button>
-        <button
-          class="filter-chip ${this._filterType === 'javascript' ? 'active' : ''}"
-          @click=${() => this._filterType = 'javascript'}>
-          JavaScript (${counts.javascript})
-        </button>
-        <button
-          class="filter-chip ${this._filterType === 'theme' ? 'active' : ''}"
-          @click=${() => this._filterType = 'theme'}>
-          Theme (${counts.theme})
-        </button>
-        <button
-          class="filter-chip ${this._filterType === 'datasource' ? 'active' : ''}"
-          @click=${() => this._filterType = 'datasource'}>
-          Datasource (${counts.datasource})
-        </button>
-        <button
-          class="filter-chip ${this._filterType === 'token' ? 'active' : ''}"
-          @click=${() => this._filterType = 'token'}>
-          Token (${counts.token})
-        </button>
-        <button
-          class="filter-chip ${this._filterType === 'jinja2' ? 'active' : ''}"
-          @click=${() => this._filterType = 'jinja2'}>
-          Jinja2 (${counts.jinja2})
-        </button>
+        ${filters.map(filter => html`
+          <button
+            class="filter-chip ${this._filterType === filter.value ? 'selected' : ''}"
+            @click=${() => this._filterType = filter.value}>
+            ${filter.label} (${filter.count})
+          </button>
+        `)}
       </div>
     `;
   }
@@ -418,22 +393,28 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
 
         <div class="template-section">
           <div class="template-section-label">Result</div>
-          <div class="template-result ${isSuccess ? 'success' : ''} ${hasError ? 'error' : ''}">
-            ${template.result || '(empty)'}
+          <div class="result-row">
+            <span class="status-icon ${template.status}">${this._getStatusIcon(template.status)}</span>
+            <div class="template-result ${isSuccess ? 'success' : ''} ${hasError ? 'error' : ''}">
+              ${template.result || '(empty)'}
+            </div>
           </div>
           ${template.error ? html`<div class="error-message">${template.error}</div>` : ''}
         </div>
 
-        <div class="status-row">
-          <span class="status-icon ${template.status}">${this._getStatusIcon(template.status)}</span>
-          <div class="action-buttons">
-            <button class="action-button" @click=${() => this._copyToClipboard(template.result || '')}>
-              📋 Copy Result
-            </button>
-            <button class="action-button" @click=${() => this._copyToClipboard(template.raw)}>
-              📝 Copy Template
-            </button>
-          </div>
+        <div class="button-row">
+          <ha-button
+            size="small"
+            @click=${() => this._copyToClipboard(template.result || '')}>
+            <ha-icon icon="mdi:content-copy" slot="icon"></ha-icon>
+            Copy Result
+          </ha-button>
+          <ha-button
+            size="small"
+            @click=${() => this._copyToClipboard(template.raw)}>
+            <ha-icon icon="mdi:code-braces" slot="icon"></ha-icon>
+            Copy Template
+          </ha-button>
         </div>
       </div>
     `;
