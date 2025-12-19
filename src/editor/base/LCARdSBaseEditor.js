@@ -21,7 +21,8 @@ export class LCARdSBaseEditor extends LitElement {
             _selectedTab: { type: Number, state: true },     // Current tab index
             _yamlValue: { type: String, state: true },       // YAML representation
             _validationErrors: { type: Array, state: true }, // Schema errors
-            _singletons: { type: Object, state: true }       // window.lcards.core reference
+            _singletons: { type: Object, state: true },      // window.lcards.core reference
+            _schemaMissing: { type: Boolean, state: true }   // Schema missing flag
         };
     }
 
@@ -35,6 +36,7 @@ export class LCARdSBaseEditor extends LitElement {
         this._singletons = null;
         this._isUpdatingYaml = false;
         this._configUpdateDebounce = null; // Debounce timer for config updates
+        this._schemaMissing = false;
     }
 
     static get styles() {
@@ -152,8 +154,19 @@ export class LCARdSBaseEditor extends LitElement {
 
         console.debug('[LCARdSBaseEditor] setConfig called with:', config);
 
-        // Deep clone config
-        this.config = JSON.parse(JSON.stringify(config));
+        // Deep clone config using structuredClone with fallback to JSON
+        // structuredClone is more robust but requires modern browsers
+        this.config = (typeof structuredClone === 'function')
+            ? structuredClone(config)
+            : JSON.parse(JSON.stringify(config));
+
+        // CRITICAL: Ensure 'type' property is always present (HA requires it)
+        if (!this.config.type && this.cardType) {
+            console.warn('[LCARdSBaseEditor] Config is missing required "type" property! Auto-restoring...');
+            this.config.type = `custom:lcards-${this.cardType}`;
+            console.warn(`[LCARdSBaseEditor] Auto-restored type to: ${this.config.type}`);
+        }
+
         this._yamlValue = configToYaml(this.config);
         this._validateConfig();
 
@@ -192,6 +205,22 @@ export class LCARdSBaseEditor extends LitElement {
 
         return html`
             <div class="editor-container" @config-changed=${this._handleChildConfigChange}>
+                ${this._schemaMissing ? html`
+                    <ha-alert alert-type="error" title="Schema Not Registered">
+                        <p>
+                            The schema for card type <code>${this.cardType}</code> is not registered.
+                        </p>
+                        <p>
+                            <strong>For maintainers:</strong> Register a schema for this card type using:
+                            <code>core.configManager.registerCardSchema('${this.cardType}', schema)</code>
+                        </p>
+                        <p>
+                            See the <a href="https://github.com/snootched/LCARdS#schema-registration" target="_blank">documentation</a> 
+                            for more information on schema registration.
+                        </p>
+                    </ha-alert>
+                ` : ''}
+                
                 <div class="tabs-container">
                     ${tabs.map((tab, index) => html`
                         <div
@@ -252,9 +281,10 @@ export class LCARdSBaseEditor extends LitElement {
 
         // CRITICAL: Ensure 'type' property is always present (HA requires it)
         if (!this.config.type) {
-            console.error('[LCARdSBaseEditor] Config is missing required "type" property after merge!');
-            // This shouldn't happen, but if it does, we need to recover
-            return;
+            console.warn('[LCARdSBaseEditor] Config is missing required "type" property after merge! Auto-restoring...');
+            // Auto-restore the type based on cardType
+            this.config.type = `custom:lcards-${this.cardType}`;
+            console.warn(`[LCARdSBaseEditor] Auto-restored type to: ${this.config.type}`);
         }
 
         // Validate against schema
@@ -362,10 +392,23 @@ export class LCARdSBaseEditor extends LitElement {
      */
     _validateConfig() {
         const validationResult = this._validateConfigWithSingleton(this.config);
-        this._validationErrors = validationResult.errors.map(err => ({
+        
+        // Map errors with severity
+        const errors = (validationResult.errors || []).map(err => ({
             path: err.field || '',
-            message: err.message
+            message: err.message,
+            severity: 'error'
         }));
+
+        // Map warnings with severity
+        const warnings = (validationResult.warnings || []).map(warn => ({
+            path: warn.field || '',
+            message: warn.message,
+            severity: 'warning'
+        }));
+
+        // Combine errors and warnings
+        this._validationErrors = [...errors, ...warnings];
     }
 
     /**
@@ -377,6 +420,7 @@ export class LCARdSBaseEditor extends LitElement {
 
         if (!configManager) {
             console.warn('[LCARdSBaseEditor] CoreConfigManager not available');
+            this._schemaMissing = true;
             return {}; // Return empty schema as fallback
         }
 
@@ -384,9 +428,11 @@ export class LCARdSBaseEditor extends LitElement {
 
         if (!schema) {
             console.warn(`[LCARdSBaseEditor] No schema registered for card type: ${this.cardType}`);
+            this._schemaMissing = true;
             return {};
         }
 
+        this._schemaMissing = false;
         return schema;
     }
 
@@ -466,25 +512,50 @@ export class LCARdSBaseEditor extends LitElement {
             // Handle patternProperties (e.g., text.name, text.label, text.*)
             if (currentSchema.patternProperties) {
                 let found = false;
+                let matchCount = 0;
+                let matchedPattern = null;
+
                 for (const [pattern, patternSchema] of Object.entries(currentSchema.patternProperties)) {
                     try {
                         const regex = new RegExp(pattern);
                         if (regex.test(key)) {
-                            currentSchema = patternSchema;
-                            found = true;
-                            break;
+                            matchCount++;
+                            if (!found) {
+                                currentSchema = patternSchema;
+                                matchedPattern = pattern;
+                                found = true;
+                            }
                         }
                     } catch (err) {
                         console.warn('[LCARdSBaseEditor] Invalid regex in patternProperties:', pattern, err);
                     }
                 }
+
+                // Warn if multiple patterns matched
+                if (matchCount > 1) {
+                    const lcardsLog = window.lcards?.core?.lcardsLog;
+                    if (lcardsLog?.warn) {
+                        lcardsLog.warn(`[BaseEditor] Multiple patternProperties matched key "${key}"; using first match.`);
+                    } else {
+                        console.warn(`[BaseEditor] Multiple patternProperties matched key "${key}"; using first match.`);
+                    }
+                }
+
                 if (found) continue;
             }
 
             // Handle additionalProperties (e.g., text.test_field1, text.custom_name)
-            if (currentSchema.additionalProperties && typeof currentSchema.additionalProperties === 'object') {
-                currentSchema = currentSchema.additionalProperties;
-                continue;
+            if (currentSchema.additionalProperties) {
+                if (typeof currentSchema.additionalProperties === 'object') {
+                    currentSchema = currentSchema.additionalProperties;
+                    continue;
+                } else if (currentSchema.additionalProperties === true) {
+                    // Return a generic schema object for any type
+                    return { 
+                        type: ['string', 'number', 'boolean', 'object', 'array'],
+                        description: 'Additional property (no specific schema defined)'
+                    };
+                }
             }
 
             // Handle oneOf schemas where the property may be defined inside an object option
@@ -530,7 +601,7 @@ export class LCARdSBaseEditor extends LitElement {
     }
 
     /**
-     * Render validation errors
+     * Render validation errors and warnings grouped by severity
      * @returns {TemplateResult}
      * @protected
      */
@@ -539,14 +610,30 @@ export class LCARdSBaseEditor extends LitElement {
             return html``;
         }
 
+        // Group by severity
+        const errors = this._validationErrors.filter(err => err.severity === 'error');
+        const warnings = this._validationErrors.filter(err => err.severity === 'warning');
+
         return html`
-            <ha-alert alert-type="error" title="Validation Errors">
-                <ul>
-                    ${this._validationErrors.map(err => html`
-                        <li>${err.path ? `${err.path}: ` : ''}${err.message}</li>
-                    `)}
-                </ul>
-            </ha-alert>
+            ${errors.length > 0 ? html`
+                <ha-alert alert-type="error" title="Validation Errors (${errors.length})">
+                    <ul>
+                        ${errors.map(err => html`
+                            <li>${err.path ? `${err.path}: ` : ''}${err.message}</li>
+                        `)}
+                    </ul>
+                </ha-alert>
+            ` : ''}
+
+            ${warnings.length > 0 ? html`
+                <ha-alert alert-type="warning" title="Validation Warnings (${warnings.length})">
+                    <ul>
+                        ${warnings.map(warn => html`
+                            <li>${warn.path ? `${warn.path}: ` : ''}${warn.message}</li>
+                        `)}
+                    </ul>
+                </ha-alert>
+            ` : ''}
         `;
     }
 
@@ -912,6 +999,45 @@ export class LCARdSBaseEditor extends LitElement {
     }
 
     /**
+     * Clean config when switching modes (preset, component, svg)
+     * Creates a new config with only the common properties and mode-specific properties
+     * 
+     * @param {Object} baseConfig - Current configuration
+     * @param {string} mode - Target mode ('preset', 'component', 'svg')
+     * @param {Array<string>} validKeys - Keys to keep in the cleaned config (in addition to common keys)
+     * @returns {Object} Cleaned configuration
+     * @protected
+     */
+    _cleanConfigForMode(baseConfig, mode, validKeys = []) {
+        // Common properties to always preserve
+        const commonKeys = ['type', 'entity', 'id', 'tap_action', 'hold_action', 'double_tap_action', 'style', 'css_class'];
+        
+        // Start with common properties
+        const newConfig = {};
+        commonKeys.forEach(key => {
+            if (baseConfig[key] !== undefined) {
+                newConfig[key] = baseConfig[key];
+            }
+        });
+
+        // Add mode-specific valid keys
+        validKeys.forEach(key => {
+            if (baseConfig[key] !== undefined) {
+                newConfig[key] = baseConfig[key];
+            }
+        });
+
+        // Clean up undefined values
+        Object.keys(newConfig).forEach(key => {
+            if (newConfig[key] === undefined) {
+                delete newConfig[key];
+            }
+        });
+
+        return newConfig;
+    }
+
+    /**
      * Helper: Render icon section
      * @returns {TemplateResult}
      * @protected
@@ -990,6 +1116,29 @@ export class LCARdSBaseEditor extends LitElement {
                     ?expanded=${false}>
                 </lcards-color-section>
             </lcards-form-section>
+        `;
+    }
+
+    /**
+     * Render YAML editor tab
+     * Advanced YAML editor with Monaco editor and validation.
+     * Changes made here will be reflected in the visual tabs.
+     * @returns {TemplateResult}
+     * @protected
+     */
+    _renderYamlTab() {
+        return html`
+            <div class="section">
+                <div class="section-description">
+                    Advanced YAML editor with validation. Changes made here will be reflected in the visual tabs.
+                </div>
+                <lcards-monaco-yaml-editor
+                    .value=${this._yamlValue}
+                    .schema=${this._getSchema()}
+                    .errors=${this._validationErrors}
+                    @value-changed=${this._handleYamlChange}>
+                </lcards-monaco-yaml-editor>
+            </div>
         `;
     }
 }
