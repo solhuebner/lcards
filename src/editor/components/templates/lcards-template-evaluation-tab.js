@@ -18,6 +18,7 @@ import { TemplateDetector } from '../../../core/templates/TemplateDetector.js';
 import { UnifiedTemplateEvaluator } from '../../../core/templates/UnifiedTemplateEvaluator.js';
 import { lcardsLog } from '../../../utils/lcards-logging.js';
 import '../common/lcards-message.js';
+import '../form/lcards-form-section.js';
 
 export class LCARdSTemplateEvaluationTab extends LitElement {
   static get properties() {
@@ -45,25 +46,9 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
         padding: 16px;
       }
 
-      .syntax-reference {
-        background: var(--secondary-background-color, #f5f5f5);
-        border: 1px solid var(--divider-color, #e0e0e0);
-        border-radius: 8px;
-        padding: 16px;
-        margin-bottom: 24px;
-      }
-
-      .syntax-reference h3 {
-        margin-top: 0;
-        color: var(--primary-text-color);
-        font-size: 16px;
-        font-weight: 500;
-      }
-
       .syntax-list {
         display: grid;
-        gap: 8px;
-        margin-top: 12px;
+        gap: 12px;
       }
 
       .syntax-item {
@@ -79,13 +64,14 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
         color: var(--code-text-color, #abb2bf);
         padding: 4px 8px;
         border-radius: 4px;
-        font-size: 13px;
+        font-size: 12px;
         white-space: nowrap;
       }
 
       .syntax-description {
         color: var(--secondary-text-color);
-        font-size: 14px;
+        font-size: 13px;
+        line-height: 1.4;
       }
 
       .filter-bar {
@@ -115,50 +101,62 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
         border-color: var(--primary-color);
       }
 
-      .templates-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 14px;
+      .templates-grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
       }
 
-      .templates-table thead {
-        background: var(--secondary-background-color);
+      .template-card {
+        background: var(--card-background-color);
+        border: 2px solid var(--divider-color);
+        border-radius: 12px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        transition: all 0.2s;
       }
 
-      .templates-table th {
-        padding: 12px;
-        text-align: left;
-        font-weight: 500;
-        border-bottom: 2px solid var(--divider-color);
+      .template-card:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       }
 
-      .templates-table td {
-        padding: 12px;
-        border-bottom: 1px solid var(--divider-color);
-        vertical-align: top;
+      /* Color-coded left borders by template type */
+      .template-card.type-javascript {
+        border-left: 4px solid #f7df1e;
       }
 
-      .templates-table tr:hover {
-        background: var(--secondary-background-color);
+      .template-card.type-token {
+        border-left: 4px solid #61dafb;
+      }
+
+      .template-card.type-theme {
+        border-left: 4px solid #9c27b0;
+      }
+
+      .template-card.type-datasource {
+        border-left: 4px solid #ff9800;
+      }
+
+      .template-card.type-jinja2 {
+        border-left: 4px solid #b71c1c;
+      }
+
+      .template-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 8px;
       }
 
       .template-path {
         font-family: 'Courier New', monospace;
         color: var(--primary-color);
-        font-size: 12px;
-      }
-
-      .template-raw {
-        font-family: 'Courier New', monospace;
-        background: var(--code-background-color, #282c34);
-        color: var(--code-text-color, #abb2bf);
-        padding: 8px;
-        border-radius: 4px;
-        font-size: 12px;
-        max-width: 300px;
-        overflow-x: auto;
-        white-space: pre-wrap;
+        font-size: 13px;
+        font-weight: 500;
         word-break: break-all;
+        flex: 1;
       }
 
       .template-type {
@@ -168,43 +166,64 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
         font-size: 11px;
         font-weight: 500;
         text-transform: uppercase;
+        flex-shrink: 0;
+        background: var(--secondary-background-color);
+        color: var(--secondary-text-color);
       }
 
-      .type-javascript {
-        background: #f7df1e;
-        color: #000;
+      .template-section {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
       }
 
-      .type-token {
-        background: #61dafb;
-        color: #000;
+      .template-section-label {
+        font-size: 11px;
+        font-weight: 500;
+        text-transform: uppercase;
+        color: var(--secondary-text-color);
+        letter-spacing: 0.5px;
       }
 
-      .type-theme {
-        background: #9c27b0;
-        color: white;
-      }
-
-      .type-datasource {
-        background: #ff9800;
-        color: white;
-      }
-
-      .type-jinja2 {
-        background: #b71c1c;
-        color: white;
+      .template-raw {
+        font-family: 'Courier New', monospace;
+        background: var(--code-background-color, #282c34);
+        color: var(--code-text-color, #abb2bf);
+        padding: 12px;
+        border-radius: 4px;
+        font-size: 13px;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-break: break-all;
+        line-height: 1.5;
       }
 
       .template-result {
         font-family: 'Courier New', monospace;
-        padding: 8px;
+        padding: 12px;
         border-radius: 4px;
-        font-size: 12px;
-        background: var(--card-background-color);
+        font-size: 13px;
+        background: var(--secondary-background-color);
         border: 1px solid var(--divider-color);
-        max-width: 300px;
         overflow-x: auto;
         word-break: break-word;
+        line-height: 1.5;
+      }
+
+      .template-result.success {
+        border-color: #4caf50;
+        background: rgba(76, 175, 80, 0.05);
+      }
+
+      .template-result.error {
+        border-color: #f44336;
+        background: rgba(244, 67, 54, 0.05);
+      }
+
+      .status-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
       }
 
       .status-icon {
@@ -220,16 +239,20 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
+        margin-top: 4px;
       }
 
       .action-button {
-        padding: 4px 8px;
+        padding: 6px 12px;
         font-size: 12px;
         cursor: pointer;
         border-radius: 4px;
         border: 1px solid var(--divider-color);
         background: var(--card-background-color);
         transition: background 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 4px;
       }
 
       .action-button:hover {
@@ -251,6 +274,9 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
         color: var(--error-color, #f44336);
         font-size: 12px;
         margin-top: 4px;
+        padding: 8px;
+        background: rgba(244, 67, 54, 0.1);
+        border-radius: 4px;
       }
     `;
   }
@@ -275,8 +301,10 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
 
   _renderSyntaxReference() {
     return html`
-      <div class="syntax-reference">
-        <h3>🔍 Template & Token Syntax Reference</h3>
+      <lcards-form-section
+        header="Template & Token Syntax Reference"
+        icon="mdi:information-outline"
+        ?expanded=${false}>
         <div class="syntax-list">
           <div class="syntax-item">
             <code class="syntax-code">[[[...]]]</code>
@@ -299,41 +327,41 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
             <span class="syntax-description">Jinja2 template — Double curly braces, evaluated by Home Assistant (async)</span>
           </div>
         </div>
-      </div>
+      </lcards-form-section>
     `;
   }
 
   _renderFilterBar() {
     const counts = this._getTypeCounts();
-    
+
     return html`
       <div class="filter-bar">
-        <button 
+        <button
           class="filter-chip ${this._filterType === 'all' ? 'active' : ''}"
           @click=${() => this._filterType = 'all'}>
           All (${counts.total})
         </button>
-        <button 
+        <button
           class="filter-chip ${this._filterType === 'javascript' ? 'active' : ''}"
           @click=${() => this._filterType = 'javascript'}>
           JavaScript (${counts.javascript})
         </button>
-        <button 
+        <button
           class="filter-chip ${this._filterType === 'theme' ? 'active' : ''}"
           @click=${() => this._filterType = 'theme'}>
           Theme (${counts.theme})
         </button>
-        <button 
+        <button
           class="filter-chip ${this._filterType === 'datasource' ? 'active' : ''}"
           @click=${() => this._filterType = 'datasource'}>
           Datasource (${counts.datasource})
         </button>
-        <button 
+        <button
           class="filter-chip ${this._filterType === 'token' ? 'active' : ''}"
           @click=${() => this._filterType = 'token'}>
           Token (${counts.token})
         </button>
-        <button 
+        <button
           class="filter-chip ${this._filterType === 'jinja2' ? 'active' : ''}"
           @click=${() => this._filterType = 'jinja2'}>
           Jinja2 (${counts.jinja2})
@@ -365,47 +393,49 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
     }
 
     return html`
-      <table class="templates-table">
-        <thead>
-          <tr>
-            <th>Path</th>
-            <th>Type</th>
-            <th>Template</th>
-            <th>Result</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${filteredTemplates.map(template => this._renderTemplateRow(template))}
-        </tbody>
-      </table>
+      <div class="templates-grid">
+        ${filteredTemplates.map(template => this._renderTemplateCard(template))}
+      </div>
     `;
   }
 
-  _renderTemplateRow(template) {
+  _renderTemplateCard(template) {
+    const hasError = template.status === 'status-error';
+    const isSuccess = template.status === 'status-success';
+    const typeClass = `type-${template.type.toLowerCase()}`;
+
     return html`
-      <tr>
-        <td><div class="template-path">${template.path}</div></td>
-        <td>
-          <span class="template-type type-${template.type.toLowerCase()}">${template.type}</span>
-        </td>
-        <td><div class="template-raw">${template.raw}</div></td>
-        <td>
-          <div class="template-result">${template.result || '(empty)'}</div>
+      <div class="template-card ${typeClass}">
+        <div class="template-card-header">
+          <div class="template-path">${template.path}</div>
+          <span class="template-type ${typeClass}">${template.type}</span>
+        </div>
+
+        <div class="template-section">
+          <div class="template-section-label">Template</div>
+          <div class="template-raw">${template.raw}</div>
+        </div>
+
+        <div class="template-section">
+          <div class="template-section-label">Result</div>
+          <div class="template-result ${isSuccess ? 'success' : ''} ${hasError ? 'error' : ''}">
+            ${template.result || '(empty)'}
+          </div>
           ${template.error ? html`<div class="error-message">${template.error}</div>` : ''}
-        </td>
-        <td>
+        </div>
+
+        <div class="status-row">
           <span class="status-icon ${template.status}">${this._getStatusIcon(template.status)}</span>
-        </td>
-        <td>
           <div class="action-buttons">
             <button class="action-button" @click=${() => this._copyToClipboard(template.result || '')}>
-              📋 Copy
+              📋 Copy Result
+            </button>
+            <button class="action-button" @click=${() => this._copyToClipboard(template.raw)}>
+              📝 Copy Template
             </button>
           </div>
-        </td>
-      </tr>
+        </div>
+      </div>
     `;
   }
 
@@ -433,7 +463,7 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
     if (this._filterType === 'all') {
       return this._templates;
     }
-    
+
     const typeMap = {
       'javascript': 'JavaScript',
       'theme': 'Theme',
@@ -441,7 +471,7 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
       'token': 'Token',
       'jinja2': 'Jinja2'
     };
-    
+
     return this._templates.filter(t => t.type === typeMap[this._filterType]);
   }
 
@@ -460,10 +490,10 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
     try {
       const templates = [];
       this._scanObject(this.config, '', templates);
-      
+
       // Evaluate all templates
       await this._evaluateTemplates(templates);
-      
+
       this._templates = templates;
     } catch (error) {
       lcardsLog.error('[TemplateEvaluationTab] Error discovering templates:', error);
@@ -509,7 +539,7 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
     if (!str || typeof str !== 'string') return;
 
     const types = TemplateDetector.detectTemplateTypes(str);
-    
+
     // JavaScript templates
     if (types.hasJavaScript) {
       const matches = str.matchAll(/\[\[\[([\s\S]*?)\]\]\]/g);
@@ -616,11 +646,20 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
             result = '(invalid token format)';
           }
         } else if (template.type === 'Datasource') {
-          // Evaluate datasource token
-          const dsMatch = template.raw.match(/\{(?:datasource|ds):([^}]+)\}/);
-          if (dsMatch && dataSourceManager) {
-            const dsName = dsMatch[1].split('.')[0];
-            result = `(datasource: ${dsName})`;
+          // Evaluate datasource token - use full string for proper evaluation
+          if (dataSourceManager) {
+            const evaluator = new UnifiedTemplateEvaluator({
+              hass: this.hass,
+              context: {
+                entity,
+                hass: this.hass,  // Include hass in context for template evaluator
+                config: this.config,
+                variables: {},
+                theme: themeManager?.getCurrentTheme?.() || {}
+              },
+              dataSourceManager
+            });
+            result = evaluator.evaluateSync(template.fullString);
           } else {
             result = '(DataSourceManager not available)';
           }
@@ -630,6 +669,7 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
             hass: this.hass,
             context: {
               entity,
+              hass: this.hass,  // Include hass in context for template evaluator
               config: this.config,
               variables: {},
               theme: themeManager?.getCurrentTheme?.() || {}

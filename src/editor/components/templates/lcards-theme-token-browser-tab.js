@@ -118,21 +118,49 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
 
       .tokens-grid {
         display: grid;
-        gap: 12px;
+        gap: 16px;
         grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
       }
 
       .token-card {
         background: var(--card-background-color);
-        border: 1px solid var(--divider-color);
-        border-radius: 8px;
+        border: 2px solid var(--divider-color);
+        border-radius: 12px;
         padding: 16px;
         transition: all 0.2s;
       }
 
       .token-card:hover {
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        border-color: var(--primary-color);
+      }
+
+      /* Color-coded left borders by token category */
+      .token-card.category-colors {
+        border-left: 4px solid #e91e63;
+      }
+
+      .token-card.category-typography {
+        border-left: 4px solid #9c27b0;
+      }
+
+      .token-card.category-spacing {
+        border-left: 4px solid #2196f3;
+      }
+
+      .token-card.category-borders {
+        border-left: 4px solid #ff9800;
+      }
+
+      .token-card.category-effects {
+        border-left: 4px solid #00bcd4;
+      }
+
+      .token-card.category-animations {
+        border-left: 4px solid #4caf50;
+      }
+
+      .token-card.category-components {
+        border-left: 4px solid #ff5722;
       }
 
       .token-header {
@@ -312,13 +340,13 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       </div>
 
       <div class="category-filter">
-        <button 
+        <button
           class="category-chip ${this._selectedCategory === 'all' ? 'active' : ''}"
           @click=${() => this._selectCategory('all')}>
           All (${this._tokens.length})
         </button>
         ${categories.map(cat => html`
-          <button 
+          <button
             class="category-chip ${this._selectedCategory === cat.key ? 'active' : ''}"
             @click=${() => this._selectCategory(cat.key)}>
             ${cat.label} (${cat.count})
@@ -344,8 +372,8 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
           <ha-icon icon="mdi:palette"></ha-icon>
           <p>No tokens found</p>
           <p style="font-size: 12px;">
-            ${this._searchQuery || this._selectedCategory !== 'all' 
-              ? 'Try adjusting your filters' 
+            ${this._searchQuery || this._selectedCategory !== 'all'
+              ? 'Try adjusting your filters'
               : 'No theme tokens are available'}
           </p>
         </div>
@@ -360,8 +388,10 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
   }
 
   _renderTokenCard(token) {
+    const categoryClass = `category-${token.category}`;
+
     return html`
-      <div class="token-card">
+      <div class="token-card ${categoryClass}">
         <div class="token-header">
           <div class="token-path">{theme:${token.path}}</div>
           <div class="token-category">${token.category}</div>
@@ -374,13 +404,13 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         ${this._renderTokenPreview(token)}
 
         <div class="token-actions">
-          <button 
+          <button
             class="action-button primary"
             @click=${() => this._copyTokenSyntax(token.path)}
             title="Copy token syntax to clipboard">
             📋 Copy Token
           </button>
-          <button 
+          <button
             class="action-button"
             @click=${() => this._copyValue(token.value)}
             title="Copy resolved value to clipboard">
@@ -402,7 +432,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
 
   _renderTokenPreview(token) {
     const valueStr = String(token.value);
-    
+
     // Color preview
     if (token.category === 'colors' || this._isColorValue(valueStr)) {
       return html`
@@ -457,7 +487,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
 
     // Apply search filter
     if (this._searchQuery) {
-      filtered = filtered.filter(t => 
+      filtered = filtered.filter(t =>
         t.path.toLowerCase().includes(this._searchQuery) ||
         String(t.value).toLowerCase().includes(this._searchQuery)
       );
@@ -486,7 +516,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
 
     try {
       const themeManager = window.lcards?.core?.themeManager;
-      
+
       if (!themeManager) {
         lcardsLog.warn('[ThemeTokenBrowser] ThemeManager not available');
         this._tokens = [];
@@ -496,11 +526,49 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         return;
       }
 
-      this._activeTheme = themeManager?.getCurrentTheme?.() || { name: 'Unknown' };
-      
-      // Get theme tokens from the theme manager
-      const tokens = this._extractTokensFromTheme(themeManager);
-      
+      // Get active theme - the getActiveTheme() method returns tokens in the structure
+      const activeTheme = themeManager.getActiveTheme();
+
+      if (!activeTheme) {
+        lcardsLog.warn('[ThemeTokenBrowser] No active theme');
+        this._tokens = [];
+        this._filteredTokens = [];
+        this._isLoading = false;
+        this.requestUpdate();
+        return;
+      }
+
+      // Set theme info for display
+      this._activeTheme = {
+        name: activeTheme.name || 'Unknown Theme',
+        description: activeTheme.description || ''
+      };
+
+      // Extract tokens - the tokens are spread at the top level now
+      // We need to look at the actual token structure
+      let tokenSource = null;
+
+      // Try multiple ways to access tokens based on ThemeManager implementation
+      if (activeTheme.tokens) {
+        tokenSource = activeTheme.tokens;
+      } else if (themeManager.activeTheme?.tokens) {
+        tokenSource = themeManager.activeTheme.tokens;
+      } else if (themeManager.resolver?.tokens) {
+        tokenSource = themeManager.resolver.tokens;
+      }
+
+      if (!tokenSource) {
+        lcardsLog.warn('[ThemeTokenBrowser] No tokens found in theme', { activeTheme });
+        this._tokens = [];
+        this._filteredTokens = [];
+        this._isLoading = false;
+        this.requestUpdate();
+        return;
+      }
+
+      // Get theme tokens from the token source
+      const tokens = this._extractTokensFromObject(tokenSource);
+
       // Find usage in current config
       tokens.forEach(token => {
         token.usage = this._findTokenUsage(token.path);
@@ -508,6 +576,11 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
 
       this._tokens = tokens;
       this._filteredTokens = tokens;
+
+      lcardsLog.debug('[ThemeTokenBrowser] Loaded tokens', {
+        count: tokens.length,
+        tokenSource: Object.keys(tokenSource)
+      });
     } catch (error) {
       lcardsLog.error('[ThemeTokenBrowser] Error loading tokens:', error);
       this._tokens = [];
@@ -519,22 +592,16 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
   }
 
   /**
-   * Extract all tokens from theme manager
+   * Extract all tokens from theme object (renamed from _extractTokensFromTheme)
    */
-  _extractTokensFromTheme(themeManager) {
+  _extractTokensFromObject(tokenSource) {
     const tokens = [];
-    
-    if (!themeManager) {
-      return tokens;
-    }
-    
-    const theme = themeManager.getCurrentTheme?.();
-    
-    if (!theme || !theme.tokens) {
+
+    if (!tokenSource || typeof tokenSource !== 'object') {
       return tokens;
     }
 
-    this._extractTokensRecursive(theme.tokens, '', tokens);
+    this._extractTokensRecursive(tokenSource, '', tokens);
     return tokens;
   }
 
@@ -570,9 +637,9 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
   _findTokenUsage(tokenPath) {
     const usage = [];
     const tokenSyntax = `{theme:${tokenPath}}`;
-    
+
     this._findTokenUsageRecursive(this.config, '', tokenSyntax, usage);
-    
+
     return usage;
   }
 
@@ -600,19 +667,19 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
    */
   _isColorValue(value) {
     if (typeof value !== 'string') return false;
-    
+
     // Check for hex colors (#RGB, #RGBA, #RRGGBB, #RRGGBBAA)
     if (/^#[0-9A-Fa-f]{3,8}$/.test(value)) return true;
-    
+
     // Check for rgb/rgba
     if (/^rgba?\(/.test(value)) return true;
-    
+
     // Check for hsl/hsla
     if (/^hsla?\(/.test(value)) return true;
-    
+
     // Check for CSS color functions (color(), lab(), lch(), oklab(), oklch())
     if (/^(color|lab|lch|oklab|oklch)\(/.test(value)) return true;
-    
+
     // Check for CSS color names (comprehensive list of common colors)
     const cssColors = [
       'aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure', 'beige', 'bisque', 'black',
