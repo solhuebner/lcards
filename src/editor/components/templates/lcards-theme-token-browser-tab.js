@@ -737,35 +737,29 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       lcardsLog.info('[ThemeTokenBrowser] Copied token syntax:', syntax);
       
       // Show success feedback
-      const button = event.target.closest('ha-button');
+      const button = event.target.closest('ha-icon-button');
       if (button) {
-        const iconElement = button.querySelector('ha-icon');
-        if (iconElement) {
-          const originalIcon = iconElement.icon;
-          iconElement.icon = 'mdi:check';
-          iconElement.style.color = 'var(--success-color, #4caf50)';
-          
-          setTimeout(() => {
-            iconElement.icon = originalIcon;
-            iconElement.style.color = '';
-          }, 2000);
-        }
+        const originalIcon = button.icon;
+        button.icon = 'mdi:check';
+        button.style.color = 'var(--success-color, #4caf50)';
+        
+        setTimeout(() => {
+          button.icon = originalIcon;
+          button.style.color = '';
+        }, 2000);
       }
     } catch (error) {
       lcardsLog.error('[ThemeTokenBrowser] Failed to copy to clipboard:', error);
       
       // Show error feedback
-      const button = event.target.closest('ha-button');
+      const button = event.target.closest('ha-icon-button');
       if (button) {
-        const iconElement = button.querySelector('ha-icon');
-        if (iconElement) {
-          iconElement.icon = 'mdi:alert-circle';
-          iconElement.style.color = 'var(--error-color, #f44336)';
-          
-          setTimeout(() => {
-            iconElement.style.color = '';
-          }, 2000);
-        }
+        button.icon = 'mdi:alert-circle';
+        button.style.color = 'var(--error-color, #f44336)';
+        
+        setTimeout(() => {
+          button.style.color = '';
+        }, 2000);
       }
     }
   }
@@ -779,35 +773,29 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       lcardsLog.info('[ThemeTokenBrowser] Copied value:', value);
       
       // Show success feedback
-      const button = event.target.closest('ha-button');
+      const button = event.target.closest('ha-icon-button');
       if (button) {
-        const iconElement = button.querySelector('ha-icon');
-        if (iconElement) {
-          const originalIcon = iconElement.icon;
-          iconElement.icon = 'mdi:check';
-          iconElement.style.color = 'var(--success-color, #4caf50)';
-          
-          setTimeout(() => {
-            iconElement.icon = originalIcon;
-            iconElement.style.color = '';
-          }, 2000);
-        }
+        const originalIcon = button.icon;
+        button.icon = 'mdi:check';
+        button.style.color = 'var(--success-color, #4caf50)';
+        
+        setTimeout(() => {
+          button.icon = originalIcon;
+          button.style.color = '';
+        }, 2000);
       }
     } catch (error) {
       lcardsLog.error('[ThemeTokenBrowser] Failed to copy to clipboard:', error);
       
       // Show error feedback
-      const button = event.target.closest('ha-button');
+      const button = event.target.closest('ha-icon-button');
       if (button) {
-        const iconElement = button.querySelector('ha-icon');
-        if (iconElement) {
-          iconElement.icon = 'mdi:alert-circle';
-          iconElement.style.color = 'var(--error-color, #f44336)';
-          
-          setTimeout(() => {
-            iconElement.style.color = '';
-          }, 2000);
-        }
+        button.icon = 'mdi:alert-circle';
+        button.style.color = 'var(--error-color, #f44336)';
+        
+        setTimeout(() => {
+          button.style.color = '';
+        }, 2000);
       }
     }
   }
