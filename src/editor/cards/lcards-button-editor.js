@@ -25,6 +25,9 @@ import '../components/form/lcards-multi-action-editor.js';
 import '../components/dashboard/lcards-rules-dashboard.js';
 // Import datasource components
 import '../components/datasources/lcards-datasource-editor-tab.js';
+// Import template components
+import '../components/templates/lcards-template-evaluation-tab.js';
+import '../components/templates/lcards-theme-token-browser-tab.js';
 
 export class LCARdSButtonEditor extends LCARdSBaseEditor {
 
@@ -75,6 +78,8 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
         tabs.push(
             { label: 'Advanced', content: () => this._renderFromConfig(this._getAdvancedTabConfig()) },
             { label: 'Data Sources', content: () => this._renderDataSourcesTab() },
+            { label: 'Templates', content: () => this._renderTemplatesTab() },
+            { label: 'Theme Tokens', content: () => this._renderThemeTokensTab() },
             { label: 'Rules', content: () => this._renderRulesTab() },
             { label: 'YAML', content: () => this._renderYamlTab() }
         );
@@ -452,6 +457,32 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                 .cardId=${this.config.id || this.config.cardId || ''}
                 .hass=${this.hass}>
             </lcards-rules-dashboard>
+        `;
+    }
+
+    /**
+     * Templates tab - template evaluation and debugging
+     */
+    _renderTemplatesTab() {
+        return html`
+            <lcards-template-evaluation-tab
+                .editor=${this}
+                .config=${this.config}
+                .hass=${this.hass}>
+            </lcards-template-evaluation-tab>
+        `;
+    }
+
+    /**
+     * Theme Tokens tab - theme token browser
+     */
+    _renderThemeTokensTab() {
+        return html`
+            <lcards-theme-token-browser-tab
+                .editor=${this}
+                .config=${this.config}
+                .hass=${this.hass}>
+            </lcards-theme-token-browser-tab>
         `;
     }
 

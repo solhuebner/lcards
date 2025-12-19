@@ -82,6 +82,9 @@ editor/
 │   ├── common/             # Common UI components
 │   ├── dashboard/          # Dashboard components
 │   │   └── lcards-rules-dashboard.js  # Read-only rules viewer
+│   ├── datasources/        # Datasource editor components
+│   │   ├── lcards-datasource-editor-tab.js  # Main datasource tab
+│   │   └── ...             # Related datasource components
 │   ├── form/               # Schema-driven form components
 │   │   ├── lcards-form-field.js         # Smart auto-rendering field
 │   │   ├── lcards-form-section.js       # Collapsible sections
@@ -96,6 +99,9 @@ editor/
 │   │   ├── lcards-border-editor.js      # Border config with preview
 │   │   ├── lcards-segment-list-editor.js # SVG segment manager
 │   │   └── lcards-multi-action-editor.js # Unified action editor
+│   ├── templates/          # NEW: Template and token browser components
+│   │   ├── lcards-template-evaluation-tab.js  # Template discovery & evaluation
+│   │   └── lcards-theme-token-browser-tab.js  # Theme token browser
 │   └── yaml/               # YAML editor
 └── utils/                  # Utility functions
     └── yaml-utils.js       # YAML conversion (uses js-yaml)
@@ -525,6 +531,79 @@ _renderColorsTab() {
 }
 ```
 
+#### Template Evaluation Tab (v1.19.0)
+```javascript
+import '../components/templates/lcards-template-evaluation-tab.js';
+
+_renderTemplatesTab() {
+    return html`
+        <!-- Template discovery and evaluation -->
+        <lcards-template-evaluation-tab
+            .editor=${this}
+            .config=${this.config}
+            .hass=${this.hass}>
+        </lcards-template-evaluation-tab>
+    `;
+}
+
+// Add to tab definitions
+_getTabDefinitions() {
+    return [
+        { label: 'Config', content: () => this._renderConfigTab() },
+        { label: 'Templates', content: () => this._renderTemplatesTab() },  // NEW
+        { label: 'YAML', content: () => this._renderYamlTab() }
+    ];
+}
+```
+
+**Features:**
+- Scans entire config for templates (JavaScript, Tokens, Theme, Datasource, Jinja2)
+- Shows live evaluation results with error handling
+- Provides syntax reference panel
+- Filter by template type
+- Copy results to clipboard
+
+#### Theme Token Browser (v1.19.0)
+```javascript
+import '../components/templates/lcards-theme-token-browser-tab.js';
+
+_renderThemeTokensTab() {
+    return html`
+        <!-- Theme token browser and usage tracker -->
+        <lcards-theme-token-browser-tab
+            .editor=${this}
+            .config=${this.config}
+            .hass=${this.hass}>
+        </lcards-theme-token-browser-tab>
+    `;
+}
+
+// Add to tab definitions
+_getTabDefinitions() {
+    return [
+        { label: 'Config', content: () => this._renderConfigTab() },
+        { label: 'Theme Tokens', content: () => this._renderThemeTokensTab() },  // NEW
+        { label: 'YAML', content: () => this._renderYamlTab() }
+    ];
+}
+```
+
+**Features:**
+- Browse all tokens from active theme
+- Search and filter by category (colors, typography, spacing, etc.)
+- Type-aware previews (color swatches, font samples)
+- Track token usage in current config
+- Copy with proper LCARdS syntax: `{theme:token.path}`
+
+**Token Syntax Reference:**
+- **Theme tokens**: `{theme:colors.accent.primary}` (single braces)
+- **Datasource tokens**: `{datasource:sensor.temp}` or `{ds:sensor.temp}`
+- **Simple tokens**: `{entity.state}`, `{config.entity}`
+- **JavaScript**: `[[[return entity.state]]]`
+- **Jinja2**: `{{states('sensor.temp')}}` (double braces)
+
+See [Template & Token Documentation](../../doc/TEMPLATE_EVALUATION_THEME_BROWSER.md) for detailed usage.
+
 ## Documentation
 
 See [Visual Editor Architecture](../../doc/architecture/visual-editor-architecture.md) for detailed documentation.
@@ -554,6 +633,15 @@ See `doc/user/examples/button-visual-editor-test.yaml` for comprehensive test co
 - ✅ Complete alignment enums (justify, align, position)
 - ✅ Match Light Colour support (CSS variable export)
 - ✅ Rules Dashboard (read-only display of all rules in system)
+
+### Phase 1.6: Template & Token Browser ✅ (v1.19.0)
+- ✅ Template Evaluation Tab - Discover and debug all templates
+- ✅ Theme Token Browser - Browse and use theme tokens
+- ✅ Support for all template types (JavaScript, Tokens, Jinja2)
+- ✅ Live template evaluation with error handling
+- ✅ Token usage tracking across config
+- ✅ Syntax reference and copy functionality
+- ✅ Type-aware token previews (colors, fonts, spacing)
 
 ### Phase 2: Advanced Features (Future)
 - 🔜 Animation editor with visual timeline
