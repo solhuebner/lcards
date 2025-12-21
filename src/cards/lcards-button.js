@@ -539,13 +539,13 @@ export class LCARdSButton extends LCARdSCard {
             if (typeof svgConfig.segments === 'object' && !Array.isArray(svgConfig.segments)) {
                 // New object-based format - auto-discover segment IDs from SVG
                 const availableSegmentIds = this._extractSegmentIdsFromSvg(withTokens);
-                
+
                 // Convert object-based config to internal array format
                 const segmentsArray = this._convertSegmentsObjectToArray(
                     svgConfig.segments,
                     availableSegmentIds
                 );
-                
+
                 this._processSegmentConfig(segmentsArray);
             } else if (Array.isArray(svgConfig.segments)) {
                 // Legacy array-based format - process directly
@@ -563,24 +563,24 @@ export class LCARdSButton extends LCARdSCard {
      */
     _extractSegmentIdsFromSvg(svgContent) {
         if (!svgContent) return [];
-        
+
         try {
             const parser = new DOMParser();
             const doc = parser.parseFromString(svgContent, 'image/svg+xml');
-            
+
             // Check for parse errors
             const parseError = doc.querySelector('parsererror');
             if (parseError) {
                 lcardsLog.warn('[LCARdSButton] SVG parse error during ID extraction:', parseError.textContent);
                 return [];
             }
-            
+
             // Find all elements with ID attributes
             const elementsWithIds = doc.querySelectorAll('[id]');
             const segmentIds = Array.from(elementsWithIds).map(el => el.id);
-            
+
             lcardsLog.debug(`[LCARdSButton] Discovered ${segmentIds.length} segment IDs from SVG:`, segmentIds);
-            
+
             return segmentIds;
         } catch (error) {
             lcardsLog.error('[LCARdSButton] Failed to extract segment IDs from SVG:', error);
@@ -599,48 +599,48 @@ export class LCARdSButton extends LCARdSCard {
     _convertSegmentsObjectToArray(segmentsObject, availableIds) {
         const defaultConfig = segmentsObject.default || {};
         const segmentsArray = [];
-        
+
         // Get all segment IDs to process (discovered + user-defined)
         const userSegmentIds = Object.keys(segmentsObject).filter(id => id !== 'default');
         const allSegmentIds = new Set([...availableIds, ...userSegmentIds]);
-        
+
         // Convert availableIds to Set for O(1) lookup performance
         const availableIdsSet = new Set(availableIds);
-        
+
         // Validate user-defined segments exist in SVG
         userSegmentIds.forEach(id => {
             if (!availableIdsSet.has(id)) {
                 lcardsLog.warn(`[LCARdSButton] Segment "${id}" configured but not found in SVG (no matching id attribute)`);
             }
         });
-        
+
         // Convert each segment to array item
         allSegmentIds.forEach(id => {
             const userConfig = segmentsObject[id] || {};
-            
+
             // Skip if no user config and no default (nothing to do)
             if (this._shouldSkipSegment(userConfig, defaultConfig)) {
                 return;
             }
-            
+
             // Merge default + user config
             const mergedConfig = deepMerge(defaultConfig, userConfig);
-            
+
             // Auto-generate selector if not provided
             const selector = userConfig.selector || `#${id}`;
-            
+
             segmentsArray.push({
                 id,
                 selector,
                 ...mergedConfig
             });
         });
-        
+
         lcardsLog.debug(`[LCARdSButton] Converted segments: ${segmentsArray.length} configured, ${availableIds.length} discovered`, {
             configured: segmentsArray.map(s => s.id),
             discovered: availableIds
         });
-        
+
         return segmentsArray;
     }
 
@@ -652,15 +652,15 @@ export class LCARdSButton extends LCARdSCard {
      * @returns {boolean} True if segment should be skipped
      */
     _shouldSkipSegment(userConfig, defaultConfig) {
-        const hasUserConfig = userConfig.tap_action || 
-                             userConfig.hold_action || 
-                             userConfig.double_tap_action || 
-                             userConfig.style || 
+        const hasUserConfig = userConfig.tap_action ||
+                             userConfig.hold_action ||
+                             userConfig.double_tap_action ||
+                             userConfig.style ||
                              userConfig.animations ||
                              userConfig.entity;
-        
+
         const hasDefaultConfig = Object.keys(defaultConfig).length > 0;
-        
+
         return !hasUserConfig && !hasDefaultConfig;
     }
 
@@ -2218,7 +2218,7 @@ export class LCARdSButton extends LCARdSCard {
             const buttonState = this._getButtonState();
 
             // Get theme tokens for icons
-            const iconTokens = this._theme?.tokens?.components?.button?.base?.icon || {};
+            const iconTokens = this._theme?.tokens?.components?.button?.icon || {};
 
             // Resolve icon color with state-based fallback chain
             // Priority: iconStyle > preset > theme token (state-based) > text color (state-based) > hardcoded

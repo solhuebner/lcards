@@ -76,8 +76,8 @@ const LCARDS_BUTTONS_PACK = {
       // =====================================
       base: {
         // Layout dimensions
-        height: 'theme:components.button.base.layout.height.standard',
-        min_height: 'theme:components.button.base.layout.minHeight',
+        height: 'theme:components.button.layout.height.standard',
+        min_height: 'theme:components.button.layout.minHeight',
 
         // Visibility defaults
         show_icon: false,
@@ -86,10 +86,10 @@ const LCARDS_BUTTONS_PACK = {
         card: {
           color: {
             background: {
-              default: 'theme:components.button.base.background.active',
-              active: 'theme:components.button.base.background.active',
-              inactive: 'theme:components.button.base.background.inactive',
-              unavailable: 'theme:components.button.base.background.unavailable'
+              default: 'theme:components.button.background.active',
+              active: 'theme:components.button.background.active',
+              inactive: 'theme:components.button.background.inactive',
+              unavailable: 'theme:components.button.background.unavailable'
             }
           }
         },
@@ -99,15 +99,15 @@ const LCARDS_BUTTONS_PACK = {
           default: {
             position: 'right-center',  // Default text position (right-aligned, vertically centered)
             // Default text styling - applies to all text fields unless overridden
-            font_family: 'theme:components.button.base.text.default.font_family',
-            font_size: 'theme:components.button.base.text.default.font_size',
-            font_weight: 'theme:components.button.base.text.default.font_weight',
-            text_transform: 'theme:components.button.base.text.default.text_transform',
+            font_family: 'theme:components.button.text.font_family',
+            font_size: 'theme:components.button.text.font_size',
+            font_weight: 'theme:components.button.text.font_weight',
+            text_transform: 'theme:components.button.text.text_transform',
             color: {
-              default: 'theme:components.button.base.text.default.color.active',
-              active: 'theme:components.button.base.text.default.color.active',
-              inactive: 'theme:components.button.base.text.default.color.inactive',
-              unavailable: 'theme:components.button.base.text.default.color.unavailable'
+              default: 'theme:components.button.text.color.active',
+              active: 'theme:components.button.text.color.active',
+              inactive: 'theme:components.button.text.color.inactive',
+              unavailable: 'theme:components.button.text.color.unavailable'
             }
           },
           name: {
@@ -128,24 +128,24 @@ const LCARDS_BUTTONS_PACK = {
         border: {
           width: 0,
           color: {
-            default: 'theme:components.button.base.border.color.default',
-            active: 'theme:components.button.base.border.color.active',
-            inactive: 'theme:components.button.base.border.color.inactive',
-            unavailable: 'theme:components.button.base.border.color.unavailable'
+            default: 'theme:components.button.border.color.default',
+            active: 'theme:components.button.border.color.active',
+            inactive: 'theme:components.button.border.color.inactive',
+            unavailable: 'theme:components.button.border.color.unavailable'
           },
-          radius: 'theme:components.button.base.radius.none'
+          radius: 'theme:components.button.radius.none'
         },
 
         // Icon styling (nested structure)
         icon: {
-          size: 'theme:components.button.base.icon.size',
-          layout_spacing: 'theme:components.button.base.icon.layout_spacing',
+          size: 'theme:components.button.icon.size',
+          layout_spacing: 'theme:components.button.icon.layout_spacing',
           position: 'center',
           color: {
-            default: 'theme:components.button.base.icon.color.default',
-            active: 'theme:components.button.base.icon.color.active',
-            inactive: 'theme:components.button.base.icon.color.inactive',
-            unavailable: 'theme:components.button.base.icon.color.unavailable'
+            default: 'theme:components.button.icon.color.default',
+            active: 'theme:components.button.icon.color.active',
+            inactive: 'theme:components.button.icon.color.inactive',
+            unavailable: 'theme:components.button.icon.color.unavailable'
           },
           padding: {
             top: 0,
@@ -154,8 +154,8 @@ const LCARDS_BUTTONS_PACK = {
             left: 0
           },
           divider: {
-            width: 'theme:components.button.base.icon.divider.width',
-            color: 'theme:components.button.base.icon.divider.color.default'
+            width: 'theme:components.button.icon.divider.width',
+            color: 'theme:components.button.icon.divider.color.default'
           }
         }
       },
@@ -169,10 +169,10 @@ const LCARDS_BUTTONS_PACK = {
         border: {
           width: 0,  // No border for lozenge (filled buttons)
           radius: {
-            top_left: 'theme:components.button.base.radius.full',
-            top_right: 'theme:components.button.base.radius.full',
-            bottom_left: 'theme:components.button.base.radius.full',
-            bottom_right: 'theme:components.button.base.radius.full'
+            top_left: 'theme:components.button.radius.full',
+            top_right: 'theme:components.button.radius.full',
+            bottom_left: 'theme:components.button.radius.full',
+            bottom_right: 'theme:components.button.radius.full'
           }
         },
         icon: {
@@ -239,10 +239,10 @@ const LCARDS_BUTTONS_PACK = {
         border: {
           width: 0,  // No border for bullet (filled buttons)
           radius: {
-            top_left: 'theme:components.button.base.radius.none',
-            bottom_left: 'theme:components.button.base.radius.none',
-            top_right: 'theme:components.button.base.radius.full',
-            bottom_right: 'theme:components.button.base.radius.full'
+            top_left: 'theme:components.button.radius.none',
+            bottom_left: 'theme:components.button.radius.none',
+            top_right: 'theme:components.button.radius.full',
+            bottom_right: 'theme:components.button.radius.full'
           }
         },
         icon: {
@@ -256,10 +256,10 @@ const LCARDS_BUTTONS_PACK = {
         border: {
           width: 0,  // No border for bullet (filled buttons)
           radius: {
-            top_left: 'theme:components.button.base.radius.full',
-            bottom_left: 'theme:components.button.base.radius.full',
-            top_right: 'theme:components.button.base.radius.none',
-            bottom_right: 'theme:components.button.base.radius.none'
+            top_left: 'theme:components.button.radius.full',
+            bottom_left: 'theme:components.button.radius.full',
+            top_right: 'theme:components.button.radius.none',
+            bottom_right: 'theme:components.button.radius.none'
           }
         },
         icon: {
@@ -276,10 +276,10 @@ const LCARDS_BUTTONS_PACK = {
         border: {
           width: 0,  // No border for capped (filled buttons)
           radius: {
-            top_left: 'theme:components.button.base.radius.full',
-            bottom_left: 'theme:components.button.base.radius.full',
-            top_right: 'theme:components.button.base.radius.none',
-            bottom_right: 'theme:components.button.base.radius.none'
+            top_left: 'theme:components.button.radius.full',
+            bottom_left: 'theme:components.button.radius.full',
+            top_right: 'theme:components.button.radius.none',
+            bottom_right: 'theme:components.button.radius.none'
           }
         },
         text: {
@@ -299,10 +299,10 @@ const LCARDS_BUTTONS_PACK = {
         border: {
           width: 0,  // No border for capped (filled buttons)
           radius: {
-            top_left: 'theme:components.button.base.radius.none',
-            bottom_left: 'theme:components.button.base.radius.none',
-            top_right: 'theme:components.button.base.radius.full',
-            bottom_right: 'theme:components.button.base.radius.full'
+            top_left: 'theme:components.button.radius.none',
+            bottom_left: 'theme:components.button.radius.none',
+            top_right: 'theme:components.button.radius.full',
+            bottom_right: 'theme:components.button.radius.full'
           }
         },
         text: {
@@ -327,7 +327,7 @@ const LCARDS_BUTTONS_PACK = {
         // Filled buttons have no border, just background
         border: {
           width: 0,
-          radius: 'theme:components.button.base.radius.none'
+          radius: 'theme:components.button.radius.none'
         },
 
       },
@@ -362,7 +362,7 @@ const LCARDS_BUTTONS_PACK = {
         text: {
           name: {
             position: 'right',
-            //font_size: 'theme.components.button.base.text.default.font_size',
+            //font_size: 'theme:components.button.text.font_size',
             font_size: 'theme:typography.fontSize.2xl',
             show: true,
             padding: {
@@ -371,7 +371,7 @@ const LCARDS_BUTTONS_PACK = {
           },
           state: {
             position: 'left',
-            font_size: 'theme.components.button.base.text.default.font_size',
+            font_size: 'theme:components.button.text.font_size',
             show: false
           }
         },
@@ -383,7 +383,7 @@ const LCARDS_BUTTONS_PACK = {
         text: {
           name: {
             position: 'left',
-            //font_size: 'theme.components.button.base.text.default.font_size',
+            //font_size: 'theme:components.button.text.font_size',
             font_size: 'theme:typography.fontSize.2xl',
             show: true,
             padding: {
@@ -392,7 +392,7 @@ const LCARDS_BUTTONS_PACK = {
           },
           state: {
             position: 'right',
-            font_size: 'theme.components.button.base.text.default.font_size',
+            font_size: 'theme:components.button.text.font_size',
             show: false
           }
         },
@@ -411,23 +411,23 @@ const LCARDS_BUTTONS_PACK = {
         card: {
           color: {
             background: {
-              default: 'theme:components.button.base.background.transparent',
-              active: 'theme:components.button.base.background.transparent',
-              inactive: 'theme:components.button.base.background.transparent',
-              unavailable: 'theme:components.button.base.background.transparent'
+              default: 'theme:components.button.background.transparent',
+              active: 'theme:components.button.background.transparent',
+              inactive: 'theme:components.button.background.transparent',
+              unavailable: 'theme:components.button.background.transparent'
             }
           }
         },
 
         // Border styled by state (active=black, inactive=gray, unavailable=darkgray)
         border: {
-          width: 'theme:components.button.base.border.width',
-          radius: 'theme:components.button.base.radius.none',
+          width: 'theme:components.button.border.width',
+          radius: 'theme:components.button.radius.none',
           color: {
-            default: 'theme:components.button.base.border.color.active',
-            active: 'theme:components.button.base.border.color.active',
-            inactive: 'theme:components.button.base.border.color.inactive',
-            unavailable: 'theme:components.button.base.border.color.unavailable'
+            default: 'theme:components.button.border.color.active',
+            active: 'theme:components.button.border.color.active',
+            inactive: 'theme:components.button.border.color.inactive',
+            unavailable: 'theme:components.button.border.color.unavailable'
           }
         },
 
@@ -436,15 +436,15 @@ const LCARDS_BUTTONS_PACK = {
 
           default: {
             color: {
-              default: 'theme:components.button.base.background.active',
-              active: 'theme:components.button.base.background.active',
-              inactive: 'theme:components.button.base.background.inactive',
-              unavailable: 'theme:components.button.base.text.default.color.unavailable'
+              default: 'theme:components.button.background.active',
+              active: 'theme:components.button.background.active',
+              inactive: 'theme:components.button.background.inactive',
+              unavailable: 'theme:components.button.text.color.unavailable'
             }
           },
           name: {
             position: 'right',
-            //font_size: 'theme.components.button.base.text.default.font_size',
+            //font_size: 'theme:components.button.text.font_size',
             font_size: 'theme:typography.fontSize.2xl',
             show: true,
             padding: {
@@ -453,7 +453,7 @@ const LCARDS_BUTTONS_PACK = {
           },
           state: {
             position: 'left',
-            font_size: 'theme.components.button.base.text.default.font_size',
+            font_size: 'theme:components.button.text.font_size',
             show: false
           }
         },
@@ -461,10 +461,10 @@ const LCARDS_BUTTONS_PACK = {
         // Icon styled by state
         icon: {
           color: {
-            default: 'theme:components.button.base.border.color.active',
-            active: 'theme:components.button.base.border.color.active',
-            inactive: 'theme:components.button.base.border.color.inactive',
-            unavailable: 'theme:components.button.base.border.color.unavailable'
+            default: 'theme:components.button.border.color.active',
+            active: 'theme:components.button.border.color.active',
+            inactive: 'theme:components.button.border.color.inactive',
+            unavailable: 'theme:components.button.border.color.unavailable'
           }
         }
       },
@@ -480,7 +480,7 @@ const LCARDS_BUTTONS_PACK = {
           },
           name: {
             position: 'left',
-            //font_size: 'theme.components.button.base.text.default.font_size',
+            //font_size: 'theme:components.button.text.font_size',
             font_size: 'theme:typography.fontSize.2xl',
             show: true,
             padding: {
@@ -489,7 +489,7 @@ const LCARDS_BUTTONS_PACK = {
           },
           state: {
             position: 'right',
-            font_size: 'theme.components.button.base.text.default.font_size',
+            font_size: 'theme:components.button.text.font_size',
             show: false
           }
         },
@@ -502,17 +502,17 @@ const LCARDS_BUTTONS_PACK = {
         extends: 'button.base',
 
         // Square dimensions for icon button
-        width: 'theme:components.button.base.layout.height.icon',
-        height: 'theme:components.button.base.layout.height.icon',
-        min_height: 'theme:components.button.base.layout.height.icon',
+        width: 'theme:components.button.layout.height.icon',
+        height: 'theme:components.button.layout.height.icon',
+        min_height: 'theme:components.button.layout.height.icon',
 
         // Rounded corners
         border: {
           radius: {
-            top_left: 'theme:components.button.base.radius.large',
-            top_right: 'theme:components.button.base.radius.large',
-            bottom_left: 'theme:components.button.base.radius.large',
-            bottom_right: 'theme:components.button.base.radius.large'
+            top_left: 'theme:components.button.radius.large',
+            top_right: 'theme:components.button.radius.large',
+            bottom_left: 'theme:components.button.radius.large',
+            bottom_right: 'theme:components.button.radius.large'
           }
         },
 
@@ -604,10 +604,10 @@ const LCARDS_BUTTONS_PACK = {
         card: {
           color: {
             background: {
-              default: 'theme:components.button.base.background.active',
-              active: 'theme:components.button.base.background.active',
-              inactive: 'theme:components.button.base.background.inactive',
-              unavailable: 'theme:components.button.base.background.unavailable'
+              default: 'theme:components.button.background.active',
+              active: 'theme:components.button.background.active',
+              inactive: 'theme:components.button.background.inactive',
+              unavailable: 'theme:components.button.background.unavailable'
             }
           }
         },
@@ -738,10 +738,10 @@ const LCARDS_BUTTONS_PACK = {
 
         border: {
           radius: {
-            top_left: 'theme:components.button.base.radius.full',
-            top_right: 'theme:components.button.base.radius.full',
-            bottom_left: 'theme:components.button.base.radius.full',
-            bottom_right: 'theme:components.button.base.radius.full'
+            top_left: 'theme:components.button.radius.full',
+            top_right: 'theme:components.button.radius.full',
+            bottom_left: 'theme:components.button.radius.full',
+            bottom_right: 'theme:components.button.radius.full'
           }
         },
 
@@ -759,9 +759,9 @@ const LCARDS_BUTTONS_PACK = {
 
         border: {
           radius: {
-            top_left: 'theme:components.button.base.radius.full',
+            top_left: 'theme:components.button.radius.full',
             top_right: 0,
-            bottom_left: 'theme:components.button.base.radius.full',
+            bottom_left: 'theme:components.button.radius.full',
             bottom_right: 0
           }
         },
@@ -781,9 +781,9 @@ const LCARDS_BUTTONS_PACK = {
         border: {
           radius: {
             top_left: 0,
-            top_right: 'theme:components.button.base.radius.full',
+            top_right: 'theme:components.button.radius.full',
             bottom_left: 0,
-            bottom_right: 'theme:components.button.base.radius.full'
+            bottom_right: 'theme:components.button.radius.full'
           }
         },
 

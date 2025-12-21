@@ -133,7 +133,8 @@ export const lcarsClassicTokens = {
         default: 'colors.card.button',
         active: 'colors.card.button',
         inactive: 'colors.card.buttonOff',
-        unavailable: 'colors.card.buttonUnavailable'
+        unavailable: 'colors.card.buttonUnavailable',
+        transparent: 'transparent'
       },
       border: {
         width: 'borders.width.thick',
@@ -159,6 +160,7 @@ export const lcarsClassicTokens = {
       },
       icon: {
         size: 24,
+        layout_spacing: 4,
         color: {
           default: 'colors.text.onLight',
           active: 'colors.text.onLight',
@@ -174,6 +176,18 @@ export const lcarsClassicTokens = {
             unavailable: 'colors.text.onLight'
           }
         }
+      },
+      layout: {
+        height: {
+          standard: 45,
+          icon: 45
+        },
+        minHeight: 38
+      },
+      radius: {
+        none: 'borders.radius.none',
+        large: 'borders.radius.lg',
+        full: 'borders.radius.full'
       }
     },
 
