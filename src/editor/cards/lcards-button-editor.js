@@ -78,9 +78,9 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
         tabs.push(
             { label: 'Advanced', content: () => this._renderFromConfig(this._getAdvancedTabConfig()) },
             { label: 'Data Sources', content: () => this._renderDataSourcesTab() },
-            { label: 'Templates', content: () => this._renderTemplatesTab() },
-            { label: 'Theme Tokens', content: () => this._renderThemeTokensTab() },
             { label: 'Rules', content: () => this._renderRulesTab() },
+            { label: 'Templates', content: () => this._renderTemplatesTab() },
+            { label: 'Theme Browser', content: () => this._renderThemeTokensTab() },
             { label: 'YAML', content: () => this._renderYamlTab() }
         );
 
