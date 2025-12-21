@@ -53,3 +53,117 @@ export function styleToString(style) {
     .join(';');
   return s ? ` style="${s}"` : '';
 }
+
+// --- SVG Content Processing ---
+
+/**
+ * Sanitize SVG content to prevent XSS attacks
+ * Strips dangerous elements and attributes while preserving visual content
+ *
+ * @param {string} svgContent - Raw SVG markup
+ * @param {boolean} stripScripts - Remove <script> tags (default: true)
+ * @returns {string} Sanitized SVG markup
+ */
+export function sanitizeSvg(svgContent, stripScripts = true) {
+  // Strip XML declaration if present (causes parsing errors when wrapping)
+  // Matches: <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+  let cleanedContent = svgContent.trim().replace(/^<\?xml[^?]*\?>\s*/i, '');
+
+  // Wrap content in <svg> if not already wrapped (allows fragments like <rect/><defs/>)
+  let wrappedContent = cleanedContent;
+  if (!wrappedContent.startsWith('<svg')) {
+    wrappedContent = `<svg xmlns="http://www.w3.org/2000/svg">${cleanedContent}</svg>`;
+  }
+
+  // Parse SVG to DOM (in memory, not attached to document)
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(wrappedContent, 'image/svg+xml');
+
+  // Check for parsing errors
+  const parserError = doc.querySelector('parsererror');
+  if (parserError) {
+    console.error('[SVGHelpers] Invalid SVG markup:', parserError.textContent);
+    return '';
+  }
+
+  const svg = doc.documentElement;
+
+  // Strip dangerous elements
+  if (stripScripts) {
+    const dangerousElements = svg.querySelectorAll('script, iframe, embed, object, foreignObject[src], use[href^="data:"], use[xlink\\:href^="data:"]');
+    dangerousElements.forEach(el => el.remove());
+  }
+
+  // Strip event handlers (onclick, onload, onerror, etc.)
+  const allElements = svg.querySelectorAll('*');
+  allElements.forEach(el => {
+    Array.from(el.attributes).forEach(attr => {
+      if (attr.name.startsWith('on')) {
+        el.removeAttribute(attr.name);
+      }
+    });
+  });
+
+  // Strip dangerous URL schemes in href/xlink:href
+  // Checks for javascript:, data:, and vbscript: schemes
+  const dangerousSchemes = ['javascript:', 'data:', 'vbscript:'];
+  allElements.forEach(el => {
+    ['href', 'xlink:href'].forEach(attr => {
+      const value = el.getAttribute(attr);
+      if (value) {
+        const trimmedLower = value.trim().toLowerCase();
+        if (dangerousSchemes.some(scheme => trimmedLower.startsWith(scheme))) {
+          el.removeAttribute(attr);
+        }
+      }
+    });
+  });
+
+  // Make text elements click-through so they don't interfere with segment interactions
+  // This allows pointer events to pass through to interactive segments beneath
+  const textElements = svg.querySelectorAll('text, tspan, foreignObject');
+  textElements.forEach(el => {
+    el.setAttribute('pointer-events', 'none');
+  });
+
+  // Return the full SVG (including wrapper if we added one)
+  return new XMLSerializer().serializeToString(svg);
+}
+
+/**
+ * Extract viewBox attribute from SVG content
+ *
+ * @param {string} svgContent - SVG markup
+ * @returns {string|null} ViewBox value or null
+ */
+export function extractViewBox(svgContent) {
+  const viewBoxMatch = svgContent.match(/viewBox=["']([^"']+)["']/);
+  return viewBoxMatch ? viewBoxMatch[1] : null;
+}
+
+/**
+ * Extract content from a data URI
+ * Supports both base64 and URL-encoded formats
+ *
+ * @param {string} dataUri - Data URI string (e.g., "data:image/svg+xml,<svg>..." or "data:image/svg+xml;base64,...")
+ * @returns {string} Decoded content
+ * @throws {Error} If data URI format is invalid
+ */
+export function extractDataUriContent(dataUri) {
+  // Format: data:image/svg+xml,<svg>...</svg> or data:image/svg+xml;base64,...
+  const commaIndex = dataUri.indexOf(',');
+  if (commaIndex === -1) {
+    throw new Error('Invalid data URI format');
+  }
+
+  const header = dataUri.substring(0, commaIndex);
+  const content = dataUri.substring(commaIndex + 1);
+
+  if (header.includes(';base64')) {
+    // Base64 encoded
+    return atob(content);
+  } else {
+    // URL encoded
+    return decodeURIComponent(content);
+  }
+}
