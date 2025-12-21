@@ -1518,8 +1518,15 @@ export class LCARdSCard extends LCARdSNativeCard {
                     processor = 'datasource';
                 }
                 
-                // Track in provenance tracker (use a hash or truncated template as field ID)
-                const fieldId = template.substring(0, 50);
+                // Generate a simple hash for field ID to avoid collisions
+                // Use template + timestamp for uniqueness
+                let hash = 0;
+                for (let i = 0; i < template.length; i++) {
+                    hash = ((hash << 5) - hash) + template.charCodeAt(i);
+                    hash = hash & hash; // Convert to 32-bit integer
+                }
+                const fieldId = `template_${Math.abs(hash)}`;
+                
                 this._provenanceTracker.trackTemplate(
                     fieldId,
                     template,

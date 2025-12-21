@@ -228,6 +228,10 @@ export class ProvenanceTracker {
   
   /**
    * Get pretty-printed debug output
+   * 
+   * NOTE: Uses emoji for visual appeal in console output. This is intentional
+   * for human-readable debugging. Emojis render consistently in modern browsers.
+   * For automated/programmatic access, use getProvenance() instead.
    *
    * @returns {string} Formatted provenance information
    */
