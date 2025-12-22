@@ -1197,17 +1197,17 @@ export class LCARdSCard extends LCARdSNativeCard {
         // Track rule patches in provenance tracker
         if (this._provenanceTracker && mergedPatch.style) {
             const rulesEngine = this._singletons?.rulesManager;
-            
+
             // Track each patched style field
             for (const [key, value] of Object.entries(mergedPatch.style)) {
                 const fieldPath = `style.${key}`;
                 const originalValue = this.config?.style?.[key];
-                
+
                 // Get rule info from patches (first patch that has this field)
                 const rulePatch = myPatches.find(p => p.style && key in p.style);
                 const ruleId = rulePatch?.ruleId || 'unknown';
                 const ruleCondition = rulePatch?.ruleCondition || 'unknown condition';
-                
+
                 // Track the patch
                 if (rulesEngine && rulesEngine.trackRulePatch) {
                     rulesEngine.trackRulePatch(
@@ -1499,7 +1499,7 @@ export class LCARdSCard extends LCARdSNativeCard {
 
             // Use async evaluation to support all template types (JavaScript, Tokens, Datasources, Jinja2)
             const result = await evaluator.evaluateAsync(template);
-            
+
             // Track template provenance
             if (this._provenanceTracker) {
                 // Extract dependencies from evaluator if available
@@ -1507,7 +1507,7 @@ export class LCARdSCard extends LCARdSNativeCard {
                 if (this._entity?.entity_id) {
                     dependencies.push(this._entity.entity_id);
                 }
-                
+
                 // Determine processor type
                 let processor = 'unknown';
                 if (template.includes('{%') || template.includes('{{')) {
@@ -1517,7 +1517,7 @@ export class LCARdSCard extends LCARdSNativeCard {
                 } else if (template.includes('{datasource:') || template.includes('{ds:')) {
                     processor = 'datasource';
                 }
-                
+
                 // Generate a simple hash for field ID to avoid collisions
                 // Use template + timestamp for uniqueness
                 let hash = 0;
@@ -1526,7 +1526,7 @@ export class LCARdSCard extends LCARdSNativeCard {
                     hash = hash & hash; // Convert to 32-bit integer
                 }
                 const fieldId = `template_${Math.abs(hash)}`;
-                
+
                 this._provenanceTracker.trackTemplate(
                     fieldId,
                     template,
@@ -1535,7 +1535,7 @@ export class LCARdSCard extends LCARdSNativeCard {
                     processor
                 );
             }
-            
+
             return result;
 
         } catch (error) {
@@ -1942,17 +1942,51 @@ export class LCARdSCard extends LCARdSNativeCard {
     /**
      * Get theme token value
      *
+     * Automatically tracks token resolution in provenance for debugging.
+     *
      * @param {string} tokenPath - Dot-notation path (e.g., 'colors.accent.primary')
      * @param {*} fallback - Fallback value if token not found
+     * @param {string|string[]} usedByField - Field(s) using this token (for provenance)
      * @returns {*} Token value or fallback
      */
-    getThemeToken(tokenPath, fallback = null) {
+    getThemeToken(tokenPath, fallback = null, usedByField = null) {
         if (!this._singletons?.themeManager) {
             return fallback;
         }
 
         try {
-            return this._singletons.themeManager.getToken(tokenPath, fallback);
+            const value = this._singletons.themeManager.getToken(tokenPath, fallback);
+
+            // Automatically track token resolution in provenance
+            if (this._provenanceTracker && value !== fallback) {
+                const originalRef = `theme:${tokenPath}`;
+                const resolutionChain = [{
+                    step: 'token_lookup',
+                    value: value,
+                    source: 'theme.tokens',
+                    themeId: this._singletons.themeManager.activeThemeId
+                }];
+
+                // Normalize usedByField to array
+                const usedByFields = usedByField
+                    ? (Array.isArray(usedByField) ? usedByField : [usedByField])
+                    : [];
+
+                this._provenanceTracker.trackThemeToken(
+                    tokenPath,
+                    originalRef,
+                    value,
+                    resolutionChain,
+                    usedByFields
+                );
+
+                lcardsLog.trace(`[LCARdSCard] Tracked theme token: ${tokenPath}`, {
+                    value,
+                    usedByFields
+                });
+            }
+
+            return value;
         } catch (error) {
             lcardsLog.warn(`[LCARdSCard] Theme token fetch failed:`, error);
             return fallback;
@@ -2478,17 +2512,166 @@ export class LCARdSCard extends LCARdSNativeCard {
      * //   📋 Field Sources (Sample)
      * //     style.color: user_config
      * //     style.borderRadius: preset_lozenge
-     * //     show_label: card_defaults
-     * //   🎨 Theme Tokens (12)
-     * //     colors.accent.primary: #ff9966
-     * //   ⚙️ Rule Patches (3)
-     * //     style.opacity: 1.0 → 0.5
+    /**
+     * Get pretty-printed debug output of provenance information
+     *
+     * Prints formatted provenance data to console for easy troubleshooting.
+     * Shows config merge order, field sources, theme tokens, rule patches,
+     * and template processing information.
+     *
+     * @param {boolean} [toConsole=true] - If true, outputs directly to console with collapsible groups
+     * @returns {string|undefined} Formatted string if toConsole=false, undefined otherwise
+     *
+     * @example
+     * // From browser console (NEW - outputs directly with collapsible groups):
+     * const card = document.querySelector('lcards-button');
+     * card.debugProvenance(); // or card.debugProvenance(true)
+     *
+     * // Legacy string output (for backwards compatibility):
+     * console.log(card.debugProvenance(false));
+     *
+     * // Output to console shows collapsible groups:
+     * // 🔍 Provenance for button-abc123
+     * //   ▶ 📦 Config Merge Order
+     * //   ▶ 📋 Field Sources (45 total)
+     * //       ▶ card_defaults (20 fields)
+     * //       ▶ preset_dpad (15 fields)
+     * //       ▶ user_config (10 fields)
+     * //   ▶ 🎨 Theme Tokens (3)
+     * //   ▶ ⚙️ Rule Patches (2)
      */
-    debugProvenance() {
+    debugProvenance(toConsole = true) {
         if (!this._provenanceTracker) {
             lcardsLog.warn(`[LCARdSCard] Provenance tracker not initialized`);
+            if (toConsole) {
+                console.warn('Provenance tracker not initialized');
+                return;
+            }
             return 'Provenance tracker not initialized';
         }
-        return this._provenanceTracker.debugProvenance();
+        return this._provenanceTracker.debugProvenance(toConsole);
+    }
+
+    /**
+     * Get the source layer for a specific config field
+     *
+     * Supports deep field paths like 'dpad.segments.default.style.fill'
+     *
+     * @param {string} fieldPath - Dot-notation field path
+     * @returns {string|null} Source layer name or null if not found
+     *
+     * @example
+     * const card = document.querySelector('lcards-button');
+     * card.getFieldSource('dpad'); // 'card_defaults'
+     * card.getFieldSource('dpad.segments.default'); // 'card_defaults'
+     * card.getFieldSource('dpad.segments.default.style.fill'); // 'user_config'
+     */
+    getFieldSource(fieldPath) {
+        if (!this._provenanceTracker) {
+            return null;
+        }
+        return this._provenanceTracker.getFieldSource(fieldPath);
+    }
+
+    /**
+     * Get all fields from a specific source layer
+     *
+     * @param {string} layerName - Layer name (e.g., 'card_defaults', 'user_config')
+     * @returns {string[]} Array of field paths from that layer
+     *
+     * @example
+     * const card = document.querySelector('lcards-button');
+     * card.getFieldsFromLayer('user_config');
+     * // Returns: ['dpad.segments.default.style.fill', 'label', ...]
+     */
+    getFieldsFromLayer(layerName) {
+        if (!this._provenanceTracker) {
+            return [];
+        }
+        return this._provenanceTracker.getFieldsFromLayer(layerName);
+    }
+
+    /**
+     * Check if a field or any of its children were overridden by user
+     *
+     * @param {string} fieldPrefix - Field path prefix to check
+     * @returns {boolean} True if user overrode this field or any children
+     *
+     * @example
+     * const card = document.querySelector('lcards-button');
+     * card.hasUserOverride('dpad.segments.default.style');
+     * // Returns true if any field under dpad.segments.default.style is from user_config
+     */
+    hasUserOverride(fieldPrefix) {
+        if (!this._provenanceTracker) {
+            return false;
+        }
+        return this._provenanceTracker.hasUserOverride(fieldPrefix);
+    }
+
+    /**
+     * Get config provenance as a tree structure
+     *
+     * Reconstructs the flat field sources into a hierarchical tree showing
+     * the source layer for each field and its nested children.
+     *
+     * @returns {Object} Tree structure with __source annotations
+     *
+     * @example
+     * const card = document.querySelector('lcards-button');
+     * const tree = card.getConfigTree();
+     * console.log(tree);
+     * // {
+     * //   dpad: {
+     * //     __source: 'card_defaults',
+     * //     segments: {
+     * //       __source: 'card_defaults',
+     * //       default: {
+     * //         __source: 'card_defaults',
+     * //         style: {
+     * //           __source: 'preset_dpad',
+     * //           fill: {
+     * //             __source: 'user_config'
+     * //           }
+     * //         }
+     * //       }
+     * //     }
+     * //   }
+     * // }
+     */
+    getConfigTree() {
+        if (!this._provenanceTracker) {
+            return {};
+        }
+        return this._provenanceTracker.getConfigTree();
+    }
+
+    /**
+     * Print config tree to console in readable format
+     *
+     * Shows hierarchical view of config with source layers.
+     * Perfect for understanding the complete config merge hierarchy.
+     *
+     * @param {string} [title] - Optional title for output
+     *
+     * @example
+     * const card = document.querySelector('lcards-button');
+     * card.printConfigTree();
+     * // Console output:
+     * // 📋 Config Provenance Tree
+     * //   ▶ dpad [card_defaults]
+     * //       ▶ segments [card_defaults]
+     * //           ▶ default [card_defaults]
+     * //               ▶ style [preset_dpad]
+     * //                   fill [user_config]
+     * //   label [user_config]
+     * //   entity [user_config]
+     */
+    printConfigTree(title) {
+        if (!this._provenanceTracker) {
+            console.warn('Provenance tracker not initialized');
+            return;
+        }
+        this._provenanceTracker.printConfigTree(title);
     }
 }

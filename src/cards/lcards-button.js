@@ -711,17 +711,11 @@ export class LCARdSButton extends LCARdSCard {
 
         for (const [property, value] of Object.entries(style)) {
             if (typeof value === 'string' && value.startsWith('theme:')) {
-                // Resolve theme token via ThemeManager
+                // Resolve theme token via getThemeToken (with automatic provenance tracking)
                 const tokenPath = value.replace('theme:', '');
-                if (this._singletons?.themeManager?.resolver) {
-                    const resolvedValue = this._singletons.themeManager.resolver.resolve(tokenPath, value);
-                    resolved[property] = resolvedValue;
-                    lcardsLog.trace(`[LCARdSButton] Resolved segment theme token "${value}" -> `, resolvedValue);
-                } else {
-                    // Keep original token reference - will be resolved later when ThemeManager is available
-                    lcardsLog.trace(`[LCARdSButton] Deferring resolution of segment token "${value}" (ThemeManager not yet available)`);
-                    resolved[property] = value;
-                }
+                const resolvedValue = this.getThemeToken(tokenPath, value, `segment.style.${property}`);
+                resolved[property] = resolvedValue;
+                lcardsLog.trace(`[LCARdSButton] Resolved segment theme token "${value}" -> `, resolvedValue);
             } else if (typeof value === 'object' && value !== null) {
                 // Recursively resolve nested objects
                 resolved[property] = this._resolveSegmentThemeTokens(value);
@@ -3342,13 +3336,9 @@ export class LCARdSButton extends LCARdSCard {
             // Resolve theme tokens (e.g., "theme:components.button.border.radius")
             let resolved = stringValue;
             if (stringValue.startsWith('theme:')) {
-                if (this._singletons?.themeManager?.resolver) {
-                    const tokenPath = stringValue.replace('theme:', '');
-                    resolved = this._singletons.themeManager.resolver.resolve(tokenPath, stringValue);
-                    lcardsLog.trace(`[LCARdSButton] Resolved theme token "${stringValue}" -> "${resolved}"`);
-                } else {
-                    lcardsLog.warn(`[LCARdSButton] Cannot resolve theme token "${stringValue}" - ThemeManager not available {hasSingletons: ${!!this._singletons}, hasThemeManager: ${!!this._singletons?.themeManager}, hasResolver: ${!!this._singletons?.themeManager?.resolver}}`);
-                }
+                const tokenPath = stringValue.replace('theme:', '');
+                resolved = this.getThemeToken(tokenPath, stringValue, 'border.radius');
+                lcardsLog.trace(`[LCARdSButton] Resolved theme token "${stringValue}" -> "${resolved}"`);
             }
 
             // Then resolve CSS variables (e.g., "var(--ha-card-border-radius, 34px)")
@@ -3371,12 +3361,8 @@ export class LCARdSButton extends LCARdSCard {
             // Resolve theme tokens first
             let resolved = stringValue;
             if (stringValue.startsWith('theme:')) {
-                if (this._singletons?.themeManager?.resolver) {
-                    const tokenPath = stringValue.replace('theme:', '');
-                    resolved = this._singletons.themeManager.resolver.resolve(tokenPath, stringValue);
-                } else {
-                    lcardsLog.warn(`[LCARdSButton] Cannot resolve theme token "${stringValue}" - ThemeManager not available`);
-                }
+                const tokenPath = stringValue.replace('theme:', '');
+                resolved = this.getThemeToken(tokenPath, stringValue, 'border.width');
             }
 
             // Then resolve CSS variables

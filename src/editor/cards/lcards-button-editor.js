@@ -28,6 +28,7 @@ import '../components/datasources/lcards-datasource-editor-tab.js';
 // Import template components
 import '../components/templates/lcards-template-evaluation-tab.js';
 import '../components/templates/lcards-theme-token-browser-tab.js';
+import '../components/templates/lcards-provenance-tab.js';
 
 export class LCARdSButtonEditor extends LCARdSBaseEditor {
 
@@ -81,6 +82,7 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
             { label: 'Rules', content: () => this._renderRulesTab() },
             { label: 'Templates', content: () => this._renderTemplatesTab() },
             { label: 'Theme Browser', content: () => this._renderThemeTokensTab() },
+            { label: 'Provenance', content: () => this._renderProvenanceTab() },
             { label: 'YAML', content: () => this._renderYamlTab() }
         );
 
@@ -483,6 +485,19 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                 .config=${this.config}
                 .hass=${this.hass}>
             </lcards-theme-token-browser-tab>
+        `;
+    }
+
+    /**
+     * Provenance tab - provenance inspector
+     */
+    _renderProvenanceTab() {
+        return html`
+            <lcards-provenance-tab
+                .editor=${this}
+                .config=${this.config}
+                .hass=${this.hass}>
+            </lcards-provenance-tab>
         `;
     }
 
