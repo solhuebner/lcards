@@ -144,7 +144,7 @@ export class LCARdSCard extends LCARdSNativeCard {
                     align-items: center;
                     justify-content: center;
                     min-height: 100px;
-                    color: var(--primary-text-color);
+                    color: var(--primary-text-color, var(--lcards-moonlight, #d3d3d3));
                     font-size: 14px;
                     opacity: 0.7;
                 }
@@ -834,10 +834,8 @@ export class LCARdSCard extends LCARdSNativeCard {
                 width !== this._containerSize.width ||
                 height !== this._containerSize.height) {
 
-                // Update stored size if property exists
-                if (this._containerSize !== undefined) {
-                    this._containerSize = { width, height };
-                }
+                // Update stored size
+                this._containerSize = { width, height };
 
                 lcardsLog.trace(`[LCARdSCard] Container resized to ${width}x${height} for ${this._getDisplayId()}`);
 

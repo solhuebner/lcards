@@ -309,7 +309,7 @@ export const animPresets = {
                     trailPath = pathEl.cloneNode(true);
                     trailPath.id = `${baseId}_trail`;
                     trailPath.setAttribute('data-lcards-owned', 'motionpath');
-                    const stroke = trailOpt.stroke || pathEl.getAttribute('stroke') || 'var(--lcars-yellow)';
+                    const stroke = trailOpt.stroke || pathEl.getAttribute('stroke') || 'var(--lcars-yellow, var(--lcards-yellow-medium, #ffcc33))';
                     const sw = trailOpt['stroke-width']
                         ?? options['stroke-width']
                         ?? pathEl.getAttribute('stroke-width')
@@ -359,7 +359,7 @@ export const animPresets = {
                         width: tracerCfg.width || 8,
                         height: tracerCfg.height || 8,
                         id: tid,
-                        attrs: { fill: tracerCfg.fill || 'var(--lcars-orange)' },
+                        attrs: { fill: tracerCfg.fill || 'var(--lcars-orange, var(--lcards-orange-medium, #ff7700))' },
                         style: tracerCfg.style || {}
                     });
                 } else {
@@ -368,7 +368,7 @@ export const animPresets = {
                         cy: 0,
                         r: tracerCfg.r || 4,
                         id: tid,
-                        attrs: { fill: tracerCfg.fill || 'var(--lcars-orange)' },
+                        attrs: { fill: tracerCfg.fill || 'var(--lcars-orange, var(--lcards-orange-medium, #ff7700))' },
                         style: tracerCfg.style || {}
                     });
                 }
@@ -679,7 +679,7 @@ export const animPresets = {
 
         // Configurable values with defaults
         const glowCfg = options.glow || {};
-        const color = glowCfg.color || options.color || 'var(--picard-light-blue)';
+        const color = glowCfg.color || options.color || 'var(--lcards-blue-light, #93e1ff)';
         const intensity = glowCfg.intensity ?? options.intensity ?? 0.8;
         const blurMin = glowCfg.blur_min ?? 0;
         const blurMax = glowCfg.blur_max ?? 12;
@@ -728,7 +728,7 @@ export const animPresets = {
      * @param {object} options
      */
     shimmer: (params, element, options = {}) => {
-        const color = options.color || 'var(--lcars-yellow)';
+        const color = options.color || 'var(--lcards-yellow-medium, #f9ef97)';
         Object.assign(params, {
             opacity: [1, 0.5, 1],
             fill: [element.getAttribute('fill') || color, color],

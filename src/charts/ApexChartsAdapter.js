@@ -1571,14 +1571,14 @@ static _getRawData(dataSource, config) {
     if (style.zero_line) {
       annotations.yaxis.push({
         y: 0,
-        borderColor: style.zero_line_color || 'var(--lcars-gray)',
+        borderColor: style.zero_line_color || 'var(--lcars-gray, var(--lcards-gray-medium, #666688))',
         strokeDashArray: 2,
         opacity: 0.5,
         label: {
           text: 'Zero',
           style: {
             color: '#fff',
-            background: style.zero_line_color || 'var(--lcars-gray)'
+            background: style.zero_line_color || 'var(--lcars-gray, var(--lcards-gray-medium, #666688))'
           }
         }
       });
@@ -1589,7 +1589,7 @@ static _getRawData(dataSource, config) {
       style.thresholds.forEach(threshold => {
         annotations.yaxis.push({
           y: threshold.value,
-          borderColor: threshold.color || 'var(--lcars-red)',
+          borderColor: threshold.color || 'var(--lcars-red, var(--lcards-orange-dark, #dd4444))',
           strokeDashArray: threshold.dash ? 4 : 0,
           opacity: threshold.opacity || 0.7,
           borderWidth: threshold.width || 2,
@@ -1597,7 +1597,7 @@ static _getRawData(dataSource, config) {
             text: threshold.label,
             style: {
               color: '#fff',
-              background: threshold.color || 'var(--lcars-red)',
+              background: threshold.color || 'var(--lcars-red, var(--lcards-orange-dark, #dd4444))',
               fontSize: '10px',
               fontFamily: 'var(--lcars-font-family, Antonio)'
             },

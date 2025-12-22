@@ -342,7 +342,7 @@ export class LineOverlay extends OverlayBase {
         style.color || style.stroke,
         'defaultColor',
         resolveToken,
-        'var(--lcars-orange)',
+        'var(--lcars-orange, var(--lcards-orange-medium, #ff7700))',
         scalingContext
       ),
 
@@ -736,7 +736,7 @@ export class LineOverlay extends OverlayBase {
   _renderFallbackLine(overlay, anchor, anchor2) {
     const [x1, y1] = anchor;
     const [x2, y2] = anchor2 || anchor;
-    const color = overlay.style?.color || 'var(--lcars-orange)';
+    const color = overlay.style?.color || 'var(--lcars-orange, var(--lcards-orange-medium, #ff7700))';
 
     lcardsLog.warn(`[LineOverlay] Using fallback rendering for overlay ${overlay.id}`);
 

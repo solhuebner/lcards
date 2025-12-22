@@ -87,7 +87,7 @@ export class LCARdSChart extends LCARdSCard {
           justify-content: center;
           width: 100%;
           height: 100%;
-          color: var(--primary-text-color);
+          color: var(--primary-text-color, var(--lcards-moonlight, #d3d3d3));
           font-size: 14px;
         }
 

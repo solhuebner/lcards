@@ -428,8 +428,8 @@ export class RendererUtils {
         cy: gradientConfig.cy || '50%',
         r: gradientConfig.r || '50%',
         stops: gradientConfig.stops || [
-          { offset: '0%', color: gradientConfig.from || 'var(--lcars-orange)' },
-          { offset: '100%', color: gradientConfig.to || 'var(--lcars-red)' }
+          { offset: '0%', color: gradientConfig.from || 'var(--lcars-orange, var(--lcards-orange-medium, #ff7700))' },
+          { offset: '100%', color: gradientConfig.to || 'var(--lcars-red, var(--lcards-orange-dark, #dd4444))' }
         ]
       };
     }
@@ -478,7 +478,7 @@ export class RendererUtils {
     if (!glowConfig) return null;
 
     return {
-      color: glowConfig.color || 'var(--lcars-blue)',
+      color: glowConfig.color || 'var(--lcars-blue, var(--lcards-blue-medium, #4455ff))',
       blur: Number(glowConfig.blur || 3),
       intensity: Number(glowConfig.intensity || 0.8)
     };
@@ -549,9 +549,9 @@ export class RendererUtils {
       fontStyle: style.font_style || style.fontStyle || 'normal',
 
       // Text colors (flat format - backward compatibility)
-      textColor: style.text_color || style.textColor || style.color || 'var(--lcars-white)',
-      labelColor: style.label_color || style.labelColor || style.text_color || style.textColor || 'var(--lcars-white)',
-      valueColor: style.value_color || style.valueColor || style.text_color || style.textColor || 'var(--lcars-white)',
+      textColor: style.text_color || style.textColor || style.color || 'var(--lcars-white, var(--lcards-moonlight, #ffffff))',
+      labelColor: style.label_color || style.labelColor || style.text_color || style.textColor || 'var(--lcars-white, var(--lcards-moonlight, #ffffff))',
+      valueColor: style.value_color || style.valueColor || style.text_color || style.textColor || 'var(--lcars-white, var(--lcards-moonlight, #ffffff))',
 
       // Text alignment and positioning
       textAlign: style.text_align || style.textAlign || 'left',
@@ -628,7 +628,7 @@ export class RendererUtils {
     const primaryColorValue = getColorValue(style.color) ||
                              getColorValue(style.primary_color) ||
                              getColorValue(style.primaryColor) ||
-                             'var(--lcars-blue)';
+                             'var(--lcars-blue, var(--lcards-blue-medium, #4455ff))';
 
     const backgroundColorValue = getColorValue(style.background_color) ||
                                  getColorValue(style.backgroundColor) ||
@@ -636,7 +636,7 @@ export class RendererUtils {
 
     const borderColorValue = getColorValue(style.border_color) ||
                             getColorValue(style.borderColor) ||
-                            'var(--lcars-gray)';
+                            'var(--lcars-gray, var(--lcards-gray-medium, #666688))';
 
     return {
       // Primary colors (string values)
@@ -649,16 +649,16 @@ export class RendererUtils {
       backgroundColorStates: getColorStates(style.background_color || style.backgroundColor),
 
       // Interactive states
-      hoverColor: style.hover_color || style.hoverColor || 'var(--lcars-yellow)',
-      activeColor: style.active_color || style.activeColor || 'var(--lcars-cyan)',
-      focusColor: style.focus_color || style.focusColor || 'var(--lcars-white)',
-      disabledColor: style.disabled_color || style.disabledColor || 'var(--lcars-gray)',
+      hoverColor: style.hover_color || style.hoverColor || 'var(--lcars-yellow, var(--lcards-yellow-medium, #ffcc33))',
+      activeColor: style.active_color || style.activeColor || 'var(--lcars-cyan, var(--lcards-blue-light, #88ccff))',
+      focusColor: style.focus_color || style.focusColor || 'var(--lcars-white, var(--lcards-moonlight, #ffffff))',
+      disabledColor: style.disabled_color || style.disabledColor || 'var(--lcars-gray, var(--lcards-gray-medium, #666688))',
 
       // Status colors
-      successColor: style.success_color || style.successColor || 'var(--lcars-green)',
-      warningColor: style.warning_color || style.warningColor || 'var(--lcars-yellow)',
-      errorColor: style.error_color || style.errorColor || 'var(--lcars-red)',
-      infoColor: style.info_color || style.infoColor || 'var(--lcars-cyan)'
+      successColor: style.success_color || style.successColor || 'var(--lcars-green, var(--lcards-green-medium, #33cc99))',
+      warningColor: style.warning_color || style.warningColor || 'var(--lcars-yellow, var(--lcards-yellow-medium, #ffcc33))',
+      errorColor: style.error_color || style.errorColor || 'var(--lcars-red, var(--lcards-orange-dark, #dd4444))',
+      infoColor: style.info_color || style.infoColor || 'var(--lcars-cyan, var(--lcards-blue-light, #88ccff))'
     };
   }
 
@@ -793,7 +793,7 @@ export class RendererUtils {
     // Merge (nested takes precedence over legacy)
     const border = {
       // Default properties (apply to all sides unless overridden)
-      color: nestedBorder.color || legacyBorder.color || 'var(--lcars-gray)',
+      color: nestedBorder.color || legacyBorder.color || 'var(--lcars-gray, var(--lcards-gray-medium, #666688))',
       width: nestedBorder.width !== undefined ? Number(nestedBorder.width) :
              legacyBorder.width !== undefined ? Number(legacyBorder.width) : 1,
       radius: nestedBorder.radius !== undefined ? Number(nestedBorder.radius) :
@@ -890,7 +890,7 @@ export class RendererUtils {
 
     return {
       width: Number(strokeConfig.width || 1),
-      color: strokeConfig.color || 'var(--lcars-gray)',
+      color: strokeConfig.color || 'var(--lcars-gray, var(--lcards-gray-medium, #666688))',
       opacity: Number(strokeConfig.opacity || 1)
     };
   }
@@ -1266,7 +1266,7 @@ export class RendererUtils {
     const bracketWidth = options.bracketWidth || 8;
     const cornerRadius = options.cornerRadius || 2;
     const strokeWidth = options.strokeWidth || 2;
-    const color = options.color || 'var(--lcars-orange)';
+    const color = options.color || 'var(--lcars-orange, var(--lcards-orange-medium, #ff7700))';
 
     let pathData = '';
 

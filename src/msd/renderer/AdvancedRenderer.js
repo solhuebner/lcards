@@ -1694,7 +1694,7 @@ export class AdvancedRenderer {
     const size = overlay.size || [100, 40];
     const [x, y] = position;
     const [width, height] = size;
-    const color = 'var(--lcars-gray)';
+    const color = 'var(--lcars-gray, var(--lcards-gray-medium, #666688))';
 
     lcardsLog.warn(`[AdvancedRenderer] ⚠️ Using fallback rendering for overlay ${overlay.id}`);
 

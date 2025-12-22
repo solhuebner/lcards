@@ -200,7 +200,7 @@ export class LCARdSSlider extends LCARdSButton {
                     align-items: center;
                     justify-content: center;
                     min-height: 40px;
-                    color: var(--primary-text-color);
+                    color: var(--primary-text-color, var(--lcards-moonlight, #d3d3d3));
                     font-size: 14px;
                     opacity: 0.7;
                 }
@@ -508,26 +508,26 @@ export class LCARdSSlider extends LCARdSButton {
                 left: {
                     enabled: false,
                     width: 0,
-                    color: 'var(--lcars-orange)'
+                    color: 'var(--lcars-orange, var(--lcards-orange-medium, #ff7700))'
                 },
                 top: {
                     enabled: false,
                     width: 0,
-                    color: 'var(--lcars-orange)'
+                    color: 'var(--lcars-orange, var(--lcards-orange-medium, #ff7700))'
                 },
                 right: {
                     enabled: false,
                     width: 0,
-                    color: 'var(--lcars-orange)'
+                    color: 'var(--lcars-orange, var(--lcards-orange-medium, #ff7700))'
                 },
                 bottom: {
                     enabled: false,
                     width: 0,
-                    color: 'var(--lcars-orange)'
+                    color: 'var(--lcars-orange, var(--lcards-orange-medium, #ff7700))'
                 },
                 color: {
-                    active: 'var(--lcars-orange)',
-                    inactive: 'var(--lcars-gray)'
+                    active: 'var(--lcars-orange, var(--lcards-orange-medium, #ff7700))',
+                    inactive: 'var(--lcars-gray, var(--lcards-gray-medium, #666688))'
                 }
             },
             // Track configuration
@@ -765,12 +765,12 @@ export class LCARdSSlider extends LCARdSButton {
         if (!this._componentSvg) return;
 
         const colorMap = {
-            '{{BORDER_COLOR}}': this._sliderStyle?.border?.color?.active || 'var(--lcars-orange)',
-            '{{BORDER_COLOR_INACTIVE}}': this._sliderStyle?.border?.color?.inactive || 'var(--lcars-gray)',
-            '{{GRADIENT_START}}': this._sliderStyle?.track?.segments?.gradient?.start || 'var(--error-color)',
-            '{{GRADIENT_END}}': this._sliderStyle?.track?.segments?.gradient?.end || 'var(--success-color)',
+            '{{BORDER_COLOR}}': this._sliderStyle?.border?.color?.active || 'var(--lcars-orange, var(--lcards-orange-medium, #ff7700))',
+            '{{BORDER_COLOR_INACTIVE}}': this._sliderStyle?.border?.color?.inactive || 'var(--lcars-gray, var(--lcards-gray-medium, #666688))',
+            '{{GRADIENT_START}}': this._sliderStyle?.track?.segments?.gradient?.start || 'var(--error-color, var(--lcards-orange-dark, #cc2200))',
+            '{{GRADIENT_END}}': this._sliderStyle?.track?.segments?.gradient?.end || 'var(--success-color, var(--lcards-green-medium, #33cc99))',
             '{{TRACK_BG}}': this._sliderStyle?.track?.background || 'rgba(0,0,0,0.3)',
-            '{{TEXT_COLOR}}': this._sliderStyle?.text?.value?.color || 'var(--lcars-white)'
+            '{{TEXT_COLOR}}': this._sliderStyle?.text?.value?.color || 'var(--lcars-white, var(--lcards-moonlight, #ffffff))'
         };
 
         // Replace placeholder attributes in parsed SVG
@@ -1162,8 +1162,8 @@ export class LCARdSSlider extends LCARdSButton {
         const gap = parseInt(trackConfig?.gap) || 4;
         const radius = trackConfig?.shape?.radius ?? 4;
         const interpolated = trackConfig?.gradient?.interpolated ?? false;
-        const gradientStart = this._resolveCssVariable(trackConfig?.gradient?.start || 'var(--error-color)');
-        const gradientEnd = this._resolveCssVariable(trackConfig?.gradient?.end || 'var(--success-color)');
+        const gradientStart = this._resolveCssVariable(trackConfig?.gradient?.start || 'var(--error-color, var(--lcards-orange-dark, #cc2200))');
+        const gradientEnd = this._resolveCssVariable(trackConfig?.gradient?.end || 'var(--success-color, var(--lcards-green-medium, #33cc99))');
         const unfilledOpacity = trackConfig?.appearance?.unfilled?.opacity ?? 0.2;
 
         const trackWidth = trackBounds.width;

@@ -64,7 +64,7 @@ export class LCARdSNativeCard extends LitElement {
                 align-items: center;
                 justify-content: center;
                 min-height: 64px;
-                color: var(--primary-text-color);
+                color: var(--primary-text-color, var(--lcards-moonlight, #d3d3d3));
             }
 
             /* LCARS font loading */
