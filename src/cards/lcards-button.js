@@ -4694,6 +4694,7 @@ export class LCARdSButton extends LCARdSCard {
             text: {
                 name: {
                     content: 'LCARdS Button',
+                    show: true,
                 }
             }
         };

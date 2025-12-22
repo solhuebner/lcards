@@ -198,6 +198,23 @@ export class LCARdSCard extends LCARdSNativeCard {
     }
 
     /**
+     * Called when element is added to DOM
+     * @override
+     */
+    connectedCallback() {
+        super.connectedCallback();
+
+        // CRITICAL FIX: Set --ha-card-border-width globally if not already set
+        // This prevents infinite resize loops in the card picker when theme is not loaded
+        // The theme normally sets this, but without it, HA's card infrastructure
+        // causes layout instability due to undefined border width calculations
+        if (!getComputedStyle(document.documentElement).getPropertyValue('--ha-card-border-width').trim()) {
+            document.documentElement.style.setProperty('--ha-card-border-width', '0px');
+            lcardsLog.debug('[LCARdSCard] Set global --ha-card-border-width to prevent resize loops');
+        }
+    }
+
+    /**
      * Get display ID for logging - uses custom ID if provided, otherwise GUID
      * @returns {string} Display ID
      * @private
