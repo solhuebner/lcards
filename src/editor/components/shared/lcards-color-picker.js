@@ -10,7 +10,7 @@
  * Features:
  * - Scans document.documentElement.style for CSS variables
  * - Caches results for performance
- * - Supports configurable prefixes (--lcards-*, --picard-*, --lcars-*, --cblcars-*)
+ * - Supports configurable prefixes (--lcards-*, --lcars-*, --cblcars-*)
  * - Uses luminance calculation for preview text contrast
  * - Integrates with ha-selector for HA compatibility
  *
@@ -18,7 +18,7 @@
  * <lcards-color-picker
  *   .hass=${this.hass}
  *   .value=${'var(--lcards-orange)'}
- *   .variablePrefixes=${['--lcards-', '--picard-']}
+ *   .variablePrefixes=${['--lcards-', '--lcars-']}
  *   ?showPreview=${true}
  *   @value-changed=${this._handleColorChange}>
  * </lcards-color-picker>
@@ -45,7 +45,7 @@ export class LCARdSColorPicker extends LitElement {
         super();
         this.value = '';
         this.disabled = false;
-        this.variablePrefixes = ['--lcards-', '--picard-', '--lcars-', '--cblcars-'];
+        this.variablePrefixes = ['--lcards-', '--lcars-', '--cblcars-'];
         this.showPreview = true;
         this.allowMatchLight = false;
         this._cssVariables = [];

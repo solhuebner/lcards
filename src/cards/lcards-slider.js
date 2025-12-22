@@ -563,7 +563,7 @@ export class LCARdSSlider extends LCARdSButton {
             // Gauge configuration (ruler style)
             gauge: {
                 progress_bar: {
-                    color: 'var(--picard-lightest-blue, #aaccff)',
+                    color: 'var(--lcards-blue-light, #aaccff)',
                     height: 12,
                     radius: 2
                 },
@@ -1380,7 +1380,7 @@ export class LCARdSSlider extends LCARdSButton {
 
         // Progress bar configuration
         const progressConfig = gaugeConfig?.progress_bar;
-        const progressColor = this._resolveCssVariable(progressConfig?.color || 'var(--picard-lightest-blue, #aaccff)');
+        const progressColor = this._resolveCssVariable(progressConfig?.color || 'var(--lcards-blue-light, #aaccff)');
         const progressHeight = progressConfig?.height || 12;
         const progressRadius = progressConfig?.radius !== undefined ? progressConfig?.radius : 2;
 

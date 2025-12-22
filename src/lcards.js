@@ -144,7 +144,7 @@ async function initializeCustomCard() {
 
     ///load yaml configs
     // Await YAML configs
-    themeColorsPromise = loadThemeColors(LCARdS.theme_colors_uri);
+    //themeColorsPromise = loadThemeColors(LCARdS.theme_colors_uri);
 
     // Await SVG preload
     await preloadSVGs(LCARdS.builtin_svg_keys, LCARdS.builtin_svg_basepath)
@@ -154,7 +154,7 @@ async function initializeCustomCard() {
     await loadCoreFonts();
 
     // Await YAML config loading
-    await Promise.all([themeColorsPromise]);
+    //await Promise.all([themeColorsPromise]);
 }
 
 

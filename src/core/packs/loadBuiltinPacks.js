@@ -625,9 +625,9 @@ const LCARDS_BUTTONS_PACK = {
             font_weight: 100,  // Thin weight for LCARS aesthetic
             text_transform: 'uppercase',
             color: {
-              default: 'var(--picard-yellow, #FFCC99)',  // LCARS yellow for labels
-              active: 'var(--picard-yellow, #FFCC99)',
-              inactive: 'var(--picard-yellow, #FFCC99)',
+              default: 'var(--lcards-yellow, #FFCC99)',  // LCARS yellow for labels
+              active: 'var(--lcards-yellow, #FFCC99)',
+              inactive: 'var(--lcards-yellow, #FFCC99)',
               unavailable: 'var(--lcars-ui-red, #CC6666)'
             },
             // Opaque background creates the bar "break" effect
