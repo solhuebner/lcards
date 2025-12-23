@@ -13,6 +13,8 @@
 import { LitElement, html, css } from 'lit';
 import { lcardsLog } from '../../../utils/lcards-logging.js';
 import { resolveThemeTokensRecursive } from '../../../utils/lcards-theme.js';
+import { ALERT_MODE_PALETTES } from '../../../core/themes/paletteInjector.js';
+import { transformColorToAlertMode } from '../../../core/themes/alertModeTransform.js';
 import '../shared/lcards-collapsible-section.js';
 import '../shared/lcards-message.js';
 
@@ -37,7 +39,8 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       _haThemeName: { type: String, state: true },
       _allCssVariables: { type: Array, state: true },
       _filteredAllVars: { type: Array, state: true },
-      _selectedAllVarsCategory: { type: String, state: true }
+      _selectedAllVarsCategory: { type: String, state: true },
+      _alertModePreview: { type: Boolean, state: true } // NEW: Toggle for alert mode previews
     };
   }
 
@@ -61,6 +64,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
     this._selectedAllVarsCategory = 'all';
     this._expandedCategories = new Set();
     this._expandedTokenCategories = new Set();
+    this._alertModePreview = false; // NEW: Default to off
     this._handleKeydown = this._handleKeydown.bind(this);
   }
 
@@ -438,6 +442,168 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
       }
 
+      /* Alert mode preview swatches */
+      .alert-mode-swatches {
+        display: flex;
+        gap: 3px;
+        flex-wrap: nowrap;
+        align-items: center;
+        justify-content: flex-start;
+      }
+
+      .alert-swatch {
+        width: 22px;
+        height: 22px;
+        border-radius: 3px;
+        border: 1px solid var(--divider-color);
+        cursor: pointer;
+        transition: transform 0.1s ease;
+        box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+        position: relative;
+        flex-shrink: 0;
+      }
+
+      .alert-swatch:hover {
+        transform: scale(1.3);
+        z-index: 10;
+      }
+
+      .alert-swatch.active-mode {
+        border: 2px solid var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(var(--rgb-primary-color), 0.3);
+      }
+
+      /* Alert mode toggle button in header */
+      .alert-mode-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        background: var(--secondary-background-color);
+        border-radius: 8px;
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.2s ease;
+      }
+
+      .alert-mode-toggle:hover {
+        background: var(--divider-color);
+      }
+
+      .alert-mode-toggle.active {
+        background: var(--primary-color);
+        color: var(--text-primary-color);
+      }
+
+      .alert-mode-toggle ha-icon {
+        --mdc-icon-size: 20px;
+      }
+
+      .alert-mode-toggle-label {
+        font-size: 13px;
+        font-weight: 500;
+      }
+
+      .alert-mode-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .hsl-formula-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        background: var(--secondary-background-color);
+        border-radius: 6px;
+      }
+
+      /* HSL Formula Table */
+      .hsl-formula-table {
+        margin-top: 12px;
+        background: var(--card-background-color);
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid var(--divider-color);
+      }
+
+      .hsl-formula-table table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .hsl-formula-table th,
+      .hsl-formula-table td {
+        padding: 8px 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--divider-color);
+        font-size: 13px;
+      }
+
+      .hsl-formula-table th {
+        background: var(--secondary-background-color);
+        font-weight: 600;
+        color: var(--primary-text-color);
+      }
+
+      .hsl-formula-table td {
+        font-family: 'Courier New', monospace;
+        color: var(--secondary-text-color);
+      }
+
+      .hsl-formula-table tr:last-child td {
+        border-bottom: none;
+      }
+
+      .hsl-formula-table .mode-name {
+        font-weight: 500;
+        color: var(--primary-text-color);
+        font-family: inherit;
+      }
+
+      .hsl-formula-table .mode-icon {
+        margin-right: 6px;
+      }
+
+      /* Alert mode swatch legend */
+      .alert-mode-legend {
+        display: flex;
+        gap: 3px;
+        flex-wrap: nowrap;
+        align-items: center;
+        justify-content: flex-start;
+        margin-top: 2px;
+      }
+
+      .alert-legend-label {
+        width: 22px;
+        height: 12px;
+        font-size: 9px;
+        text-align: center;
+        color: var(--secondary-text-color);
+        flex-shrink: 0;
+        line-height: 12px;
+        font-weight: 600;
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        border: 1px solid var(--divider-color);
+      }
+
+      .hsl-formula-info code {
+        background: var(--card-background-color);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-family: 'Roboto Mono', monospace;
+        font-size: 11px;
+        color: var(--primary-text-color);
+      }
+
+      .hsl-formula-info strong {
+        color: var(--primary-text-color);
+      }
+
       .token-actions-cell {
         width: 100px;
         text-align: right;
@@ -583,6 +749,86 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
             <strong>LCARdS Theme:</strong>
             <span class="theme-name">${this._activeTheme?.name || 'Unknown'}</span>
           </div>
+          ${this._activeView === 'css-vars' ? html`
+            <div class="alert-mode-info">
+              <div
+                class="alert-mode-toggle ${this._alertModePreview ? 'active' : ''}"
+                @click=${this._toggleAlertModePreview}
+                title="Toggle alert mode color previews">
+                <ha-icon icon="mdi:${this._alertModePreview ? 'eye' : 'eye-off'}"></ha-icon>
+                <span class="alert-mode-toggle-label">Alert Mode Preview</span>
+              </div>
+              ${this._alertModePreview ? html`
+                <div class="hsl-formula-info">
+                  <strong>--lcars-*:</strong>
+                  <span>HSL transform</span>
+                </div>
+                <div class="hsl-formula-info">
+                  <strong>--lcards-*:</strong>
+                  <span>Pre-defined palettes</span>
+                </div>
+              ` : ''}
+            </div>
+            ${this._alertModePreview ? html`
+              <div class="hsl-formula-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Mode</th>
+                      <th>Hue Shift</th>
+                      <th>Hue Strength</th>
+                      <th>Saturation ×</th>
+                      <th>Lightness ×</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><span class="mode-icon">🟢</span><span class="mode-name">Green (Normal)</span></td>
+                      <td>0°</td>
+                      <td>0</td>
+                      <td>1.0</td>
+                      <td>1.0</td>
+                    </tr>
+                    <tr>
+                      <td><span class="mode-icon">🔴</span><span class="mode-name">Red Alert</span></td>
+                      <td>0°</td>
+                      <td>0.8</td>
+                      <td>1.2</td>
+                      <td>0.9</td>
+                    </tr>
+                    <tr>
+                      <td><span class="mode-icon">🔵</span><span class="mode-name">Blue Alert</span></td>
+                      <td>240°</td>
+                      <td>0.8</td>
+                      <td>1.0</td>
+                      <td>1.0</td>
+                    </tr>
+                    <tr>
+                      <td><span class="mode-icon">🟡</span><span class="mode-name">Yellow Alert</span></td>
+                      <td>45°</td>
+                      <td>0.7</td>
+                      <td>1.1</td>
+                      <td>1.05</td>
+                    </tr>
+                    <tr>
+                      <td><span class="mode-icon">⚫</span><span class="mode-name">Gray Alert</span></td>
+                      <td>0°</td>
+                      <td>0</td>
+                      <td>0</td>
+                      <td>1.0</td>
+                    </tr>
+                    <tr>
+                      <td><span class="mode-icon">⚪</span><span class="mode-name">Black Alert</span></td>
+                      <td>0°</td>
+                      <td>0</td>
+                      <td>0</td>
+                      <td>0.3</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            ` : ''}
+          ` : ''}
         </div>
         <div class="search-container">
           <div class="search-wrapper">
@@ -874,6 +1120,12 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
 
       // Color preview - only show for actual CSS colors (not computed functions)
       if (token.category === 'colors' || this._isColorValue(valueStr)) {
+        // If alert mode preview is enabled, show swatches for all modes
+        if (this._alertModePreview) {
+          return this._renderAlertModeSwatches(valueStr, token.path);
+        }
+
+        // Default: single color preview
         return html`
           <div
             class="color-preview"
@@ -894,6 +1146,58 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       lcardsLog.warn('[ThemeTokenBrowser] Error rendering preview:', error);
       return html``;
     }
+  }
+
+  /**
+   * Render alert mode color swatches
+   * @param {string} baseColor - Base color value
+   * @param {string} pathOrVarName - Token path or CSS variable name
+   * @param {boolean} isCssVar - Whether this is a CSS variable (true) or token (false)
+   */
+  _renderAlertModeSwatches(baseColor, pathOrVarName, isCssVar = false) {
+    const alertModes = [
+      { name: 'green_alert', label: 'Green', icon: '🟢', shortLabel: 'GRN' },
+      { name: 'red_alert', label: 'Red', icon: '🔴', shortLabel: 'RED' },
+      { name: 'blue_alert', label: 'Blue', icon: '🔵', shortLabel: 'BLU' },
+      { name: 'yellow_alert', label: 'Yellow', icon: '🟡', shortLabel: 'YEL' },
+      { name: 'gray_alert', label: 'Gray', icon: '⚫', shortLabel: 'GRY' },
+      { name: 'black_alert', label: 'Black', icon: '⚪', shortLabel: 'BLK' }
+    ];
+
+    const currentMode = this._getCurrentAlertMode();
+
+    // Determine variable name
+    const varName = isCssVar
+      ? pathOrVarName
+      : `--lcards-${pathOrVarName.split('.').pop()}`;
+
+    return html`
+      <div>
+        <div class="alert-mode-swatches">
+          ${alertModes.map(mode => {
+            const color = mode.name === 'green_alert'
+              ? baseColor
+              : this._getAlertModeColor(baseColor, varName, mode.name);
+
+            const isActive = mode.name === currentMode;
+
+            return html`
+              <div
+                class="alert-swatch ${isActive ? 'active-mode' : ''}"
+                style="background-color: ${color};"
+                title="${mode.label}: ${color}"
+                @click=${(e) => this._copyResolvedColor(color, e)}>
+              </div>
+            `;
+          })}
+        </div>
+        <div class="alert-mode-legend">
+          ${alertModes.map(mode => html`
+            <div class="alert-legend-label">${mode.shortLabel}</div>
+          `)}
+        </div>
+      </div>
+    `;
   }
 
   /**
@@ -1108,13 +1412,17 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
           <div title="${cssVar.value}">${cssVar.value}</div>
         </td>
         <td class="token-preview-cell">
-          ${cssVar.isColor ? html`
-            <div
-              class="color-preview"
-              style="background-color: var(${cssVar.name});"
-              title="Live preview of ${cssVar.name}">
-            </div>
-          ` : ''}
+          ${cssVar.isColor ? (
+            this._alertModePreview
+              ? this._renderAlertModeSwatches(cssVar.value, cssVar.name, true)
+              : html`
+                <div
+                  class="color-preview"
+                  style="background-color: var(${cssVar.name});"
+                  title="Live preview of ${cssVar.name}">
+                </div>
+              `
+          ) : ''}
         </td>
         <td class="token-actions-cell">
           <div class="token-actions">
@@ -1926,6 +2234,46 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         button.style.color = '';
       }, 2000);
     }
+  }
+
+  /**
+   * Toggle alert mode preview
+   */
+  _toggleAlertModePreview() {
+    this._alertModePreview = !this._alertModePreview;
+    lcardsLog.debug('[ThemeTokenBrowser] Alert mode preview:', this._alertModePreview);
+  }
+
+  /**
+   * Get color for a specific alert mode
+   * @param {string} baseColor - Base color value
+   * @param {string} varName - CSS variable name (to determine if it's --lcars-* or --lcards-*)
+   * @param {string} alertMode - Alert mode name
+   * @returns {string} Transformed color
+   */
+  _getAlertModeColor(baseColor, varName, alertMode) {
+    // For --lcards-* variables, use pre-defined palettes
+    if (varName.startsWith('--lcards-')) {
+      const key = varName.replace('--lcards-', '');
+      const palette = ALERT_MODE_PALETTES[alertMode];
+      return palette?.[key] || baseColor;
+    }
+
+    // For --lcars-* variables, use HSL transformation
+    try {
+      return transformColorToAlertMode(baseColor, alertMode);
+    } catch (error) {
+      lcardsLog.warn('[ThemeTokenBrowser] Error transforming color:', error);
+      return baseColor;
+    }
+  }
+
+  /**
+   * Get current active alert mode
+   * @returns {string}
+   */
+  _getCurrentAlertMode() {
+    return window.lcards?.core?.themeManager?.getAlertMode?.() || 'green_alert';
   }
 
   /**
