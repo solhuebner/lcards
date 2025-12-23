@@ -91,6 +91,30 @@ export const ALERT_MODE_TRANSFORMS = {
 };
 
 /**
+ * Calculate shortest distance between two hues on circular color wheel
+ * 
+ * Handles 360°→0° wrapping to always return the shortest path.
+ * 
+ * @param {number} fromHue - Starting hue (0-360°)
+ * @param {number} toHue - Target hue (0-360°)
+ * @returns {number} Signed distance (-180 to +180°)
+ * 
+ * @example
+ * calculateCircularDistance(350, 10)  // Returns: 20 (not 340)
+ * calculateCircularDistance(10, 350)  // Returns: -20 (not 340)
+ * calculateCircularDistance(100, 200) // Returns: 100
+ */
+function calculateCircularDistance(fromHue, toHue) {
+  let distance = toHue - fromHue;
+  
+  // Normalize to shortest path (-180 to +180)
+  if (distance > 180) distance -= 360;
+  if (distance < -180) distance += 360;
+  
+  return distance;
+}
+
+/**
  * Apply hue anchoring to pull colors toward a target hue range
  * 
  * This creates cohesive alert modes by constraining colors to a specific
@@ -124,11 +148,7 @@ function applyHueAnchor(hue, anchor) {
   }
   
   // Calculate shortest distance on circular color wheel
-  let distance = hue - centerHue;
-  
-  // Handle wrap-around (e.g., 350° to 10° is 20°, not 340°)
-  if (distance > 180) distance -= 360;
-  if (distance < -180) distance += 360;
+  let distance = calculateCircularDistance(centerHue, hue);
   
   // If outside allowed range, pull toward range edge
   const absDistance = Math.abs(distance);
@@ -194,9 +214,7 @@ export function transformColorToAlertMode(color, alertMode) {
     const targetHue = transform.hueShift;
     
     // Calculate shortest distance on circular color wheel
-    let distance = targetHue - h;
-    if (distance > 180) distance -= 360;
-    if (distance < -180) distance += 360;
+    const distance = calculateCircularDistance(h, targetHue);
     
     // Interpolate using shortest path
     h = h + distance * transform.hueStrength;
