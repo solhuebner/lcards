@@ -52,6 +52,9 @@ export class LCARdSProvenanceTab extends LitElement {
   constructor() {
     super();
 
+    // Version check - Enhanced provenance visualizations
+    lcardsLog.info('[ProvenanceTab] Loading enhanced version with badges, resolution chains, and collapsible sections');
+
     this.card = null;
     this._dialogOpen = false;
     this._isLoading = false;
@@ -66,6 +69,12 @@ export class LCARdSProvenanceTab extends LitElement {
     this._autoRefresh = false;
     this._autoRefreshInterval = 5000; // 5 seconds default
     this._refreshTimer = null;
+
+    // New: Tree view state
+    this._expandedNodes = new Set(); // Track expanded tree nodes
+    this._selectedNode = null; // Currently selected node for detail view
+    this._tree = null; // Cached config tree
+    this._collapsedDetailSections = new Set(); // Track collapsed detail panel sections
   }
 
   connectedCallback() {
@@ -154,7 +163,7 @@ export class LCARdSProvenanceTab extends LitElement {
         display: flex;
         flex-direction: column;
         gap: 16px;
-        max-height: 70vh;
+        max-height: 75vh;
         overflow: hidden;
       }
 
@@ -165,6 +174,7 @@ export class LCARdSProvenanceTab extends LitElement {
         gap: 12px;
         padding-bottom: 12px;
         border-bottom: 1px solid var(--divider-color);
+        flex-shrink: 0;
       }
 
       /* View Tabs */
@@ -588,6 +598,746 @@ export class LCARdSProvenanceTab extends LitElement {
         margin: 2px;
         display: inline-block;
       }
+
+      /* Split Pane Layout - New Tree View */
+      .split-pane-container {
+        display: grid;
+        grid-template-columns: 35% 65%;
+        gap: 16px;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .tree-pane {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border-right: 1px solid var(--divider-color);
+      }
+
+      .tree-pane-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--divider-color);
+        background: var(--secondary-background-color);
+        flex-shrink: 0;
+      }
+
+      .tree-pane-header span {
+        font-weight: 500;
+        font-size: 14px;
+        color: var(--primary-text-color);
+      }
+
+      .tree-actions {
+        display: flex;
+        gap: 4px;
+      }
+
+      .tree-actions ha-icon-button {
+        --mdc-icon-button-size: 32px;
+        --mdc-icon-size: 20px;
+      }
+
+      .tree-container {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px 16px 8px 8px;
+      }
+
+      .detail-pane {
+        overflow-y: auto;
+        padding-left: 8px;
+      }
+
+      /* Tree Node Styles */
+      .tree-node {
+        position: relative;
+        margin-left: 8px;
+      }
+
+      .tree-node-content {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.15s;
+        user-select: none;
+      }
+
+      .tree-node-content:hover {
+        background: var(--secondary-background-color);
+      }
+
+      .tree-node-content.selected {
+        background: var(--primary-color);
+        color: white;
+      }
+
+      .tree-node-content.selected .node-label {
+        color: white;
+        font-weight: 500;
+      }
+
+      .tree-node-content.selected .node-source-badge {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+      }
+
+      .tree-expander {
+        width: 16px;
+        height: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        transition: transform 0.2s;
+      }
+
+      .tree-expander.expanded {
+        transform: rotate(90deg);
+      }
+
+      .tree-expander.leaf {
+        opacity: 0;
+      }
+
+      .node-icon {
+        width: 18px;
+        height: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .node-label {
+        flex: 1;
+        font-family: 'Roboto Mono', monospace;
+        font-size: 13px;
+        color: var(--primary-text-color);
+      }
+
+      .node-source-badge {
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        background: var(--secondary-background-color);
+        color: var(--secondary-text-color);
+        font-weight: 500;
+      }
+
+      /* Source Layer Color Coding */
+      .node-source-badge[data-source="user_config"],
+      .node-source-badge[data-source="user"] {
+        background: #4caf50;
+        color: white;
+      }
+
+      .node-source-badge[data-source*="preset"] {
+        background: #ff9800;
+        color: white;
+      }
+
+      .node-source-badge[data-source*="theme"] {
+        background: #9c27b0;
+        color: white;
+      }
+
+      .node-source-badge[data-source*="card_defaults"],
+      .node-source-badge[data-source="defaults"] {
+        background: #2196f3;
+        color: white;
+      }
+
+      .node-source-badge[data-source*="rules"] {
+        background: #f44336;
+        color: white;
+      }
+
+      .tree-children {
+        margin-left: 24px;
+        border-left: 1px solid var(--divider-color);
+        padding-left: 4px;
+      }
+
+      /* Detail Panel Styles */
+      .detail-panel-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: var(--secondary-text-color);
+        gap: 12px;
+      }
+
+      .detail-panel-empty ha-icon {
+        --mdc-icon-size: 48px;
+        opacity: 0.5;
+      }
+
+      .detail-panel-header {
+        padding-bottom: 16px;
+        border-bottom: 2px solid var(--divider-color);
+        margin-bottom: 16px;
+      }
+
+      .detail-path {
+        font-family: 'Roboto Mono', monospace;
+        font-size: 16px;
+        font-weight: 500;
+        color: var(--primary-text-color);
+        margin-bottom: 8px;
+      }
+
+      .detail-breadcrumb {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-wrap: wrap;
+      }
+
+      .breadcrumb-sep {
+        color: var(--divider-color);
+      }
+
+      .detail-section {
+        margin-bottom: 24px;
+      }
+
+      .detail-section-title {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--primary-text-color);
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .detail-section-title ha-icon {
+        --mdc-icon-size: 18px;
+        color: var(--secondary-text-color);
+      }
+
+      .detail-row {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 8px;
+        font-size: 13px;
+      }
+
+      .detail-label {
+        min-width: 120px;
+        color: var(--secondary-text-color);
+        font-weight: 500;
+      }
+
+      .detail-value {
+        flex: 1;
+        color: var(--primary-text-color);
+        font-family: 'Roboto Mono', monospace;
+        word-break: break-word;
+      }
+
+      .detail-value-large {
+        flex: 1;
+        color: var(--primary-text-color);
+        font-family: 'Roboto Mono', monospace;
+        background: var(--secondary-background-color);
+        padding: 12px;
+        border-radius: 6px;
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+
+      .source-layer-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 16px;
+        font-size: 12px;
+        font-weight: 500;
+      }
+
+      .source-layer-badge[data-source="user_config"],
+      .source-layer-badge[data-source="user"] {
+        background: #4caf50;
+        color: white;
+      }
+
+      .source-layer-badge[data-source*="preset"] {
+        background: #ff9800;
+        color: white;
+      }
+
+      .source-layer-badge[data-source*="theme"] {
+        background: #9c27b0;
+        color: white;
+      }
+
+      .source-layer-badge[data-source*="card_defaults"],
+      .source-layer-badge[data-source="defaults"] {
+        background: #2196f3;
+        color: white;
+      }
+
+      .source-layer-badge[data-source*="rules"] {
+        background: #f44336;
+        color: white;
+      }
+
+      .resolution-chain {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .resolution-step {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 12px;
+        background: var(--secondary-background-color);
+        border-radius: 6px;
+        font-size: 12px;
+      }
+
+      .resolution-arrow {
+        color: var(--secondary-text-color);
+      }
+
+      .token-ref {
+        font-family: 'Roboto Mono', monospace;
+        color: var(--primary-color);
+      }
+
+      .related-fields-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .related-field-item {
+        padding: 6px 10px;
+        background: var(--secondary-background-color);
+        border-radius: 4px;
+        font-family: 'Roboto Mono', monospace;
+        font-size: 12px;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+
+      .related-field-item:hover {
+        background: var(--primary-color);
+        color: white;
+      }
+
+      .no-data-hint {
+        color: var(--disabled-text-color);
+        font-style: italic;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 16px;
+      }
+
+      .no-data-hint ha-icon {
+        color: var(--secondary-text-color);
+      }
+
+      /* ====================================================================
+         NEW: Enhanced Detail Panel Styles
+         ==================================================================== */
+
+      /* Node badges in detail header */
+      .node-badges {
+        display: inline-flex;
+        gap: 6px;
+        margin-left: 12px;
+      }
+
+      .node-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 6px;
+        background: var(--secondary-background-color);
+        border-radius: 10px;
+        font-size: 11px;
+        cursor: help;
+      }
+
+      /* Tree node badges */
+      .node-indicators {
+        display: inline-flex;
+        gap: 4px;
+        margin-left: auto;
+        margin-right: 8px;
+      }
+
+      .tree-badge {
+        display: inline-flex;
+        align-items: center;
+        font-size: 11px;
+        cursor: help;
+        opacity: 0.8;
+      }
+
+      .tree-badge:hover {
+        opacity: 1;
+      }
+
+      /* Detail section content wrapper (for collapsible sections) */
+      .detail-section-content {
+        padding: 4px 0;
+      }
+
+      .detail-subsection {
+        margin-top: 12px;
+      }
+
+      /* Resolution chain flow visualization */
+      .resolution-chain-flow {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .resolution-step-card {
+        background: var(--secondary-background-color);
+        border: 1px solid var(--divider-color);
+        border-radius: 8px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .resolution-step-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 4px;
+      }
+
+      .resolution-step-label {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: var(--secondary-text-color);
+        letter-spacing: 0.5px;
+      }
+
+      .source-layer-badge.small {
+        font-size: 10px;
+        padding: 3px 8px;
+      }
+
+      .resolution-step-content {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .resolution-from,
+      .resolution-token,
+      .resolution-to {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .token-label {
+        font-size: 11px;
+        color: var(--secondary-text-color);
+        font-weight: 500;
+        min-width: 80px;
+      }
+
+      .token-value {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+      }
+
+      .token-value code {
+        flex: 1;
+      }
+
+      .resolution-arrow-down {
+        align-self: center;
+        color: var(--secondary-text-color);
+        --mdc-icon-size: 20px;
+      }
+
+      .chain-separator {
+        align-self: center;
+        color: var(--primary-color);
+        --mdc-icon-size: 24px;
+        margin: 4px 0;
+      }
+
+      .resolution-final {
+        margin-top: 16px;
+        padding: 12px;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .resolution-final-label {
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        opacity: 0.9;
+      }
+
+      .resolution-final-value {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: 'Roboto Mono', monospace;
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      .resolution-final-value code {
+        color: white;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 6px 10px;
+        border-radius: 4px;
+      }
+
+      .color-preview-inline {
+        width: 24px;
+        height: 24px;
+        border-radius: 4px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        flex-shrink: 0;
+      }
+
+      /* Before/After comparison */
+      .before-after-container {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        gap: 12px;
+        align-items: stretch;
+        margin-top: 8px;
+      }
+
+      .before-after-panel {
+        background: var(--secondary-background-color);
+        border: 1px solid var(--divider-color);
+        border-radius: 8px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .before-after-panel.before {
+        border-left: 3px solid var(--error-color);
+      }
+
+      .before-after-panel.after {
+        border-left: 3px solid var(--success-color);
+      }
+
+      .before-after-label {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: var(--secondary-text-color);
+        letter-spacing: 0.5px;
+      }
+
+      .before-after-value {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .before-after-value code {
+        font-family: 'Roboto Mono', monospace;
+        font-size: 12px;
+        background: var(--primary-background-color);
+        padding: 6px 10px;
+        border-radius: 4px;
+        word-break: break-word;
+      }
+
+      .before-after-value pre {
+        margin: 0;
+        width: 100%;
+      }
+
+      .before-after-value pre code {
+        display: block;
+        max-height: 150px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+      }
+
+      .before-after-arrow {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--primary-color);
+        --mdc-icon-size: 28px;
+      }
+
+      /* Rule info display */
+      .rule-info {
+        background: var(--secondary-background-color);
+        border-radius: 6px;
+        padding: 12px;
+        margin-top: 8px;
+      }
+
+      .rule-info-row {
+        display: flex;
+        gap: 12px;
+        margin: 6px 0;
+        align-items: baseline;
+      }
+
+      .rule-info-row .detail-label {
+        min-width: 80px;
+      }
+
+      .rule-id,
+      .rule-condition {
+        font-family: 'Roboto Mono', monospace;
+        font-size: 12px;
+        background: var(--primary-background-color);
+        padding: 4px 8px;
+        border-radius: 4px;
+        flex: 1;
+      }
+
+      .rule-condition {
+        color: var(--primary-color);
+      }
+
+      /* Dependencies list */
+      .dependencies-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 4px;
+      }
+
+      .dependency-item {
+        font-family: 'Roboto Mono', monospace;
+        font-size: 11px;
+        background: var(--secondary-background-color);
+        padding: 4px 8px;
+        border-radius: 12px;
+        border: 1px solid var(--divider-color);
+      }
+
+      /* Used by lists */
+      .used-by-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 8px;
+      }
+
+      .used-by-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: var(--secondary-background-color);
+        border-radius: 6px;
+        font-family: 'Roboto Mono', monospace;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.15s;
+        border: 1px solid transparent;
+      }
+
+      .used-by-item:not(.current):hover {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+      }
+
+      .used-by-item.current {
+        background: var(--divider-color);
+        cursor: default;
+        opacity: 0.7;
+      }
+
+      .used-by-item ha-icon {
+        --mdc-icon-size: 16px;
+        flex-shrink: 0;
+      }
+
+      .current-indicator {
+        margin-left: auto;
+        font-size: 10px;
+        font-style: italic;
+        color: var(--secondary-text-color);
+      }
+
+      .used-by-token-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        background: var(--secondary-background-color);
+        border-radius: 6px;
+        border: 1px solid var(--divider-color);
+      }
+
+      .used-by-token-item ha-icon {
+        --mdc-icon-size: 18px;
+        color: var(--primary-color);
+        flex-shrink: 0;
+      }
+
+      .used-by-token-item code {
+        font-family: 'Roboto Mono', monospace;
+        font-size: 12px;
+        flex: 1;
+      }
+
+      .token-resolved-value {
+        font-size: 11px;
+        color: var(--secondary-text-color);
+        padding: 3px 8px;
+        background: var(--primary-background-color);
+        border-radius: 10px;
+      }
+
+      /* Related field items with icons */
+      .related-field-item ha-icon {
+        --mdc-icon-size: 14px;
+        color: var(--secondary-text-color);
+        flex-shrink: 0;
+      }
     `;
   }
 
@@ -693,7 +1443,8 @@ export class LCARdSProvenanceTab extends LitElement {
           </div>
         </div>
 
-        ${this._activeView !== 'stats' ? html`
+        <!-- Hide search for tree view, show for other views -->
+        ${this._activeView !== 'stats' && this._activeView !== 'tree' ? html`
           <div class="search-container">
             <div class="search-wrapper">
               <ha-textfield
@@ -717,7 +1468,8 @@ export class LCARdSProvenanceTab extends LitElement {
           </div>
         ` : ''}
 
-        ${this._activeView === 'tree' ? this._renderLayerFilters() : ''}
+        <!-- Hide layer filters for tree view -->
+        ${this._activeView === 'tokens' ? this._renderLayerFilters() : ''}
 
         <div class="refresh-controls">
           <ha-icon-button
@@ -790,7 +1542,7 @@ export class LCARdSProvenanceTab extends LitElement {
   }
 
   _renderTreeView() {
-    if (!this._provenance || !this._provenance.config || !this._provenance.config.field_sources) {
+    if (!this._provenance || !this._provenance.config || !this._provenance.config.tree) {
       return html`
         <div class="empty-state">
           <ha-icon icon="mdi:file-tree"></ha-icon>
@@ -800,30 +1552,647 @@ export class LCARdSProvenanceTab extends LitElement {
       `;
     }
 
-    this._applyFilters();
+    const tree = this._provenance.config.tree;
 
-    if (this._filteredFields.length === 0) {
+    if (!tree || Object.keys(tree).length === 0) {
       return html`
         <div class="empty-state">
-          <ha-icon icon="mdi:${this._searchQuery ? 'magnify-remove-outline' : 'file-tree'}"></ha-icon>
-          <p>${this._searchQuery ? `No fields found matching "${this._searchQuery}"` : 'No fields found'}</p>
-          <p style="font-size: 13px;">
-            ${this._searchQuery
-              ? 'Try a different search term, or clear the search to see all fields.'
-              : this._selectedLayer !== 'all'
-                ? 'Try selecting a different layer or "All" to see more fields.'
-                : 'No configuration fields are tracked.'}
-          </p>
+          <ha-icon icon="mdi:file-tree"></ha-icon>
+          <p>No configuration fields tracked</p>
+          <p style="font-size: 13px;">The configuration tree is empty.</p>
         </div>
       `;
     }
 
-    // Group fields by layer
-    const groupedFields = this._groupFieldsByLayer(this._filteredFields);
+    return html`
+      <div class="split-pane-container">
+        <!-- Left Pane: Interactive Tree -->
+        <div class="tree-pane">
+          <div class="tree-pane-header">
+            <span>Configuration Tree</span>
+            <div class="tree-actions">
+              <ha-icon-button
+                @click=${this._expandInterestingNodes}
+                title="Expand nodes with tokens/patches/templates"
+                .path=${"M12,18.17L8.83,15L7.42,16.41L12,21L16.59,16.41L15.17,15M12,5.83L15.17,9L16.58,7.59L12,3L7.41,7.59L8.83,9L12,5.83Z"}>
+              </ha-icon-button>
+              <ha-icon-button
+                @click=${this._expandAll}
+                title="Expand all"
+                .path=${"M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z"}>
+              </ha-icon-button>
+              <ha-icon-button
+                @click=${this._collapseAll}
+                title="Collapse all"
+                .path=${"M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"}>
+              </ha-icon-button>
+            </div>
+          </div>
+          <div class="tree-container">
+            ${this._renderTreeNodes(tree, '')}
+          </div>
+        </div>
+
+        <!-- Right Pane: Detail View -->
+        <div class="detail-pane">
+          ${this._selectedNode ? this._renderNodeDetail() : html`
+            <div class="detail-panel-empty">
+              <ha-icon icon="mdi:cursor-pointer"></ha-icon>
+              <p>Select a node from the tree to view details</p>
+              <p style="font-size: 13px; color: var(--secondary-text-color); margin-top: 8px;">
+                💡 Tip: Click <ha-icon icon="mdi:arrow-expand-vertical" style="--mdc-icon-size: 14px; vertical-align: middle;"></ha-icon> to expand nodes with provenance data
+              </p>
+            </div>
+          `}
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Recursively render tree nodes
+   */
+  _renderTreeNodes(node, parentPath) {
+    if (!node || typeof node !== 'object') return '';
+
+    const entries = Object.entries(node).filter(([key]) => key !== '__source');
 
     return html`
-      <div class="dialog-body">
-        ${Object.entries(groupedFields).map(([layer, fields]) => this._renderLayerSection(layer, fields))}
+      ${entries.map(([key, value]) => {
+        const fullPath = parentPath ? `${parentPath}.${key}` : key;
+        const source = value.__source || 'unknown';
+        const hasChildren = Object.keys(value).filter(k => k !== '__source').length > 0;
+        const isExpanded = this._expandedNodes.has(fullPath);
+        const isSelected = this._selectedNode?.path === fullPath;
+
+        // Get provenance indicators for this node
+        const themeTokenInfo = this._getThemeTokenForField(fullPath);
+        const rulePatchInfo = this._getRulePatchForField(fullPath);
+        const templateInfo = this._getTemplateForField(fullPath);
+        const usedByTokens = this._getTokensUsingField(fullPath);
+
+        // Debug logging for first few nodes
+        if (parentPath === '' || !parentPath) {
+          lcardsLog.debug(`[ProvenanceTab] Tree node "${key}": token=${!!themeTokenInfo}, patch=${!!rulePatchInfo}, template=${!!templateInfo}, usedBy=${usedByTokens.length}`);
+        }
+
+        return html`
+          <div class="tree-node">
+            <div
+              class="tree-node-content ${isSelected ? 'selected' : ''}"
+              @click=${() => this._selectNode(fullPath, key, value, source)}>
+              <span
+                class="tree-expander ${hasChildren ? (isExpanded ? 'expanded' : '') : 'leaf'}"
+                @click=${(e) => this._toggleNode(e, fullPath, hasChildren)}>
+                ${hasChildren ? '▶' : ''}
+              </span>
+              <span class="node-icon">
+                <ha-icon icon=${hasChildren ? 'mdi:folder' : 'mdi:file-document-outline'}></ha-icon>
+              </span>
+              <span class="node-label">${key}</span>
+              <span class="node-indicators">
+                ${themeTokenInfo ? html`<span class="tree-badge" title="Uses theme token">🔗</span>` : ''}
+                ${rulePatchInfo ? html`<span class="tree-badge" title="Has rule patch">⚙️</span>` : ''}
+                ${templateInfo ? html`<span class="tree-badge" title="Is templated">📝</span>` : ''}
+                ${themeTokenInfo?.resolution_chain && themeTokenInfo.resolution_chain.length > 1 ? html`<span class="tree-badge" title="Has resolution chain">🔀</span>` : ''}
+                ${usedByTokens.length > 0 ? html`<span class="tree-badge" title="Referenced by ${usedByTokens.length} token(s)">🔖${usedByTokens.length}</span>` : ''}
+              </span>
+              <span class="node-source-badge" data-source="${source}">
+                ${this._formatLayerName(source)}
+              </span>
+            </div>
+            ${hasChildren && isExpanded ? html`
+              <div class="tree-children">
+                ${this._renderTreeNodes(value, fullPath)}
+              </div>
+            ` : ''}
+          </div>
+        `;
+      })}
+    `;
+  }
+
+  /**
+   * Render detail panel for selected node
+   */
+  _renderNodeDetail() {
+    if (!this._selectedNode) return '';
+
+    const { path, key, value, source } = this._selectedNode;
+
+    // Get breadcrumb
+    const pathParts = path.split('.');
+
+    // Get actual value from config
+    const actualValue = this._getActualValue(path);
+
+    // Check if this field uses a theme token
+    const themeTokenInfo = this._getThemeTokenForField(path);
+
+    // Check if this field has a rule patch
+    const rulePatchInfo = this._getRulePatchForField(path);
+
+    // Check if this field is a template
+    const templateInfo = this._getTemplateForField(path);
+
+    // Get related fields (parent and children)
+    const relatedFields = this._getRelatedFields(path);
+
+    // Get all tokens that use this field (reverse lookup)
+    const usedByTokens = this._getTokensUsingField(path);
+
+    return html`
+      <div class="detail-panel-header">
+        <div class="detail-path">
+          ${key}
+          ${this._renderNodeBadges(themeTokenInfo, rulePatchInfo, templateInfo, usedByTokens)}
+        </div>
+        <div class="detail-breadcrumb">
+          ${pathParts.map((part, i) => html`
+            ${i > 0 ? html`<span class="breadcrumb-sep">›</span>` : ''}
+            <span>${part}</span>
+          `)}
+        </div>
+      </div>
+
+      <!-- Source Layer Section (always visible) -->
+      <div class="detail-section">
+        <div class="detail-section-title">
+          <ha-icon icon="mdi:source-branch"></ha-icon>
+          Source Layer
+        </div>
+        <span class="source-layer-badge" data-source="${source}">
+          ${this._formatLayerName(source)}
+        </span>
+      </div>
+
+      <!-- Value Section (always visible) -->
+      <div class="detail-section">
+        <div class="detail-section-title">
+          <ha-icon icon="mdi:code-braces"></ha-icon>
+          Current Value
+        </div>
+        ${this._renderDetailValue(actualValue)}
+      </div>
+
+      <!-- Theme Token Resolution Section (expandable) -->
+      ${themeTokenInfo ? html`
+        <lcards-collapsible-section
+          .title=${'Token Resolution'}
+          .icon=${'mdi:palette'}
+          ?expanded=${!this._collapsedDetailSections.has('token')}>
+          <div class="detail-section-content">
+            ${this._renderResolutionChain(themeTokenInfo)}
+            ${themeTokenInfo.used_by_fields && themeTokenInfo.used_by_fields.length > 0 ? html`
+              <div class="detail-subsection">
+                <div class="detail-label">Used by ${themeTokenInfo.used_by_fields.length} field(s):</div>
+                <div class="used-by-list">
+                  ${themeTokenInfo.used_by_fields.map(field => html`
+                    <div
+                      class="used-by-item ${field === path ? 'current' : ''}"
+                      @click=${() => field !== path && this._navigateToPath(field)}>
+                      <ha-icon icon="mdi:link-variant"></ha-icon>
+                      ${field}
+                      ${field === path ? html`<span class="current-indicator">(current)</span>` : ''}
+                    </div>
+                  `)}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        </lcards-collapsible-section>
+      ` : ''}
+
+      <!-- Rule Patch Section (expandable with before/after) -->
+      ${rulePatchInfo ? html`
+        <lcards-collapsible-section
+          .title=${'Rule Override'}
+          .icon=${'mdi:gavel'}
+          ?expanded=${!this._collapsedDetailSections.has('patch')}>
+          <div class="detail-section-content">
+            ${this._renderBeforeAfter(
+              'Original Value',
+              'Patched Value',
+              rulePatchInfo.original_value,
+              rulePatchInfo.patched_value
+            )}
+            <div class="detail-subsection">
+              <div class="rule-info">
+                <div class="rule-info-row">
+                  <span class="detail-label">Rule ID:</span>
+                  <code class="rule-id">${rulePatchInfo.rule_id}</code>
+                </div>
+                <div class="rule-info-row">
+                  <span class="detail-label">Condition:</span>
+                  <code class="rule-condition">${rulePatchInfo.rule_condition}</code>
+                </div>
+              </div>
+            </div>
+          </div>
+        </lcards-collapsible-section>
+      ` : ''}
+
+      <!-- Template Processing Section (expandable with before/after) -->
+      ${templateInfo ? html`
+        <lcards-collapsible-section
+          .title=${'Template Processing'}
+          .icon=${'mdi:code-tags'}
+          ?expanded=${!this._collapsedDetailSections.has('template')}>
+          <div class="detail-section-content">
+            ${this._renderBeforeAfter(
+              'Original Template',
+              'Processed Result',
+              templateInfo.original,
+              templateInfo.processed
+            )}
+            <div class="detail-subsection">
+              <div class="detail-row">
+                <span class="detail-label">Processor:</span>
+                <code>${templateInfo.processor}</code>
+              </div>
+              ${templateInfo.dependencies && templateInfo.dependencies.length > 0 ? html`
+                <div class="detail-row">
+                  <span class="detail-label">Dependencies:</span>
+                  <div class="dependencies-list">
+                    ${templateInfo.dependencies.map(dep => html`
+                      <code class="dependency-item">${dep}</code>
+                    `)}
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        </lcards-collapsible-section>
+      ` : ''}
+
+      <!-- Used By Tokens Section (if other tokens reference this field) -->
+      ${usedByTokens.length > 0 ? html`
+        <lcards-collapsible-section
+          .title=${'Referenced By Tokens'}
+          .icon=${'mdi:link'}
+          .badge=${String(usedByTokens.length)}
+          ?expanded=${!this._collapsedDetailSections.has('usedby')}>
+          <div class="detail-section-content">
+            <div class="used-by-list">
+              ${usedByTokens.map(token => html`
+                <div class="used-by-token-item">
+                  <ha-icon icon="mdi:palette"></ha-icon>
+                  <code>theme:${token.path}</code>
+                  <span class="token-resolved-value">${this._formatValue(token.resolved_value)}</span>
+                </div>
+              `)}
+            </div>
+          </div>
+        </lcards-collapsible-section>
+      ` : ''}
+
+      <!-- Related Fields Section (expandable) -->
+      ${relatedFields && (relatedFields.parent || relatedFields.children.length > 0) ? html`
+        <lcards-collapsible-section
+          .title=${'Related Fields'}
+          .icon=${'mdi:file-tree'}
+          .badge=${String(relatedFields.children.length)}
+          ?expanded=${!this._collapsedDetailSections.has('related')}>
+          <div class="detail-section-content">
+            ${relatedFields.parent ? html`
+              <div class="detail-subsection">
+                <div class="detail-label">Parent:</div>
+                <div class="related-fields-list">
+                  <div
+                    class="related-field-item"
+                    @click=${() => this._navigateToPath(relatedFields.parent)}>
+                    <ha-icon icon="mdi:chevron-up"></ha-icon>
+                    ${relatedFields.parent}
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+            ${relatedFields.children.length > 0 ? html`
+              <div class="detail-subsection">
+                <div class="detail-label">Children (${relatedFields.children.length}):</div>
+                <div class="related-fields-list">
+                  ${relatedFields.children.map(child => html`
+                    <div
+                      class="related-field-item"
+                      @click=${() => this._navigateToPath(child)}>
+                      <ha-icon icon="mdi:chevron-down"></ha-icon>
+                      ${child.split('.').pop()}
+                    </div>
+                  `)}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        </lcards-collapsible-section>
+      ` : ''}
+
+      <!-- Fallback if no additional info -->
+      ${!themeTokenInfo && !rulePatchInfo && !templateInfo && usedByTokens.length === 0 && (!relatedFields || (!relatedFields.parent && relatedFields.children.length === 0)) ? html`
+        <div class="detail-section">
+          <p class="no-data-hint">
+            <ha-icon icon="mdi:information-outline"></ha-icon>
+            No additional provenance information available for this field.
+          </p>
+        </div>
+      ` : ''}
+    `;
+  }
+
+  _renderDetailValue(value) {
+    const formatted = this._formatValue(value);
+
+    // Check if it's a large object/array
+    if (typeof value === 'object' && value !== null) {
+      try {
+        const jsonStr = JSON.stringify(value, null, 2);
+        if (jsonStr.length > 100) {
+          return html`<div class="detail-value-large">${jsonStr}</div>`;
+        }
+      } catch (e) {
+        // Fall through to regular display
+      }
+    }
+
+    return html`
+      <div class="detail-row">
+        <span class="detail-value">${formatted}</span>
+      </div>
+    `;
+  }
+
+  /**
+   * Toggle tree node expansion
+   */
+  _toggleNode(e, path, hasChildren) {
+    e.stopPropagation();
+    if (!hasChildren) return;
+
+    if (this._expandedNodes.has(path)) {
+      this._expandedNodes.delete(path);
+    } else {
+      this._expandedNodes.add(path);
+    }
+    this.requestUpdate();
+  }
+
+  /**
+   * Select a tree node to show details
+   */
+  _selectNode(path, key, value, source) {
+    this._selectedNode = { path, key, value, source };
+    this.requestUpdate();
+  }
+
+  /**
+   * Navigate to a specific path in the tree
+   */
+  _navigateToPath(path) {
+    // Expand all parent nodes
+    const parts = path.split('.');
+    for (let i = 1; i <= parts.length; i++) {
+      const parentPath = parts.slice(0, i).join('.');
+      this._expandedNodes.add(parentPath);
+    }
+
+    // Find and select the node
+    const tree = this._provenance.config.tree;
+    let current = tree;
+    let key = '';
+
+    for (const part of parts) {
+      if (current[part]) {
+        current = current[part];
+        key = part;
+      }
+    }
+
+    const source = current.__source || 'unknown';
+    this._selectNode(path, key, current, source);
+  }
+
+  /**
+   * Get actual value from config for a given path
+   */
+  _getActualValue(path) {
+    if (!this.config) return undefined;
+
+    const parts = path.split('.');
+    let current = this.config;
+
+    for (const part of parts) {
+      if (current && typeof current === 'object' && part in current) {
+        current = current[part];
+      } else {
+        return undefined;
+      }
+    }
+
+    return current;
+  }
+
+  /**
+   * Get theme token info for a field path
+   */
+  _getThemeTokenForField(fieldPath) {
+    if (!this._provenance?.theme_tokens) return null;
+
+    // Check if any token is used by this field
+    for (const [tokenPath, tokenData] of Object.entries(this._provenance.theme_tokens)) {
+      if (tokenData.used_by_fields && tokenData.used_by_fields.includes(fieldPath)) {
+        return {
+          path: tokenPath,
+          ...tokenData
+        };
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Get rule patch info for a field path
+   */
+  _getRulePatchForField(fieldPath) {
+    if (!this._provenance?.rule_patches) return null;
+    return this._provenance.rule_patches[fieldPath] || null;
+  }
+
+  /**
+   * Get template info for a field path
+   */
+  _getTemplateForField(fieldPath) {
+    if (!this._provenance?.templates) return null;
+    return this._provenance.templates[fieldPath] || null;
+  }
+
+  /**
+   * Get related fields (parent and children) for a path
+   */
+  _getRelatedFields(path) {
+    const parts = path.split('.');
+    const parent = parts.length > 1 ? parts.slice(0, -1).join('.') : null;
+
+    // Find children in field_sources
+    const children = [];
+    if (this._provenance?.config?.field_sources) {
+      const childPrefix = path + '.';
+      for (const fieldPath of Object.keys(this._provenance.config.field_sources)) {
+        if (fieldPath.startsWith(childPrefix) && !fieldPath.substring(childPrefix.length).includes('.')) {
+          children.push(fieldPath);
+        }
+      }
+    }
+
+    return { parent, children };
+  }
+
+  /**
+   * Get all tokens that use a specific field (reverse lookup)
+   */
+  _getTokensUsingField(fieldPath) {
+    if (!this._provenance?.theme_tokens) return [];
+
+    const tokens = [];
+    for (const [tokenPath, tokenData] of Object.entries(this._provenance.theme_tokens)) {
+      if (tokenData.used_by_fields && tokenData.used_by_fields.includes(fieldPath)) {
+        tokens.push({
+          path: tokenPath,
+          resolved_value: tokenData.resolved_value
+        });
+      }
+    }
+
+    return tokens;
+  }
+
+  /**
+   * Render indicator badges for a node (in detail panel header)
+   */
+  _renderNodeBadges(themeTokenInfo, rulePatchInfo, templateInfo, usedByTokens) {
+    const badges = [];
+
+    if (themeTokenInfo) {
+      badges.push(html`<span class="node-badge" title="Uses theme token">🔗</span>`);
+    }
+    if (rulePatchInfo) {
+      badges.push(html`<span class="node-badge" title="Has rule patch">⚙️</span>`);
+    }
+    if (templateInfo) {
+      badges.push(html`<span class="node-badge" title="Is templated">📝</span>`);
+    }
+    if (themeTokenInfo?.resolution_chain && themeTokenInfo.resolution_chain.length > 1) {
+      badges.push(html`<span class="node-badge" title="Has resolution chain">🔀</span>`);
+    }
+    if (usedByTokens.length > 0) {
+      badges.push(html`<span class="node-badge" title="Referenced by ${usedByTokens.length} token(s)">🔖 ${usedByTokens.length}</span>`);
+    }
+
+    return badges.length > 0 ? html`<div class="node-badges">${badges}</div>` : '';
+  }
+
+  /**
+   * Render resolution chain as breadcrumb flow
+   */
+  _renderResolutionChain(themeTokenInfo) {
+    if (!themeTokenInfo.resolution_chain || themeTokenInfo.resolution_chain.length === 0) {
+      return html`
+        <div class="detail-row">
+          <span class="detail-label">Token:</span>
+          <code class="token-path">theme:${themeTokenInfo.path}</code>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Value:</span>
+          <span class="detail-value">${this._formatValue(themeTokenInfo.resolved_value)}</span>
+        </div>
+      `;
+    }
+
+    return html`
+      <div class="resolution-chain-flow">
+        ${themeTokenInfo.resolution_chain.map((step, index) => html`
+          <div class="resolution-step-card">
+            <div class="resolution-step-header">
+              <span class="resolution-step-label">Step ${index + 1}</span>
+              ${step.layer ? html`<span class="source-layer-badge small" data-source="${step.layer}">${this._formatLayerName(step.layer)}</span>` : ''}
+            </div>
+            <div class="resolution-step-content">
+              ${step.from ? html`
+                <div class="resolution-from">
+                  <span class="token-label">From:</span>
+                  <code class="token-ref">theme:${step.from}</code>
+                </div>
+              ` : html`
+                <div class="resolution-token">
+                  <span class="token-label">Token:</span>
+                  <code class="token-ref">theme:${step.token || themeTokenInfo.path}</code>
+                </div>
+              `}
+              <ha-icon icon="mdi:arrow-down" class="resolution-arrow-down"></ha-icon>
+              <div class="resolution-to">
+                <span class="token-label">Resolves to:</span>
+                <div class="token-value">
+                  ${this._isColorValue(step.to || step.value) ? html`
+                    <div class="color-preview-inline" style="background-color: ${step.to || step.value};"></div>
+                  ` : ''}
+                  <code>${this._formatValue(step.to || step.value)}</code>
+                </div>
+              </div>
+            </div>
+          </div>
+          ${index < themeTokenInfo.resolution_chain.length - 1 ? html`
+            <ha-icon icon="mdi:chevron-double-down" class="chain-separator"></ha-icon>
+          ` : ''}
+        `)}
+      </div>
+      <div class="resolution-final">
+        <div class="resolution-final-label">Final Resolved Value:</div>
+        <div class="resolution-final-value">
+          ${this._isColorValue(themeTokenInfo.resolved_value) ? html`
+            <div class="color-preview-inline" style="background-color: ${themeTokenInfo.resolved_value};"></div>
+          ` : ''}
+          <code>${this._formatValue(themeTokenInfo.resolved_value)}</code>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Render before/after comparison for patches and templates
+   */
+  _renderBeforeAfter(beforeLabel, afterLabel, beforeValue, afterValue) {
+    const beforeFormatted = this._formatValue(beforeValue);
+    const afterFormatted = this._formatValue(afterValue);
+
+    return html`
+      <div class="before-after-container">
+        <div class="before-after-panel before">
+          <div class="before-after-label">${beforeLabel}</div>
+          <div class="before-after-value">
+            ${typeof beforeValue === 'string' && beforeValue.length > 50 ? html`
+              <pre><code>${beforeValue}</code></pre>
+            ` : html`
+              <code>${beforeFormatted}</code>
+            `}
+          </div>
+        </div>
+
+        <div class="before-after-arrow">
+          <ha-icon icon="mdi:arrow-right-thick"></ha-icon>
+        </div>
+
+        <div class="before-after-panel after">
+          <div class="before-after-label">${afterLabel}</div>
+          <div class="before-after-value">
+            ${typeof afterValue === 'string' && afterValue.length > 50 ? html`
+              <pre><code>${afterValue}</code></pre>
+            ` : html`
+              <code>${afterFormatted}</code>
+            `}
+            ${this._isColorValue(afterValue) ? html`
+              <div class="color-preview-inline" style="background-color: ${afterValue};"></div>
+            ` : ''}
+          </div>
+        </div>
       </div>
     `;
   }
@@ -1092,6 +2461,82 @@ export class LCARdSProvenanceTab extends LitElement {
     this._applyFilters();
   }
 
+  _expandInterestingNodes() {
+    // Expand paths that lead to nodes with tokens, patches, or templates
+    if (!this._provenance) return;
+
+    const interestingPaths = new Set();
+
+    // Add paths for theme tokens
+    if (this._provenance.theme_tokens) {
+      for (const [, tokenData] of Object.entries(this._provenance.theme_tokens)) {
+        if (tokenData.used_by_fields) {
+          tokenData.used_by_fields.forEach(path => {
+            // Add this path and all parent paths
+            const parts = path.split('.');
+            for (let i = 1; i <= parts.length; i++) {
+              interestingPaths.add(parts.slice(0, i).join('.'));
+            }
+          });
+        }
+      }
+    }
+
+    // Add paths for rule patches
+    if (this._provenance.rule_patches) {
+      for (const path of Object.keys(this._provenance.rule_patches)) {
+        const parts = path.split('.');
+        for (let i = 1; i <= parts.length; i++) {
+          interestingPaths.add(parts.slice(0, i).join('.'));
+        }
+      }
+    }
+
+    // Add paths for templates
+    if (this._provenance.templates) {
+      for (const path of Object.keys(this._provenance.templates)) {
+        const parts = path.split('.');
+        for (let i = 1; i <= parts.length; i++) {
+          interestingPaths.add(parts.slice(0, i).join('.'));
+        }
+      }
+    }
+
+    lcardsLog.info('[ProvenanceTab] Expanding interesting nodes:', interestingPaths.size, 'paths');
+    this._expandedNodes = interestingPaths;
+    this.requestUpdate();
+  }
+
+  _expandAll() {
+    // Recursively expand all nodes
+    const expandAllPaths = (node, parentPath = '') => {
+      if (!node || typeof node !== 'object') return;
+
+      Object.keys(node).forEach(key => {
+        if (key === '__source') return;
+
+        const fullPath = parentPath ? `${parentPath}.${key}` : key;
+        this._expandedNodes.add(fullPath);
+
+        if (node[key] && typeof node[key] === 'object') {
+          expandAllPaths(node[key], fullPath);
+        }
+      });
+    };
+
+    if (this._provenance?.config?.tree) {
+      expandAllPaths(this._provenance.config.tree);
+      lcardsLog.info('[ProvenanceTab] Expanded all nodes:', this._expandedNodes.size, 'total');
+      this.requestUpdate();
+    }
+  }
+
+  _collapseAll() {
+    this._expandedNodes.clear();
+    lcardsLog.info('[ProvenanceTab] Collapsed all nodes');
+    this.requestUpdate();
+  }
+
   _toggleSection(section) {
     if (this._collapsedSections.has(section)) {
       this._collapsedSections.delete(section);
@@ -1214,23 +2659,26 @@ export class LCARdSProvenanceTab extends LitElement {
 
       const cardType = this.config.type?.replace('custom:', '') || 'lcards-button';
 
-      // Strategy 1: Search up through parent shadow roots (editor might be nested)
+      // CRITICAL: Find the editor's preview card, not the dashboard card
+      // When editing an existing card, there are TWO instances:
+      //   1. The preview card in the editor dialog (.element-preview container)
+      //   2. The original card on the dashboard
+      // We want the preview card (#1) because that's what the editor is configuring
+      //
+      // DOM structure: .element-preview > hui-section > hui-grid-section > ... > hui-card > lcards-button
+      // So we need to: (1) find .element-preview, (2) search inside it for the card
+
+      // Strategy 1: Search up through parent shadow roots to find .element-preview
       let searchRoot = this.getRootNode();
+      let previewContainer = null;
 
       let attempts = 0;
       while (searchRoot && attempts < 10) {
-        const selectors = [
-          `.element-preview ${cardType}`,
-          `hui-card ${cardType}`,
-          cardType
-        ];
-
-        for (const selector of selectors) {
-          card = searchRoot.querySelector?.(selector);
-          if (card) break;
+        previewContainer = searchRoot.querySelector?.('.element-preview');
+        if (previewContainer) {
+          lcardsLog.debug('[ProvenanceTab] ✅ Found .element-preview container in shadow root');
+          break;
         }
-
-        if (card) break;
 
         // Move to parent shadow root
         if (searchRoot.host) {
@@ -1241,35 +2689,85 @@ export class LCARdSProvenanceTab extends LitElement {
         attempts++;
       }
 
-      // Strategy 2: If not found, the preview might be a sibling in the document
-      // Search the entire document including all shadow roots
-      if (!card) {
-        lcardsLog.debug('[ProvenanceTab] Card not found in parent chain, searching document...');
+      // Strategy 2: If not found in parent chain, search entire document
+      if (!previewContainer) {
+        lcardsLog.debug('[ProvenanceTab] .element-preview not found in parent chain, searching document...');
 
-        // Helper to recursively search shadow roots
-        const searchInShadowRoots = (root) => {
+        // Helper to recursively search shadow roots for .element-preview
+        const findPreviewContainer = (root) => {
           if (!root) return null;
 
-          // Try direct selectors
-          for (const selector of [`.element-preview ${cardType}`, `hui-card ${cardType}`, cardType]) {
-            const found = root.querySelector?.(selector);
-            if (found) return found;
-          }
+          const preview = root.querySelector?.('.element-preview');
+          if (preview) return preview;
 
           // Recursively search child shadow roots
           const allElements = root.querySelectorAll?.('*') || [];
           for (const el of allElements) {
             if (el.shadowRoot) {
-              const found = searchInShadowRoots(el.shadowRoot);
+              const found = findPreviewContainer(el.shadowRoot);
               if (found) return found;
             }
           }
           return null;
         };
 
-        card = searchInShadowRoots(document);
+        previewContainer = findPreviewContainer(document);
+        if (previewContainer) {
+          lcardsLog.debug('[ProvenanceTab] ✅ Found .element-preview via document search');
+        }
+      }
+
+      // Strategy 3: Now search INSIDE .element-preview for the card
+      if (previewContainer) {
+        // Search inside the preview container for the card
+        // The card is nested deep: hui-section > hui-grid-section > ... > hui-card > lcards-button
+        const searchInPreview = (root) => {
+          if (!root) return null;
+
+          // Try direct querySelector first
+          let found = root.querySelector?.(cardType);
+          if (found) return found;
+
+          // Recursively search shadow roots
+          const allElements = root.querySelectorAll?.('*') || [];
+          for (const el of allElements) {
+            if (el.shadowRoot) {
+              found = searchInPreview(el.shadowRoot);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+
+        card = searchInPreview(previewContainer);
         if (card) {
-          lcardsLog.debug('[ProvenanceTab] Found card via recursive document search');
+          lcardsLog.info('[ProvenanceTab] ✅ Found preview card inside .element-preview');
+        }
+      }
+
+      // Strategy 4: Fallback - search for any card (might be dashboard card)
+      if (!card) {
+        lcardsLog.debug('[ProvenanceTab] Preview card not found, falling back to any card instance...');
+
+        const searchAnywhere = (root) => {
+          if (!root) return null;
+
+          let found = root.querySelector?.(cardType);
+          if (found) return found;
+
+          const allElements = root.querySelectorAll?.('*') || [];
+          for (const el of allElements) {
+            if (el.shadowRoot) {
+              found = searchAnywhere(el.shadowRoot);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+
+        card = searchAnywhere(document);
+        if (card) {
+          lcardsLog.warn('[ProvenanceTab] ⚠️ Found card outside .element-preview (may be dashboard card, not preview)');
         }
       }
 
@@ -1286,6 +2784,17 @@ export class LCARdSProvenanceTab extends LitElement {
         this._provenance = null;
         return;
       }
+
+      // Log which card we found for debugging
+      const cardGuid = card._cardGuid || 'no-guid';
+      const cardEntity = card.config?.entity || 'no-entity';
+      const cardId = card.config?.id || 'no-id';
+      lcardsLog.info(`[ProvenanceTab] ✅ Loading provenance from card: ${card.tagName}`, {
+        guid: cardGuid,
+        entity: cardEntity,
+        id: cardId,
+        isPreview: !!card.closest('.element-preview')
+      });
 
       // Get provenance from the actual rendered card
       this._provenance = card.getProvenance();
@@ -1315,6 +2824,14 @@ export class LCARdSProvenanceTab extends LitElement {
           const sampleTokenKey = Object.keys(this._provenance.theme_tokens)[0];
           if (sampleTokenKey) {
             lcardsLog.debug('[ProvenanceTab] Sample token:', sampleTokenKey, '=', this._provenance.theme_tokens[sampleTokenKey]);
+          }
+
+          // NEW: Log all fields that use theme tokens
+          lcardsLog.info('[ProvenanceTab] 🎨 Fields using theme tokens:');
+          for (const [tokenPath, tokenData] of Object.entries(this._provenance.theme_tokens)) {
+            if (tokenData.used_by_fields && tokenData.used_by_fields.length > 0) {
+              lcardsLog.info(`  Token "${tokenPath}" → used by:`, tokenData.used_by_fields);
+            }
           }
         }
       }

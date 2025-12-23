@@ -594,6 +594,18 @@ export class RulesEngine extends BaseService {
         // Resolve overlay selectors to patches (supports bulk targeting)
         result.overlayPatches = this._resolveOverlaySelectors(rule.apply, contextOverlays);  // ✨ CHANGED: Pass contextOverlays
 
+        // Add ruleId and condition info to each patch for provenance tracking
+        if (result.overlayPatches) {
+          // Build a human-readable condition string
+          const conditionStr = rule.when ? JSON.stringify(rule.when) : 'always true';
+
+          result.overlayPatches = result.overlayPatches.map(patch => ({
+            ...patch,
+            ruleId: rule.id,
+            ruleCondition: conditionStr
+          }));
+        }
+
         // DEBUG: Log the patches we got back
         lcardsLog.debug(`[RulesEngine] ✨ _resolveOverlaySelectors returned:`, {
           ruleId: rule.id,

@@ -1210,31 +1210,76 @@ export class LCARdSCard extends LCARdSNativeCard {
         });
 
         // Track rule patches in provenance tracker
-        if (this._provenanceTracker && mergedPatch.style) {
-            const rulesEngine = this._singletons?.rulesManager;
+        if (this._provenanceTracker) {
+            // Get rulesEngine - try singletons first, fallback to global
+            const rulesEngine = this._singletons?.rulesEngine || window.lcards?.core?.rulesManager;
 
-            // Track each patched style field
-            for (const [key, value] of Object.entries(mergedPatch.style)) {
-                const fieldPath = `style.${key}`;
-                const originalValue = this.config?.style?.[key];
+            lcardsLog.debug(`[LCARdSCard] 🔍 Starting rule patch tracking for ${this._overlayId}`, {
+                hasRulesEngine: !!rulesEngine,
+                hasTrackMethod: !!(rulesEngine && rulesEngine.trackRulePatch),
+                mergedPatchKeys: Object.keys(mergedPatch),
+                myPatchesCount: myPatches.length,
+                source: this._singletons?.rulesEngine ? 'singletons' : 'global',
+                firstPatch: myPatches[0] // Show first patch structure
+            });
 
-                // Get rule info from patches (first patch that has this field)
-                const rulePatch = myPatches.find(p => p.style && key in p.style);
-                const ruleId = rulePatch?.ruleId || 'unknown';
-                const ruleCondition = rulePatch?.ruleCondition || 'unknown condition';
+            // Helper to recursively track patches for all fields
+            const trackPatchesRecursive = (patchObj, configObj, pathPrefix = '') => {
+                if (!patchObj || typeof patchObj !== 'object') return;
 
-                // Track the patch
-                if (rulesEngine && rulesEngine.trackRulePatch) {
-                    rulesEngine.trackRulePatch(
-                        fieldPath,
-                        originalValue,
-                        value,
-                        ruleId,
-                        ruleCondition,
-                        this._provenanceTracker
-                    );
+                for (const [key, value] of Object.entries(patchObj)) {
+                    // Skip metadata fields
+                    if (key === 'id' || key === 'ruleId' || key === 'ruleCondition') continue;
+
+                    const fieldPath = pathPrefix ? `${pathPrefix}.${key}` : key;
+                    const originalValue = configObj?.[key];
+
+                    // If value is an object, recurse
+                    if (value && typeof value === 'object' && !Array.isArray(value)) {
+                        trackPatchesRecursive(value, originalValue || {}, fieldPath);
+                    } else {
+                        // Track this field patch
+                        // Get rule info from patches (first patch that has this field)
+                        const rulePatch = myPatches.find(p => {
+                            // Navigate to the nested property to check if it exists
+                            const parts = fieldPath.split('.');
+                            let obj = p;
+                            for (const part of parts) {
+                                if (!obj || typeof obj !== 'object') return false;
+                                obj = obj[part];
+                            }
+                            return obj !== undefined;
+                        });
+
+                        const ruleId = rulePatch?.ruleId || 'unknown';
+                        const ruleCondition = rulePatch?.ruleCondition || 'unknown condition';
+
+                        lcardsLog.debug(`[LCARdSCard] 📝 Tracking patch: ${fieldPath}`, {
+                            ruleId,
+                            originalValue,
+                            newValue: value,
+                            foundRulePatch: !!rulePatch
+                        });
+
+                        // Track the patch
+                        if (rulesEngine && rulesEngine.trackRulePatch) {
+                            rulesEngine.trackRulePatch(
+                                fieldPath,
+                                originalValue,
+                                value,
+                                ruleId,
+                                ruleCondition,
+                                this._provenanceTracker
+                            );
+                        } else {
+                            lcardsLog.warn('[LCARdSCard] ⚠️ Cannot track patch - no rulesEngine.trackRulePatch method');
+                        }
+                    }
                 }
-            }
+            };
+
+            // Track all patched fields (not just style)
+            trackPatchesRecursive(mergedPatch, this.config);
         }
 
         // Deep merge patches into config (for non-style properties like text, dpad, etc.)
