@@ -254,12 +254,13 @@ window.lcards.getAlertMode = () => {
   return window.lcards?.core?.themeManager?.getAlertMode() || 'green_alert';
 };
 
-// Convenience shortcuts
-window.lcards.redAlert = () => window.lcards.setAlertMode('red_alert');
-window.lcards.blueAlert = () => window.lcards.setAlertMode('blue_alert');
-window.lcards.yellowAlert = () => window.lcards.setAlertMode('yellow_alert');
-window.lcards.greyAlert = () => window.lcards.setAlertMode('grey_alert');
-window.lcards.blackAlert = () => window.lcards.setAlertMode('black_alert');
-window.lcards.normalAlert = () => window.lcards.setAlertMode('green_alert');
+// Convenience shortcuts (all async to match setAlertMode)
+window.lcards.redAlert = async () => window.lcards.setAlertMode('red_alert');
+window.lcards.blueAlert = async () => window.lcards.setAlertMode('blue_alert');
+window.lcards.yellowAlert = async () => window.lcards.setAlertMode('yellow_alert');
+window.lcards.grayAlert = async () => window.lcards.setAlertMode('gray_alert');
+window.lcards.blackAlert = async () => window.lcards.setAlertMode('black_alert');
+window.lcards.normalAlert = async () => window.lcards.setAlertMode('green_alert');
+window.lcards.greenAlert = async () => window.lcards.setAlertMode('green_alert');
 
 lcardsLog.info('[lcards.js] ✅ Alert mode console API attached');

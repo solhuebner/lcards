@@ -35,7 +35,7 @@ const dpadSvg = `<?xml version="1.0" encoding="UTF-8"?>
       </cc:Work>
     </rdf:RDF>
   </metadata>
-  <rect id="background" width="80" height="80" fill="#1a1a2e" />
+  <rect id="background" width="80" height="80" fill="none" />
   <path id="up-left" d="m33 33v-32.35c-15.992 2.4474-29.977 16.417-32.424 32.35z" />
   <path id="up-right" d="m47 33v-32.35c15.992 2.4474 29.977 16.417 32.424 32.35z" />
   <path id="down-left" d="m33 47v32.35c-15.992-2.4474-29.977-16.417-32.424-32.35z" />

@@ -516,7 +516,7 @@ export class ThemeManager extends BaseService {
 
   /**
    * Set alert mode
-   * 
+   *
    * @param {string} mode - Alert mode ('red_alert', 'blue_alert', etc.)
    * @returns {Promise<void>}
    */
@@ -525,28 +525,25 @@ export class ThemeManager extends BaseService {
       lcardsLog.warn(`[ThemeManager] Unknown alert mode: ${mode}`);
       return;
     }
-    
+
     // Get HASS instance
     const hass = this._hass || window.lcards?.core?._currentHass;
     if (!hass) {
       lcardsLog.error('[ThemeManager] Cannot set alert mode - HASS not available');
       return;
     }
-    
-    // Apply alert mode
+
+    // Apply alert mode (injectAlertMode handles CSS variable updates and event dispatch)
     await injectAlertMode(mode, hass);
-    
+
     // Update state
     this.currentAlertMode = mode;
-    
+
     // Clear token cache (colors have changed)
     if (this.resolver) {
       this.resolver.clearCache();
     }
-    
-    // Notify subscribers
-    this._notifyThemeChange('alert_mode', { mode });
-    
+
     lcardsLog.info(`[ThemeManager] ✅ Alert mode: ${mode}`);
   }
 
