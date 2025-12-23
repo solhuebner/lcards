@@ -19,6 +19,7 @@ import { UnifiedTemplateEvaluator } from '../../../core/templates/UnifiedTemplat
 import { lcardsLog } from '../../../utils/lcards-logging.js';
 import '../shared/lcards-message.js';
 import '../shared/lcards-form-section.js';
+import './lcards-template-sandbox.js';
 
 export class LCARdSTemplateEvaluationTab extends LitElement {
   static get properties() {
@@ -28,7 +29,9 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
       hass: { type: Object },
       _templates: { type: Array, state: true },
       _isEvaluating: { type: Boolean, state: true },
-      _filterType: { type: String, state: true }
+      _filterType: { type: String, state: true },
+      _sandboxOpen: { type: Boolean, state: true },
+      _sandboxInitialData: { type: Object, state: true }
     };
   }
 
@@ -37,6 +40,8 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
     this._templates = [];
     this._isEvaluating = false;
     this._filterType = 'all';
+    this._sandboxOpen = false;
+    this._sandboxInitialData = null;
   }
 
   static get styles() {
@@ -98,6 +103,19 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
         background: var(--primary-color);
         color: var(--ha-card-background, #fff);
         border-color: var(--primary-color);
+      }
+
+      .header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+
+      .header-row h3 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
       }
 
       .templates-grid {
@@ -284,9 +302,23 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
 
   render() {
     return html`
+      ${this._renderHeader()}
       ${this._renderSyntaxReference()}
       ${this._renderFilterBar()}
       ${this._renderTemplatesTable()}
+      ${this._renderSandbox()}
+    `;
+  }
+
+  _renderHeader() {
+    return html`
+      <div class="header-row">
+        <h3>Template Discovery</h3>
+        <ha-button @click=${this._openSandbox}>
+          <ha-icon icon="mdi:flask-outline" slot="icon"></ha-icon>
+          🧪 Open Template Sandbox
+        </ha-button>
+      </div>
     `;
   }
 
@@ -418,6 +450,12 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
             @click=${(e) => this._copyToClipboard(template.raw, e)}>
             <ha-icon icon="mdi:code-braces" slot="icon"></ha-icon>
             Copy Template
+          </ha-button>
+          <ha-button
+            size="small"
+            @click=${() => this._testInSandbox(template)}>
+            <ha-icon icon="mdi:flask-outline" slot="icon"></ha-icon>
+            🧪 Test in Sandbox
           </ha-button>
         </div>
       </div>
@@ -788,6 +826,48 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
         }
       }
     }
+  }
+
+  /**
+   * Render the template sandbox modal
+   */
+  _renderSandbox() {
+    return html`
+      <lcards-template-sandbox
+        .hass=${this.hass}
+        .config=${this.config}
+        .open=${this._sandboxOpen}
+        .initialData=${this._sandboxInitialData}
+        @sandbox-closed=${this._handleSandboxClosed}>
+      </lcards-template-sandbox>
+    `;
+  }
+
+  /**
+   * Open the template sandbox with optional initial data
+   */
+  _openSandbox(initialData = null) {
+    this._sandboxInitialData = initialData;
+    this._sandboxOpen = true;
+  }
+
+  /**
+   * Test a template in the sandbox
+   */
+  _testInSandbox(template) {
+    const entityId = this.config?.entity || 'light.example';
+    this._openSandbox({
+      template: template.raw,
+      mockEntity: entityId
+    });
+  }
+
+  /**
+   * Handle sandbox closed event
+   */
+  _handleSandboxClosed() {
+    this._sandboxOpen = false;
+    this._sandboxInitialData = null;
   }
 }
 
