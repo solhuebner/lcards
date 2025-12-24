@@ -17,6 +17,7 @@ import { fireEvent } from 'custom-card-helpers';
 import './lcards-card-datasources-list.js';
 import './lcards-global-datasources-panel.js';
 import './lcards-datasource-dialog.js';
+import './lcards-datasource-browser.js';
 import '../shared/lcards-message.js';
 
 export class LCARdSDataSourceEditorTab extends LitElement {
@@ -27,7 +28,8 @@ export class LCARdSDataSourceEditorTab extends LitElement {
       _activeSubTab: { type: String, state: true },  // 'card' | 'global'
       _dialogOpen: { type: Boolean, state: true },
       _dialogMode: { type: String, state: true },
-      _editingSource: { type: Object, state: true }
+      _editingSource: { type: Object, state: true },
+      _browserOpen: { type: Boolean, state: true }
     };
   }
 
@@ -37,6 +39,7 @@ export class LCARdSDataSourceEditorTab extends LitElement {
     this._dialogOpen = false;
     this._dialogMode = 'add';
     this._editingSource = null;
+    this._browserOpen = false;
   }
 
   static get styles() {
@@ -104,11 +107,43 @@ export class LCARdSDataSourceEditorTab extends LitElement {
         margin-bottom: 16px;
       }
 
+      .header-actions {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+
       .add-source-button {
         display: flex;
         align-items: center;
         gap: 4px;
         cursor: pointer;
+      }
+
+      .browse-button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        background: var(--primary-color);
+        color: var(--text-primary-color, white);
+        border: none;
+        border-radius: 8px;
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+
+      .browse-button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      }
+
+      .browse-button ha-icon {
+        --mdc-icon-size: 20px;
       }
 
       mwc-button {
@@ -145,6 +180,13 @@ export class LCARdSDataSourceEditorTab extends LitElement {
         @save=${this._handleDialogSave}
         @cancel=${() => this._dialogOpen = false}>
       </lcards-datasource-dialog>
+
+      <lcards-datasource-browser
+        .hass=${this.hass}
+        .cardConfig=${this.editor?.config}
+        .open=${this._browserOpen}
+        @close=${() => this._browserOpen = false}>
+      </lcards-datasource-browser>
     `;
   }
 
@@ -154,13 +196,23 @@ export class LCARdSDataSourceEditorTab extends LitElement {
         return html`
           <div class="card-sources-header">
             <div></div>
-            <mwc-button
-              class="add-source-button"
-              raised
-              @click=${this._handleAddSource}>
-              <ha-icon icon="mdi:plus"></ha-icon>
-              Add Source
-            </mwc-button>
+            <div class="header-actions">
+              <button
+                class="browse-button"
+                @click=${this._openBrowser}
+                title="Browse all data sources"
+              >
+                <ha-icon icon="mdi:database-search"></ha-icon>
+                <span>Browse Sources</span>
+              </button>
+              <mwc-button
+                class="add-source-button"
+                raised
+                @click=${this._handleAddSource}>
+                <ha-icon icon="mdi:plus"></ha-icon>
+                Add Source
+              </mwc-button>
+            </div>
           </div>
 
           <lcards-card-datasources-list
@@ -186,6 +238,10 @@ export class LCARdSDataSourceEditorTab extends LitElement {
 
   _setActiveTab(tab) {
     this._activeSubTab = tab;
+  }
+
+  _openBrowser() {
+    this._browserOpen = true;
   }
 
   _handleAddSource() {
