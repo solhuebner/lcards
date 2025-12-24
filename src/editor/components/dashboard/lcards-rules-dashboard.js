@@ -84,8 +84,30 @@ export class LCARdSRulesDashboard extends LitElement {
                 opacity: 0.8;
             }
 
+            .table-wrapper {
+                overflow-x: auto;
+                overflow-y: visible;
+                margin: 0 -12px;
+                padding: 0 12px;
+                mask-image: linear-gradient(
+                    to right,
+                    transparent,
+                    black 20px,
+                    black calc(100% - 20px),
+                    transparent
+                );
+                -webkit-mask-image: linear-gradient(
+                    to right,
+                    transparent,
+                    black 20px,
+                    black calc(100% - 20px),
+                    transparent
+                );
+            }
+
             .rules-table {
-                width: 100%;
+                min-width: 100%;
+                width: max-content;
                 border-collapse: collapse;
                 background: var(--card-background-color, #fff);
                 border-radius: 8px;
@@ -103,9 +125,26 @@ export class LCARdSRulesDashboard extends LitElement {
                 cursor: pointer;
                 user-select: none;
                 border-bottom: 2px solid var(--divider-color, #e0e0e0);
+                white-space: nowrap;
+            }
+
+            .rules-table th:first-child,
+            .rules-table td:first-child {
+                position: sticky;
+                left: 0;
+                background: var(--card-background-color, #fff);
+                z-index: 1;
+            }
+
+            .rules-table th:first-child {
+                background: var(--secondary-background-color, #f5f5f5);
             }
 
             .rules-table th:hover {
+                background: var(--divider-color, #e0e0e0);
+            }
+
+            .rules-table th:first-child:hover {
                 background: var(--divider-color, #e0e0e0);
             }
 
@@ -121,6 +160,7 @@ export class LCARdSRulesDashboard extends LitElement {
             .rules-table td {
                 padding: 12px;
                 border-bottom: 1px solid var(--divider-color, #e0e0e0);
+                white-space: nowrap;
             }
 
             .rules-table tr:last-child td {
@@ -195,6 +235,39 @@ export class LCARdSRulesDashboard extends LitElement {
             .rule-actions {
                 font-size: 12px;
                 font-weight: 600;
+            }
+
+            .rule-row-actions {
+                display: none;
+                gap: 4px;
+                align-items: center;
+                justify-content: flex-end;
+            }
+
+            .rules-table tr:hover .rule-row-actions {
+                display: flex;
+            }
+
+            .action-button {
+                background: none;
+                border: none;
+                cursor: pointer;
+                padding: 4px 8px;
+                border-radius: 4px;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                font-size: 11px;
+                color: var(--primary-color, #03a9f4);
+                transition: background 0.2s ease;
+            }
+
+            .action-button:hover {
+                background: var(--secondary-background-color, #f5f5f5);
+            }
+
+            .action-button ha-icon {
+                --mdc-icon-size: 16px;
             }
 
             .help-content {
@@ -486,6 +559,165 @@ export class LCARdSRulesDashboard extends LitElement {
     }
 
     /**
+     * Handle copy YAML action
+     * @param {Object} rule - Rule object
+     * @private
+     */
+    _handleCopyYAML(rule) {
+        try {
+            // Convert rule object to YAML-like string
+            const yaml = this._ruleToYAML(rule);
+            
+            // Copy to clipboard
+            navigator.clipboard.writeText(yaml).then(() => {
+                console.log('[RulesDashboard] Copied rule YAML to clipboard:', rule.id);
+                // Could show a toast notification here if available
+            }).catch(err => {
+                console.error('[RulesDashboard] Failed to copy to clipboard:', err);
+            });
+        } catch (error) {
+            console.error('[RulesDashboard] Error copying rule YAML:', error);
+        }
+    }
+
+    /**
+     * Convert rule object to YAML format
+     * @param {Object} rule - Rule object
+     * @returns {String} YAML representation
+     * @private
+     */
+    _ruleToYAML(rule) {
+        const indent = (level) => '  '.repeat(level);
+        let yaml = '';
+
+        // Basic properties
+        yaml += `- id: ${rule.id || 'unnamed'}\n`;
+        if (rule.priority !== undefined && rule.priority !== 0) {
+            yaml += `${indent(1)}priority: ${rule.priority}\n`;
+        }
+        if (rule.enabled === false) {
+            yaml += `${indent(1)}enabled: false\n`;
+        }
+        if (rule.stop === true) {
+            yaml += `${indent(1)}stop: true\n`;
+        }
+
+        // Conditions (when)
+        if (rule.when) {
+            yaml += `${indent(1)}when:\n`;
+            yaml += this._conditionsToYAML(rule.when, 2);
+        }
+
+        // Apply section
+        if (rule.apply) {
+            yaml += `${indent(1)}apply:\n`;
+            if (rule.apply.overlays) {
+                yaml += `${indent(2)}overlays:\n`;
+                for (const [overlayId, overlayConfig] of Object.entries(rule.apply.overlays)) {
+                    yaml += `${indent(3)}${overlayId}:\n`;
+                    yaml += this._objectToYAML(overlayConfig, 4);
+                }
+            }
+        }
+
+        return yaml;
+    }
+
+    /**
+     * Convert conditions to YAML
+     * @param {Object} conditions - Conditions object
+     * @param {Number} level - Indentation level
+     * @returns {String} YAML representation
+     * @private
+     */
+    _conditionsToYAML(conditions, level) {
+        const indent = (l) => '  '.repeat(l);
+        let yaml = '';
+
+        if (conditions.all || conditions.any || conditions.not) {
+            const op = conditions.all ? 'all' : conditions.any ? 'any' : 'not';
+            yaml += `${indent(level)}${op}:\n`;
+            const condList = conditions[op];
+            if (Array.isArray(condList)) {
+                condList.forEach(cond => {
+                    yaml += `${indent(level + 1)}- `;
+                    if (cond.entity) {
+                        yaml += `entity: ${cond.entity}\n`;
+                        if (cond.state !== undefined) {
+                            yaml += `${indent(level + 2)}state: "${cond.state}"\n`;
+                        }
+                    }
+                });
+            }
+        } else if (conditions.entity) {
+            yaml += `${indent(level)}entity: ${conditions.entity}\n`;
+            if (conditions.state !== undefined) {
+                yaml += `${indent(level)}state: "${conditions.state}"\n`;
+            }
+        }
+
+        return yaml;
+    }
+
+    /**
+     * Convert object to YAML
+     * @param {Object} obj - Object to convert
+     * @param {Number} level - Indentation level
+     * @returns {String} YAML representation
+     * @private
+     */
+    _objectToYAML(obj, level) {
+        const indent = (l) => '  '.repeat(l);
+        let yaml = '';
+
+        for (const [key, value] of Object.entries(obj)) {
+            if (value === null || value === undefined) continue;
+            
+            if (typeof value === 'object' && !Array.isArray(value)) {
+                yaml += `${indent(level)}${key}:\n`;
+                yaml += this._objectToYAML(value, level + 1);
+            } else if (Array.isArray(value)) {
+                yaml += `${indent(level)}${key}:\n`;
+                value.forEach(item => {
+                    if (typeof item === 'object') {
+                        yaml += `${indent(level + 1)}-\n`;
+                        yaml += this._objectToYAML(item, level + 2);
+                    } else {
+                        yaml += `${indent(level + 1)}- ${item}\n`;
+                    }
+                });
+            } else {
+                yaml += `${indent(level)}${key}: ${typeof value === 'string' ? `"${value}"` : value}\n`;
+            }
+        }
+
+        return yaml;
+    }
+
+    /**
+     * Handle preview action
+     * @param {Object} rule - Rule object
+     * @private
+     */
+    _handlePreview(rule) {
+        console.log('[RulesDashboard] Preview rule:', rule.id);
+        
+        // Create a simple alert dialog showing rule details
+        const targets = this._getRuleTargets(rule);
+        const conditions = this._getConditionSummary(rule);
+        const actions = this._getActionsCount(rule);
+        
+        const message = `Rule: ${rule.id}\n\n` +
+                       `Target: ${targets}\n` +
+                       `Conditions: ${conditions}\n` +
+                       `Actions: ${actions}\n` +
+                       `Priority: ${rule.priority ?? 0}\n` +
+                       `Enabled: ${rule.enabled !== false ? 'Yes' : 'No'}`;
+        
+        alert(message);
+    }
+
+    /**
      * Render rules table
      * @param {Array} rules - Rules to display
      * @param {Boolean} highlight - Whether to highlight targeting rules
@@ -496,109 +728,130 @@ export class LCARdSRulesDashboard extends LitElement {
         const sortedRules = this._getSortedRules(rules);
 
         return html`
-            <table class="rules-table">
-                <thead>
-                    <tr>
-                        <th @click=${() => this._handleSort('id')}
-                            class=${this._sortColumn === 'id' ? 'sorted' : ''}>
-                            Rule ID
-                            <span class="sort-indicator">
-                                ${this._sortColumn === 'id' ?
-                                    (this._sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
-                            </span>
-                        </th>
-                        <th @click=${() => this._handleSort('priority')}
-                            class=${this._sortColumn === 'priority' ? 'sorted' : ''}>
-                            Priority
-                            <span class="sort-indicator">
-                                ${this._sortColumn === 'priority' ?
-                                    (this._sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
-                            </span>
-                        </th>
-                        <th @click=${() => this._handleSort('enabled')}
-                            class=${this._sortColumn === 'enabled' ? 'sorted' : ''}>
-                            Status
-                            <span class="sort-indicator">
-                                ${this._sortColumn === 'enabled' ?
-                                    (this._sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
-                            </span>
-                        </th>
-                        <th @click=${() => this._handleSort('source')}
-                            class=${this._sortColumn === 'source' ? 'sorted' : ''}>
-                            Source Card
-                            <span class="sort-indicator">
-                                ${this._sortColumn === 'source' ?
-                                    (this._sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
-                            </span>
-                        </th>
-                        <th @click=${() => this._handleSort('target')}
-                            class=${this._sortColumn === 'target' ? 'sorted' : ''}>
-                            Target
-                            <span class="sort-indicator">
-                                ${this._sortColumn === 'target' ?
-                                    (this._sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
-                            </span>
-                        </th>
-                        <th>Conditions</th>
-                        <th @click=${() => this._handleSort('actions')}
-                            class=${this._sortColumn === 'actions' ? 'sorted' : ''}>
-                            Actions
-                            <span class="sort-indicator">
-                                ${this._sortColumn === 'actions' ?
-                                    (this._sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
-                            </span>
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${sortedRules.map(rule => {
-                        const isTargeting = highlight && this._isTargetingCard(rule, this.cardId);
-                        const hasStop = rule.stop === true;
-                        const cardType = this._getSourceCardType(rule);
-                        return html`
-                            <tr class=${isTargeting ? 'highlight' : ''}>
-                                <td><span class="rule-id">${rule.id || 'N/A'}</span></td>
-                                <td>
-                                    <span class="rule-priority">
-                                        ${rule.priority ?? 0}${hasStop ? ' 🛑' : ''}
-                                    </span>
-                                </td>
-                                <td>
-                                    <span class="rule-enabled">
-                                        <span class="status-badge ${rule.enabled !== false ? 'enabled' : 'disabled'}"></span>
-                                        ${rule.enabled !== false ? 'Enabled' : 'Disabled'}
-                                    </span>
-                                </td>
-                                <td>
-                                    <div class="rule-target">
-                                        <div style="font-family: monospace; font-size: 12px;">
-                                            ${this._getSourceCard(rule)}
+            <div class="table-wrapper">
+                <table class="rules-table">
+                    <thead>
+                        <tr>
+                            <th @click=${() => this._handleSort('id')}
+                                class=${this._sortColumn === 'id' ? 'sorted' : ''}>
+                                Rule ID
+                                <span class="sort-indicator">
+                                    ${this._sortColumn === 'id' ?
+                                        (this._sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                                </span>
+                            </th>
+                            <th @click=${() => this._handleSort('priority')}
+                                class=${this._sortColumn === 'priority' ? 'sorted' : ''}>
+                                Priority
+                                <span class="sort-indicator">
+                                    ${this._sortColumn === 'priority' ?
+                                        (this._sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                                </span>
+                            </th>
+                            <th @click=${() => this._handleSort('enabled')}
+                                class=${this._sortColumn === 'enabled' ? 'sorted' : ''}>
+                                Status
+                                <span class="sort-indicator">
+                                    ${this._sortColumn === 'enabled' ?
+                                        (this._sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                                </span>
+                            </th>
+                            <th @click=${() => this._handleSort('source')}
+                                class=${this._sortColumn === 'source' ? 'sorted' : ''}>
+                                Source Card
+                                <span class="sort-indicator">
+                                    ${this._sortColumn === 'source' ?
+                                        (this._sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                                </span>
+                            </th>
+                            <th @click=${() => this._handleSort('target')}
+                                class=${this._sortColumn === 'target' ? 'sorted' : ''}>
+                                Target
+                                <span class="sort-indicator">
+                                    ${this._sortColumn === 'target' ?
+                                        (this._sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                                </span>
+                            </th>
+                            <th>Conditions</th>
+                            <th @click=${() => this._handleSort('actions')}
+                                class=${this._sortColumn === 'actions' ? 'sorted' : ''}>
+                                Actions
+                                <span class="sort-indicator">
+                                    ${this._sortColumn === 'actions' ?
+                                        (this._sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                                </span>
+                            </th>
+                            <th>
+                                <!-- Row Actions Column -->
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${sortedRules.map(rule => {
+                            const isTargeting = highlight && this._isTargetingCard(rule, this.cardId);
+                            const hasStop = rule.stop === true;
+                            const cardType = this._getSourceCardType(rule);
+                            return html`
+                                <tr class=${isTargeting ? 'highlight' : ''}>
+                                    <td><span class="rule-id">${rule.id || 'N/A'}</span></td>
+                                    <td>
+                                        <span class="rule-priority">
+                                            ${rule.priority ?? 0}${hasStop ? ' 🛑' : ''}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="rule-enabled">
+                                            <span class="status-badge ${rule.enabled !== false ? 'enabled' : 'disabled'}"></span>
+                                            ${rule.enabled !== false ? 'Enabled' : 'Disabled'}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="rule-target">
+                                            <div style="font-family: monospace; font-size: 12px;">
+                                                ${this._getSourceCard(rule)}
+                                            </div>
+                                            <div style="font-size: 11px; color: var(--secondary-text-color, #666); margin-top: 2px;">
+                                                ${cardType}
+                                            </div>
                                         </div>
-                                        <div style="font-size: 11px; color: var(--secondary-text-color, #666); margin-top: 2px;">
-                                            ${cardType}
+                                    </td>
+                                    <td>
+                                        <span class="rule-target">
+                                            ${this._getRuleTargets(rule)}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="rule-conditions">
+                                            ${this._getConditionSummary(rule)}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="rule-actions">
+                                            ${this._getActionsCount(rule)} action${this._getActionsCount(rule) !== 1 ? 's' : ''}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="rule-row-actions">
+                                            <button
+                                                class="action-button"
+                                                @click=${() => this._handlePreview(rule)}
+                                                title="Preview rule details">
+                                                👁️
+                                            </button>
+                                            <button
+                                                class="action-button"
+                                                @click=${() => this._handleCopyYAML(rule)}
+                                                title="Copy rule YAML to clipboard">
+                                                📋
+                                            </button>
                                         </div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span class="rule-target">
-                                        ${this._getRuleTargets(rule)}
-                                    </span>
-                                </td>
-                                <td>
-                                    <span class="rule-conditions">
-                                        ${this._getConditionSummary(rule)}
-                                    </span>
-                                </td>
-                                <td>
-                                    <span class="rule-actions">
-                                        ${this._getActionsCount(rule)} action${this._getActionsCount(rule) !== 1 ? 's' : ''}
-                                    </span>
-                                </td>
-                            </tr>
-                        `;
-                    })}
-                </tbody>
-            </table>
+                                    </td>
+                                </tr>
+                            `;
+                        })}
+                    </tbody>
+                </table>
+            </div>
         `;
     }
 
