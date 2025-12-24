@@ -72,7 +72,8 @@ export class LCARdSTemplateSandbox extends LitElement {
       _isEvaluating: { type: Boolean, state: true },
       _liveDataSources: { type: Array, state: true },
       _selectedLiveDataSource: { type: String, state: true },
-      _useMockEntity: { type: Boolean, state: true }
+      _useMockEntity: { type: Boolean, state: true },
+      _activeTab: { type: String, state: true } // Right column tab: help, examples, entity, datasources, output
     };
   }
 
@@ -89,6 +90,7 @@ export class LCARdSTemplateSandbox extends LitElement {
     this._liveDataSources = [];
     this._selectedLiveDataSource = '';
     this._useMockEntity = false;  // Toggle for mock vs live entity
+    this._activeTab = 'help'; // Default to showing help in right column
 
     // DataSource subscriptions tracking
     this._dataSourceSubscriptions = new Map();
@@ -103,125 +105,101 @@ export class LCARdSTemplateSandbox extends LitElement {
         display: contents;
       }
 
-      .sandbox-content {
+      /* Dialog structure */
+      .dialog-content {
+        display: flex;
+        flex-direction: column;
+        height: 70vh;
+        max-height: 800px;
+        min-height: 500px;
+        width: 90vw;
+        max-width: 1400px;
+      }
+
+      /* Sub-tabs */
+      .sub-tabs-container {
+        display: flex;
+        gap: 0;
+        border-bottom: 1px solid var(--divider-color);
+        background: var(--card-background-color);
+        padding: 0 24px;
+      }
+
+      .sub-tab-button {
+        flex: 0 0 auto;
+        padding: 8px 16px;
+        cursor: pointer;
+        border: none;
+        background: none;
+        border-bottom: 2px solid transparent;
+        font-weight: 500;
+        font-size: 13px;
+        color: var(--secondary-text-color);
+        transition: all 0.2s ease;
+        user-select: none;
+      }
+
+      .sub-tab-button:hover {
+        color: var(--primary-text-color);
+        background: var(--secondary-background-color);
+      }
+
+      .sub-tab-button.active {
+        color: var(--primary-color);
+        border-bottom-color: var(--primary-color);
+      }
+
+      /* Main two-column layout - persistent editor on left, tab content on right */
+      .tab-body {
+        flex: 1;
+        overflow: hidden;
         display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 16px;
-        min-height: 600px;
-        max-height: 80vh;
-        padding: 16px;
+        grid-template-columns: 1fr 1fr;
+        gap: 0;
+      }
+
+      .persistent-editor-column {
+        overflow-y: auto;
+        padding: 24px;
+        border-right: 2px solid var(--divider-color);
+      }
+
+      .tab-content-column {
+        overflow-y: auto;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
       }
 
       @media (max-width: 1200px) {
-        .sandbox-content {
+        .tab-body {
           grid-template-columns: 1fr;
-          max-height: none;
         }
-      }
 
-      .sandbox-panel {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        overflow-y: auto;
-        padding: 16px;
-        background: var(--card-background-color);
-        border-radius: 12px;
-        border: 2px solid var(--divider-color);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-      }
-
-      .panel-header {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-weight: 600;
-        font-size: 16px;
-        color: var(--primary-text-color);
-        padding-bottom: 8px;
-        border-bottom: 2px solid var(--divider-color);
-      }
-
-      .panel-header ha-icon {
-        --mdc-icon-size: 20px;
-        color: var(--primary-color);
-      }
-
-      /* Input Panel */
-      .template-input {
-        width: 100%;
-        min-height: 120px;
-        padding: 12px;
-        font-family: 'Courier New', monospace;
-        font-size: 13px;
-        border: 1px solid var(--divider-color);
-        border-radius: 4px;
-        background: var(--code-background-color, #282c34);
-        color: var(--code-text-color, #abb2bf);
-        resize: vertical;
-      }
-
-      .template-input:focus {
-        outline: 2px solid var(--primary-color);
-        outline-offset: 2px;
-      }
-
-      .template-meta {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 12px;
-        color: var(--secondary-text-color);
+        .persistent-editor-column {
+          border-right: none;
+          border-bottom: 2px solid var(--divider-color);
+        }
       }
 
       .template-type-badge {
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        padding: 4px 8px;
+        padding: 4px 10px;
         border-radius: 12px;
         font-size: 11px;
-        font-weight: 500;
+        font-weight: 600;
         background: var(--primary-color);
         color: white;
-      }
-
-      .example-select {
-        width: 100%;
-        padding: 8px;
-        border: 1px solid var(--divider-color);
-        border-radius: 4px;
-        background: var(--card-background-color);
-        color: var(--primary-text-color);
-        font-size: 13px;
-      }
-
-      /* Context Panel */
-      .context-section {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        padding: 12px;
-        background: var(--card-background-color);
-        border: 1px solid var(--divider-color);
-        border-radius: 4px;
-      }
-
-      .context-label {
-        font-weight: 500;
-        font-size: 13px;
-        color: var(--primary-text-color);
-        margin-bottom: 4px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
+        letter-spacing: 0.5px;
       }
 
       .status-badge {
         font-size: 11px;
-        padding: 2px 8px;
+        padding: 3px 8px;
         border-radius: 10px;
-        font-weight: 500;
+        font-weight: 600;
       }
 
       .status-badge.live {
@@ -236,6 +214,87 @@ export class LCARdSTemplateSandbox extends LitElement {
         border: 1px solid #ff9800;
       }
 
+      /* Template Input */
+      .template-input-wrapper {
+        position: relative;
+      }
+
+      .template-input {
+        width: 100%;
+        min-height: 200px;
+        padding: 12px;
+        font-family: 'Courier New', monospace;
+        font-size: 13px;
+        line-height: 1.5;
+        border: 1px solid var(--divider-color);
+        border-radius: 8px;
+        background: var(--code-background-color, #282c34);
+        color: var(--code-text-color, #abb2bf);
+        resize: vertical;
+      }
+
+      .template-input:focus {
+        outline: 2px solid var(--primary-color);
+        outline-offset: 2px;
+      }
+
+      /* Form sections */
+      .form-row {
+        margin-bottom: 16px;
+      }
+
+      .form-row:last-child {
+        margin-bottom: 0;
+      }
+
+      .form-label {
+        display: block;
+        font-weight: 500;
+        font-size: 13px;
+        color: var(--primary-text-color);
+        margin-bottom: 6px;
+      }
+
+      .toggle-label {
+        float: right;
+        font-weight: normal;
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .toggle-label input[type="checkbox"] {
+        margin: 0;
+        cursor: pointer;
+      }
+
+      .toggle-label input[type="checkbox"] {
+        margin: 0;
+        cursor: pointer;
+      }
+
+      .entity-input, .example-select, .yaml-editor {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid var(--divider-color);
+        border-radius: 4px;
+        background: var(--card-background-color);
+        color: var(--primary-text-color);
+        font-size: 13px;
+      }
+
+      .yaml-editor {
+        min-height: 100px;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        background: var(--code-background-color, #282c34);
+        color: var(--code-text-color, #abb2bf);
+        resize: vertical;
+      }
+
+      /* Entity state display */
       .entity-state-display {
         padding: 12px;
         background: var(--code-background-color, #282c34);
@@ -244,6 +303,8 @@ export class LCARdSTemplateSandbox extends LitElement {
         font-family: 'Courier New', monospace;
         font-size: 12px;
         color: var(--code-text-color, #abb2bf);
+        max-height: 300px;
+        overflow: auto;
       }
 
       .state-line {
@@ -269,56 +330,7 @@ export class LCARdSTemplateSandbox extends LitElement {
         font-style: italic;
       }
 
-      .form-row {
-        margin-bottom: 12px;
-      }
-
-      .form-row:last-child {
-        margin-bottom: 0;
-      }
-
-      .form-label {
-        display: block;
-        font-weight: 500;
-        font-size: 13px;
-        color: var(--primary-text-color);
-        margin-bottom: 4px;
-      }
-
-      .toggle-label {
-        float: right;
-        font-weight: normal;
-        font-size: 12px;
-        color: var(--secondary-text-color);
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-
-      .toggle-label input[type="checkbox"] {
-        margin: 0;
-        cursor: pointer;
-      }
-
-      .theme-info {
-        padding: 8px 12px;
-        background: var(--code-background-color, #282c34);
-        border: 1px solid var(--divider-color);
-        border-radius: 4px;
-        font-size: 13px;
-        color: var(--code-text-color, #abb2bf);
-      }
-
-      .entity-input {
-        width: 100%;
-        padding: 8px;
-        border: 1px solid var(--divider-color);
-        border-radius: 4px;
-        background: var(--card-background-color);
-        color: var(--primary-text-color);
-        font-size: 13px;
-      }
-
+      /* State picker */
       .state-picker {
         display: flex;
         gap: 8px;
@@ -342,28 +354,17 @@ export class LCARdSTemplateSandbox extends LitElement {
         border-color: var(--primary-color);
       }
 
-      .yaml-editor {
-        width: 100%;
-        min-height: 80px;
-        padding: 8px;
-        font-family: 'Courier New', monospace;
-        font-size: 12px;
-        border: 1px solid var(--divider-color);
-        border-radius: 4px;
-        background: var(--code-background-color, #282c34);
-        color: var(--code-text-color, #abb2bf);
-        resize: vertical;
-      }
-
+      /* DataSource info */
       .datasource-info {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 8px;
+        padding: 10px 12px;
         background: var(--primary-color);
         color: white;
         border-radius: 4px;
         font-size: 12px;
+        font-weight: 500;
       }
 
       .datasource-info.live {
@@ -379,15 +380,16 @@ export class LCARdSTemplateSandbox extends LitElement {
         font-weight: 600;
       }
 
-      /* Output Panel */
+      /* Result display */
       .result-display {
-        padding: 12px;
-        border-radius: 4px;
+        padding: 16px;
+        border-radius: 8px;
         font-family: 'Courier New', monospace;
-        font-size: 13px;
+        font-size: 14px;
         word-break: break-word;
-        min-height: 60px;
+        min-height: 80px;
         border: 2px solid var(--divider-color);
+        position: relative;
       }
 
       .result-display.success {
@@ -412,38 +414,68 @@ export class LCARdSTemplateSandbox extends LitElement {
         display: flex;
         align-items: center;
         gap: 8px;
-        margin-bottom: 8px;
+        margin-bottom: 12px;
         font-weight: 600;
+        font-size: 15px;
       }
 
       .status-icon {
-        font-size: 20px;
+        font-size: 22px;
       }
 
       .eval-time {
         margin-left: auto;
         font-size: 11px;
         color: var(--secondary-text-color);
+        font-weight: normal;
       }
 
+      .result-value {
+        padding: 12px;
+        background: var(--card-background-color);
+        border-radius: 4px;
+        margin-top: 8px;
+      }
+
+      .copy-button {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+      }
+
+      .copy-button {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+      }
+
+      /* Dependency tree */
       .dependency-tree {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 12px;
+        margin-top: 16px;
       }
 
       .dep-section {
         background: var(--card-background-color);
         border: 1px solid var(--divider-color);
-        border-radius: 4px;
-        padding: 8px;
+        border-radius: 6px;
+        padding: 12px;
       }
 
       .dep-section h5 {
-        margin: 0 0 8px 0;
+        margin: 0 0 10px 0;
         font-size: 13px;
         font-weight: 600;
         color: var(--primary-text-color);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .dep-section h5 ha-icon {
+        --mdc-icon-size: 16px;
       }
 
       .dep-section ul {
@@ -456,11 +488,15 @@ export class LCARdSTemplateSandbox extends LitElement {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 6px 8px;
-        margin-bottom: 4px;
+        padding: 8px 10px;
+        margin-bottom: 6px;
         background: var(--secondary-background-color);
         border-radius: 4px;
         font-size: 12px;
+      }
+
+      .dep-item:last-child {
+        margin-bottom: 0;
       }
 
       .dep-item.available,
@@ -481,49 +517,21 @@ export class LCARdSTemplateSandbox extends LitElement {
       .dep-name {
         font-family: 'Courier New', monospace;
         font-weight: 500;
+        flex: 1;
       }
 
       .dep-status {
         font-size: 11px;
         color: var(--secondary-text-color);
+        font-weight: 600;
       }
 
-      .action-buttons {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-
-      .loading-indicator {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 16px;
-        color: var(--secondary-text-color);
-      }
-
-      .info-banner {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 12px;
-        border-radius: 4px;
-        font-size: 13px;
-        margin-bottom: 12px;
-      }
-
-      .info-banner.mock {
-        background: rgba(255, 152, 0, 0.1);
-        border: 1px solid #ff9800;
-        color: #ff9800;
-      }
-
+      /* Diagnostics */
       .diagnostics-panel {
         display: flex;
         flex-direction: column;
-        gap: 8px;
-        margin-bottom: 12px;
+        gap: 10px;
+        margin-top: 16px;
       }
 
       .diagnostic-item {
@@ -531,7 +539,7 @@ export class LCARdSTemplateSandbox extends LitElement {
         align-items: flex-start;
         gap: 12px;
         padding: 12px;
-        border-radius: 4px;
+        border-radius: 6px;
         font-size: 13px;
         border-left: 3px solid;
       }
@@ -560,8 +568,117 @@ export class LCARdSTemplateSandbox extends LitElement {
         margin-top: 2px;
       }
 
+      /* Loading/Empty states */
+      .loading-indicator {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 40px;
+        color: var(--secondary-text-color);
+      }
+
+      .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 60px 20px;
+        color: var(--secondary-text-color);
+        text-align: center;
+      }
+
+      .empty-state ha-icon {
+        --mdc-icon-size: 48px;
+        opacity: 0.5;
+      }
+
+      .info-banner {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        margin-bottom: 16px;
+      }
+
+      .info-banner.mock {
+        background: rgba(255, 152, 0, 0.1);
+        border: 1px solid #ff9800;
+        color: #ff9800;
+      }
+
+      .info-banner ha-icon {
+        --mdc-icon-size: 20px;
+        flex-shrink: 0;
+      }
+
+      /* Examples grid */
+      .examples-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 16px;
+      }
+
+      .example-card {
+        background: var(--card-background-color);
+        border: 1px solid var(--divider-color);
+        border-radius: 8px;
+        padding: 16px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .example-card:hover {
+        border-color: var(--primary-color);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
+      }
+
+      .example-card-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+
+      .example-card-title {
+        font-weight: 600;
+        font-size: 14px;
+        color: var(--primary-text-color);
+        flex: 1;
+      }
+
+      .example-card-description {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        margin-bottom: 12px;
+        line-height: 1.4;
+      }
+
+      .example-card-template {
+        padding: 10px;
+        background: var(--code-background-color, #282c34);
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-size: 11px;
+        color: var(--code-text-color, #abb2bf);
+        overflow-x: auto;
+        word-break: break-all;
+      }
+
+      /* Buttons */
       ha-button {
         --mdc-theme-primary: var(--primary-color);
+      }
+
+      .action-buttons {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 12px;
       }
     `;
   }
@@ -595,28 +712,98 @@ export class LCARdSTemplateSandbox extends LitElement {
   }
 
   render() {
+    if (!this.open) return html``;
+
     return html`
-      <lcards-dialog
-        .open=${this.open}
-        .heading=${'🧪 Template Sandbox'}
-        @closed=${this._handleClose}>
-
-        <div class="sandbox-content">
-          ${this._renderInputPanel()}
-          ${this._renderContextPanel()}
-          ${this._renderOutputPanel()}
+      <ha-dialog
+        open
+        @closed=${this._handleClose}
+        .heading=${'🧪 Template Sandbox'}>
+        <div class="dialog-content">
+          ${this._renderTabBody()}
         </div>
-
-        <div slot="primaryAction">
-          <ha-button @click=${this._handleClose}>
-            Close
-          </ha-button>
-        </div>
-      </lcards-dialog>
+        <ha-button
+          slot="primaryAction"
+          @click=${this._handleClose}
+          dialogAction="close">
+          Close
+        </ha-button>
+      </ha-dialog>
     `;
   }
 
-  _renderInputPanel() {
+  _renderTabBody() {
+    return html`
+      <div class="tab-body">
+        <!-- Left column: persistent template editor -->
+        <div class="persistent-editor-column">
+          ${this._renderTemplateEditor()}
+        </div>
+
+        <!-- Right column: unified navigation with all content options -->
+        <div class="tab-content-column">
+          ${this._renderRightColumnTabs()}
+          ${this._renderRightColumnContent()}
+        </div>
+      </div>
+    `;
+  }
+
+  _renderRightColumnTabs() {
+    return html`
+      <div class="sub-tabs-container">
+        <button
+          class="sub-tab-button ${this._activeTab === 'help' ? 'active' : ''}"
+          @click=${() => this._activeTab = 'help'}>
+          <ha-icon icon="mdi:help-circle" style="--mdc-icon-size: 16px;"></ha-icon>
+          Syntax Help
+        </button>
+        <button
+          class="sub-tab-button ${this._activeTab === 'examples' ? 'active' : ''}"
+          @click=${() => this._activeTab = 'examples'}>
+          <ha-icon icon="mdi:code-braces" style="--mdc-icon-size: 16px;"></ha-icon>
+          Examples
+        </button>
+        <button
+          class="sub-tab-button ${this._activeTab === 'entity' ? 'active' : ''}"
+          @click=${() => this._activeTab = 'entity'}>
+          <ha-icon icon="mdi:home-assistant" style="--mdc-icon-size: 16px;"></ha-icon>
+          Entity
+        </button>
+        <button
+          class="sub-tab-button ${this._activeTab === 'datasources' ? 'active' : ''}"
+          @click=${() => this._activeTab = 'datasources'}>
+          <ha-icon icon="mdi:database" style="--mdc-icon-size: 16px;"></ha-icon>
+          DataSources
+        </button>
+        <button
+          class="sub-tab-button ${this._activeTab === 'output' ? 'active' : ''}"
+          @click=${() => this._activeTab = 'output'}>
+          <ha-icon icon="mdi:${this._evaluationResult?.success ? 'check-circle' : 'alert-circle'}" style="--mdc-icon-size: 16px;"></ha-icon>
+          Result
+        </button>
+      </div>
+    `;
+  }
+
+  _renderRightColumnContent() {
+    switch (this._activeTab) {
+      case 'help':
+        return this._renderTemplateSyntaxHelp();
+      case 'examples':
+        return this._renderTemplateExamples();
+      case 'entity':
+        return this._renderEntityContext();
+      case 'datasources':
+        return this._renderDataSourcesContext();
+      case 'output':
+        return this._renderOutputTab();
+      default:
+        return this._renderTemplateSyntaxHelp();
+    }
+  }
+
+  _renderTemplateEditor() {
     const types = TemplateDetector.detectTemplateTypes(this._templateInput);
     const typeLabels = [];
     if (types.hasJavaScript) typeLabels.push('JS');
@@ -626,95 +813,169 @@ export class LCARdSTemplateSandbox extends LitElement {
 
     const charCount = this._templateInput.length;
     const lineCount = this._templateInput.split('\n').length;
+    const isEntityLive = !!this.hass?.states?.[this._mockEntityId];
 
     return html`
-      <div class="sandbox-panel">
-        <div class="panel-header">
-          <ha-icon icon="mdi:code-braces"></ha-icon>
-          <span>Template Input</span>
-        </div>
+      <lcards-form-section
+        header="Template Editor"
+        description="Enter your template using any supported syntax (JS, Token, DataSource, or Jinja2)"
+        ?expanded=${true}
+        .collapsible=${false}>
 
-        <div>
-          <div class="context-label">Example Templates</div>
-          ${customElements.get('ha-selector') ? html`
-            <ha-selector
-              .hass=${this.hass}
-              .selector=${{
-                select: {
-                  mode: 'dropdown',
-                  options: getExampleIds().map(id => ({
-                    value: id,
-                    label: EXAMPLE_TEMPLATES[id].name
-                  }))
-                }
+        <div class="form-row">
+          ${customElements.get('ha-code-editor') ? html`
+            <ha-code-editor
+              mode="jinja2"
+              .value=${this._templateInput}
+              @value-changed=${(e) => {
+                this._templateInput = e.detail.value;
+                this._scheduleEvaluation();
               }}
-              .value=${''}
-              @value-changed=${(e) => this._handleExampleSelectHA(e)}>
-            </ha-selector>
+              autocomplete-entities
+              autocomplete-icons>
+            </ha-code-editor>
           ` : html`
-            <select class="example-select" @change=${this._handleExampleSelect}>
-              <option value="">-- Select an example --</option>
-              ${getExampleIds().map(id => {
-                const example = EXAMPLE_TEMPLATES[id];
-                return html`<option value=${id}>${example.name}</option>`;
-              })}
-            </select>
+            <textarea
+              class="template-input"
+              .value=${this._templateInput}
+              @input=${this._handleTemplateInput}
+              placeholder="Enter template here...&#10;&#10;Examples:&#10;  {entity.state}&#10;  [[[return entity.state.toUpperCase()]]]&#10;  {datasource:sensor_temp:.1f}°C&#10;  {{states('sensor.temp')}}">
+            </textarea>
           `}
         </div>
 
-        <div>
-          <div class="context-label">Template</div>
-          <textarea
-            class="template-input"
-            .value=${this._templateInput}
-            @input=${this._handleTemplateInput}
-            placeholder="Enter template here...&#10;Examples:&#10;  {entity.state}&#10;  [[[return entity.state]]]&#10;  {datasource:sensor_temp:.1f}&#10;  {{states('sensor.temp')}}">
-          </textarea>
-        </div>
+        <!-- Template Metadata -->
+        <div class="form-row" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 12px; padding: 12px; background: var(--secondary-background-color); border-radius: 6px; font-size: 13px;">
+          <ha-button @click=${() => this._evaluateTemplate()} ?disabled=${this._isEvaluating} style="--mdc-typography-button-font-size: 12px;">
+            <ha-icon icon="mdi:play" slot="icon"></ha-icon>
+            ${this._isEvaluating ? 'Evaluating...' : 'Evaluate Now'}
+          </ha-button>
 
-        <div class="template-meta">
-          <div>
-            ${typeLabels.length > 0 ? html`
-              <span class="template-type-badge">
-                ${typeLabels.join(' + ')}
-              </span>
-            ` : html`<span style="color: var(--secondary-text-color);">No templates detected</span>`}
-          </div>
-          <div>${lineCount} lines, ${charCount} chars</div>
-        </div>
+          ${typeLabels.length > 0 ? html`
+            <span class="template-type-badge">
+              ${typeLabels.join(' + ')}
+            </span>
+          ` : ''}
 
-        <ha-button @click=${() => this._evaluateTemplate()}>
-          <ha-icon icon="mdi:play" slot="icon"></ha-icon>
-          Evaluate Now
-        </ha-button>
-      </div>
+          <span style="color: var(--secondary-text-color);">${lineCount} lines, ${charCount} chars</span>
+
+          <span class="status-badge ${isEntityLive && !this._useMockEntity ? 'live' : 'mock'}">
+            ${isEntityLive && !this._useMockEntity ? '⚡ Live Entity' : '🔸 Mock Entity'}
+          </span>
+        </div>
+      </lcards-form-section>
     `;
   }
 
-  _renderContextPanel() {
-    const dsManager = window.lcards?.core?.dataSourceManager;
-    const liveDataSources = this._liveDataSources;
+  _renderTemplateSyntaxHelp() {
+    return html`
+      <lcards-form-section
+        header="Template Syntax Guide"
+        description="Comprehensive reference for all supported template types"
+        ?expanded=${true}
+        .collapsible=${false}>
+
+        <div style="font-size: 13px; line-height: 1.8;">
+          <div style="margin-bottom: 16px; padding: 12px; background: var(--card-background-color); border-left: 3px solid var(--primary-color); border-radius: 4px;">
+            <strong style="color: var(--primary-color); font-size: 14px;">1. JavaScript Templates</strong><br>
+            <code style="background: var(--code-background-color); padding: 3px 8px; border-radius: 3px; margin: 8px 0; display: inline-block;">[[[return entity.state.toUpperCase()]]]</code><br>
+            <span style="color: var(--secondary-text-color); font-size: 12px;">Execute arbitrary JavaScript with access to context variables</span>
+            <div style="margin-top: 8px; font-size: 12px;">
+              <strong>Available context:</strong> entity, config, hass, theme
+            </div>
+          </div>
+
+          <div style="margin-bottom: 16px; padding: 12px; background: var(--card-background-color); border-left: 3px solid var(--primary-color); border-radius: 4px;">
+            <strong style="color: var(--primary-color); font-size: 14px;">2. Token Templates</strong><br>
+            <code style="background: var(--code-background-color); padding: 3px 8px; border-radius: 3px; margin: 8px 0; display: inline-block;">{entity.state}</code>
+            <code style="background: var(--code-background-color); padding: 3px 8px; border-radius: 3px; margin: 8px 0; display: inline-block;">{theme:palette.moonlight}</code><br>
+            <span style="color: var(--secondary-text-color); font-size: 12px;">Simple property access with dot notation</span>
+            <div style="margin-top: 8px; font-size: 12px;">
+              <strong>Examples:</strong> {entity.attributes.brightness}, {config.name}
+            </div>
+          </div>
+
+          <div style="margin-bottom: 16px; padding: 12px; background: var(--card-background-color); border-left: 3px solid var(--primary-color); border-radius: 4px;">
+            <strong style="color: var(--primary-color); font-size: 14px;">3. DataSource Templates</strong><br>
+            <code style="background: var(--code-background-color); padding: 3px 8px; border-radius: 3px; margin: 8px 0; display: inline-block;">{datasource:sensor_temp:.1f}</code>
+            <code style="background: var(--code-background-color); padding: 3px 8px; border-radius: 3px; margin: 8px 0; display: inline-block;">{ds:cpu_usage}</code><br>
+            <span style="color: var(--secondary-text-color); font-size: 12px;">Access DataSource values with optional Python-style formatting</span>
+            <div style="margin-top: 8px; font-size: 12px;">
+              <strong>Format codes:</strong> :.1f (1 decimal), :.0f (integer), :03d (padded)
+            </div>
+          </div>
+
+          <div style="padding: 12px; background: var(--card-background-color); border-left: 3px solid var(--primary-color); border-radius: 4px;">
+            <strong style="color: var(--primary-color); font-size: 14px;">4. Jinja2 Templates</strong><br>
+            <code style="background: var(--code-background-color); padding: 3px 8px; border-radius: 3px; margin: 8px 0; display: inline-block;">{{states('sensor.temp')}}</code>
+            <code style="background: var(--code-background-color); padding: 3px 8px; border-radius: 3px; margin: 8px 0; display: inline-block;">{% if ... %}...{% endif %}</code><br>
+            <span style="color: var(--secondary-text-color); font-size: 12px;">Full Jinja2 syntax evaluated by Home Assistant backend</span>
+            <div style="margin-top: 8px; font-size: 12px;">
+              <strong>Note:</strong> Async evaluation, has access to all HA template functions
+            </div>
+          </div>
+        </div>
+      </lcards-form-section>
+    `;
+  }
+
+  _renderTemplateExamples() {
+    const examples = getExampleIds().map(id => ({
+      id,
+      ...EXAMPLE_TEMPLATES[id]
+    }));
+
+    return html`
+      <lcards-form-section
+        header="Example Templates"
+        description="Click any example to load it into the editor"
+        ?expanded=${true}
+        .collapsible=${false}>
+
+        <div class="examples-grid">
+          ${examples.map(example => html`
+            <div class="example-card" @click=${() => this._loadExample(example.id)}>
+              <div class="example-card-header">
+                <span class="example-card-title">${example.name}</span>
+                <ha-icon icon="mdi:arrow-right"></ha-icon>
+              </div>
+              <div class="example-card-description">
+                ${example.description}
+              </div>
+              <div class="example-card-template">
+                ${example.template}
+              </div>
+            </div>
+          `)}
+        </div>
+      </lcards-form-section>
+    `;
+  }
+
+  _renderEntityContext() {
     const isEntityLive = !!this.hass?.states?.[this._mockEntityId];
     const entityState = isEntityLive ? this.hass.states[this._mockEntityId] : this._mockState;
     const hasEntityPicker = customElements.get('ha-entity-picker');
 
     return html`
-      <div class="sandbox-panel">
-        <div class="panel-header">
-          <ha-icon icon="mdi:cog"></ha-icon>
-          <span>Context</span>
-        </div>
-
-        <!-- Entity Configuration -->
+      <div style="padding: 24px;">
         <lcards-form-section
-          header="Entity"
-          .expanded=${true}
-          .outlined=${false}
-          .secondary=${isEntityLive ? '⚡ Live' : '🔸 Mock'}>
+          header="Entity Context"
+          .secondary=${isEntityLive && !this._useMockEntity ? '⚡ Live' : '🔸 Mock'}
+          ?expanded=${true}
+          .collapsible=${false}>
 
           <div class="form-row">
-            <label class="form-label">
-              Entity ID
+            <label class="form-label">Entity Mode</label>
+            ${customElements.get('ha-selector') ? html`
+              <ha-selector
+                .hass=${this.hass}
+                .selector=${{ boolean: {} }}
+                .label=${'Use Mock Entity'}
+                .value=${this._useMockEntity}
+                @value-changed=${(e) => { this._useMockEntity = e.detail.value; }}>
+              </ha-selector>
+            ` : html`
               <label class="toggle-label">
                 <input
                   type="checkbox"
@@ -722,69 +983,105 @@ export class LCARdSTemplateSandbox extends LitElement {
                   @change=${(e) => { this._useMockEntity = e.target.checked; }}>
                 Use Mock Entity
               </label>
-            </label>
-            ${!this._useMockEntity && hasEntityPicker ? html`
-              <ha-entity-picker
-                .hass=${this.hass}
-                .value=${this._mockEntityId}
-                @value-changed=${(e) => this._handleEntityPickerChange(e)}>
-              </ha-entity-picker>
-            ` : html`
-              <input
-                type="text"
-                class="entity-input"
-                .value=${this._mockEntityId}
-                @input=${this._handleEntityIdInput}
-                placeholder="light.kitchen">
             `}
           </div>
 
-          ${isEntityLive && !this._useMockEntity ? html`
-            <!-- Show real entity state (read-only) -->
+          ${!this._useMockEntity ? html`
+            <!-- Live Entity -->
             <div class="form-row">
-              <label class="form-label">State (Live)</label>
-              <div class="entity-state-display">
-                <div class="state-line"><strong>State:</strong> ${entityState.state}</div>
-                ${Object.keys(entityState.attributes || {}).length > 0 ? html`
-                  <div class="state-line"><strong>Attributes:</strong></div>
-                  <ul class="attributes-list">
-                    ${Object.entries(entityState.attributes).slice(0, 10).map(([key, value]) => html`
-                      <li><code>${key}</code>: ${JSON.stringify(value)}</li>
-                    `)}
-                    ${Object.keys(entityState.attributes).length > 10 ? html`
-                      <li class="more-indicator">... and ${Object.keys(entityState.attributes).length - 10} more</li>
-                    ` : ''}
-                  </ul>
-                ` : ''}
-              </div>
+              <label class="form-label">Entity ID</label>
+              ${hasEntityPicker ? html`
+                <ha-entity-picker
+                  .hass=${this.hass}
+                  .value=${this._mockEntityId}
+                  @value-changed=${(e) => this._handleEntityPickerChange(e)}>
+                </ha-entity-picker>
+              ` : html`
+                <input
+                  type="text"
+                  class="entity-input"
+                  .value=${this._mockEntityId}
+                  @input=${this._handleEntityIdInput}
+                  placeholder="light.kitchen">
+              `}
             </div>
 
-            <!-- Attribute selector for template insertion -->
-            ${Object.keys(entityState.attributes || {}).length > 0 ? html`
+            ${isEntityLive ? html`
               <div class="form-row">
-                <label class="form-label">Insert Attribute</label>
-                <select
-                  class="example-select"
-                  @change=${(e) => this._insertAttributeToken(e)}>
-                  <option value="">-- Select attribute --</option>
-                  ${Object.keys(entityState.attributes).map(key => html`
-                    <option value=${key}>${key}</option>
-                  `)}
-                </select>
+                <label class="form-label">Current State</label>
+                <div class="entity-state-display">
+                  <div class="state-line"><strong>State:</strong> ${entityState.state}</div>
+                  ${Object.keys(entityState.attributes || {}).length > 0 ? html`
+                    <div class="state-line"><strong>Attributes:</strong></div>
+                    <ul class="attributes-list">
+                      ${Object.entries(entityState.attributes).slice(0, 10).map(([key, value]) => html`
+                        <li><code>${key}</code>: ${JSON.stringify(value)}</li>
+                      `)}
+                      ${Object.keys(entityState.attributes).length > 10 ? html`
+                        <li class="more-indicator">... and ${Object.keys(entityState.attributes).length - 10} more</li>
+                      ` : ''}
+                    </ul>
+                  ` : ''}
+                </div>
               </div>
-            ` : ''}
-          ` : ''}
-        </lcards-form-section>
 
-        <!-- Mock Entity Configuration -->
-        ${this._useMockEntity ? html`
-          <lcards-form-section
-            header="Mock Entity Configuration"
-            .expanded=${true}
-            .outlined=${false}>
+              ${Object.keys(entityState.attributes || {}).length > 0 ? html`
+                <div class="form-row">
+                  <label class="form-label">Quick Insert Attribute</label>
+                  ${customElements.get('ha-select') ? html`
+                    <ha-select
+                      .label=${'Select attribute to insert'}
+                      @selected=${(e) => {
+                        const value = e.target.value;
+                        if (value) {
+                          this._insertAttributeToken({ target: { value } });
+                        }
+                      }}
+                      @closed=${(e) => e.stopPropagation()}>
+                      ${Object.keys(entityState.attributes).map(key => html`
+                        <mwc-list-item value=${key}>${key}</mwc-list-item>
+                      `)}
+                    </ha-select>
+                  ` : html`
+                    <select
+                      class="example-select"
+                      @change=${(e) => this._insertAttributeToken(e)}>
+                      <option value="">-- Select attribute to insert --</option>
+                      ${Object.keys(entityState.attributes).map(key => html`
+                        <option value=${key}>${key}</option>
+                      `)}
+                    </select>
+                  `}
+                </div>
+              ` : ''}
+            ` : ''}
+          ` : html`
+            <!-- Mock Entity -->
+            <div class="form-row">
+              <label class="form-label">Entity ID</label>
+              ${customElements.get('ha-selector') ? html`
+                <ha-selector
+                  .hass=${this.hass}
+                  .selector=${{ text: {} }}
+                  .label=${'Enter entity ID (e.g. light.kitchen)'}
+                  .value=${this._mockEntityId}
+                  @value-changed=${(e) => {
+                    this._mockEntityId = e.detail.value;
+                    this._scheduleEvaluation();
+                  }}>
+                </ha-selector>
+              ` : html`
+                <input
+                  type="text"
+                  class="entity-input"
+                  .value=${this._mockEntityId}
+                  @input=${this._handleEntityIdInput}
+                  placeholder="light.kitchen">
+              `}
+            </div>
 
             <div class="form-row">
-              <label class="form-label">Quick State</label>
+              <label class="form-label">Quick State Presets</label>
               <div class="state-picker">
                 ${this._renderQuickStatePickers()}
               </div>
@@ -792,51 +1089,97 @@ export class LCARdSTemplateSandbox extends LitElement {
 
             <div class="form-row">
               <label class="form-label">Entity State (YAML)</label>
-              <textarea
-                class="yaml-editor"
-                .value=${this._serializeState()}
-                @input=${this._handleStateYamlInput}
-                placeholder="state: on&#10;attributes:&#10;  brightness: 200">
-              </textarea>
+              ${customElements.get('ha-code-editor') ? html`
+                <ha-code-editor
+                  mode="yaml"
+                  .value=${this._serializeState()}
+                  @value-changed=${(e) => {
+                    this._handleStateYamlChange(e.detail.value);
+                  }}>
+                </ha-code-editor>
+              ` : html`
+                <textarea
+                  class="yaml-editor"
+                  .value=${this._serializeState()}
+                  @input=${this._handleStateYamlInput}
+                  placeholder="state: on&#10;attributes:&#10;  brightness: 200&#10;  color_temp: 370">
+                </textarea>
+              `}
             </div>
-          </lcards-form-section>
-        ` : ''}
+          `}
+        </lcards-form-section>
+      </div>
+    `;
+  }
 
-        <!-- Mock DataSources Configuration -->
+  _renderDataSourcesContext() {
+    const dsManager = window.lcards?.core?.dataSourceManager;
+    const liveDataSources = this._liveDataSources;
+
+    return html`
+      <div style="padding: 24px;">
         <lcards-form-section
-          header="Mock DataSources"
-          description="DataSource IDs use underscores (e.g., sensor_temp)"
-          .expanded=${true}
-          .outlined=${false}>
+          header="🔸 Mock DataSources"
+          description="Define mock DataSource values for testing (IDs use underscores, e.g. sensor_temp)"
+          ?expanded=${true}
+          .collapsible=${false}>
 
           <div class="form-row">
-            <textarea
-              class="yaml-editor"
-              .value=${this._serializeMockDataSources()}
-              @input=${this._handleMockDataSourcesInput}
-              placeholder="sensor_temp: 20&#10;cpu_usage: 45&#10;power_total: 1234.5">
-            </textarea>
+            <label class="form-label">Mock DataSource Values (YAML)</label>
+            ${customElements.get('ha-code-editor') ? html`
+              <ha-code-editor
+                mode="yaml"
+                .value=${this._serializeMockDataSources()}
+                @value-changed=${(e) => {
+                  this._handleMockDataSourcesChange(e.detail.value);
+                }}>
+              </ha-code-editor>
+            ` : html`
+              <textarea
+                class="yaml-editor"
+                style="min-height: 140px;"
+                .value=${this._serializeMockDataSources()}
+                @input=${this._handleMockDataSourcesInput}
+                placeholder="# Define mock DataSource values for testing&#10;sensor_temp: 20.5&#10;cpu_usage: 45&#10;power_total: 1234.5&#10;humidity: 65">
+              </textarea>
+            `}
+          </div>
+
+          <div style="padding: 12px; background: rgba(255, 152, 0, 0.1); border-left: 3px solid #ff9800; border-radius: 4px; font-size: 13px;">
+            <strong style="color: #ff9800;">💡 Tip:</strong> Mock DataSources are used when referenced DataSources aren't configured in your card.
           </div>
         </lcards-form-section>
 
-        <!-- Live DataSources -->
         ${dsManager && liveDataSources.length > 0 ? html`
           <lcards-form-section
-            header="Live DataSources"
-            .expanded=${false}
-            .outlined=${false}
-            .count=${liveDataSources.length}>
+            header="⚡ Live DataSources"
+            .count=${liveDataSources.length}
+            ?expanded=${true}>
 
             <div class="form-row">
-              <label class="form-label">Select DataSource</label>
-              <select
-                class="example-select"
-                @change=${this._handleDataSourceSelect}>
-                <option value="">-- Available DataSources --</option>
-                ${liveDataSources.map(ds => html`
-                  <option value=${ds.id}>${ds.id}</option>
-                `)}
-              </select>
+              <label class="form-label">Available DataSources</label>
+              ${customElements.get('ha-select') ? html`
+                <ha-select
+                  .label=${'Select DataSource to view details'}
+                  .value=${this._selectedLiveDataSource}
+                  @selected=${(e) => {
+                    this._selectedLiveDataSource = e.target.value;
+                  }}
+                  @closed=${(e) => e.stopPropagation()}>
+                  ${liveDataSources.map(ds => html`
+                    <mwc-list-item value=${ds.id}>${ds.id}</mwc-list-item>
+                  `)}
+                </ha-select>
+              ` : html`
+                <select
+                  class="example-select"
+                  @change=${this._handleDataSourceSelect}>
+                  <option value="">-- Select to view details --</option>
+                  ${liveDataSources.map(ds => html`
+                    <option value=${ds.id}>${ds.id}</option>
+                  `)}
+                </select>
+              `}
             </div>
 
             ${this._selectedLiveDataSource ? html`
@@ -845,80 +1188,98 @@ export class LCARdSTemplateSandbox extends LitElement {
               </div>
             ` : ''}
           </lcards-form-section>
-        ` : ''}
+        ` : html`
+          <div style="padding: 16px; text-align: center; color: var(--secondary-text-color); font-size: 13px;">
+            No live DataSources configured in this card
+          </div>
+        `}
       </div>
     `;
   }
 
-  _renderOutputPanel() {
+  _renderOutputTab() {
     if (this._isEvaluating) {
       return html`
-        <div class="sandbox-panel">
-          <div class="panel-header">
-            <ha-icon icon="mdi:check-circle"></ha-icon>
-            <span>Output</span>
-          </div>
-          <div class="loading-indicator">
-            <ha-circular-progress active></ha-circular-progress>
-            <span>Evaluating...</span>
-          </div>
+        <div class="loading-indicator">
+          <ha-circular-progress active></ha-circular-progress>
+          <span>Evaluating template...</span>
         </div>
       `;
     }
 
     if (!this._evaluationResult) {
       return html`
-        <div class="sandbox-panel">
-          <div class="panel-header">
-            <ha-icon icon="mdi:check-circle"></ha-icon>
-            <span>Output</span>
-          </div>
-          <div style="padding: 24px; text-align: center; color: var(--secondary-text-color);">
-            Enter a template and click "Evaluate Now" to see results
-          </div>
+        <div class="empty-state">
+          <ha-icon icon="mdi:play-circle-outline"></ha-icon>
+          <p>No evaluation yet</p>
+          <p style="font-size: 13px; color: var(--secondary-text-color);">
+            Template will auto-evaluate as you type
+          </p>
         </div>
       `;
     }
 
     const result = this._evaluationResult;
-    const statusClass = result.success ? 'success' : 'error';
-    const statusIcon = result.success ? '✅' : '❌';
+    // More accurate success detection: must have no error AND have a result
+    const isSuccess = result.success && !result.error && result.result !== undefined && result.result !== null;
+    const statusClass = isSuccess ? 'success' : 'error';
+    const statusIcon = isSuccess ? '✅' : '❌';
 
     return html`
-      <div class="sandbox-panel">
-        <div class="panel-header">
-          <ha-icon icon="mdi:check-circle"></ha-icon>
-          <span>Output</span>
+      <!-- Using Mock DataSources Warning -->
+      ${result.usingMockDataSources ? html`
+        <div class="info-banner mock">
+          <ha-icon icon="mdi:test-tube"></ha-icon>
+          <span>Using mock DataSources (live DataSourceManager has no configured sources)</span>
         </div>
+      ` : ''}
 
-        <!-- Using Mock DataSources Warning -->
-        ${result.usingMockDataSources ? html`
-          <div class="info-banner mock">
-            <ha-icon icon="mdi:test-tube"></ha-icon>
-            <span>Using mock DataSources (live DataSourceManager has no configured sources)</span>
+      <!-- Main Result -->
+      <lcards-form-section
+        header="Evaluation Result"
+        .secondary=${isSuccess ? 'Success' : 'Failed'}
+        ?expanded=${true}
+        .collapsible=${false}>
+
+        <div class="result-display ${statusClass}">
+          <div class="result-header">
+            <span class="status-icon">${statusIcon}</span>
+            <span>${isSuccess ? 'Evaluation Successful' : 'Evaluation Failed'}</span>
+            ${result.evalTime ? html`
+              <span class="eval-time">${result.evalTime}ms</span>
+            ` : ''}
           </div>
-        ` : ''}
 
-        <!-- Result Display -->
-        <div>
-          <div class="context-label">Result</div>
-          <div class="result-display ${statusClass}">
-            <div class="result-header">
-              <span class="status-icon">${statusIcon}</span>
-              <span>${result.success ? 'Success' : 'Error'}</span>
-              ${result.evalTime ? html`
-                <span class="eval-time">${result.evalTime}ms</span>
-              ` : ''}
+          <div class="result-value">
+            ${isSuccess ? html`
+              <strong>Result:</strong> ${result.result}
+            ` : html`
+              <strong>Error:</strong> ${result.error || 'No result returned'}
+            `}
+          </div>
+
+          ${isSuccess ? html`
+            <div class="action-buttons">
+              <ha-button @click=${() => this._copyToClipboard(String(result.result))}>
+                <ha-icon icon="mdi:content-copy" slot="icon"></ha-icon>
+                Copy Result
+              </ha-button>
+              <ha-button @click=${() => this._copyToClipboard(this._templateInput)}>
+                <ha-icon icon="mdi:code-braces" slot="icon"></ha-icon>
+                Copy Template
+              </ha-button>
             </div>
-            <div>${result.success ? result.result : result.error}</div>
-          </div>
+          ` : ''}
         </div>
+      </lcards-form-section>
 
-        <!-- Diagnostic Information (for errors) -->
-        ${!result.success && result.diagnostics ? html`
+      <!-- Diagnostics (if failure) -->
+      ${!isSuccess && result.diagnostics ? html`
+        <lcards-form-section
+          header="Diagnostics"
+          description="Helpful information about the failure"
+          ?expanded=${true}>
           <div class="diagnostics-panel">
-            <div class="context-label">Diagnostics</div>
-
             ${result.diagnostics.missingDataSources?.length > 0 ? html`
               <div class="diagnostic-item error">
                 <ha-icon icon="mdi:database-off"></ha-icon>
@@ -949,29 +1310,47 @@ export class LCARdSTemplateSandbox extends LitElement {
               </div>
             ` : ''}
           </div>
-        ` : ''}
+        </lcards-form-section>
+      ` : ''}
 
-        <!-- Dependency Tree -->
-        ${result.dependencies ? this._renderDependencyTree(result.dependencies) : ''}
-
-        <!-- Action Buttons -->
-        <div class="action-buttons">
-          <ha-button
-            @click=${() => this._copyToClipboard(result.result)}>
-            <ha-icon icon="mdi:content-copy" slot="icon"></ha-icon>
-            Copy Result
-          </ha-button>
-          <ha-button
-            @click=${() => this._copyToClipboard(this._templateInput)}>
-            <ha-icon icon="mdi:code-braces" slot="icon"></ha-icon>
-            Copy Template
-          </ha-button>
-        </div>
-      </div>
+      <!-- Dependencies -->
+      ${result.dependencies ? html`
+        <lcards-form-section
+          header="Dependencies"
+          description="Resources referenced by this template"
+          ?expanded=${true}>
+          ${this._renderDependencyTree(result.dependencies)}
+        </lcards-form-section>
+      ` : ''}
     `;
   }
 
-  _renderQuickStatePickers() {
+  _loadExample(exampleId) {
+    const example = EXAMPLE_TEMPLATES[exampleId];
+    if (!example) return;
+
+    this._templateInput = example.template;
+
+    // Apply mock entity if provided
+    if (example.mockEntity) {
+      this._mockEntityId = example.mockEntity;
+      this._useMockEntity = true;
+    }
+
+    // Apply mock state if provided
+    if (example.mockState) {
+      this._mockState = example.mockState;
+    }
+
+    // Apply mock datasources if provided
+    if (example.mockDataSources) {
+      this._mockDataSources = { ...example.mockDataSources };
+    }
+
+    // Switch to help tab in right column and evaluate
+    this._activeTab = 'help';
+    this._evaluateTemplate();
+  }  _renderQuickStatePickers() {
     const domain = this._mockEntityId.split('.')[0];
 
     // Domain-specific quick pickers
@@ -1189,9 +1568,13 @@ export class LCARdSTemplateSandbox extends LitElement {
   }
 
   _handleStateYamlInput(e) {
+    this._handleStateYamlChange(e.target.value);
+  }
+
+  _handleStateYamlChange(value) {
     try {
       // Simple YAML-like parsing
-      const lines = e.target.value.split('\n');
+      const lines = value.split('\n');
       const state = { state: '', attributes: {} };
       let currentKey = null;
 
@@ -1220,9 +1603,13 @@ export class LCARdSTemplateSandbox extends LitElement {
   }
 
   _handleMockDataSourcesInput(e) {
+    this._handleMockDataSourcesChange(e.target.value);
+  }
+
+  _handleMockDataSourcesChange(value) {
     try {
       // Simple key: value parsing (one per line)
-      const lines = e.target.value.split('\n');
+      const lines = value.split('\n');
       const mockDataSources = {};
 
       for (const line of lines) {
@@ -1232,11 +1619,11 @@ export class LCARdSTemplateSandbox extends LitElement {
         if (trimmed.includes(':')) {
           const colonIndex = trimmed.indexOf(':');
           const key = trimmed.substring(0, colonIndex).trim();
-          const value = trimmed.substring(colonIndex + 1).trim();
+          const valueStr = trimmed.substring(colonIndex + 1).trim();
 
           // Try to parse as number
-          const numValue = parseFloat(value);
-          mockDataSources[key] = isNaN(numValue) ? value : numValue;
+          const numValue = parseFloat(valueStr);
+          mockDataSources[key] = isNaN(numValue) ? valueStr : numValue;
         }
       }
 
@@ -1361,17 +1748,27 @@ export class LCARdSTemplateSandbox extends LitElement {
       // Add resolution status to dependencies
       this._annotateDependencyStatus(dependencies);
 
+      // Determine if evaluation was truly successful
+      // If result is undefined, null, empty string, or just returns the template itself, it's a failure
+      const resultStr = String(result);
+      const isActuallySuccessful = result !== undefined &&
+                                    result !== null &&
+                                    resultStr.trim() !== '' &&
+                                    resultStr !== this._templateInput;
+
       this._evaluationResult = {
-        success: true,
-        result: String(result),
+        success: isActuallySuccessful,
+        result: resultStr,
         evalTime,
         dependencies,
         types: TemplateDetector.detectTemplateTypes(this._templateInput),
-        usingMockDataSources: mockSourcesCount > 0 && realSourcesCount === 0
+        usingMockDataSources: mockSourcesCount > 0 && realSourcesCount === 0,
+        error: isActuallySuccessful ? null : 'Template returned no result or unchanged template'
       };
 
-      lcardsLog.debug('[TemplateSandbox] Evaluation success', {
-        result: String(result),
+      lcardsLog.debug('[TemplateSandbox] Evaluation complete', {
+        success: isActuallySuccessful,
+        result: resultStr,
         evalTime,
         usingMocks: this._evaluationResult.usingMockDataSources
       });
