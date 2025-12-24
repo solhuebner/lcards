@@ -1419,6 +1419,252 @@ export class LCARdSProvenanceTab extends LitElement {
         color: var(--secondary-text-color);
         flex-shrink: 0;
       }
+
+      /* ====================================================================
+         LAYER CAKE STYLES - Visual layer merge representation
+         ==================================================================== */
+
+      .layer-cake-container {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        padding: 8px;
+      }
+
+      .layer-separator {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 24px;
+        color: var(--primary-color);
+      }
+
+      .layer-separator ha-icon {
+        --mdc-icon-size: 28px;
+        opacity: 0.6;
+      }
+
+      .layer-card {
+        background: var(--secondary-background-color);
+        border: 2px solid var(--divider-color);
+        border-radius: 12px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+      }
+
+      .layer-card-header {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 12px;
+        padding: 16px;
+        align-items: center;
+      }
+
+      .layer-icon-wrapper {
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--primary-background-color);
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      .layer-icon-wrapper ha-icon {
+        --mdc-icon-size: 28px;
+        color: var(--secondary-text-color);
+      }
+
+      .layer-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .layer-name {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--primary-text-color);
+      }
+
+      .layer-description {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        opacity: 0.8;
+      }
+
+      .layer-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 16px;
+        font-size: 12px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+
+      .layer-status ha-icon {
+        --mdc-icon-size: 18px;
+      }
+
+      .layer-card-body {
+        padding: 12px 16px 16px 16px;
+        border-top: 1px solid var(--divider-color);
+      }
+
+      .layer-value {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        background: var(--primary-background-color);
+        border-radius: 8px;
+        margin-bottom: 8px;
+      }
+
+      .layer-value-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--secondary-text-color);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .layer-value-code {
+        flex: 1;
+        font-family: 'Roboto Mono', monospace;
+        font-size: 14px;
+        color: var(--primary-text-color);
+        background: var(--secondary-background-color);
+        padding: 8px 12px;
+        border-radius: 6px;
+        word-break: break-word;
+      }
+
+      .layer-value-placeholder {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px;
+        color: var(--secondary-text-color);
+        font-size: 13px;
+        font-style: italic;
+      }
+
+      .layer-value-placeholder ha-icon {
+        --mdc-icon-size: 20px;
+        opacity: 0.6;
+      }
+
+      .layer-rule-info {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 8px 12px;
+        background: var(--secondary-background-color);
+        border-radius: 6px;
+        border-left: 3px solid var(--primary-color);
+      }
+
+      .rule-detail-line {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+      }
+
+      .rule-detail-line ha-icon {
+        --mdc-icon-size: 16px;
+        color: var(--secondary-text-color);
+        flex-shrink: 0;
+      }
+
+      .rule-detail-line code {
+        font-family: 'Roboto Mono', monospace;
+        background: var(--primary-background-color);
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
+
+      /* Layer card states */
+      .layer-card.layer-not-used {
+        opacity: 0.5;
+        background: var(--primary-background-color);
+      }
+
+      .layer-card.layer-not-used .layer-status {
+        background: var(--divider-color);
+        color: var(--disabled-text-color);
+      }
+
+      .layer-card.layer-not-used .layer-icon-wrapper {
+        opacity: 0.4;
+      }
+
+      .layer-card.layer-passthrough {
+        background: var(--secondary-background-color);
+      }
+
+      .layer-card.layer-passthrough .layer-status {
+        background: rgba(255, 165, 0, 0.15);
+        color: #ff9800;
+      }
+
+      .layer-card.layer-passthrough .layer-icon-wrapper {
+        background: rgba(255, 165, 0, 0.1);
+      }
+
+      .layer-card.layer-passthrough .layer-icon-wrapper ha-icon {
+        color: #ff9800;
+      }
+
+      .layer-card.layer-original {
+        background: var(--secondary-background-color);
+        border-color: var(--info-color, #2196f3);
+      }
+
+      .layer-card.layer-original .layer-status {
+        background: rgba(33, 150, 243, 0.15);
+        color: var(--info-color, #2196f3);
+      }
+
+      .layer-card.layer-original .layer-icon-wrapper {
+        background: rgba(33, 150, 243, 0.1);
+      }
+
+      .layer-card.layer-original .layer-icon-wrapper ha-icon {
+        color: var(--info-color, #2196f3);
+      }
+
+      .layer-card.layer-original .layer-name {
+        color: var(--info-color, #2196f3);
+      }
+
+      .layer-card.layer-active {
+        background: var(--card-background-color);
+        border-color: var(--success-color, #4caf50);
+        box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+      }
+
+      .layer-card.layer-active .layer-status {
+        background: var(--success-color, #4caf50);
+        color: white;
+      }
+
+      .layer-card.layer-active .layer-icon-wrapper {
+        background: var(--success-color, #4caf50);
+      }
+
+      .layer-card.layer-active .layer-icon-wrapper ha-icon {
+        color: white;
+      }
+
+      .layer-card.layer-active .layer-name {
+        color: var(--success-color, #4caf50);
+        font-weight: 700;
+      }
     `;
   }
 
@@ -1798,25 +2044,14 @@ export class LCARdSProvenanceTab extends LitElement {
         </div>
       </div>
 
-      <!-- Source Layer Section (always visible) -->
-      <div class="detail-section">
-        <div class="detail-section-title">
-          <ha-icon icon="mdi:source-branch"></ha-icon>
-          Source Layer
-        </div>
-        <span class="source-layer-badge" data-source="${source}">
-          ${this._formatLayerName(source)}
-        </span>
-      </div>
-
-      <!-- Value Section (always visible) -->
-      <div class="detail-section">
-        <div class="detail-section-title">
-          <ha-icon icon="mdi:code-braces"></ha-icon>
-          Current Value
-        </div>
-        ${this._renderDetailValue(actualValue)}
-      </div>
+      <!-- LAYER CAKE: Configuration Layers -->
+      <lcards-form-section
+        header="Configuration Layers"
+        description="Shows how this field's value was determined through the layer merge process"
+        icon="mdi:layers"
+        ?expanded=${true}>
+        ${this._renderLayerCake(path, source, actualValue, rulePatchInfo)}
+      </lcards-form-section>
 
       <!-- Theme Token Resolution Section (expandable) -->
       ${themeTokenInfo ? html`
@@ -2171,6 +2406,175 @@ export class LCARdSProvenanceTab extends LitElement {
     }
 
     return badges.length > 0 ? html`<div class="node-badges">${badges}</div>` : '';
+  }
+
+  /**
+   * Render layer cake view showing configuration layers
+   * Shows all layers in merge order with visual indicators
+   */
+  _renderLayerCake(fieldPath, finalSource, currentValue, rulePatchInfo) {
+    // Get merge order from provenance
+    const mergeOrder = this._provenance?.config?.merge_order || [];
+
+    // Define all possible layers in canonical order
+    const allLayers = [
+      { id: 'card_defaults', name: 'Card Defaults', icon: 'mdi:cog', description: 'Built-in defaults for this card type' },
+      { id: 'theme_defaults', name: 'Theme Defaults', icon: 'mdi:palette', description: 'Defaults from active theme' },
+      { id: 'preset', name: 'Preset', icon: 'mdi:package-variant', description: 'Style preset applied to card' },
+      { id: 'user_config', name: 'User Config', icon: 'mdi:account-edit', description: 'Your YAML configuration' },
+      { id: 'rules', name: 'Rules (Dynamic)', icon: 'mdi:gavel', description: 'Runtime rule patches' }
+    ];
+
+    // If rules are active, they are the true final source
+    const hasActiveRule = rulePatchInfo !== null;
+
+    return html`
+      <div class="layer-cake-container">
+        ${allLayers.map((layer, index) => {
+          // Determine layer status
+          let status = 'not-used';
+          let displayValue = null;
+          let isActive = false;
+
+          // Check if this is a preset layer (handle preset_* naming)
+          const isPresetLayer = layer.id === 'preset';
+          const matchesPreset = mergeOrder.some(l => l.startsWith('preset_'));
+          const presetName = mergeOrder.find(l => l.startsWith('preset_'))?.replace('preset_', '');
+
+          // Check if layer is in merge order
+          let layerInMerge = false;
+          if (isPresetLayer) {
+            layerInMerge = matchesPreset;
+          } else if (layer.id === 'rules') {
+            // Rules is special - check if there are any rule patches
+            layerInMerge = hasActiveRule;
+          } else {
+            layerInMerge = mergeOrder.includes(layer.id);
+          }
+
+          if (!layerInMerge) {
+            status = 'not-used';
+          } else if (layer.id === 'rules' && hasActiveRule) {
+            // Rules layer is the TRUE final source when active
+            status = 'active';
+            isActive = true;
+            displayValue = rulePatchInfo.patched_value;
+          } else if (hasActiveRule) {
+            // If rules are active, all other layers are just passthrough/setup
+            // But we can show which layer set the "original" value that rules patched
+            if (layer.id === finalSource || (isPresetLayer && finalSource.startsWith('preset_'))) {
+              status = 'original';
+              displayValue = rulePatchInfo.original_value || currentValue;
+            } else {
+              status = 'passthrough';
+            }
+          } else if (isPresetLayer && matchesPreset && finalSource.startsWith('preset_')) {
+            // Preset layer is the final source (no rules)
+            status = 'active';
+            isActive = true;
+            displayValue = currentValue;
+          } else if (layer.id === finalSource) {
+            // This layer is the final source (no rules)
+            status = 'active';
+            isActive = true;
+            displayValue = currentValue;
+          } else {
+            // Layer is in merge but was overridden
+            status = 'passthrough';
+          }
+
+          const layerDisplayName = isPresetLayer && presetName
+            ? `Preset: ${presetName}`
+            : layer.name;
+
+          return html`
+            ${index > 0 ? html`<div class="layer-separator"><ha-icon icon="mdi:chevron-down"></ha-icon></div>` : ''}
+            ${this._renderLayerCard(layer, layerDisplayName, status, isActive, displayValue, rulePatchInfo)}
+          `;
+        })}
+      </div>
+    `;
+  }
+
+  /**
+   * Render individual layer card in the cake
+   */
+  _renderLayerCard(layer, displayName, status, isActive, value, rulePatchInfo) {
+    const statusConfig = {
+      'not-used': {
+        label: 'Not in merge',
+        icon: 'mdi:close-circle-outline',
+        cssClass: 'layer-not-used'
+      },
+      'passthrough': {
+        label: 'Inherited from above',
+        icon: 'mdi:arrow-down-thin',
+        cssClass: 'layer-passthrough'
+      },
+      'original': {
+        label: 'Set original value',
+        icon: 'mdi:file-document-edit-outline',
+        cssClass: 'layer-original'
+      },
+      'active': {
+        label: 'Final value',
+        icon: 'mdi:check-circle',
+        cssClass: 'layer-active'
+      }
+    };
+
+    const config = statusConfig[status];
+
+    return html`
+      <div class="layer-card ${config.cssClass}" data-layer="${layer.id}">
+        <div class="layer-card-header">
+          <div class="layer-icon-wrapper">
+            <ha-icon icon="${layer.icon}"></ha-icon>
+          </div>
+          <div class="layer-info">
+            <div class="layer-name">${displayName}</div>
+            <div class="layer-description">${layer.description}</div>
+          </div>
+          <div class="layer-status">
+            <ha-icon icon="${config.icon}"></ha-icon>
+            <span>${config.label}</span>
+          </div>
+        </div>
+
+        ${status !== 'not-used' ? html`
+          <div class="layer-card-body">
+            ${(isActive || status === 'original') && value !== null && value !== undefined ? html`
+              <div class="layer-value">
+                <span class="layer-value-label">${status === 'original' ? 'Original:' : 'Value:'}</span>
+                <code class="layer-value-code">${this._formatValue(value)}</code>
+                ${this._isColorValue(value) ? html`
+                  <div class="color-preview-inline" style="background-color: ${value};"></div>
+                ` : ''}
+              </div>
+              ${layer.id === 'rules' && rulePatchInfo ? html`
+                <div class="layer-rule-info">
+                  <div class="rule-detail-line">
+                    <ha-icon icon="mdi:tag"></ha-icon>
+                    <span>Rule: <code>${rulePatchInfo.rule_id}</code></span>
+                  </div>
+                  ${rulePatchInfo.original_value !== undefined ? html`
+                    <div class="rule-detail-line">
+                      <ha-icon icon="mdi:replay"></ha-icon>
+                      <span>Before: <code>${this._formatValue(rulePatchInfo.original_value)}</code></span>
+                    </div>
+                  ` : ''}
+                </div>
+              ` : ''}
+            ` : html`
+              <div class="layer-value-placeholder">
+                <ha-icon icon="mdi:dots-horizontal"></ha-icon>
+                <span>${status === 'passthrough' ? 'Value passed through (no override)' : 'Not defined at this layer'}</span>
+              </div>
+            `}
+          </div>
+        ` : ''}
+      </div>
+    `;
   }
 
   /**
