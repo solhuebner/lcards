@@ -289,7 +289,9 @@ export class ProvenanceTracker {
 
         // Group by source layer for better readability
         const byLayer = {};
-        for (const [field, source] of Object.entries(this.data.config.field_sources)) {
+        for (const [field, sourceInfo] of Object.entries(this.data.config.field_sources)) {
+          // Handle both string and object formats
+          const source = typeof sourceInfo === 'string' ? sourceInfo : sourceInfo.final;
           if (!byLayer[source]) byLayer[source] = [];
           byLayer[source].push(field);
         }
@@ -399,7 +401,9 @@ export class ProvenanceTracker {
       lines.push('  📋 Field Sources (Sample)');
       const sample = fieldSources.slice(0, 10);
       sample.forEach(field => {
-        const source = this.data.config.field_sources[field];
+        const sourceInfo = this.data.config.field_sources[field];
+        // Handle both string and object formats
+        const source = typeof sourceInfo === 'string' ? sourceInfo : sourceInfo.final;
         lines.push(`    ${field}: ${source}`);
       });
       if (fieldSources.length > 10) {
@@ -514,6 +518,7 @@ export class ProvenanceTracker {
    * Get the source layer for a specific config field
    *
    * Supports deep field paths like 'dpad.segments.default.style.fill'
+   * Handles both legacy string format and new object format
    *
    * @param {string} fieldPath - Dot-notation field path
    * @returns {string|null} Source layer name or null if not found
@@ -524,7 +529,44 @@ export class ProvenanceTracker {
    * tracker.getFieldSource('dpad.segments.default.style.fill'); // 'user_config'
    */
   getFieldSource(fieldPath) {
-    return this.data.config.field_sources[fieldPath] || null;
+    const sourceInfo = this.data.config.field_sources[fieldPath];
+
+    // Handle both formats: string (legacy) or object { layers, final }
+    if (!sourceInfo) return null;
+    if (typeof sourceInfo === 'string') return sourceInfo;
+    return sourceInfo.final || null;
+  }
+
+  /**
+   * Get enhanced source info for a field (includes layer-by-layer values)
+   *
+   * @param {string} fieldPath - Dot-notation field path
+   * @returns {Object|null} Source info { layers: {}, final: string } or null
+   *
+   * @example
+   * tracker.getFieldSourceInfo('style.color');
+   * // Returns: {
+   * //   layers: { card_defaults: 'blue', user_config: 'red' },
+   * //   final: 'user_config'
+   * // }
+   */
+  getFieldSourceInfo(fieldPath) {
+    const sourceInfo = this.data.config.field_sources[fieldPath];
+
+    // If already an object, return it
+    if (sourceInfo && typeof sourceInfo === 'object') {
+      return sourceInfo;
+    }
+
+    // If legacy string format, convert to object format
+    if (typeof sourceInfo === 'string') {
+      return {
+        layers: { [sourceInfo]: undefined }, // Value not tracked in legacy format
+        final: sourceInfo
+      };
+    }
+
+    return null;
   }
 
   /**
@@ -539,7 +581,13 @@ export class ProvenanceTracker {
    */
   getFieldsFromLayer(layerName) {
     return Object.entries(this.data.config.field_sources)
-      .filter(([_, source]) => source === layerName)
+      .filter(([_, sourceInfo]) => {
+        // Handle both formats
+        if (typeof sourceInfo === 'string') {
+          return sourceInfo === layerName;
+        }
+        return sourceInfo.final === layerName;
+      })
       .map(([field, _]) => field);
   }
 
@@ -556,8 +604,10 @@ export class ProvenanceTracker {
    * // Returns true if any field under dpad.segments.default.style is from user_config
    */
   hasUserOverride(fieldPrefix) {
-    for (const [field, source] of Object.entries(this.data.config.field_sources)) {
+    for (const [field, sourceInfo] of Object.entries(this.data.config.field_sources)) {
       if (field === fieldPrefix || field.startsWith(`${fieldPrefix}.`)) {
+        // Handle both string and object formats
+        const source = typeof sourceInfo === 'string' ? sourceInfo : sourceInfo.final;
         if (source === 'user_config') {
           return true;
         }
@@ -611,9 +661,12 @@ export class ProvenanceTracker {
         return depthA - depthB;
       });
 
-    for (const [fieldPath, source] of sortedEntries) {
+    for (const [fieldPath, sourceInfo] of sortedEntries) {
       const parts = fieldPath.split('.');
       let current = tree;
+
+      // Handle both string and object formats
+      const source = typeof sourceInfo === 'string' ? sourceInfo : sourceInfo.final;
 
       // Navigate/create path
       for (let i = 0; i < parts.length; i++) {

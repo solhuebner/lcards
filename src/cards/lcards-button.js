@@ -213,21 +213,28 @@ export class LCARdSButton extends LCARdSCard {
     // ============================================================================
 
     /**
-     * Process component preset configuration
-     * Loads component preset from pack system, resolves shape, merges with user config,
-     * and resolves theme tokens.
+     * Process component preset from merged configuration
      *
-     * NOTE: Component presets are loaded directly from component registry for now.
-     * Future enhancement: Support external SVG files via /hacsfiles/lcards/ URL paths
-     * (similar to MSD base_svg files).
+     * CoreConfigManager has already merged component defaults with user config,
+     * so this.config[componentName] contains the final merged segments.
+     * We just need to load the shape SVG and convert to segment array format.
      *
      * @private
-     * @param {string} componentName - Name of component preset to load
+     * @param {string} componentName - Name of component preset (e.g., 'dpad')
      */
-    _processComponentPreset(componentName) {
-        lcardsLog.debug(`[LCARdSButton] Processing component preset`, { componentName });
+    _processComponentPresetFromMergedConfig(componentName) {
+        lcardsLog.debug(`[LCARdSButton] Processing component from merged config`, { componentName });
 
-        // Load component preset
+        // Get merged component config from this.config (already processed by CoreConfigManager)
+        const mergedComponentConfig = this.config[componentName];
+        if (!mergedComponentConfig?.segments) {
+            lcardsLog.warn(`[LCARdSButton] No segments found in merged config for component: ${componentName}`);
+            this._processedSvg = null;
+            this._processedSegments = null;
+            return;
+        }
+
+        // Load component preset metadata to get shape reference
         const componentPreset = getComponent(componentName);
         if (!componentPreset) {
             lcardsLog.error(`[LCARdSButton] Component preset not found: ${componentName}`);
@@ -246,87 +253,34 @@ export class LCARdSButton extends LCARdSCard {
             return;
         }
 
-        lcardsLog.debug(`[LCARdSButton] Loaded component preset`, {
+        lcardsLog.debug(`[LCARdSButton] Loaded component shape`, {
             id: componentPreset.id,
             shape: shapeName,
-            hasSegments: !!componentPreset.segments
+            mergedSegmentCount: Object.keys(mergedComponentConfig.segments).length
         });
 
-        // Create SVG config from component preset
+        // Create SVG config from merged segments
         const svgConfig = {
             content: shapeContent,
             enable_tokens: true,
             segments: []
         };
 
-        // DON'T resolve tokens yet - singletons not available during config processing!
-        // Store component segments with token references, will resolve during render
-        // Merge component segments with user-provided segments
-        const userSegmentsConfig = this.config[componentName] || {};
-        const userSegments = userSegmentsConfig.segments || {};
-
-        const mergedSegments = this._mergeComponentSegments(componentPreset.segments, userSegments);
-
-        // Convert to segment array format expected by _finalizeSvgProcessing
+        // Convert merged segments object to array format expected by _finalizeSvgProcessing
         // Auto-generate selector from segment ID if not explicitly provided
+        const mergedSegments = mergedComponentConfig.segments;
         svgConfig.segments = Object.entries(mergedSegments).map(([id, config]) => ({
             id,
             selector: config.selector || `#${id}`,  // Default to ID selector if not specified
             ...config
         }));
 
-        lcardsLog.debug(`[LCARdSButton] Component segments merged`, {
-            componentSegmentCount: Object.keys(componentPreset.segments).length,
-            userSegmentCount: Object.keys(userSegments).length,
-            finalSegmentCount: svgConfig.segments.length
+        lcardsLog.debug(`[LCARdSButton] Component segments ready for processing`, {
+            segmentCount: svgConfig.segments.length
         });
 
         // Process through normal SVG pipeline
         this._finalizeSvgProcessing(svgConfig.content, svgConfig);
-    }
-
-    /**
-     * Merge component preset segments with user-provided segments
-     * User config takes precedence, but preserves component defaults
-     * Supports dpad.default for default properties applied to all segments
-     * @private
-     * @param {Object} componentSegments - Resolved component preset segments
-     * @param {Object} userSegments - User-provided segment overrides
-     * @returns {Object} Merged segment configuration
-     */
-    _mergeComponentSegments(componentSegments, userSegments) {
-        const merged = { ...componentSegments };
-
-        // Extract default configuration (if provided)
-        // Similar to text.default pattern
-        const defaultConfig = userSegments.default || {};
-
-        // Deep merge user segments into component segments
-        for (const [segmentId, userConfig] of Object.entries(userSegments)) {
-            // Skip 'default' - it's configuration, not a segment to render
-            if (segmentId === 'default') continue;
-
-            if (merged[segmentId]) {
-                // Three-way merge: component preset < default config < segment-specific config
-                // This allows default to provide common properties while segment-specific overrides
-                const withDefaults = deepMerge(merged[segmentId], defaultConfig);
-                merged[segmentId] = deepMerge(withDefaults, userConfig);
-            } else {
-                // User defined a new segment not in component preset
-                // Apply defaults first, then segment-specific config
-                merged[segmentId] = deepMerge(defaultConfig, userConfig);
-            }
-        }
-
-        // If there are segments in merged that weren't in userSegments,
-        // apply default config to them as well
-        for (const segmentId of Object.keys(merged)) {
-            if (!userSegments[segmentId] && Object.keys(defaultConfig).length > 0) {
-                merged[segmentId] = deepMerge(merged[segmentId], defaultConfig);
-            }
-        }
-
-        return merged;
     }
 
     /**
@@ -348,8 +302,10 @@ export class LCARdSButton extends LCARdSCard {
         }
 
         // Check for component preset first
+        // After CoreConfigManager processing, component segments are already merged
+        // into this.config[componentName] (e.g., this.config.dpad)
         if (this.config?.component) {
-            this._processComponentPreset(this.config.component);
+            this._processComponentPresetFromMergedConfig(this.config.component);
             return;
         }
 

@@ -55,21 +55,25 @@ export function deepMerge(target, source) {
 }
 
 /**
- * Track field sources for provenance
+ * Track field sources for provenance with layer-by-layer values
  *
- * Records which layer each field came from in the merged result.
+ * Records which layer each field came from AND the value at each layer.
  *
- * @param {Object} fieldSources - Output map of field paths to source layers
+ * @param {Object} fieldSources - Output map of field paths to source info
  * @param {Object} layers - Map of layer name to layer object
  * @param {string} prefix - Current path prefix for recursion
  *
  * @example
  * const sources = {};
  * trackFieldSources(sources, {
- *   card_defaults: { show_label: true },
- *   user_config: { label: 'Test' }
+ *   card_defaults: { show_label: true, style: { color: 'blue' } },
+ *   user_config: { label: 'Test', style: { color: 'red' } }
  * });
- * // sources: { 'show_label': 'card_defaults', 'label': 'user_config' }
+ * // sources: {
+ * //   'show_label': { layers: { card_defaults: true }, final: 'card_defaults' },
+ * //   'label': { layers: { user_config: 'Test' }, final: 'user_config' },
+ * //   'style.color': { layers: { card_defaults: 'blue', user_config: 'red' }, final: 'user_config' }
+ * // }
  */
 export function trackFieldSources(fieldSources, layers, prefix = '') {
   // Get all unique keys across all layers
@@ -80,18 +84,18 @@ export function trackFieldSources(fieldSources, layers, prefix = '') {
     }
   }
 
-  // For each key, find which layer it came from (last layer wins)
+  // For each key, track value at each layer
   for (const key of allKeys) {
     const fieldPath = prefix ? `${prefix}.${key}` : key;
-    let sourceLayer = null;
+    const layerValues = {};
+    let finalSource = null;
 
-    // Check layers in order (last one wins)
+    // Check layers in order to collect values
     for (const [layerName, layerData] of Object.entries(layers)) {
       if (layerData && typeof layerData === 'object' && key in layerData) {
-        sourceLayer = layerName;
+        const value = layerData[key];
 
         // If it's an object, recurse to track nested fields
-        const value = layerData[key];
         if (value && typeof value === 'object' && !Array.isArray(value)) {
           // Build nested layers object for recursion
           const nestedLayers = {};
@@ -101,13 +105,20 @@ export function trackFieldSources(fieldSources, layers, prefix = '') {
             }
           }
           trackFieldSources(fieldSources, nestedLayers, fieldPath);
+        } else {
+          // Store the value for this layer
+          layerValues[layerName] = value;
+          finalSource = layerName; // Last one wins
         }
       }
     }
 
-    // Record source (only if not an object with children)
-    if (sourceLayer && !_isObjectWithChildren(layers, key)) {
-      fieldSources[fieldPath] = sourceLayer;
+    // Record source info (only if not an object with children and has values)
+    if (Object.keys(layerValues).length > 0 && finalSource) {
+      fieldSources[fieldPath] = {
+        layers: layerValues,
+        final: finalSource
+      };
     }
   }
 }

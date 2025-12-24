@@ -163,6 +163,7 @@ export class LCARdSProvenanceTab extends LitElement {
         display: flex;
         flex-direction: column;
         gap: 16px;
+        height: 75vh;
         max-height: 75vh;
         overflow: hidden;
       }
@@ -171,8 +172,8 @@ export class LCARdSProvenanceTab extends LitElement {
       .dialog-header {
         display: flex;
         flex-direction: column;
-        gap: 12px;
-        padding-bottom: 12px;
+        gap: 8px;
+        padding-bottom: 8px;
         border-bottom: 1px solid var(--divider-color);
         flex-shrink: 0;
       }
@@ -180,12 +181,15 @@ export class LCARdSProvenanceTab extends LitElement {
       /* View Tabs */
       .tabs-container {
         display: flex;
-        gap: 8px;
+        gap: 4px;
         border-bottom: 2px solid var(--divider-color);
       }
 
       .view-tab {
-        padding: 12px 24px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 16px;
         background: none;
         border: none;
         border-bottom: 3px solid transparent;
@@ -194,6 +198,23 @@ export class LCARdSProvenanceTab extends LitElement {
         font-weight: 500;
         cursor: pointer;
         transition: all 0.2s;
+      }
+
+      .view-tab ha-icon {
+        --mdc-icon-size: 18px;
+      }
+
+      .view-tab .tab-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 20px;
+        padding: 2px 6px;
+        background: var(--secondary-background-color);
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 600;
+        margin-left: 2px;
       }
 
       .view-tab:hover {
@@ -206,29 +227,9 @@ export class LCARdSProvenanceTab extends LitElement {
         color: var(--mdc-theme-primary, #03a9f4);
       }
 
-      /* Card Info Badges */
-      .card-info {
-        display: flex;
-        gap: 16px;
-        flex-wrap: wrap;
-      }
-
-      .info-badge {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
-        background: var(--secondary-background-color);
-        border-radius: 16px;
-        font-size: 13px;
-      }
-
-      .info-badge strong {
-        color: var(--primary-text-color);
-      }
-
-      .info-badge span {
-        color: var(--secondary-text-color);
+      .view-tab.active .tab-count {
+        background: var(--mdc-theme-primary, #03a9f4);
+        color: white;
       }
 
       /* Search Container */
@@ -464,145 +465,411 @@ export class LCARdSProvenanceTab extends LitElement {
       }
 
       /* Statistics View */
-      .stats-container {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 16px;
-        padding: 16px;
+      .stats-header {
+        padding: 20px 20px 0;
       }
 
-      .stat-card {
-        background: var(--secondary-background-color);
-        border: 1px solid var(--divider-color);
-        border-radius: 8px;
-        padding: 20px;
-      }
-
-      .stat-title {
-        font-size: 13px;
-        color: var(--secondary-text-color);
-        text-transform: uppercase;
-        margin-bottom: 8px;
-      }
-
-      .stat-value {
-        font-size: 32px;
+      .stats-header h3 {
+        margin: 0 0 8px 0;
+        font-size: 20px;
         font-weight: 500;
         color: var(--primary-text-color);
       }
 
-      .stat-subtitle {
-        font-size: 12px;
+      .stats-subtitle {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--secondary-text-color);
+        font-size: 14px;
+      }
+
+      .stats-subtitle ha-icon {
+        --mdc-icon-size: 18px;
+      }
+
+      /* Modern Stats Grid */
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        padding: 20px;
+      }
+
+      .stat-card.modern {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        background: var(--secondary-background-color);
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        padding: 20px;
+        transition: all 0.2s;
+      }
+
+      .stat-card.modern:hover {
+        border-color: var(--mdc-theme-primary, #03a9f4);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      }
+
+      .stat-icon {
+        --mdc-icon-size: 32px;
+        color: var(--mdc-theme-primary, #03a9f4);
+        opacity: 0.8;
+      }
+
+      .stat-content {
+        flex: 1;
+      }
+
+      .stat-value {
+        font-size: 28px;
+        font-weight: 600;
+        color: var(--primary-text-color);
+        line-height: 1;
+      }
+
+      .stat-label {
+        font-size: 13px;
         color: var(--secondary-text-color);
         margin-top: 4px;
       }
 
-      /* Layer Distribution Chart */
-      .layer-distribution {
+      /* Stat Sections */
+      .stat-section {
+        margin: 16px 20px;
+        background: var(--secondary-background-color);
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        padding: 20px;
+      }
+
+      .section-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+
+      .section-header ha-icon {
+        --mdc-icon-size: 20px;
+        color: var(--mdc-theme-primary, #03a9f4);
+      }
+
+      .section-header h4 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 500;
+        color: var(--primary-text-color);
+      }
+
+      /* Distribution Chart */
+      .distribution-container {
         display: flex;
         flex-direction: column;
         gap: 12px;
       }
 
-      .distribution-bar {
+      .distribution-row {
         display: flex;
-        align-items: center;
-        gap: 12px;
+        flex-direction: column;
+        gap: 6px;
       }
 
       .distribution-label {
-        width: 100px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .layer-name {
         font-size: 13px;
+        color: var(--primary-text-color);
+        font-weight: 500;
+      }
+
+      .layer-count {
+        font-size: 12px;
         color: var(--secondary-text-color);
       }
 
-      .distribution-track {
+      .distribution-bar-container {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .distribution-bar {
         flex: 1;
-        height: 24px;
+        height: 8px;
         background: var(--divider-color);
-        border-radius: 12px;
+        border-radius: 4px;
         overflow: hidden;
-        position: relative;
       }
 
       .distribution-fill {
         height: 100%;
         transition: width 0.3s;
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        padding-right: 8px;
+        border-radius: 4px;
       }
 
-      .distribution-fill.defaults {
-        background: #9e9e9e;
+      .distribution-fill.card_defaults {
+        background: linear-gradient(90deg, #9e9e9e, #757575);
       }
 
-      .distribution-fill.theme {
-        background: #2196f3;
+      .distribution-fill.theme_defaults {
+        background: linear-gradient(90deg, #2196f3, #1976d2);
       }
 
-      .distribution-fill.user {
-        background: #4caf50;
+      .distribution-fill[class*="component_"] {
+        background: linear-gradient(90deg, #9c27b0, #7b1fa2);
       }
 
-      .distribution-fill.presets {
-        background: #ff9800;
+      .distribution-fill[class*="preset_"] {
+        background: linear-gradient(90deg, #ff9800, #f57c00);
+      }
+
+      .distribution-fill.user_config {
+        background: linear-gradient(90deg, #4caf50, #388e3c);
       }
 
       .distribution-fill.rules {
-        background: #f44336;
+        background: linear-gradient(90deg, #f44336, #d32f2f);
       }
 
-      .distribution-count {
+      .distribution-percentage {
         font-size: 12px;
-        color: white;
+        color: var(--secondary-text-color);
         font-weight: 500;
+        min-width: 40px;
+        text-align: right;
       }
 
-      /* Token Usage Table */
-      .token-table {
-        width: 100%;
-        border-collapse: collapse;
+      /* Token List */
+      .tokens-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
       }
 
-      .token-table th,
-      .token-table td {
+      .token-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
         padding: 12px;
-        text-align: left;
+        background: var(--primary-background-color);
+        border: 1px solid var(--divider-color);
+        border-radius: 8px;
+        transition: all 0.2s;
+      }
+
+      .token-item:hover {
+        border-color: var(--mdc-theme-primary, #03a9f4);
+        background: var(--secondary-background-color);
+      }
+
+      .token-rank {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        background: var(--mdc-theme-primary, #03a9f4);
+        color: white;
+        border-radius: 50%;
+        font-size: 13px;
+        font-weight: 600;
+        flex-shrink: 0;
+      }
+
+      .token-details {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .token-path {
+        font-family: 'Roboto Mono', monospace;
+        font-size: 13px;
+        color: var(--primary-text-color);
+        margin-bottom: 4px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .token-meta {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 12px;
+      }
+
+      .token-usage {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--secondary-text-color);
+      }
+
+      .token-usage ha-icon {
+        --mdc-icon-size: 14px;
+      }
+
+      .token-value-preview {
+        color: var(--info-color);
+        font-family: 'Roboto Mono', monospace;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* Theme Tokens View - Card Layout */
+      .tokens-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 20px;
+      }
+
+      .token-card {
+        background: var(--secondary-background-color);
+        border: 1px solid var(--divider-color);
+        border-radius: 12px;
+        overflow: hidden;
+        transition: all 0.2s;
+      }
+
+      .token-card:hover {
+        border-color: var(--mdc-theme-primary, #03a9f4);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      }
+
+      .token-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px;
+        background: var(--primary-background-color);
         border-bottom: 1px solid var(--divider-color);
       }
 
-      .token-table th {
-        background: var(--secondary-background-color);
+      .token-path-display {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+        min-width: 0;
+      }
+
+      .token-path-display ha-icon {
+        --mdc-icon-size: 20px;
+        color: var(--mdc-theme-primary, #03a9f4);
+        flex-shrink: 0;
+      }
+
+      .token-path-display .token-path {
+        font-family: 'Roboto Mono', monospace;
+        font-size: 14px;
+        color: var(--primary-text-color);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        background: transparent;
+        padding: 0;
+        border-radius: 0;
+      }
+
+      .token-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+      }
+
+      .token-card-body {
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .token-value-section,
+      .token-usage-section {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .token-section-label {
         font-size: 12px;
         font-weight: 500;
         color: var(--secondary-text-color);
         text-transform: uppercase;
+        letter-spacing: 0.5px;
       }
 
-      .token-path-cell {
+      .token-value-display {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .token-value-code {
+        flex: 1;
         font-family: 'Roboto Mono', monospace;
         font-size: 13px;
+        color: var(--info-color);
+        background: var(--primary-background-color);
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid var(--divider-color);
+        overflow-x: auto;
+        word-break: break-word;
       }
 
-      .token-used-by-cell {
-        font-size: 12px;
-        color: var(--secondary-text-color);
+      pre.token-value-code {
+        white-space: pre;
+        line-height: 1.4;
+        margin: 0;
       }
 
-      .token-used-by-cell code {
-        background: var(--secondary-background-color);
-        padding: 2px 6px;
-        border-radius: 3px;
-        margin: 2px;
+      .color-preview-large {
+        width: 48px;
+        height: 48px;
+        border-radius: 8px;
+        border: 2px solid var(--divider-color);
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: all 0.2s;
+      }
+
+      .color-preview-large:hover {
+        transform: scale(1.1);
+        border-color: var(--mdc-theme-primary, #03a9f4);
+      }
+
+      .token-used-by-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .field-reference {
         display: inline-block;
+        font-family: 'Roboto Mono', monospace;
+        font-size: 12px;
+        color: var(--primary-text-color);
+        background: var(--primary-background-color);
+        padding: 4px 8px;
+        border-radius: 4px;
+        border: 1px solid var(--divider-color);
       }
 
       /* Split Pane Layout - New Tree View */
       .split-pane-container {
         display: grid;
         grid-template-columns: 35% 65%;
+        grid-template-rows: minmax(0, 1fr);
         gap: 16px;
         flex: 1;
         min-height: 0;
@@ -612,6 +879,7 @@ export class LCARdSProvenanceTab extends LitElement {
       .tree-pane {
         display: flex;
         flex-direction: column;
+        min-height: 0;
         overflow: hidden;
         border-right: 1px solid var(--divider-color);
       }
@@ -651,7 +919,16 @@ export class LCARdSProvenanceTab extends LitElement {
       }
 
       .detail-pane {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-height: 0; /* Critical for grid child to respect overflow */
+      }
+
+      .detail-pane-content {
+        flex: 1;
         overflow-y: auto;
+        overflow-x: hidden;
         padding-left: 8px;
       }
 
@@ -1532,6 +1809,14 @@ export class LCARdSProvenanceTab extends LitElement {
         letter-spacing: 0.5px;
       }
 
+      .layer-override-hint {
+        font-size: 11px;
+        font-style: italic;
+        color: var(--secondary-text-color);
+        margin-left: 8px;
+        opacity: 0.8;
+      }
+
       .layer-value-code {
         flex: 1;
         font-family: 'Roboto Mono', monospace;
@@ -1541,6 +1826,15 @@ export class LCARdSProvenanceTab extends LitElement {
         padding: 8px 12px;
         border-radius: 6px;
         word-break: break-word;
+      }
+
+      /* Pre element for multi-line formatted values */
+      pre.layer-value-code,
+      pre.token-resolution-value {
+        white-space: pre;
+        overflow-x: auto;
+        margin: 0;
+        line-height: 1.4;
       }
 
       .layer-value-placeholder {
@@ -1586,6 +1880,45 @@ export class LCARdSProvenanceTab extends LitElement {
         background: var(--primary-background-color);
         padding: 2px 6px;
         border-radius: 3px;
+      }
+
+      /* Token resolution display */
+      .layer-token-resolution {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        margin-top: 8px;
+        background: var(--secondary-background-color);
+        border-radius: 6px;
+        border-left: 3px solid var(--info-color);
+        font-size: 12px;
+      }
+
+      .layer-token-resolution ha-icon {
+        --mdc-icon-size: 16px;
+        color: var(--info-color);
+        flex-shrink: 0;
+      }
+
+      .token-resolution-label {
+        color: var(--secondary-text-color);
+        font-weight: 500;
+      }
+
+      .token-resolution-value {
+        font-family: 'Roboto Mono', monospace;
+        background: var(--primary-background-color);
+        padding: 4px 8px;
+        border-radius: 4px;
+        color: var(--info-color);
+        flex: 1;
+        word-break: break-word;
+      }
+
+      .token-resolution-text {
+        color: var(--secondary-text-color);
+        font-style: italic;
       }
 
       /* Layer card states */
@@ -1741,37 +2074,27 @@ export class LCARdSProvenanceTab extends LitElement {
           <button
             class="view-tab ${this._activeView === 'tree' ? 'active' : ''}"
             @click=${() => this._switchView('tree')}>
-            Config Tree (${stats.totalFields} fields)
+            <ha-icon icon="mdi:file-tree"></ha-icon>
+            <span>Config Tree</span>
+            <span class="tab-count">${stats.totalFields}</span>
           </button>
           <button
             class="view-tab ${this._activeView === 'tokens' ? 'active' : ''}"
             @click=${() => this._switchView('tokens')}>
-            Theme Tokens (${stats.tokenCount})
+            <ha-icon icon="mdi:palette"></ha-icon>
+            <span>Theme Tokens</span>
+            <span class="tab-count">${stats.tokenCount}</span>
           </button>
           <button
             class="view-tab ${this._activeView === 'stats' ? 'active' : ''}"
             @click=${() => this._switchView('stats')}>
-            Statistics
+            <ha-icon icon="mdi:chart-box"></ha-icon>
+            <span>Statistics</span>
           </button>
         </div>
 
-        <div class="card-info">
-          <div class="info-badge">
-            <strong>Card:</strong>
-            <span>${this._provenance?.config?.card_type || 'unknown'}</span>
-          </div>
-          <div class="info-badge">
-            <strong>Tracked:</strong>
-            <span>${stats.totalFields} fields</span>
-          </div>
-          <div class="info-badge">
-            <strong>Layers:</strong>
-            <span>${stats.layerCount}</span>
-          </div>
-        </div>
-
-        <!-- Hide search for tree view, show for other views -->
-        ${this._activeView !== 'stats' && this._activeView !== 'tree' ? html`
+        <!-- Show search for tokens view only -->
+        ${this._activeView === 'tokens' ? html`
           <div class="search-container">
             <div class="search-wrapper">
               <ha-textfield
@@ -1795,31 +2118,8 @@ export class LCARdSProvenanceTab extends LitElement {
           </div>
         ` : ''}
 
-        <!-- Hide layer filters for tree view -->
+        <!-- Show layer filters for tokens view only -->
         ${this._activeView === 'tokens' ? this._renderLayerFilters() : ''}
-
-        <div class="refresh-controls">
-          <ha-icon-button
-            @click=${this._manualRefresh}
-            .label=${'Refresh now'}
-            .path=${"M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"}>
-          </ha-icon-button>
-          <label>
-            <input
-              type="checkbox"
-              .checked=${this._autoRefresh}
-              @change=${this._toggleAutoRefresh} />
-            Auto-refresh every
-          </label>
-          <input
-            type="number"
-            min="1"
-            max="60"
-            .value=${String(this._autoRefreshInterval / 1000)}
-            @change=${this._updateRefreshInterval}
-            ?disabled=${!this._autoRefresh} />
-          <span>seconds</span>
-        </div>
       </div>
     `;
   }
@@ -1922,15 +2222,17 @@ export class LCARdSProvenanceTab extends LitElement {
 
         <!-- Right Pane: Detail View -->
         <div class="detail-pane">
-          ${this._selectedNode ? this._renderNodeDetail() : html`
-            <div class="detail-panel-empty">
-              <ha-icon icon="mdi:cursor-pointer"></ha-icon>
-              <p>Select a node from the tree to view details</p>
-              <p style="font-size: 13px; color: var(--secondary-text-color); margin-top: 8px;">
-                💡 Tip: Click <ha-icon icon="mdi:arrow-expand-vertical" style="--mdc-icon-size: 14px; vertical-align: middle;"></ha-icon> to expand nodes with provenance data
-              </p>
-            </div>
-          `}
+          <div class="detail-pane-content">
+            ${this._selectedNode ? this._renderNodeDetail() : html`
+              <div class="detail-panel-empty">
+                <ha-icon icon="mdi:cursor-pointer"></ha-icon>
+                <p>Select a node from the tree to view details</p>
+                <p style="font-size: 13px; color: var(--secondary-text-color); margin-top: 8px;">
+                  💡 Tip: Click <ha-icon icon="mdi:arrow-expand-vertical" style="--mdc-icon-size: 14px; vertical-align: middle;"></ha-icon> to expand nodes with provenance data
+                </p>
+              </div>
+            `}
+          </div>
         </div>
       </div>
     `;
@@ -1942,7 +2244,10 @@ export class LCARdSProvenanceTab extends LitElement {
   _renderTreeNodes(node, parentPath) {
     if (!node || typeof node !== 'object') return '';
 
-    const entries = Object.entries(node).filter(([key]) => key !== '__source');
+    // Sort entries alphabetically by key
+    const entries = Object.entries(node)
+      .filter(([key]) => key !== '__source')
+      .sort(([a], [b]) => a.localeCompare(b));
 
     return html`
       ${entries.map(([key, value]) => {
@@ -2416,10 +2721,14 @@ export class LCARdSProvenanceTab extends LitElement {
     // Get merge order from provenance
     const mergeOrder = this._provenance?.config?.merge_order || [];
 
+    // Get enhanced field source info (includes layer-by-layer values)
+    const fieldSourceInfo = this._provenanceTracker?.getFieldSourceInfo?.(fieldPath);
+    const layerValues = fieldSourceInfo?.layers || {};
+
     // Define all possible layers in canonical order
     const allLayers = [
       { id: 'card_defaults', name: 'Card Defaults', icon: 'mdi:cog', description: 'Built-in defaults for this card type' },
-      { id: 'theme_defaults', name: 'Theme Defaults', icon: 'mdi:palette', description: 'Defaults from active theme' },
+      { id: 'component', name: 'Component', icon: 'mdi:cube-outline', description: 'Component-specific defaults (dpad, svg, gauge, etc.)' },
       { id: 'preset', name: 'Preset', icon: 'mdi:package-variant', description: 'Style preset applied to card' },
       { id: 'user_config', name: 'User Config', icon: 'mdi:account-edit', description: 'Your YAML configuration' },
       { id: 'rules', name: 'Rules (Dynamic)', icon: 'mdi:gavel', description: 'Runtime rule patches' }
@@ -2440,17 +2749,37 @@ export class LCARdSProvenanceTab extends LitElement {
           const isPresetLayer = layer.id === 'preset';
           const matchesPreset = mergeOrder.some(l => l.startsWith('preset_'));
           const presetName = mergeOrder.find(l => l.startsWith('preset_'))?.replace('preset_', '');
+          const presetLayerName = presetName ? `preset_${presetName}` : null;
+
+          // Check if this is a component layer (handle component_* naming)
+          const isComponentLayer = layer.id === 'component';
+          const matchesComponent = mergeOrder.some(l => l.startsWith('component_'));
+          const componentName = mergeOrder.find(l => l.startsWith('component_'))?.replace('component_', '');
+          const componentLayerName = componentName ? `component_${componentName}` : null;
+
+          // Get the actual layer key to use for value lookup
+          let layerKey = layer.id;
+          if (isPresetLayer) {
+            layerKey = presetLayerName;
+          } else if (isComponentLayer) {
+            layerKey = componentLayerName;
+          }
 
           // Check if layer is in merge order
           let layerInMerge = false;
           if (isPresetLayer) {
             layerInMerge = matchesPreset;
+          } else if (isComponentLayer) {
+            layerInMerge = matchesComponent;
           } else if (layer.id === 'rules') {
             // Rules is special - check if there are any rule patches
             layerInMerge = hasActiveRule;
           } else {
             layerInMerge = mergeOrder.includes(layer.id);
           }
+
+          // Get value from this layer if available (use undefined check, not falsy!)
+          const layerValue = layerKey && layerKey in layerValues ? layerValues[layerKey] : undefined;
 
           if (!layerInMerge) {
             status = 'not-used';
@@ -2462,30 +2791,50 @@ export class LCARdSProvenanceTab extends LitElement {
           } else if (hasActiveRule) {
             // If rules are active, all other layers are just passthrough/setup
             // But we can show which layer set the "original" value that rules patched
-            if (layer.id === finalSource || (isPresetLayer && finalSource.startsWith('preset_'))) {
+            const matchesCurrentFinalSource = (
+              layer.id === finalSource ||
+              (isPresetLayer && finalSource.startsWith('preset_')) ||
+              (isComponentLayer && finalSource.startsWith('component_'))
+            );
+
+            if (matchesCurrentFinalSource) {
               status = 'original';
-              displayValue = rulePatchInfo.original_value || currentValue;
+              // Get the actual value from this layer
+              displayValue = layerValue !== undefined ? layerValue : (rulePatchInfo.original_value !== undefined ? rulePatchInfo.original_value : currentValue);
             } else {
               status = 'passthrough';
+              // Show the value at this layer if we have it
+              displayValue = layerValue;
             }
           } else if (isPresetLayer && matchesPreset && finalSource.startsWith('preset_')) {
             // Preset layer is the final source (no rules)
             status = 'active';
             isActive = true;
-            displayValue = currentValue;
+            displayValue = layerValue !== undefined ? layerValue : currentValue;
+          } else if (isComponentLayer && matchesComponent && finalSource.startsWith('component_')) {
+            // Component layer is the final source (no rules)
+            status = 'active';
+            isActive = true;
+            displayValue = layerValue !== undefined ? layerValue : currentValue;
           } else if (layer.id === finalSource) {
             // This layer is the final source (no rules)
             status = 'active';
             isActive = true;
-            displayValue = currentValue;
+            displayValue = layerValue !== undefined ? layerValue : currentValue;
           } else {
             // Layer is in merge but was overridden
             status = 'passthrough';
+            // Show the value at this layer if we have it
+            displayValue = layerValue;
           }
 
-          const layerDisplayName = isPresetLayer && presetName
-            ? `Preset: ${presetName}`
-            : layer.name;
+          // Build display name with component/preset name
+          let layerDisplayName = layer.name;
+          if (isPresetLayer && presetName) {
+            layerDisplayName = `Preset: ${presetName}`;
+          } else if (isComponentLayer && componentName) {
+            layerDisplayName = `Component: ${componentName}`;
+          }
 
           return html`
             ${index > 0 ? html`<div class="layer-separator"><ha-icon icon="mdi:chevron-down"></ha-icon></div>` : ''}
@@ -2543,14 +2892,28 @@ export class LCARdSProvenanceTab extends LitElement {
 
         ${status !== 'not-used' ? html`
           <div class="layer-card-body">
-            ${(isActive || status === 'original') && value !== null && value !== undefined ? html`
+            ${value !== null && value !== undefined ? html`
               <div class="layer-value">
-                <span class="layer-value-label">${status === 'original' ? 'Original:' : 'Value:'}</span>
-                <code class="layer-value-code">${this._formatValue(value)}</code>
+                <span class="layer-value-label">${
+                  status === 'original' ? 'Original:' :
+                  status === 'active' ? 'Value:' :
+                  'Set to:'
+                }</span>
+                ${(() => {
+                  const formattedValue = this._formatValue(value);
+                  const isMultiLine = formattedValue.includes('\n');
+                  return isMultiLine
+                    ? html`<pre class="layer-value-code">${formattedValue}</pre>`
+                    : html`<code class="layer-value-code">${formattedValue}</code>`;
+                })()}
                 ${this._isColorValue(value) ? html`
                   <div class="color-preview-inline" style="background-color: ${value};"></div>
                 ` : ''}
+                ${status === 'passthrough' ? html`
+                  <span class="layer-override-hint">(overridden by later layer)</span>
+                ` : ''}
               </div>
+              ${this._renderThemeTokenResolution(value)}
               ${layer.id === 'rules' && rulePatchInfo ? html`
                 <div class="layer-rule-info">
                   <div class="rule-detail-line">
@@ -2568,11 +2931,50 @@ export class LCARdSProvenanceTab extends LitElement {
             ` : html`
               <div class="layer-value-placeholder">
                 <ha-icon icon="mdi:dots-horizontal"></ha-icon>
-                <span>${status === 'passthrough' ? 'Value passed through (no override)' : 'Not defined at this layer'}</span>
+                <span>Not defined at this layer</span>
               </div>
             `}
           </div>
         ` : ''}
+      </div>
+    `;
+  }
+
+  /**
+   * Render theme token resolution inline in layer cake
+   * Shows resolved value if the value is a theme token reference
+   */
+  _renderThemeTokenResolution(value) {
+    // Check if value is a theme token reference
+    if (typeof value !== 'string' || !value.startsWith('theme:')) {
+      return '';
+    }
+
+    // Extract token path
+    const tokenPath = value.substring(6); // Remove 'theme:' prefix
+
+    // Look up token in provenance
+    const tokenInfo = this._provenance?.theme_tokens?.[tokenPath];
+    if (!tokenInfo) {
+      return html`
+        <div class="layer-token-resolution">
+          <ha-icon icon="mdi:help-circle-outline"></ha-icon>
+          <span class="token-resolution-text">Token not resolved</span>
+        </div>
+      `;
+    }
+
+    const formattedValue = this._formatValue(tokenInfo.resolved_value);
+    const isMultiLine = formattedValue.includes('\n');
+
+    return html`
+      <div class="layer-token-resolution">
+        <ha-icon icon="mdi:palette"></ha-icon>
+        <span class="token-resolution-label">Resolves to:</span>
+        ${isMultiLine
+          ? html`<pre class="token-resolution-value">${formattedValue}</pre>`
+          : html`<code class="token-resolution-value">${formattedValue}</code>`
+        }
       </div>
     `;
   }
@@ -2796,64 +3198,69 @@ export class LCARdSProvenanceTab extends LitElement {
 
     return html`
       <div class="dialog-body">
-        <table class="token-table">
-          <thead>
-            <tr>
-              <th>Token Path</th>
-              <th>Used By</th>
-              <th>Resolved Value</th>
-              <th>Preview</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tokens.map(token => this._renderTokenRow(token))}
-          </tbody>
-        </table>
+        <div class="tokens-grid">
+          ${tokens.map(token => this._renderTokenCard(token))}
+        </div>
       </div>
     `;
   }
 
-  _renderTokenRow(token) {
+  _renderTokenCard(token) {
     const displayValue = this._formatValue(token.resolved_value);
     const usedByFields = token.used_by_fields || [];
+    const isMultiLine = displayValue.includes('\n');
 
     return html`
-      <tr>
-        <td class="token-path-cell">theme:${token.path}</td>
-        <td class="token-used-by-cell">
-          ${usedByFields.length > 0 ? html`
-            ${usedByFields.map(field => html`<code>${field}</code>`)}
-          ` : html`<span style="color: var(--disabled-text-color);">Not tracked</span>`}
-        </td>
-        <td class="field-value-cell" title="${displayValue}">
-          ${displayValue}
-        </td>
-        <td>
-          ${this._isColorValue(token.resolved_value) ? html`
-            <div
-              class="color-preview"
-              style="background-color: ${token.resolved_value};"
-              title="${token.resolved_value}"
-              @click=${(e) => this._copyValue(token.resolved_value, e)}>
-            </div>
-          ` : ''}
-        </td>
-        <td class="field-actions-cell">
-          <div class="field-actions">
+      <div class="token-card">
+        <div class="token-card-header">
+          <div class="token-path-display">
+            <ha-icon icon="mdi:palette"></ha-icon>
+            <code class="token-path">theme:${token.path}</code>
+          </div>
+          <div class="token-actions">
             <ha-icon-button
               @click=${(e) => this._copyTokenSyntax(token.path, e)}
-              .label=${'Copy token syntax'}
-              .path=${"M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"}>
+              .label=${'Copy token syntax'}>
+              <ha-icon icon="mdi:content-copy"></ha-icon>
             </ha-icon-button>
             <ha-icon-button
               @click=${(e) => this._copyValue(token.resolved_value, e)}
-              .label=${'Copy value'}
-              .path=${"M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"}>
+              .label=${'Copy value'}>
+              <ha-icon icon="mdi:code-braces"></ha-icon>
             </ha-icon-button>
           </div>
-        </td>
-      </tr>
+        </div>
+
+        <div class="token-card-body">
+          <div class="token-value-section">
+            <span class="token-section-label">Resolved Value:</span>
+            <div class="token-value-display">
+              ${isMultiLine
+                ? html`<pre class="token-value-code">${displayValue}</pre>`
+                : html`<code class="token-value-code">${displayValue}</code>`
+              }
+              ${this._isColorValue(token.resolved_value) ? html`
+                <div
+                  class="color-preview-large"
+                  style="background-color: ${token.resolved_value};"
+                  title="${token.resolved_value}">
+                </div>
+              ` : ''}
+            </div>
+          </div>
+
+          ${usedByFields.length > 0 ? html`
+            <div class="token-usage-section">
+              <span class="token-section-label">Used By (${usedByFields.length}):</span>
+              <div class="token-used-by-list">
+                ${usedByFields.map(field => html`
+                  <code class="field-reference">${field}</code>
+                `)}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      </div>
     `;
   }
 
@@ -2862,71 +3269,103 @@ export class LCARdSProvenanceTab extends LitElement {
 
     return html`
       <div class="dialog-body">
-        <div class="stats-container">
-          <div class="stat-card">
-            <div class="stat-title">Total Fields</div>
-            <div class="stat-value">${stats.totalFields}</div>
-            <div class="stat-subtitle">Configuration fields tracked</div>
-          </div>
-
-          <div class="stat-card">
-            <div class="stat-title">Active Layers</div>
-            <div class="stat-value">${stats.layerCount}</div>
-            <div class="stat-subtitle">Configuration layers</div>
-          </div>
-
-          <div class="stat-card">
-            <div class="stat-title">Theme Tokens</div>
-            <div class="stat-value">${stats.tokenCount}</div>
-            <div class="stat-subtitle">Resolved tokens</div>
-          </div>
-
-          <div class="stat-card">
-            <div class="stat-title">User Overrides</div>
-            <div class="stat-value">${stats.userOverrides}</div>
-            <div class="stat-subtitle">Custom configurations</div>
+        <div class="stats-header">
+          <h3>Configuration Overview</h3>
+          <div class="stats-subtitle">
+            <ha-icon icon="mdi:package-variant"></ha-icon>
+            <span>${this._provenance?.config?.card_type || 'unknown'} card</span>
           </div>
         </div>
 
-        <div class="stat-card" style="margin: 16px;">
-          <div class="stat-title">Layer Distribution</div>
-          <div class="layer-distribution">
-            ${Object.entries(stats.layerDistribution).map(([layer, count]) => html`
-              <div class="distribution-bar">
-                <div class="distribution-label">${this._formatLayerName(layer)}</div>
-                <div class="distribution-track">
-                  <div
-                    class="distribution-fill ${layer}"
-                    style="width: ${(count / stats.totalFields) * 100}%">
-                    <span class="distribution-count">${count}</span>
+        <!-- Quick Stats Grid -->
+        <div class="stats-grid">
+          <div class="stat-card modern">
+            <ha-icon icon="mdi:file-tree" class="stat-icon"></ha-icon>
+            <div class="stat-content">
+              <div class="stat-value">${stats.totalFields}</div>
+              <div class="stat-label">Total Fields</div>
+            </div>
+          </div>
+
+          <div class="stat-card modern">
+            <ha-icon icon="mdi:layers" class="stat-icon"></ha-icon>
+            <div class="stat-content">
+              <div class="stat-value">${stats.layerCount}</div>
+              <div class="stat-label">Active Layers</div>
+            </div>
+          </div>
+
+          <div class="stat-card modern">
+            <ha-icon icon="mdi:palette" class="stat-icon"></ha-icon>
+            <div class="stat-content">
+              <div class="stat-value">${stats.tokenCount}</div>
+              <div class="stat-label">Theme Tokens</div>
+            </div>
+          </div>
+
+          <div class="stat-card modern">
+            <ha-icon icon="mdi:account-edit" class="stat-icon"></ha-icon>
+            <div class="stat-content">
+              <div class="stat-value">${stats.userOverrides}</div>
+              <div class="stat-label">User Overrides</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Layer Distribution -->
+        <div class="stat-section">
+          <div class="section-header">
+            <ha-icon icon="mdi:chart-bar"></ha-icon>
+            <h4>Layer Distribution</h4>
+          </div>
+          <div class="distribution-container">
+            ${Object.entries(stats.layerDistribution).map(([layer, count]) => {
+              const percentage = ((count / stats.totalFields) * 100).toFixed(1);
+              return html`
+                <div class="distribution-row">
+                  <div class="distribution-label">
+                    <span class="layer-name">${this._formatLayerName(layer)}</span>
+                    <span class="layer-count">${count} fields</span>
+                  </div>
+                  <div class="distribution-bar-container">
+                    <div class="distribution-bar">
+                      <div
+                        class="distribution-fill ${layer}"
+                        style="width: ${percentage}%">
+                      </div>
+                    </div>
+                    <span class="distribution-percentage">${percentage}%</span>
                   </div>
                 </div>
-              </div>
-            `)}
+              `;
+            })}
           </div>
         </div>
 
+        <!-- Top Theme Tokens -->
         ${stats.topTokens.length > 0 ? html`
-          <div class="stat-card" style="margin: 16px;">
-            <div class="stat-title">Top Theme Tokens</div>
-            <table class="token-table">
-              <thead>
-                <tr>
-                  <th>Token Path</th>
-                  <th>Usage Count</th>
-                  <th>Resolved Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${stats.topTokens.map(token => html`
-                  <tr>
-                    <td class="token-path-cell">theme:${token.path}</td>
-                    <td>${token.count}</td>
-                    <td class="field-value-cell">${this._formatValue(token.value)}</td>
-                  </tr>
-                `)}
-              </tbody>
-            </table>
+          <div class="stat-section">
+            <div class="section-header">
+              <ha-icon icon="mdi:fire"></ha-icon>
+              <h4>Most Used Theme Tokens</h4>
+            </div>
+            <div class="tokens-list">
+              ${stats.topTokens.map((token, index) => html`
+                <div class="token-item">
+                  <div class="token-rank">#${index + 1}</div>
+                  <div class="token-details">
+                    <div class="token-path">theme:${token.path}</div>
+                    <div class="token-meta">
+                      <span class="token-usage">
+                        <ha-icon icon="mdi:counter"></ha-icon>
+                        ${token.count} ${token.count === 1 ? 'use' : 'uses'}
+                      </span>
+                      <span class="token-value-preview">${this._formatValue(token.value)}</span>
+                    </div>
+                  </div>
+                </div>
+              `)}
+            </div>
           </div>
         ` : ''}
       </div>
@@ -3305,7 +3744,9 @@ export class LCARdSProvenanceTab extends LitElement {
 
       // Get provenance from the actual rendered card
       this._provenance = card.getProvenance();
+      this._provenanceTracker = card._provenanceTracker; // Get the tracker instance
       lcardsLog.debug('[ProvenanceTab] Loaded provenance from rendered card:', this._provenance);
+      lcardsLog.debug('[ProvenanceTab] Loaded provenance tracker:', this._provenanceTracker);
 
       // Debug: Check structure in detail
       if (this._provenance) {
@@ -3372,9 +3813,12 @@ export class LCARdSProvenanceTab extends LitElement {
     const fieldSources = this._provenance.config.field_sources;
     const tree = this._provenance.config.tree || {};
 
-    // field_sources maps path -> layer_name (string)
+    // field_sources maps path -> layer info (string or object)
     // We need to get actual values from the tree
-    const fields = Object.entries(fieldSources).map(([path, layerName]) => {
+    const fields = Object.entries(fieldSources).map(([path, sourceInfo]) => {
+      // Handle both string and object formats
+      const layerName = typeof sourceInfo === 'string' ? sourceInfo : sourceInfo.final;
+
       // Try to get the value from the merged tree
       let value = this._getValueFromTree(tree, path);
 
@@ -3569,11 +4013,67 @@ export class LCARdSProvenanceTab extends LitElement {
         return `[Array: ${value.length} items]`;
       }
       try {
-        const json = JSON.stringify(value, null, 2);
-        return json.length < 100 ? json : `{Object: ${Object.keys(value).length} keys}`;
+        // Always expand objects to show their structure
+        return this._formatObjectExpanded(value);
       } catch (e) {
         return '[Complex Object]';
       }
+    }
+
+    return String(value);
+  }
+
+  /**
+   * Format an object as an expanded, readable structure
+   * @private
+   */
+  _formatObjectExpanded(obj, indent = 0) {
+    const keys = Object.keys(obj);
+    if (keys.length === 0) {
+      return '{}';
+    }
+
+    // For small objects (1-2 keys), inline format
+    if (keys.length <= 2 && indent === 0) {
+      const pairs = keys.map(k => `${k}: ${this._formatObjectValue(obj[k])}`);
+      return `{ ${pairs.join(', ')} }`;
+    }
+
+    // For larger objects, multi-line format
+    const indentStr = '  '.repeat(indent);
+    const innerIndent = '  '.repeat(indent + 1);
+    const lines = keys.map(key => {
+      const value = obj[key];
+      const formattedValue = this._formatObjectValue(value, indent + 1);
+      return `${innerIndent}${key}: ${formattedValue}`;
+    });
+
+    return `{\n${lines.join(',\n')}\n${indentStr}}`;
+  }
+
+  /**
+   * Format a single value within an object
+   * @private
+   */
+  _formatObjectValue(value, indent = 0) {
+    if (value === undefined || value === null) {
+      return 'null';
+    }
+
+    if (typeof value === 'string') {
+      return `"${value}"`;
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+
+    if (typeof value === 'object') {
+      if (Array.isArray(value)) {
+        return `[${value.length} items]`;
+      }
+      // Recursively format nested objects
+      return this._formatObjectExpanded(value, indent);
     }
 
     return String(value);

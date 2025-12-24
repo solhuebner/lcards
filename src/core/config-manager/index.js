@@ -21,7 +21,9 @@ import { deepMerge, trackFieldSources } from './merge-helpers.js';
  * Four-layer merge hierarchy:
  * 1. Card Defaults (behavioral: show_label, enable_hold_action)
  * 2. Theme Defaults (component style base from ThemeManager)
- * 3. Preset (named style config from StylePresetManager)
+ * 3. Preset OR Component (mutually exclusive):
+ *    - Preset: Named style config from StylePresetManager
+ *    - Component: Segment defaults (dpad, svg, gauge) from component registry
  * 4. User Config (explicit overrides)
  * 5. Rules Patches (runtime only - highest priority)
  */
@@ -117,7 +119,9 @@ export class CoreConfigManager {
    * Merge order:
    * 1. Card defaults (behavioral: show_label, etc.)
    * 2. Theme defaults (component style base with tokens)
-   * 3. Preset (named style configuration)
+   * 3. Preset OR Component (mutually exclusive):
+   *    - preset: Named style configuration (lozenge, bullet, etc.)
+   *    - component: Segment defaults (dpad, svg, gauge)
    * 4. User config (overrides)
    *
    * Then: Resolve theme tokens → Validate → Return result
@@ -128,15 +132,19 @@ export class CoreConfigManager {
    * @returns {Promise<ConfigResult>} Result with merged config, validation, provenance
    *
    * @example
+   * // With preset
    * const result = await configManager.processConfig(
    *   { preset: 'lozenge', entity: 'light.bedroom' },
    *   'simple-button',
    *   { hass: this.hass }
    * );
-   * if (result.valid) {
-   *   this._config = result.mergedConfig;
-   *   this._provenance = result.provenance;
-   * }
+   *
+   * // With component (mutually exclusive)
+   * const result = await configManager.processConfig(
+   *   { component: 'dpad', entity: 'media_player.tv' },
+   *   'simple-button',
+   *   { hass: this.hass }
+   * );
    */
   async processConfig(userConfig, cardType, context = {}) {
     if (!this.initialized) {
@@ -302,6 +310,7 @@ export class CoreConfigManager {
 
   /**
    * Process LCARdS card-style four-layer configuration
+   * Layer 3 can be either preset OR component (mutually exclusive)
    * @private
    */
   async _processLCARdSCardConfig(userConfig, cardType, context) {
@@ -313,14 +322,24 @@ export class CoreConfigManager {
     // STEP 2: Get theme component defaults (style base)
     const themeDefaults = this._getThemeDefaults(cardType);
 
-    // STEP 3: Get preset (if specified in user config)
-    const presetConfig = await this._getPresetConfig(cardType, userConfig);
+    // STEP 3: Get preset OR component defaults (mutually exclusive)
+    // Priority: component takes precedence if both are specified (shouldn't happen per schema)
+    let presetOrComponentConfig = {};
+    let presetOrComponentType = null;
+
+    if (userConfig.component) {
+      presetOrComponentConfig = await this._getComponentDefaults(cardType, userConfig);
+      presetOrComponentType = 'component';
+    } else if (userConfig.preset) {
+      presetOrComponentConfig = await this._getPresetConfig(cardType, userConfig);
+      presetOrComponentType = 'preset';
+    }
 
     // STEP 4: Four-layer deep merge
     const mergedConfig = this._fourLayerMerge(
       behavioralDefaults,
       themeDefaults,
-      presetConfig,
+      presetOrComponentConfig,
       userConfig
     );
 
@@ -331,9 +350,10 @@ export class CoreConfigManager {
     const provenance = this._createProvenance(
       behavioralDefaults,
       themeDefaults,
-      presetConfig,
+      presetOrComponentConfig,
       userConfig,
-      cardType
+      cardType,
+      presetOrComponentType
     );
 
     // STEP 7: Validate
@@ -352,13 +372,13 @@ export class CoreConfigManager {
   }
 
   /**
-   * Four-layer deep merge: behavioral → theme → preset → user
+   * Four-layer deep merge: behavioral → theme → (preset OR component) → user
    * @private
    */
-  _fourLayerMerge(behavioral, theme, preset, user) {
+  _fourLayerMerge(behavioral, theme, presetOrComponent, user) {
     let result = deepMerge({}, behavioral);
     result = deepMerge(result, theme);
-    result = deepMerge(result, preset);
+    result = deepMerge(result, presetOrComponent);
     result = deepMerge(result, user);
     return result;
   }
@@ -426,6 +446,42 @@ export class CoreConfigManager {
   }
 
   /**
+   * Get component defaults if specified (dpad, svg, gauge, etc.)
+   * Components provide segment/element configurations with theme tokens
+   * @private
+   */
+  async _getComponentDefaults(cardType, userConfig) {
+    if (!userConfig.component) {
+      return {};
+    }
+
+    // Import component registry (use dynamic import to avoid circular deps)
+    const { getComponent } = await import('../packs/components/index.js');
+    const componentPreset = getComponent(userConfig.component);
+
+    if (!componentPreset) {
+      lcardsLog.warn(
+        `[CoreConfigManager] Component preset '${userConfig.component}' not found`
+      );
+      return {};
+    }
+
+    lcardsLog.debug(`[CoreConfigManager] Loading component preset`, {
+      component: userConfig.component,
+      hasSegments: !!componentPreset.segments
+    });
+
+    // Component presets provide segment configurations
+    // Nest under component name key (e.g., { dpad: { segments: {...} } })
+    const componentKey = userConfig.component;
+    return {
+      [componentKey]: {
+        segments: componentPreset.segments || {}
+      }
+    };
+  }
+
+  /**
    * Resolve theme tokens in merged config
    * @private
    */
@@ -460,9 +516,10 @@ export class CoreConfigManager {
 
   /**
    * Create provenance tracking for four-layer merge
+   * Layer 3 can be preset OR component (mutually exclusive)
    * @private
    */
-  _createProvenance(behavioral, theme, preset, user, cardType) {
+  _createProvenance(behavioral, theme, presetOrComponent, user, cardType, layerType) {
     const provenance = {
       card_type: cardType,
       merge_order: [],
@@ -477,18 +534,36 @@ export class CoreConfigManager {
     if (Object.keys(theme).length > 0) {
       provenance.merge_order.push('theme_defaults');
     }
-    if (user.preset && Object.keys(preset).length > 0) {
-      provenance.merge_order.push(`preset_${user.preset}`);
+
+    // Layer 3: Preset OR Component (mutually exclusive)
+    let layer3Name = null;
+    if (layerType === 'component' && user.component && Object.keys(presetOrComponent).length > 0) {
+      layer3Name = `component_${user.component}`;
+      provenance.merge_order.push(layer3Name);
+    } else if (layerType === 'preset' && user.preset && Object.keys(presetOrComponent).length > 0) {
+      layer3Name = `preset_${user.preset}`;
+      provenance.merge_order.push(layer3Name);
     }
+
+    // Layer 4: User config (always included)
     provenance.merge_order.push('user_config');
 
-    // Track field sources
-    trackFieldSources(provenance.field_sources, {
+    // Build layers object for field source tracking
+    const layers = {
       card_defaults: behavioral,
-      theme_defaults: theme,
-      [`preset_${user.preset || 'none'}`]: preset,
-      user_config: user
-    });
+      theme_defaults: theme
+    };
+
+    // Add layer 3 if present
+    if (layer3Name) {
+      layers[layer3Name] = presetOrComponent;
+    }
+
+    // Always include user config
+    layers.user_config = user;
+
+    // Track field sources with layer-by-layer values
+    trackFieldSources(provenance.field_sources, layers);
 
     return provenance;
   }
