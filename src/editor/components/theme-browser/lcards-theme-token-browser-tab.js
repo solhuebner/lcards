@@ -210,30 +210,10 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         border-radius: 2px;
       }
 
-      .view-tab {
-        flex: 0 0 auto;
-        white-space: nowrap;
-        padding: 12px 24px;
-        cursor: pointer;
-        border-bottom: 3px solid transparent;
-        font-weight: 500;
-        color: var(--secondary-text-color);
-        transition: all 0.2s ease;
-        user-select: none;
-        background: none;
-        border: none;
-        border-bottom: 3px solid transparent;
-      }
-
-      .view-tab:hover {
-        color: var(--primary-text-color);
-        background: var(--secondary-background-color);
-      }
-
-      .view-tab.active {
-        color: var(--primary-color);
-        border-bottom-color: var(--primary-color);
-        border-bottom-width: 4px;
+      /* HA native tab styling (Issue #82) */
+      ha-tab-group {
+        display: block;
+        margin-bottom: 16px;
       }
 
       .theme-info {
@@ -696,36 +676,10 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         flex-direction: column;
       }
 
-      /* Visualization Tabs */
-      .viz-tabs-container {
-        display: flex;
-        gap: 4px;
-        border-bottom: 2px solid var(--divider-color);
-        margin-bottom: 8px;
-      }
-
-      .viz-tab {
-        flex: 0 0 auto;
-        padding: 8px 16px;
-        cursor: pointer;
-        border: none;
-        background: none;
-        color: var(--secondary-text-color);
-        font-weight: 500;
-        font-size: 13px;
-        border-bottom: 3px solid transparent;
-        transition: all 0.2s ease;
-        user-select: none;
-      }
-
-      .viz-tab:hover {
-        color: var(--primary-text-color);
-        background: var(--secondary-background-color);
-      }
-
-      .viz-tab.active {
-        color: var(--primary-color);
-        border-bottom-color: var(--primary-color);
+      /* Alert Lab: HA native tab styling for visualization tabs (Issue #82) */
+      .alert-lab-right-column ha-tab-group {
+        display: block;
+        margin-bottom: 16px;
       }
 
       .alert-lab-header {
@@ -1208,28 +1162,21 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
   _renderDialogHeader() {
     return html`
       <div class="dialog-header">
-        <div class="tabs-container">
-          <button
-            class="view-tab ${this._activeView === 'tokens' ? 'active' : ''}"
-            @click=${() => this._switchView('tokens')}>
+        <!-- Using HA native tab components (Issue #82) -->
+        <ha-tab-group @wa-tab-show=${this._handleTabChange}>
+          <ha-tab-group-tab value="tokens" ?active=${this._activeView === 'tokens'}>
             LCARdS Theme Tokens (${this._tokens.length})
-          </button>
-          <button
-            class="view-tab ${this._activeView === 'css-vars' ? 'active' : ''}"
-            @click=${() => this._switchView('css-vars')}>
+          </ha-tab-group-tab>
+          <ha-tab-group-tab value="css-vars" ?active=${this._activeView === 'css-vars'}>
             LCARS CSS Variables (${this._cssVariables.length})
-          </button>
-          <button
-            class="view-tab ${this._activeView === 'all-vars' ? 'active' : ''}"
-            @click=${() => this._switchView('all-vars')}>
+          </ha-tab-group-tab>
+          <ha-tab-group-tab value="all-vars" ?active=${this._activeView === 'all-vars'}>
             All CSS Variables (${this._allCssVariables.length})
-          </button>
-          <button
-            class="view-tab ${this._activeView === 'alert-lab' ? 'active' : ''}"
-            @click=${() => this._switchView('alert-lab')}>
+          </ha-tab-group-tab>
+          <ha-tab-group-tab value="alert-lab" ?active=${this._activeView === 'alert-lab'}>
             Alert Mode Lab
-          </button>
-        </div>
+          </ha-tab-group-tab>
+        </ha-tab-group>
         ${this._activeView === 'css-vars' ? html`
           <div class="alert-mode-info">
             <div
@@ -2043,24 +1990,18 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
 
         <!-- RIGHT COLUMN: Visualizations -->
         <div class="alert-lab-right-column">
-          <!-- Visualization Tabs -->
-          <div class="viz-tabs-container">
-            <button
-              class="viz-tab ${this._activeVizTab === 'preview' ? 'active' : ''}"
-              @click=${() => this._activeVizTab = 'preview'}>
+          <!-- Visualization Tabs using HA native components (Issue #82) -->
+          <ha-tab-group @wa-tab-show=${this._handleVizTabChange}>
+            <ha-tab-group-tab value="preview" ?active=${this._activeVizTab === 'preview'}>
               Live Preview
-            </button>
-            <button
-              class="viz-tab ${this._activeVizTab === 'wheel' ? 'active' : ''}"
-              @click=${() => this._activeVizTab = 'wheel'}>
+            </ha-tab-group-tab>
+            <ha-tab-group-tab value="wheel" ?active=${this._activeVizTab === 'wheel'}>
               HSL Wheel
-            </button>
-            <button
-              class="viz-tab ${this._activeVizTab === 'comparison' ? 'active' : ''}"
-              @click=${() => this._activeVizTab = 'comparison'}>
+            </ha-tab-group-tab>
+            <ha-tab-group-tab value="comparison" ?active=${this._activeVizTab === 'comparison'}>
               Full Comparison
-            </button>
-          </div>
+            </ha-tab-group-tab>
+          </ha-tab-group>
 
           <!-- Tab Content -->
           ${this._activeVizTab === 'preview' ? html`
@@ -2422,6 +2363,17 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
     this._dialogOpen = false;
   }
 
+  /**
+   * Handle tab change from HA native tab group (Issue #82)
+   * @param {CustomEvent} event - wa-tab-show event
+   */
+  _handleTabChange(event) {
+    const view = event.target.activeTab?.getAttribute('value');
+    if (view) {
+      this._switchView(view);
+    }
+  }
+
   _switchView(view) {
     this._activeView = view;
     this._searchQuery = ''; // Reset search when switching views
@@ -2452,6 +2404,18 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
   _selectCategory(category) {
     this._selectedCategory = category;
     this._applyFilters();
+  }
+
+  /**
+   * Handle visualization tab change in Alert Mode Lab (Issue #82)
+   * @param {CustomEvent} event - wa-tab-show event
+   */
+  _handleVizTabChange(event) {
+    const tab = event.target.activeTab?.getAttribute('value');
+    if (tab) {
+      this._activeVizTab = tab;
+      this.requestUpdate();
+    }
   }
 
   _selectAllVarsCategory(category) {

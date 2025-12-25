@@ -185,26 +185,18 @@ export class LCARdSProvenanceTab extends LitElement {
         border-bottom: 2px solid var(--divider-color);
       }
 
-      .view-tab {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 10px 16px;
-        background: none;
-        border: none;
-        border-bottom: 3px solid transparent;
-        color: var(--secondary-text-color);
-        font-size: 14px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s;
+      /* HA native tab styling (Issue #82) */
+      ha-tab-group {
+        display: block;
+        margin-bottom: 16px;
       }
 
-      .view-tab ha-icon {
+      ha-tab-group-tab ha-icon {
         --mdc-icon-size: 18px;
+        margin-right: 6px;
       }
 
-      .view-tab .tab-count {
+      ha-tab-group-tab .tab-count {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -214,22 +206,7 @@ export class LCARdSProvenanceTab extends LitElement {
         border-radius: 10px;
         font-size: 11px;
         font-weight: 600;
-        margin-left: 2px;
-      }
-
-      .view-tab:hover {
-        background: var(--secondary-background-color);
-        color: var(--primary-text-color);
-      }
-
-      .view-tab.active {
-        border-bottom-color: var(--mdc-theme-primary, #03a9f4);
-        color: var(--mdc-theme-primary, #03a9f4);
-      }
-
-      .view-tab.active .tab-count {
-        background: var(--mdc-theme-primary, #03a9f4);
-        color: white;
+        margin-left: 6px;
       }
 
       /* Search Container */
@@ -2070,28 +2047,23 @@ export class LCARdSProvenanceTab extends LitElement {
 
     return html`
       <div class="dialog-header">
-        <div class="tabs-container">
-          <button
-            class="view-tab ${this._activeView === 'tree' ? 'active' : ''}"
-            @click=${() => this._switchView('tree')}>
+        <!-- Using HA native tab components (Issue #82) -->
+        <ha-tab-group @wa-tab-show=${this._handleTabChange}>
+          <ha-tab-group-tab value="tree" ?active=${this._activeView === 'tree'}>
             <ha-icon icon="mdi:file-tree"></ha-icon>
             <span>Config Tree</span>
             <span class="tab-count">${stats.totalFields}</span>
-          </button>
-          <button
-            class="view-tab ${this._activeView === 'tokens' ? 'active' : ''}"
-            @click=${() => this._switchView('tokens')}>
+          </ha-tab-group-tab>
+          <ha-tab-group-tab value="tokens" ?active=${this._activeView === 'tokens'}>
             <ha-icon icon="mdi:palette"></ha-icon>
             <span>Theme Tokens</span>
             <span class="tab-count">${stats.tokenCount}</span>
-          </button>
-          <button
-            class="view-tab ${this._activeView === 'stats' ? 'active' : ''}"
-            @click=${() => this._switchView('stats')}>
+          </ha-tab-group-tab>
+          <ha-tab-group-tab value="stats" ?active=${this._activeView === 'stats'}>
             <ha-icon icon="mdi:chart-box"></ha-icon>
             <span>Statistics</span>
-          </button>
-        </div>
+          </ha-tab-group-tab>
+        </ha-tab-group>
 
         <!-- Show search for tokens view only -->
         ${this._activeView === 'tokens' ? html`
@@ -3384,6 +3356,17 @@ export class LCARdSProvenanceTab extends LitElement {
   _closeDialog() {
     this._dialogOpen = false;
     this._stopAutoRefresh();
+  }
+
+  /**
+   * Handle tab change from HA native tab group (Issue #82)
+   * @param {CustomEvent} event - wa-tab-show event
+   */
+  _handleTabChange(event) {
+    const view = event.target.activeTab?.getAttribute('value');
+    if (view) {
+      this._switchView(view);
+    }
   }
 
   _switchView(view) {

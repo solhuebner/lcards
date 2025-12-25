@@ -69,36 +69,13 @@ export class LCARdSDataSourceEditorTab extends LitElement {
         border-radius: 2px;
       }
 
-      .tab {
-        flex: 0 0 auto;
-        white-space: nowrap;
-        padding: 12px 24px;
-        cursor: pointer;
-        border-bottom: 3px solid transparent;
-        font-family: inherit;
-        font-size: inherit;
-        font-weight: 500;
-        color: var(--secondary-text-color, #727272);
-        transition: all 0.2s ease;
-        user-select: none;
-        background: transparent;
-        border-left: none;
-        border-right: none;
-        border-top: none;
+      /* HA native tab styling (Issue #82) */
+      ha-tab-group {
+        display: block;
+        margin-bottom: 16px;
       }
 
-      .tab:hover {
-        color: var(--primary-text-color, #212121);
-        background: var(--secondary-background-color, #f5f5f5);
-      }
-
-      .tab.active {
-        color: var(--primary-color, #03a9f4);
-        border-bottom-color: var(--primary-color, #03a9f4);
-        border-bottom-width: 4px;
-      }
-
-      .content-area {
+      ha-tab-panel {
         padding: 16px;
       }
 
@@ -156,22 +133,22 @@ export class LCARdSDataSourceEditorTab extends LitElement {
 
   render() {
     return html`
-      <div class="tabs-container">
-        <button
-          class="tab ${this._activeSubTab === 'card' ? 'active' : ''}"
-          @click=${() => this._setActiveTab('card')}>
+      <!-- Using HA native tab components (Issue #82) -->
+      <ha-tab-group @wa-tab-show=${this._handleTabChange}>
+        <ha-tab-group-tab value="card" ?active=${this._activeSubTab === 'card'}>
           Card Sources
-        </button>
-        <button
-          class="tab ${this._activeSubTab === 'global' ? 'active' : ''}"
-          @click=${() => this._setActiveTab('global')}>
+        </ha-tab-group-tab>
+        <ha-tab-group-tab value="global" ?active=${this._activeSubTab === 'global'}>
           Global Sources
-        </button>
-      </div>
+        </ha-tab-group-tab>
 
-      <div class="content-area">
-        ${this._renderActiveTab()}
-      </div>
+        <ha-tab-panel value="card" ?hidden=${this._activeSubTab !== 'card'}>
+          ${this._activeSubTab === 'card' ? this._renderCardSources() : ''}
+        </ha-tab-panel>
+        <ha-tab-panel value="global" ?hidden=${this._activeSubTab !== 'global'}>
+          ${this._activeSubTab === 'global' ? this._renderGlobalSources() : ''}
+        </ha-tab-panel>
+      </ha-tab-group>
 
       <lcards-datasource-dialog
         .hass=${this.hass}
@@ -194,50 +171,56 @@ export class LCARdSDataSourceEditorTab extends LitElement {
     `;
   }
 
-  _renderActiveTab() {
-    switch (this._activeSubTab) {
-      case 'card':
-        return html`
-          <div class="card-sources-header">
-            <div></div>
-            <div class="header-actions">
-              <button
-                class="browse-button"
-                @click=${this._openBrowser}
-                title="Browse all data sources"
-              >
-                <ha-icon icon="mdi:database-search"></ha-icon>
-                <span>Browse Sources</span>
-              </button>
-              <mwc-button
-                class="add-source-button"
-                raised
-                @click=${this._handleAddSource}>
-                <ha-icon icon="mdi:plus"></ha-icon>
-                Add Source
-              </mwc-button>
-            </div>
-          </div>
+  _renderCardSources() {
+    return html`
+      <div class="card-sources-header">
+        <div></div>
+        <div class="header-actions">
+          <button
+            class="browse-button"
+            @click=${this._openBrowser}
+            title="Browse all data sources"
+          >
+            <ha-icon icon="mdi:database-search"></ha-icon>
+            <span>Browse Sources</span>
+          </button>
+          <mwc-button
+            class="add-source-button"
+            raised
+            @click=${this._handleAddSource}>
+            <ha-icon icon="mdi:plus"></ha-icon>
+            Add Source
+          </mwc-button>
+        </div>
+      </div>
 
-          <lcards-card-datasources-list
-            .editor=${this.editor}
-            .config=${this.editor.config}
-            .hass=${this.hass}
-            @edit-datasource=${this._handleEditRequest}
-            @delete-datasource=${this._handleDeleteRequest}
-            @inspect-source=${this._handleInspectSource}>
-          </lcards-card-datasources-list>
-        `;
+      <lcards-card-datasources-list
+        .editor=${this.editor}
+        .config=${this.editor.config}
+        .hass=${this.hass}
+        @edit-datasource=${this._handleEditRequest}
+        @delete-datasource=${this._handleDeleteRequest}
+        @inspect-source=${this._handleInspectSource}>
+      </lcards-card-datasources-list>
+    `;
+  }
 
-      case 'global':
-        return html`
-          <lcards-global-datasources-panel
-            .hass=${this.hass}>
-          </lcards-global-datasources-panel>
-        `;
+  _renderGlobalSources() {
+    return html`
+      <lcards-global-datasources-panel
+        .hass=${this.hass}>
+      </lcards-global-datasources-panel>
+    `;
+  }
 
-      default:
-        return html``;
+  /**
+   * Handle tab change from HA native tab group (Issue #82)
+   * @param {CustomEvent} event - wa-tab-show event
+   */
+  _handleTabChange(event) {
+    const tab = event.target.activeTab?.getAttribute('value');
+    if (tab) {
+      this._setActiveTab(tab);
     }
   }
 

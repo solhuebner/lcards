@@ -44,66 +44,13 @@ export class LCARdSBaseEditor extends LitElement {
         return [
             editorStyles,
             css`
-                .tabs-container {
-                    display: flex;
-                    overflow-x: auto;
-                    overflow-y: hidden;
-                    flex-wrap: nowrap;
-                    scroll-behavior: smooth;
-                    scrollbar-width: thin;
-                    border-bottom: 2px solid var(--divider-color, #e0e0e0);
-                    margin-bottom: 4px;
-
-                    /* Fade indicators for scrollable content */
-                    mask-image: linear-gradient(
-                        to right,
-                        transparent,
-                        black 20px,
-                        black calc(100% - 20px),
-                        transparent
-                    );
-                    -webkit-mask-image: linear-gradient(
-                        to right,
-                        transparent,
-                        black 20px,
-                        black calc(100% - 20px),
-                        transparent
-                    );
+                /* HA native tab group styling (Issue #82) */
+                ha-tab-group {
+                    display: block;
+                    margin-bottom: 16px;
                 }
 
-                .tabs-container::-webkit-scrollbar {
-                    height: 4px;
-                }
-
-                .tabs-container::-webkit-scrollbar-thumb {
-                    background: var(--primary-color, #03a9f4);
-                    border-radius: 2px;
-                }
-
-                .tab {
-                    flex: 0 0 auto;
-                    white-space: nowrap;
-                    padding: 12px 24px;
-                    cursor: pointer;
-                    border-bottom: 3px solid transparent;
-                    font-weight: 500;
-                    color: var(--secondary-text-color, #727272);
-                    transition: all 0.2s ease;
-                    user-select: none;
-                }
-
-                .tab:hover {
-                    color: var(--primary-text-color, #212121);
-                    background: var(--secondary-background-color, #f5f5f5);
-                }
-
-                .tab.active {
-                    color: var(--primary-color, #03a9f4);
-                    border-bottom-color: var(--primary-color, #03a9f4);
-                    border-bottom-width: 4px; /* Increased from 3px for better visual feedback */
-                }
-
-                .tab-content {
+                ha-tab-panel {
                     padding: 8px 0;
                     min-height: 400px;
                 }
@@ -224,19 +171,20 @@ export class LCARdSBaseEditor extends LitElement {
 
                 ${this._renderValidationErrors()}
 
-                <div class="tabs-container">
+                <!-- Using HA native tab components (Issue #82) -->
+                <ha-tab-group @wa-tab-show=${this._handleTabChange}>
                     ${tabs.map((tab, index) => html`
-                        <div
-                            class="tab ${this._selectedTab === index ? 'active' : ''}"
-                            @click=${() => this._handleTabChange(index)}>
+                        <ha-tab-group-tab value="${index}" ?active=${this._selectedTab === index}>
                             ${tab.label}
-                        </div>
+                        </ha-tab-group-tab>
                     `)}
-                </div>
 
-                <div class="tab-content">
-                    ${this._renderTabContent(tabs[this._selectedTab])}
-                </div>
+                    ${tabs.map((tab, index) => html`
+                        <ha-tab-panel value="${index}" ?hidden=${this._selectedTab !== index}>
+                            ${this._renderTabContent(tab)}
+                        </ha-tab-panel>
+                    `)}
+                </ha-tab-group>
             </div>
         `;
     }
@@ -256,13 +204,17 @@ export class LCARdSBaseEditor extends LitElement {
     }
 
     /**
-     * Handle tab change
-     * @param {number} index - Tab index
+     * Handle tab change (from HA native tab group)
+     * @param {CustomEvent} event - wa-tab-show event from ha-tab-group
      * @private
      */
-    _handleTabChange(index) {
-        this._selectedTab = index;
-        this.requestUpdate();
+    _handleTabChange(event) {
+        // CRITICAL: Use getAttribute('value') not .value property (Issue #82)
+        const value = event.target.activeTab?.getAttribute('value');
+        if (value !== null && value !== undefined) {
+            this._selectedTab = parseInt(value, 10);
+            this.requestUpdate();
+        }
     }
 
     /**
