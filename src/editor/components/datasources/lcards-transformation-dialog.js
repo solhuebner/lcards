@@ -130,16 +130,11 @@ export class LCARdSTransformationDialog extends LitElement {
   // Common transform types with UI forms
   get supportedTypes() {
     return [
-      { value: 'unit_conversion', label: 'Unit Conversion' },
-      { value: 'scale', label: 'Scale/Map Range' },
-      { value: 'exponential_smoothing', label: 'Exponential Smoothing' },
-      { value: 'moving_average', label: 'Moving Average' },
-      { value: 'clamp', label: 'Clamp (Min/Max)' },
-      { value: 'offset', label: 'Offset (Add/Subtract)' },
-      { value: 'multiply', label: 'Multiply (Scale Factor)' },
-      { value: 'round', label: 'Round (Decimal Precision)' },
-      { value: 'delta', label: 'Delta (Rate of Change)' },
+      { value: 'unit_conversion', label: 'Unit Conversion (Temperature, Power, Distance)' },
+      { value: 'scale', label: 'Scale (Map Value Range)' },
+      { value: 'smooth', label: 'Smoothing (Exponential/Moving Average/Median)' },
       { value: 'expression', label: 'Expression (JavaScript)' },
+      { value: 'statistical', label: 'Statistical (Std Dev, Percentiles, Z-Score)' },
       { value: '__yaml__', label: '📝 Advanced (YAML Editor)' }
     ];
   }
@@ -227,22 +222,27 @@ export class LCARdSTransformationDialog extends LitElement {
         return this._renderUnitConversionForm();
       case 'scale':
         return this._renderScaleForm();
-      case 'exponential_smoothing':
-        return this._renderExponentialSmoothingForm();
-      case 'moving_average':
-        return this._renderMovingAverageForm();
-      case 'clamp':
-        return this._renderClampForm();
-      case 'offset':
-        return this._renderOffsetForm();
-      case 'multiply':
-        return this._renderMultiplyForm();
-      case 'round':
-        return this._renderRoundForm();
-      case 'delta':
-        return this._renderDeltaForm();
+      case 'smooth':
+        return this._renderSmoothForm();
+      case 'statistical':
+        return this._renderStatisticalForm();
       case 'expression':
         return this._renderExpressionForm();
+      // Legacy type names (still in some configs)
+      case 'exponential_smoothing':
+      case 'moving_average':
+        return this._renderSmoothForm();
+      case 'clamp':
+      case 'offset':
+      case 'multiply':
+      case 'round':
+      case 'delta':
+        return html`
+          <ha-alert alert-type="warning">
+            This type is deprecated. Use 'expression' or 'smooth' instead.
+          </ha-alert>
+          ${this._renderYamlEditor()}
+        `;
       default:
         return html`
           <ha-alert alert-type="info">
@@ -452,6 +452,96 @@ export class LCARdSTransformationDialog extends LitElement {
           @value-changed=${(e) => this._updateConfig('output_max', e.detail.value)}>
         </ha-selector>
       </div>
+    `;
+  }
+
+  _renderSmoothForm() {
+    const method = this._config.method || 'exponential';
+
+    return html`
+      <ha-alert alert-type="info">
+        Apply smoothing to reduce noise using exponential, moving average, or median filtering
+      </ha-alert>
+
+      <ha-selector
+        .hass=${this.hass}
+        .selector=${{
+          select: {
+            options: [
+              { value: 'exponential', label: 'Exponential Smoothing' },
+              { value: 'moving_average', label: 'Moving Average' },
+              { value: 'median', label: 'Median Filter' }
+            ]
+          }
+        }}
+        .value=${method}
+        .label=${'Smoothing Method'}
+        @value-changed=${(e) => this._updateConfig('method', e.detail.value)}>
+      </ha-selector>
+
+      ${method === 'exponential' ? html`
+        <ha-selector
+          .hass=${this.hass}
+          .selector=${{ number: { min: 0, max: 1, step: 0.05, mode: 'slider' } }}
+          .value=${this._config.alpha ?? 0.3}
+          .label=${'Alpha (Smoothing Factor)'}
+          @value-changed=${(e) => this._updateConfig('alpha', e.detail.value)}>
+        </ha-selector>
+        <div class="helper-text">0.1 = heavy smoothing, 0.9 = light smoothing</div>
+      ` : html`
+        <ha-selector
+          .hass=${this.hass}
+          .selector=${{ number: { min: 2, max: 100, mode: 'box' } }}
+          .value=${this._config.window_size ?? 5}
+          .label=${'Window Size (data points)'}
+          @value-changed=${(e) => this._updateConfig('window_size', e.detail.value)}>
+        </ha-selector>
+      `}
+    `;
+  }
+
+  _renderStatisticalForm() {
+    const method = this._config.method || 'std_dev';
+
+    return html`
+      <ha-alert alert-type="info">
+        Calculate statistical metrics over a rolling window
+      </ha-alert>
+
+      <ha-selector
+        .hass=${this.hass}
+        .selector=${{
+          select: {
+            options: [
+              { value: 'std_dev', label: 'Standard Deviation' },
+              { value: 'percentile', label: 'Percentile' },
+              { value: 'z_score', label: 'Z-Score' }
+            ]
+          }
+        }}
+        .value=${method}
+        .label=${'Statistical Method'}
+        @value-changed=${(e) => this._updateConfig('method', e.detail.value)}>
+      </ha-selector>
+
+      <ha-selector
+        .hass=${this.hass}
+        .selector=${{ number: { min: 2, max: 100, mode: 'box' } }}
+        .value=${this._config.window_size ?? 10}
+        .label=${'Window Size (data points)'}
+        @value-changed=${(e) => this._updateConfig('window_size', e.detail.value)}>
+      </ha-selector>
+
+      ${method === 'percentile' ? html`
+        <ha-selector
+          .hass=${this.hass}
+          .selector=${{ number: { min: 0, max: 100, step: 1, mode: 'slider' } }}
+          .value=${this._config.percentile ?? 95}
+          .label=${'Percentile'}
+          @value-changed=${(e) => this._updateConfig('percentile', e.detail.value)}>
+        </ha-selector>
+        <div class="helper-text">50 = median, 95 = 95th percentile, etc.</div>
+      ` : ''}
     `;
   }
 

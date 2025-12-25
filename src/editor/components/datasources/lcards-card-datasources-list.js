@@ -190,6 +190,11 @@ export class LCARdSCardDataSourcesList extends LitElement {
             <!-- Phase 2: Edit and Remove Actions -->
             <div class="action-buttons">
               <ha-button
+                @click=${() => this._handleInspect(name)}>
+                <ha-icon icon="mdi:magnify" slot="icon"></ha-icon>
+                Inspect
+              </ha-button>
+              <ha-button
                 @click=${() => this._handleEdit(name, config)}>
                 <ha-icon icon="mdi:pencil" slot="icon"></ha-icon>
                 Edit
@@ -214,6 +219,14 @@ export class LCARdSCardDataSourcesList extends LitElement {
       this._expandedSources.delete(name);
     }
     this.requestUpdate();
+  }
+
+  _handleInspect(name) {
+    this.dispatchEvent(new CustomEvent('inspect-source', {
+      detail: { sourceName: name },
+      bubbles: true,
+      composed: true
+    }));
   }
 
   _handleEdit(name, config) {

@@ -69,7 +69,7 @@ export class LCARdSGlobalDataSourcesPanel extends LitElement {
       }
 
       .source-card {
-        background: var(--card-background-color, #fff);
+        background: var(--chip-background-color, var(--card-background-color, #fff));
         border: 2px solid var(--divider-color, #e0e0e0);
         border-radius: 12px;
         padding: 16px;

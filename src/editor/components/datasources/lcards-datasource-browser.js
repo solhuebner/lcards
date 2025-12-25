@@ -58,6 +58,27 @@ export class LCARdSDataSourceBrowser extends LitElement {
   }
 
   /**
+   * Select a datasource by name (for external navigation)
+   * @public
+   */
+  selectDataSource(sourceName) {
+    // Find the datasource node in the tree
+    const dsNode = this._treeData.find(node => node.label === sourceName);
+
+    if (dsNode) {
+      // Select the node
+      this._selectedNode = dsNode;
+
+      // Expand the node
+      this._expandedNodes.add(dsNode.id);
+
+      this.requestUpdate();
+    } else {
+      lcardsLog.warn(`[DataSourceBrowser] DataSource "${sourceName}" not found in tree`);
+    }
+  }
+
+  /**
    * Close the browser dialog
    * @private
    */
@@ -325,27 +346,137 @@ export class LCARdSDataSourceBrowser extends LitElement {
           <span class="detail-type">${type}</span>
         </div>
 
+        ${this._renderActionButtons()}
+
         <div class="detail-content">
-          ${this._renderDetailContent(type, data)}
+          ${this._renderDetailContent(type, data, label)}
         </div>
       </div>
     `;
   }
 
   /**
+   * Render action buttons for the selected node
+   * @private
+   */
+  _renderActionButtons() {
+    if (!this._selectedNode) return html``;
+
+    const { type, label } = this._selectedNode;
+
+    // Only show actions for datasource nodes
+    if (type !== 'datasource') return html``;
+
+    // Check if this is a card-local source
+    const isCardLocal = this._isCardLocalSource(label);
+
+    return html`
+      <div class="action-buttons">
+        ${isCardLocal ? html`
+          <mwc-button
+            outlined
+            @click=${() => this._handleEditSource(label)}>
+            <ha-icon icon="mdi:pencil" slot="icon"></ha-icon>
+            Edit Source
+          </mwc-button>
+        ` : ''}
+        <mwc-button
+          outlined
+          @click=${() => this._handleCopyConfig(label)}>
+          <ha-icon icon="mdi:content-copy" slot="icon"></ha-icon>
+          Copy Config
+        </mwc-button>
+      </div>
+    `;
+  }
+
+  /**
+   * Check if a datasource is card-local
+   * @private
+   */
+  _isCardLocalSource(sourceName) {
+    const cardSources = this.cardConfig?.data_sources || {};
+    return sourceName in cardSources;
+  }
+
+  /**
+   * Handle edit source button click
+   * @private
+   */
+  _handleEditSource(sourceName) {
+    this.dispatchEvent(new CustomEvent('edit-source', {
+      detail: { sourceName },
+      bubbles: true,
+      composed: true
+    }));
+  }
+
+  /**
+   * Handle copy config button click
+   * @private
+   */
+  async _handleCopyConfig(sourceName) {
+    const dsManager = window.lcards?.core?.dataSourceManager;
+    if (!dsManager) return;
+
+    const dataSource = dsManager.sources?.get(sourceName);
+    if (!dataSource) return;
+
+    // Get the original config (cfg property)
+    const config = { ...dataSource.cfg };
+
+    // Remove hass reference if present
+    delete config.hass;
+
+    const configJson = JSON.stringify(config, null, 2);
+
+    try {
+      await navigator.clipboard.writeText(configJson);
+
+      // Show success feedback (using alert for now, can be enhanced with toast)
+      const event = new CustomEvent('show-notification', {
+        detail: {
+          message: `Config for "${sourceName}" copied to clipboard`,
+          type: 'success'
+        },
+        bubbles: true,
+        composed: true
+      });
+      this.dispatchEvent(event);
+    } catch (error) {
+      lcardsLog.error('[DataSourceBrowser] Failed to copy config:', error);
+      const event = new CustomEvent('show-notification', {
+        detail: {
+          message: 'Failed to copy config to clipboard',
+          type: 'error'
+        },
+        bubbles: true,
+        composed: true
+      });
+      this.dispatchEvent(event);
+    }
+  }
+
+  /**
    * Render detail content based on node type
    * @private
    */
-  _renderDetailContent(type, data) {
+  _renderDetailContent(type, data, label) {
     switch (type) {
       case 'datasource':
         return this._renderDataSourceDetail(data);
       case 'entity':
         return this._renderEntityDetail(data);
+      case 'transformations':
+        return this._renderTransformationsOverview(data);
       case 'transformation':
         return this._renderTransformationDetail(data);
+      case 'aggregations':
+        return this._renderAggregationsOverview(data);
       case 'aggregation':
         return this._renderAggregationDetail(data);
+      case 'buffers':
+        return this._renderBuffersOverview(data);
       case 'buffer':
         return this._renderBufferDetail(data);
       default:
@@ -563,7 +694,213 @@ export class LCARdSDataSourceBrowser extends LitElement {
         ${bufferSize > 10 ? html`<p class="buffer-note">Showing last 10 of ${bufferSize} values</p>` : ''}
       </div>
     `;
-  }  static get styles() {
+  }
+
+  /**
+   * Render transformations overview
+   * @private
+   */
+  _renderTransformationsOverview(transformationsArray) {
+    if (!transformationsArray || transformationsArray.length === 0) {
+      return html`<p><em>No transformations configured</em></p>`;
+    }
+
+    // Count by type
+    const typeCounts = {};
+    transformationsArray.forEach(([key, processor]) => {
+      const type = processor.config?.type || processor.type || 'unknown';
+      typeCounts[type] = (typeCounts[type] || 0) + 1;
+    });
+
+    return html`
+      <div class="detail-section">
+        <h4>Transformations Summary</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">Total Count:</span>
+            <span class="detail-value">${transformationsArray.length}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <h4>By Type</h4>
+        <div class="detail-grid">
+          ${Object.entries(typeCounts).map(([type, count]) => html`
+            <div class="detail-item">
+              <span class="detail-label">${type}:</span>
+              <span class="detail-value">${count}</span>
+            </div>
+          `)}
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <h4>All Transformations</h4>
+        <div class="detail-grid">
+          ${transformationsArray.map(([key, processor]) => html`
+            <div class="detail-item">
+              <span class="detail-label">${key}:</span>
+              <span class="detail-value">${processor.config?.type || processor.type || 'unknown'}</span>
+            </div>
+          `)}
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Render aggregations overview
+   * @private
+   */
+  _renderAggregationsOverview(aggregationsArray) {
+    if (!aggregationsArray || aggregationsArray.length === 0) {
+      return html`<p><em>No aggregations configured</em></p>`;
+    }
+
+    // Count by type
+    const typeCounts = {};
+    aggregationsArray.forEach(([key, processor]) => {
+      const type = processor.config?.type || processor.type || 'unknown';
+      typeCounts[type] = (typeCounts[type] || 0) + 1;
+    });
+
+    return html`
+      <div class="detail-section">
+        <h4>Aggregations Summary</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">Total Count:</span>
+            <span class="detail-value">${aggregationsArray.length}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <h4>By Type</h4>
+        <div class="detail-grid">
+          ${Object.entries(typeCounts).map(([type, count]) => html`
+            <div class="detail-item">
+              <span class="detail-label">${type}:</span>
+              <span class="detail-value">${count}</span>
+            </div>
+          `)}
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <h4>All Aggregations</h4>
+        <div class="detail-grid">
+          ${aggregationsArray.map(([key, processor]) => html`
+            <div class="detail-item">
+              <span class="detail-label">${key}:</span>
+              <span class="detail-value">${processor.config?.type || processor.type || 'unknown'}${processor.config?.windowSeconds || processor.windowSeconds ? ` (${processor.config?.windowSeconds || processor.windowSeconds}s)` : ''}</span>
+            </div>
+          `)}
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Render buffers overview
+   * @private
+   */
+  _renderBuffersOverview(data) {
+    // Get parent datasource from selected node ID
+    // ID format: ds_<sourceName>_buffers
+    const idParts = this._selectedNode?.id?.split('_');
+    if (!idParts || idParts.length < 3 || idParts[0] !== 'ds') {
+      return html`<p><em>Could not determine datasource from node ID</em></p>`;
+    }
+
+    // Extract source name (everything between 'ds_' and '_buffers')
+    // Handle source names that might contain underscores
+    const dsName = idParts.slice(1, -1).join('_');
+
+    const dsManager = window.lcards?.core?.dataSourceManager;
+    const dataSource = dsManager?.getSource(dsName);
+
+    if (!dataSource) {
+      return html`<p><em>DataSource "${dsName}" not found</em></p>`;
+    }
+
+    const buffers = [];
+
+    // Main buffer
+    if (dataSource.buffer) {
+      buffers.push({
+        name: 'Main',
+        buffer: dataSource.buffer,
+        size: dataSource.buffer.size(),
+        capacity: dataSource.buffer.capacity
+      });
+    }
+
+    // Transformed buffers (from transformedBuffers Map, not transformation processors)
+    if (dataSource.transformedBuffers && dataSource.transformedBuffers.size > 0) {
+      dataSource.transformedBuffers.forEach((buffer, key) => {
+        buffers.push({
+          name: `Transform: ${key}`,
+          buffer: buffer,
+          size: buffer.size(),
+          capacity: buffer.capacity
+        });
+      });
+    }
+
+    // Aggregation buffers (from aggregations Map if they have buffers)
+    if (dataSource.aggregations) {
+      dataSource.aggregations.forEach((processor, key) => {
+        if (processor.buffer) {
+          buffers.push({
+            name: `Aggregation: ${key}`,
+            buffer: processor.buffer,
+            size: processor.buffer.size(),
+            capacity: processor.buffer.capacity
+          });
+        }
+      });
+    }
+
+    const totalSize = buffers.reduce((sum, b) => sum + b.size, 0);
+    const totalCapacity = buffers.reduce((sum, b) => sum + b.capacity, 0);
+    const memoryEstimate = totalSize * 16; // Rough estimate: 16 bytes per entry
+
+    return html`
+      <div class="detail-section">
+        <h4>Buffers Summary</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">Total Buffers:</span>
+            <span class="detail-value">${buffers.length}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Total Entries:</span>
+            <span class="detail-value">${totalSize} / ${totalCapacity}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Est. Memory:</span>
+            <span class="detail-value">${memoryEstimate < 1024 ? `${memoryEstimate} B` : `${(memoryEstimate / 1024).toFixed(1)} KB`}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <h4>All Buffers</h4>
+        <div class="detail-grid">
+          ${buffers.map(b => html`
+            <div class="detail-item">
+              <span class="detail-label">${b.name}:</span>
+              <span class="detail-value">${b.size} / ${b.capacity} (${Math.round(b.size / b.capacity * 100)}%)</span>
+            </div>
+          `)}
+        </div>
+      </div>
+    `;
+  }
+
+  static get styles() {
     return css`
       :host {
         display: block;
@@ -749,6 +1086,23 @@ export class LCARdSDataSourceBrowser extends LitElement {
         font-size: 12px;
         font-weight: 500;
         text-transform: uppercase;
+      }
+
+      /* Action buttons */
+      .action-buttons {
+        display: flex;
+        gap: 12px;
+        padding: 0 16px 16px;
+        flex-wrap: wrap;
+      }
+
+      .action-buttons mwc-button {
+        --mdc-button-outline-color: var(--primary-color);
+      }
+
+      .action-buttons ha-icon {
+        --mdc-icon-size: 18px;
+        margin-right: 4px;
       }
 
       .detail-content {

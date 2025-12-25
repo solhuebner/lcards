@@ -13,6 +13,7 @@
  */
 
 import { LitElement, html, css } from 'lit';
+import { createRef, ref } from 'lit/directives/ref.js';
 import { fireEvent } from 'custom-card-helpers';
 import './lcards-card-datasources-list.js';
 import './lcards-global-datasources-panel.js';
@@ -40,6 +41,7 @@ export class LCARdSDataSourceEditorTab extends LitElement {
     this._dialogMode = 'add';
     this._editingSource = null;
     this._browserOpen = false;
+    this._browserRef = createRef();
   }
 
   static get styles() {
@@ -182,10 +184,12 @@ export class LCARdSDataSourceEditorTab extends LitElement {
       </lcards-datasource-dialog>
 
       <lcards-datasource-browser
+        ${ref(this._browserRef)}
         .hass=${this.hass}
         .cardConfig=${this.editor?.config}
         .open=${this._browserOpen}
-        @close=${() => this._browserOpen = false}>
+        @close=${() => this._browserOpen = false}
+        @edit-source=${this._handleBrowserEditSource}>
       </lcards-datasource-browser>
     `;
   }
@@ -220,7 +224,8 @@ export class LCARdSDataSourceEditorTab extends LitElement {
             .config=${this.editor.config}
             .hass=${this.hass}
             @edit-datasource=${this._handleEditRequest}
-            @delete-datasource=${this._handleDeleteRequest}>
+            @delete-datasource=${this._handleDeleteRequest}
+            @inspect-source=${this._handleInspectSource}>
           </lcards-card-datasources-list>
         `;
 
@@ -242,6 +247,47 @@ export class LCARdSDataSourceEditorTab extends LitElement {
 
   _openBrowser() {
     this._browserOpen = true;
+  }
+
+  _handleInspectSource(event) {
+    const { sourceName } = event.detail;
+
+    // Open the browser
+    this._browserOpen = true;
+
+    // Wait for browser to render, then select the datasource
+    requestAnimationFrame(() => {
+      if (this._browserRef.value) {
+        this._browserRef.value.selectDataSource(sourceName);
+      }
+    });
+  }
+
+  _handleBrowserEditSource(event) {
+    const { sourceName } = event.detail;
+
+    // Close the browser
+    this._browserOpen = false;
+
+    // Switch to card tab
+    this._activeSubTab = 'card';
+
+    // Get the source config from card config
+    const cardSources = this.editor?.config?.data_sources || {};
+    const sourceConfig = cardSources[sourceName];
+
+    if (!sourceConfig) {
+      console.warn(`[DataSourceEditorTab] Source "${sourceName}" not found in card config`);
+      return;
+    }
+
+    // Open edit dialog
+    this._dialogMode = 'edit';
+    this._editingSource = {
+      name: sourceName,
+      config: sourceConfig
+    };
+    this._dialogOpen = true;
   }
 
   _handleAddSource() {
@@ -312,7 +358,16 @@ export class LCARdSDataSourceEditorTab extends LitElement {
     // Update config via editor - read from editor.config to get the latest state
     const updatedDataSources = { ...(this.editor.config.data_sources || {}) };
     updatedDataSources[name] = config;
-    this.editor._setConfigValue('data_sources', updatedDataSources);
+
+    // CRITICAL: Cannot use _setConfigValue because deepMerge doesn't delete nested properties
+    // Must directly assign to config and fire change event
+    this.editor.config = {
+      ...this.editor.config,
+      data_sources: updatedDataSources
+    };
+
+    // Fire config change event for HA
+    fireEvent(this.editor, 'config-changed', { config: this.editor.config });
 
     // If new datasource, register with manager
     if (this._dialogMode === 'add') {

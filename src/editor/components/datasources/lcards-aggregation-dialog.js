@@ -92,12 +92,13 @@ export class LCARdSAggregationDialog extends LitElement {
   // Common aggregation types with UI forms
   get supportedTypes() {
     return [
-      { value: 'avg', label: 'Average' },
-      { value: 'min', label: 'Minimum' },
-      { value: 'max', label: 'Maximum' },
-      { value: 'sum', label: 'Sum' },
+      { value: 'moving_average', label: 'Moving Average' },
+      { value: 'min_max', label: 'Min/Max (Range Statistics)' },
       { value: 'rate', label: 'Rate of Change' },
-      { value: 'trend', label: 'Trend Detection' },
+      { value: 'trend', label: 'Recent Trend Detection' },
+      { value: 'session', label: 'Session Statistics' },
+      { value: 'duration', label: 'Duration Tracking' },
+      { value: 'rolling_statistics', label: 'Rolling Statistics (Multi-Value)' },
       { value: '__yaml__', label: '📝 Advanced (YAML Editor)' }
     ];
   }
