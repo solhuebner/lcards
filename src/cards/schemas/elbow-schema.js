@@ -295,6 +295,11 @@ export function getElbowSchema(options = {}) {
                     segment: {
                         type: 'object',
                         description: 'Configuration for simple style (single elbow)',
+                        default: {
+                            bar_width: 120,
+                            bar_height: 20,
+                            outer_curve: 'auto'
+                        },
                         examples: [
                             {
                                 bar_width: 90,
@@ -401,6 +406,17 @@ export function getElbowSchema(options = {}) {
                     segments: {
                         type: 'object',
                         description: 'Configuration for segmented style (double concentric elbows with gap)',
+                        default: {
+                            gap: 4,
+                            outer_segment: {
+                                bar_width: 88,
+                                bar_height: 10
+                            },
+                            inner_segment: {
+                                bar_width: 28,
+                                bar_height: 10
+                            }
+                        },
                         examples: [
                             {
                                 gap: 4,

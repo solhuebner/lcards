@@ -17,6 +17,7 @@
 import { html, css } from 'lit';
 import { LCARdSBaseEditor } from '../base/LCARdSBaseEditor.js';
 import { configToYaml } from '../utils/yaml-utils.js';
+import { getElbowSchema } from '../../cards/schemas/elbow-schema.js';
 import '../components/shared/lcards-message.js';
 import '../components/yaml/lcards-yaml-editor.js';
 // Import shared form components
@@ -873,6 +874,12 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
 
         if (newStyle === currentStyle) return;
 
+        // Get schema to pull defaults
+        const schema = getElbowSchema({
+            availablePresets: [],
+            positionEnum: []
+        });
+
         // Create new elbow config with appropriate structure
         const newElbowConfig = {
             type: this.config.elbow?.type || 'header-left',
@@ -880,17 +887,17 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
         };
 
         if (newStyle === 'simple') {
-            // Initialize simple style structure - clear segmented config
-            newElbowConfig.segment = {
+            // Initialize simple style structure using schema defaults
+            const segmentDefaults = schema.properties.elbow.properties.segment.default || {
                 bar_width: 90,
                 bar_height: 90,
-                outer_curve: 'auto',
-                inner_curve: undefined // Will use LCARS formula
+                outer_curve: 'auto'
             };
+            newElbowConfig.segment = { ...segmentDefaults };
             // Don't copy over segments config
         } else {
-            // Initialize segmented style structure - clear simple config
-            newElbowConfig.segments = {
+            // Initialize segmented style structure using schema defaults
+            const segmentsDefaults = schema.properties.elbow.properties.segments.default || {
                 gap: 4,
                 outer_segment: {
                     bar_width: 90,
@@ -901,6 +908,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                     bar_height: 60
                 }
             };
+            newElbowConfig.segments = JSON.parse(JSON.stringify(segmentsDefaults)); // Deep clone
             // Don't copy over segment config
         }
 

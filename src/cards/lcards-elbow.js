@@ -437,20 +437,27 @@ export class LCARdSElbow extends LCARdSButton {
     }
 
     /**
-     * Get default elbow configuration
+     * Get default elbow configuration from schema
      * @returns {Object} Default elbow config
      * @private
      */
     _getDefaultElbowConfig() {
+        // Get defaults from schema for consistency
+        const schema = getElbowSchema({
+            availablePresets: [],
+            positionEnum: []
+        });
+
+        const segmentDefaults = schema.properties.elbow.properties.segment.default || {
+            bar_width: 90,
+            bar_height: 90,
+            outer_curve: 'auto'
+        };
+
         return {
             type: 'header-left',
             style: 'simple',
-            segment: {
-                bar_width: 90,
-                bar_height: 90,
-                outer_curve: 45,  // bar_width / 2
-                inner_curve: 22.5 // outer_curve / 2 (LCARS formula)
-            }
+            segment: { ...segmentDefaults }
         };
     }
 
@@ -557,6 +564,10 @@ export class LCARdSElbow extends LCARdSButton {
             innerSegmentOuterRadius / 2;
 
         // Calculate positioning offset for inner segment
+        // header-left: inner is right+down from outer
+        // header-right: inner is down from outer (no x offset)
+        // footer-left: inner is right from outer (no y offset)
+        // footer-right: inner has no offset (overlaps at corner)
         const innerOffset = {
             x: side === 'left' ? (outerHorizontal + gap) : 0,
             y: position === 'header' ? (outerVertical + gap) : 0
@@ -1062,7 +1073,7 @@ export class LCARdSElbow extends LCARdSButton {
             return super._generateButtonSVG(width, height, config);
         }
 
-        const { position, side, outer, inner, offset } = segmentGeom;
+        const { position, side, outer, inner, offset, gap } = segmentGeom;
 
         // Get colors for outer and inner segments using state-aware resolution
         const outerSegmentConfig = this._elbowConfig.segments.outer_segment;
@@ -1080,9 +1091,12 @@ export class LCARdSElbow extends LCARdSButton {
         );
 
         // Generate inner segment path (smaller elbow)
-        // Reduce dimensions by the offset since inner is positioned inside outer
-        const innerWidth = width - offset.x;
-        const innerHeight = height - offset.y;
+        // The inner segment must fit within the outer segment's content area
+        // Reduce width by outer horizontal bar + gap
+        // Reduce height by outer vertical bar + gap
+        const innerWidth = width - (outer.horizontal + gap);
+        const innerHeight = height - (outer.vertical + gap);
+
         const innerPath = this._generateSegmentPath(
             innerWidth, innerHeight,
             inner.horizontal, inner.vertical,
