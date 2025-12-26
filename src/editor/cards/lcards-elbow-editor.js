@@ -14,7 +14,7 @@
  * - Inherits button card functionality (text, actions, etc.)
  */
 
-import { html } from 'lit';
+import { html, css } from 'lit';
 import { LCARdSBaseEditor } from '../base/LCARdSBaseEditor.js';
 import { configToYaml } from '../utils/yaml-utils.js';
 import '../components/shared/lcards-message.js';
@@ -42,6 +42,34 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
     constructor() {
         super();
         this.cardType = 'elbow';
+    }
+
+    static get styles() {
+        return [
+            super.styles,
+            css`
+                .theme-info {
+                    background: var(--primary-background-color, #f0f0f0);
+                    border-left: 3px solid var(--primary-color, #03a9f4);
+                    padding: 12px;
+                    margin: 8px 0;
+                    border-radius: 4px;
+                }
+
+                .theme-info .helper-text {
+                    margin: 0;
+                    color: var(--primary-text-color, #212121);
+                }
+
+                .theme-info code {
+                    background: var(--secondary-background-color, #e0e0e0);
+                    padding: 2px 6px;
+                    border-radius: 3px;
+                    font-family: 'Courier New', monospace;
+                    font-size: 0.9em;
+                }
+            `
+        ];
     }
 
     /**
@@ -86,7 +114,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                 icon="mdi:vector-polyline"
                 ?expanded=${true}
                 ?outlined=${true}>
-                
+
                 <div class="form-row">
                     <label>Elbow Position</label>
                     <ha-select
@@ -126,7 +154,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                 icon="mdi:cog"
                 ?expanded=${true}
                 ?outlined=${true}>
-                
+
                 <lcards-form-field
                     .editor=${this}
                     path="entity"
@@ -167,85 +195,246 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
      */
     _renderSimpleDesign() {
         const segment = this.config.elbow?.segment || {};
-        const barWidth = segment.bar_width ?? 90;
-        const barHeight = segment.bar_height ?? barWidth;
+        // Preserve 'theme' strings - don't default them to numbers
+        const barWidth = segment.bar_width !== undefined ? segment.bar_width : 90;
+        const barHeight = segment.bar_height !== undefined ? segment.bar_height : barWidth;
         const outerCurve = segment.outer_curve ?? 'auto';
         const isOuterAuto = outerCurve === 'auto';
         const innerCurve = segment.inner_curve;
 
-        // Calculate auto values for helper text
-        const calculatedOuterCurve = barWidth / 2;
+        // Calculate auto values for helper text (handle 'theme' case)
+        const numericBarWidth = typeof barWidth === 'number' ? barWidth : 90;
+        const numericBarHeight = typeof barHeight === 'number' ? barHeight : 90;
+        const calculatedOuterCurve = numericBarWidth / 2;
         const calculatedInnerCurve = (isOuterAuto ? calculatedOuterCurve : outerCurve) / 2;
 
         return html`
             <lcards-message
                 type="info"
-                message="Configure dimensions and curves for your simple elbow. Use 'auto' mode for authentic LCARS geometry (outer curve = bar_width / 2).">
+                message="Configure dimensions and curves for your simple elbow. The diagram below shows what each setting controls.">
             </lcards-message>
 
+            <!-- Visual Diagram -->
             <lcards-form-section
-                header="Elbow Dimensions"
-                description="Configure bar thickness"
-                icon="mdi:resize"
+                header="Elbow Geometry Diagram"
+                description="Visual reference for understanding elbow dimensions"
+                icon="mdi:ruler"
                 ?expanded=${true}
                 ?outlined=${true}>
-                
-                <lcards-grid-layout columns="2">
-                    <lcards-form-field
-                        .editor=${this}
-                        path="elbow.segment.bar_width"
-                        label="Bar Width (Vertical)"
-                        type="number"
-                        helper="Thickness of the vertical sidebar (pixels)">
-                    </lcards-form-field>
 
-                    <lcards-form-field
-                        .editor=${this}
-                        path="elbow.segment.bar_height"
-                        label="Bar Height (Horizontal)"
-                        type="number"
-                        helper="Thickness of the horizontal bar (pixels)">
-                    </lcards-form-field>
-                </lcards-grid-layout>
+                <div style="padding: 20px; background: var(--ha-card-background, #1c1c1c); border-radius: 8px; text-align: center;">
+                    <svg viewBox="0 0 400 300" style="max-width: 500px; width: 100%; height: auto;">
+                        <!-- Background -->
+                        <rect x="0" y="0" width="400" height="300" fill="transparent" stroke="none"/>
+
+                        <!-- Example Elbow (header-left style) -->
+                        <g id="elbow-example">
+                            <!-- Vertical bar (bar_width controls this) -->
+                            <rect x="50" y="50" width="80" height="200" fill="var(--primary-color, #FF9900)" opacity="0.7"/>
+                            <!-- Horizontal bar (bar_height controls this) -->
+                            <rect x="50" y="50" width="300" height="30" fill="var(--primary-color, #FF9900)" opacity="0.7"/>
+
+                            <!-- Outer arc (outer_curve) -->
+                            <path d="M 130 50 A 40 40 0 0 0 50 90"
+                                  fill="none"
+                                  stroke="var(--accent-color, #00FFFF)"
+                                  stroke-width="3"
+                                  stroke-dasharray="5,5"/>
+
+                            <!-- Inner arc (inner_curve) -->
+                            <path d="M 130 80 A 20 20 0 0 0 110 100"
+                                  fill="none"
+                                  stroke="var(--warning-color, #FFAA00)"
+                                  stroke-width="3"
+                                  stroke-dasharray="5,5"/>
+                        </g>
+
+                        <!-- Labels with arrows -->
+                        <!-- bar_width label -->
+                        <line x1="130" y1="150" x2="160" y2="150" stroke="white" stroke-width="2" marker-end="url(#arrowhead)"/>
+                        <text x="165" y="155" fill="white" font-size="14" font-weight="bold">bar_width</text>
+                        <text x="165" y="170" fill="white" font-size="11" opacity="0.7">(vertical thickness)</text>
+
+                        <!-- bar_height label -->
+                        <line x1="200" y1="80" x2="200" y2="35" stroke="white" stroke-width="2" marker-end="url(#arrowhead)"/>
+                        <text x="125" y="30" fill="white" font-size="14" font-weight="bold">bar_height</text>
+                        <text x="105" y="20" fill="white" font-size="11" opacity="0.7">(horizontal thickness)</text>
+
+                        <!-- outer_curve label -->
+                        <line x1="90" y1="70" x2="30" y2="70" stroke="var(--accent-color, #00FFFF)" stroke-width="2" marker-end="url(#arrowhead-cyan)"/>
+                        <text x="10" y="50" fill="var(--accent-color, #00FFFF)" font-size="14" font-weight="bold">outer_curve</text>
+                        <text x="10" y="65" fill="var(--accent-color, #00FFFF)" font-size="11" opacity="0.9">(outer radius)</text>
+
+                        <!-- inner_curve label -->
+                        <line x1="115" y1="95" x2="90" y2="120" stroke="var(--warning-color, #FFAA00)" stroke-width="2" marker-end="url(#arrowhead-yellow)"/>
+                        <text x="10" y="135" fill="var(--warning-color, #FFAA00)" font-size="14" font-weight="bold">inner_curve</text>
+                        <text x="10" y="150" fill="var(--warning-color, #FFAA00)" font-size="11" opacity="0.9">(inner radius)</text>
+
+                        <!-- Arrow markers -->
+                        <defs>
+                            <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                                <polygon points="0 0, 10 3, 0 6" fill="white" />
+                            </marker>
+                            <marker id="arrowhead-cyan" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                                <polygon points="0 0, 10 3, 0 6" fill="var(--accent-color, #00FFFF)" />
+                            </marker>
+                            <marker id="arrowhead-yellow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                                <polygon points="0 0, 10 3, 0 6" fill="var(--warning-color, #FFAA00)" />
+                            </marker>
+                        </defs>
+                    </svg>
+                </div>
             </lcards-form-section>
 
             <lcards-form-section
-                header="Elbow Curves"
-                description="Configure corner radii using LCARS formulas"
-                icon="mdi:vector-curve"
+                header="Bar Dimensions"
+                description="Configure the thickness of the elbow bars (static values or dynamic theme binding)"
+                icon="mdi:resize"
                 ?expanded=${true}
                 ?outlined=${true}>
-                
+
                 <div class="form-row">
-                    <label>Outer Curve Mode</label>
-                    <ha-switch
-                        .checked=${!isOuterAuto}
-                        @change=${this._handleOuterCurveModeChange}>
-                    </ha-switch>
+                    <label>Bar Width Mode (Vertical)</label>
+                    <ha-select
+                        .value=${barWidth === 'theme' ? 'theme' : 'static'}
+                        @selected=${(e) => this._handleBarWidthModeChange(e)}
+                        @closed=${(e) => e.stopPropagation()}>
+                        <mwc-list-item value="static">Static Value</mwc-list-item>
+                        <mwc-list-item value="theme">Theme Binding (input_number.lcars_vertical)</mwc-list-item>
+                    </ha-select>
                     <div class="helper-text">
-                        ${isOuterAuto
-                            ? `Auto mode: outer_curve = bar_width / 2 = ${calculatedOuterCurve.toFixed(1)}px`
-                            : 'Manual mode: specify custom outer curve radius'}
+                        ${barWidth === 'theme'
+                            ? '🎨 Dynamic: Binds to input_number.lcars_vertical helper'
+                            : '📏 Static: Fixed pixel value'}
                     </div>
                 </div>
 
+                ${barWidth !== 'theme' ? html`
+                    <ha-selector
+                        .hass=${this.hass}
+                        .label=${'Bar Width (Vertical)'}
+                        .helper=${'Thickness of the vertical sidebar'}
+                        .selector=${{
+                            number: {
+                                min: 10,
+                                max: 500,
+                                step: 5,
+                                mode: 'slider',
+                                unit_of_measurement: 'px'
+                            }
+                        }}
+                        .value=${typeof barWidth === 'number' ? barWidth : 90}
+                        @value-changed=${(e) => this._setConfigValue('elbow.segment.bar_width', e.detail.value)}>
+                    </ha-selector>
+                ` : html`
+                    <div class="form-row theme-info">
+                        <div class="helper-text">
+                            ℹ️ Bar width will dynamically follow <code>input_number.lcars_vertical</code> entity state.
+                            Create this helper in Home Assistant configuration to enable theme integration.
+                        </div>
+                    </div>
+                `}
+
+                <div class="form-row">
+                    <label>Bar Height Mode (Horizontal)</label>
+                    <ha-select
+                        .value=${barHeight === 'theme' ? 'theme' : 'static'}
+                        @selected=${(e) => this._handleBarHeightModeChange(e)}
+                        @closed=${(e) => e.stopPropagation()}>
+                        <mwc-list-item value="static">Static Value</mwc-list-item>
+                        <mwc-list-item value="theme">Theme Binding (input_number.lcars_horizontal)</mwc-list-item>
+                    </ha-select>
+                    <div class="helper-text">
+                        ${barHeight === 'theme'
+                            ? '🎨 Dynamic: Binds to input_number.lcars_horizontal helper'
+                            : '📏 Static: Fixed pixel value'}
+                    </div>
+                </div>
+
+                ${barHeight !== 'theme' ? html`
+                    <ha-selector
+                        .hass=${this.hass}
+                        .label=${'Bar Height (Horizontal)'}
+                        .helper=${'Thickness of the horizontal bar'}
+                        .selector=${{
+                            number: {
+                                min: 10,
+                                max: 500,
+                                step: 5,
+                                mode: 'slider',
+                                unit_of_measurement: 'px'
+                            }
+                        }}
+                        .value=${typeof barHeight === 'number' ? barHeight : 90}
+                        @value-changed=${(e) => this._setConfigValue('elbow.segment.bar_height', e.detail.value)}>
+                    </ha-selector>
+                ` : html`
+                    <div class="form-row theme-info">
+                        <div class="helper-text">
+                            ℹ️ Bar height will dynamically follow <code>input_number.lcars_horizontal</code> entity state.
+                            Create this helper in Home Assistant configuration to enable theme integration.
+                        </div>
+                    </div>
+                `}
+            </lcards-form-section>
+
+            <lcards-form-section
+                header="Corner Curves"
+                description="Configure the rounded corner radii using LCARS formulas"
+                icon="mdi:vector-curve"
+                ?expanded=${true}
+                ?outlined=${true}>
+
+                <div class="form-row">
+                    <ha-selector
+                        .hass=${this.hass}
+                        .label=${'Outer Curve Radius - Enable Manual Mode'}
+                        .helper=${isOuterAuto
+                            ? `Auto mode active: Outer radius = bar_width ÷ 2 = ${calculatedOuterCurve.toFixed(1)}px (LCARS formula)`
+                            : 'Manual mode: Set custom outer curve radius below'}
+                        .selector=${{ boolean: {} }}
+                        .value=${!isOuterAuto}
+                        @value-changed=${this._handleOuterCurveModeChange}>
+                    </ha-selector>
+                </div>
+
                 ${!isOuterAuto ? html`
-                    <lcards-form-field
-                        .editor=${this}
-                        path="elbow.segment.outer_curve"
-                        label="Outer Curve Radius"
-                        type="number"
-                        helper="Outer corner radius (pixels)">
-                    </lcards-form-field>
+                    <ha-selector
+                        .hass=${this.hass}
+                        .label=${'Outer Curve Radius'}
+                        .helper=${'Outer corner radius'}
+                        .selector=${{
+                            number: {
+                                min: 0,
+                                max: 250,
+                                step: 5,
+                                mode: 'slider',
+                                unit_of_measurement: 'px'
+                            }
+                        }}
+                        .value=${typeof outerCurve === 'number' ? outerCurve : calculatedOuterCurve}
+                        @value-changed=${(e) => this._setConfigValue('elbow.segment.outer_curve', e.detail.value)}>
+                    </ha-selector>
                 ` : ''}
 
-                <lcards-form-field
-                    .editor=${this}
-                    path="elbow.segment.inner_curve"
-                    label="Inner Curve Radius"
-                    type="number"
-                    helper="${this._getInnerCurveHelperText(calculatedInnerCurve, innerCurve)}">
-                </lcards-form-field>
+                <ha-selector
+                    .hass=${this.hass}
+                    .label=${'Inner Curve Radius'}
+                    .helper=${innerCurve !== undefined
+                        ? `Current: ${innerCurve}px (default would be ${calculatedInnerCurve.toFixed(1)}px using LCARS formula)`
+                        : `Using LCARS formula: outer_curve ÷ 2 = ${calculatedInnerCurve.toFixed(1)}px`}
+                    .selector=${{
+                        number: {
+                            min: 0,
+                            max: 250,
+                            step: 5,
+                            mode: 'slider',
+                            unit_of_measurement: 'px'
+                        }
+                    }}
+                    .value=${innerCurve ?? calculatedInnerCurve}
+                    @value-changed=${(e) => this._setConfigValue('elbow.segment.inner_curve', e.detail.value)}>
+                </ha-selector>
             </lcards-form-section>
 
             <lcards-form-section
@@ -254,7 +443,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                 icon="mdi:palette"
                 ?expanded=${true}
                 ?outlined=${true}>
-                
+
                 <lcards-color-section
                     .editor=${this}
                     basePath="elbow.segment.color"
@@ -277,7 +466,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
         const gap = segments.gap ?? 4;
         const outerSegment = segments.outer_segment || {};
         const innerSegment = segments.inner_segment || {};
-        
+
         const isInnerOuterCurveManual = innerSegment.outer_curve !== undefined;
 
         return html`
@@ -292,14 +481,23 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                 icon="mdi:resize"
                 ?expanded=${true}
                 ?outlined=${true}>
-                
-                <lcards-form-field
-                    .editor=${this}
-                    path="elbow.segments.gap"
-                    label="Segment Gap"
-                    type="number"
-                    helper="Gap between outer and inner segments (pixels, default: 4)">
-                </lcards-form-field>
+
+                <ha-selector
+                    .hass=${this.hass}
+                    .label=${'Segment Gap'}
+                    .helper=${`Gap between outer and inner segments (default: 4px)`}
+                    .selector=${{
+                        number: {
+                            min: 0,
+                            max: 50,
+                            step: 1,
+                            mode: 'slider',
+                            unit_of_measurement: 'px'
+                        }
+                    }}
+                    .value=${gap}
+                    @value-changed=${(e) => this._setConfigValue('elbow.segments.gap', e.detail.value)}>
+                </ha-selector>
             </lcards-form-section>
 
             <lcards-form-section
@@ -308,51 +506,82 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                 icon="mdi:vector-square"
                 ?expanded=${true}
                 ?outlined=${true}>
-                
-                <lcards-grid-layout columns="2">
-                    <lcards-form-field
-                        .editor=${this}
-                        path="elbow.segments.outer_segment.bar_width"
-                        label="Bar Width"
-                        type="number"
-                        helper="Vertical bar thickness (pixels)">
-                    </lcards-form-field>
 
-                    <lcards-form-field
-                        .editor=${this}
-                        path="elbow.segments.outer_segment.bar_height"
-                        label="Bar Height"
-                        type="number"
-                        helper="Horizontal bar thickness (pixels)">
-                    </lcards-form-field>
+                <ha-selector
+                    .hass=${this.hass}
+                    .label=${'Bar Width'}
+                    .helper=${'Vertical bar thickness'}
+                    .selector=${{
+                        number: {
+                            min: 10,
+                            max: 500,
+                            step: 5,
+                            mode: 'slider',
+                            unit_of_measurement: 'px'
+                        }
+                    }}
+                    .value=${outerSegment.bar_width ?? 90}
+                    @value-changed=${(e) => this._setConfigValue('elbow.segments.outer_segment.bar_width', e.detail.value)}>
+                </ha-selector>
 
-                    <lcards-form-field
-                        .editor=${this}
-                        path="elbow.segments.outer_segment.outer_curve"
-                        label="Outer Curve"
-                        type="number"
-                        helper="Outer corner radius (pixels)">
-                    </lcards-form-field>
+                <ha-selector
+                    .hass=${this.hass}
+                    .label=${'Bar Height'}
+                    .helper=${'Horizontal bar thickness'}
+                    .selector=${{
+                        number: {
+                            min: 10,
+                            max: 500,
+                            step: 5,
+                            mode: 'slider',
+                            unit_of_measurement: 'px'
+                        }
+                    }}
+                    .value=${outerSegment.bar_height ?? outerSegment.bar_width ?? 90}
+                    @value-changed=${(e) => this._setConfigValue('elbow.segments.outer_segment.bar_height', e.detail.value)}>
+                </ha-selector>
 
-                    <lcards-form-field
-                        .editor=${this}
-                        path="elbow.segments.outer_segment.inner_curve"
-                        label="Inner Curve"
-                        type="number"
-                        helper="Inner corner radius (pixels)">
-                    </lcards-form-field>
-                </lcards-grid-layout>
+                <ha-selector
+                    .hass=${this.hass}
+                    .label=${'Outer Curve'}
+                    .helper=${'Outer corner radius'}
+                    .selector=${{
+                        number: {
+                            min: 0,
+                            max: 250,
+                            step: 5,
+                            mode: 'slider',
+                            unit_of_measurement: 'px'
+                        }
+                    }}
+                    .value=${outerSegment.outer_curve ?? (outerSegment.bar_width ?? 90) / 2}
+                    @value-changed=${(e) => this._setConfigValue('elbow.segments.outer_segment.outer_curve', e.detail.value)}>
+                </ha-selector>
+
+                <ha-selector
+                    .hass=${this.hass}
+                    .label=${'Inner Curve'}
+                    .helper=${'Inner corner radius'}
+                    .selector=${{
+                        number: {
+                            min: 0,
+                            max: 250,
+                            step: 5,
+                            mode: 'slider',
+                            unit_of_measurement: 'px'
+                        }
+                    }}
+                    .value=${outerSegment.inner_curve ?? (outerSegment.outer_curve ?? (outerSegment.bar_width ?? 90) / 2) / 2}
+                    @value-changed=${(e) => this._setConfigValue('elbow.segments.outer_segment.inner_curve', e.detail.value)}>
+                </ha-selector>
 
                 <div class="form-row">
                     <label>Outer Segment Color</label>
                     <lcards-color-picker
-                        .value=${outerSegment.color || ''}
+                        .value=${typeof outerSegment.color === 'string' ? outerSegment.color : outerSegment.color?.default || ''}
                         @value-changed=${(e) => this._setConfigValue('elbow.segments.outer_segment.color', e.detail.value)}
                         .variablePrefixes=${['--lcards-', '--lcars-', '--cblcars-', '--picard-']}>
                     </lcards-color-picker>
-                    <div class="helper-text">
-                        Solid color for outer segment
-                    </div>
                 </div>
             </lcards-form-section>
 
@@ -362,66 +591,98 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                 icon="mdi:vector-square-open"
                 ?expanded=${true}
                 ?outlined=${true}>
-                
+
                 <div class="form-row">
                     <label>Manual Outer Curve Override</label>
-                    <ha-switch
-                        .checked=${isInnerOuterCurveManual}
-                        @change=${this._handleInnerOuterCurveToggle}>
-                    </ha-switch>
-                    <div class="helper-text">
-                        ${isInnerOuterCurveManual
+                    <ha-selector
+                        .hass=${this.hass}
+                        .label=${'Manual Mode'}
+                        .helper=${isInnerOuterCurveManual
                             ? 'Manual mode: custom inner segment outer curve'
-                            : 'Auto mode: inner curve calculated for concentricity with outer segment'}
-                    </div>
+                            : 'Auto mode: calculated for concentricity with outer segment'}
+                        .selector=${{ boolean: {} }}
+                        .value=${isInnerOuterCurveManual}
+                        @value-changed=${this._handleInnerOuterCurveToggle}>
+                    </ha-selector>
                 </div>
 
-                <lcards-grid-layout columns="2">
-                    <lcards-form-field
-                        .editor=${this}
-                        path="elbow.segments.inner_segment.bar_width"
-                        label="Bar Width"
-                        type="number"
-                        helper="Vertical bar thickness (pixels)">
-                    </lcards-form-field>
+                <ha-selector
+                    .hass=${this.hass}
+                    .label=${'Bar Width'}
+                    .helper=${'Vertical bar thickness'}
+                    .selector=${{
+                        number: {
+                            min: 10,
+                            max: 500,
+                            step: 5,
+                            mode: 'slider',
+                            unit_of_measurement: 'px'
+                        }
+                    }}
+                    .value=${innerSegment.bar_width ?? 60}
+                    @value-changed=${(e) => this._setConfigValue('elbow.segments.inner_segment.bar_width', e.detail.value)}>
+                </ha-selector>
 
-                    <lcards-form-field
-                        .editor=${this}
-                        path="elbow.segments.inner_segment.bar_height"
-                        label="Bar Height"
-                        type="number"
-                        helper="Horizontal bar thickness (pixels)">
-                    </lcards-form-field>
+                <ha-selector
+                    .hass=${this.hass}
+                    .label=${'Bar Height'}
+                    .helper=${'Horizontal bar thickness'}
+                    .selector=${{
+                        number: {
+                            min: 10,
+                            max: 500,
+                            step: 5,
+                            mode: 'slider',
+                            unit_of_measurement: 'px'
+                        }
+                    }}
+                    .value=${innerSegment.bar_height ?? innerSegment.bar_width ?? 60}
+                    @value-changed=${(e) => this._setConfigValue('elbow.segments.inner_segment.bar_height', e.detail.value)}>
+                </ha-selector>
 
-                    ${isInnerOuterCurveManual ? html`
-                        <lcards-form-field
-                            .editor=${this}
-                            path="elbow.segments.inner_segment.outer_curve"
-                            label="Outer Curve"
-                            type="number"
-                            helper="Outer corner radius (pixels)">
-                        </lcards-form-field>
-                    ` : ''}
+                ${isInnerOuterCurveManual ? html`
+                    <ha-selector
+                        .hass=${this.hass}
+                        .label=${'Outer Curve'}
+                        .helper=${'Outer corner radius'}
+                        .selector=${{
+                            number: {
+                                min: 0,
+                                max: 250,
+                                step: 5,
+                                mode: 'slider',
+                                unit_of_measurement: 'px'
+                            }
+                        }}
+                        .value=${innerSegment.outer_curve ?? this._calculateInnerOuterCurveAuto()}
+                        @value-changed=${(e) => this._setConfigValue('elbow.segments.inner_segment.outer_curve', e.detail.value)}>
+                    </ha-selector>
+                ` : ''}
 
-                    <lcards-form-field
-                        .editor=${this}
-                        path="elbow.segments.inner_segment.inner_curve"
-                        label="Inner Curve"
-                        type="number"
-                        helper="Inner corner radius (pixels)">
-                    </lcards-form-field>
-                </lcards-grid-layout>
+                <ha-selector
+                    .hass=${this.hass}
+                    .label=${'Inner Curve'}
+                    .helper=${'Inner corner radius'}
+                    .selector=${{
+                        number: {
+                            min: 0,
+                            max: 250,
+                            step: 5,
+                            mode: 'slider',
+                            unit_of_measurement: 'px'
+                        }
+                    }}
+                    .value=${innerSegment.inner_curve ?? (innerSegment.outer_curve ?? this._calculateInnerOuterCurveAuto()) / 2}
+                    @value-changed=${(e) => this._setConfigValue('elbow.segments.inner_segment.inner_curve', e.detail.value)}>
+                </ha-selector>
 
                 <div class="form-row">
                     <label>Inner Segment Color</label>
                     <lcards-color-picker
-                        .value=${innerSegment.color || ''}
+                        .value=${typeof innerSegment.color === 'string' ? innerSegment.color : innerSegment.color?.default || ''}
                         @value-changed=${(e) => this._setConfigValue('elbow.segments.inner_segment.color', e.detail.value)}
                         .variablePrefixes=${['--lcards-', '--lcars-', '--cblcars-', '--picard-']}>
                     </lcards-color-picker>
-                    <div class="helper-text">
-                        Solid color for inner segment
-                    </div>
                 </div>
             </lcards-form-section>
         `;
@@ -478,7 +739,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                 icon="mdi:cog"
                 ?expanded=${true}
                 ?outlined=${true}>
-                
+
                 <lcards-form-field
                     .editor=${this}
                     path="css_class"
@@ -619,15 +880,16 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
         };
 
         if (newStyle === 'simple') {
-            // Initialize simple style structure
+            // Initialize simple style structure - clear segmented config
             newElbowConfig.segment = {
                 bar_width: 90,
                 bar_height: 90,
                 outer_curve: 'auto',
                 inner_curve: undefined // Will use LCARS formula
             };
+            // Don't copy over segments config
         } else {
-            // Initialize segmented style structure
+            // Initialize segmented style structure - clear simple config
             newElbowConfig.segments = {
                 gap: 4,
                 outer_segment: {
@@ -639,6 +901,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                     bar_height: 60
                 }
             };
+            // Don't copy over segment config
         }
 
         this._setConfigValue('elbow', newElbowConfig);
@@ -651,18 +914,62 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
      * @private
      */
     _handleOuterCurveModeChange(event) {
-        const isManual = event.target.checked;
-        
+        const isManual = event.detail.value;
+
         if (isManual) {
             // Switch to manual mode - set a numeric value
-            const barWidth = this.config.elbow?.segment?.bar_width ?? 90;
-            const calculatedValue = barWidth / 2;
+            const barWidth = this.config.elbow?.segment?.bar_width;
+            // Handle 'theme' - use default numeric value for calculation
+            const numericBarWidth = typeof barWidth === 'number' ? barWidth : 90;
+            const calculatedValue = numericBarWidth / 2;
             this._setConfigValue('elbow.segment.outer_curve', calculatedValue);
         } else {
             // Switch to auto mode
             this._setConfigValue('elbow.segment.outer_curve', 'auto');
         }
-        
+
+        this.requestUpdate();
+    }
+
+    /**
+     * Handle bar width mode change (static vs theme)
+     * @param {CustomEvent} event
+     * @private
+     */
+    _handleBarWidthModeChange(event) {
+        const newMode = event.target.value;
+
+        if (newMode === 'theme') {
+            // Switch to theme mode
+            this._setConfigValue('elbow.segment.bar_width', 'theme');
+        } else {
+            // Switch to static mode - use default or current numeric value
+            const currentValue = this.config.elbow?.segment?.bar_width;
+            const defaultValue = typeof currentValue === 'number' ? currentValue : 90;
+            this._setConfigValue('elbow.segment.bar_width', defaultValue);
+        }
+
+        this.requestUpdate();
+    }
+
+    /**
+     * Handle bar height mode change (static vs theme)
+     * @param {CustomEvent} event
+     * @private
+     */
+    _handleBarHeightModeChange(event) {
+        const newMode = event.target.value;
+
+        if (newMode === 'theme') {
+            // Switch to theme mode
+            this._setConfigValue('elbow.segment.bar_height', 'theme');
+        } else {
+            // Switch to static mode - use default or current numeric value
+            const currentValue = this.config.elbow?.segment?.bar_height;
+            const defaultValue = typeof currentValue === 'number' ? currentValue : 90;
+            this._setConfigValue('elbow.segment.bar_height', defaultValue);
+        }
+
         this.requestUpdate();
     }
 
@@ -672,8 +979,8 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
      * @private
      */
     _handleInnerOuterCurveToggle(event) {
-        const isManual = event.target.checked;
-        
+        const isManual = event.detail.value;
+
         if (isManual) {
             // Switch to manual mode - calculate initial concentric value
             const calculatedValue = this._calculateInnerOuterCurveAuto();
@@ -686,7 +993,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                 this.config = newConfig;
                 this._validateConfig();
                 this._yamlValue = configToYaml(this.config);
-                
+
                 this.dispatchEvent(new CustomEvent('config-changed', {
                     detail: { config: this.config },
                     bubbles: true,
@@ -694,7 +1001,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                 }));
             }
         }
-        
+
         this.requestUpdate();
     }
 
@@ -755,6 +1062,36 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
         this._yamlValue = configToYaml(this.config);
 
         // Fire config-changed event
+        this.dispatchEvent(new CustomEvent('config-changed', {
+            detail: { config: this.config },
+            bubbles: true,
+            composed: true
+        }));
+    }
+
+    /**
+     * Delete a config value by path
+     * @param {string} path - Dot-notation path
+     * @private
+     */
+    _deleteConfigValue(path) {
+        const newConfig = { ...this.config };
+        const keys = path.split('.');
+        let current = newConfig;
+
+        // Navigate to parent
+        for (let i = 0; i < keys.length - 1; i++) {
+            if (!current[keys[i]]) return; // Path doesn't exist
+            current = current[keys[i]];
+        }
+
+        // Delete the final key
+        delete current[keys[keys.length - 1]];
+
+        this.config = newConfig;
+        this._validateConfig();
+        this._yamlValue = configToYaml(this.config);
+
         this.dispatchEvent(new CustomEvent('config-changed', {
             detail: { config: this.config },
             bubbles: true,

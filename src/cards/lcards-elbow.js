@@ -65,6 +65,10 @@ import { html, css } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { LCARdSButton } from './lcards-button.js';
 import { lcardsLog } from '../utils/lcards-logging.js';
+import { getElbowSchema } from './schemas/elbow-schema.js';
+
+// Import editor component for getConfigElement()
+import '../editor/cards/lcards-elbow-editor.js';
 
 export class LCARdSElbow extends LCARdSButton {
 
@@ -75,7 +79,8 @@ export class LCARdSElbow extends LCARdSButton {
         return {
             ...super.properties,
             _elbowConfig: { type: Object, state: true },
-            _elbowGeometry: { type: Object, state: true }
+            _elbowGeometry: { type: Object, state: true },
+            _themeBarDimensions: { type: Object, state: true } // Track input_number values
         };
     }
 
@@ -117,6 +122,8 @@ export class LCARdSElbow extends LCARdSButton {
         super();
         this._elbowConfig = null;
         this._elbowGeometry = null;
+        this._themeBarDimensions = { horizontal: null, vertical: null };
+        this._themeEntityUnsubscribes = []; // Track subscriptions for cleanup
     }
 
     /**
@@ -153,6 +160,169 @@ export class LCARdSElbow extends LCARdSButton {
     }
 
     /**
+     * First update lifecycle hook - subscribe to theme input_number entities
+     * @protected
+     */
+    _handleFirstUpdate(changedProps) {
+        super._handleFirstUpdate?.(changedProps);
+
+        // Subscribe to theme input_number entities if configured to use them
+        this._subscribeToThemeEntities();
+    }
+
+    /**
+     * HASS update lifecycle hook - update theme dimensions if entities changed
+     * @protected
+     */
+    _handleHassUpdate(newHass, oldHass) {
+        super._handleHassUpdate?.(newHass, oldHass);
+
+        // Check if theme entities have changed
+        this._updateThemeDimensionsFromHass();
+    }
+
+    /**
+     * Subscribe to theme input_number entities for dynamic updates
+     * @private
+     */
+    _subscribeToThemeEntities() {
+        if (!this.hass || !this._elbowConfig) return;
+
+        // Handle both simple and segmented modes
+        const segment = this._elbowConfig.style === 'segmented'
+            ? this._elbowConfig.segments?.outer_segment
+            : this._elbowConfig.segment;
+
+        if (!segment) return;
+
+        // Cleanup existing subscriptions
+        this._unsubscribeThemeEntities();
+
+        // Check if using theme entities
+        const useThemeHorizontal = segment.bar_height === 'theme' || segment.bar_height === 'input_number.lcars_horizontal';
+        const useThemeVertical = segment.bar_width === 'theme' || segment.bar_width === 'input_number.lcars_vertical';
+
+        if (useThemeHorizontal) {
+            const entityId = 'input_number.lcars_horizontal';
+            if (this.hass.states[entityId]) {
+                lcardsLog.debug(`[LCARdSElbow] Subscribing to theme entity: ${entityId}`);
+                // We'll update on HASS changes via _handleHassUpdate
+                this._themeEntityUnsubscribes.push(() => {
+                    lcardsLog.debug(`[LCARdSElbow] Unsubscribed from ${entityId}`);
+                });
+            } else {
+                lcardsLog.warn(`[LCARdSElbow] Theme entity ${entityId} not found in HASS`);
+            }
+        }
+
+        if (useThemeVertical) {
+            const entityId = 'input_number.lcars_vertical';
+            if (this.hass.states[entityId]) {
+                lcardsLog.debug(`[LCARdSElbow] Subscribing to theme entity: ${entityId}`);
+                // We'll update on HASS changes via _handleHassUpdate
+                this._themeEntityUnsubscribes.push(() => {
+                    lcardsLog.debug(`[LCARdSElbow] Unsubscribed from ${entityId}`);
+                });
+            } else {
+                lcardsLog.warn(`[LCARdSElbow] Theme entity ${entityId} not found in HASS`);
+            }
+        }
+    }
+
+    /**
+     * Unsubscribe from theme entities
+     * @private
+     */
+    _unsubscribeThemeEntities() {
+        this._themeEntityUnsubscribes.forEach(unsub => unsub());
+        this._themeEntityUnsubscribes = [];
+    }
+
+    /**
+     * Update theme dimensions from HASS state
+     * @private
+     */
+    _updateThemeDimensionsFromHass() {
+        if (!this.hass || !this._elbowConfig) return;
+
+        // Handle both simple and segmented modes
+        // Simple mode: config.elbow.segment
+        // Segmented mode: config.elbow.segments.outer_segment (for theme checking)
+        const segment = this._elbowConfig.style === 'segmented'
+            ? this._elbowConfig.segments?.outer_segment
+            : this._elbowConfig.segment;
+
+        if (!segment) return;
+
+        let dimensionsChanged = false;
+
+        // Check horizontal (bar_height)
+        const useThemeHorizontal = segment.bar_height === 'theme' || segment.bar_height === 'input_number.lcars_horizontal';
+        if (useThemeHorizontal) {
+            const entity = this.hass.states['input_number.lcars_horizontal'];
+            if (entity) {
+                const newValue = parseFloat(entity.state);
+                if (this._themeBarDimensions.horizontal !== newValue) {
+                    this._themeBarDimensions.horizontal = newValue;
+                    dimensionsChanged = true;
+                    lcardsLog.debug(`[LCARdSElbow] Theme horizontal updated: ${newValue}px`);
+                }
+            }
+        } else {
+            this._themeBarDimensions.horizontal = null;
+        }
+
+        // Check vertical (bar_width)
+        const useThemeVertical = segment.bar_width === 'theme' || segment.bar_width === 'input_number.lcars_vertical';
+        if (useThemeVertical) {
+            const entity = this.hass.states['input_number.lcars_vertical'];
+            if (entity) {
+                const newValue = parseFloat(entity.state);
+                if (this._themeBarDimensions.vertical !== newValue) {
+                    this._themeBarDimensions.vertical = newValue;
+                    dimensionsChanged = true;
+                    lcardsLog.debug(`[LCARdSElbow] Theme vertical updated: ${newValue}px`);
+                }
+            }
+        } else {
+            this._themeBarDimensions.vertical = null;
+        }
+
+        // Recalculate geometry if dimensions changed
+        if (dimensionsChanged) {
+            lcardsLog.debug(`[LCARdSElbow] Recalculating geometry due to theme entity changes`);
+
+            // Recalculate based on style
+            if (this._elbowConfig.style === 'segmented') {
+                this._elbowGeometry = this._calculateSegmentedGeometry(this._elbowConfig);
+            } else {
+                this._elbowGeometry = this._calculateSimpleElbowGeometry(this._elbowConfig);
+            }
+
+            this.requestUpdate();
+        }
+    }
+
+    /**
+     * Override button's segment animation setup - elbows don't use button segments
+     * @protected
+     */
+    _setupSegmentAnimations() {
+        // Elbow cards render their own SVG geometry, not button segments
+        // Skip button's segment animation setup to avoid warnings
+        return;
+    }
+
+    /**
+     * Disconnect callback - cleanup theme entity subscriptions
+     * @protected
+     */
+    disconnectedCallback() {
+        this._unsubscribeThemeEntities();
+        super.disconnectedCallback();
+    }
+
+    /**
      * Validate and normalize elbow configuration
      * @param {Object} elbowConfig - Raw elbow config from card config
      * @returns {Object} Validated elbow configuration
@@ -179,15 +349,32 @@ export class LCARdSElbow extends LCARdSButton {
             // Simple style: single segment
             const segment = elbowConfig.segment || {};
 
-            // Parse bar dimensions
-            const bar_width = this._parseUnit(segment.bar_width ?? 90);
-            const bar_height = segment.bar_height ?
-                this._parseUnit(segment.bar_height) : bar_width;
+            // Parse bar dimensions - support 'theme' keyword
+            let bar_width = segment.bar_width;
+            let bar_height = segment.bar_height;
+
+            // Store the raw value for later resolution
+            if (bar_width === 'theme' || bar_width === 'input_number.lcars_vertical') {
+                // Will be resolved dynamically from HASS state
+                bar_width = 'theme';
+            } else {
+                bar_width = this._parseUnit(bar_width ?? 90);
+            }
+
+            if (bar_height === 'theme' || bar_height === 'input_number.lcars_horizontal') {
+                // Will be resolved dynamically from HASS state
+                bar_height = 'theme';
+            } else if (bar_height !== undefined) {
+                bar_height = this._parseUnit(bar_height);
+            } else {
+                // Default: same as bar_width (if bar_width is not 'theme')
+                bar_height = bar_width === 'theme' ? 'theme' : bar_width;
+            }
 
             // Parse outer curve - 'auto' means use bar_width / 2
             let outer_curve = segment.outer_curve;
             if (outer_curve === 'auto' || outer_curve === undefined) {
-                outer_curve = bar_width / 2;
+                outer_curve = 'auto'; // Will be resolved in geometry calculation
             } else {
                 outer_curve = this._parseUnit(outer_curve);
             }
@@ -197,8 +384,8 @@ export class LCARdSElbow extends LCARdSButton {
             if (segment.inner_curve !== undefined) {
                 inner_curve = this._parseUnit(segment.inner_curve);
             } else {
-                // LCARS formula: inner = outer / 2
-                inner_curve = outer_curve / 2;
+                // LCARS formula: inner = outer / 2 (will be calculated)
+                inner_curve = undefined;
             }
 
             segmentConfig = {
@@ -277,13 +464,43 @@ export class LCARdSElbow extends LCARdSButton {
         const { type, segment } = config;
         const [position, side] = type.split('-'); // 'header-left' → ['header', 'left']
 
+        // Resolve theme values to actual dimensions
+        let bar_width = segment.bar_width;
+        let bar_height = segment.bar_height;
+        let outer_curve = segment.outer_curve;
+        let inner_curve = segment.inner_curve;
+
+        // Resolve bar_width (vertical dimension in LCARS)
+        if (bar_width === 'theme') {
+            bar_width = this._themeBarDimensions?.vertical ?? 90;
+            lcardsLog.debug(`[LCARdSElbow] Resolved bar_width from theme: ${bar_width}px`);
+        }
+
+        // Resolve bar_height (horizontal dimension in LCARS)
+        if (bar_height === 'theme') {
+            bar_height = this._themeBarDimensions?.horizontal ?? 90;
+            lcardsLog.debug(`[LCARdSElbow] Resolved bar_height from theme: ${bar_height}px`);
+        }
+
+        // Resolve outer_curve ('auto' means bar_width / 2)
+        if (outer_curve === 'auto') {
+            outer_curve = bar_width / 2;
+            lcardsLog.debug(`[LCARdSElbow] Calculated auto outer_curve: ${outer_curve}px`);
+        }
+
+        // Resolve inner_curve (defaults to outer_curve / 2 - LCARS formula)
+        if (inner_curve === undefined) {
+            inner_curve = outer_curve / 2;
+            lcardsLog.debug(`[LCARdSElbow] Calculated LCARS inner_curve: ${inner_curve}px`);
+        }
+
         return {
             position,  // 'header' or 'footer'
             side,      // 'left' or 'right'
-            horizontal: segment.bar_width,   // Sidebar width
-            vertical: segment.bar_height,    // Top bar height
-            outerRadius: segment.outer_curve,
-            innerRadius: segment.inner_curve
+            horizontal: bar_width,   // Sidebar width
+            vertical: bar_height,    // Top bar height
+            outerRadius: outer_curve,
+            innerRadius: inner_curve
         };
     }
 
@@ -460,12 +677,34 @@ export class LCARdSElbow extends LCARdSButton {
     }
 
     /**
-     * Get the background color for the elbow
+     * Get the background color for the elbow (or a specific segment)
      * Uses state-aware color resolution with rule patch support
+     * @param {string} [segmentType] - Optional segment type ('outer' or 'inner' for segmented mode)
+     * @param {Object} [segmentConfig] - Optional segment configuration object
      * @returns {string} CSS background color
      * @private
      */
-    _getElbowColor() {
+    _getElbowColor(segmentType = null, segmentConfig = null) {
+        // For segmented mode with segment-specific entity
+        if (segmentType && segmentConfig?.entity_id) {
+            const entity = this.hass.states[segmentConfig.entity_id];
+            if (entity) {
+                const state = this._getEntityState(entity);
+                const backgroundColors = this._buttonStyle?.card?.color?.background;
+
+                // Try state-specific color first
+                const stateColor = backgroundColors?.[state] || backgroundColors?.default;
+                if (stateColor) {
+                    return stateColor;
+                }
+            }
+        }
+
+        // For segmented mode with static color in config
+        if (segmentType && segmentConfig?.color) {
+            return segmentConfig.color;
+        }
+
         // Priority 1: Explicit color override in elbow config
         if (this._elbowConfig?.colors?.background) {
             return this._elbowConfig.colors.background;
@@ -825,10 +1064,12 @@ export class LCARdSElbow extends LCARdSButton {
 
         const { position, side, outer, inner, offset } = segmentGeom;
 
-        // Get colors for outer and inner segments
-        const backgroundColor = this._getElbowColor();
-        const outerColor = outer.color || backgroundColor;
-        const innerColor = inner.color || outerColor;
+        // Get colors for outer and inner segments using state-aware resolution
+        const outerSegmentConfig = this._elbowConfig.segments.outer_segment;
+        const innerSegmentConfig = this._elbowConfig.segments.inner_segment;
+
+        const outerColor = this._getElbowColor('outer', outerSegmentConfig);
+        const innerColor = this._getElbowColor('inner', innerSegmentConfig);
 
         // Generate outer segment path (larger elbow)
         const outerPath = this._generateSegmentPath(
@@ -880,6 +1121,7 @@ export class LCARdSElbow extends LCARdSButton {
                     <!-- Outer segment (larger) -->
                     <path
                         class="elbow-outer button-clickable"
+                        data-overlay-id="outer-segment"
                         d="${outerPath}"
                         fill="${outerColor}"
                         style="pointer-events: all;"
@@ -888,6 +1130,7 @@ export class LCARdSElbow extends LCARdSButton {
                     <g transform="translate(${offset.x}, ${offset.y})">
                         <path
                             class="elbow-inner button-clickable"
+                            data-overlay-id="inner-segment"
                             d="${innerPath}"
                             fill="${innerColor}"
                             style="pointer-events: all;"
@@ -1102,6 +1345,22 @@ export class LCARdSElbow extends LCARdSButton {
     }
 
     /**
+     * Get layout options for Home Assistant grid system
+     * @returns {Object} Layout configuration
+     */
+    getLayoutOptions() {
+        // HA uses grid_options.columns and grid_options.rows
+        // Provide sensible defaults for elbow cards
+        const gridOptions = this.config.grid_options || {};
+        return {
+            grid_columns: gridOptions.columns || 4,  // Default to 4 columns
+            grid_rows: gridOptions.rows || 2,        // Default to 2 rows (elbows need more vertical space)
+            grid_min_columns: 1,
+            grid_min_rows: 1
+        };
+    }
+
+    /**
      * Get stub config for card picker
      * @returns {Object} Example configuration
      */
@@ -1110,25 +1369,14 @@ export class LCARdSElbow extends LCARdSButton {
             type: 'custom:lcards-elbow',
             elbow: {
                 type: 'header-left',
-                border: {
-                    horizontal: 90,
-                    vertical: 20
+                segment: {
+                    bar_width: 90,
+                    bar_height: 20
                 },
                 radius: {
                     outer: 'auto'
                     // inner calculated automatically using LCARS formula (outer / 2)
                     // or specify inner_factor for legacy behavior
-                }
-            },
-            text: {
-                name: {
-                    show: false
-                },
-                state: {
-                    show: false
-                },
-                label: {
-                    show: false
                 }
             }
         };
@@ -1139,8 +1387,7 @@ export class LCARdSElbow extends LCARdSButton {
      * @returns {HTMLElement}
      */
     static getConfigElement() {
-        // Import editor component
-        import('../editor/cards/lcards-elbow-editor.js');
+        // Static import - editor bundled with card (webpack config doesn't support splitting)
         return document.createElement('lcards-elbow-editor');
     }
 
@@ -1153,188 +1400,40 @@ export class LCARdSElbow extends LCARdSButton {
         const configManager = window.lcards?.core?.configManager;
 
         if (!configManager) {
-            lcardsLog.error('[LCARdSElbow] CoreConfigManager not available');
+            lcardsLog.error('[LCARdSElbow] CoreConfigManager not available for schema registration');
             return;
         }
 
-        // Elbow extends button schema, so reference button presets
-        const buttonPresets = window.lcards?.core?.stylePresetManager?.getPresetNamesForCard('button') || [];
+        // Get available presets from StylePresetManager (inherits from button)
+        const stylePresetManager = window.lcards?.core?.stylePresetManager;
+        const availablePresets = stylePresetManager?.getAvailablePresets('button') || [];
 
-        // Register elbow-specific schema
-        configManager.registerCardSchema('elbow', {
-            type: 'object',
-            required: ['type'],
-            properties: {
-                type: {
-                    type: 'string',
-                    const: 'custom:lcards-elbow'
-                },
-                entity: {
-                    type: 'string',
-                    description: 'Entity ID to control'
-                },
-                id: {
-                    type: 'string',
-                    description: 'Custom card ID for targeting with rules and animations'
-                },
-                preset: {
-                    type: 'string',
-                    enum: buttonPresets, // Inherits button presets
-                    description: 'Button style preset'
-                },
-                elbow: {
-                    type: 'object',
-                    required: ['type'],
-                    properties: {
-                        type: {
-                            type: 'string',
-                            enum: ['header-left', 'header-right', 'footer-left', 'footer-right'],
-                            description: 'Position of the elbow corner'
-                        },
-                        style: {
-                            type: 'string',
-                            enum: ['simple', 'segmented'],
-                            default: 'simple',
-                            description: 'Elbow style: simple (single) or segmented (double concentric)'
-                        },
-                        // Simple style segment
-                        segment: {
-                            type: 'object',
-                            description: 'Configuration for simple style single segment',
-                            properties: {
-                                bar_width: {
-                                    type: 'number',
-                                    description: 'Vertical sidebar thickness (pixels)'
-                                },
-                                bar_height: {
-                                    type: 'number',
-                                    description: 'Horizontal bar thickness (pixels)'
-                                },
-                                outer_curve: {
-                                    oneOf: [
-                                        { type: 'number' },
-                                        { type: 'string', const: 'auto' }
-                                    ],
-                                    description: 'Outer corner radius (pixels or "auto" for bar_width / 2)'
-                                },
-                                inner_curve: {
-                                    type: 'number',
-                                    description: 'Inner corner radius (pixels, defaults to outer_curve / 2)'
-                                },
-                                color: {
-                                    oneOf: [
-                                        { type: 'string' },
-                                        {
-                                            type: 'object',
-                                            properties: {
-                                                default: { type: 'string' },
-                                                active: { type: 'string' },
-                                                inactive: { type: 'string' },
-                                                unavailable: { type: 'string' }
-                                            }
-                                        }
-                                    ],
-                                    description: 'Segment color (string or state-based object)'
-                                }
-                            }
-                        },
-                        // Segmented style segments
-                        segments: {
-                            type: 'object',
-                            description: 'Configuration for segmented style (double concentric)',
-                            properties: {
-                                gap: {
-                                    type: 'number',
-                                    default: 4,
-                                    description: 'Gap between outer and inner segments (pixels)'
-                                },
-                                outer_segment: {
-                                    type: 'object',
-                                    description: 'Outer segment (frame) configuration',
-                                    required: ['bar_width'],
-                                    properties: {
-                                        bar_width: {
-                                            type: 'number',
-                                            description: 'Vertical bar thickness (pixels)'
-                                        },
-                                        bar_height: {
-                                            type: 'number',
-                                            description: 'Horizontal bar thickness (pixels)'
-                                        },
-                                        outer_curve: {
-                                            type: 'number',
-                                            description: 'Outer corner radius (pixels)'
-                                        },
-                                        inner_curve: {
-                                            type: 'number',
-                                            description: 'Inner corner radius (pixels)'
-                                        },
-                                        color: {
-                                            type: 'string',
-                                            description: 'Solid color for outer segment'
-                                        }
-                                    }
-                                },
-                                inner_segment: {
-                                    type: 'object',
-                                    description: 'Inner segment (content area) configuration',
-                                    required: ['bar_width'],
-                                    properties: {
-                                        bar_width: {
-                                            type: 'number',
-                                            description: 'Vertical bar thickness (pixels)'
-                                        },
-                                        bar_height: {
-                                            type: 'number',
-                                            description: 'Horizontal bar thickness (pixels)'
-                                        },
-                                        outer_curve: {
-                                            type: 'number',
-                                            description: 'Outer corner radius (pixels, auto-calculated if not specified)'
-                                        },
-                                        inner_curve: {
-                                            type: 'number',
-                                            description: 'Inner corner radius (pixels)'
-                                        },
-                                        color: {
-                                            type: 'string',
-                                            description: 'Solid color for inner segment'
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                // Inherits all button properties
-                text: {
-                    type: 'object',
-                    description: 'Text field configurations'
-                },
-                tap_action: {
-                    type: 'object',
-                    description: 'Action to perform on tap'
-                },
-                hold_action: {
-                    type: 'object',
-                    description: 'Action to perform on hold'
-                },
-                double_tap_action: {
-                    type: 'object',
-                    description: 'Action to perform on double tap'
-                },
-                css_class: {
-                    type: 'string',
-                    description: 'Custom CSS class for styling'
-                },
-                data_sources: {
-                    type: 'object',
-                    description: 'Data source configurations'
-                }
-            }
-        }, { version: '1.24.0' });
+        lcardsLog.debug('[LCARdSElbow] Registering schema with presets:', availablePresets);
 
-        lcardsLog.debug('[LCARdSElbow] Schema registered');
+        // Register behavioral defaults (elbow extends button, inherits defaults)
+        configManager.registerCardDefaults('elbow', {
+            enable_hold_action: true,   // Hold actions enabled (inherited)
+            enable_double_tap: false    // Double-tap disabled by default (inherited)
+        });
+
+        // Position options with proper labels (same as button)
+        const positionEnum = [
+            'top-left', 'top-center', 'top-right',
+            'left-center', 'center', 'right-center',
+            'bottom-left', 'bottom-center', 'bottom-right',
+            'top', 'bottom', 'left', 'right'
+        ];
+
+        // Build complete schema using schema factory function
+        const elbowSchema = getElbowSchema({
+            availablePresets,
+            positionEnum
+        });
+
+        // Register JSON schema for validation (v1.24.0+)
+        configManager.registerCardSchema('elbow', elbowSchema, { version: '1.24.0' });
+
+        lcardsLog.debug('[LCARdSElbow] Schema registered with CoreConfigManager');
     }
 }
 
