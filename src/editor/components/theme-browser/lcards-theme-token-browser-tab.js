@@ -213,12 +213,12 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       /* HA native tab styling (Issue #82) */
       ha-tab-group {
         display: block;
-        margin-bottom: 16px;
+        margin-bottom: 12px;
       }
 
       .theme-info {
         display: flex;
-        gap: 16px;
+        gap: 12px;
         padding: 12px 24px;
         border-bottom: 1px solid var(--divider-color);
         background: var(--secondary-background-color);
@@ -668,7 +668,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         top: 20px;
         display: flex;
         flex-direction: column;
-        gap: 20px;
+        gap: 12px;
       }
 
       .alert-lab-right-column {
@@ -679,13 +679,13 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       /* Alert Lab: HA native tab styling for visualization tabs (Issue #82) */
       .alert-lab-right-column ha-tab-group {
         display: block;
-        margin-bottom: 16px;
+        margin-bottom: 12px;
       }
 
       .alert-lab-header {
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 12px;
         padding-bottom: 16px;
         border-bottom: 2px solid var(--divider-color);
       }
@@ -693,7 +693,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       .mode-selection-controls {
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 12px;
       }
 
       .mode-selector-row {
@@ -745,8 +745,8 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       .parameter-controls {
         display: flex;
         flex-direction: column;
-        gap: 16px;
-        margin-bottom: 24px;
+        gap: 12px;
+        margin-bottom: 12px;
       }
 
       .slider-control {
@@ -819,7 +819,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       .alert-lab-actions {
         display: flex;
         gap: 12px;
-        margin-bottom: 24px;
+        margin-bottom: 12px;
         flex-wrap: wrap;
       }
 
@@ -851,7 +851,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       .preview-swatches-container {
         display: flex;
         flex-direction: column;
-        gap: 24px;
+        gap: 12px;
       }
 
       .preview-swatch-group {
@@ -872,7 +872,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       .preview-swatches-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        gap: 16px;
+        gap: 12px;
       }
 
       .preview-swatch-item {
@@ -915,7 +915,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       .comparison-grid-header {
         display: grid;
         grid-template-columns: 200px 1fr 1fr;
-        gap: 16px;
+        gap: 12px;
         padding: 12px 16px;
         background: var(--secondary-background-color);
         border-bottom: 2px solid var(--divider-color);
@@ -938,7 +938,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       .comparison-row {
         display: grid;
         grid-template-columns: 200px 1fr 1fr;
-        gap: 16px;
+        gap: 12px;
         padding: 12px 16px;
         border-bottom: 1px solid var(--divider-color);
         transition: background-color 0.2s;
@@ -1022,7 +1022,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       .color-wheel-explanation {
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 12px;
       }
 
       .color-wheel-explanation h5 {
@@ -1147,6 +1147,8 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         </div>
         <ha-button
           slot="primaryAction"
+          variant="brand"
+          appearance="accent"
           @click=${this._closeDialog}
           dialogAction="close">
           Close
@@ -2041,50 +2043,22 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
    * Render a parameter slider control using ha-selector
    */
   _renderParameterSlider(paramPath, label, min, max, step, unit, value) {
-    const displayValue = value !== undefined ?
-      (step < 1 ? value.toFixed(2) : value.toFixed(0)) :
-      '—';
-
-    // Check if ha-selector is available
-    const hasHaSelector = customElements.get('ha-selector');
-
-    if (hasHaSelector) {
-      return html`
-        <ha-selector
-          .hass="${this.hass}"
-          .label="${label}"
-          .value="${value || min}"
-          .selector=${{
-            number: {
-              min: min,
-              max: max,
-              step: step,
-              mode: 'slider',
-              unit_of_measurement: unit
-            }
-          }}
-          @value-changed="${(e) => this._handleParamChange(paramPath, e.detail.value)}"
-        ></ha-selector>
-      `;
-    }
-
-    // Fallback to custom slider
     return html`
-      <div class="slider-control">
-        <div class="slider-label-row">
-          <label>${label}</label>
-          <span class="slider-value">${displayValue}${unit}</span>
-        </div>
-        <input
-          type="range"
-          min="${min}"
-          max="${max}"
-          step="${step}"
-          .value="${value || min}"
-          @input="${(e) => this._handleParamChange(paramPath, parseFloat(e.target.value))}"
-          class="parameter-slider"
-        />
-      </div>
+      <ha-selector
+        .hass="${this.hass}"
+        .label="${label}"
+        .value="${value || min}"
+        .selector=${{
+          number: {
+            min: min,
+            max: max,
+            step: step,
+            mode: 'slider',
+            unit_of_measurement: unit
+          }
+        }}
+        @value-changed="${(e) => this._handleParamChange(paramPath, e.detail.value)}"
+      ></ha-selector>
     `;
   }  /**
    * Render alert mode preview swatches

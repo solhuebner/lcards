@@ -47,7 +47,7 @@ export class LCARdSCardDataSourcesList extends LitElement {
       .empty-state ha-icon {
         --mdc-icon-size: 64px;
         color: var(--disabled-text-color, #9e9e9e);
-        margin-bottom: 16px;
+        margin-bottom: 12px;
       }
 
       .empty-state p {

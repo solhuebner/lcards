@@ -144,7 +144,7 @@ export class LCARdSProvenanceTab extends LitElement {
         align-items: center;
         justify-content: center;
         padding: 48px;
-        gap: 16px;
+        gap: 12px;
       }
 
       .loading-state p {
@@ -162,7 +162,7 @@ export class LCARdSProvenanceTab extends LitElement {
       .dialog-content {
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 12px;
         height: 75vh;
         max-height: 75vh;
         overflow: hidden;
@@ -188,7 +188,7 @@ export class LCARdSProvenanceTab extends LitElement {
       /* HA native tab styling (Issue #82) */
       ha-tab-group {
         display: block;
-        margin-bottom: 16px;
+        margin-bottom: 12px;
       }
 
       ha-tab-group-tab ha-icon {
@@ -421,7 +421,7 @@ export class LCARdSProvenanceTab extends LitElement {
         align-items: center;
         justify-content: center;
         padding: 64px 24px;
-        gap: 16px;
+        gap: 12px;
       }
 
       .empty-state ha-icon {
@@ -469,14 +469,14 @@ export class LCARdSProvenanceTab extends LitElement {
       .stats-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 16px;
+        gap: 12px;
         padding: 20px;
       }
 
       .stat-card.modern {
         display: flex;
         align-items: center;
-        gap: 16px;
+        gap: 12px;
         background: var(--secondary-background-color);
         border: 1px solid var(--divider-color);
         border-radius: 12px;
@@ -514,7 +514,7 @@ export class LCARdSProvenanceTab extends LitElement {
 
       /* Stat Sections */
       .stat-section {
-        margin: 16px 20px;
+        margin: 12px 20px;
         background: var(--secondary-background-color);
         border: 1px solid var(--divider-color);
         border-radius: 12px;
@@ -525,7 +525,7 @@ export class LCARdSProvenanceTab extends LitElement {
         display: flex;
         align-items: center;
         gap: 8px;
-        margin-bottom: 16px;
+        margin-bottom: 12px;
       }
 
       .section-header ha-icon {
@@ -704,7 +704,7 @@ export class LCARdSProvenanceTab extends LitElement {
       .tokens-grid {
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 12px;
         padding: 20px;
       }
 
@@ -767,7 +767,7 @@ export class LCARdSProvenanceTab extends LitElement {
         padding: 16px;
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 12px;
       }
 
       .token-value-section,
@@ -847,7 +847,7 @@ export class LCARdSProvenanceTab extends LitElement {
         display: grid;
         grid-template-columns: 35% 65%;
         grid-template-rows: minmax(0, 1fr);
-        gap: 16px;
+        gap: 12px;
         flex: 1;
         min-height: 0;
         overflow: hidden;
@@ -1050,7 +1050,7 @@ export class LCARdSProvenanceTab extends LitElement {
       .detail-panel-header {
         padding-bottom: 16px;
         border-bottom: 2px solid var(--divider-color);
-        margin-bottom: 16px;
+        margin-bottom: 12px;
       }
 
       .detail-path {
@@ -1075,7 +1075,7 @@ export class LCARdSProvenanceTab extends LitElement {
       }
 
       .detail-section {
-        margin-bottom: 24px;
+        margin-bottom: 12px;
       }
 
       .detail-section-title {
@@ -2034,6 +2034,8 @@ export class LCARdSProvenanceTab extends LitElement {
         </div>
         <ha-button
           slot="primaryAction"
+          variant="brand"
+          appearance="accent"
           @click=${this._closeDialog}
           dialogAction="close">
           Close

@@ -31,7 +31,7 @@ export class LCARdSCardConfigSection extends LitElement {
             .config-section {
                 display: flex;
                 flex-direction: column;
-                gap: 16px;
+                gap: 12px;
             }
 
             .form-row {
@@ -43,7 +43,7 @@ export class LCARdSCardConfigSection extends LitElement {
             .form-row-group {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
-                gap: 16px;
+                gap: 12px;
             }
 
             label {
@@ -97,50 +97,43 @@ export class LCARdSCardConfigSection extends LitElement {
     }
 
     render() {
-        const hasHaEntityPicker = customElements.get('ha-entity-picker');
-        const hasHaSelector = customElements.get('ha-selector');
-
         return html`
             <div class="config-section">
 
                 <!-- Entity Picker -->
                 <div class="form-row">
                     <label>Entity</label>
-                    ${hasHaEntityPicker ? html`
-                        <ha-entity-picker
-                            .hass=${this.hass}
-                            .value=${this.config.entity}
-                            @value-changed=${this._entityChanged}>
-                        </ha-entity-picker>
-                    ` : html`
-                        <input
-                            type="text"
-                            .value=${this.config.entity || ''}
-                            @input=${(e) => this._entityChangedSimple(e)}
-                            placeholder="light.example">
-                    `}
+                    <ha-entity-picker
+                        .hass=${this.hass}
+                        .value=${this.config.entity}
+                        @value-changed=${this._entityChanged}>
+                    </ha-entity-picker>
                     ${this._getSchemaDescription('entity')}
                 </div>
 
                 <!-- Card ID -->
                 <div class="form-row">
                     <label>Card ID (optional)</label>
-                    <input
-                        type="text"
+                    <ha-selector
+                        .hass=${this.hass}
+                        .selector=${{ text: {} }}
                         .value=${this.config.id || ''}
-                        @change=${(e) => this._valueChanged('id', e.target.value)}
+                        @value-changed=${(e) => this._valueChanged('id', e.detail.value)}
                         placeholder="auto-generated">
+                    </ha-selector>
                     ${this._getSchemaDescription('id')}
                 </div>
 
                 <!-- Tags -->
                 <div class="form-row">
                     <label>Tags (comma-separated)</label>
-                    <input
-                        type="text"
+                    <ha-selector
+                        .hass=${this.hass}
+                        .selector=${{ text: {} }}
                         .value=${(this.config.tags || []).join(', ')}
-                        @input=${this._tagsChanged}
+                        @value-changed=${(e) => this._tagsChanged(e)}
                         placeholder="sensor, temperature, critical">
+                    </ha-selector>
                     ${this._getSchemaDescription('tags')}
                 </div>
 
@@ -148,31 +141,20 @@ export class LCARdSCardConfigSection extends LitElement {
                 ${this.schema?.properties?.preset ? html`
                     <div class="form-row">
                         <label>Preset</label>
-                        ${hasHaSelector ? html`
-                            <ha-selector
-                                .hass=${this.hass}
-                                .selector=${{
-                                    select: {
-                                        mode: 'dropdown',
-                                        options: (this.schema.properties.preset.enum || []).map(p => ({
-                                            value: p,
-                                            label: this._formatPresetLabel(p)
-                                        }))
-                                    }
-                                }}
-                                .value=${this.config.preset}
-                                @value-changed=${(e) => this._valueChanged('preset', e.detail.value)}>
-                            </ha-selector>
-                        ` : html`
-                            <select
-                                .value=${this.config.preset || ''}
-                                @change=${(e) => this._valueChanged('preset', e.target.value)}>
-                                <option value="">Select preset...</option>
-                                ${(this.schema.properties.preset.enum || []).map(p => html`
-                                    <option value="${p}">${this._formatPresetLabel(p)}</option>
-                                `)}
-                            </select>
-                        `}
+                        <ha-selector
+                            .hass=${this.hass}
+                            .selector=${{
+                                select: {
+                                    mode: 'dropdown',
+                                    options: (this.schema.properties.preset.enum || []).map(p => ({
+                                        value: p,
+                                        label: this._formatPresetLabel(p)
+                                    }))
+                                }
+                            }}
+                            .value=${this.config.preset}
+                            @value-changed=${(e) => this._valueChanged('preset', e.detail.value)}>
+                        </ha-selector>
                         ${this._getSchemaDescription('preset')}
                     </div>
                 ` : ''}
@@ -182,22 +164,34 @@ export class LCARdSCardConfigSection extends LitElement {
                 <div class="form-row-group">
                     <div class="form-row">
                         <label>Grid Columns</label>
-                        <input
-                            type="number"
-                            min="1"
-                            max="12"
+                        <ha-selector
+                            .hass=${this.hass}
+                            .selector=${{
+                                number: {
+                                    min: 1,
+                                    max: 12,
+                                    mode: 'box'
+                                }
+                            }}
                             .value=${this.config.grid_columns || 4}
-                            @input=${(e) => this._valueChanged('grid_columns', parseInt(e.target.value))}>
+                            @value-changed=${(e) => this._valueChanged('grid_columns', parseInt(e.detail.value))}>
+                        </ha-selector>
                         <div class="helper-text">Number of columns to span (1-12)</div>
                     </div>
                     <div class="form-row">
                         <label>Grid Rows</label>
-                        <input
-                            type="number"
-                            min="1"
-                            max="12"
+                        <ha-selector
+                            .hass=${this.hass}
+                            .selector=${{
+                                number: {
+                                    min: 1,
+                                    max: 12,
+                                    mode: 'box'
+                                }
+                            }}
                             .value=${this.config.grid_rows || 1}
-                            @input=${(e) => this._valueChanged('grid_rows', parseInt(e.target.value))}>
+                            @value-changed=${(e) => this._valueChanged('grid_rows', parseInt(e.detail.value))}>
+                        </ha-selector>
                         <div class="helper-text">Number of rows to span (1-12)</div>
                     </div>
                 </div>
@@ -216,21 +210,13 @@ export class LCARdSCardConfigSection extends LitElement {
     }
 
     /**
-     * Handle entity input change (simple input fallback)
-     * @param {Event} ev - input event
-     * @private
-     */
-    _entityChangedSimple(ev) {
-        this._fireConfigChanged({ entity: ev.target.value });
-    }
-
-    /**
      * Handle tags input change
-     * @param {Event} ev - input event
+     * @param {CustomEvent} ev - value-changed event from ha-selector
      * @private
      */
     _tagsChanged(ev) {
-        const tags = ev.target.value
+        const value = ev.detail.value || '';
+        const tags = value
             .split(',')
             .map(t => t.trim())
             .filter(t => t.length > 0);

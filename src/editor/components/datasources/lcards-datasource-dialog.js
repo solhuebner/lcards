@@ -60,7 +60,7 @@ export class LCARdSDataSourceDialog extends LitElement {
       .form-content {
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 12px;
         padding: 8px 0;
       }
 
@@ -176,9 +176,10 @@ export class LCARdSDataSourceDialog extends LitElement {
     return html`
       <lcards-dialog
         .open=${this.open}
-        .heading=${this.mode === 'add' ? 'Add Datasource' : `Edit Datasource: ${this.sourceName}`}
         scrimClickAction=""
         escapeKeyAction="">
+
+        <span slot="heading">${this.mode === 'add' ? 'Add Datasource' : `Edit Datasource: ${this.sourceName}`}</span>
 
         <div style="padding: 0 24px 8px;" @keydown=${this._ignoreKeydown}>
           ${this._renderForm()}
@@ -290,131 +291,63 @@ export class LCARdSDataSourceDialog extends LitElement {
   }
 
   _renderEntityPicker() {
-    const hasEntityPicker = customElements.get('ha-entity-picker');
-
-    if (hasEntityPicker) {
-      return html`
-        <ha-entity-picker
-          label="Entity *"
-          .hass=${this.hass}
-          .value=${this._config.entity}
-          @value-changed=${this._handleEntityChange}
-          allow-custom-entity>
-        </ha-entity-picker>
-      `;
-    }
-
-    // Fallback to textfield if ha-entity-picker not available
     return html`
-      <ha-textfield
+      <ha-entity-picker
         label="Entity *"
+        .hass=${this.hass}
         .value=${this._config.entity}
-        @input=${(e) => {
-          this._config.entity = e.target.value;
-          this._validateEntity(e.target.value);
-          this.requestUpdate();
-        }}
-        placeholder="e.g., sensor.temperature">
-      </ha-textfield>
+        @value-changed=${this._handleEntityChange}
+        allow-custom-entity>
+      </ha-entity-picker>
     `;
   }
 
   _renderAttributeSelect() {
-    const hasSelect = customElements.get('ha-select');
     const options = this._getAttributeOptions(this._config.entity);
 
-    if (hasSelect) {
-      return html`
-        <ha-select
-          label="Attribute"
-          .value=${this._config.attribute || '__state__'}
-          @selected=${this._handleAttributeChange}>
-          ${options.map(opt => html`
-            <mwc-list-item .value=${opt.value}>
-              ${opt.label}
-            </mwc-list-item>
-          `)}
-        </ha-select>
-      `;
-    }
-
-    // Fallback to native select
     return html`
-      <select
-        @change=${this._handleAttributeChange}
-        .value=${this._config.attribute || '__state__'}>
+      <ha-select
+        label="Attribute"
+        .value=${this._config.attribute || '__state__'}
+        @selected=${this._handleAttributeChange}>
         ${options.map(opt => html`
-          <option .value=${opt.value}>${opt.label}</option>
+          <mwc-list-item .value=${opt.value}>
+            ${opt.label}
+          </mwc-list-item>
         `)}
-      </select>
+      </ha-select>
     `;
   }
 
   _renderNumberInput(label, path, defaultValue, min, max, unit, helper) {
-    const hasSelector = customElements.get('ha-selector');
     const value = this._getConfigValue(path, defaultValue);
 
-    if (hasSelector) {
-      return html`
-        <div>
-          <ha-selector
-            .hass=${this.hass}
-            .selector=${{ number: { min, max, mode: 'box', unit_of_measurement: unit } }}
-            .value=${value}
-            .label=${label}
-            @value-changed=${(e) => this._setConfigValue(path, e.detail.value)}>
-          </ha-selector>
-          ${helper ? html`<div class="helper-text">${helper}</div>` : ''}
-        </div>
-      `;
-    }
-
-    // Fallback to number input
     return html`
       <div>
-        <label>${label}</label>
-        <input
-          type="number"
-          .value=${value || ''}
-          min=${min}
-          max=${max}
-          @input=${(e) => this._setConfigValue(path, parseInt(e.target.value) || defaultValue)}
-        />
+        <ha-selector
+          .hass=${this.hass}
+          .selector=${{ number: { min, max, mode: 'box', unit_of_measurement: unit } }}
+          .value=${value}
+          .label=${label}
+          @value-changed=${(e) => this._setConfigValue(path, e.detail.value)}>
+        </ha-selector>
         ${helper ? html`<div class="helper-text">${helper}</div>` : ''}
       </div>
     `;
   }
 
   _renderBooleanSwitch(label, path, defaultValue, helper) {
-    const hasSelector = customElements.get('ha-selector');
     const value = this._getConfigValue(path, defaultValue);
 
-    if (hasSelector) {
-      return html`
-        <div>
-          <ha-selector
-            .hass=${this.hass}
-            .selector=${{ boolean: {} }}
-            .value=${value}
-            .label=${label}
-            @value-changed=${(e) => this._setConfigValue(path, e.detail.value)}>
-          </ha-selector>
-          ${helper ? html`<div class="helper-text">${helper}</div>` : ''}
-        </div>
-      `;
-    }
-
-    // Fallback to checkbox
     return html`
       <div>
-        <label>
-          <input
-            type="checkbox"
-            .checked=${value}
-            @change=${(e) => this._setConfigValue(path, e.target.checked)}
-          />
-          ${label}
-        </label>
+        <ha-selector
+          .hass=${this.hass}
+          .selector=${{ boolean: {} }}
+          .value=${value}
+          .label=${label}
+          @value-changed=${(e) => this._setConfigValue(path, e.detail.value)}>
+        </ha-selector>
         ${helper ? html`<div class="helper-text">${helper}</div>` : ''}
       </div>
     `;
@@ -447,14 +380,14 @@ export class LCARdSDataSourceDialog extends LitElement {
       this._config.history[parts[1]] = value;
     }
 
-    this.requestUpdate();
+    this._renderFormToDialog();
   }
 
   _handleEntityChange(event) {
     const entityId = event.detail.value;
     this._config.entity = entityId;
     this._validateEntity(entityId);
-    this.requestUpdate();
+    this._renderFormToDialog();
   }
 
   _validateEntity(entityId) {
@@ -510,7 +443,7 @@ export class LCARdSDataSourceDialog extends LitElement {
     event.preventDefault();
     this._config.entity = entityId;
     this._validateEntity(entityId);
-    this.requestUpdate();
+    this._renderFormToDialog();
   }
 
   _getAttributeOptions(entityId) {
@@ -530,7 +463,7 @@ export class LCARdSDataSourceDialog extends LitElement {
   _handleAttributeChange(event) {
     const value = event.target.value || event.detail?.value;
     this._config.attribute = value === '__state__' ? undefined : value;
-    this.requestUpdate();
+    this._renderFormToDialog();
   }
 
   _validateName() {
@@ -574,7 +507,7 @@ export class LCARdSDataSourceDialog extends LitElement {
 
     this._config = newConfig;
 
-    this.requestUpdate();
+    this._renderFormToDialog();
   }
 
   _handleAggregationsChange(event) {
@@ -601,7 +534,7 @@ export class LCARdSDataSourceDialog extends LitElement {
 
     this._config = newConfig;
 
-    this.requestUpdate();
+    this._renderFormToDialog();
   }
 
   _isValid() {

@@ -109,7 +109,7 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 16px;
+        margin-bottom: 12px;
       }
 
       .header-row h3 {

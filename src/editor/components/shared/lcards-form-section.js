@@ -93,13 +93,6 @@ export class LCARdSFormSection extends LitElement {
     }
 
     render() {
-        // Check if ha-expansion-panel is available
-        const hasExpansionPanel = customElements.get('ha-expansion-panel');
-
-        if (!hasExpansionPanel) {
-            return this._renderFallback();
-        }
-
         // Build header HTML with icon and secondary text
         const headerTag = `h${this.headerLevel}`;
         const headerContent = `
@@ -136,39 +129,6 @@ export class LCARdSFormSection extends LitElement {
     }
 
     /**
-     * Render fallback when ha-expansion-panel is not available
-     * @private
-     */
-    _renderFallback() {
-        return html`
-            <div class="section-fallback">
-                <div style="
-                    font-weight: 500;
-                    font-size: 16px;
-                    margin-bottom: 8px;
-                    padding: 12px;
-                    background: var(--secondary-background-color, #f5f5f5);
-                    border-radius: 4px;
-                    cursor: ${this.noCollapse ? 'default' : 'pointer'};
-                " @click=${this.noCollapse ? null : this._toggleExpanded}>
-                    ${!this.noCollapse ? (this.expanded ? '▼' : '▶') : ''}
-                    ${this.icon ? html`<ha-icon icon="${this.icon}" style="margin-right: 8px;"></ha-icon>` : ''}
-                    ${this.header}
-                    ${this.secondary ? html`<span style="color: var(--secondary-text-color); margin-left: 8px;">${this.secondary}</span>` : ''}
-                </div>
-                ${this.expanded || this.noCollapse ? html`
-                    <div style="padding: 12px;"> <!-- Reduced from 16px for consistency -->
-                        ${this.description ? html`
-                            <div class="section-description">${this.description}</div>
-                        ` : ''}
-                        <slot></slot>
-                    </div>
-                ` : ''}
-            </div>
-        `;
-    }
-
-    /**
      * Handle expansion state change
      * @param {CustomEvent} ev - expanded-changed event
      * @private
@@ -178,25 +138,6 @@ export class LCARdSFormSection extends LitElement {
         ev.stopPropagation();
 
         this.expanded = ev.detail.expanded;
-        // Emit a non-bubbling event so parent sections don't react to nested toggles
-        this.dispatchEvent(new CustomEvent('expanded-changed', {
-            detail: { expanded: this.expanded },
-            bubbles: false,
-            composed: false
-        }));
-    }
-
-    /**
-     * Toggle expanded state (for fallback)
-     * @private
-     */
-    _toggleExpanded(ev) {
-        // Stop propagation to prevent nested sections from affecting parents
-        if (ev) {
-            ev.stopPropagation();
-        }
-
-        this.expanded = !this.expanded;
         // Emit a non-bubbling event so parent sections don't react to nested toggles
         this.dispatchEvent(new CustomEvent('expanded-changed', {
             detail: { expanded: this.expanded },

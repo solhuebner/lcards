@@ -57,7 +57,7 @@ export class LCARdSTransformationDialog extends LitElement {
       .form-content {
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 12px;
         padding: 8px 0;
       }
 

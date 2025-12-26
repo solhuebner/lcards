@@ -93,47 +93,23 @@ export class LCARdSMultiTextEditor extends LitElement {
                 flex: 1;
             }
 
+            .custom-field-form {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+
             .custom-field-actions {
                 display: flex;
-                gap: 4px;
-            }
-
-            .custom-field-actions button {
-                padding: 8px 12px;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 14px;
-            }
-
-            .custom-field-add {
-                background: var(--primary-color, #03a9f4);
-                color: white;
-            }
-
-            .custom-field-cancel {
-                background: var(--secondary-background-color, #e0e0e0);
-                color: var(--primary-text-color);
+                gap: 8px;
+                justify-content: flex-end;
             }
 
             .field-actions {
                 display: flex;
                 gap: 8px;
                 margin-top: 8px;
-            }
-
-            .remove-button {
-                padding: 6px 12px;
-                background: var(--error-color, #f44336);
-                color: white;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 12px;
-            }
-
-            .remove-button:hover {
-                opacity: 0.9;
+                justify-content: flex-end;
             }
 
             .inherited-hint {
@@ -460,9 +436,13 @@ export class LCARdSMultiTextEditor extends LitElement {
 
                 <!-- Remove Button -->
                 <div class="field-actions">
-                    <button class="remove-button" @click=${() => this._removeField(fieldName)}>
+                    <ha-button
+                        variant="danger"
+                        size="small"
+                        @click=${() => this._removeField(fieldName)}>
+                        <ha-icon icon="mdi:delete" slot="icon"></ha-icon>
                         Remove Field
-                    </button>
+                    </ha-button>
                 </div>
             </lcards-form-section>
         `;
@@ -493,40 +473,45 @@ export class LCARdSMultiTextEditor extends LitElement {
                     <mwc-list-item value="custom">Custom field name...</mwc-list-item>
                 </ha-select>
                 ${!this._showCustomInput ? html`
-                    <button
-                        class="add-field-button"
+                    <ha-button
                         @click=${this._handleAddField}
                         ?disabled=${!this._selectedField}>
+                        <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
                         Add Field
-                    </button>
+                    </ha-button>
                 ` : ''}
+            </div>
 
-                ${this._showCustomInput ? html`
-                    <div class="custom-field-input">
+            ${this._showCustomInput ? html`
+                <lcards-form-section header="Custom Field Name" ?expanded=${true}>
+                    <div class="custom-field-form">
                         <ha-textfield
-                            label="Custom Field Name"
+                            label="Field Name"
                             .value=${this._customFieldName}
                             @input=${this._handleCustomNameInput}
                             placeholder="e.g., my_custom_field"
                             helper-text="Alphanumeric and underscore only"
-                            validationMessage="Must start with letter/underscore, contain only alphanumeric and underscore">
+                            validationMessage="Must start with letter/underscore">
                         </ha-textfield>
+
                         <div class="custom-field-actions">
-                            <button
-                                class="custom-field-add"
-                                @click=${this._handleAddCustomField}
-                                ?disabled=${!this._isValidCustomName()}>
-                                Add
-                            </button>
-                            <button
-                                class="custom-field-cancel"
+                            <ha-button
+                                appearance="plain"
                                 @click=${this._handleCancelCustom}>
                                 Cancel
-                            </button>
+                            </ha-button>
+                            <ha-button
+                                variant="brand"
+                                appearance="accent"
+                                @click=${this._handleAddCustomField}
+                                ?disabled=${!this._isValidCustomName()}>
+                                <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                                Add
+                            </ha-button>
                         </div>
                     </div>
-                ` : ''}
-            </div>
+                </lcards-form-section>
+            ` : ''}
         `;
     }
 

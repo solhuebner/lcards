@@ -150,18 +150,6 @@ export class LCARdSPaddingEditor extends LitElement {
                 background: var(--disabled-color, #f0f0f0);
             }
 
-            /* Remove spinner arrows for cleaner look */
-            input[type="number"]::-webkit-inner-spin-button,
-            input[type="number"]::-webkit-outer-spin-button {
-                opacity: 0.5;
-                height: 32px;
-            }
-
-            input[type="number"]:hover::-webkit-inner-spin-button,
-            input[type="number"]:hover::-webkit-outer-spin-button {
-                opacity: 1;
-            }
-
             .helper {
                 font-size: 12px;
                 color: var(--secondary-text-color, #757575);
@@ -205,15 +193,15 @@ export class LCARdSPaddingEditor extends LitElement {
     }
 
     /**
-     * Handle input change
+     * Handle selector change
      * @param {string} side - 'top', 'right', 'bottom', or 'left'
-     * @param {Event} event - input event
+     * @param {CustomEvent} event - value-changed event from ha-selector
      * @private
      */
-    _handleInputChange(side, event) {
+    _handleSelectorChange(side, event) {
         if (this.disabled) return;
 
-        const newValue = event.target.value;
+        const newValue = event.detail.value;
         const currentValue = this._getValue();
 
         if (typeof currentValue === 'number' || currentValue === null || currentValue === undefined) {
@@ -249,15 +237,19 @@ export class LCARdSPaddingEditor extends LitElement {
         return html`
             <div class="padding-cell ${side}">
                 <div class="padding-label">${label}</div>
-                <input
-                    type="number"
-                    .value=${String(value)}
-                    min="0"
-                    step="1"
-                    ?disabled=${this.disabled}
-                    @input=${(e) => this._handleInputChange(side, e)}
-                    @change=${(e) => this._handleInputChange(side, e)}
-                />
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{
+                        number: {
+                            min: 0,
+                            step: 1,
+                            mode: 'box'
+                        }
+                    }}
+                    .value=${value}
+                    .disabled=${this.disabled}
+                    @value-changed=${(e) => this._handleSelectorChange(side, e)}>
+                </ha-selector>
             </div>
         `;
     }

@@ -78,7 +78,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
                 display: flex;
                 flex-direction: column;
                 gap: 8px;
-                margin-bottom: 16px;
+                margin-bottom: 12px;
             }
 
             .form-row label {
@@ -203,13 +203,14 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
             </div>
 
             ${this.mode === 'custom' ? html`
-                <mwc-button
+                <ha-button
                     class="add-button"
-                    outlined
+                    appearance="filled"
+                    variant="brand"
                     @click=${this._handleAddSegment}>
-                    <ha-icon slot="icon" icon="mdi:plus"></ha-icon>
+                    <ha-icon slot="start" icon="mdi:plus"></ha-icon>
                     Add Segment
-                </mwc-button>
+                </ha-button>
             ` : ''}
         `;
     }
@@ -386,12 +387,14 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
 
                     <!-- Delete Button (custom mode only) -->
                     ${!isPredefined ? html`
-                        <mwc-button
+                        <ha-button
                             class="delete-button"
+                            appearance="filled"
+                            variant="danger"
                             @click=${() => this._deleteSegment(segmentId)}>
-                            <ha-icon slot="icon" icon="mdi:delete"></ha-icon>
+                            <ha-icon slot="start" icon="mdi:delete"></ha-icon>
                             Delete Segment
-                        </mwc-button>
+                        </ha-button>
                     ` : ''}
                 ` : ''}
             </lcards-form-section>

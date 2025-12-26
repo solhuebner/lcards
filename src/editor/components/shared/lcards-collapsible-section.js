@@ -55,7 +55,7 @@ export class LCARdSCollapsibleSection extends LitElement {
       }
 
       .section-wrapper {
-        margin-bottom: 16px;
+        margin-bottom: 12px;
         border: 1px solid var(--divider-color);
         border-radius: 8px;
         overflow: hidden;
@@ -197,8 +197,8 @@ export class LCARdSCollapsibleSection extends LitElement {
   render() {
     return html`
       <div class="section-wrapper">
-        <div 
-          class="section-header" 
+        <div
+          class="section-header"
           @click=${this._toggleExpanded}
           @keydown=${this._handleKeyDown}
           tabindex="0"

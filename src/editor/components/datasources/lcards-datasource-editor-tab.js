@@ -72,7 +72,7 @@ export class LCARdSDataSourceEditorTab extends LitElement {
       /* HA native tab styling (Issue #82) */
       ha-tab-group {
         display: block;
-        margin-bottom: 16px;
+        margin-bottom: 12px;
       }
 
       ha-tab-panel {
@@ -83,7 +83,7 @@ export class LCARdSDataSourceEditorTab extends LitElement {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 16px;
+        margin-bottom: 12px;
       }
 
       .header-actions {
@@ -184,13 +184,14 @@ export class LCARdSDataSourceEditorTab extends LitElement {
             <ha-icon icon="mdi:database-search"></ha-icon>
             <span>Browse Sources</span>
           </button>
-          <mwc-button
+          <ha-button
             class="add-source-button"
-            raised
+            variant="brand"
+            appearance="accent"
             @click=${this._handleAddSource}>
-            <ha-icon icon="mdi:plus"></ha-icon>
+            <ha-icon slot="start" icon="mdi:plus"></ha-icon>
             Add Source
-          </mwc-button>
+          </ha-button>
         </div>
       </div>
 
@@ -384,7 +385,7 @@ export class LCARdSDataSourceEditorTab extends LitElement {
       const content = document.createElement('div');
       content.style.padding = '0 24px 8px';
       content.innerHTML = `
-        <ha-alert alert-type="error" style="margin-bottom: 16px;">
+        <ha-alert alert-type="error" style="margin-bottom: 12px;">
           <strong>⚠️ Warning: This will break other cards!</strong>
         </ha-alert>
 

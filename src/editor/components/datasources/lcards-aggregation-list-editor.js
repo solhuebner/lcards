@@ -153,12 +153,13 @@ export class LCARdSAggregationListEditor extends LitElement {
           </div>
         `}
 
-        <mwc-button
-          outlined
+        <ha-button
+          appearance="filled"
+          variant="brand"
           @click=${this._handleAdd}>
-          <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+          <ha-icon icon="mdi:plus" slot="start"></ha-icon>
           Add Aggregation
-        </mwc-button>
+        </ha-button>
       </lcards-form-section>
     `;
   }

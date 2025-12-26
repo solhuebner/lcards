@@ -47,7 +47,7 @@ export class LCARdSBaseEditor extends LitElement {
                 /* HA native tab group styling (Issue #82) */
                 ha-tab-group {
                     display: block;
-                    margin-bottom: 16px;
+                    margin-bottom: 12px;
                 }
 
                 ha-tab-panel {
@@ -57,7 +57,7 @@ export class LCARdSBaseEditor extends LitElement {
 
                 /* Section styles */
                 ha-expansion-panel {
-                    margin-bottom: 16px;
+                    margin-bottom: 12px;
                     border-radius: var(--ha-card-border-radius, 12px);
                 }
 
@@ -71,15 +71,15 @@ export class LCARdSBaseEditor extends LitElement {
 
                 /* Form field spacing */
                 .form-field {
-                    margin-bottom: 16px;
+                    margin-bottom: 12px;
                 }
 
                 /* Two-column grid */
                 .form-row-group {
                     display: grid;
                     grid-template-columns: 1fr 1fr;
-                    gap: 16px;
-                    margin-bottom: 16px;
+                    gap: 12px;
+                    margin-bottom: 12px;
                 }
 
                 @media (max-width: 768px) {

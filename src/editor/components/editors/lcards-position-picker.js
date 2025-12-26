@@ -55,7 +55,7 @@ export class LCARdSPositionPicker extends LitElement {
 
             .grid-container {
                 display: flex;
-                gap: 16px;
+                gap: 12px;
                 align-items: center;
                 padding: 8px;
             }

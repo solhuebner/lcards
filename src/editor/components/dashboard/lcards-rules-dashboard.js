@@ -50,14 +50,14 @@ export class LCARdSRulesDashboard extends LitElement {
             .rules-dashboard {
                 display: flex;
                 flex-direction: column;
-                gap: 16px;
+                gap: 12px;
             }
 
             .dashboard-stats {
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
                 gap: 12px;
-                margin-bottom: 16px;
+                margin-bottom: 12px;
             }
 
             .stat-card {
@@ -935,6 +935,8 @@ export class LCARdSRulesDashboard extends LitElement {
                 </div>
                 <ha-button
                     slot="primaryAction"
+                    variant="brand"
+                    appearance="accent"
                     @click=${this._closePreviewDialog}
                     dialogAction="close">
                     Close

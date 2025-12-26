@@ -21,7 +21,7 @@ export const editorStyles = css`
 
     .tab-bar {
         border-bottom: 1px solid var(--divider-color, #e0e0e0);
-        margin-bottom: 16px;
+        margin-bottom: 12px;
     }
 
     .tab-content {

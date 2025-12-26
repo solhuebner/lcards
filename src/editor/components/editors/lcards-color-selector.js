@@ -121,55 +121,14 @@ export class LCARdSColorSelector extends LitElement {
     }
 
     render() {
-        const hasHaSelector = customElements.get('ha-selector');
-
-        // Use ha-selector if available for better HA integration
-        if (hasHaSelector) {
-            return html`
-                <ha-selector
-                    .hass=${this.hass}
-                    .selector=${{ color_rgb: {} }}
-                    .value=${this.value}
-                    .disabled=${this.disabled}
-                    @value-changed=${this._handleValueChange}>
-                </ha-selector>
-            `;
-        }
-
-        // Fallback to custom implementation
         return html`
-            <div class="color-selector">
-                <div class="color-input">
-                    <input
-                        type="color"
-                        .value=${this._normalizeColorForInput(this.value)}
-                        ?disabled=${this.disabled}
-                        @change=${this._handleColorInputChange}>
-                    <ha-selector
-                        .hass=${this.hass}
-                        .selector=${{ text: {} }}
-                        .value=${this.value || ''}
-                        .disabled=${this.disabled}
-                        class="color-text"
-                        @value-changed=${this._handleTextChange}
-                        placeholder="#ff9900 or rgb(255, 153, 0)">
-                    </ha-selector>
-                </div>
-
-                <div class="palette-section">
-                    <div class="palette-label">LCARS Palette</div>
-                    <div class="palette-grid">
-                        ${this._lcarsPalette.map(color => html`
-                            <div
-                                class="palette-color ${this.value === color.value ? 'selected' : ''}"
-                                style="background-color: ${color.value}"
-                                title="${color.name}"
-                                @click=${() => this._selectPaletteColor(color.value)}>
-                            </div>
-                        `)}
-                    </div>
-                </div>
-            </div>
+            <ha-selector
+                .hass=${this.hass}
+                .selector=${{ color_rgb: {} }}
+                .value=${this.value}
+                .disabled=${this.disabled}
+                @value-changed=${this._handleValueChange}>
+            </ha-selector>
         `;
     }
 
@@ -181,7 +140,7 @@ export class LCARdSColorSelector extends LitElement {
      */
     _normalizeColorForInput(value) {
         if (!value) return '#000000';
-        
+
         // If already hex, return as-is
         if (value.startsWith('#')) {
             return value.length === 7 ? value : '#000000';

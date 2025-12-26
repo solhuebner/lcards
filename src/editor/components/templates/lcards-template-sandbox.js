@@ -172,58 +172,11 @@ export class LCARdSTemplateSandbox extends LitElement {
         background: var(--card-background-color);
       }
 
-      /* Tabs for right pane */
-      .content-tabs {
-        display: flex;
-        gap: 0;
-        border-bottom: 2px solid var(--divider-color);
-        background: var(--secondary-background-color);
-        flex-shrink: 0;
-      }
-
-      .content-tab {
-        padding: 10px 20px;
-        border: none;
-        background: transparent;
-        color: var(--secondary-text-color);
-        font-size: 13px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s;
-        border-bottom: 3px solid transparent;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-
-      .content-tab:hover {
-        background: var(--card-background-color);
-        color: var(--primary-text-color);
-      }
-
-      .content-tab.active {
-        color: var(--primary-color);
-        border-bottom-color: var(--primary-color);
-        background: var(--card-background-color);
-      }
-
-      .content-tab ha-icon {
-        --mdc-icon-size: 16px;
-      }
-
-      /* Tab content area */
-      .content-tab-area {
-        flex: 1;
+      /* Tab panel content wrapper - scrollable */
+      .tab-panel-content {
         overflow-y: auto;
+        max-height: calc(75vh - 120px);
         padding: 16px;
-      }
-
-      .tab-panel {
-        display: none;
-      }
-
-      .tab-panel.active {
-        display: block;
       }
 
       /* Loading and empty states */
@@ -233,7 +186,7 @@ export class LCARdSTemplateSandbox extends LitElement {
         align-items: center;
         justify-content: center;
         padding: 48px;
-        gap: 16px;
+        gap: 12px;
         color: var(--secondary-text-color);
       }
 
@@ -246,7 +199,7 @@ export class LCARdSTemplateSandbox extends LitElement {
       .empty-state ha-icon {
         --mdc-icon-size: 48px;
         color: var(--divider-color);
-        margin-bottom: 16px;
+        margin-bottom: 12px;
       }
 
       .empty-state p {
@@ -359,7 +312,7 @@ export class LCARdSTemplateSandbox extends LitElement {
 
       /* Form sections */
       .form-row {
-        margin-bottom: 16px;
+        margin-bottom: 12px;
       }
 
       .form-row:last-child {
@@ -720,7 +673,7 @@ export class LCARdSTemplateSandbox extends LitElement {
         padding: 12px;
         border-radius: 6px;
         font-size: 13px;
-        margin-bottom: 16px;
+        margin-bottom: 12px;
       }
 
       .info-banner.mock {
@@ -738,7 +691,7 @@ export class LCARdSTemplateSandbox extends LitElement {
       .examples-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 16px;
+        gap: 12px;
       }
 
       .example-card {
@@ -846,6 +799,8 @@ export class LCARdSTemplateSandbox extends LitElement {
         </div>
         <ha-button
           slot="primaryAction"
+          variant="brand"
+          appearance="accent"
           @click=${this._handleClose}
           dialogAction="close">
           Close
@@ -900,37 +855,42 @@ export class LCARdSTemplateSandbox extends LitElement {
 
     return html`
       <div class="content-pane">
-        <div class="content-tabs">
-          <button
-            class="content-tab ${this._activeMainTab === 'output' ? 'active' : ''}"
-            @click=${() => this._activeMainTab = 'output'}>
+        <ha-tab-group @wa-tab-show=${(e) => {
+          const value = e.target.activeTab?.getAttribute('value');
+          if (value !== null && value !== undefined) {
+            this._activeMainTab = value;
+            this.requestUpdate();
+          }
+        }}>
+          <ha-tab-group-tab value="output" ?active=${this._activeMainTab === 'output'}>
             <ha-icon icon="${getStatusIcon()}"></ha-icon>
             Output
-          </button>
-          <button
-            class="content-tab ${this._activeMainTab === 'context' ? 'active' : ''}"
-            @click=${() => this._activeMainTab = 'context'}>
+          </ha-tab-group-tab>
+          <ha-tab-group-tab value="context" ?active=${this._activeMainTab === 'context'}>
             <ha-icon icon="mdi:tune"></ha-icon>
             Context
-          </button>
-          <button
-            class="content-tab ${this._activeMainTab === 'help' ? 'active' : ''}"
-            @click=${() => this._activeMainTab = 'help'}>
+          </ha-tab-group-tab>
+          <ha-tab-group-tab value="help" ?active=${this._activeMainTab === 'help'}>
             <ha-icon icon="mdi:help-circle"></ha-icon>
             Help
-          </button>
-        </div>
-        <div class="content-tab-area">
-          <div class="tab-panel ${this._activeMainTab === 'output' ? 'active' : ''}">
-            ${this._renderOutputTabNew()}
-          </div>
-          <div class="tab-panel ${this._activeMainTab === 'context' ? 'active' : ''}">
-            ${this._renderContextTab()}
-          </div>
-          <div class="tab-panel ${this._activeMainTab === 'help' ? 'active' : ''}">
-            ${this._renderHelpTab()}
-          </div>
-        </div>
+          </ha-tab-group-tab>
+
+          <ha-tab-panel value="output" ?hidden=${this._activeMainTab !== 'output'}>
+            <div class="tab-panel-content">
+              ${this._renderOutputTabNew()}
+            </div>
+          </ha-tab-panel>
+          <ha-tab-panel value="context" ?hidden=${this._activeMainTab !== 'context'}>
+            <div class="tab-panel-content">
+              ${this._renderContextTab()}
+            </div>
+          </ha-tab-panel>
+          <ha-tab-panel value="help" ?hidden=${this._activeMainTab !== 'help'}>
+            <div class="tab-panel-content">
+              ${this._renderHelpTab()}
+            </div>
+          </ha-tab-panel>
+        </ha-tab-group>
       </div>
     `;
   }
@@ -943,22 +903,12 @@ export class LCARdSTemplateSandbox extends LitElement {
       <div class="form-row">
         <label class="form-label">Template</label>
         <div class="template-input-wrapper">
-          ${customElements.get('ha-code-editor') ? html`
-            <ha-code-editor
-              mode="jinja2"
-              .value=${this._templateInput}
-              @value-changed=${(e) => this._handleTemplateInput(e)}
-              autofocus>
-            </ha-code-editor>
-          ` : html`
-            <textarea
-              class="template-input"
-              .value=${this._templateInput}
-              @input=${this._handleTemplateInput}
-              placeholder="Enter template... e.g. {entity.state}"
-              autofocus>
-            </textarea>
-          `}
+          <ha-code-editor
+            mode="jinja2"
+            .value=${this._templateInput}
+            @value-changed=${(e) => this._handleTemplateInput(e)}
+            autofocus>
+          </ha-code-editor>
         </div>
       </div>
 
@@ -982,7 +932,7 @@ export class LCARdSTemplateSandbox extends LitElement {
    */
   _renderContextTab() {
     return html`
-      <div style="display: grid; gap: 20px;">
+      <div style="display: grid; gap: 12px;">
         ${this._renderEntityContext()}
         ${this._renderDataSourcesContext()}
       </div>
@@ -1050,25 +1000,16 @@ export class LCARdSTemplateSandbox extends LitElement {
         .collapsible=${false}>
 
         <div class="form-row">
-          ${customElements.get('ha-code-editor') ? html`
-            <ha-code-editor
-              mode="jinja2"
-              .value=${this._templateInput}
-              @value-changed=${(e) => {
-                this._templateInput = e.detail.value;
-                this._scheduleEvaluation();
-              }}
-              autocomplete-entities
-              autocomplete-icons>
-            </ha-code-editor>
-          ` : html`
-            <textarea
-              class="template-input"
-              .value=${this._templateInput}
-              @input=${this._handleTemplateInput}
-              placeholder="Enter template here...&#10;&#10;Examples:&#10;  {entity.state}&#10;  [[[return entity.state.toUpperCase()]]]&#10;  {datasource:sensor_temp:.1f}°C&#10;  {{states('sensor.temp')}}">
-            </textarea>
-          `}
+          <ha-code-editor
+            mode="jinja2"
+            .value=${this._templateInput}
+            @value-changed=${(e) => {
+              this._templateInput = e.detail.value;
+              this._scheduleEvaluation();
+            }}
+            autocomplete-entities
+            autocomplete-icons>
+          </ha-code-editor>
         </div>
 
         <!-- Template Metadata -->
@@ -1103,7 +1044,7 @@ export class LCARdSTemplateSandbox extends LitElement {
         .collapsible=${false}>
 
         <div style="font-size: 13px; line-height: 1.8;">
-          <div style="margin-bottom: 16px; padding: 12px; background: var(--card-background-color); border-left: 3px solid var(--primary-color); border-radius: 4px;">
+          <div style="margin-bottom: 12px; padding: 12px; background: var(--card-background-color); border-left: 3px solid var(--primary-color); border-radius: 4px;">
             <strong style="color: var(--primary-color); font-size: 14px;">1. JavaScript Templates</strong><br>
             <code style="background: var(--code-background-color); padding: 3px 8px; border-radius: 3px; margin: 8px 0; display: inline-block;">[[[return entity.state.toUpperCase()]]]</code><br>
             <span style="color: var(--secondary-text-color); font-size: 12px;">Execute arbitrary JavaScript with access to context variables</span>
@@ -1112,7 +1053,7 @@ export class LCARdSTemplateSandbox extends LitElement {
             </div>
           </div>
 
-          <div style="margin-bottom: 16px; padding: 12px; background: var(--card-background-color); border-left: 3px solid var(--primary-color); border-radius: 4px;">
+          <div style="margin-bottom: 12px; padding: 12px; background: var(--card-background-color); border-left: 3px solid var(--primary-color); border-radius: 4px;">
             <strong style="color: var(--primary-color); font-size: 14px;">2. Token Templates</strong><br>
             <code style="background: var(--code-background-color); padding: 3px 8px; border-radius: 3px; margin: 8px 0; display: inline-block;">{entity.state}</code>
             <code style="background: var(--code-background-color); padding: 3px 8px; border-radius: 3px; margin: 8px 0; display: inline-block;">{theme:palette.moonlight}</code><br>
@@ -1122,7 +1063,7 @@ export class LCARdSTemplateSandbox extends LitElement {
             </div>
           </div>
 
-          <div style="margin-bottom: 16px; padding: 12px; background: var(--card-background-color); border-left: 3px solid var(--primary-color); border-radius: 4px;">
+          <div style="margin-bottom: 12px; padding: 12px; background: var(--card-background-color); border-left: 3px solid var(--primary-color); border-radius: 4px;">
             <strong style="color: var(--primary-color); font-size: 14px;">3. DataSource Templates</strong><br>
             <code style="background: var(--code-background-color); padding: 3px 8px; border-radius: 3px; margin: 8px 0; display: inline-block;">{datasource:sensor_temp:.1f}</code>
             <code style="background: var(--code-background-color); padding: 3px 8px; border-radius: 3px; margin: 8px 0; display: inline-block;">{ds:cpu_usage}</code><br>
@@ -1182,7 +1123,6 @@ export class LCARdSTemplateSandbox extends LitElement {
   _renderEntityContext() {
     const isEntityLive = !!this.hass?.states?.[this._mockEntityId];
     const entityState = isEntityLive ? this.hass.states[this._mockEntityId] : this._mockState;
-    const hasEntityPicker = customElements.get('ha-entity-picker');
 
     return html`
       <div style="padding: 24px;">
@@ -1194,43 +1134,24 @@ export class LCARdSTemplateSandbox extends LitElement {
 
           <div class="form-row">
             <label class="form-label">Entity Mode</label>
-            ${customElements.get('ha-selector') ? html`
-              <ha-selector
-                .hass=${this.hass}
-                .selector=${{ boolean: {} }}
-                .label=${'Use Mock Entity'}
-                .value=${this._useMockEntity}
-                @value-changed=${(e) => { this._useMockEntity = e.detail.value; }}>
-              </ha-selector>
-            ` : html`
-              <label class="toggle-label">
-                <input
-                  type="checkbox"
-                  .checked=${this._useMockEntity}
-                  @change=${(e) => { this._useMockEntity = e.target.checked; }}>
-                Use Mock Entity
-              </label>
-            `}
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ boolean: {} }}
+              .label=${'Use Mock Entity'}
+              .value=${this._useMockEntity}
+              @value-changed=${(e) => { this._useMockEntity = e.detail.value; }}>
+            </ha-selector>
           </div>
 
           ${!this._useMockEntity ? html`
             <!-- Live Entity -->
             <div class="form-row">
               <label class="form-label">Entity ID</label>
-              ${hasEntityPicker ? html`
-                <ha-entity-picker
-                  .hass=${this.hass}
-                  .value=${this._mockEntityId}
-                  @value-changed=${(e) => this._handleEntityPickerChange(e)}>
-                </ha-entity-picker>
-              ` : html`
-                <input
-                  type="text"
-                  class="entity-input"
-                  .value=${this._mockEntityId}
-                  @input=${this._handleEntityIdInput}
-                  placeholder="light.kitchen">
-              `}
+              <ha-entity-picker
+                .hass=${this.hass}
+                .value=${this._mockEntityId}
+                @value-changed=${(e) => this._handleEntityPickerChange(e)}>
+              </ha-entity-picker>
             </div>
 
             ${isEntityLive ? html`
@@ -1255,30 +1176,19 @@ export class LCARdSTemplateSandbox extends LitElement {
               ${Object.keys(entityState.attributes || {}).length > 0 ? html`
                 <div class="form-row">
                   <label class="form-label">Quick Insert Attribute</label>
-                  ${customElements.get('ha-select') ? html`
-                    <ha-select
-                      .label=${'Select attribute to insert'}
-                      @selected=${(e) => {
-                        const value = e.target.value;
-                        if (value) {
-                          this._insertAttributeToken({ target: { value } });
-                        }
-                      }}
-                      @closed=${(e) => e.stopPropagation()}>
-                      ${Object.keys(entityState.attributes).map(key => html`
-                        <mwc-list-item value=${key}>${key}</mwc-list-item>
-                      `)}
-                    </ha-select>
-                  ` : html`
-                    <select
-                      class="example-select"
-                      @change=${(e) => this._insertAttributeToken(e)}>
-                      <option value="">-- Select attribute to insert --</option>
-                      ${Object.keys(entityState.attributes).map(key => html`
-                        <option value=${key}>${key}</option>
-                      `)}
-                    </select>
-                  `}
+                  <ha-select
+                    .label=${'Select attribute to insert'}
+                    @selected=${(e) => {
+                      const value = e.target.value;
+                      if (value) {
+                        this._insertAttributeToken({ target: { value } });
+                      }
+                    }}
+                    @closed=${(e) => e.stopPropagation()}>
+                    ${Object.keys(entityState.attributes).map(key => html`
+                      <mwc-list-item value=${key}>${key}</mwc-list-item>
+                    `)}
+                  </ha-select>
                 </div>
               ` : ''}
             ` : ''}
@@ -1286,25 +1196,16 @@ export class LCARdSTemplateSandbox extends LitElement {
             <!-- Mock Entity -->
             <div class="form-row">
               <label class="form-label">Entity ID</label>
-              ${customElements.get('ha-selector') ? html`
-                <ha-selector
-                  .hass=${this.hass}
-                  .selector=${{ text: {} }}
-                  .label=${'Enter entity ID (e.g. light.kitchen)'}
-                  .value=${this._mockEntityId}
-                  @value-changed=${(e) => {
-                    this._mockEntityId = e.detail.value;
-                    this._scheduleEvaluation();
-                  }}>
-                </ha-selector>
-              ` : html`
-                <input
-                  type="text"
-                  class="entity-input"
-                  .value=${this._mockEntityId}
-                  @input=${this._handleEntityIdInput}
-                  placeholder="light.kitchen">
-              `}
+              <ha-selector
+                .hass=${this.hass}
+                .selector=${{ text: {} }}
+                .label=${'Enter entity ID (e.g. light.kitchen)'}
+                .value=${this._mockEntityId}
+                @value-changed=${(e) => {
+                  this._mockEntityId = e.detail.value;
+                  this._scheduleEvaluation();
+                }}>
+              </ha-selector>
             </div>
 
             <div class="form-row">
@@ -1316,22 +1217,13 @@ export class LCARdSTemplateSandbox extends LitElement {
 
             <div class="form-row">
               <label class="form-label">Entity State (YAML)</label>
-              ${customElements.get('ha-code-editor') ? html`
-                <ha-code-editor
-                  mode="yaml"
-                  .value=${this._serializeState()}
-                  @value-changed=${(e) => {
-                    this._handleStateYamlChange(e.detail.value);
-                  }}>
-                </ha-code-editor>
-              ` : html`
-                <textarea
-                  class="yaml-editor"
-                  .value=${this._serializeState()}
-                  @input=${this._handleStateYamlInput}
-                  placeholder="state: on&#10;attributes:&#10;  brightness: 200&#10;  color_temp: 370">
-                </textarea>
-              `}
+              <ha-code-editor
+                mode="yaml"
+                .value=${this._serializeState()}
+                @value-changed=${(e) => {
+                  this._handleStateYamlChange(e.detail.value);
+                }}>
+              </ha-code-editor>
             </div>
           `}
         </lcards-form-section>
@@ -1353,23 +1245,13 @@ export class LCARdSTemplateSandbox extends LitElement {
 
           <div class="form-row">
             <label class="form-label">Mock DataSource Values (YAML)</label>
-            ${customElements.get('ha-code-editor') ? html`
-              <ha-code-editor
-                mode="yaml"
-                .value=${this._serializeMockDataSources()}
-                @value-changed=${(e) => {
-                  this._handleMockDataSourcesChange(e.detail.value);
-                }}>
-              </ha-code-editor>
-            ` : html`
-              <textarea
-                class="yaml-editor"
-                style="min-height: 140px;"
-                .value=${this._serializeMockDataSources()}
-                @input=${this._handleMockDataSourcesInput}
-                placeholder="# Define mock DataSource values for testing&#10;sensor_temp: 20.5&#10;cpu_usage: 45&#10;power_total: 1234.5&#10;humidity: 65">
-              </textarea>
-            `}
+            <ha-code-editor
+              mode="yaml"
+              .value=${this._serializeMockDataSources()}
+              @value-changed=${(e) => {
+                this._handleMockDataSourcesChange(e.detail.value);
+              }}>
+            </ha-code-editor>
           </div>
 
           <div style="padding: 12px; background: rgba(255, 152, 0, 0.1); border-left: 3px solid #ff9800; border-radius: 4px; font-size: 13px;">
@@ -1385,28 +1267,17 @@ export class LCARdSTemplateSandbox extends LitElement {
 
             <div class="form-row">
               <label class="form-label">Available DataSources</label>
-              ${customElements.get('ha-select') ? html`
-                <ha-select
-                  .label=${'Select DataSource to view details'}
-                  .value=${this._selectedLiveDataSource}
-                  @selected=${(e) => {
-                    this._selectedLiveDataSource = e.target.value;
-                  }}
-                  @closed=${(e) => e.stopPropagation()}>
-                  ${liveDataSources.map(ds => html`
-                    <mwc-list-item value=${ds.id}>${ds.id}</mwc-list-item>
-                  `)}
-                </ha-select>
-              ` : html`
-                <select
-                  class="example-select"
-                  @change=${this._handleDataSourceSelect}>
-                  <option value="">-- Select to view details --</option>
-                  ${liveDataSources.map(ds => html`
-                    <option value=${ds.id}>${ds.id}</option>
-                  `)}
-                </select>
-              `}
+              <ha-select
+                .label=${'Select DataSource to view details'}
+                .value=${this._selectedLiveDataSource}
+                @selected=${(e) => {
+                  this._selectedLiveDataSource = e.target.value;
+                }}
+                @closed=${(e) => e.stopPropagation()}>
+                ${liveDataSources.map(ds => html`
+                  <mwc-list-item value=${ds.id}>${ds.id}</mwc-list-item>
+                `)}
+              </ha-select>
             </div>
 
             ${this._selectedLiveDataSource ? html`
@@ -1610,7 +1481,7 @@ export class LCARdSTemplateSandbox extends LitElement {
     }
 
     return html`
-      <div style="display: grid; gap: 24px;">
+      <div style="display: grid; gap: 12px;">
         <!-- Result Status Card -->
         <lcards-form-section
           header="Evaluation Result"

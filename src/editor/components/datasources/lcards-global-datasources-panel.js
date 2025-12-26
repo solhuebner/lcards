@@ -46,7 +46,7 @@ export class LCARdSGlobalDataSourcesPanel extends LitElement {
       .empty-state ha-icon {
         --mdc-icon-size: 64px;
         color: var(--disabled-text-color, #9e9e9e);
-        margin-bottom: 16px;
+        margin-bottom: 12px;
       }
 
       .empty-state p {
@@ -59,13 +59,13 @@ export class LCARdSGlobalDataSourcesPanel extends LitElement {
       }
 
       .info-header {
-        margin-bottom: 16px;
+        margin-bottom: 12px;
       }
 
       .sources-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 16px;
+        gap: 12px;
       }
 
       .source-card {

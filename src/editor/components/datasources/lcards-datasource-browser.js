@@ -373,19 +373,21 @@ export class LCARdSDataSourceBrowser extends LitElement {
     return html`
       <div class="action-buttons">
         ${isCardLocal ? html`
-          <mwc-button
-            outlined
+          <ha-button
+            appearance="filled"
+            variant="neutral"
             @click=${() => this._handleEditSource(label)}>
-            <ha-icon icon="mdi:pencil" slot="icon"></ha-icon>
+            <ha-icon icon="mdi:pencil" slot="start"></ha-icon>
             Edit Source
-          </mwc-button>
+          </ha-button>
         ` : ''}
-        <mwc-button
-          outlined
+        <ha-button
+          appearance="filled"
+          variant="neutral"
           @click=${() => this._handleCopyConfig(label)}>
-          <ha-icon icon="mdi:content-copy" slot="icon"></ha-icon>
+          <ha-icon icon="mdi:content-copy" slot="start"></ha-icon>
           Copy Config
-        </mwc-button>
+        </ha-button>
       </div>
     `;
   }
@@ -916,7 +918,7 @@ export class LCARdSDataSourceBrowser extends LitElement {
       .dialog-content {
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 12px;
         height: 75vh;
         max-height: 75vh;
         overflow: hidden;
@@ -943,7 +945,7 @@ export class LCARdSDataSourceBrowser extends LitElement {
         display: grid;
         grid-template-columns: 35% 65%;
         grid-template-rows: minmax(0, 1fr);
-        gap: 16px;
+        gap: 12px;
         flex: 1;
         min-height: 0;
         overflow: hidden;
@@ -1050,7 +1052,7 @@ export class LCARdSDataSourceBrowser extends LitElement {
         justify-content: center;
         height: 100%;
         color: var(--secondary-text-color);
-        gap: 16px;
+        gap: 12px;
       }
 
       .detail-panel-empty ha-icon {
@@ -1069,7 +1071,7 @@ export class LCARdSDataSourceBrowser extends LitElement {
         padding: 16px;
         background: var(--secondary-background-color);
         border-radius: 8px;
-        margin-bottom: 16px;
+        margin-bottom: 12px;
       }
 
       .detail-header h3 {
@@ -1110,7 +1112,7 @@ export class LCARdSDataSourceBrowser extends LitElement {
       }
 
       .detail-section {
-        margin-bottom: 24px;
+        margin-bottom: 12px;
       }
 
       .detail-section h4 {
@@ -1289,6 +1291,8 @@ export class LCARdSDataSourceBrowser extends LitElement {
 
         <ha-button
           slot="primaryAction"
+          variant="brand"
+          appearance="accent"
           @click=${this._handleClose}
           dialogAction="close">
           Close
