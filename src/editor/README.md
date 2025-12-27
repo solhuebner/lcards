@@ -443,7 +443,10 @@ Before submitting editor code:
 
 ### Creating a New Card Editor
 
-1. **Register Schema in Card Class** (`cards/lcards-mycard.js`):
+#### Step 1: Register Schema in Card Class
+
+**File**: `cards/lcards-mycard.js`
+
 ```javascript
 import { LCARdSCard } from '../base/LCARdSCard.js';
 
@@ -467,44 +470,790 @@ export class LCARdSMyCard extends LCARdSCard {
 }
 
 // Register schema with CoreConfigManager singleton
-if (window.lcardsCore?.configManager) {
-    window.lcardsCore.configManager.registerCardSchema('mycard', {
+if (window.lcards?.core?.configManager) {
+    window.lcards.core.configManager.registerCardSchema('mycard', {
         type: 'object',
         properties: {
-            entity: { type: 'string', description: 'Entity ID' },
-            preset: { type: 'string', enum: ['lozenge', 'bullet'] }
+            entity: {
+                type: 'string',
+                format: 'entity',  // Auto-renders as entity picker
+                description: 'Entity ID to display'
+            },
+            preset: {
+                type: 'string',
+                enum: ['lozenge', 'bullet'],
+                description: 'Button style preset'
+            },
+            id: {
+                type: 'string',
+                description: '[Optional] Custom ID for targeting with rules'
+            },
+            tags: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Tags for rule targeting'
+            }
         },
         required: ['type', 'entity']
     });
 }
 ```
 
-2. **Create Editor** (`editor/cards/lcards-mycard-editor.js`):
+#### Step 2: Create Editor Using Declarative Pattern
+
+**File**: `editor/cards/lcards-mycard-editor.js`
+
+**✅ REQUIRED: Use declarative `_getConfigTabConfig()` pattern (NOT direct rendering)**
+
 ```javascript
 import { LCARdSBaseEditor } from '../base/LCARdSBaseEditor.js';
+import '../components/form/lcards-form-field.js';
+import '../components/form/lcards-form-section.js';
 
 export class LCARdSMyCardEditor extends LCARdSBaseEditor {
     constructor() {
         super();
-        this.cardType = 'mycard'; // Set card type for schema lookup
+        this.cardType = 'mycard'; // CRITICAL: Must match schema registration
     }
 
+    /**
+     * Define tabs for the editor
+     * Each tab has a label and content function
+     */
     _getTabDefinitions() {
         return [
-            { label: 'Config', content: () => this._renderConfigTab() },
+            { label: 'Config', content: () => this._renderFromConfig(this._getConfigTabConfig()) },
+            { label: 'Style', content: () => this._renderFromConfig(this._getStyleTabConfig()) },
+            { label: 'Actions', content: () => this._renderActionsTab() },
             { label: 'YAML', content: () => this._renderYamlTab() }
         ];
     }
 
+    /**
+     * ✅ DECLARATIVE CONFIG PATTERN (RECOMMENDED)
+     *
+     * Return configuration objects that _renderFromConfig() will render
+     * This ensures proper Lit reactivity and consistent rendering
+     */
+    _getConfigTabConfig() {
+        return [
+            {
+                type: 'section',
+                header: 'Basic Configuration',
+                description: 'Core card settings',
+                icon: 'mdi:cog',
+                expanded: true,
+                outlined: true,
+                children: [
+                    {
+                        type: 'field',
+                        path: 'entity',
+                        label: 'Entity',
+                        helper: 'Entity to display on the card'
+                    },
+                    {
+                        type: 'field',
+                        path: 'preset',
+                        label: 'Style Preset',
+                        helper: 'Choose button style'
+                    },
+                    {
+                        type: 'field',
+                        path: 'id',
+                        label: 'Card ID',
+                        helper: '[Optional] Custom ID for targeting with rules'
+                    },
+                    {
+                        type: 'field',
+                        path: 'tags',
+                        label: 'Tags',
+                        helper: 'Select existing tags or type new ones'
+                    }
+                ]
+            }
+        ];
+    }
+
+    /**
+     * Style tab configuration (example with grids and custom components)
+     */
+    _getStyleTabConfig() {
+        return [
+            {
+                type: 'section',
+                header: 'Colors',
+                description: 'Card colors by state',
+                icon: 'mdi:palette',
+                expanded: true,
+                children: [
+                    {
+                        type: 'custom',
+                        render: () => html`
+                            <lcards-color-section
+                                .editor=${this}
+                                .config=${this.config}
+                                basePath="style.card.color.background"
+                                header="Background Colors"
+                                .states=${['default', 'active', 'inactive', 'unavailable']}
+                                ?expanded=${false}>
+                            </lcards-color-section>
+                        `
+                    }
+                ]
+            },
+            {
+                type: 'section',
+                header: 'Layout',
+                description: 'Grid positioning',
+                icon: 'mdi:grid',
+                expanded: false,
+                children: [
+                    {
+                        type: 'grid',
+                        children: [
+                            { type: 'field', path: 'grid_columns', label: 'Grid Columns' },
+                            { type: 'field', path: 'grid_rows', label: 'Grid Rows' }
+                        ]
+                    }
+                ]
+            }
+        ];
+    }
+
+    /**
+     * Actions tab (uses standard multi-action editor)
+     */
+    _renderActionsTab() {
+        return html`
+            <lcards-multi-action-editor
+                .hass=${this.hass}
+                .config=${this.config}
+                .tap_action=${this.config.tap_action}
+                .hold_action=${this.config.hold_action}
+                .double_tap_action=${this.config.double_tap_action}
+                @value-changed=${this._handleActionsChange}>
+            </lcards-multi-action-editor>
+        `;
+    }
+
+    _handleActionsChange(event) {
+        const actions = event.detail.value;
+        this._updateConfig({
+            tap_action: actions.tap_action,
+            hold_action: actions.hold_action,
+            double_tap_action: actions.double_tap_action
+        });
+    }
+
     // Note: _getSchema() is NOT overridden
     // Base class queries singleton using this.cardType
-
-    _renderConfigTab() { /* ... */ }
-    _renderYamlTab() { /* ... */ }
 }
 
 customElements.define('lcards-mycard-editor', LCARdSMyCardEditor);
 ```
+
+#### Configuration Object Reference
+
+**Section** (collapsible panel):
+```javascript
+{
+    type: 'section',
+    header: 'Section Title',         // Required
+    description: 'Helper text',      // Optional
+    icon: 'mdi:icon-name',           // Optional MDI icon
+    expanded: true,                  // Optional, default false
+    outlined: true,                  // Optional, adds border
+    children: [ /* config objects */ ]
+}
+```
+
+**Field** (auto-rendered from schema):
+```javascript
+{
+    type: 'field',
+    path: 'entity',                  // Required: dot-notation path
+    label: 'Entity',                 // Optional: overrides schema
+    helper: 'Helper text'            // Optional: overrides schema
+}
+```
+
+**Grid** (2-column responsive layout):
+```javascript
+{
+    type: 'grid',
+    children: [
+        { type: 'field', path: 'width' },
+        { type: 'field', path: 'height' }
+    ]
+}
+```
+
+**Custom** (render function for complex components):
+```javascript
+{
+    type: 'custom',
+    render: () => html`<my-custom-component></my-custom-component>`
+}
+```
+
+**Conditional Rendering**:
+```javascript
+{
+    type: 'field',
+    path: 'advanced_option',
+    condition: 'config.show_advanced'  // Only render if condition is true
+}
+```
+
+---
+
+## 🎯 Editor Development Best Practices
+
+### ✅ DO: Use Declarative Config Pattern
+
+**Why**: Ensures proper Lit reactivity, consistent rendering, and avoids race conditions
+
+```javascript
+// ✅ CORRECT: Declarative pattern
+_getTabDefinitions() {
+    return [
+        { label: 'Config', content: () => this._renderFromConfig(this._getConfigTabConfig()) }
+    ];
+}
+
+_getConfigTabConfig() {
+    return [
+        {
+            type: 'section',
+            header: 'Basic Configuration',
+            children: [
+                { type: 'field', path: 'entity' },
+                { type: 'field', path: 'id' },
+                { type: 'field', path: 'tags' }
+            ]
+        }
+    ];
+}
+```
+
+### ❌ DON'T: Direct Component Rendering
+
+**Why**: Causes reactivity issues with complex components (like tags chips)
+
+```javascript
+// ❌ WRONG: Direct rendering pattern
+_renderConfigTab() {
+    return html`
+        <lcards-form-field .editor=${this} path="entity"></lcards-form-field>
+        <lcards-form-field .editor=${this} path="id"></lcards-form-field>
+        <lcards-form-field .editor=${this} path="tags"></lcards-form-field>
+    `;
+}
+```
+
+**Exception**: Direct rendering is OK for simple standalone components that don't need reactivity:
+```javascript
+_renderActionsTab() {
+    return html`
+        <lcards-multi-action-editor
+            .hass=${this.hass}
+            .config=${this.config}
+            @value-changed=${this._handleActionsChange}>
+        </lcards-multi-action-editor>
+    `;
+}
+```
+
+---
+
+### Schema Format Strings
+
+The base editor's `lcards-form-field` component automatically renders appropriate controls based on schema `format`:
+
+```javascript
+// Entity picker (ha-entity-picker)
+{ type: 'string', format: 'entity' }
+
+// Color picker (lcards-color-picker with CSS var scanning)
+{ type: 'string', format: 'color' }
+
+// Action configuration (ha-selector with action mode)
+{ type: 'object', format: 'action' }
+
+// Enum types auto-render as dropdowns
+{ type: 'string', enum: ['option1', 'option2'] }
+
+// Boolean types auto-render as switches
+{ type: 'boolean' }
+
+// Number types auto-render with min/max/step
+{ type: 'number', minimum: 0, maximum: 100, multipleOf: 5 }
+
+// Array types (like tags) auto-render as multi-select chips
+{ type: 'array', items: { type: 'string' } }
+```
+
+**Special Path Handling**:
+- `path: 'tags'` → Automatically renders multi-select chips with all registered tags
+- `path: 'entity'` (with `format: 'entity'`) → Renders entity picker with domain filtering
+
+---
+
+### Common Tab Structures
+
+#### Basic Config Tab (3 Essential Fields)
+```javascript
+_getConfigTabConfig() {
+    return [
+        {
+            type: 'section',
+            header: 'Basic Configuration',
+            icon: 'mdi:cog',
+            expanded: true,
+            outlined: true,
+            children: [
+                { type: 'field', path: 'entity', label: 'Entity' },
+                { type: 'field', path: 'id', label: 'Card ID',
+                  helper: '[Optional] Custom ID for targeting with rules' },
+                { type: 'field', path: 'tags', label: 'Tags',
+                  helper: 'Select existing tags or type new ones' }
+            ]
+        }
+    ];
+}
+```
+
+#### Text Tab (Using Helper Methods)
+```javascript
+_renderTextTab() {
+    return html`
+        ${this._renderTextFieldSection('name', true)}   // Expanded
+        ${this._renderTextFieldSection('label', false)}  // Collapsed
+        ${this._renderTextFieldSection('state', false)}  // Collapsed
+    `;
+}
+
+// Helper renders: padding, font, alignment, colors all-in-one
+```
+
+#### Style Tab (Colors + Layout)
+```javascript
+_getStyleTabConfig() {
+    return [
+        {
+            type: 'section',
+            header: 'Colors',
+            icon: 'mdi:palette',
+            children: [
+                {
+                    type: 'custom',
+                    render: () => html`
+                        <lcards-color-section
+                            .editor=${this}
+                            basePath="style.card.color.background"
+                            .states=${['default', 'active', 'inactive', 'unavailable']}>
+                        </lcards-color-section>
+                    `
+                }
+            ]
+        },
+        {
+            type: 'section',
+            header: 'Layout',
+            icon: 'mdi:grid',
+            children: [
+                {
+                    type: 'grid',
+                    children: [
+                        { type: 'field', path: 'grid_columns' },
+                        { type: 'field', path: 'grid_rows' }
+                    ]
+                }
+            ]
+        }
+    ];
+}
+```
+
+#### Actions Tab (Standard Pattern)
+```javascript
+_renderActionsTab() {
+    return html`
+        <lcards-multi-action-editor
+            .hass=${this.hass}
+            .config=${this.config}
+            .tap_action=${this.config.tap_action}
+            .hold_action=${this.config.hold_action}
+            .double_tap_action=${this.config.double_tap_action}
+            @value-changed=${this._handleActionsChange}>
+        </lcards-multi-action-editor>
+    `;
+}
+
+_handleActionsChange(event) {
+    const actions = event.detail.value;
+    this._updateConfig({
+        tap_action: actions.tap_action,
+        hold_action: actions.hold_action,
+        double_tap_action: actions.double_tap_action
+    });
+}
+```
+
+---
+
+### Base Editor Helper Methods
+
+The `LCARdSBaseEditor` provides helper methods for common editor patterns:
+
+#### Text Field Sections
+```javascript
+// Renders complete text field editor: padding, font, alignment, colors
+this._renderTextFieldSection('name', true)   // fieldName, expanded
+this._renderTextFieldSection('label', false)
+```
+
+#### Individual Text Components
+```javascript
+// 2x2 padding grid (top, right, bottom, left)
+this._renderTextPadding('text.name')  // basePath
+
+// Font configuration (size, weight, family with 45 options)
+this._renderFontConfig('text.name')
+
+// Text alignment (position, rotation, justify, align)
+this._renderTextAlignment('text.name')
+
+// State-based colors (default, active, inactive, unavailable)
+this._renderTextColors('text.name', ['default', 'active'])
+```
+
+#### Icon Section
+```javascript
+// Complete icon editor: simple/advanced modes, positioning, colors
+this._renderIconSection()
+```
+
+#### Path-Based Config Access
+```javascript
+// Get nested value
+const color = this._getConfigValue('style.color.border.default');
+
+// Set nested value (auto-merges)
+this._setConfigValue('style.color.border.default', '#ff9900');
+
+// Get schema for path
+const schema = this._getSchemaForPath('style.color.border.default');
+```
+
+---
+
+### Event Handling Patterns
+
+#### Config Updates from Child Components
+```javascript
+// Child components fire 'config-changed' with partial config
+// Base editor auto-intercepts and merges via _handleChildConfigChange()
+
+// In your custom handler:
+_handleMyComponentChange(event) {
+    const newValue = event.detail.value;
+    this._updateConfig({
+        myField: newValue  // Partial update, auto-merged
+    });
+}
+```
+
+#### Value Changed Events
+```javascript
+@value-changed=${(e) => this._setConfigValue('path.to.field', e.detail.value)}
+```
+
+#### Stop Event Propagation
+```javascript
+// Prevent ha-select 'closed' events from bubbling
+@closed=${(e) => e.stopPropagation()}
+```
+
+---
+
+### Common Pitfalls
+
+#### ❌ Missing `cardType` Property
+```javascript
+// WRONG: Forgot to set cardType
+constructor() {
+    super();
+    // Missing: this.cardType = 'mycard';
+}
+```
+**Impact**: Schema lookup fails, validation doesn't work
+
+#### ❌ Schema Mismatch
+```javascript
+// Card file
+this.cardType = 'mycard';
+
+// Schema registration
+configManager.registerCardSchema('my-card', schema);  // ❌ Mismatch!
+```
+**Fix**: Use exact same string for both
+
+#### ❌ Missing Required Properties
+```javascript
+// Schema says 'entity' is required
+required: ['type', 'entity']
+
+// But editor doesn't provide default
+static getStubConfig() {
+    return { type: 'custom:lcards-mycard' };  // ❌ Missing entity
+}
+```
+**Fix**: Include all required properties in stub config
+
+#### ❌ Direct HASS Access on Render
+```javascript
+// WRONG: Queries hass.states on every render (slow)
+render() {
+    const entity = this.hass.states[this.config.entity];
+    return html`${entity.state}`;
+}
+
+// CORRECT: Cache entity reference in update lifecycle
+updated(changedProps) {
+    if (changedProps.has('config') || changedProps.has('hass')) {
+        this._entity = this.hass.states[this.config.entity];
+    }
+}
+
+render() {
+    return html`${this._entity?.state}`;
+}
+```
+
+#### ❌ Forgetting `requestUpdate()`
+```javascript
+// WRONG: State changed but no re-render
+_handleTabChange(event) {
+    this._activeTab = parseInt(event.target.activeTab.getAttribute('value'));
+    // Missing: this.requestUpdate();
+}
+```
+
+---
+
+### Testing Checklist
+
+Before submitting a new editor:
+
+- [ ] **Schema Registration**: Card type matches between schema and editor
+- [ ] **Required Fields**: All required properties in stub config
+- [ ] **Declarative Pattern**: Config tab uses `_getConfigTabConfig()` (not direct rendering)
+- [ ] **Tags Field**: Includes `{ type: 'field', path: 'tags' }` in basic config
+- [ ] **Base Fields**: Entity, ID, Tags in basic configuration section
+- [ ] **YAML Sync**: Visual changes reflect in YAML tab
+- [ ] **Validation**: Invalid configs show errors in UI
+- [ ] **No Console Errors**: Check browser console during editing
+- [ ] **Responsive**: Test on mobile viewport (sections should stack)
+- [ ] **Theme Support**: Test in light and dark HA themes
+- [ ] **Build Success**: `npm run build` completes without errors
+
+---
+
+## 📋 Minimal Editor Template
+
+Use this as a starting point for new card editors:
+
+```javascript
+/**
+ * My Card Editor
+ *
+ * Visual editor for the LCARdS My Card component.
+ */
+
+import { LCARdSBaseEditor } from '../base/LCARdSBaseEditor.js';
+import { html } from 'lit';
+
+// Import components you'll use
+import '../components/form/lcards-form-field.js';
+import '../components/form/lcards-form-section.js';
+import '../components/form/lcards-multi-action-editor.js';
+
+export class LCARdSMyCardEditor extends LCARdSBaseEditor {
+
+    constructor() {
+        super();
+        // CRITICAL: Must match schema registration in card file
+        this.cardType = 'mycard';
+    }
+
+    /**
+     * Define editor tabs
+     * Minimum: Config + YAML
+     * Common: Config + Style + Actions + YAML
+     */
+    _getTabDefinitions() {
+        return [
+            { label: 'Config', content: () => this._renderFromConfig(this._getConfigTabConfig()) },
+            { label: 'Style', content: () => this._renderFromConfig(this._getStyleTabConfig()) },
+            { label: 'Actions', content: () => this._renderActionsTab() },
+            { label: 'YAML', content: () => this._renderYamlTab() }
+        ];
+    }
+
+    /**
+     * Config tab - Basic card settings
+     * ALWAYS use declarative pattern for config tabs
+     */
+    _getConfigTabConfig() {
+        return [
+            {
+                type: 'section',
+                header: 'Basic Configuration',
+                description: 'Core card settings',
+                icon: 'mdi:cog',
+                expanded: true,
+                outlined: true,
+                children: [
+                    { type: 'field', path: 'entity', label: 'Entity' },
+                    { type: 'field', path: 'id', label: 'Card ID',
+                      helper: '[Optional] Custom ID for targeting with rules' },
+                    { type: 'field', path: 'tags', label: 'Tags',
+                      helper: 'Select existing tags or type new ones' }
+                ]
+            }
+        ];
+    }
+
+    /**
+     * Style tab - Visual customization
+     */
+    _getStyleTabConfig() {
+        return [
+            {
+                type: 'section',
+                header: 'Colors',
+                icon: 'mdi:palette',
+                expanded: true,
+                children: [
+                    // Add your style fields here
+                ]
+            }
+        ];
+    }
+
+    /**
+     * Actions tab - Standard multi-action editor
+     */
+    _renderActionsTab() {
+        return html`
+            <lcards-multi-action-editor
+                .hass=${this.hass}
+                .config=${this.config}
+                .tap_action=${this.config.tap_action}
+                .hold_action=${this.config.hold_action}
+                .double_tap_action=${this.config.double_tap_action}
+                @value-changed=${this._handleActionsChange}>
+            </lcards-multi-action-editor>
+        `;
+    }
+
+    _handleActionsChange(event) {
+        const actions = event.detail.value;
+        this._updateConfig({
+            tap_action: actions.tap_action,
+            hold_action: actions.hold_action,
+            double_tap_action: actions.double_tap_action
+        });
+    }
+}
+
+customElements.define('lcards-mycard-editor', LCARdSMyCardEditor);
+```
+
+---
+
+## 🏗️ Editor Architecture Overview
+
+### Component Hierarchy
+
+```
+LitElement (Lit web component)
+    ↓
+LCARdSBaseEditor (Tab management, YAML sync, validation)
+    ↓
+    ├─→ _renderFromConfig() → Declarative rendering engine
+    │   ├─→ Section (lcards-form-section)
+    │   ├─→ Grid (lcards-grid-layout)
+    │   ├─→ Field (lcards-form-field) → Auto-renders from schema
+    │   └─→ Custom (your render function)
+    │
+    └─→ Helper Methods
+        ├─→ _renderTextFieldSection()
+        ├─→ _renderTextPadding()
+        ├─→ _renderFontConfig()
+        ├─→ _renderTextAlignment()
+        ├─→ _renderTextColors()
+        └─→ _renderIconSection()
+```
+
+### Data Flow
+
+```
+User Edit
+    ↓
+Component fires 'config-changed' or 'value-changed'
+    ↓
+Editor intercepts via _handleChildConfigChange()
+    ↓
+_updateConfig() merges partial config
+    ↓
+Config stored, YAML synced, validation run
+    ↓
+fireEvent('config-changed') to Home Assistant
+    ↓
+HA saves config, re-renders card
+```
+
+### Schema-Driven Rendering
+
+```
+Editor needs to render field
+    ↓
+lcards-form-field component created
+    ↓
+Queries schema via editor._getSchemaForPath()
+    ↓
+Schema retrieved from CoreConfigManager singleton
+    ↓
+Field renders appropriate control:
+    - format: 'entity' → ha-entity-picker
+    - format: 'color' → lcards-color-picker
+    - format: 'action' → ha-selector (action)
+    - type: 'boolean' → ha-switch
+    - type: 'number' → ha-selector (number)
+    - enum: [...] → ha-select dropdown
+    - path: 'tags' → ha-selector (multi-select chips)
+```
+
+### Singleton Access Pattern
+
+```javascript
+// Access core singletons
+const configManager = window.lcards?.core?.configManager;
+const validationService = window.lcards?.core?.validationService;
+const systemsManager = window.lcards?.core?.systemsManager;
+const themeManager = window.lcards?.core?.themeManager;
+const rulesManager = window.lcards?.core?.rulesManager;
+
+// Base editor caches reference in _singletons property
+this._singletons = window.lcards.core;
+
+// Example: Get all registered tags
+const allTags = this._singletons?.systemsManager?.getAllTags() || [];
+```
+
+---
 
 ## Directory Structure
 
@@ -1768,3 +2517,179 @@ After each phase:
 - Full Monaco editor with IntelliSense
 - Live card preview
 - Theme preview
+
+---
+
+## 📚 Quick Reference
+
+### Essential Editor Methods
+
+| Method | Purpose | Example |
+|--------|---------|---------|
+| `_getConfigValue(path)` | Get nested config value | `this._getConfigValue('style.color.border')` |
+| `_setConfigValue(path, value)` | Set nested config value | `this._setConfigValue('entity', 'light.kitchen')` |
+| `_updateConfig(partial)` | Merge partial config | `this._updateConfig({ entity: 'light.kitchen' })` |
+| `_getSchemaForPath(path)` | Get schema for path | `this._getSchemaForPath('style.color')` |
+| `_renderFromConfig(config)` | Render declarative config | `this._renderFromConfig(this._getConfigTabConfig())` |
+| `_renderYamlTab()` | Render YAML editor | Always include in tabs |
+
+### Common Schema Formats
+
+| Format | Renders As | Example |
+|--------|------------|---------|
+| `format: 'entity'` | Entity picker | `{ type: 'string', format: 'entity' }` |
+| `format: 'color'` | Color picker with CSS vars | `{ type: 'string', format: 'color' }` |
+| `format: 'action'` | Action configurator | `{ type: 'object', format: 'action' }` |
+| `enum: [...]` | Dropdown select | `{ type: 'string', enum: ['a', 'b'] }` |
+| `type: 'boolean'` | Toggle switch | `{ type: 'boolean' }` |
+| `type: 'number'` | Number input | `{ type: 'number', minimum: 0 }` |
+| `type: 'array'` | Multi-select chips | `{ type: 'array', items: {...} }` |
+
+### Special Path Recognition
+
+| Path | Auto-Renders As | Notes |
+|------|------------------|-------|
+| `tags` | Multi-select chips with all registered tags | Automatically populated from system |
+| `entity` | Entity picker | With optional domain filtering |
+| `*_action` | Action configurator | For tap_action, hold_action, etc. |
+
+### Component Import Paths
+
+```javascript
+// Base
+import { LCARdSBaseEditor } from '../base/LCARdSBaseEditor.js';
+
+// Form components
+import '../components/form/lcards-form-field.js';
+import '../components/form/lcards-form-section.js';
+import '../components/form/lcards-grid-layout.js';
+import '../components/form/lcards-color-picker.js';
+import '../components/form/lcards-color-section.js';
+import '../components/form/lcards-multi-action-editor.js';
+import '../components/form/lcards-border-editor.js';
+import '../components/form/lcards-icon-editor.js';
+import '../components/form/lcards-multi-text-editor.js';
+
+// Dashboard components
+import '../components/dashboard/lcards-rules-dashboard.js';
+
+// Template components
+import '../components/templates/lcards-template-evaluation-tab.js';
+import '../components/templates/lcards-theme-token-browser-tab.js';
+
+// Provenance
+import '../components/provenance/lcards-provenance-tab.js';
+
+// DataSources
+import '../components/datasources/lcards-datasource-editor-tab.js';
+```
+
+### Standard Tab Configuration
+
+```javascript
+_getTabDefinitions() {
+    return [
+        // Minimum required tabs
+        { label: 'Config', content: () => this._renderFromConfig(this._getConfigTabConfig()) },
+        { label: 'YAML', content: () => this._renderYamlTab() },
+
+        // Recommended standard tabs
+        { label: 'Style', content: () => this._renderFromConfig(this._getStyleTabConfig()) },
+        { label: 'Actions', content: () => this._renderActionsTab() },
+
+        // Optional advanced tabs
+        { label: 'Text', content: () => this._renderTextTab() },
+        { label: 'Icon', content: () => this._renderIconTab() },
+        { label: 'Data Sources', content: () => this._renderDataSourcesTab() },
+        { label: 'Rules', content: () => this._renderRulesTab() },
+        { label: 'Templates', content: () => this._renderTemplatesTab() },
+        { label: 'Theme Tokens', content: () => this._renderThemeTokensTab() },
+        { label: 'Provenance', content: () => this._renderProvenanceTab() }
+    ];
+}
+```
+
+### Declarative Config Patterns Cheat Sheet
+
+```javascript
+// Section with fields
+{
+    type: 'section',
+    header: 'Title',
+    icon: 'mdi:icon',
+    expanded: true,
+    outlined: true,
+    children: [
+        { type: 'field', path: 'entity' },
+        { type: 'field', path: 'id' }
+    ]
+}
+
+// Grid layout
+{
+    type: 'grid',
+    children: [
+        { type: 'field', path: 'width' },
+        { type: 'field', path: 'height' }
+    ]
+}
+
+// Custom component
+{
+    type: 'custom',
+    render: () => html`<my-component></my-component>`
+}
+
+// Conditional rendering
+{
+    type: 'field',
+    path: 'advanced',
+    condition: 'config.show_advanced'
+}
+```
+
+### Event Handler Patterns
+
+```javascript
+// Standard value-changed
+@value-changed=${(e) => this._setConfigValue('path', e.detail.value)}
+
+// Stop propagation (ha-select, dialogs)
+@closed=${(e) => e.stopPropagation()}
+
+// Custom handler with merge
+_handleChange(event) {
+    this._updateConfig({ myField: event.detail.value });
+}
+
+// Actions handler
+_handleActionsChange(event) {
+    const actions = event.detail.value;
+    this._updateConfig({
+        tap_action: actions.tap_action,
+        hold_action: actions.hold_action,
+        double_tap_action: actions.double_tap_action
+    });
+}
+```
+
+### Validation Helpers
+
+```javascript
+// Check if config is valid
+const validation = this._singletons.validationService.validate(
+    this.config,
+    this._getSchema()
+);
+
+// Validation result structure
+{
+    valid: true/false,
+    errors: [{ field: 'path', message: 'error' }],
+    warnings: [{ field: 'path', message: 'warning' }]
+}
+```
+
+---
+
+**Last Updated**: December 2025 | LCARdS v1.21.0
