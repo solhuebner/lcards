@@ -186,6 +186,11 @@ export class LCARdSFormField extends LitElement {
             return this._renderOneOfSelector(schema);
         }
 
+        // Check for tags field (special multi-select with chips)
+        if (this.path === 'tags') {
+            return this._renderTagsSelector();
+        }
+
         // Check for LCARdS-specific formats first
         if (hasFormat(schema, 'entity')) {
             return this._renderEntityPicker();
@@ -385,6 +390,38 @@ export class LCARdSFormField extends LitElement {
                 .hass=${this.editor.hass}
                 .selector=${{ ui_action: {} }}
                 .value=${this._value || { action: 'none' }}
+                @value-changed=${this._handleValueChange}>
+            </ha-selector>
+        `;
+    }
+
+    /**
+     * Render tags selector (multi-select with chips and custom input)
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderTagsSelector() {
+        const systemsManager = window.lcards?.core?.systemsManager;
+        const availableTags = systemsManager?.getAllTags() || [];
+
+        // Convert to selector option format
+        const options = availableTags.map(tag => ({
+            value: tag,
+            label: tag
+        }));
+
+        return html`
+            <ha-selector
+                .hass=${this.editor.hass}
+                .selector=${{
+                    select: {
+                        mode: 'list',
+                        multiple: true,
+                        custom_value: true,
+                        options: options
+                    }
+                }}
+                .value=${this._value || []}
                 @value-changed=${this._handleValueChange}>
             </ha-selector>
         `;

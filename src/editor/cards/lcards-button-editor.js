@@ -168,7 +168,8 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                 outlined: true,
                 children: [
                     { type: 'field', path: 'entity', label: 'Entity' },
-                    { type: 'field', path: 'id', label: 'Card ID', helper: '[Optional] Custom ID for targeting with rules and animations' }
+                    { type: 'field', path: 'id', label: 'Card ID', helper: '[Optional] Custom ID for targeting with rules and animations' },
+                    { type: 'field', path: 'tags', label: 'Tags', helper: 'Select existing tags or type new ones for rule targeting' }
                 ]
             }
         ];

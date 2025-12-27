@@ -464,9 +464,13 @@ rules:
       state: "on"
     apply:
       overlays:
-        - tag: temperature  # All overlays with this tag
+        tag:temperature:  # All overlays with this tag (named key with colon prefix)
           style:
             color: var(--lcars-yellow)
+        tag:sensor:       # Can target multiple tags
+          style:
+            background:
+              color: var(--lcars-blue)
 ```
 
 ---

@@ -247,6 +247,22 @@ export class CoreSystemsManager {
   }
 
   /**
+   * Get all unique tags across all registered overlays
+   * Used by editor to populate tag selector dropdown
+   *
+   * @returns {Array<string>} Sorted array of unique tags
+   */
+  getAllTags() {
+    const tags = new Set();
+    this._overlayRegistry.forEach(overlay => {
+      if (overlay.tags && Array.isArray(overlay.tags)) {
+        overlay.tags.forEach(tag => tags.add(tag));
+      }
+    });
+    return Array.from(tags).sort();
+  }
+
+  /**
    * Get all overlays registered by a specific card
    *
    * @param {string} cardId - Card to get overlays for
