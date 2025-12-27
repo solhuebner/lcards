@@ -186,7 +186,7 @@ export class LCARdSTransformationDialog extends LitElement {
         <!-- Key -->
         <ha-selector
           .hass=${this.hass}
-          .label=${'Name *'}
+          .label=${'Name'}
           .helper=${this.mode === 'edit' ? 'Name cannot be changed after creation' : 'Unique transformation identifier (e.g., celsius, smoothed, scaled)'}
           .selector=${{ text: {} }}
           .value=${this._key}
@@ -197,7 +197,7 @@ export class LCARdSTransformationDialog extends LitElement {
         <!-- Type Selector -->
         <ha-selector
           .hass=${this.hass}
-          .label=${'Type *'}
+          .label=${'Type'}
           .selector=${{
             select: {
               mode: 'dropdown',
@@ -678,7 +678,7 @@ export class LCARdSTransformationDialog extends LitElement {
 
       <ha-selector
         .hass=${this.hass}
-        .label=${'Expression *'}
+        .label=${'Expression'}
         .helper=${'Available variables: value (current), timestamp, buffer (history)'}
         .selector=${{ text: {} }}
         .value=${this._config.expression || ''}

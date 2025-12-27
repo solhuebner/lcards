@@ -94,6 +94,34 @@ export class LCARdSColorPicker extends LitElement {
                 width: 100%;
             }
 
+            ha-select {
+                width: 100%;
+            }
+
+            .color-swatch {
+                display: inline-block;
+                width: 16px;
+                height: 16px;
+                border-radius: 3px;
+                margin-right: 8px;
+                vertical-align: middle;
+                border: 1px solid var(--divider-color, #e0e0e0);
+                box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+            }
+
+            .color-swatch.transparent {
+                background: linear-gradient(45deg, #ccc 25%, transparent 25%),
+                            linear-gradient(-45deg, #ccc 25%, transparent 25%),
+                            linear-gradient(45deg, transparent 75%, #ccc 75%),
+                            linear-gradient(-45deg, transparent 75%, #ccc 75%);
+                background-size: 8px 8px;
+                background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
+            }
+
+            mwc-list-item {
+                --mdc-list-item-graphic-margin: 8px;
+            }
+
             .preview {
                 margin-top: 8px;
                 padding: 12px;
@@ -228,6 +256,32 @@ export class LCARdSColorPicker extends LitElement {
     }
 
     /**
+     * Compute actual color from CSS variable
+     * @param {string} colorValue - Color value (may be CSS variable)
+     * @returns {string} Computed color
+     * @private
+     */
+    _computeColor(colorValue) {
+        if (!colorValue) return '';
+
+        // For CSS variables, compute the actual color
+        if (colorValue.includes('var(')) {
+            try {
+                const temp = document.createElement('div');
+                temp.style.color = colorValue;
+                document.body.appendChild(temp);
+                const computed = getComputedStyle(temp).color;
+                document.body.removeChild(temp);
+                return computed;
+            } catch (err) {
+                return '';
+            }
+        }
+
+        return colorValue;
+    }
+
+    /**
      * Calculate luminance for contrast determination
      * Based on WCAG relative luminance formula
      * @param {string} color - Color value (hex, rgb, rgba)
@@ -329,21 +383,16 @@ export class LCARdSColorPicker extends LitElement {
         return html`
             <div class="color-picker">
                 <div class="color-inputs">
-                    <!-- CSS Variable Dropdown -->
+                    <!-- CSS Variable Dropdown with Color Swatches -->
                     <div class="input-group">
                         <div class="input-label">CSS Variable / Preset</div>
-                        <ha-selector
-                            .hass=${this.hass}
-                            .selector=${{
-                                select: {
-                                    options: this._getDropdownOptions(),
-                                    mode: 'dropdown'
-                                }
-                            }}
+                        <ha-select
                             .value=${this._getCurrentDropdownValue()}
                             .disabled=${this.disabled}
-                            @value-changed=${this._handleDropdownChange}>
-                        </ha-selector>
+                            @selected=${this._handleDropdownChange}
+                            @closed=${(e) => e.stopPropagation()}>
+                            ${this._renderDropdownItems()}
+                        </ha-select>
                     </div>
 
                     <!-- Custom Color Input -->
@@ -395,6 +444,53 @@ export class LCARdSColorPicker extends LitElement {
     }
 
     /**
+     * Render dropdown items with color swatches
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderDropdownItems() {
+        const items = [];
+
+        // Default option
+        items.push(html`
+            <mwc-list-item value="">-- Select Variable --</mwc-list-item>
+        `);
+
+        // Transparent option with checkered pattern
+        items.push(html`
+            <mwc-list-item value="transparent">
+                <span class="color-swatch transparent"></span>
+                Transparent
+            </mwc-list-item>
+        `);
+
+        // Match Light option (if enabled)
+        if (this.allowMatchLight) {
+            items.push(html`
+                <mwc-list-item value="match-light">
+                    💡 Match Light Colour
+                </mwc-list-item>
+            `);
+        }
+
+        // CSS variables with color swatches
+        this._cssVariables.forEach(variable => {
+            const computedColor = this._computeColor(variable.value);
+            items.push(html`
+                <mwc-list-item value="${variable.value}">
+                    <span
+                        class="color-swatch"
+                        style="background-color: ${computedColor};">
+                    </span>
+                    ${variable.label}
+                </mwc-list-item>
+            `);
+        });
+
+        return items;
+    }
+
+    /**
      * Get current dropdown value
      * @returns {string}
      * @private
@@ -443,13 +539,13 @@ export class LCARdSColorPicker extends LitElement {
 
     /**
      * Handle dropdown change
-     * @param {CustomEvent} ev - value-changed event
+     * @param {CustomEvent} ev - selected event from ha-select
      * @private
      */
     _handleDropdownChange(ev) {
         if (this.disabled) return;
 
-        const newValue = ev.detail.value;
+        const newValue = ev.target.value;
         if (newValue) {
             this._emitChange(newValue);
         }
