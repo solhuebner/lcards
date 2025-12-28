@@ -390,8 +390,11 @@ export class LCARdSSlider extends LCARdSButton {
 
         // Determine track visual style (pills vs gauge ruler)
         // ✅ ONLY use style.track.type (never config.mode)
-        if (this._sliderStyle?.style?.track?.type) {
-            this._mode = this._sliderStyle.style.track.type; // 'pills' or 'gauge'
+        const trackType = this._sliderStyle?.style?.track?.type;
+        const validTypes = ['pills', 'gauge'];
+        
+        if (trackType && validTypes.includes(trackType)) {
+            this._mode = trackType;
         } else {
             // Default based on domain (fallback if no preset or style.track.type)
             const interactiveDomains = ['light', 'cover', 'fan', 'input_number', 'number'];
@@ -527,7 +530,7 @@ export class LCARdSSlider extends LCARdSButton {
         const stylePresetManager = this._singletons?.stylePresetManager || 
                                    core?.getStylePresetManager?.();
         
-        if (this.config.preset) {
+        if (this.config.preset && typeof this.config.preset === 'string') {
             const preset = this.getStylePreset('slider', this.config.preset);
             if (preset) {
                 style = deepMerge({}, preset);
