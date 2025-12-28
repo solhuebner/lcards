@@ -806,6 +806,140 @@ const LCARDS_BUTTONS_PACK = {
   routing: {}
 };
 
+/**
+ * LCARdS Slider Styles Pack (v1.22.0+)
+ *
+ * Complete slider presets for LCARdS cards.
+ * Provides pills (segmented) and gauge (ruler) visual styles.
+ *
+ * Architecture:
+ * - Separate visual style (pills/gauge) from interactivity (control.locked)
+ * - Pills: Segmented bar style for interactive sliders
+ * - Gauge: Ruler with tick marks for displays and controls
+ */
+const LCARDS_SLIDERS_PACK = {
+  id: 'lcards_sliders',
+  version: '1.22.0',
+  description: 'LCARdS slider presets - pills and gauge styles',
+  animations: [],
+  timelines: [],
+  rules: [],
+  overlays: [],
+  
+  style_presets: {
+    slider: {
+      // =====================================
+      // BASE SLIDER - Foundation
+      // =====================================
+      base: {
+        // Root-level defaults
+        orientation: 'horizontal',
+        
+        // Style configuration
+        style: {
+          track: {
+            height: 'theme:components.slider.track.height',
+            background: 'theme:components.slider.track.background',
+            margin: 10  // Default margin (not for gauge)
+          },
+          text: {
+            default: {
+              font_family: 'theme:typography.fontFamily.primary',
+              font_size: 'theme:typography.fontSize.base',
+              color: 'theme:colors.text.primary'
+            }
+          },
+          border: {
+            width: 0,
+            radius: 0
+          }
+        }
+      },
+      
+      // =====================================
+      // PILLS PRESET - Segmented slider
+      // =====================================
+      'pills-basic': {
+        extends: 'slider.base',
+        description: 'Segmented pill slider for interactive controls',
+        
+        style: {
+          track: {
+            type: 'pills',  // ✅ THIS determines pills mode
+            segments: {
+              enabled: true,
+              count: 15,
+              gap: 'theme:components.slider.pills.gap',
+              shape: {
+                radius: 'theme:components.slider.pills.radius'
+              },
+              gradient: {
+                interpolated: true,
+                start: 'theme:components.slider.pills.gradient.start',
+                end: 'theme:components.slider.pills.gradient.end'
+              },
+              appearance: {
+                unfilled: { opacity: 0.2 },
+                filled: { opacity: 1.0 }
+              }
+            }
+          }
+        }
+      },
+      
+      // =====================================
+      // GAUGE PRESET - Ruler style
+      // =====================================
+      'gauge-basic': {
+        extends: 'slider.base',
+        description: 'Ruler-style gauge for displays and controls',
+        
+        style: {
+          track: {
+            type: 'gauge',  // ✅ THIS determines gauge mode
+            margin: 0  // Override base margin for seamless ruler
+          },
+          gauge: {
+            progress_bar: {
+              color: 'theme:components.slider.gauge.progress.color',
+              height: 'theme:components.slider.gauge.progress.height',
+              radius: 2
+            },
+            scale: {
+              tick_marks: {
+                major: {
+                  enabled: true,
+                  interval: 10,
+                  color: 'theme:components.slider.gauge.tick.color',
+                  height: 20,
+                  width: 2
+                },
+                minor: {
+                  enabled: true,
+                  interval: 2,
+                  color: 'theme:components.slider.gauge.tick.color',
+                  height: 10,
+                  width: 1
+                }
+              },
+              labels: {
+                enabled: true,
+                unit: '',
+                color: 'theme:components.slider.gauge.tick.color',
+                font_size: 14,
+                padding: 3
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  
+  anchors: {},
+  routing: {}
+};
+
 // ✅ ADD: Builtin pack with themes (this is what was missing!)
 const BUILTIN_THEMES_PACK = {
   id: 'builtin_themes',
@@ -966,13 +1100,14 @@ const BUILTIN_REGISTRY = {
   core: CORE_PACK,
   lcars_fx: LCARS_FX_PACK,
   lcards_buttons: LCARDS_BUTTONS_PACK,
+  lcards_sliders: LCARDS_SLIDERS_PACK,  // ✅ ADD: Register sliders pack
   builtin_themes: BUILTIN_THEMES_PACK  // ✅ ADD: Register the themes pack
 };
 
 // Remove getBuiltinPack() function entirely - it's not needed anymore
 // All packs are now in BUILTIN_REGISTRY
 
-export function loadBuiltinPacks(requested = ['core', 'lcards_buttons']) {
+export function loadBuiltinPacks(requested = ['core', 'lcards_buttons', 'lcards_sliders']) {
   // ✅ CRITICAL FIX: Always load builtin_themes pack for theme system
   const packsToLoad = [...new Set([...requested, 'builtin_themes'])];
 
