@@ -12,10 +12,11 @@
  *   injected into the correct zone at runtime
  * - Track System: Pills rendered using count/gap/shape parameters from config
  * - Control Overlay: HTML <input type="range"> overlayed as invisible control
+ * - Preset System: Style presets define visual appearance (pills-basic, gauge-basic)
  *
  * Visual Styles:
- * - Pills: Segmented bar style (style.track.type: 'pills')
- * - Gauge: Ruler with tick marks (style.track.type: 'gauge')
+ * - Pills: Segmented bar style (preset: 'pills-basic')
+ * - Gauge: Ruler with tick marks (preset: 'gauge-basic')
  *
  * Interactivity:
  * - Automatically determined by entity domain (lights, fans, etc. = interactive)
@@ -23,6 +24,7 @@
  * - Sensors and unknown domains default to locked (display-only)
  *
  * Features:
+ * - Preset-based styling matching button card pattern
  * - Separate visual style (pills/gauge) from interactivity (locked state)
  * - Support for light, cover, fan, input_number, number, sensor domains
  * - Configurable control attribute (e.g., brightness, temperature, etc.)
@@ -32,53 +34,55 @@
  * - SVG zone-based layout system for flexible visual designs
  * - Inherits text field system from LCARdSButton for consistent API
  *
- * @example Basic Light Slider with Pills
+ * @example Basic Light Slider with Pills (using preset)
  * ```yaml
  * type: custom:lcards-slider
  * entity: light.bedroom
- * component: slider-horizontal
- * style:
- *   track:
- *     type: pills  # Visual style: 'pills' or 'gauge'
- *     segments:
- *       count: 15
- *       gap: 4px
+ * preset: pills-basic
+ * orientation: horizontal
  * control:
- *   attribute: brightness  # What to control (default for lights)
- *   min: 0
- *   max: 100
+ *   attribute: brightness
  * ```
  *
- * @example Interactive Gauge (ruler style, still controllable)
+ * @example Gauge Display (using preset)
+ * ```yaml
+ * type: custom:lcards-slider
+ * entity: sensor.temperature
+ * preset: gauge-basic
+ * orientation: horizontal
+ * ```
+ *
+ * @example Advanced - Custom style overrides
  * ```yaml
  * type: custom:lcards-slider
  * entity: light.desk
- * component: gauge-horizontal
+ * preset: pills-basic
+ * orientation: vertical
  * style:
  *   track:
- *     type: gauge  # Visual style: gauge ruler
+ *     segments:
+ *       count: 20
+ *       gap: 2
  *   gauge:
  *     scale:
  *       tick_marks:
  *         major:
  *           interval: 20
  * control:
- *   locked: false  # Explicitly enable interaction (auto for lights)
+ *   locked: false
  * ```
  *
- * @example Read-only Sensor Display
+ * @example Advanced SVG Component
  * ```yaml
  * type: custom:lcards-slider
- * entity: sensor.temperature
- * style:
- *   track:
- *     type: gauge  # Gauge visual style
- * control:
- *   locked: true  # Auto-locked for sensors
+ * entity: light.bedroom
+ * preset: pills-basic
+ * component: picard-vertical  # Advanced SVG component
  * ```
  *
  * @extends {LCARdSButton}
  */
+
 
 import { html, css } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
