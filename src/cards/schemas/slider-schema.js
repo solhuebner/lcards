@@ -165,21 +165,10 @@ export function getSliderSchema(options = {}) {
                 examples: ['pills-basic', 'gauge-basic']
             },
 
-            orientation: {
-                type: 'string',
-                enum: ['horizontal', 'vertical'],
-                default: 'horizontal',
-                description: 'Slider orientation (simple setting, not for advanced components)',
-                enumDescriptions: [
-                    'Horizontal slider (left to right)',
-                    'Vertical slider (bottom to top)'
-                ]
-            },
-
             component: {
                 type: 'string',
                 enum: availableComponents,
-                description: 'Advanced SVG component name (mutually exclusive with simple orientation)',
+                description: 'Advanced SVG component name (provides the SVG shell)',
                 examples: ['horizontal', 'vertical', 'picard-vertical']
             },
 
@@ -259,11 +248,59 @@ export function getSliderSchema(options = {}) {
                             },
                             background: stateColorSchema,
                             margin: {
-                                type: 'number',
-                                minimum: 0,
-                                maximum: 100,
-                                description: 'Track margin in pixels',
-                                examples: [10, 0]
+                                oneOf: [
+                                    {
+                                        type: 'number',
+                                        minimum: 0,
+                                        maximum: 100,
+                                        description: 'Track margin in pixels (applies to all sides)',
+                                        examples: [10, 0]
+                                    },
+                                    {
+                                        type: 'object',
+                                        description: 'Per-side margin configuration',
+                                        properties: {
+                                            top: {
+                                                type: 'number',
+                                                minimum: 0,
+                                                maximum: 100,
+                                                description: 'Top margin in pixels'
+                                            },
+                                            right: {
+                                                type: 'number',
+                                                minimum: 0,
+                                                maximum: 100,
+                                                description: 'Right margin in pixels'
+                                            },
+                                            bottom: {
+                                                type: 'number',
+                                                minimum: 0,
+                                                maximum: 100,
+                                                description: 'Bottom margin in pixels'
+                                            },
+                                            left: {
+                                                type: 'number',
+                                                minimum: 0,
+                                                maximum: 100,
+                                                description: 'Left margin in pixels'
+                                            }
+                                        },
+                                        examples: [
+                                            { top: 10, right: 5, bottom: 10, left: 5 },
+                                            { top: 0, right: 0, bottom: 0, left: 0 }
+                                        ]
+                                    }
+                                ]
+                            },
+                            orientation: {
+                                type: 'string',
+                                enum: ['horizontal', 'vertical'],
+                                default: 'horizontal',
+                                description: 'Slider orientation - affects track rendering direction',
+                                enumDescriptions: [
+                                    'Horizontal slider (left to right)',
+                                    'Vertical slider (bottom to top)'
+                                ]
                             },
                             segments: {
                                 type: 'object',
@@ -453,19 +490,87 @@ export function getSliderSchema(options = {}) {
                     },
                     border: {
                         type: 'object',
+                        description: 'Per-side border configuration (left/top/right/bottom caps)',
                         properties: {
-                            width: {
-                                oneOf: [
-                                    { type: 'number' },
-                                    { type: 'string' }
-                                ]
+                            left: {
+                                type: 'object',
+                                description: 'Left border cap configuration',
+                                properties: {
+                                    enabled: {
+                                        type: 'boolean',
+                                        description: 'Enable left border'
+                                    },
+                                    size: {
+                                        type: 'number',
+                                        minimum: 0,
+                                        description: 'Border width in pixels'
+                                    },
+                                    color: {
+                                        type: 'string',
+                                        description: 'Border color (hex, theme token, or CSS variable)',
+                                        examples: ['#FF9900', 'theme:color.ui.active', 'var(--lcars-orange)']
+                                    }
+                                }
                             },
-                            color: stateColorSchema,
-                            radius: {
-                                oneOf: [
-                                    { type: 'number' },
-                                    { type: 'string' }
-                                ]
+                            top: {
+                                type: 'object',
+                                description: 'Top border cap configuration',
+                                properties: {
+                                    enabled: {
+                                        type: 'boolean',
+                                        description: 'Enable top border'
+                                    },
+                                    size: {
+                                        type: 'number',
+                                        minimum: 0,
+                                        description: 'Border height in pixels'
+                                    },
+                                    color: {
+                                        type: 'string',
+                                        description: 'Border color (hex, theme token, or CSS variable)',
+                                        examples: ['#FF9900', 'theme:color.ui.active', 'var(--lcars-orange)']
+                                    }
+                                }
+                            },
+                            right: {
+                                type: 'object',
+                                description: 'Right border cap configuration',
+                                properties: {
+                                    enabled: {
+                                        type: 'boolean',
+                                        description: 'Enable right border'
+                                    },
+                                    size: {
+                                        type: 'number',
+                                        minimum: 0,
+                                        description: 'Border width in pixels'
+                                    },
+                                    color: {
+                                        type: 'string',
+                                        description: 'Border color (hex, theme token, or CSS variable)',
+                                        examples: ['#FF9900', 'theme:color.ui.active', 'var(--lcars-orange)']
+                                    }
+                                }
+                            },
+                            bottom: {
+                                type: 'object',
+                                description: 'Bottom border cap configuration',
+                                properties: {
+                                    enabled: {
+                                        type: 'boolean',
+                                        description: 'Enable bottom border'
+                                    },
+                                    size: {
+                                        type: 'number',
+                                        minimum: 0,
+                                        description: 'Border height in pixels'
+                                    },
+                                    color: {
+                                        type: 'string',
+                                        description: 'Border color (hex, theme token, or CSS variable)',
+                                        examples: ['#FF9900', 'theme:color.ui.active', 'var(--lcars-orange)']
+                                    }
+                                }
                             }
                         }
                     }

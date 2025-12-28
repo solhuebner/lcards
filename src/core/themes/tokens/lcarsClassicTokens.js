@@ -217,14 +217,15 @@ export const lcarsClassicTokens = {
           default: 'colors.card.buttonOff',
           active: 'colors.card.button'
         },
-        border: 'components.button.border'
+        border: 'components.button.border',
+        margin: 0
       },
       pills: {
-        gap: 2,
-        radius: 3,
+        gap: 4,
+        radius: 0,
         gradient: {
-          start: 'colors.card.button',
-          end: 'colors.card.buttonOff'
+          start: 'colors.status.success',
+          end: 'colors.status.error'
         }
       },
       gauge: {

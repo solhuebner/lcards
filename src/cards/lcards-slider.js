@@ -470,24 +470,6 @@ export class LCARdSSlider extends LCARdSButton {
     }
 
     /**
-     * Get resolved orientation from config, component, or default
-     * @private
-     * @returns {'horizontal'|'vertical'}
-     */
-    _getOrientation() {
-        // Priority: 1. Root config.orientation, 2. Component metadata, 3. Default
-        if (this.config.orientation) {
-            return this.config.orientation;
-        }
-
-        if (this._componentMetadata?.orientation) {
-            return this._componentMetadata.orientation;
-        }
-
-        return 'horizontal';
-    }
-
-    /**
      * Get value from entity state and convert to control config range
      * @private
      */
@@ -2059,6 +2041,7 @@ export class LCARdSSlider extends LCARdSButton {
             style: {
                 track: {
                     type: 'pills',
+                    orientation: 'horizontal',
                     segments: {
                         gap: 4,
                         size: {

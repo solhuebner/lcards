@@ -832,14 +832,12 @@ const LCARDS_SLIDERS_PACK = {
       // BASE SLIDER - Foundation
       // =====================================
       base: {
-        // Root-level defaults
-        orientation: 'horizontal',
-
-        // Track configuration (directly at root, no 'style' wrapper)
+        // Track configuration
         track: {
+          orientation: 'horizontal',
           height: 'theme:components.slider.track.height',
           background: 'theme:components.slider.track.background',
-          margin: 10  // Default margin (not for gauge)
+          margin: 'theme:components.slider.track.margin',
         },
 
         // Text configuration (directly at root)
@@ -875,7 +873,6 @@ const LCARDS_SLIDERS_PACK = {
           type: 'pills',  // ✅ THIS determines pills mode
           segments: {
             enabled: true,
-            count: 15,
             gap: 'theme:components.slider.pills.gap',
             shape: {
               radius: 'theme:components.slider.pills.radius'
