@@ -96,6 +96,9 @@ import { getSliderComponent } from '../core/packs/components/sliders/index.js';
 // Import unified schema
 import { getSliderSchema } from './schemas/slider-schema.js';
 
+// Import editor (registers custom element)
+import '../editor/cards/lcards-slider-editor.js';
+
 export class LCARdSSlider extends LCARdSButton {
 
     /** Card type identifier for CoreConfigManager */
@@ -265,12 +268,21 @@ export class LCARdSSlider extends LCARdSButton {
 
     /**
      * Called when config is set
+     * Overrides button's _onConfigSet to skip button style resolution
      * @protected
+     * @override
      */
     _onConfigSet(config) {
-        super._onConfigSet(config);
+        // Call LCARdSCard._onConfigSet() directly, skipping button's override
+        // This prevents button's _resolveButtonStyleSync() from running
+        // We need LCARdSCard's setup (entity, rules, datasources) but not button's style resolution
+        Object.getPrototypeOf(LCARdSButton.prototype)._onConfigSet.call(this, config);
 
-        // Resolve style FIRST (synchronously)
+        // Process SVG configuration (slider-specific logic)
+        this._processSvgConfig();
+
+        // Resolve style FIRST (synchronously, with manual preset resolution)
+        // This happens BEFORE CoreConfigManager async processing
         this._resolveSliderStyleSync();
 
         // Update entity context (reads style.track.type from merged style)
@@ -281,12 +293,51 @@ export class LCARdSSlider extends LCARdSButton {
             this._loadSliderComponent();
         }
 
+        // Re-process templates now that slider style is resolved
+        if (this._initialized) {
+            this._scheduleTemplateUpdate();
+        } else {
+            this._needsInitialTemplateProcessing = true;
+        }
+
         lcardsLog.debug(`[LCARdSSlider] Config set`, {
             entity: config.entity,
             component: config.component,
             mode: this._mode,
             domain: this._domain
         });
+    }
+
+    /**
+     * Hook called when config is updated by CoreConfigManager
+     * Re-resolve slider style to use the merged config with provenance tracking
+     * @protected
+     * @override
+     */
+    _onConfigUpdated() {
+        lcardsLog.debug(`[LCARdSSlider] Config updated by CoreConfigManager, re-resolving slider style`);
+
+        // Re-process SVG configuration (in case config was replaced by CoreConfigManager)
+        this._processSvgConfig();
+
+        // Re-resolve slider style with the new merged config (has provenance!)
+        this._resolveSliderStyleSync();
+    }
+
+    /**
+     * Hook called after templates are processed (from base class)
+     * Overrides button's version to use slider style resolution
+     * @protected
+     * @override
+     */
+    _onTemplatesChanged() {
+        lcardsLog.debug(`[LCARdSSlider] Templates changed, re-resolving slider style`);
+
+        // Resolve slider style after templates change
+        this._resolveSliderStyleSync();
+
+        // CRITICAL: Always trigger re-render when templates change
+        this.requestUpdate();
     }
 
     /**
@@ -500,37 +551,78 @@ export class LCARdSSlider extends LCARdSButton {
     }
 
     /**
-     * Resolve slider style from preset, config, and theme
-     * Mirrors button card's _resolveButtonStyleSync() pattern
+     * Resolve slider style synchronously
+     * Merges preset + config.style
+     *
+     * Pattern matches button card: ALWAYS do manual preset lookup
+     * CoreConfigManager runs separately for provenance tracking
+     *
      * @private
      */
     _resolveSliderStyleSync() {
         // 1. Start with preset (if specified)
         let style = {};
 
+        // Check StylePresetManager availability - try singletons first, then global core
         const core = window.lcards?.core;
-        const stylePresetManager = this._singletons?.stylePresetManager ||
-                                   core?.getStylePresetManager?.();
+        const stylePresetManager = this._singletons?.stylePresetManager || core?.getStylePresetManager?.();
 
-        if (this.config.preset && typeof this.config.preset === 'string') {
-            const preset = this.getStylePreset('slider', this.config.preset);
-            if (preset) {
-                style = deepMerge({}, preset);
-                lcardsLog.debug(`[LCARdSSlider] Applied preset '${this.config.preset}'`);
+        lcardsLog.debug(`[LCARdSSlider] _resolveSliderStyleSync starting`, {
+            hasPreset: !!this.config.preset,
+            presetName: this.config.preset,
+            hasGetStylePreset: typeof this.getStylePreset === 'function',
+            hasSingletons: !!this._singletons,
+            hasStylePresetManager: !!stylePresetManager,
+            source: this._singletons?.stylePresetManager ? 'singletons' : (stylePresetManager ? 'core' : 'none')
+        });
+
+        if (this.config.preset) {
+            // Check if StylePresetManager is available (either via singletons or core)
+            if (!stylePresetManager) {
+                lcardsLog.warn(`[LCARdSSlider] StylePresetManager not available yet, preset '${this.config.preset}' will be deferred`);
+                // Return early - don't process anything until StylePresetManager is ready
+                // This prevents rendering with incomplete/default values
+                return;
+            } else {
+                const preset = this.getStylePreset('slider', this.config.preset);
+                lcardsLog.debug(`[LCARdSSlider] Preset lookup result`, {
+                    presetName: this.config.preset,
+                    presetFound: !!preset,
+                    presetKeys: preset ? Object.keys(preset) : [],
+                    hasPills: preset?.pills,
+                    pillsBorderRadius: preset?.pills?.border?.radius
+                });
+                if (preset) {
+                    // Deep copy preset to avoid mutation issues
+                    style = deepMerge({}, preset);
+                    lcardsLog.debug(`[LCARdSSlider] Applied preset '${this.config.preset}'`, {
+                        pillsBorderRadius: preset.pills?.border?.radius,
+                        pillsBorderWidth: preset.pills?.border?.width,
+                        styleKeys: Object.keys(style)
+                    });
+                }
             }
+        } else {
+            lcardsLog.debug(`[LCARdSSlider] No preset specified, starting with empty style`);
         }
 
-        // 2. Deep merge config.style (user config wins)
+        // 2. DEEP merge config styles (config wins over preset)
         if (this.config.style) {
+            lcardsLog.debug(`[LCARdSSlider] Merging config.style`, {
+                hasPills: !!this.config.style.pills,
+                pillsBorderRadius: this.config.style.pills?.border?.radius,
+                pillsBorderWidth: this.config.style.pills?.border?.width
+            });
+            // First create a deep copy to avoid mutating the original config
             const configStyleCopy = JSON.parse(JSON.stringify(this.config.style));
-            const configWithTokens = resolveThemeTokensRecursive(
-                configStyleCopy,
-                this._singletons?.themeManager
-            );
+            // Then resolve ALL tokens recursively (theme: and computed)
+            const configWithTokens = resolveThemeTokensRecursive(configStyleCopy, this._singletons?.themeManager);
+            // Then deep merge (handles nested objects)
             style = deepMerge(style, configWithTokens);
+            lcardsLog.trace(`[LCARdSSlider] Config styles merged`);
         }
 
-        // 3. Apply rule patches (highest priority)
+        // 3. Apply rule patches (dynamic, happens at render time)
         style = this._getMergedStyleWithRules(style);
 
         this._sliderStyle = style;
@@ -2165,8 +2257,19 @@ export class LCARdSSlider extends LCARdSButton {
 
         lcardsLog.debug('[LCARdSSlider] Registered with CoreConfigManager');
     }
+
+    /**
+     * Get configuration editor element
+     * Returns slider-specific editor (extends button editor with cardType='slider')
+     * @static
+     * @override
+     */
+    static getConfigElement() {
+        return document.createElement('lcards-slider-editor');
+    }
 }
 
 // NOTE: Card registration handled in src/lcards.js initializeCustomCard().then()
 
 lcardsLog.info('[LCARdSSlider] Card module loaded');
+

@@ -80,7 +80,14 @@ export class LCARdSProvenanceTab extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this._loadProvenance();
+
+    // Only load provenance if config is already available
+    // Otherwise wait for config to be set (will trigger via property change)
+    if (this.config && this.config.type) {
+      this._loadProvenance();
+    } else {
+      lcardsLog.debug('[ProvenanceTab] Waiting for config to be set before loading provenance');
+    }
 
     // Set up keyboard shortcuts (capture phase to prevent browser default)
     this._boundHandleKeyDown = this._handleKeyDown.bind(this);
@@ -3555,6 +3562,12 @@ export class LCARdSProvenanceTab extends LitElement {
 
       const cardType = this.config.type?.replace('custom:', '') || 'lcards-button';
 
+      lcardsLog.debug('[ProvenanceTab] Searching for card type:', {
+        rawType: this.config.type,
+        cardType: cardType,
+        configKeys: Object.keys(this.config)
+      });
+
       // CRITICAL: Find the editor's preview card, not the dashboard card
       // When editing an existing card, there are TWO instances:
       //   1. The preview card in the editor dialog (.element-preview container)
@@ -3615,6 +3628,8 @@ export class LCARdSProvenanceTab extends LitElement {
 
       // Strategy 3: Now search INSIDE .element-preview for the card
       if (previewContainer) {
+        lcardsLog.debug('[ProvenanceTab] Searching inside .element-preview for:', cardType);
+
         // Search inside the preview container for the card
         // The card is nested deep: hui-section > hui-grid-section > ... > hui-card > lcards-button
         const searchInPreview = (root) => {
@@ -3638,6 +3653,8 @@ export class LCARdSProvenanceTab extends LitElement {
         card = searchInPreview(previewContainer);
         if (card) {
           lcardsLog.info('[ProvenanceTab] ✅ Found preview card inside .element-preview');
+        } else {
+          lcardsLog.warn('[ProvenanceTab] ❌ Preview card not found in .element-preview, searched for:', cardType);
         }
       }
 
