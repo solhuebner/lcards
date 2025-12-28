@@ -178,7 +178,7 @@ class LCARdSCore {
 
             // Initialize StylePresetManager with same builtin packs (ThemeManager already initialized above)
             try {
-                const builtinPacks = loadBuiltinPacks(['core', 'lcards_buttons', 'builtin_themes']);
+                const builtinPacks = loadBuiltinPacks(['core', 'lcards_buttons', 'lcards_sliders', 'builtin_themes']);
                 await this.stylePresetManager.initialize(builtinPacks);
                 lcardsLog.debug('[LCARdSCore] ✅ StylePresetManager initialized with builtin packs:', builtinPacks.map(p => p.id));
             } catch (error) {

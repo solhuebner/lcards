@@ -219,6 +219,23 @@ export const lcarsClassicTokens = {
         },
         border: 'components.button.border'
       },
+      pills: {
+        gap: 2,
+        radius: 3,
+        gradient: {
+          start: 'colors.card.button',
+          end: 'colors.card.buttonOff'
+        }
+      },
+      gauge: {
+        progress: {
+          color: 'colors.lcars.orange',
+          height: 4
+        },
+        tick: {
+          color: 'colors.text.secondary'
+        }
+      },
       text: 'components.button.text'
     },
 

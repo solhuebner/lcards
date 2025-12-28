@@ -825,7 +825,7 @@ const LCARDS_SLIDERS_PACK = {
   timelines: [],
   rules: [],
   overlays: [],
-  
+
   style_presets: {
     slider: {
       // =====================================
@@ -834,7 +834,7 @@ const LCARDS_SLIDERS_PACK = {
       base: {
         // Root-level defaults
         orientation: 'horizontal',
-        
+
         // Style configuration
         style: {
           track: {
@@ -846,7 +846,12 @@ const LCARDS_SLIDERS_PACK = {
             default: {
               font_family: 'theme:typography.fontFamily.primary',
               font_size: 'theme:typography.fontSize.base',
-              color: 'theme:colors.text.primary'
+              color: {
+                default: 'theme:components.button.text.color.active',
+                active: 'theme:components.button.text.color.active',
+                inactive: 'theme:components.button.text.color.inactive',
+                unavailable: 'theme:components.button.text.color.unavailable'
+              }
             }
           },
           border: {
@@ -855,14 +860,14 @@ const LCARDS_SLIDERS_PACK = {
           }
         }
       },
-      
+
       // =====================================
       // PILLS PRESET - Segmented slider
       // =====================================
       'pills-basic': {
         extends: 'slider.base',
         description: 'Segmented pill slider for interactive controls',
-        
+
         style: {
           track: {
             type: 'pills',  // ✅ THIS determines pills mode
@@ -886,14 +891,14 @@ const LCARDS_SLIDERS_PACK = {
           }
         }
       },
-      
+
       // =====================================
       // GAUGE PRESET - Ruler style
       // =====================================
       'gauge-basic': {
         extends: 'slider.base',
         description: 'Ruler-style gauge for displays and controls',
-        
+
         style: {
           track: {
             type: 'gauge',  // ✅ THIS determines gauge mode
@@ -935,7 +940,7 @@ const LCARDS_SLIDERS_PACK = {
       }
     }
   },
-  
+
   anchors: {},
   routing: {}
 };
