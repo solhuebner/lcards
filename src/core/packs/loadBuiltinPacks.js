@@ -856,8 +856,46 @@ const LCARDS_SLIDERS_PACK = {
 
         // Border configuration (directly at root)
         border: {
-          width: 0,
-          radius: 0
+          left: {
+            enabled: false,
+            size: 0,
+            color: {
+              default: 'theme:components.slider.border.color.default',
+              active: 'theme:components.slider.border.color.active',
+              inactive: 'theme:components.slider.border.color.inactive',
+              unavailable: 'theme:components.slider.border.color.unavailable'
+            }
+          },
+          top: {
+            enabled: false,
+            size: 0,
+            color: {
+              default: 'theme:components.slider.border.color.default',
+              active: 'theme:components.slider.border.color.active',
+              inactive: 'theme:components.slider.border.color.inactive',
+              unavailable: 'theme:components.slider.border.color.unavailable'
+            }
+          },
+          right: {
+            enabled: false,
+            size: 0,
+            color: {
+              default: 'theme:components.slider.border.color.default',
+              active: 'theme:components.slider.border.color.active',
+              inactive: 'theme:components.slider.border.color.inactive',
+              unavailable: 'theme:components.slider.border.color.unavailable'
+            }
+          },
+          bottom: {
+            enabled: false,
+            size: 0,
+            color: {
+              default: 'theme:components.slider.border.color.default',
+              active: 'theme:components.slider.border.color.active',
+              inactive: 'theme:components.slider.border.color.inactive',
+              unavailable: 'theme:components.slider.border.color.unavailable'
+            }
+          }
         }
       },
 
