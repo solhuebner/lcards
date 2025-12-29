@@ -106,9 +106,9 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
     _getTabDefinitions() {
         return [
             { label: 'Config', content: () => this._renderFromConfig(this._getConfigTabConfig()) },
-            { label: 'Track', content: () => this._renderTrackTab() },
-            { label: 'Text', content: () => this._renderTextTab() },
-            { label: 'Styling', content: () => this._renderStylingTab() },
+            { label: 'Slider Track', content: () => this._renderTrackTab() },
+            { label: 'Borders', content: () => this._renderBordersTab() },
+            { label: 'Text Fields', content: () => this._renderTextTab() },
             { label: 'Actions', content: () => this._renderActionsTab() },
             { label: 'Advanced', content: () => this._renderFromConfig(this._getAdvancedTabConfig()) },
             { label: 'Developer', content: () => this._renderDeveloperTab() },
@@ -180,64 +180,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     }] : [])
                 ]
             },
-            {
-                type: 'section',
-                header: 'Entity Configuration',
-                description: 'Entity to control and value range',
-                icon: 'mdi:home-automation',
-                expanded: true,
-                outlined: true,
-                children: [
-                    {
-                        type: 'field',
-                        path: 'entity',
-                        label: 'Entity',
-                        helper: 'Entity to control/display (light, cover, fan, sensor, etc.)'
-                    },
-                    {
-                        type: 'grid',
-                        columns: 2,
-                        children: [
-                            {
-                                type: 'field',
-                                path: 'control.attribute',
-                                label: 'Attribute',
-                                helper: 'Entity attribute to control (e.g., brightness)'
-                            },
-                            {
-                                type: 'field',
-                                path: 'control.locked',
-                                label: 'Display Only',
-                                helper: 'Disable interaction (auto-locked for sensors)'
-                            }
-                        ]
-                    },
-                    {
-                        type: 'grid',
-                        columns: 3,
-                        children: [
-                            {
-                                type: 'field',
-                                path: 'control.min',
-                                label: 'Min',
-                                helper: 'Minimum value'
-                            },
-                            {
-                                type: 'field',
-                                path: 'control.max',
-                                label: 'Max',
-                                helper: 'Maximum value'
-                            },
-                            {
-                                type: 'field',
-                                path: 'control.step',
-                                label: 'Step',
-                                helper: 'Increment size'
-                            }
-                        ]
-                    }
-                ]
-            },
+
             {
                 type: 'section',
                 header: 'Card Identification',
@@ -274,13 +217,13 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
         return html`
             <lcards-message
                 type="info"
-                message="Configure track appearance. Switch between pills (segmented bar) and gauge (ruler) styles.">
+                message="Configure track appearance. Entity configuration and track style selection.">
             </lcards-message>
 
             <!-- Entity Configuration -->
             <lcards-form-section
-                header="Entity"
-                description="Entity to control or display"
+                header="Entity Configuration"
+                description="Entity to control and value range"
                 icon="mdi:home-automation"
                 ?expanded=${true}
                 ?outlined=${true}
@@ -293,85 +236,78 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     helper="Entity to control/display (light, cover, fan, sensor, etc.)">
                 </lcards-form-field>
 
-                <lcards-form-field
-                    .editor=${this}
-                    path="control.attribute"
-                    label="Attribute"
-                    helper="Entity attribute to control (e.g., brightness for lights)">
-                </lcards-form-field>
-            </lcards-form-section>
-
-            <!-- Value Range -->
-            <lcards-form-section
-                header="Value Range"
-                description="Minimum, maximum, and step size"
-                icon="mdi:tune"
-                ?expanded=${true}
-                ?outlined=${true}
-                headerLevel="4">
-
                 <lcards-grid-layout>
                     <lcards-form-field
                         .editor=${this}
-                        path="control.min"
-                        label="Minimum Value"
-                        helper="Minimum slider value (default: 0 or entity min)">
-                    </lcards-form-field>
-
-                    <lcards-form-field
-                        .editor=${this}
-                        path="control.max"
-                        label="Maximum Value"
-                        helper="Maximum slider value (default: 100 or entity max)">
-                    </lcards-form-field>
-
-                    <lcards-form-field
-                        .editor=${this}
-                        path="control.step"
-                        label="Step Size"
-                        helper="Increment/decrement amount (default: 1 or entity step)">
+                        path="control.attribute"
+                        label="Attribute"
+                        helper="Entity attribute to control (e.g., brightness)">
                     </lcards-form-field>
 
                     <lcards-form-field
                         .editor=${this}
                         path="control.locked"
-                        label="Locked (Display Only)"
+                        label="Display Only"
                         helper="Disable interaction (auto-locked for sensors)">
+                    </lcards-form-field>
+                </lcards-grid-layout>
+
+                <lcards-grid-layout columns="3">
+                    <lcards-form-field
+                        .editor=${this}
+                        path="control.min"
+                        label="Min"
+                        helper="Minimum value">
+                    </lcards-form-field>
+
+                    <lcards-form-field
+                        .editor=${this}
+                        path="control.max"
+                        label="Max"
+                        helper="Maximum value">
+                    </lcards-form-field>
+
+                    <lcards-form-field
+                        .editor=${this}
+                        path="control.step"
+                        label="Step"
+                        helper="Increment size">
                     </lcards-form-field>
                 </lcards-grid-layout>
             </lcards-form-section>
 
-            <!-- Track Style Selector -->
+            <!-- Dynamic: Pills or Gauge Configuration with INLINE COLORS -->
+            ${state.trackType === 'pills' ? this._renderPillsConfiguration() : this._renderGaugeConfiguration()}
+
+            <!-- Track Margins -->
             <lcards-form-section
-                header="Track Style"
-                description="Choose between pills (segmented bar) or gauge (ruler)"
-                icon="mdi:tune-variant"
-                ?expanded=${true}
+                header="Track Margins"
+                description="Spacing around slider track"
+                icon="mdi:arrow-expand-all"
+                ?expanded=${false}
                 ?outlined=${true}
                 headerLevel="4">
 
-                <ha-selector
-                    .hass=${this.hass}
-                    .label=${'Track Type'}
-                    .helper=${state.trackType === 'pills'
-                        ? 'Pills: Segmented bar slider with color gradient support'
-                        : 'Gauge: Ruler-style display with tick marks and scale labels'}
-                    .selector=${{
-                        select: {
-                            mode: 'dropdown',
-                            options: [
-                                { value: 'pills', label: 'Pills (Segmented Bar)' },
-                                { value: 'gauge', label: 'Gauge (Ruler)' }
-                            ]
-                        }
-                    }}
-                    .value=${state.trackType}
-                    @value-changed=${this._handleTrackTypeChange}>
-                </ha-selector>
+                <lcards-object-editor
+                    .editor=${this}
+                    path="style.track.margin"
+                    .properties=${['top', 'right', 'bottom', 'left']}
+                    controlType="number"
+                    .controlConfig=${{ min: 0, max: 100, mode: 'box', unit_of_measurement: 'px' }}
+                    columns="2">
+                </lcards-object-editor>
             </lcards-form-section>
 
-            <!-- Dynamic: Pills or Gauge Configuration with INLINE COLORS -->
-            ${state.trackType === 'pills' ? this._renderPillsConfiguration() : this._renderGaugeConfiguration()}
+            <!-- Track Background -->
+            <lcards-color-section
+                .editor=${this}
+                basePath="style.track.background"
+                header="Track Background"
+                description="Background color behind track content"
+                ?singleColor=${true}
+                ?expanded=${false}
+                ?useColorPicker=${true}>
+            </lcards-color-section>
         `;
     }
 
@@ -391,10 +327,35 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                 headerLevel="4">
 
                 <lcards-grid-layout>
-                    <lcards-form-field .editor=${this} path="style.track.segments.count" label="Segment Count" helper="Number of pill segments"></lcards-form-field>
-                    <lcards-form-field .editor=${this} path="style.track.segments.gap" label="Gap Size (px)" helper="Space between segments"></lcards-form-field>
-                    <lcards-form-field .editor=${this} path="style.track.segments.shape.radius" label="Border Radius (px)" helper="Roundness of pill corners"></lcards-form-field>
-                    <lcards-form-field .editor=${this} path="style.track.segments.size.height" label="Pill Height (px)" helper="Height of each pill"></lcards-form-field>
+                    <lcards-form-field
+                        .editor=${this}
+                        path="style.track.segments.count"
+                        label="Segment Count"
+                        helper="Number of pill segments">
+                    </lcards-form-field>
+
+                    <lcards-form-field
+                        .editor=${this}
+                        path="style.track.segments.gap"
+                        label="Gap Size (px)"
+                        helper="Space between segments"
+                        .fieldOptions=${{ type: 'number' }}>
+                    </lcards-form-field>
+
+                    <lcards-form-field
+                        .editor=${this}
+                        path="style.track.segments.shape.radius"
+                        label="Border Radius (px)"
+                        helper="Roundness of pill corners"
+                        .fieldOptions=${{ type: 'number' }}>
+                    </lcards-form-field>
+
+                    <lcards-form-field
+                        .editor=${this}
+                        path="style.track.segments.size.height"
+                        label="Pill Height (px)"
+                        helper="Height of each pill">
+                    </lcards-form-field>
                 </lcards-grid-layout>
 
                 <!-- INLINE COLORS: Gradient colors appear right here with pills settings -->
@@ -412,17 +373,6 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
 
                 <lcards-form-field .editor=${this} path="style.track.segments.gradient.interpolated" label="Interpolate Colors" helper="Blend colors smoothly across segments"></lcards-form-field>
             </lcards-form-section>
-
-            <!-- Track background color also inline -->
-            <lcards-color-section
-                .editor=${this}
-                basePath="style.track.background"
-                header="Track Background"
-                description="Background color behind pills"
-                ?singleColor=${true}
-                ?expanded=${false}
-                ?useColorPicker=${true}>
-            </lcards-color-section>
 
             <!-- Opacity Settings -->
             <lcards-form-section
@@ -736,78 +686,168 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
     }
 
     /**
-     * Styling Tab - Borders, margins, and track background
+     * Borders Tab - Border sizing and state-based colors
      * @returns {TemplateResult}
      * @private
      */
-    _renderStylingTab() {
+    _renderBordersTab() {
         return html`
             <lcards-message
                 type="info"
-                message="Configure borders, spacing, and track background colors.">
+                message="Configure SVG border caps (left, top, right, bottom) with sizes and state-based colors.">
             </lcards-message>
 
-            <!-- Borders -->
+            <!-- Left Border -->
             <lcards-form-section
-                header="Borders"
-                description="SVG borders with visual preview"
-                icon="mdi:border-all"
+                header="Left Border"
+                description="Left border cap configuration"
+                icon="mdi:border-left"
                 ?expanded=${true}
                 ?outlined=${true}
                 headerLevel="4">
 
-                <lcards-border-editor
-                    .editor=${this}
-                    path="style.border"
-                    label="Border Configuration"
-                    mode="svg"
-                    ?showPreview=${true}
-                    .supportedSides=${['top', 'right', 'bottom', 'left']}>
-                </lcards-border-editor>
+                <lcards-grid-layout>
+                    <lcards-form-field
+                        .editor=${this}
+                        path="style.border.left.enabled"
+                        label="Enabled"
+                        helper="Show left border cap"
+                        .fieldOptions=${{ type: 'boolean' }}>
+                    </lcards-form-field>
+
+                    <lcards-form-field
+                        .editor=${this}
+                        path="style.border.left.size"
+                        label="Size (px)"
+                        helper="Border width in pixels">
+                    </lcards-form-field>
+                </lcards-grid-layout>
 
                 <lcards-color-section
                     .editor=${this}
-                    basePath="style.border.color"
-                    header="State-Based Border Colors"
-                    description="Override border colors based on entity state"
-                    .colorPaths=${[
-                        { path: 'active', label: 'Active State', helper: 'Border color when entity is active' },
-                        { path: 'inactive', label: 'Inactive State', helper: 'Border color when entity is inactive' }
-                    ]}
+                    .config=${this.config}
+                    basePath="style.border.left.color"
+                    header="Left Border Colors"
+                    description="State-based colors for left border"
+                    .states=${['default', 'active', 'inactive', 'unavailable']}
                     ?expanded=${false}
                     ?useColorPicker=${true}>
                 </lcards-color-section>
             </lcards-form-section>
 
-            <!-- Track Margins -->
+            <!-- Top Border -->
             <lcards-form-section
-                header="Track Margins"
-                description="Spacing around slider track"
-                icon="mdi:arrow-expand-all"
+                header="Top Border"
+                description="Top border cap configuration"
+                icon="mdi:border-top"
                 ?expanded=${false}
                 ?outlined=${true}
                 headerLevel="4">
 
-                <lcards-object-editor
+                <lcards-grid-layout>
+                    <lcards-form-field
+                        .editor=${this}
+                        path="style.border.top.enabled"
+                        label="Enabled"
+                        helper="Show top border cap"
+                        .fieldOptions=${{ type: 'boolean' }}>
+                    </lcards-form-field>
+
+                    <lcards-form-field
+                        .editor=${this}
+                        path="style.border.top.size"
+                        label="Size (px)"
+                        helper="Border height in pixels">
+                    </lcards-form-field>
+                </lcards-grid-layout>
+
+                <lcards-color-section
                     .editor=${this}
-                    path="style.track.margin"
-                    .properties=${['top', 'right', 'bottom', 'left']}
-                    controlType="number"
-                    .controlConfig=${{ min: 0, max: 100, mode: 'box', unit_of_measurement: 'px' }}
-                    columns="2">
-                </lcards-object-editor>
+                    .config=${this.config}
+                    basePath="style.border.top.color"
+                    header="Top Border Colors"
+                    description="State-based colors for top border"
+                    .states=${['default', 'active', 'inactive', 'unavailable']}
+                    ?expanded=${false}
+                    ?useColorPicker=${true}>
+                </lcards-color-section>
             </lcards-form-section>
 
-            <!-- Track Background -->
-            <lcards-color-section
-                .editor=${this}
-                basePath="style.track.background"
-                header="Track Background"
-                description="Background color behind track content"
-                ?singleColor=${true}
+            <!-- Right Border -->
+            <lcards-form-section
+                header="Right Border"
+                description="Right border cap configuration"
+                icon="mdi:border-right"
                 ?expanded=${false}
-                ?useColorPicker=${true}>
-            </lcards-color-section>
+                ?outlined=${true}
+                headerLevel="4">
+
+                <lcards-grid-layout>
+                    <lcards-form-field
+                        .editor=${this}
+                        path="style.border.right.enabled"
+                        label="Enabled"
+                        helper="Show right border cap"
+                        .fieldOptions=${{ type: 'boolean' }}>
+                    </lcards-form-field>
+
+                    <lcards-form-field
+                        .editor=${this}
+                        path="style.border.right.size"
+                        label="Size (px)"
+                        helper="Border width in pixels">
+                    </lcards-form-field>
+                </lcards-grid-layout>
+
+                <lcards-color-section
+                    .editor=${this}
+                    .config=${this.config}
+                    basePath="style.border.right.color"
+                    header="Right Border Colors"
+                    description="State-based colors for right border"
+                    .states=${['default', 'active', 'inactive', 'unavailable']}
+                    ?expanded=${false}
+                    ?useColorPicker=${true}>
+                </lcards-color-section>
+            </lcards-form-section>
+
+            <!-- Bottom Border -->
+            <lcards-form-section
+                header="Bottom Border"
+                description="Bottom border cap configuration"
+                icon="mdi:border-bottom"
+                ?expanded=${false}
+                ?outlined=${true}
+                headerLevel="4">
+
+                <lcards-grid-layout>
+                    <lcards-form-field
+                        .editor=${this}
+                        path="style.border.bottom.enabled"
+                        label="Enabled"
+                        helper="Show bottom border cap"
+                        .fieldOptions=${{ type: 'boolean' }}>
+                    </lcards-form-field>
+
+                    <lcards-form-field
+                        .editor=${this}
+                        path="style.border.bottom.size"
+                        label="Size (px)"
+                        helper="Border height in pixels">
+                    </lcards-form-field>
+                </lcards-grid-layout>
+
+                <lcards-color-section
+                    .editor=${this}
+                    .config=${this.config}
+                    basePath="style.border.bottom.color"
+                    header="Bottom Border Colors"
+                    description="State-based colors for bottom border"
+                    .states=${['default', 'active', 'inactive', 'unavailable']}
+                    ?expanded=${false}
+                    ?useColorPicker=${true}>
+                </lcards-color-section>
+            </lcards-form-section>
         `;
     }
 

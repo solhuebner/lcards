@@ -217,6 +217,155 @@ export function getSliderSchema(options = {}) {
             },
 
             // ============================================================================
+            // TEXT CONFIGURATION
+            // ============================================================================
+
+            text: {
+                type: 'object',
+                description: 'Multi-text label system',
+                $comment: 'Text fields use arbitrary keys. "default" provides styling inherited by all other text fields. All other keys create actual rendered text elements.',
+                examples: [
+                    {
+                        value: {
+                            content: '{{entity.state}}',
+                            position: 'center',
+                            font_size: 18,
+                            color: '#FFFFFF'
+                        },
+                        label: {
+                            content: 'Temperature',
+                            position: 'top',
+                            font_size: 14,
+                            color: '#FF9900'
+                        }
+                    }
+                ],
+                additionalProperties: {
+                    type: 'object',
+                    description: 'Named text field configuration (arbitrary key names)',
+                    properties: {
+                        content: {
+                            type: 'string',
+                            description: 'Text content (can be template)',
+                            examples: ['Temperature', '{{entity.state}}', '{entity.attributes.brightness}']
+                        },
+                        template: {
+                            type: 'boolean',
+                            default: false,
+                            description: 'Whether content is a template expression'
+                        },
+                        position: {
+                            type: 'string',
+                            description: 'Text position within slider bounds',
+                            examples: ['center', 'top-left', 'bottom-right', 'top', 'bottom']
+                        },
+                        font_size: {
+                            oneOf: [
+                                {
+                                    type: 'number',
+                                    minimum: 1,
+                                    maximum: 200,
+                                    description: 'Font size in pixels (1-200)'
+                                },
+                                {
+                                    type: 'string',
+                                    pattern: '^(\\d+px|\\d+\\.?\\d*rem|\\d+\\.?\\d*em|var\\(--[a-z-]+\\))$',
+                                    description: 'CSS value or theme token',
+                                    examples: ['14px', '1.2rem', 'var(--lcars-text-size)']
+                                }
+                            ]
+                        },
+                        color: stateColorSchema,
+                        font_weight: {
+                            type: 'string',
+                            enum: ['normal', 'bold', '100', '200', '300', '400', '500', '600', '700', '800', '900'],
+                            default: 'normal',
+                            description: 'Font weight (normal=400, bold=700)'
+                        },
+                        font_family: {
+                            type: 'string',
+                            format: 'font-family',
+                            description: 'Font family (LCARS uses Swiss 911 Ultra Compressed by default)',
+                            examples: ['Swiss 911 Ultra Compressed', 'Antonio', 'Roboto', 'monospace']
+                        }
+                    }
+                }
+            },
+
+            // ============================================================================
+            // ACTIONS CONFIGURATION
+            // ============================================================================
+
+            actions: {
+                type: 'object',
+                description: 'Multi-action tap/hold/double-tap handlers',
+                $comment: 'Actions use arbitrary keys (e.g., "tap", "hold", "custom1"). Each key defines an action configuration.',
+                examples: [
+                    {
+                        tap: {
+                            action: 'toggle',
+                            target: 'entity'
+                        },
+                        hold: {
+                            action: 'more-info',
+                            target: 'entity'
+                        }
+                    }
+                ],
+                additionalProperties: {
+                    type: 'object',
+                    description: 'Named action configuration',
+                    properties: {
+                        action: {
+                            type: 'string',
+                            enum: ['toggle', 'call-service', 'navigate', 'url', 'more-info', 'none'],
+                            description: 'Action type to perform',
+                            enumDescriptions: [
+                                'Toggle entity on/off',
+                                'Call a Home Assistant service',
+                                'Navigate to another dashboard/view',
+                                'Open a URL',
+                                'Show entity more-info dialog',
+                                'Do nothing'
+                            ]
+                        },
+                        target: {
+                            type: 'string',
+                            enum: ['entity', 'service', 'navigation', 'url'],
+                            description: 'Target of the action (controls which additional properties are used)'
+                        },
+                        service: {
+                            type: 'string',
+                            pattern: '^[a-z_]+\\.[a-z0-9_]+$',
+                            description: 'Service to call (format: domain.service_name)',
+                            examples: ['light.turn_on', 'climate.set_temperature', 'script.my_script']
+                        },
+                        service_data: {
+                            type: 'object',
+                            description: 'Data to pass to the service call',
+                            examples: [{ entity_id: 'light.bedroom', brightness: 255 }]
+                        },
+                        navigation_path: {
+                            type: 'string',
+                            description: 'Dashboard path to navigate to',
+                            examples: ['/lovelace/lights', '/lovelace-dashboard/0']
+                        },
+                        url_path: {
+                            type: 'string',
+                            format: 'uri',
+                            description: 'URL to open',
+                            examples: ['https://example.com', '/local/custom.html']
+                        },
+                        confirmation: {
+                            type: 'boolean',
+                            default: false,
+                            description: 'Show confirmation dialog before action'
+                        }
+                    }
+                }
+            },
+
+            // ============================================================================
             // STYLE CONFIGURATION
             // ============================================================================
 
