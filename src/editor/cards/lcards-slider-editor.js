@@ -10,6 +10,7 @@
 import { html } from 'lit';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import { LCARdSBaseEditor } from '../base/LCARdSBaseEditor.js';
+import { deepMerge } from '../../utils/deepMerge.js';
 
 // Import shared form components
 import '../components/editors/lcards-color-section.js';
@@ -325,8 +326,10 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                 outlined: true,
                 children: [
                     {
-                        type: 'custom',
-                        render: () => this._renderAttributeSelector()
+                        type: 'field',
+                        path: 'control.attribute',
+                        label: 'Attribute',
+                        helper: 'Entity attribute to control (e.g., brightness for lights, current_position for covers)'
                     }
                 ]
             },
@@ -419,12 +422,6 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                 children: [
                     {
                         type: 'field',
-                        path: 'style.track.segments.enabled',
-                        label: 'Enable Segments',
-                        helper: 'Show segmented pills (disable for smooth gradient bar)'
-                    },
-                    {
-                        type: 'field',
                         path: 'style.track.segments.count',
                         label: 'Segment Count',
                         helper: 'Number of pill segments (leave empty for auto-calculation)'
@@ -432,25 +429,25 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     {
                         type: 'field',
                         path: 'style.track.segments.gap',
-                        label: 'Gap Size',
-                        helper: 'Space between segments in pixels (default: 4)'
+                        label: 'Gap Size (px)',
+                        helper: 'Space between segments in pixels'
                     },
                     {
                         type: 'field',
                         path: 'style.track.segments.shape.radius',
-                        label: 'Border Radius',
-                        helper: 'Roundness of pill corners in pixels (default: 4)'
+                        label: 'Border Radius (px)',
+                        helper: 'Roundness of pill corners in pixels'
                     },
                     {
                         type: 'field',
                         path: 'style.track.segments.size.height',
-                        label: 'Pill Height',
-                        helper: 'Height of each pill in pixels (default: 12)'
+                        label: 'Pill Height (px)',
+                        helper: 'Height of each pill in pixels'
                     },
                     {
                         type: 'field',
                         path: 'style.track.segments.size.width',
-                        label: 'Pill Width',
+                        label: 'Pill Width (px)',
                         helper: 'Width of each pill in pixels (leave empty for auto-calculation)'
                     }
                 ]
@@ -747,18 +744,43 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                         message="Configure pill gradient colors. Pills interpolate smoothly between start and end colors.">
                     </lcards-message>
 
-                    <lcards-color-section
-                        .editor=${this}
-                        basePath="style.track.segments.gradient"
+                    <lcards-form-section
                         header="Pill Gradient Colors"
                         description="Start and end colors for pill gradient"
-                        .colorPaths=${[
-                            { path: 'start', label: 'Gradient Start', helper: 'Color at minimum value (left/bottom)' },
-                            { path: 'end', label: 'Gradient End', helper: 'Color at maximum value (right/top)' }
-                        ]}
                         ?expanded=${true}
-                        ?useColorPicker=${true}>
-                    </lcards-color-section>
+                        outlined>
+
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-size: 14px; font-weight: 500; margin-bottom: 8px; padding: 2px 8px;">
+                                Gradient Start
+                            </div>
+                            <lcards-color-picker
+                                .hass=${this.hass}
+                                .value=${this._getConfigValue('style.track.segments.gradient.start') || ''}
+                                ?showPreview=${true}
+                                @value-changed=${(e) => this._handleGradientColorChange('start', e)}>
+                            </lcards-color-picker>
+                            <div style="font-size: 12px; color: var(--secondary-text-color); margin-top: 4px; padding: 0 8px;">
+                                Color at minimum value (left/bottom)
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-size: 14px; font-weight: 500; margin-bottom: 8px; padding: 2px 8px;">
+                                Gradient End
+                            </div>
+                            <lcards-color-picker
+                                .hass=${this.hass}
+                                .value=${this._getConfigValue('style.track.segments.gradient.end') || ''}
+                                ?showPreview=${true}
+                                @value-changed=${(e) => this._handleGradientColorChange('end', e)}>
+                            </lcards-color-picker>
+                            <div style="font-size: 12px; color: var(--secondary-text-color); margin-top: 4px; padding: 0 8px;">
+                                Color at maximum value (right/top)
+                            </div>
+                        </div>
+
+                    </lcards-form-section>
 
                     <lcards-color-section
                         .editor=${this}
@@ -1031,7 +1053,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
         }
 
         // Deep merge defaults with existing config
-        const updatedConfig = this._deepMerge({}, this.config, modeDefaults);
+        const updatedConfig = deepMerge({}, this.config, modeDefaults);
 
         // Set track.type explicitly
         if (!updatedConfig.style) updatedConfig.style = {};
@@ -1060,89 +1082,20 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
         this._updateConfig(updatedConfig);
     }
 
+    /**
+     * Handle gradient color change
+     * @param {string} type - 'start' or 'end'
+     * @param {CustomEvent} e - Color change event
+     * @private
+     */
+    _handleGradientColorChange(type, e) {
+        const path = `style.track.segments.gradient.${type}`;
+        this._setConfigValue(path, e.detail.value);
+    }
+
     // ============================================================================
     // HELPER METHODS
     // ============================================================================
-
-    /**
-     * Render custom attribute selector with domain-aware defaults
-     * @returns {TemplateResult} Attribute selector UI
-     * @private
-     */
-    _renderAttributeSelector() {
-        const entity = this.hass?.states?.[this.config.entity_id];
-        const domain = entity?.entity_id?.split('.')?.[0];
-
-        // Domain-aware default attributes
-        const domainDefaults = {
-            light: 'brightness',
-            cover: 'current_position',
-            climate: 'temperature',
-            fan: 'percentage',
-            input_number: 'state',
-            number: 'state',
-            media_player: 'volume_level'
-        };
-
-        const suggestedAttribute = domainDefaults[domain] || 'state';
-        const currentAttribute = this.config.attribute || suggestedAttribute;
-
-        // Get all available attributes from entity
-        const availableAttributes = entity?.attributes ? Object.keys(entity.attributes) : [];
-
-        return html`
-            <div class="field-group">
-                <ha-select
-                    .label=${'Attribute'}
-                    .value=${currentAttribute}
-                    @selected=${(e) => this._updateConfigValue('attribute', e.detail.value)}
-                    @closed=${(e) => e.stopPropagation()}>
-                    <mwc-list-item value="state">State (default)</mwc-list-item>
-                    ${availableAttributes.map(attr => html`
-                        <mwc-list-item value=${attr}>${attr}</mwc-list-item>
-                    `)}
-                </ha-select>
-                <div class="field-helper">
-                    ${domain ? `Default for ${domain}: ${suggestedAttribute}` : 'Choose entity attribute to control'}
-                </div>
-            </div>
-        `;
-    }
-
-    /**
-     * Deep merge utility (preserves nested objects)
-     * @param {Object} target - Target object
-     * @param {...Object} sources - Source objects to merge
-     * @returns {Object} Merged object
-     * @private
-     */
-    _deepMerge(target, ...sources) {
-        if (!sources.length) return target;
-        const source = sources.shift();
-
-        if (this._isObject(target) && this._isObject(source)) {
-            for (const key in source) {
-                if (this._isObject(source[key])) {
-                    if (!target[key]) Object.assign(target, { [key]: {} });
-                    this._deepMerge(target[key], source[key]);
-                } else {
-                    Object.assign(target, { [key]: source[key] });
-                }
-            }
-        }
-
-        return this._deepMerge(target, ...sources);
-    }
-
-    /**
-     * Check if value is plain object
-     * @param {*} item - Value to check
-     * @returns {boolean} True if plain object
-     * @private
-     */
-    _isObject(item) {
-        return item && typeof item === 'object' && !Array.isArray(item);
-    }
 
     /**
      * Get preset options for dropdown

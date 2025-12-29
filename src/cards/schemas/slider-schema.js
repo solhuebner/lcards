@@ -22,6 +22,13 @@ export function getSliderSchema(options = {}) {
     } = options;
 
     // Reusable inline definitions
+    const simpleColorSchema = {
+        type: 'string',
+        pattern: '^(#[0-9A-Fa-f]{6}|#[0-9A-Fa-f]{8}|transparent|theme:|rgb\\(|rgba\\(|hsl\\(|var\\(--)',
+        description: 'Color value (hex, rgb, theme token, or CSS variable)',
+        examples: ['#FF9900', 'transparent', 'theme:palette.moonlight', 'rgb(255, 153, 0)', 'var(--lcars-orange)']
+    };
+
     const stateColorSchema = {
         oneOf: [
             {
@@ -314,9 +321,9 @@ export function getSliderSchema(options = {}) {
                                     count: {
                                         type: 'number',
                                         minimum: 2,
-                                        maximum: 100,
+                                        maximum: 200,
                                         default: 15,
-                                        description: 'Number of pill segments'
+                                        description: 'Number of pill segments (or "auto" to calculate based on size)'
                                     },
                                     gap: {
                                         oneOf: [
@@ -324,6 +331,7 @@ export function getSliderSchema(options = {}) {
                                                 type: 'number',
                                                 minimum: 0,
                                                 maximum: 50,
+                                                default: 4,
                                                 description: 'Gap between pills in pixels'
                                             },
                                             {
@@ -338,9 +346,39 @@ export function getSliderSchema(options = {}) {
                                         properties: {
                                             radius: {
                                                 oneOf: [
-                                                    { type: 'number', minimum: 0 },
-                                                    { type: 'string', pattern: '^(\\d+px|theme:)' }
+                                                    {
+                                                        type: 'number',
+                                                        minimum: 0,
+                                                        maximum: 50,
+                                                        default: 4,
+                                                        description: 'Border radius in pixels'
+                                                    },
+                                                    {
+                                                        type: 'string',
+                                                        pattern: '^(\\d+px|theme:)',
+                                                        description: 'CSS value or theme token'
+                                                    }
                                                 ]
+                                            }
+                                        }
+                                    },
+                                    size: {
+                                        type: 'object',
+                                        description: 'Pill dimensions (width for horizontal, height for vertical)',
+                                        properties: {
+                                            width: {
+                                                type: 'number',
+                                                minimum: 1,
+                                                maximum: 200,
+                                                default: 12,
+                                                description: 'Fixed width of each pill in horizontal mode (pixels)'
+                                            },
+                                            height: {
+                                                type: 'number',
+                                                minimum: 1,
+                                                maximum: 200,
+                                                default: 12,
+                                                description: 'Fixed height of each pill in vertical mode (pixels)'
                                             }
                                         }
                                     },
@@ -353,8 +391,8 @@ export function getSliderSchema(options = {}) {
                                                 default: true,
                                                 description: 'Interpolate colors between start and end'
                                             },
-                                            start: stateColorSchema,
-                                            end: stateColorSchema
+                                            start: simpleColorSchema,
+                                            end: simpleColorSchema
                                         }
                                     },
                                     appearance: {

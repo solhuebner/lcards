@@ -906,12 +906,32 @@ const LCARDS_SLIDERS_PACK = {
         extends: 'slider.base',
         description: 'Segmented pill slider for interactive controls',
 
+        border: {
+          top: {
+            enabled: true,
+            size: 10
+          },
+          left: {
+            enabled: true,
+            size: 120
+          }
+        },
+
         // Track configuration overrides (directly at root)
         track: {
           type: 'pills',  // ✅ THIS determines pills mode
+          margin: {
+            top: 5,
+            left: 5,
+            right: 0,
+            bottom: 0
+          },
           segments: {
             enabled: true,
             gap: 'theme:components.slider.pills.gap',
+            size: {
+              width: 'theme:components.slider.pills.segment.width',
+            },
             shape: {
               radius: 'theme:components.slider.pills.radius'
             },

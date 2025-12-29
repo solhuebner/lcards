@@ -232,6 +232,9 @@ export const lcarsClassicTokens = {
       pills: {
         gap: 4,
         radius: 0,
+        segment: {
+          width: 10
+        },
         gradient: {
           start: 'colors.status.success',
           end: 'colors.status.error'
