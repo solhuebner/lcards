@@ -182,11 +182,10 @@ grid_options:
 
 | Component | Orientation | Description |
 |-----------|-------------|-------------|
-| `horizontal` | Horizontal | Simple horizontal track |
-| `vertical` | Vertical | Simple vertical track |
-| `picard` | Vertical | Decorative segmented elbows (TNG style) |
+| `basic` | Auto (any) | Simple slider track (no decorations) |
+| `picard` | Vertical only | Decorative segmented elbows (TNG style) |
 
-**Note:** Component determines **orientation only**. Visual style (pills vs gauge) is controlled by `style.track.type`.
+**Note:** For `basic` component, orientation is controlled by `style.track.orientation` config (horizontal or vertical). Styled components like `picard` lock orientation due to decorative elements.
 
 ---
 

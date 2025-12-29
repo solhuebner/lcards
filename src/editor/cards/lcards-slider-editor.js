@@ -42,7 +42,7 @@ import '../components/provenance/lcards-provenance-tab.js';
 
 /**
  * Slider configuration state manager
- * Clarifies relationships between component, preset, and track configuration
+ * Tracks component, preset, track type, and orientation
  * @private
  */
 class SliderConfigState {
@@ -50,9 +50,9 @@ class SliderConfigState {
         this.config = config;
     }
 
-    // Component: Provides shell SVG (horizontal, vertical, picard)
+    // Component: Provides shell SVG (basic, picard, etc.)
     get component() {
-        return this.config.component || null;
+        return this.config.component || 'basic';
     }
 
     // Preset: Provides style defaults (pills-basic, gauge-basic, etc.)
@@ -79,31 +79,6 @@ class SliderConfigState {
         if (this.component) return 'component';
         return 'manual';
     }
-
-    /**
-     * Check if component is compatible with current orientation
-     * @returns {boolean}
-     */
-    isComponentCompatible() {
-        if (!this.component) return true;
-
-        // Component name implies orientation
-        if (this.component.includes('horizontal') && this.orientation !== 'horizontal') return false;
-        if (this.component.includes('vertical') && this.orientation !== 'vertical') return false;
-
-        return true;
-    }
-
-    /**
-     * Get recommended orientation for selected component
-     * @returns {string|null}
-     */
-    getRecommendedOrientation() {
-        if (!this.component) return null;
-        if (this.component.includes('horizontal')) return 'horizontal';
-        if (this.component.includes('vertical')) return 'vertical';
-        return null;
-    }
 }
 
 export class LCARdSSliderEditor extends LCARdSBaseEditor {
@@ -111,7 +86,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
     constructor() {
         super();
         this.cardType = 'slider';
-        lcardsLog.debug('[LCARdSSliderEditor] Refactored editor initialized with cardType: slider (6 tabs)');
+        lcardsLog.debug('[LCARdSSliderEditor] Refactored editor initialized with cardType: slider (8 tabs)');
     }
 
     /**
@@ -124,15 +99,17 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
     }
 
     /**
-     * Define editor tabs - NEW: 6 tabs with inline colors
+     * Define editor tabs - 8 tabs with reorganized structure
      * @returns {Array} Tab definitions
      * @protected
      */
     _getTabDefinitions() {
         return [
-            { label: 'Setup', content: () => this._renderSetupTab() },
-            { label: 'Configuration', content: () => this._renderConfigurationTab() },
-            { label: 'Text & Styling', content: () => this._renderTextStylingTab() },
+            { label: 'Config', content: () => this._renderFromConfig(this._getConfigTabConfig()) },
+            { label: 'Track', content: () => this._renderTrackTab() },
+            { label: 'Text', content: () => this._renderTextTab() },
+            { label: 'Styling', content: () => this._renderStylingTab() },
+            { label: 'Actions', content: () => this._renderActionsTab() },
             { label: 'Advanced', content: () => this._renderFromConfig(this._getAdvancedTabConfig()) },
             { label: 'Developer', content: () => this._renderDeveloperTab() },
             { label: 'YAML', content: () => this._renderYamlTab() }
@@ -140,126 +117,164 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
     }
 
     // ============================================================================
-    // TAB RENDERERS - NEW 6-TAB STRUCTURE
+    // TAB RENDERERS - 8-TAB STRUCTURE
     // ============================================================================
 
     /**
-     * Setup Tab - Preset selection and component/orientation configuration
-     * @returns {TemplateResult}
-     * @private
+     * Config tab - declarative configuration
+     * Consolidated: Component, Preset, Entity, Card ID
      */
-    _renderSetupTab() {
+    _getConfigTabConfig() {
         const state = this._getSliderState();
-        const hasPreset = !!state.preset;
 
-        return html`
-            <lcards-message
-                type="info"
-                message="Start with a preset for quick setup, or manually configure your slider component and orientation.">
-            </lcards-message>
-
-            <!-- Quick Start Section -->
-            <lcards-form-section
-                header="Quick Start"
-                description="Choose a preset for instant configuration"
-                icon="mdi:flash"
-                ?expanded=${!hasPreset}
-                ?outlined=${true}
-                headerLevel="4">
-
-                <lcards-form-field
-                    .editor=${this}
-                    path="preset"
-                    label="Style Preset"
-                    helper="pills-basic, gauge-basic, etc.">
-                </lcards-form-field>
-
-                ${hasPreset ? html`
+        return [
+            {
+                type: 'custom',
+                render: () => html`
                     <lcards-message
-                        type="success"
-                        message="✓ Preset '${state.preset}' applied! Track style, colors, and spacing configured automatically. Override below if needed.">
+                        type="info"
+                        message="Configure your slider: Choose a component shell (basic or styled), apply a preset for quick styling, and select the entity to control.">
                     </lcards-message>
-                ` : ''}
-            </lcards-form-section>
-
-            <!-- Component & Orientation Section -->
-            <lcards-form-section
-                header="Component & Orientation"
-                description="Shell SVG component and layout direction"
-                icon="mdi:cube-outline"
-                ?expanded=${!hasPreset}
-                ?outlined=${true}
-                headerLevel="4">
-
-                <lcards-grid-layout>
-                    <lcards-form-field
-                        .editor=${this}
-                        path="component"
-                        label="Component"
-                        helper="Shell SVG template (horizontal, vertical, picard)">
-                    </lcards-form-field>
-
-                    <lcards-form-field
-                        .editor=${this}
-                        path="style.track.orientation"
-                        label="Orientation"
-                        helper="Layout direction (should match component)">
-                    </lcards-form-field>
-                </lcards-grid-layout>
-
-                ${!state.isComponentCompatible() ? html`
-                    <lcards-message
-                        type="warning"
-                        message="⚠️ Component '${state.component}' expects ${state.getRecommendedOrientation()} orientation. Current: ${state.orientation}">
-                    </lcards-message>
-                ` : ''}
-
-                <lcards-message
-                    type="info"
-                    message="💡 Component provides the shell SVG. Orientation controls layout direction. These should match.">
-                </lcards-message>
-            </lcards-form-section>
-
-            <!-- Card Identification -->
-            <lcards-form-section
-                header="Card Identification"
-                description="ID and tags for rule targeting"
-                icon="mdi:tag"
-                ?expanded=${false}
-                ?outlined=${true}
-                headerLevel="4">
-
-                <lcards-grid-layout>
-                    <lcards-form-field
-                        .editor=${this}
-                        path="id"
-                        label="Card ID"
-                        helper="[Optional] Custom ID for targeting with rules and animations">
-                    </lcards-form-field>
-
-                    <lcards-form-field
-                        .editor=${this}
-                        path="tags"
-                        label="Tags"
-                        helper="Select existing tags or type new ones for rule targeting">
-                    </lcards-form-field>
-                </lcards-grid-layout>
-            </lcards-form-section>
-        `;
+                `
+            },
+            {
+                type: 'section',
+                header: 'Component & Preset',
+                description: 'Shell SVG and visual style presets',
+                icon: 'mdi:shape',
+                expanded: true,
+                outlined: true,
+                children: [
+                    {
+                        type: 'grid',
+                        columns: 2,
+                        children: [
+                            {
+                                type: 'field',
+                                path: 'component',
+                                label: 'Component',
+                                helper: 'Shell SVG (basic, picard, etc.)'
+                            },
+                            {
+                                type: 'field',
+                                path: 'style.track.orientation',
+                                label: 'Orientation',
+                                helper: 'Layout direction (horizontal or vertical)'
+                            }
+                        ]
+                    },
+                    {
+                        type: 'field',
+                        path: 'preset',
+                        label: 'Style Preset',
+                        helper: 'Quick styling (pills-basic, gauge-basic, etc.)'
+                    },
+                    ...(state.preset ? [{
+                        type: 'custom',
+                        render: () => html`
+                            <lcards-message
+                                type="success"
+                                message="✓ Preset '${state.preset}' applied! Track style, colors, and spacing configured automatically.">
+                            </lcards-message>
+                        `
+                    }] : [])
+                ]
+            },
+            {
+                type: 'section',
+                header: 'Entity Configuration',
+                description: 'Entity to control and value range',
+                icon: 'mdi:home-automation',
+                expanded: true,
+                outlined: true,
+                children: [
+                    {
+                        type: 'field',
+                        path: 'entity',
+                        label: 'Entity',
+                        helper: 'Entity to control/display (light, cover, fan, sensor, etc.)'
+                    },
+                    {
+                        type: 'grid',
+                        columns: 2,
+                        children: [
+                            {
+                                type: 'field',
+                                path: 'control.attribute',
+                                label: 'Attribute',
+                                helper: 'Entity attribute to control (e.g., brightness)'
+                            },
+                            {
+                                type: 'field',
+                                path: 'control.locked',
+                                label: 'Display Only',
+                                helper: 'Disable interaction (auto-locked for sensors)'
+                            }
+                        ]
+                    },
+                    {
+                        type: 'grid',
+                        columns: 3,
+                        children: [
+                            {
+                                type: 'field',
+                                path: 'control.min',
+                                label: 'Min',
+                                helper: 'Minimum value'
+                            },
+                            {
+                                type: 'field',
+                                path: 'control.max',
+                                label: 'Max',
+                                helper: 'Maximum value'
+                            },
+                            {
+                                type: 'field',
+                                path: 'control.step',
+                                label: 'Step',
+                                helper: 'Increment size'
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                type: 'section',
+                header: 'Card Identification',
+                description: 'ID and tags for rule targeting',
+                icon: 'mdi:tag',
+                expanded: false,
+                outlined: true,
+                children: [
+                    {
+                        type: 'field',
+                        path: 'id',
+                        label: 'Card ID',
+                        helper: '[Optional] Custom ID for targeting with rules and animations'
+                    },
+                    {
+                        type: 'field',
+                        path: 'tags',
+                        label: 'Tags',
+                        helper: 'Select existing tags or type new ones for rule targeting'
+                    }
+                ]
+            }
+        ];
     }
 
     /**
-     * Configuration Tab - Entity + Track style (pills/gauge) with INLINE COLORS
+     * Track Tab - Pills or Gauge styling (dynamic based on track type)
      * @returns {TemplateResult}
      * @private
      */
-    _renderConfigurationTab() {
+    _renderTrackTab() {
         const state = this._getSliderState();
 
         return html`
             <lcards-message
                 type="info"
-                message="Configure the entity to control and track style (pills or gauge). Colors appear inline with relevant settings.">
+                message="Configure track appearance. Switch between pills (segmented bar) and gauge (ruler) styles.">
             </lcards-message>
 
             <!-- Entity Configuration -->
@@ -706,25 +721,33 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
     }
 
     /**
-     * Text & Styling Tab - Text fields, borders, margins, actions
+     * Text Tab - Standard multi-text editor
      * @returns {TemplateResult}
      * @private
      */
-    _renderTextStylingTab() {
+    _renderTextTab() {
         return html`
-            <lcards-message
-                type="info"
-                message="Configure text fields, borders, margins, and actions. Text is positioned in border caps (left/top/right/bottom) or the track area.">
-            </lcards-message>
-
-            <!-- Text Fields -->
             <lcards-multi-text-editor
                 .editor=${this}
                 .config=${this.config}
                 .hass=${this.hass}>
             </lcards-multi-text-editor>
+        `;
+    }
 
-            <!-- Borders with inline colors -->
+    /**
+     * Styling Tab - Borders, margins, and track background
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderStylingTab() {
+        return html`
+            <lcards-message
+                type="info"
+                message="Configure borders, spacing, and track background colors.">
+            </lcards-message>
+
+            <!-- Borders -->
             <lcards-form-section
                 header="Borders"
                 description="SVG borders with visual preview"
@@ -756,7 +779,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                 </lcards-color-section>
             </lcards-form-section>
 
-            <!-- Track Margins (using object editor) -->
+            <!-- Track Margins -->
             <lcards-form-section
                 header="Track Margins"
                 description="Spacing around slider track"
@@ -775,25 +798,35 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                 </lcards-object-editor>
             </lcards-form-section>
 
-            <!-- Actions -->
-            <lcards-form-section
-                header="Actions"
-                description="Tap, hold, and double-tap actions"
-                icon="mdi:gesture-tap"
+            <!-- Track Background -->
+            <lcards-color-section
+                .editor=${this}
+                basePath="style.track.background"
+                header="Track Background"
+                description="Background color behind track content"
+                ?singleColor=${true}
                 ?expanded=${false}
-                ?outlined=${true}
-                headerLevel="4">
+                ?useColorPicker=${true}>
+            </lcards-color-section>
+        `;
+    }
 
-                <lcards-multi-action-editor
-                    .hass=${this.hass}
-                    .actions=${{
-                        tap_action: this.config.tap_action,
-                        hold_action: this.config.hold_action,
-                        double_tap_action: this.config.double_tap_action
-                    }}
-                    @value-changed=${this._handleActionsChange}>
-                </lcards-multi-action-editor>
-            </lcards-form-section>
+    /**
+     * Actions Tab - Standard multi-action editor
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderActionsTab() {
+        return html`
+            <lcards-multi-action-editor
+                .hass=${this.hass}
+                .actions=${{
+                    tap_action: this.config.tap_action,
+                    hold_action: this.config.hold_action,
+                    double_tap_action: this.config.double_tap_action
+                }}
+                @value-changed=${this._handleActionsChange}>
+            </lcards-multi-action-editor>
         `;
     }
 
