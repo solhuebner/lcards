@@ -91,7 +91,7 @@ import { lcardsLog } from '../utils/lcards-logging.js';
 import { deepMerge } from '../utils/deepMerge.js';
 import { resolveThemeTokensRecursive } from '../utils/lcards-theme.js';
 import { ColorUtils } from '../core/themes/ColorUtils.js';
-import { getSliderComponent } from '../core/packs/components/sliders/index.js';
+import { getSliderComponent, getSliderComponentNames } from '../core/packs/components/sliders/index.js';
 
 // Import unified schema
 import { getSliderSchema } from './schemas/slider-schema.js';
