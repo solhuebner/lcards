@@ -10,62 +10,31 @@
  */
 
 /**
- * Simple Horizontal Slider
- * Basic horizontal slider with track zone
- * No borders - just the track area
- * ViewBox: 400x56 (matches HA 1 row height, standard card width)
+ * Basic Slider Component (Unified)
+ * Square viewBox with preserveAspectRatio="none" for flexible orientation
+ * Orientation controlled by style.track.orientation config, not component
+ * ViewBox: 100x100 (normalized, stretches to fit container)
  */
-const sliderHorizontalSvg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg viewBox="0 0 400 56" xmlns="http://www.w3.org/2000/svg">
+const sliderBasicSvg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
   <metadata>
-    <title>LCARdS Horizontal Slider Component</title>
-    <description>Simple horizontal slider track for pill/gauge content</description>
+    <title>LCARdS Basic Slider Component</title>
+    <description>Unified slider shell for horizontal or vertical orientation</description>
   </metadata>
 
-  <!-- Track zone: where pills/gauge content is injected -->
+  <!-- Track zone: normalized to square -->
   <g id="track-zone"
      data-zone="track"
-     data-bounds="10,8,380,40">
+     data-bounds="10,10,80,80">
     <!-- Card injects pills/gauge here -->
   </g>
 
-  <!-- Control zone: where the invisible range input is positioned -->
+  <!-- Control zone: full area -->
   <rect id="control-zone"
         data-zone="control"
-        data-bounds="0,0,400,56"
+        data-bounds="0,0,100,100"
         x="0" y="0"
-        width="400" height="56"
-        fill="none"
-        stroke="none"
-        pointer-events="none" />
-</svg>`;
-
-/**
- * Simple Vertical Slider
- * Basic vertical slider with track zone
- * ViewBox: 56x300 (matches HA 1 row width, tall for vertical orientation)
- * preserveAspectRatio="none" allows stretching to fill container height
- */
-const sliderVerticalSvg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg viewBox="0 0 56 300" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-  <metadata>
-    <title>LCARdS Vertical Slider Component</title>
-    <description>Simple vertical slider track for pill/gauge content</description>
-  </metadata>
-
-  <!-- Track zone: where pills/gauge content is injected -->
-  <g id="track-zone"
-     data-zone="track"
-     data-bounds="8,10,40,280">
-    <!-- Card injects pills/gauge here -->
-  </g>
-
-  <!-- Control zone: where the invisible range input is positioned -->
-  <rect id="control-zone"
-        data-zone="control"
-        data-bounds="0,0,56,300"
-        x="0" y="0"
-        width="56" height="300"
+        width="100" height="100"
         fill="none"
         stroke="none"
         pointer-events="none" />
@@ -132,29 +101,26 @@ const sliderPicardVerticalSvg = `<?xml version="1.0" encoding="UTF-8"?>
 /**
  * Slider component registry
  *
- * Base templates: horizontal and vertical (borders injected dynamically via style.border config)
- * Complex shapes: Picard and other LCARS-styled variants with decorative elbows baked into SVG
- * Track content: Pills or gauge ruler controlled by style.track.type config
+ * Base component: 'basic' (orientation-agnostic, stretches via CSS)
+ * Styled components: Decorative variants with locked orientation (e.g., 'picard')
+ *
+ * Orientation is controlled by style.track.orientation config, NOT component choice.
+ * Component determines visual shell (plain vs. decorated), not layout direction.
  *
  * @type {Object.<string, {svg: string, orientation: string, features: string[]}>}
  */
 export const sliderComponents = {
-    // Simple base templates - borders added via style.border config
-    'horizontal': {
-        svg: sliderHorizontalSvg,
-        orientation: 'horizontal',
-        features: []
-    },
-    'vertical': {
-        svg: sliderVerticalSvg,
-        orientation: 'vertical',
+    // Basic shell - works with any orientation
+    'basic': {
+        svg: sliderBasicSvg,
+        orientation: 'auto',  // Adapts to style.track.orientation
         features: []
     },
 
-    // Complex LCARS-styled components with decorative elbows/borders in SVG
+    // Styled shells - orientation locked due to decorative elements
     'picard': {
         svg: sliderPicardVerticalSvg,
-        orientation: 'vertical',
+        orientation: 'vertical',  // Locked (decorative elbows require vertical)
         features: ['decorative-borders', 'segmented-elbows', 'text-zone']
     }
 };
