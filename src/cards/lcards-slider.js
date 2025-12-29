@@ -2142,7 +2142,7 @@ export class LCARdSSlider extends LCARdSButton {
     static getStubConfig() {
         return {
             type: 'custom:lcards-slider',
-            component: 'horizontal',
+            component: 'basic',
             preset: 'pills-basic'
         };
     }
@@ -2164,7 +2164,7 @@ export class LCARdSSlider extends LCARdSButton {
         const availablePresets = stylePresetManager?.getAvailablePresets('slider') || [];
 
         // Get available components
-        const availableComponents = ['horizontal', 'vertical', 'picard-vertical'];
+        const availableComponents = getSliderComponentNames();
 
         lcardsLog.debug('[LCARdSSlider] Registering schema with presets:', availablePresets);
 
