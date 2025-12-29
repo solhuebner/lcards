@@ -322,6 +322,14 @@ export class LCARdSSlider extends LCARdSButton {
 
         // Re-resolve slider style with the new merged config (has provenance!)
         this._resolveSliderStyleSync();
+
+        // Re-load component if specified (now that preset is merged, track.type will be preserved)
+        if (this.config.component) {
+            this._loadSliderComponent();
+        }
+
+        // Re-update entity context (now reads the correct style.track.type from merged preset)
+        this._updateEntityContext();
     }
 
     /**
@@ -600,12 +608,17 @@ export class LCARdSSlider extends LCARdSButton {
                     if (!this._sliderStyle) {
                         this._sliderStyle = {};
                     }
-                    if (!this._sliderStyle.track) {
-                        this._sliderStyle.track = {};
-                    }
-                    this._sliderStyle.track.orientation = component.orientation;
 
-                    lcardsLog.debug(`[LCARdSSlider] Using component orientation: ${component.orientation}`);
+                    // Preserve existing track properties (don't wipe out type: 'pills' from preset)
+                    const existingTrack = this._sliderStyle.track || {};
+                    lcardsLog.debug(`[LCARdSSlider] Setting orientation, existing track:`, existingTrack);
+
+                    this._sliderStyle.track = {
+                        ...existingTrack,
+                        orientation: component.orientation
+                    };
+
+                    lcardsLog.debug(`[LCARdSSlider] Using component orientation: ${component.orientation}, track:`, this._sliderStyle.track);
                 }
 
                 // Log component features for debugging
@@ -2130,37 +2143,7 @@ export class LCARdSSlider extends LCARdSButton {
         return {
             type: 'custom:lcards-slider',
             component: 'horizontal',
-            style: {
-                track: {
-                    type: 'pills',
-                    orientation: 'horizontal',
-                    segments: {
-                        gap: 4,
-                        size: {
-                            width: 10
-                        },
-                        shape: {
-                            radius: 0
-                        }
-                    },
-                    margin: {
-                        top: 5,
-                        left: 5,
-                        bottom: 0,
-                        right: 0
-                    }
-                },
-                border: {
-                    top: {
-                        enabled: true,
-                        size: 10
-                    },
-                    left: {
-                        enabled: true,
-                        size: 120
-                    }
-                }
-            }
+            preset: 'pills-basic'
         };
     }
 

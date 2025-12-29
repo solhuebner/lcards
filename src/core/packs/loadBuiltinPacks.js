@@ -960,9 +960,18 @@ const LCARDS_SLIDERS_PACK = {
           type: 'gauge',  // ✅ THIS determines gauge mode
           margin: 0  // Override base margin for seamless ruler
         },
-
+        border: {
+          top: {
+            enabled: true,
+            size: 10
+          },
+          left: {
+            enabled: true,
+            size: 120
+          }
+        },
         // Gauge configuration (directly at root)
-        gauge: {
+        gauge2: {
           progress_bar: {
             color: 'theme:components.slider.gauge.progress.color',
             height: 'theme:components.slider.gauge.progress.height',
