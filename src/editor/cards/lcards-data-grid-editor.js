@@ -189,7 +189,7 @@ export class LCARdSDataGridEditor extends LCARdSBaseEditor {
 
                 <!-- Placeholder for Template Row Editor (Future PR) -->
                 <div style="margin: 16px 0;">
-                    <mwc-button disabled>
+                    <mwc-button disabled aria-label="Configure template rows - coming in a future update">
                         <ha-icon icon="mdi:table-edit" slot="icon"></ha-icon>
                         Configure Template Rows (Coming in PR 2)
                     </mwc-button>
@@ -252,7 +252,7 @@ export class LCARdSDataGridEditor extends LCARdSBaseEditor {
 
                 <!-- Placeholder for DataSource Picker (Future PR) -->
                 <div style="margin: 16px 0;">
-                    <mwc-button disabled>
+                    <mwc-button disabled aria-label="Pick datasource - coming in a future update">
                         <ha-icon icon="mdi:selection" slot="icon"></ha-icon>
                         Pick DataSource (Coming in PR 3)
                     </mwc-button>
@@ -303,7 +303,7 @@ value_template: '{value}°C'</pre>
 
                 <!-- Placeholder for Spreadsheet Editor (Future PR) -->
                 <div style="margin: 16px 0;">
-                    <mwc-button disabled>
+                    <mwc-button disabled aria-label="Configure spreadsheet - coming in a future update">
                         <ha-icon icon="mdi:table-large" slot="icon"></ha-icon>
                         Configure Spreadsheet (Coming in PR 4)
                     </mwc-button>
@@ -770,7 +770,7 @@ rows:
                     <!-- Custom Timing (when pattern = custom) -->
                     ${pattern === 'custom' ? html`
                         <div style="margin-top: 16px;">
-                            <mwc-button disabled>
+                            <mwc-button disabled aria-label="Configure custom timing - coming in a future update">
                                 <ha-icon icon="mdi:clock-edit" slot="icon"></ha-icon>
                                 Configure Custom Timing (Coming in PR 5)
                             </mwc-button>
