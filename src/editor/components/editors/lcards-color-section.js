@@ -183,93 +183,24 @@ export class LCARdSColorSection extends LitElement {
         const isSingle = this.singleColor || (!this.states || this.states.length === 0);
         const isMultipleSingle = this.colorPaths && this.colorPaths.length > 0;
 
-        // If single color mode, render simple picker
-        if (isSingle) {
-            return html`
-                <lcards-form-section
-                    header="${this.header}"
-                    description="${this.description}"
-                    ?expanded=${this.expanded}
-                    outlined>
-                    ${this._renderSingleColor()}
-                </lcards-form-section>
-            `;
-        }
-
-        // If multiple single colors, render them
-        if (isMultipleSingle) {
-            return html`
-                <lcards-form-section
-                    header="${this.header}"
-                    description="${this.description}"
-                    ?expanded=${this.expanded}
-                    outlined>
-                    ${this._renderMultipleSingleColors()}
-                </lcards-form-section>
-            `;
-        }
-
-        // For state-based colors with oneOf, use choose selector with custom rendering
-        const currentValue = this._getCurrentValue();
+        // For backward compatibility with oneOf schemas
+        const isOneOf = this._isOneOfSchema();
         const currentMode = this._getCurrentMode();
-        
+
         return html`
             <lcards-form-section
                 header="${this.header}"
                 description="${this.description}"
                 ?expanded=${this.expanded}
                 outlined>
-                
-                <!-- Native HA choose selector for mode toggle -->
-                <ha-selector
-                    .hass=${this.editor.hass}
-                    .selector=${{
-                        select: {
-                            mode: 'list',
-                            options: [
-                                { value: 'simple', label: 'Single Color' },
-                                { value: 'states', label: 'By State' }
-                            ]
-                        }
-                    }}
-                    .value=${currentMode}
-                    @value-changed=${this._handleModeChange}>
-                </ha-selector>
 
-                <!-- Custom color pickers based on mode -->
-                <div style="margin-top: 12px;">
-                    ${currentMode === 'simple' ? this._renderSingleColor() : this._renderStateColors()}
-                </div>
+                ${isOneOf && !isMultipleSingle && !this.singleColor ? this._renderModeToggle(currentMode) : ''}
+
+                ${isMultipleSingle ? this._renderMultipleSingleColors() : 
+                  isSingle ? this._renderSingleColor() : 
+                  this._renderStateColors()}
             </lcards-form-section>
         `;
-    }
-
-    /**
-     * Handle mode change from selector
-     * @param {CustomEvent} ev - value-changed event
-     * @private
-     */
-    _handleModeChange(ev) {
-        ev.stopPropagation();
-        const newMode = ev.detail.value;
-        const currentValue = this._getCurrentValue();
-
-        let newValue;
-        if (newMode === 'simple') {
-            // Convert to simple mode: use default state or first available
-            if (typeof currentValue === 'object' && currentValue !== null) {
-                newValue = currentValue.default || currentValue[Object.keys(currentValue)[0]] || '#ffffff';
-            } else {
-                newValue = typeof currentValue === 'string' ? currentValue : '#ffffff';
-            }
-        } else {
-            // Convert to states mode: create object with default state
-            newValue = {
-                default: typeof currentValue === 'string' ? currentValue : '#ffffff'
-            };
-        }
-
-        this.editor.updateConfig(this.basePath, newValue);
     }
 
     /**
