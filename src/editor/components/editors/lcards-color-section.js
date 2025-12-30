@@ -183,24 +183,96 @@ export class LCARdSColorSection extends LitElement {
         const isSingle = this.singleColor || (!this.states || this.states.length === 0);
         const isMultipleSingle = this.colorPaths && this.colorPaths.length > 0;
 
-        // For backward compatibility with oneOf schemas
-        const isOneOf = this._isOneOfSchema();
-        const currentMode = this._getCurrentMode();
+        // If single color mode, render simple picker
+        if (isSingle) {
+            return html`
+                <lcards-form-section
+                    header="${this.header}"
+                    description="${this.description}"
+                    ?expanded=${this.expanded}
+                    outlined>
+                    ${this._renderSingleColor()}
+                </lcards-form-section>
+            `;
+        }
 
+        // If multiple single colors, render them
+        if (isMultipleSingle) {
+            return html`
+                <lcards-form-section
+                    header="${this.header}"
+                    description="${this.description}"
+                    ?expanded=${this.expanded}
+                    outlined>
+                    ${this._renderMultipleSingleColors()}
+                </lcards-form-section>
+            `;
+        }
+
+        // For state-based colors, use choose selector
+        const currentValue = this._getCurrentValue();
+        
         return html`
             <lcards-form-section
                 header="${this.header}"
                 description="${this.description}"
                 ?expanded=${this.expanded}
                 outlined>
-
-                ${isOneOf && !isMultipleSingle && !this.singleColor ? this._renderModeToggle(currentMode) : ''}
-
-                ${isMultipleSingle ? this._renderMultipleSingleColors() : 
-                  isSingle ? this._renderSingleColor() : 
-                  this._renderStateColors()}
+                <lcards-form-field
+                    .editor=${this.editor}
+                    path="${this.basePath}"
+                    .selectorOverride=${{
+                        choose: {
+                            options: [
+                                {
+                                    value: "simple",
+                                    label: "Single Color",
+                                    selector: { ui_color: {} }
+                                },
+                                {
+                                    value: "states",
+                                    label: "By State",
+                                    selector: this._getStateColorSelector()
+                                }
+                            ]
+                        }
+                    }}>
+                </lcards-form-field>
             </lcards-form-section>
         `;
+    }
+
+    /**
+     * Generate selector for state-based colors
+     * @returns {Object} Selector configuration
+     * @private
+     */
+    _getStateColorSelector() {
+        const properties = {};
+        
+        for (const state of this.states) {
+            properties[state] = {
+                selector: { ui_color: {} },
+                name: this._formatStateName(state)
+            };
+        }
+
+        return {
+            object: {
+                name: 'State Colors',
+                properties: properties
+            }
+        };
+    }
+
+    /**
+     * Format state name for display
+     * @param {string} state - State name
+     * @returns {string} Formatted name
+     * @private
+     */
+    _formatStateName(state) {
+        return state.charAt(0).toUpperCase() + state.slice(1);
     }
 
     /**
