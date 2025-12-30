@@ -533,23 +533,43 @@ export function getSliderSchema(options = {}) {
                                             },
                                             {
                                                 type: 'string',
-                                                pattern: '^(\\d+px|theme:)',
+                                                pattern: '^(\\d+px|theme:|\\{theme:)',
                                                 description: 'CSS value or theme token'
                                             }
                                         ],
                                         "x-ui-hints": {
-                                                "defaultOneOfBranch": 0,  // ← Show number input first (most common)
-                                                "label": "Segment Gap",
-                                                "helper": "Space between pill segments in pixels (or use theme token)",
-                                                "selector": {
-                                                    "number": {
-                                                        "mode": "slider",
-                                                        "slider_ticks": false,
-                                                        "unit_of_measurement": "px",
-                                                        "step": 1
-                                                    }
+                                            "label": "Segment Gap",
+                                            "helper": "Space between pill segments (pixels or theme token)",
+                                            "selector": {
+                                                "choose": {
+                                                    "options": [
+                                                        {
+                                                            "value": "pixels",
+                                                            "label": "Pixels",
+                                                            "selector": {
+                                                                "number": {
+                                                                    "mode": "slider",
+                                                                    "min": 0,
+                                                                    "max": 50,
+                                                                    "step": 1,
+                                                                    "slider_ticks": false,
+                                                                    "unit_of_measurement": "px"
+                                                                }
+                                                            }
+                                                        },
+                                                        {
+                                                            "value": "theme",
+                                                            "label": "Theme Token",
+                                                            "selector": {
+                                                                "text": {
+                                                                    "placeholder": "{theme:spacing.sm}"
+                                                                }
+                                                            }
+                                                        }
+                                                    ]
                                                 }
                                             }
+                                        }
                                     },
                                     shape: {
                                         type: 'object',
