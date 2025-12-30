@@ -903,8 +903,8 @@ export function getButtonSchema(options = {}) {
                             color: stateColorSchema,
                             radius: {
                                 oneOf: [
-                                    { type: 'number', minimum: 0, maximum: 100 },
-                                    { type: 'string', description: 'Theme token reference' },
+                                    { type: 'number', minimum: 0, maximum: 100, default: 12 },
+                                    { type: 'string', pattern: '^(\\{theme:.*\\}|var\\(--.*\\))$', description: 'Theme token reference' },
                                     {
                                         type: 'object',
                                         properties: {
@@ -917,13 +917,60 @@ export function getButtonSchema(options = {}) {
                                 ],
                                 'x-ui-hints': {
                                     label: 'Border Radius',
-                                    helper: 'Use number for uniform corners, or object for per-corner control',
-                                    defaultOneOfBranch: 0,
+                                    helper: 'Corner roundness (pixels, theme token, or per-corner)',
                                     selector: {
-                                        number: {
-                                            mode: 'slider',
-                                            step: 1,
-                                            unit_of_measurement: 'px'
+                                        choose: {
+                                            options: [
+                                                {
+                                                    value: 'pixels',
+                                                    label: 'Pixels',
+                                                    selector: {
+                                                        number: {
+                                                            mode: 'slider',
+                                                            min: 0,
+                                                            max: 100,
+                                                            step: 1,
+                                                            slider_ticks: false,
+                                                            unit_of_measurement: 'px'
+                                                        }
+                                                    }
+                                                },
+                                                {
+                                                    value: 'theme',
+                                                    label: 'Theme Token',
+                                                    selector: {
+                                                        text: {
+                                                            placeholder: '{theme:borders.radius.md}'
+                                                        }
+                                                    }
+                                                },
+                                                {
+                                                    value: 'custom',
+                                                    label: 'Per Corner',
+                                                    selector: {
+                                                        object: {
+                                                            properties: {
+                                                                top_left: { 
+                                                                    title: 'Top Left',
+                                                                    number: { min: 0, max: 100, step: 1 }
+                                                                },
+                                                                top_right: { 
+                                                                    title: 'Top Right',
+                                                                    number: { min: 0, max: 100, step: 1 }
+                                                                },
+                                                                bottom_right: { 
+                                                                    title: 'Bottom Right',
+                                                                    number: { min: 0, max: 100, step: 1 }
+                                                                },
+                                                                bottom_left: { 
+                                                                    title: 'Bottom Left',
+                                                                    number: { min: 0, max: 100, step: 1 }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            ]
                                         }
                                     }
                                 }

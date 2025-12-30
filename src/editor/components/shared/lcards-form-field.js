@@ -157,15 +157,48 @@ export class LCARdSFormField extends LitElement {
     }
 
     /**
-     * Get selector configuration with priority handling
-     * Priority: selectorOverride > x-ui-hints.selector > auto-generated
-     * 
+     * Get selector configuration with priority: override > x-ui-hints > auto-generated
+     * @returns {Object} Selector configuration
+     * @private
+     */
+    _getSelectorConfig() {
+        // 1. Field-level override (highest priority)
+        if (this.selectorOverride) {
+            return this.selectorOverride;
+        }
+
+        const schema = this._schema;
+        if (!schema) return this._generateDefaultSelector();
+
+        // 2. Schema x-ui-hints.selector
+        const hints = schema['x-ui-hints'];
+        if (hints?.selector) {
+            // If already has choose selector, use it
+            if (hints.selector.choose) {
+                return hints.selector;
+            }
+            
+            // Otherwise merge with schema constraints
+            return this._mergeWithSchemaConstraints(hints.selector, schema);
+        }
+
+        // 3. Auto-generate choose for oneOf
+        if (Array.isArray(schema.oneOf)) {
+            return this._generateChooseSelectorForOneOf(schema);
+        }
+
+        // 4. Fallback to type-based auto-generation
+        return this._generateSelectorFromSchema(schema);
+    }
+
+    /**
+     * Legacy method for backward compatibility with type-specific selector config
      * @param {string} selectorType - Type of selector (e.g., 'number', 'entity', 'select')
      * @param {Object} autoConfig - Auto-generated selector config
      * @returns {Object} Merged selector configuration
      * @private
      */
-    _getSelectorConfig(selectorType, autoConfig = {}) {
+    _getSelectorConfigLegacy(selectorType, autoConfig = {}) {
         // Priority 1: Field-level selectorOverride (highest priority)
         if (this.selectorOverride && this.selectorOverride[selectorType]) {
             return this._mergeWithSchemaConstraints(
@@ -193,13 +226,20 @@ export class LCARdSFormField extends LitElement {
      * Merge selector config with schema constraints
      * Ensures min/max/step from schema are respected even with overrides
      * 
-     * @param {string} selectorType - Type of selector
+     * @param {*} selectorTypeOrConfig - Type of selector or full selector config object
      * @param {Object} override - Override configuration
      * @param {Object} schemaConstraints - Auto-generated constraints from schema
      * @returns {Object} Merged configuration
      * @private
      */
-    _mergeWithSchemaConstraints(selectorType, override, schemaConstraints) {
+    _mergeWithSchemaConstraints(selectorTypeOrConfig, override, schemaConstraints) {
+        // If first arg is an object (full selector config), return it directly
+        if (typeof selectorTypeOrConfig === 'object') {
+            return selectorTypeOrConfig;
+        }
+
+        const selectorType = selectorTypeOrConfig;
+
         // For number selectors, schema constraints should be preserved
         if (selectorType === 'number') {
             return {
@@ -214,6 +254,178 @@ export class LCARdSFormField extends LitElement {
 
         // For other selectors, simple merge
         return { ...schemaConstraints, ...override };
+    }
+
+    /**
+     * Generate default selector for unknown schema
+     * @returns {Object} Default selector config
+     * @private
+     */
+    _generateDefaultSelector() {
+        return { text: {} };
+    }
+
+    /**
+     * Generate selector from schema type
+     * @param {Object} schema - JSON Schema
+     * @returns {Object} Selector configuration
+     * @private
+     */
+    _generateSelectorFromSchema(schema) {
+        if (!schema) return this._generateDefaultSelector();
+
+        // Handle based on type
+        if (isType(schema, 'number') || isType(schema, 'integer')) {
+            return {
+                number: {
+                    min: schema.minimum,
+                    max: schema.maximum,
+                    step: schema.type === 'integer' ? 1 : (schema.multipleOf || 0.1),
+                    mode: 'box'
+                }
+            };
+        }
+
+        if (isType(schema, 'boolean')) {
+            return { boolean: {} };
+        }
+
+        if (hasEnum(schema)) {
+            return {
+                select: {
+                    mode: 'dropdown',
+                    options: getEnumOptions(schema)
+                }
+            };
+        }
+
+        // Default to text
+        return { text: {} };
+    }
+
+    /**
+     * Auto-generate ha-selector-choose for oneOf schemas
+     * @param {Object} schema - JSON Schema with oneOf
+     * @returns {Object} Choose selector configuration
+     * @private
+     */
+    _generateChooseSelectorForOneOf(schema) {
+        if (!Array.isArray(schema.oneOf)) {
+            return this._generateDefaultSelector();
+        }
+
+        const options = schema.oneOf.map((branch, index) => {
+            const label = this._getLabelForOneOfBranch(branch);
+            const branchSelector = this._generateSelectorFromSchema(branch);
+            
+            return {
+                value: `option_${index}`,
+                label: label,
+                selector: branchSelector
+            };
+        });
+
+        return {
+            choose: {
+                options: options
+            }
+        };
+    }
+
+    /**
+     * Get human-readable label for oneOf branch based on type and pattern
+     * @param {Object} branch - oneOf schema branch
+     * @returns {string} Display label
+     * @private
+     */
+    _getLabelForOneOfBranch(branch) {
+        // Use title if provided
+        if (branch.title) return branch.title;
+
+        if (branch.type === 'number' || branch.type === 'integer') {
+            return 'Number';
+        }
+        
+        if (branch.type === 'string') {
+            // Check if it's a theme token pattern
+            if (branch.pattern?.includes('theme:') || branch.pattern?.includes('\\{theme:')) {
+                return 'Theme Token';
+            }
+            // Check for enum with single value (like "theme")
+            if (branch.enum && branch.enum.length === 1 && branch.enum[0] === 'theme') {
+                return 'Theme Binding';
+            }
+            return 'Text';
+        }
+        
+        if (branch.type === 'object') {
+            const props = branch.properties || {};
+            
+            // Check if it's padding-like (top/right/bottom/left)
+            if (props.top && props.right && props.bottom && props.left) {
+                return 'Per Side';
+            }
+            
+            // Check if it's state-based colors (default/active/inactive)
+            if (props.default && props.active) {
+                return 'By State';
+            }
+            
+            return 'Advanced';
+        }
+        
+        if (branch.type === 'boolean') {
+            return 'Toggle';
+        }
+        
+        return `Option ${branch.title || ''}`;
+    }
+
+    /**
+     * Detect which choose option matches the current value
+     * @param {*} value - Current config value
+     * @param {Array} options - Choose selector options
+     * @returns {Object|null} Matching option or null
+     * @private
+     */
+    _detectChooseOption(value, options) {
+        if (value === undefined || value === null) {
+            return options[0]; // Default to first option
+        }
+
+        if (typeof value === 'number') {
+            return options.find(o => o.selector?.number);
+        }
+        
+        if (typeof value === 'string') {
+            // Theme token pattern
+            if (value.startsWith('{theme:') || value.includes('var(--')) {
+                return options.find(o => o.label === 'Theme Token' || o.value === 'theme');
+            }
+            // Special "theme" string binding
+            if (value === 'theme') {
+                return options.find(o => o.label === 'Theme Binding' || o.value === 'theme');
+            }
+            return options.find(o => o.selector?.text);
+        }
+        
+        if (typeof value === 'object' && !Array.isArray(value)) {
+            // State-based if has default/active/inactive keys
+            if (value.default !== undefined || value.active !== undefined) {
+                return options.find(o => o.label === 'By State' || o.value === 'states');
+            }
+            
+            // Padding/spacing if has top/right/bottom/left
+            if (value.top !== undefined || value.left !== undefined) {
+                return options.find(o => o.label === 'Per Side' || o.value === 'custom');
+            }
+            
+            // General object
+            return options.find(o => o.selector?.object);
+        }
+        
+        // Default to first option
+        return options[0];
     }
 
     /**
@@ -288,7 +500,14 @@ export class LCARdSFormField extends LitElement {
      * @private
      */
     _renderControl(schema) {
-        // Handle oneOf schemas - render selector for choosing which schema to use
+        // Check if we have a choose selector (from override, x-ui-hints, or auto-generated)
+        // This takes precedence over legacy oneOf handling
+        const selectorConfig = this._getSelectorConfig();
+        if (selectorConfig?.choose) {
+            return this._renderChooseSelector(selectorConfig);
+        }
+
+        // Handle oneOf schemas with legacy dropdown - render selector for choosing which schema to use
         if (Array.isArray(schema.oneOf) && schema.oneOf.length > 0) {
             return this._renderOneOfSelector(schema);
         }
@@ -351,6 +570,33 @@ export class LCARdSFormField extends LitElement {
 
         // Default to text field
         return this._renderText();
+    }
+
+    /**
+     * Render ha-selector-choose for oneOf schemas
+     * @param {Object} selectorConfig - Selector configuration with choose property
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderChooseSelector(selectorConfig) {
+        const currentValue = this._value;
+        
+        // Auto-detect which option matches current value
+        const matchedOption = this._detectChooseOption(currentValue, selectorConfig.choose.options);
+        
+        return html`
+            <ha-selector
+                .hass=${this.editor.hass}
+                .selector=${selectorConfig}
+                .configValue=${this.path}
+                .value=${currentValue}
+                .label=${this._effectiveLabel}
+                .helper=${this._effectiveHelper}
+                .disabled=${this.disabled}
+                .required=${this.required}
+                @value-changed=${this._handleValueChange}>
+            </ha-selector>
+        `;
     }
 
     /**
@@ -453,7 +699,7 @@ export class LCARdSFormField extends LitElement {
      */
     _renderEntityPicker() {
         // Get effective config with priority handling
-        const selectorConfig = this._getSelectorConfig('entity', {});
+        const selectorConfig = this._getSelectorConfigLegacy('entity', {});
 
         return html`
             <ha-selector
@@ -477,7 +723,7 @@ export class LCARdSFormField extends LitElement {
      */
     _renderColorSelector() {
         // Get effective config with priority handling
-        const selectorConfig = this._getSelectorConfig('ui_color', {});
+        const selectorConfig = this._getSelectorConfigLegacy('ui_color', {});
 
         return html`
             <ha-selector
@@ -500,7 +746,7 @@ export class LCARdSFormField extends LitElement {
      */
     _renderIconSelector() {
         // Get effective config with priority handling
-        const selectorConfig = this._getSelectorConfig('icon', {});
+        const selectorConfig = this._getSelectorConfigLegacy('icon', {});
 
         return html`
             <ha-selector
@@ -616,7 +862,7 @@ export class LCARdSFormField extends LitElement {
         };
 
         // Get effective config with priority handling
-        const selectorConfig = this._getSelectorConfig('select', autoConfig);
+        const selectorConfig = this._getSelectorConfigLegacy('select', autoConfig);
 
         return html`
             <ha-selector
@@ -677,7 +923,7 @@ export class LCARdSFormField extends LitElement {
         };
 
         // Get effective config with priority handling
-        const selectorConfig = this._getSelectorConfig('number', autoConfig);
+        const selectorConfig = this._getSelectorConfigLegacy('number', autoConfig);
 
         return html`
             <ha-selector

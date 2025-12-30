@@ -330,8 +330,9 @@ export function getElbowSchema(options = {}) {
                                 oneOf: [
                                     {
                                         type: 'number',
-                                        minimum: 1,
+                                        minimum: 10,
                                         maximum: 500,
+                                        default: 90,
                                         description: 'Width of vertical sidebar (pixels)',
                                         examples: [90, 120, 150]
                                     },
@@ -347,13 +348,39 @@ export function getElbowSchema(options = {}) {
                                 examples: [90, 120, 150, 'theme'],
                                 'x-ui-hints': {
                                     label: 'Bar Width',
-                                    helper: 'Width of the vertical elbow bar in pixels (or "theme" for dynamic binding)',
-                                    defaultOneOfBranch: 0,
+                                    helper: 'Vertical bar thickness (pixels or theme binding)',
                                     selector: {
-                                        number: {
-                                            mode: 'slider',
-                                            step: 1,
-                                            unit_of_measurement: 'px'
+                                        choose: {
+                                            options: [
+                                                {
+                                                    value: 'pixels',
+                                                    label: 'Static (Pixels)',
+                                                    selector: {
+                                                        number: {
+                                                            mode: 'slider',
+                                                            min: 10,
+                                                            max: 500,
+                                                            step: 5,
+                                                            slider_ticks: false,
+                                                            unit_of_measurement: 'px'
+                                                        }
+                                                    }
+                                                },
+                                                {
+                                                    value: 'theme',
+                                                    label: 'Theme Binding',
+                                                    selector: {
+                                                        select: {
+                                                            options: [
+                                                                {
+                                                                    value: 'theme',
+                                                                    label: 'Bind to input_number.lcars_vertical'
+                                                                }
+                                                            ]
+                                                        }
+                                                    }
+                                                }
+                                            ]
                                         }
                                     }
                                 }
@@ -362,8 +389,9 @@ export function getElbowSchema(options = {}) {
                                 oneOf: [
                                     {
                                         type: 'number',
-                                        minimum: 1,
+                                        minimum: 10,
                                         maximum: 500,
+                                        default: 20,
                                         description: 'Height of horizontal bar (pixels)',
                                         examples: [20, 30, 90]
                                     },
@@ -378,13 +406,39 @@ export function getElbowSchema(options = {}) {
                                 examples: [20, 30, 90, 'theme'],
                                 'x-ui-hints': {
                                     label: 'Bar Height',
-                                    helper: 'Height of the horizontal elbow bar in pixels (or "theme" for dynamic binding)',
-                                    defaultOneOfBranch: 0,
+                                    helper: 'Horizontal bar thickness (pixels or theme binding)',
                                     selector: {
-                                        number: {
-                                            mode: 'slider',
-                                            step: 1,
-                                            unit_of_measurement: 'px'
+                                        choose: {
+                                            options: [
+                                                {
+                                                    value: 'pixels',
+                                                    label: 'Static (Pixels)',
+                                                    selector: {
+                                                        number: {
+                                                            mode: 'slider',
+                                                            min: 10,
+                                                            max: 500,
+                                                            step: 5,
+                                                            slider_ticks: false,
+                                                            unit_of_measurement: 'px'
+                                                        }
+                                                    }
+                                                },
+                                                {
+                                                    value: 'theme',
+                                                    label: 'Theme Binding',
+                                                    selector: {
+                                                        select: {
+                                                            options: [
+                                                                {
+                                                                    value: 'theme',
+                                                                    label: 'Bind to input_number.lcars_horizontal'
+                                                                }
+                                                            ]
+                                                        }
+                                                    }
+                                                }
+                                            ]
                                         }
                                     }
                                 }
