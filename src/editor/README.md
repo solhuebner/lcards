@@ -219,26 +219,41 @@ import '../components/form/lcards-color-picker.js';
 
 ### 📐 Spacing Standards
 
-**Section/Row Spacing:**
-- Sections: `margin-bottom: 12px`
-- Form rows: `margin-bottom: 12px`
+**Section/Row Spacing (CSS Variables):**
+- Sections: `margin-bottom: var(--lcards-section-spacing, 16px)`
+- Form rows: `margin-bottom: var(--lcards-section-spacing, 16px)`
 - Section gaps: `gap: 12px`
+- Icons/Headers: `margin-right: var(--lcards-icon-spacing, 12px)`
 
 **Gap Spacing:**
 - Control gaps: `gap: 8px`
 - Button groups: `gap: 8px`
 - Grid columns: `gap: 12px`
 
+**CSS Variables (for density control):**
+```css
+:root {
+  --lcards-section-spacing: 16px;  /* Default section/field margin */
+  --lcards-icon-spacing: 12px;     /* Icon/header padding */
+}
+
+/* Compact mode example */
+.compact-editor {
+  --lcards-section-spacing: 12px;
+  --lcards-icon-spacing: 8px;
+}
+```
+
 **CSS Example:**
 ```css
 .form-section {
-    margin-bottom: 12px;
+    margin-bottom: var(--lcards-section-spacing, 16px);
 }
 
 .form-row {
     display: flex;
     gap: 12px;
-    margin-bottom: 12px;
+    margin-bottom: var(--lcards-section-spacing, 16px);
 }
 
 .button-group {
@@ -247,6 +262,150 @@ import '../components/form/lcards-color-picker.js';
     justify-content: flex-end; /* Right-align actions */
 }
 ```
+
+---
+
+## 🔷 Schema-Driven UI with x-ui-hints
+
+**NEW**: LCARdS editors now support schema-driven UI generation using `x-ui-hints`.
+
+### Quick Overview
+
+`x-ui-hints` is a custom JSON Schema extension that stores UI presentation metadata directly in schemas, eliminating the need for manual editor field configuration.
+
+**Benefits:**
+- ✅ Single source of truth (schema defines validation + UI)
+- ✅ Consistent UX across all fields
+- ✅ Full access to ha-selector features (slider ticks, modes, units, domains)
+- ✅ Flexible per-field overrides when needed
+
+### Priority Order
+
+```
+1. Field-level selectorOverride (highest)
+   ↓
+2. Schema x-ui-hints (default)
+   ↓
+3. Auto-generated from schema (fallback)
+```
+
+### Basic Usage
+
+**In Schema:**
+```javascript
+{
+  "width": {
+    "type": "number",
+    "minimum": 1,
+    "maximum": 24,
+    "x-ui-hints": {
+      "label": "Width (Grid Columns)",
+      "helper": "Card width in HA grid columns (1-24)",
+      "selector": {
+        "number": {
+          "mode": "slider",
+          "step": 1,
+          "unit_of_measurement": "cols"
+        }
+      }
+    }
+  }
+}
+```
+
+**In Editor (Auto-Pickup):**
+```javascript
+html`<lcards-form-field .editor=${this} path="width"></lcards-form-field>`
+```
+
+That's it! The field automatically renders with a slider, label, and help text.
+
+### oneOf Support with defaultOneOfBranch
+
+For fields that accept multiple types (e.g., `number` OR `string`):
+
+```javascript
+{
+  "padding": {
+    "oneOf": [
+      {
+        "type": "number",
+        "title": "Uniform Padding",
+        "minimum": 0,
+        "maximum": 200
+      },
+      {
+        "type": "object",
+        "title": "Per-Side Padding"
+      }
+    ],
+    "x-ui-hints": {
+      "defaultOneOfBranch": 0,  // Show number input first
+      "selector": {
+        "number": {
+          "mode": "slider",
+          "unit_of_measurement": "px"
+        }
+      }
+    }
+  }
+}
+```
+
+**User sees**: Number slider immediately (no type selector dropdown)
+
+### Field-Level Overrides
+
+When schema hints aren't sufficient:
+
+```javascript
+html`
+  <lcards-form-field
+    path="advanced.step"
+    .selectorOverride=${{
+      number: {
+        mode: 'box',
+        step: 0.001  // Very fine control
+      }
+    }}>
+  </lcards-form-field>
+`
+```
+
+### Force Specific oneOf Branch
+
+```javascript
+html`
+  <lcards-form-field
+    path="font_size"
+    .oneOfBranch=${1}>  <!-- Force branch 1 (string) -->
+  </lcards-form-field>
+`
+```
+
+**User sees**: Only string input, no type selector.
+
+### Available Selector Types
+
+- **`number`**: Sliders, box inputs with units, step control
+- **`entity`**: Entity picker with domain/device class filtering
+- **`select`**: Dropdowns with custom options
+- **`icon`**: MDI icon picker
+- **`ui_color`**: HA color picker
+- **`boolean`**: Toggle switches
+
+### Complete Documentation
+
+**📖 Full specification**: [doc/editor/schema-ui-hints.md](../../doc/editor/schema-ui-hints.md)
+
+Covers:
+- All x-ui-hints properties
+- Selector type reference
+- oneOf handling strategies
+- Migration from legacy ha-formbuilder
+- Best practices and examples
+
+---
 
 ### 🎨 Layout Patterns
 
