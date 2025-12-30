@@ -370,9 +370,8 @@ export function getElbowSchema(options = {}) {
                                                     value: 'theme',
                                                     label: 'Theme Binding',
                                                     selector: {
-                                                        constant: {
-                                                            value: 'theme',
-                                                            label: 'Binds to input_number.lcars_vertical'
+                                                        text: {
+                                                            type: 'text'
                                                         }
                                                     }
                                                 }
@@ -424,9 +423,8 @@ export function getElbowSchema(options = {}) {
                                                     value: 'theme',
                                                     label: 'Theme Binding',
                                                     selector: {
-                                                        constant: {
-                                                            value: 'theme',
-                                                            label: 'Binds to input_number.lcars_horizontal'
+                                                        text: {
+                                                            type: 'text'
                                                         }
                                                     }
                                                 }
