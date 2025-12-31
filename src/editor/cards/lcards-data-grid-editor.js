@@ -11,7 +11,6 @@
 import { html } from 'lit';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import { LCARdSBaseEditor } from '../base/LCARdSBaseEditor.js';
-import { configToYaml } from '../utils/yaml-utils.js';
 
 // Import shared form components
 import '../components/shared/lcards-message.js';
@@ -230,23 +229,15 @@ export class LCARdSDataGridEditor extends LCARdSBaseEditor {
         dialog.hass = this.hass;
         
         // Deep clone current config
-        dialog.config = JSON.parse(JSON.stringify(this._config || {}));
+        dialog.config = JSON.parse(JSON.stringify(this.config || {}));
 
         // Listen for config changes
         dialog.addEventListener('config-changed', (e) => {
             lcardsLog.debug('[DataGridEditor] Studio config changed:', e.detail.config);
             
-            // Update internal config
-            this._config = e.detail.config;
-            
-            // Update YAML representation
-            this._yamlValue = configToYaml(this._config);
-            
-            // Validate new config
-            this._validateConfig();
-            
-            // Fire config-changed to Home Assistant
-            this._fireConfigChanged();
+            // Update config using base editor pattern
+            // This will handle validation, YAML sync, and firing to HA
+            this._updateConfig(e.detail.config, 'visual');
         });
 
         // Cleanup on close
