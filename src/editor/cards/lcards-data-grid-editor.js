@@ -44,6 +44,9 @@ import '../dialogs/lcards-template-editor-dialog.js';
 // Import datasource picker dialog
 import '../dialogs/lcards-datasource-picker-dialog.js';
 
+// Import spreadsheet editor dialog
+import '../dialogs/lcards-spreadsheet-editor-dialog.js';
+
 export class LCARdSDataGridEditor extends LCARdSBaseEditor {
 
     constructor() {
@@ -476,38 +479,88 @@ export class LCARdSDataGridEditor extends LCARdSBaseEditor {
                     message="Spreadsheet layout creates a structured grid with defined columns and rows, each pulling from specific data sources.">
                 </lcards-message>
 
-                <!-- Placeholder for Spreadsheet Editor (Future PR) -->
+                <!-- Spreadsheet Editor Button -->
                 <div style="margin: 16px 0;">
-                    <mwc-button disabled aria-label="Configure spreadsheet - coming in a future update">
+                    <mwc-button 
+                        raised
+                        @click=${this._openSpreadsheetEditorDialog}
+                        aria-label="Configure spreadsheet columns and rows">
                         <ha-icon icon="mdi:table-large" slot="icon"></ha-icon>
-                        Configure Spreadsheet (Coming in PR 4)
+                        Configure Spreadsheet
                     </mwc-button>
                 </div>
 
-                <ha-alert alert-type="info">
-                    Visual spreadsheet configuration will be available in a future update.
-                    For now, use the YAML tab to define columns and rows.
-                    <br><br>
-                    <strong>Example:</strong>
-                    <pre style="margin-top: 8px; font-size: 12px;">columns:
-  - header: "Room"
-    width: 120
-    align: left
-  - header: "Temperature"
-    width: 100
-    align: center
-rows:
-  - sources:
-      - type: static
-        column: 0
-        value: "Living Room"
-      - type: datasource
-        column: 1
-        source: sensor.living_temp
-        format: "{value}°C"</pre>
-                </ha-alert>
+                ${this._renderSpreadsheetSummary()}
             </div>
         `;
+    }
+
+    /**
+     * Render summary of configured spreadsheet
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderSpreadsheetSummary() {
+        const columns = this._getConfigValue('columns') || [];
+        const rows = this._getConfigValue('rows') || [];
+        
+        if (columns.length === 0 || rows.length === 0) {
+            return html`
+                <ha-alert alert-type="info">
+                    No spreadsheet configured. Click "Configure Spreadsheet" to set up columns and rows.
+                    <br><br>
+                    <strong>Quick Start:</strong> The spreadsheet editor lets you:
+                    <ul style="margin: 8px 0 0 20px; line-height: 1.6;">
+                        <li>Define columns with headers, widths, and alignment</li>
+                        <li>Create rows with static text or dynamic DataSource values</li>
+                        <li>Apply hierarchical styling at column, row, and cell levels</li>
+                    </ul>
+                </ha-alert>
+            `;
+        }
+
+        return html`
+            <ha-alert alert-type="success">
+                <strong>${columns.length} column(s) × ${rows.length} row(s) configured</strong>
+                <br><br>
+                Columns: ${columns.map(c => c.header).join(', ')}
+                <br>
+                Click "Configure Spreadsheet" to edit or view the YAML tab for full configuration.
+            </ha-alert>
+        `;
+    }
+
+    /**
+     * Open spreadsheet editor dialog
+     * @private
+     */
+    async _openSpreadsheetEditorDialog() {
+        const columns = this._getConfigValue('columns') || [];
+        const rows = this._getConfigValue('rows') || [];
+        
+        const dialog = document.createElement('lcards-spreadsheet-editor-dialog');
+        dialog.hass = this.hass;
+        dialog.columns = columns;
+        dialog.rows = rows;
+        
+        dialog.addEventListener('config-changed', (e) => {
+            // Save the columns and rows back to config
+            this._setConfigValue('columns', e.detail.columns);
+            this._setConfigValue('rows', e.detail.rows);
+            
+            lcardsLog.info('[LCARdSDataGridEditor] Spreadsheet configuration updated', {
+                columns: e.detail.columns,
+                rows: e.detail.rows
+            });
+        });
+        
+        // Cleanup on close
+        dialog.addEventListener('closed', () => {
+            dialog.remove();
+        });
+        
+        document.body.appendChild(dialog);
+        lcardsLog.debug('[LCARdSDataGridEditor] Opened spreadsheet editor dialog');
     }
 
     // ============================================================================
