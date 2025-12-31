@@ -2117,7 +2117,8 @@ export class LCARdSDataGrid extends LCARdSCard {
    * @returns {string} Element tag name
    */
   static getConfigElement() {
-    return 'lcards-data-grid-editor';
+    // Static import - editor bundled with card (webpack config doesn't support splitting)
+    return document.createElement('lcards-data-grid-editor');
   }
 
   /**
