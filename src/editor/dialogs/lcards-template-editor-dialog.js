@@ -688,8 +688,8 @@ export class LCARdSTemplateEditorDialog extends LitElement {
             background: var(--card-background-color, white);
             padding: 24px;
             border-radius: 8px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
-            z-index: 10000;
+            box-shadow: var(--ha-card-box-shadow, 0 8px 16px rgba(0,0,0,0.2));
+            z-index: calc(var(--dialog-z-index, 100) + 1);
             min-width: 400px;
         `;
         
@@ -711,19 +711,7 @@ export class LCARdSTemplateEditorDialog extends LitElement {
             selectedEntity = e.detail.value;
         });
         
-        container.querySelector('.insert-btn').addEventListener('click', () => {
-            if (selectedEntity) {
-                const template = `{{states.${selectedEntity}.state}}`;
-                this._handleCellValueChange(rowIndex, cellIndex, template);
-            }
-            container.remove();
-        });
-        
-        container.querySelector('.cancel-btn').addEventListener('click', () => {
-            container.remove();
-        });
-        
-        // Add backdrop
+        // Create backdrop
         const backdrop = document.createElement('div');
         backdrop.style.cssText = `
             position: fixed;
@@ -732,13 +720,40 @@ export class LCARdSTemplateEditorDialog extends LitElement {
             right: 0;
             bottom: 0;
             background: rgba(0,0,0,0.5);
-            z-index: 9999;
+            z-index: var(--dialog-z-index, 100);
         `;
-        backdrop.addEventListener('click', () => {
+        
+        // Unified cleanup function to prevent memory leaks
+        const cleanup = () => {
             container.remove();
             backdrop.remove();
-        });
+        };
         
+        // Insert button handler
+        const handleInsert = () => {
+            if (selectedEntity) {
+                const template = `{{states.${selectedEntity}.state}}`;
+                this._handleCellValueChange(rowIndex, cellIndex, template);
+            }
+            cleanup();
+        };
+        
+        // Cancel button handler
+        const handleCancel = () => {
+            cleanup();
+        };
+        
+        // Backdrop click handler
+        const handleBackdropClick = () => {
+            cleanup();
+        };
+        
+        // Attach event listeners
+        container.querySelector('.insert-btn').addEventListener('click', handleInsert);
+        container.querySelector('.cancel-btn').addEventListener('click', handleCancel);
+        backdrop.addEventListener('click', handleBackdropClick);
+        
+        // Add to DOM
         document.body.appendChild(backdrop);
         document.body.appendChild(container);
         
@@ -813,9 +828,16 @@ export class LCARdSTemplateEditorDialog extends LitElement {
                 cleaned.style = row.style;
             }
 
-            // Only include cellStyles if it has entries
+            // Only include cellStyles if it has meaningful entries (non-null/undefined)
             if (row.cellStyles && row.cellStyles.length > 0) {
-                cleaned.cellStyles = row.cellStyles;
+                // Filter out trailing nulls and check if any non-null entries exist
+                const meaningfulStyles = row.cellStyles.some(style => 
+                    style !== null && style !== undefined && Object.keys(style).length > 0
+                );
+                
+                if (meaningfulStyles) {
+                    cleaned.cellStyles = row.cellStyles;
+                }
             }
 
             return cleaned;
