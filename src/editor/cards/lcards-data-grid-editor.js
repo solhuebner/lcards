@@ -48,7 +48,7 @@ import '../dialogs/lcards-datasource-picker-dialog.js';
 import '../dialogs/lcards-spreadsheet-editor-dialog.js';
 
 // Import Configuration Studio dialog (V4 - with WYSIWYG editing)
-import '../dialogs/lcards-data-grid-studio-dialog-v4.js';
+import '../dialogs/lcards-data-grid-studio-dialog.js';
 
 export class LCARdSDataGridEditor extends LCARdSBaseEditor {
 
