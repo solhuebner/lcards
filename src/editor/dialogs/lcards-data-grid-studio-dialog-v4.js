@@ -739,6 +739,8 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
     }
 
     _renderDataTableModeConfig() {
+        const layout = this._workingConfig.layout || 'column-based';
+        
         return html`
             <lcards-form-section
                 header="Data Table Mode Settings"
@@ -752,16 +754,176 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                         { value: 'row-timeline', label: 'Row-timeline (Historical Data)' }
                     ]}}}
                     .label=${'Layout Type'}
-                    .value=${this._workingConfig.layout || 'column-based'}
+                    .value=${layout}
                     @value-changed=${(e) => this._updateConfig('layout', e.detail.value)}
                     @closed=${(e) => e.stopPropagation()}>
                 </ha-selector>
 
                 <lcards-message type="info">
-                    ${this._workingConfig.layout === 'row-timeline' 
+                    ${layout === 'row-timeline' 
                         ? 'Each row represents one datasource with historical values'
                         : 'Standard spreadsheet layout with column headers'}
                 </lcards-message>
+            </lcards-form-section>
+
+            ${layout === 'column-based' ? this._renderColumnBasedConfig() : this._renderRowTimelineConfig()}
+        `;
+    }
+
+    /**
+     * Render column-based layout configuration
+     */
+    _renderColumnBasedConfig() {
+        const columns = this._workingConfig.columns || [];
+        const rows = this._workingConfig.rows || [];
+
+        return html`
+            <lcards-form-section
+                header="Columns"
+                description="Define column structure"
+                ?expanded=${true}>
+
+                <lcards-message type="info">
+                    Click column headers in preview (WYSIWYG mode) to edit columns, or manage them here.
+                </lcards-message>
+
+                ${columns.length > 0 ? html`
+                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 12px;">
+                        ${columns.map((col, index) => html`
+                            <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 4px;">
+                                <span style="flex: 1; font-weight: 500;">${col.header || `Column ${index + 1}`}</span>
+                                <span style="color: var(--secondary-text-color); font-size: 12px;">${col.width || 'auto'}</span>
+                                <ha-icon-button
+                                    @click=${() => this._editColumn(index)}
+                                    title="Edit column">
+                                    <ha-icon icon="mdi:pencil"></ha-icon>
+                                </ha-icon-button>
+                                <ha-icon-button
+                                    @click=${() => this._deleteColumn(index)}
+                                    title="Delete column">
+                                    <ha-icon icon="mdi:delete"></ha-icon>
+                                </ha-icon-button>
+                            </div>
+                        `)}
+                    </div>
+                ` : html`
+                    <lcards-message type="warning">
+                        No columns defined. Click "Add Column" to start.
+                    </lcards-message>
+                `}
+
+                <ha-button @click=${this._addColumn} style="margin-top: 12px;">
+                    <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                    Add Column
+                </ha-button>
+            </lcards-form-section>
+
+            <lcards-form-section
+                header="Rows"
+                description="Define row data"
+                ?expanded=${true}>
+
+                <lcards-message type="info">
+                    Each row contains cells for all defined columns. Click cells in preview to edit.
+                </lcards-message>
+
+                ${rows.length > 0 ? html`
+                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 12px;">
+                        ${rows.map((row, index) => html`
+                            <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 4px;">
+                                <span style="flex: 1; font-weight: 500;">Row ${index + 1}</span>
+                                <span style="color: var(--secondary-text-color); font-size: 12px;">
+                                    ${row.sources?.length || 0} cells
+                                </span>
+                                <ha-icon-button
+                                    @click=${() => this._editRow(index)}
+                                    title="Edit row">
+                                    <ha-icon icon="mdi:pencil"></ha-icon>
+                                </ha-icon-button>
+                                <ha-icon-button
+                                    @click=${() => this._deleteRow(index)}
+                                    title="Delete row">
+                                    <ha-icon icon="mdi:delete"></ha-icon>
+                                </ha-icon-button>
+                            </div>
+                        `)}
+                    </div>
+                ` : html`
+                    <lcards-message type="warning">
+                        No rows defined. Click "Add Row" to start.
+                    </lcards-message>
+                `}
+
+                <ha-button @click=${this._addRow} style="margin-top: 12px;">
+                    <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                    Add Row
+                </ha-button>
+            </lcards-form-section>
+        `;
+    }
+
+    /**
+     * Render row-timeline layout configuration
+     */
+    _renderRowTimelineConfig() {
+        const rows = this._workingConfig.rows || [];
+
+        return html`
+            <lcards-form-section
+                header="Timeline Rows"
+                description="Each row displays historical data from an entity/datasource"
+                ?expanded=${true}>
+
+                <lcards-message type="info">
+                    Rows automatically populate with historical values (newest → oldest, left to right).
+                </lcards-message>
+
+                ${rows.length > 0 ? html`
+                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 12px;">
+                        ${rows.map((row, index) => html`
+                            <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 4px;">
+                                <ha-icon icon="mdi:chart-timeline-variant" style="color: var(--primary-color);"></ha-icon>
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 500;">${row.label || row.source || `Row ${index + 1}`}</div>
+                                    <div style="font-size: 12px; color: var(--secondary-text-color);">
+                                        ${row.source || 'No source'} • ${row.history_hours || 2}h history
+                                    </div>
+                                </div>
+                                <ha-icon-button
+                                    @click=${() => this._editTimelineRow(index)}
+                                    title="Edit row">
+                                    <ha-icon icon="mdi:pencil"></ha-icon>
+                                </ha-icon-button>
+                                <ha-icon-button
+                                    @click=${() => this._moveRow(index, 'up')}
+                                    ?disabled=${index === 0}
+                                    title="Move up">
+                                    <ha-icon icon="mdi:arrow-up"></ha-icon>
+                                </ha-icon-button>
+                                <ha-icon-button
+                                    @click=${() => this._moveRow(index, 'down')}
+                                    ?disabled=${index === rows.length - 1}
+                                    title="Move down">
+                                    <ha-icon icon="mdi:arrow-down"></ha-icon>
+                                </ha-icon-button>
+                                <ha-icon-button
+                                    @click=${() => this._deleteRow(index)}
+                                    title="Delete row">
+                                    <ha-icon icon="mdi:delete"></ha-icon>
+                                </ha-icon-button>
+                            </div>
+                        `)}
+                    </div>
+                ` : html`
+                    <lcards-message type="warning">
+                        No timeline rows defined. Click "Add Timeline Row" to start.
+                    </lcards-message>
+                `}
+
+                <ha-button @click=${this._addTimelineRow} style="margin-top: 12px;">
+                    <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                    Add Timeline Row
+                </ha-button>
             </lcards-form-section>
         `;
     }
@@ -1677,6 +1839,153 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
         }
 
         return errors;
+    }
+
+    // ========================================
+    // Data Table Mode Operations
+    // ========================================
+
+    /**
+     * Add new column (column-based layout)
+     */
+    _addColumn() {
+        if (!this._workingConfig.columns) {
+            this._workingConfig.columns = [];
+        }
+
+        this._workingConfig.columns.push({
+            header: `Column ${this._workingConfig.columns.length + 1}`,
+            width: 'auto',
+            align: 'left',
+            style: {}
+        });
+
+        lcardsLog.info('[DataGridStudioV4] Column added');
+        this.requestUpdate();
+        this._schedulePreviewUpdate();
+    }
+
+    /**
+     * Edit column configuration
+     */
+    _editColumn(index) {
+        // TODO: Open column editor dialog
+        lcardsLog.info('[DataGridStudioV4] Edit column:', index);
+    }
+
+    /**
+     * Delete column
+     */
+    _deleteColumn(index) {
+        if (!this._workingConfig.columns) return;
+
+        this._workingConfig.columns.splice(index, 1);
+
+        // Also remove cells from all rows
+        if (this._workingConfig.rows) {
+            this._workingConfig.rows.forEach(row => {
+                if (row.sources && Array.isArray(row.sources)) {
+                    row.sources.splice(index, 1);
+                }
+            });
+        }
+
+        lcardsLog.info('[DataGridStudioV4] Column deleted:', index);
+        this.requestUpdate();
+        this._schedulePreviewUpdate();
+    }
+
+    /**
+     * Add new row (column-based layout)
+     */
+    _addRow() {
+        if (!this._workingConfig.rows) {
+            this._workingConfig.rows = [];
+        }
+
+        const numColumns = this._workingConfig.columns?.length || 0;
+        const newRow = {
+            sources: Array(numColumns).fill(null).map(() => ({
+                type: 'static',
+                value: '',
+                column: 0
+            }))
+        };
+
+        this._workingConfig.rows.push(newRow);
+
+        lcardsLog.info('[DataGridStudioV4] Row added');
+        this.requestUpdate();
+        this._schedulePreviewUpdate();
+    }
+
+    /**
+     * Edit row configuration
+     */
+    _editRow(index) {
+        // TODO: Open row editor dialog
+        lcardsLog.info('[DataGridStudioV4] Edit row:', index);
+    }
+
+    /**
+     * Delete row
+     */
+    _deleteRow(index) {
+        if (!this._workingConfig.rows) return;
+
+        this._workingConfig.rows.splice(index, 1);
+
+        lcardsLog.info('[DataGridStudioV4] Row deleted:', index);
+        this.requestUpdate();
+        this._schedulePreviewUpdate();
+    }
+
+    /**
+     * Add timeline row (row-timeline layout)
+     */
+    _addTimelineRow() {
+        if (!this._workingConfig.rows) {
+            this._workingConfig.rows = [];
+        }
+
+        this._workingConfig.rows.push({
+            source: '',
+            label: `Row ${this._workingConfig.rows.length + 1}`,
+            format: '{value}',
+            history_hours: 2,
+            columns: 12
+        });
+
+        lcardsLog.info('[DataGridStudioV4] Timeline row added');
+        this.requestUpdate();
+        this._schedulePreviewUpdate();
+    }
+
+    /**
+     * Edit timeline row configuration
+     */
+    _editTimelineRow(index) {
+        // TODO: Open timeline row editor dialog
+        lcardsLog.info('[DataGridStudioV4] Edit timeline row:', index);
+    }
+
+    /**
+     * Move row up or down
+     */
+    _moveRow(index, direction) {
+        if (!this._workingConfig.rows) return;
+
+        const rows = this._workingConfig.rows;
+        const newIndex = direction === 'up' ? index - 1 : index + 1;
+
+        if (newIndex < 0 || newIndex >= rows.length) return;
+
+        // Swap rows
+        [rows[index], rows[newIndex]] = [rows[newIndex], rows[index]];
+
+        lcardsLog.info('[DataGridStudioV4] Row moved:', direction, index, newIndex);
+        this.requestUpdate();
+        this._schedulePreviewUpdate();
     }
 
     // ========================================
