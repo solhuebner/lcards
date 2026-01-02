@@ -180,7 +180,8 @@ export class LCARdSDataGridEditor extends LCARdSBaseEditor {
                 ?expanded=${true}>
                 ${FormField.renderField(this, 'data_mode', {
                     label: 'Data Mode',
-                    helper: 'Random, Template, or DataSource'
+                    helper: 'Random, Template, or DataSource',
+                    valueChanged: (e) => this._handleDataModeChange(e)
                 })}
             </lcards-form-section>
 

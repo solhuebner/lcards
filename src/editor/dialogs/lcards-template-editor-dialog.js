@@ -27,7 +27,8 @@ export class LCARdSTemplateEditorDialog extends LitElement {
             _editingRows: { type: Array, state: true },
             _expandedRows: { type: Set, state: true },
             _expandedRowStyles: { type: Set, state: true },
-            _expandedCellStyles: { type: Set, state: true }
+            _expandedCellStyles: { type: Set, state: true },
+            _confirmDialog: { type: Object, state: true }
         };
     }
 
@@ -39,6 +40,7 @@ export class LCARdSTemplateEditorDialog extends LitElement {
         this._expandedRows = new Set();
         this._expandedRowStyles = new Set();
         this._expandedCellStyles = new Set();
+        this._confirmDialog = null;
         lcardsLog.debug('[LCARdSTemplateEditorDialog] Constructor called');
     }
 
@@ -264,6 +266,25 @@ export class LCARdSTemplateEditorDialog extends LitElement {
                     Cancel
                 </ha-button>
             </lcards-dialog>
+
+            ${this._confirmDialog ? html`
+                <ha-dialog
+                    open
+                    .heading=${this._confirmDialog.title}
+                    @closed=${() => { this._confirmDialog = null; this.requestUpdate(); }}>
+                    <div>${this._confirmDialog.text}</div>
+                    <ha-button
+                        slot="primaryAction"
+                        @click=${() => this._confirmDialog.confirmAction()}>
+                        Delete
+                    </ha-button>
+                    <ha-button
+                        slot="secondaryAction"
+                        @click=${() => { this._confirmDialog = null; this.requestUpdate(); }}>
+                        Cancel
+                    </ha-button>
+                </ha-dialog>
+            ` : ''}
         `;
     }
 
@@ -283,44 +304,38 @@ export class LCARdSTemplateEditorDialog extends LitElement {
         const moreText = values.length > 3 ? `, +${values.length - 3} more` : '';
 
         return html`
-            <div class="row-container">
-                <div class="row-header" @click=${() => this._toggleRowExpanded(index)}>
-                    <ha-icon
-                        class="row-expand-icon ${isExpanded ? 'expanded' : ''}"
-                        icon="mdi:chevron-right">
-                    </ha-icon>
-                    <div class="row-title">
-                        Row ${index + 1}: [${cellPreview}${moreText}]
-                    </div>
-                    <div class="row-actions" @click=${(e) => e.stopPropagation()}>
-                        <mwc-icon-button
-                            @click=${() => this._moveRowUp(index)}
-                            ?disabled=${index === 0}
-                            title="Move up">
-                            <ha-icon icon="mdi:arrow-up"></ha-icon>
-                        </mwc-icon-button>
-                        <mwc-icon-button
-                            @click=${() => this._moveRowDown(index)}
-                            ?disabled=${index === this._editingRows.length - 1}
-                            title="Move down">
-                            <ha-icon icon="mdi:arrow-down"></ha-icon>
-                        </mwc-icon-button>
-                        <mwc-icon-button
-                            @click=${() => this._deleteRow(index)}
-                            title="Delete row">
-                            <ha-icon icon="mdi:delete"></ha-icon>
-                        </mwc-icon-button>
-                    </div>
-                </div>
+            <lcards-collapsible-section
+                .title=${`Row ${index + 1}: [${cellPreview}${moreText}]`}
+                .count=${values.length}
+                countLabel="cells"
+                ?expanded=${isExpanded}
+                @toggle=${() => this._toggleRowExpanded(index)}>
 
-                ${isExpanded ? html`
-                    <div class="row-content">
-                        ${this._renderRowCells(row, index)}
-                        ${this._renderRowStyle(row, index)}
-                        ${this._renderCellStyles(row, index)}
-                    </div>
-                ` : ''}
-            </div>
+                <mwc-icon-button
+                    slot="actions"
+                    @click=${() => this._moveRowUp(index)}
+                    ?disabled=${index === 0}
+                    title="Move up">
+                    <ha-icon icon="mdi:arrow-up"></ha-icon>
+                </mwc-icon-button>
+                <mwc-icon-button
+                    slot="actions"
+                    @click=${() => this._moveRowDown(index)}
+                    ?disabled=${index === this._editingRows.length - 1}
+                    title="Move down">
+                    <ha-icon icon="mdi:arrow-down"></ha-icon>
+                </mwc-icon-button>
+                <mwc-icon-button
+                    slot="actions"
+                    @click=${() => this._deleteRow(index)}
+                    title="Delete row">
+                    <ha-icon icon="mdi:delete"></ha-icon>
+                </mwc-icon-button>
+
+                ${this._renderRowCells(row, index)}
+                ${this._renderRowStyle(row, index)}
+                ${this._renderCellStyles(row, index)}
+            </lcards-collapsible-section>
         `;
     }
 
@@ -365,38 +380,45 @@ export class LCARdSTemplateEditorDialog extends LitElement {
     }
 
     _renderRowStyle(row, rowIndex) {
-        const isExpanded = this._expandedRowStyles.has(rowIndex);
         const style = row.style || {};
 
         return html`
-            <div class="style-section">
-                <div class="style-header" @click=${() => this._toggleRowStyleExpanded(rowIndex)}>
-                    <ha-icon icon="${isExpanded ? 'mdi:chevron-down' : 'mdi:chevron-right'}"></ha-icon>
-                    <span>Row Style Overrides</span>
-                </div>
-                ${isExpanded ? html`
-                    <div class="style-fields">
-                        ${this._renderStyleFields(rowIndex, 'row', style)}
-                    </div>
-                ` : ''}
-            </div>
+            <lcards-form-section
+                header="Row Style Overrides"
+                description="Style properties that apply to all cells in this row"
+                ?expanded=${this._expandedRowStyles.has(rowIndex)}
+                @expanded-changed=${(e) => {
+                    if (e.detail.expanded) {
+                        this._expandedRowStyles.add(rowIndex);
+                    } else {
+                        this._expandedRowStyles.delete(rowIndex);
+                    }
+                    this.requestUpdate();
+                }}>
+                ${this._renderStyleFields(rowIndex, 'row', style)}
+            </lcards-form-section>
         `;
     }
 
     _renderCellStyles(row, rowIndex) {
-        const isExpanded = this._expandedCellStyles.has(rowIndex);
         const cellStyles = row.cellStyles || [];
         const values = row.values || [];
 
         return html`
-            <div class="style-section">
-                <div class="style-header" @click=${() => this._toggleCellStyleExpanded(rowIndex)}>
-                    <ha-icon icon="${isExpanded ? 'mdi:chevron-down' : 'mdi:chevron-right'}"></ha-icon>
-                    <span>Cell Style Overrides</span>
-                </div>
-                ${isExpanded ? html`
-                    <div class="cell-styles-grid">
-                        ${values.map((_, cellIndex) => {
+            <lcards-form-section
+                header="Cell Style Overrides"
+                description="Individual style overrides for specific cells"
+                ?expanded=${this._expandedCellStyles.has(rowIndex)}
+                @expanded-changed=${(e) => {
+                    if (e.detail.expanded) {
+                        this._expandedCellStyles.add(rowIndex);
+                    } else {
+                        this._expandedCellStyles.delete(rowIndex);
+                    }
+                    this.requestUpdate();
+                }}>
+                <div class="cell-styles-grid">
+                    ${values.map((_, cellIndex) => {
                             const cellStyle = cellStyles[cellIndex] || null;
                             const hasOverride = cellStyle !== null && cellStyle !== undefined;
 
@@ -421,9 +443,8 @@ export class LCARdSTemplateEditorDialog extends LitElement {
                                 </div>
                             `;
                         })}
-                    </div>
-                ` : ''}
-            </div>
+                </div>
+            </lcards-form-section>
         `;
     }
 

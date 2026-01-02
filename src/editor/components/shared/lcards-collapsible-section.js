@@ -101,6 +101,18 @@ export class LCARdSCollapsibleSection extends LitElement {
         gap: 8px;
       }
 
+      .header-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .actions-slot {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
       .section-chevron {
         display: inline-flex;
         align-items: center;
@@ -212,7 +224,12 @@ export class LCARdSCollapsibleSection extends LitElement {
               <span class="section-badge ${this.badgeType || this.badge}">${this.badge}</span>
             ` : ''}
           </div>
-          <span class="section-count">${this.count} ${this.countLabel}</span>
+          <div class="header-right">
+            <div class="actions-slot" @click=${(e) => e.stopPropagation()}>
+              <slot name="actions"></slot>
+            </div>
+            <span class="section-count">${this.count} ${this.countLabel}</span>
+          </div>
         </div>
         <div class="section-content" id="section-content" role="region">
           <slot></slot>

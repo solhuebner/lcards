@@ -334,6 +334,25 @@ export class LCARdSSpreadsheetEditorDialog extends LitElement {
                     Cancel
                 </ha-button>
             </lcards-dialog>
+
+            ${this._confirmDialog ? html`
+                <ha-dialog
+                    open
+                    .heading=${this._confirmDialog.title}
+                    @closed=${() => { this._confirmDialog = null; this.requestUpdate(); }}>
+                    <div>${this._confirmDialog.text}</div>
+                    <ha-button
+                        slot="primaryAction"
+                        @click=${() => this._confirmDialog.confirmAction()}>
+                        Delete
+                    </ha-button>
+                    <ha-button
+                        slot="secondaryAction"
+                        @click=${() => { this._confirmDialog = null; this.requestUpdate(); }}>
+                        Cancel
+                    </ha-button>
+                </ha-dialog>
+            ` : ''}
         `;
     }
 
@@ -451,43 +470,37 @@ export class LCARdSSpreadsheetEditorDialog extends LitElement {
         const isExpanded = this._expandedColumns.has(index);
 
         return html`
-            <div class="item-container">
-                <div class="item-header" @click=${() => this._toggleColumnExpanded(index)}>
-                    <ha-icon
-                        class="expand-icon ${isExpanded ? 'expanded' : ''}"
-                        icon="mdi:chevron-right">
-                    </ha-icon>
-                    <div class="item-title">
-                        Column ${index + 1}: ${column.header || '(No header)'}
-                    </div>
-                    <div class="item-actions" @click=${(e) => e.stopPropagation()}>
-                        <mwc-icon-button
-                            @click=${() => this._moveColumnUp(index)}
-                            ?disabled=${index === 0}
-                            title="Move left">
-                            <ha-icon icon="mdi:arrow-left"></ha-icon>
-                        </mwc-icon-button>
-                        <mwc-icon-button
-                            @click=${() => this._moveColumnDown(index)}
-                            ?disabled=${index === this._editingColumns.length - 1}
-                            title="Move right">
-                            <ha-icon icon="mdi:arrow-right"></ha-icon>
-                        </mwc-icon-button>
-                        <mwc-icon-button
-                            @click=${() => this._deleteColumn(index)}
-                            title="Delete column">
-                            <ha-icon icon="mdi:delete"></ha-icon>
-                        </mwc-icon-button>
-                    </div>
-                </div>
+            <lcards-collapsible-section
+                .title=${`Column ${index + 1}: ${column.header || '(No header)'}`}
+                .count=${1}
+                countLabel="column"
+                ?expanded=${isExpanded}
+                @toggle=${() => this._toggleColumnExpanded(index)}>
 
-                ${isExpanded ? html`
-                    <div class="item-content">
-                        ${this._renderColumnFields(column, index)}
-                        ${this._renderColumnStyle(column, index)}
-                    </div>
-                ` : ''}
-            </div>
+                <mwc-icon-button
+                    slot="actions"
+                    @click=${() => this._moveColumnUp(index)}
+                    ?disabled=${index === 0}
+                    title="Move left">
+                    <ha-icon icon="mdi:arrow-left"></ha-icon>
+                </mwc-icon-button>
+                <mwc-icon-button
+                    slot="actions"
+                    @click=${() => this._moveColumnDown(index)}
+                    ?disabled=${index === this._editingColumns.length - 1}
+                    title="Move right">
+                    <ha-icon icon="mdi:arrow-right"></ha-icon>
+                </mwc-icon-button>
+                <mwc-icon-button
+                    slot="actions"
+                    @click=${() => this._deleteColumn(index)}
+                    title="Delete column">
+                    <ha-icon icon="mdi:delete"></ha-icon>
+                </mwc-icon-button>
+
+                ${this._renderColumnFields(column, index)}
+                ${this._renderColumnStyle(column, index)}
+            </lcards-collapsible-section>
         `;
     }
 
@@ -715,45 +728,40 @@ export class LCARdSSpreadsheetEditorDialog extends LitElement {
 
     _renderRow(row, index) {
         const isExpanded = this._expandedRows.has(index);
+        const sources = row.sources || [];
 
         return html`
-            <div class="item-container">
-                <div class="item-header" @click=${() => this._toggleRowExpanded(index)}>
-                    <ha-icon
-                        class="expand-icon ${isExpanded ? 'expanded' : ''}"
-                        icon="mdi:chevron-right">
-                    </ha-icon>
-                    <div class="item-title">
-                        Row ${index + 1}
-                    </div>
-                    <div class="item-actions" @click=${(e) => e.stopPropagation()}>
-                        <mwc-icon-button
-                            @click=${() => this._moveRowUp(index)}
-                            ?disabled=${index === 0}
-                            title="Move up">
-                            <ha-icon icon="mdi:arrow-up"></ha-icon>
-                        </mwc-icon-button>
-                        <mwc-icon-button
-                            @click=${() => this._moveRowDown(index)}
-                            ?disabled=${index === this._editingRows.length - 1}
-                            title="Move down">
-                            <ha-icon icon="mdi:arrow-down"></ha-icon>
-                        </mwc-icon-button>
-                        <mwc-icon-button
-                            @click=${() => this._deleteRow(index)}
-                            title="Delete row">
-                            <ha-icon icon="mdi:delete"></ha-icon>
-                        </mwc-icon-button>
-                    </div>
-                </div>
+            <lcards-collapsible-section
+                .title=${`Row ${index + 1}`}
+                .count=${sources.length}
+                countLabel="cells"
+                ?expanded=${isExpanded}
+                @toggle=${() => this._toggleRowExpanded(index)}>
 
-                ${isExpanded ? html`
-                    <div class="item-content">
-                        ${this._renderRowCells(row, index)}
-                        ${this._renderRowStyle(row, index)}
-                    </div>
-                ` : ''}
-            </div>
+                <mwc-icon-button
+                    slot="actions"
+                    @click=${() => this._moveRowUp(index)}
+                    ?disabled=${index === 0}
+                    title="Move up">
+                    <ha-icon icon="mdi:arrow-up"></ha-icon>
+                </mwc-icon-button>
+                <mwc-icon-button
+                    slot="actions"
+                    @click=${() => this._moveRowDown(index)}
+                    ?disabled=${index === this._editingRows.length - 1}
+                    title="Move down">
+                    <ha-icon icon="mdi:arrow-down"></ha-icon>
+                </mwc-icon-button>
+                <mwc-icon-button
+                    slot="actions"
+                    @click=${() => this._deleteRow(index)}
+                    title="Delete row">
+                    <ha-icon icon="mdi:delete"></ha-icon>
+                </mwc-icon-button>
+
+                ${this._renderRowCells(row, index)}
+                ${this._renderRowStyle(row, index)}
+            </lcards-collapsible-section>
         `;
     }
 
