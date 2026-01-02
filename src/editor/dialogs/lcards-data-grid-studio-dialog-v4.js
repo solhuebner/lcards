@@ -42,14 +42,13 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             _initialConfig: { type: Object }, // Store initial config here
             _workingConfig: { type: Object, state: true },
             _activeTab: { type: String, state: true },
-            _basicSubTab: { type: String, state: true },
-            _advancedSubTab: { type: String, state: true },
             _validationErrors: { type: Array, state: true },
-            _previewMode: { type: String, state: true },
-            _isEditMode: { type: Boolean, state: true },
             _gridRows: { type: Number, state: true },
             _gridColumns: { type: Number, state: true },
-            _gridGap: { type: Number, state: true }
+            _gridGap: { type: Number, state: true },
+            _activeCellEdit: { type: Object, state: true }, // {row, col, value}
+            _activeRowEdit: { type: Number, state: true }, // row index
+            _activeColumnEdit: { type: Number, state: true } // column index
         };
     }
 
@@ -58,12 +57,8 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
         this.hass = null;
         this._initialConfig = null;
         this._workingConfig = {};
-        this._activeTab = 'basic';
-        this._basicSubTab = 'mode';
-        this._advancedSubTab = 'styling';
+        this._activeTab = 'mode';
         this._validationErrors = [];
-        this._previewMode = 'live'; // 'live' or 'wysiwyg'
-        this._isEditMode = false; // Initialize edit mode
 
         // Grid UI state variables
         this._gridRows = 8;
@@ -78,6 +73,11 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
 
         // Active overlay editor reference
         this._activeOverlay = null;
+
+        // Inline editing state
+        this._activeCellEdit = null;
+        this._activeRowEdit = null;
+        this._activeColumnEdit = null;
     }
 
     /**
@@ -498,10 +498,28 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                     <!-- Main Tab Navigation -->
                     <div class="main-tabs">
                         <button
-                            class="main-tab ${this._activeTab === 'basic' ? 'active' : ''}"
-                            @click=${() => this._handleMainTabChange('basic')}>
+                            class="main-tab ${this._activeTab === 'mode' ? 'active' : ''}"
+                            @click=${() => this._handleMainTabChange('mode')}>
                             <ha-icon icon="mdi:view-grid"></ha-icon>
-                            Basic
+                            Mode
+                        </button>
+                        <button
+                            class="main-tab ${this._activeTab === 'grid-structure' ? 'active' : ''}"
+                            @click=${() => this._handleMainTabChange('grid-structure')}>
+                            <ha-icon icon="mdi:table-settings"></ha-icon>
+                            Grid Structure
+                        </button>
+                        <button
+                            class="main-tab ${this._activeTab === 'grid-styles' ? 'active' : ''}"
+                            @click=${() => this._handleMainTabChange('grid-styles')}>
+                            <ha-icon icon="mdi:palette"></ha-icon>
+                            Grid Styles
+                        </button>
+                        <button
+                            class="main-tab ${this._activeTab === 'animation' ? 'active' : ''}"
+                            @click=${() => this._handleMainTabChange('animation')}>
+                            <ha-icon icon="mdi:animation"></ha-icon>
+                            Animation
                         </button>
                         <button
                             class="main-tab ${this._activeTab === 'advanced' ? 'active' : ''}"
@@ -539,9 +557,6 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                     Cancel
                 </ha-button>
             </ha-dialog>
-
-            <!-- Render active overlay editor -->
-            ${this._activeOverlay ? this._renderOverlay() : ''}
         `;
     }
 
@@ -566,8 +581,14 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
 
     _renderActiveTab() {
         switch (this._activeTab) {
-            case 'basic':
-                return this._renderBasicTab();
+            case 'mode':
+                return this._renderModeTab();
+            case 'grid-structure':
+                return this._renderGridStructureTab();
+            case 'grid-styles':
+                return this._renderGridStylesTab();
+            case 'animation':
+                return this._renderAnimationTab();
             case 'advanced':
                 return this._renderAdvancedTab();
             default:
@@ -580,29 +601,10 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
      * This is the proven reliable pattern from v3
      */
     _renderPreview() {
-        const showEditToggle = this._workingConfig.data_mode === 'manual' || this._workingConfig.data_mode === 'data-table';
-
         return html`
             <div class="preview-header">
                 <span class="preview-title">Live Preview</span>
-                ${showEditToggle ? html`
-                    <ha-button
-                        @click=${this._toggleEditMode}
-                        .label=${this._isEditMode ? 'Switch to Preview' : 'Switch to Edit Mode'}>
-                        <ha-icon
-                            icon=${this._isEditMode ? 'mdi:eye' : 'mdi:pencil'}
-                            slot="icon">
-                        </ha-icon>
-                        ${this._isEditMode ? 'Preview Mode' : 'Edit Mode'}
-                    </ha-button>
-                ` : ''}
             </div>
-
-            ${this._isEditMode && (this._workingConfig.data_mode === 'manual' || this._workingConfig.data_mode === 'data-table') ? html`
-                <div style="padding: 12px; background: var(--info-color, #2196F3); color: white; font-size: 12px;">
-                    <strong>WYSIWYG Mode:</strong> Click cells to edit • Shift+Click for row • Ctrl/Cmd+Click for column
-                </div>
-            ` : ''}
 
             <div class="preview-container" ${ref(this._previewRef)}>
                 <!-- Card will be inserted here by _updatePreviewCard() -->
@@ -611,48 +613,10 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
     }
 
     // ========================================
-    // BASIC TAB (3 sub-tabs)
+    // MODE TAB (Main Tab)
     // ========================================
 
-    _renderBasicTab() {
-        return html`
-            <!-- Sub-tabs for Basic -->
-            <div class="sub-tabs">
-                <button
-                    class="sub-tab ${this._basicSubTab === 'mode' ? 'active' : ''}"
-                    @click=${() => this._handleBasicSubTabChange('mode')}>
-                    Mode Selection
-                </button>
-                <button
-                    class="sub-tab ${this._basicSubTab === 'grid' ? 'active' : ''}"
-                    @click=${() => this._handleBasicSubTabChange('grid')}>
-                    Grid Structure
-                </button>
-                <button
-                    class="sub-tab ${this._basicSubTab === 'config' ? 'active' : ''}"
-                    @click=${() => this._handleBasicSubTabChange('config')}>
-                    Configuration
-                </button>
-            </div>
-
-            ${this._renderBasicSubTab()}
-        `;
-    }
-
-    _renderBasicSubTab() {
-        switch (this._basicSubTab) {
-            case 'mode':
-                return this._renderModeSelectionSubTab();
-            case 'grid':
-                return this._renderGridStructureSubTab();
-            case 'config':
-                return this._renderConfigurationSubTab();
-            default:
-                return '';
-        }
-    }
-
-    _renderModeSelectionSubTab() {
+    _renderModeTab() {
         const dataMode = this._workingConfig.data_mode || 'decorative';
 
         const modes = [
@@ -666,7 +630,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 id: 'manual',
                 icon: 'mdi:table-edit',
                 title: 'Manual',
-                description: 'User-defined cell values with WYSIWYG editing'
+                description: 'User-defined cell values with inline editing'
             },
             {
                 id: 'data-table',
@@ -708,9 +672,9 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             case 'decorative':
                 return this._renderDecorativeModeConfig();
             case 'manual':
-                return this._renderManualModeConfig();
+                return '';  // No additional config needed - editing done in Grid Structure tab
             case 'data-table':
-                return this._renderDataTableModeConfig();
+                return '';  // No additional config needed - editing done in Grid Structure tab
             default:
                 return '';
         }
@@ -755,48 +719,109 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
 
         return html`
             <lcards-form-section
-                header="Manual Mode Settings"
-                description="Configure manual grid editing"
+                header="Grid Editor"
+                description="Click cells to edit content. Use static values or HA templates."
                 ?expanded=${true}>
 
                 <lcards-message type="info">
-                    Click cells in the preview panel (WYSIWYG mode) to edit their content.
-                    You can use static values or Home Assistant templates.
+                    <strong>Live Preview Above</strong> shows the final result.
+                    <strong>Edit Grid Below</strong> to modify cell content.
                 </lcards-message>
+
+                <!-- Editable Grid -->
+                <div class="editable-grid" style="
+                    display: grid;
+                    grid-template-columns: auto repeat(${numColumns}, 1fr);
+                    gap: 2px;
+                    margin-top: 16px;
+                    background: var(--divider-color);
+                    padding: 2px;
+                    border-radius: 4px;
+                ">
+                    <!-- Column Headers -->
+                    <div class="grid-corner" style="
+                        background: var(--card-background-color);
+                        padding: 8px;
+                        font-weight: 600;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    "></div>
+                    ${Array.from({ length: numColumns }, (_, col) => html`
+                        <div class="column-header" style="
+                            background: var(--primary-color);
+                            color: white;
+                            padding: 8px;
+                            text-align: center;
+                            font-weight: 600;
+                            font-size: 11px;
+                            cursor: pointer;
+                        " @click=${() => this._editColumn(col)}>
+                            Col ${col + 1}
+                        </div>
+                    `)}
+
+                    <!-- Data Rows -->
+                    ${rows.map((row, rowIndex) => html`
+                        <!-- Row Header -->
+                        <div class="row-header" style="
+                            background: var(--primary-color);
+                            color: white;
+                            padding: 8px;
+                            text-align: center;
+                            font-weight: 600;
+                            font-size: 11px;
+                            cursor: pointer;
+                        " @click=${() => this._editRow(rowIndex)}>
+                            Row ${rowIndex + 1}
+                        </div>
+
+                        <!-- Row Cells -->
+                        ${Array.from({ length: numColumns }, (_, col) => {
+                            const value = Array.isArray(row) ? (row[col] || '') : '';
+                            return html`
+                                <div class="editable-cell" style="
+                                    background: var(--card-background-color);
+                                    padding: 8px;
+                                    min-height: 36px;
+                                    cursor: pointer;
+                                    border: 1px solid transparent;
+                                    transition: all 0.2s;
+                                    overflow: hidden;
+                                    text-overflow: ellipsis;
+                                    white-space: nowrap;
+                                "
+                                @click=${() => this._editCell(rowIndex, col, value)}
+                                @mouseenter=${(e) => e.target.style.borderColor = 'var(--primary-color)'}
+                                @mouseleave=${(e) => e.target.style.borderColor = 'transparent'}>
+                                    ${value || html`<span style="opacity: 0.3;">—</span>`}
+                                </div>
+                            `;
+                        })}
+                    `)}
+                </div>
+
+                <!-- Grid Controls -->
+                <div style="display: flex; gap: 8px; margin-top: 12px;">
+                    <ha-button @click=${this._addManualRow}>
+                        <ha-icon icon="mdi:table-row-plus-after" slot="icon"></ha-icon>
+                        Add Row
+                    </ha-button>
+                    <ha-button @click=${this._addManualColumn}>
+                        <ha-icon icon="mdi:table-column-plus-after" slot="icon"></ha-icon>
+                        Add Column
+                    </ha-button>
+                </div>
             </lcards-form-section>
 
-            <lcards-form-section
-                header="Rows"
-                description="Manage grid rows"
-                ?expanded=${true}>
+            <!-- Inline Cell Editor (appears when cell clicked) -->
+            ${this._activeCellEdit ? this._renderCellEditor() : ''}
 
-                ${rows.length > 0 ? html`
-                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 12px;">
-                        ${rows.map((row, index) => html`
-                            <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 4px;">
-                                <span style="flex: 1; font-weight: 500;">Row ${index + 1}</span>
-                                <span style="color: var(--secondary-text-color); font-size: 12px;">
-                                    ${Array.isArray(row) ? row.length : 0} cells
-                                </span>
-                                <ha-icon-button
-                                    @click=${() => this._deleteManualRow(index)}
-                                    title="Delete row">
-                                    <ha-icon icon="mdi:delete"></ha-icon>
-                                </ha-icon-button>
-                            </div>
-                        `)}
-                    </div>
-                ` : html`
-                    <lcards-message type="warning">
-                        No rows defined. Click "Add Row" to start building your grid.
-                    </lcards-message>
-                `}
+            <!-- Inline Row Editor (appears when row header clicked) -->
+            ${this._activeRowEdit !== null ? this._renderRowEditor() : ''}
 
-                <ha-button @click=${this._addManualRow} style="margin-top: 12px;">
-                    <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
-                    Add Row
-                </ha-button>
-            </lcards-form-section>
+            <!-- Inline Column Editor (appears when column header clicked) -->
+            ${this._activeColumnEdit !== null ? this._renderColumnEditor() : ''}
 
             <lcards-form-section
                 header="Template Syntax Help"
@@ -899,6 +924,641 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
         }).catch(err => {
             lcardsLog.error('[DataGridStudioV4] Failed to copy:', err);
         });
+    }
+
+    // ========================================
+    // GRID STRUCTURE TAB (Main Tab)
+    // ========================================
+
+    _renderGridStructureTab() {
+        const dataMode = this._workingConfig.data_mode || 'decorative';
+
+        return html`
+            <lcards-form-section
+                header="Grid Dimensions"
+                description="Define grid size"
+                ?expanded=${true}>
+
+                <lcards-grid-layout>
+                    <ha-textfield
+                        type="number"
+                        label="Rows"
+                        .value=${this._gridRows}
+                        @input=${(e) => this._handleGridRowsChange(parseInt(e.target.value) || 1)}
+                        min="1"
+                        max="50"
+                        helper="Number of rows">
+                    </ha-textfield>
+
+                    <ha-textfield
+                        type="number"
+                        label="Columns"
+                        .value=${this._gridColumns}
+                        @input=${(e) => this._handleGridColumnsChange(parseInt(e.target.value) || 1)}
+                        min="1"
+                        max="50"
+                        helper="Number of columns">
+                    </ha-textfield>
+                </lcards-grid-layout>
+
+                <ha-textfield
+                    type="number"
+                    label="Gap (px)"
+                    .value=${this._gridGap}
+                    @input=${(e) => this._handleGridGapChange(parseInt(e.target.value) || 0)}
+                    min="0"
+                    max="50"
+                    helper="Space between cells">
+                </ha-textfield>
+            </lcards-form-section>
+
+            ${dataMode === 'manual' ? this._renderManualModeEditor() : ''}
+            ${dataMode === 'data-table' ? this._renderDataTableModeEditor() : ''}
+        `;
+    }
+
+    _renderManualModeEditor() {
+        const rows = this._workingConfig.rows || [];
+        const numColumns = this._gridColumns || 12;
+
+        return html`
+            <lcards-form-section
+                header="Grid Editor"
+                description="Click cells to edit content. Use static values or HA templates."
+                ?expanded=${true}>
+
+                <lcards-message type="info">
+                    <strong>Live Preview Above</strong> shows the final result.
+                    <strong>Edit Grid Below</strong> to modify cell content.
+                </lcards-message>
+
+                <!-- Editable Grid -->
+                <div class="editable-grid" style="
+                    display: grid;
+                    grid-template-columns: auto repeat(${numColumns}, 1fr);
+                    gap: 2px;
+                    margin-top: 16px;
+                    background: var(--divider-color);
+                    padding: 2px;
+                    border-radius: 4px;
+                ">
+                    <!-- Column Headers -->
+                    <div class="grid-corner" style="
+                        background: var(--card-background-color);
+                        padding: 8px;
+                        font-weight: 600;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    "></div>
+                    ${Array.from({ length: numColumns }, (_, col) => html`
+                        <div class="column-header" style="
+                            background: var(--primary-color);
+                            color: white;
+                            padding: 8px;
+                            text-align: center;
+                            font-weight: 600;
+                            font-size: 11px;
+                            cursor: pointer;
+                        " @click=${() => this._editColumn(col)}>
+                            Col ${col + 1}
+                        </div>
+                    `)}
+
+                    <!-- Data Rows -->
+                    ${rows.map((row, rowIndex) => html`
+                        <!-- Row Header -->
+                        <div class="row-header" style="
+                            background: var(--primary-color);
+                            color: white;
+                            padding: 8px;
+                            text-align: center;
+                            font-weight: 600;
+                            font-size: 11px;
+                            cursor: pointer;
+                        " @click=${() => this._editRow(rowIndex)}>
+                            Row ${rowIndex + 1}
+                        </div>
+
+                        <!-- Row Cells -->
+                        ${Array.from({ length: numColumns }, (_, col) => {
+                            const value = Array.isArray(row) ? (row[col] || '') : '';
+                            return html`
+                                <div class="editable-cell" style="
+                                    background: var(--card-background-color);
+                                    padding: 8px;
+                                    min-height: 36px;
+                                    cursor: pointer;
+                                    border: 1px solid transparent;
+                                    transition: all 0.2s;
+                                    overflow: hidden;
+                                    text-overflow: ellipsis;
+                                    white-space: nowrap;
+                                "
+                                @click=${() => this._editCell(rowIndex, col, value)}
+                                @mouseenter=${(e) => e.target.style.borderColor = 'var(--primary-color)'}
+                                @mouseleave=${(e) => e.target.style.borderColor = 'transparent'}>
+                                    ${value || html`<span style="opacity: 0.3;">—</span>`}
+                                </div>
+                            `;
+                        })}
+                    `)}
+                </div>
+
+                <!-- Grid Controls -->
+                <div style="display: flex; gap: 8px; margin-top: 12px;">
+                    <ha-button @click=${this._addManualRow}>
+                        <ha-icon icon="mdi:table-row-plus-after" slot="icon"></ha-icon>
+                        Add Row
+                    </ha-button>
+                    <ha-button @click=${this._addManualColumn}>
+                        <ha-icon icon="mdi:table-column-plus-after" slot="icon"></ha-icon>
+                        Add Column
+                    </ha-button>
+                </div>
+
+                <!-- Inline Cell Editor (shown when cell clicked) -->
+                ${this._activeCellEdit ? this._renderCellEditor() : ''}
+
+                <!-- Inline Row Editor (shown when row header clicked) -->
+                ${this._activeRowEdit !== null ? this._renderRowEditor() : ''}
+
+                <!-- Inline Column Editor (shown when column header clicked) -->
+                ${this._activeColumnEdit !== null ? this._renderColumnEditor() : ''}
+            </lcards-form-section>
+
+            <lcards-form-section
+                header="Template Syntax Help"
+                description="Common template patterns you can use in cells"
+                ?expanded=${false}>
+
+                ${this._renderTemplateSyntaxExamples()}
+            </lcards-form-section>
+        `;
+    }
+
+    _renderDataTableModeEditor() {
+        const rows = this._workingConfig.rows || [];
+        const numColumns = this._gridColumns || 12;
+
+        return html`
+            <lcards-form-section
+                header="Data Table Editor"
+                description="Click cells to configure entity mappings and templates."
+                ?expanded=${true}>
+
+                <lcards-message type="info">
+                    <strong>Data Table Mode:</strong> Each cell can pull data from entities or datasources.
+                </lcards-message>
+
+                <!-- Editable Grid (same structure as Manual mode) -->
+                <div class="editable-grid" style="
+                    display: grid;
+                    grid-template-columns: auto repeat(${numColumns}, 1fr);
+                    gap: 2px;
+                    margin-top: 16px;
+                    background: var(--divider-color);
+                    padding: 2px;
+                    border-radius: 4px;
+                ">
+                    <!-- Column Headers -->
+                    <div class="grid-corner" style="
+                        background: var(--card-background-color);
+                        padding: 8px;
+                        font-weight: 600;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    "></div>
+                    ${Array.from({ length: numColumns }, (_, col) => html`
+                        <div class="column-header" style="
+                            background: var(--primary-color);
+                            color: white;
+                            padding: 8px;
+                            text-align: center;
+                            font-weight: 600;
+                            font-size: 11px;
+                            cursor: pointer;
+                        " @click=${() => this._editColumn(col)}>
+                            Col ${col + 1}
+                        </div>
+                    `)}
+
+                    <!-- Data Rows -->
+                    ${rows.map((row, rowIndex) => html`
+                        <!-- Row Header -->
+                        <div class="row-header" style="
+                            background: var(--primary-color);
+                            color: white;
+                            padding: 8px;
+                            text-align: center;
+                            font-weight: 600;
+                            font-size: 11px;
+                            cursor: pointer;
+                        " @click=${() => this._editRow(rowIndex)}>
+                            Row ${rowIndex + 1}
+                        </div>
+
+                        <!-- Row Cells -->
+                        ${Array.from({ length: numColumns }, (_, col) => {
+                            const value = Array.isArray(row) ? (row[col] || '') : '';
+                            return html`
+                                <div class="editable-cell" style="
+                                    background: var(--card-background-color);
+                                    padding: 8px;
+                                    min-height: 36px;
+                                    cursor: pointer;
+                                    border: 1px solid transparent;
+                                    transition: all 0.2s;
+                                    overflow: hidden;
+                                    text-overflow: ellipsis;
+                                    white-space: nowrap;
+                                "
+                                @click=${() => this._editCell(rowIndex, col, value)}
+                                @mouseenter=${(e) => e.target.style.borderColor = 'var(--primary-color)'}
+                                @mouseleave=${(e) => e.target.style.borderColor = 'transparent'}>
+                                    ${value || html`<span style="opacity: 0.3;">—</span>`}
+                                </div>
+                            `;
+                        })}
+                    `)}
+                </div>
+
+                <!-- Grid Controls -->
+                <div style="display: flex; gap: 8px; margin-top: 12px;">
+                    <ha-button @click=${this._addManualRow}>
+                        <ha-icon icon="mdi:table-row-plus-after" slot="icon"></ha-icon>
+                        Add Row
+                    </ha-button>
+                    <ha-button @click=${this._addManualColumn}>
+                        <ha-icon icon="mdi:table-column-plus-after" slot="icon"></ha-icon>
+                        Add Column
+                    </ha-button>
+                </div>
+
+                <!-- Inline Cell Editor (shown when cell clicked) -->
+                ${this._activeCellEdit ? this._renderCellEditor() : ''}
+
+                <!-- Inline Row Editor (shown when row header clicked) -->
+                ${this._activeRowEdit !== null ? this._renderRowEditor() : ''}
+
+                <!-- Inline Column Editor (shown when column header clicked) -->
+                ${this._activeColumnEdit !== null ? this._renderColumnEditor() : ''}
+            </lcards-form-section>
+
+            <lcards-form-section
+                header="Template Syntax Help"
+                description="Common template patterns for entity data"
+                ?expanded=${false}>
+
+                ${this._renderTemplateSyntaxExamples()}
+            </lcards-form-section>
+        `;
+    }
+
+    _renderDataTableModeConfig() {
+        const layout = this._workingConfig.layout || 'spreadsheet';
+
+        return html`
+            <lcards-form-section
+                header="Data Table Mode Settings"
+                description="Configure datasource-based grid"
+                ?expanded=${true}>
+
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{select: {mode: 'dropdown', options: [
+                        { value: 'spreadsheet', label: 'Spreadsheet (Standard Column-based)' },
+                        { value: 'timeline', label: 'Timeline (Historical Data)' }
+                    ]}}}
+                    .label=${'Layout Type'}
+                    .value=${layout}
+                    @value-changed=${(e) => this._handleLayoutChange(e.detail.value)}
+                    @closed=${(e) => e.stopPropagation()}>
+                </ha-selector>
+
+                <lcards-message type="info">
+                    ${layout === 'timeline'
+                        ? 'Each row represents one datasource with historical values'
+                        : 'Standard spreadsheet layout with column headers'}
+                </lcards-message>
+            </lcards-form-section>
+        `;
+    }
+
+    // ========================================
+    // GRID STYLES TAB (Main Tab - merged Configuration + Styling)
+    // ========================================
+
+    _renderGridStylesTab() {
+        const isDataTableMode = this._workingConfig.data_mode === 'data-table';
+        const layoutType = this._workingConfig.layout || 'spreadsheet';
+        const showHeaderStyles = isDataTableMode && layoutType === 'spreadsheet';
+
+        // Determine mode for hierarchy diagram
+        let hierarchyMode = 'all';
+        if (this._workingConfig.data_mode === 'manual') {
+            hierarchyMode = 'manual';
+        } else if (isDataTableMode) {
+            hierarchyMode = 'data-table';
+        }
+
+        return html`
+            <lcards-form-section
+                header="Style Hierarchy"
+                description="Understanding style precedence"
+                ?expanded=${true}>
+
+                <lcards-style-hierarchy-diagram
+                    .mode=${hierarchyMode}>
+                </lcards-style-hierarchy-diagram>
+            </lcards-form-section>
+
+            <lcards-form-section
+                header="Typography"
+                description="Font settings for all cells"
+                ?expanded=${true}>
+
+                <lcards-font-selector
+                    .hass=${this.hass}
+                    .value=${this._workingConfig.style?.font_family || ''}
+                    .showPreview=${true}
+                    .label=${'Font Family'}
+                    @value-changed=${(e) => this._updateConfig('style.font_family', e.detail.value)}>
+                </lcards-font-selector>
+
+                <lcards-grid-layout>
+                    <ha-textfield
+                        type="text"
+                        label="Font Size"
+                        .value=${this._workingConfig.style?.font_size || ''}
+                        @input=${(e) => this._updateConfig('style.font_size', e.target.value)}
+                        helper="e.g., '18px', '1.2rem'">
+                    </ha-textfield>
+
+                    <ha-textfield
+                        type="number"
+                        label="Font Weight"
+                        .value=${this._workingConfig.style?.font_weight || ''}
+                        @input=${(e) => this._updateConfig('style.font_weight', e.target.value)}
+                        helper="100-900">
+                    </ha-textfield>
+                </lcards-grid-layout>
+            </lcards-form-section>
+
+            <lcards-color-section
+                .editor=${this}
+                header="Colors"
+                description="Default colors for all cells"
+                .colorPaths=${[
+                    { path: 'style.color', label: 'Text Color', helper: 'Cell text color' },
+                    { path: 'style.background', label: 'Background Color', helper: 'Cell background' }
+                ]}
+                ?expanded=${true}
+                ?useColorPicker=${true}>
+            </lcards-color-section>
+
+            ${showHeaderStyles ? html`
+                <lcards-form-section
+                    header="Header Style"
+                    description="Column header specific styling (Data Table mode only)"
+                    ?expanded=${true}>
+
+                    <lcards-message type="info">
+                        These styles apply only to column headers in Data Table mode.
+                    </lcards-message>
+
+                    <lcards-grid-layout>
+                        <ha-textfield
+                            label="Font Size"
+                            .value=${this._workingConfig.header_style?.font_size || ''}
+                            @input=${(e) => this._updateConfig('header_style.font_size', e.target.value)}
+                            helper="e.g., '18px', '1.2rem'">
+                        </ha-textfield>
+
+                        <ha-textfield
+                            type="number"
+                            label="Font Weight"
+                            .value=${this._workingConfig.header_style?.font_weight || ''}
+                            @input=${(e) => this._updateConfig('header_style.font_weight', e.target.value)}
+                            helper="100-900">
+                        </ha-textfield>
+                    </lcards-grid-layout>
+
+                    <ha-selector
+                        .hass=${this.hass}
+                        .selector=${{select: {mode: 'dropdown', options: [
+                            { value: 'none', label: 'None' },
+                            { value: 'uppercase', label: 'UPPERCASE' },
+                            { value: 'lowercase', label: 'lowercase' },
+                            { value: 'capitalize', label: 'Capitalize Each Word' }
+                        ]}}}
+                        .label=${'Text Transform'}
+                        .value=${this._workingConfig.header_style?.text_transform || 'none'}
+                        @value-changed=${(e) => this._updateConfig('header_style.text_transform', e.detail.value)}
+                        @closed=${(e) => e.stopPropagation()}>
+                    </ha-selector>
+
+                    <lcards-color-section
+                        .editor=${this}
+                        header="Header Colors"
+                        description="Colors specific to column headers"
+                        .colorPaths=${[
+                            { path: 'header_style.color', label: 'Header Text Color', helper: 'Column header text' },
+                            { path: 'header_style.background', label: 'Header Background', helper: 'Column header background' }
+                        ]}
+                        ?expanded=${false}
+                        ?useColorPicker=${true}>
+                    </lcards-color-section>
+
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--divider-color);">
+                        <div style="font-weight: 500; margin-bottom: 8px;">Header Border Bottom</div>
+                        <lcards-grid-layout>
+                            <ha-textfield
+                                type="number"
+                                label="Width (px)"
+                                .value=${this._workingConfig.header_style?.border_bottom_width || 0}
+                                @input=${(e) => this._updateConfig('header_style.border_bottom_width', parseInt(e.target.value) || 0)}
+                                min="0"
+                                max="10"
+                                helper="Border below headers">
+                            </ha-textfield>
+
+                            <ha-textfield
+                                label="Color"
+                                .value=${this._workingConfig.header_style?.border_bottom_color || ''}
+                                @input=${(e) => this._updateConfig('header_style.border_bottom_color', e.target.value)}
+                                helper="Border color">
+                            </ha-textfield>
+                        </lcards-grid-layout>
+
+                        <ha-selector
+                            .hass=${this.hass}
+                            .selector=${{select: {mode: 'dropdown', options: [
+                                { value: 'solid', label: 'Solid' },
+                                { value: 'dashed', label: 'Dashed' },
+                                { value: 'dotted', label: 'Dotted' },
+                                { value: 'double', label: 'Double' }
+                            ]}}}
+                            .label=${'Border Style'}
+                            .value=${this._workingConfig.header_style?.border_bottom_style || 'solid'}
+                            @value-changed=${(e) => this._updateConfig('header_style.border_bottom_style', e.detail.value)}
+                            @closed=${(e) => e.stopPropagation()}>
+                        </ha-selector>
+                    </div>
+                </lcards-form-section>
+            ` : ''}
+
+            <lcards-form-section
+                header="Border Settings"
+                description="Cell border configuration"
+                ?expanded=${true}>
+
+                <lcards-grid-layout>
+                    <ha-textfield
+                        type="number"
+                        label="Border Width"
+                        .value=${this._workingConfig.style?.border_width || 0}
+                        @input=${(e) => this._updateConfig('style.border_width', parseInt(e.target.value) || 0)}
+                        helper="Border width in pixels">
+                    </ha-textfield>
+
+                    <ha-textfield
+                        label="Border Color"
+                        .value=${this._workingConfig.style?.border_color || ''}
+                        @input=${(e) => this._updateConfig('style.border_color', e.target.value)}
+                        helper="Border color">
+                    </ha-textfield>
+                </lcards-grid-layout>
+
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{select: {mode: 'dropdown', options: [
+                        { value: 'solid', label: 'Solid' },
+                        { value: 'dashed', label: 'Dashed' },
+                        { value: 'dotted', label: 'Dotted' },
+                        { value: 'double', label: 'Double' }
+                    ]}}}
+                    .label=${'Border Style'}
+                    .value=${this._workingConfig.style?.border_style || 'solid'}
+                    @value-changed=${(e) => this._updateConfig('style.border_style', e.detail.value)}
+                    @closed=${(e) => e.stopPropagation()}>
+                </ha-selector>
+            </lcards-form-section>
+        `;
+    }
+
+    // ========================================
+    // ANIMATION TAB (Main Tab - promoted from Advanced)
+    // ========================================
+
+    _renderAnimationTab() {
+        return html`
+            <lcards-form-section
+                header="Cascade Animation"
+                description="Background color cycling effect"
+                ?expanded=${true}>
+
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{select: {mode: 'dropdown', options: [
+                        { value: 'none', label: 'None' },
+                        { value: 'cascade', label: 'Cascade' }
+                    ]}}}
+                    .label=${'Animation Type'}
+                    .value=${this._workingConfig.animation?.type || 'none'}
+                    @value-changed=${(e) => this._updateConfig('animation.type', e.detail.value)}
+                    @closed=${(e) => e.stopPropagation()}>
+                </ha-selector>
+
+                ${this._workingConfig.animation?.type === 'cascade' ? html`
+                    <ha-selector
+                        .hass=${this.hass}
+                        .selector=${{select: {mode: 'dropdown', options: [
+                            { value: 'default', label: 'Default' },
+                            { value: 'niagara', label: 'Niagara' },
+                            { value: 'fast', label: 'Fast' },
+                            { value: 'frozen', label: 'Frozen' }
+                        ]}}}
+                        .label=${'Pattern'}
+                        .value=${this._workingConfig.animation?.pattern || 'default'}
+                        @value-changed=${(e) => this._updateConfig('animation.pattern', e.detail.value)}
+                        @closed=${(e) => e.stopPropagation()}>
+                    </ha-selector>
+
+                    <ha-textfield
+                        type="number"
+                        label="Speed Multiplier"
+                        .value=${this._workingConfig.animation?.speed_multiplier || 1.0}
+                        @input=${(e) => this._updateConfig('animation.speed_multiplier', parseFloat(e.target.value) || 1.0)}
+                        step="0.1"
+                        min="0.1"
+                        max="10"
+                        helper="Speed multiplier (1.0 = normal)">
+                    </ha-textfield>
+
+                    <lcards-color-section
+                        .editor=${this}
+                        header="Cascade Colors"
+                        description="3-color cycle for cascade effect"
+                        .colorPaths=${[
+                            {
+                                path: 'animation.colors.start',
+                                label: 'Start Color',
+                                helper: 'Starting color (75% dwell)'
+                            },
+                            {
+                                path: 'animation.colors.text',
+                                label: 'Middle Color',
+                                helper: 'Middle color (10% snap)'
+                            },
+                            {
+                                path: 'animation.colors.end',
+                                label: 'End Color',
+                                helper: 'Ending color (10% brief)'
+                            }
+                        ]}
+                        ?expanded=${true}
+                        ?useColorPicker=${true}>
+                    </lcards-color-section>
+                ` : ''}
+            </lcards-form-section>
+
+            <lcards-form-section
+                header="Change Detection"
+                description="Highlight cells on data changes"
+                ?expanded=${true}>
+
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{select: {mode: 'dropdown', options: [
+                        { value: 'none', label: 'None' },
+                        { value: 'pulse', label: 'Pulse' },
+                        { value: 'glow', label: 'Glow' },
+                        { value: 'flash', label: 'Flash' }
+                    ]}}}
+                    .label=${'Change Animation'}
+                    .value=${this._workingConfig.change_animation?.preset || 'none'}
+                    @value-changed=${(e) => this._updateConfig('change_animation.preset', e.detail.value)}
+                    @closed=${(e) => e.stopPropagation()}>
+                </ha-selector>
+
+                ${this._workingConfig.change_animation?.preset !== 'none' ? html`
+                    <ha-selector
+                        .hass=${this.hass}
+                        .selector=${{select: {mode: 'dropdown', options: [
+                            { value: 'cell', label: 'Cell' },
+                            { value: 'row', label: 'Row' },
+                            { value: 'column', label: 'Column' }
+                        ]}}}
+                        .label=${'Target Mode'}
+                        .value=${this._workingConfig.change_animation?.target_mode || 'cell'}
+                        @value-changed=${(e) => this._updateConfig('change_animation.target_mode', e.detail.value)}
+                        @closed=${(e) => e.stopPropagation()}>
+                    </ha-selector>
+                ` : ''}
+            </lcards-form-section>
+        `;
     }
 
     _renderDataTableModeConfig() {
@@ -1182,64 +1842,20 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
     }
 
     // ========================================
-    // ADVANCED TAB (3 sub-tabs)
+    // ADVANCED TAB (CSS Grid only)
     // ========================================
 
     _renderAdvancedTab() {
-        return html`
-            <!-- Sub-tabs for Advanced -->
-            <div class="sub-tabs">
-                <button
-                    class="sub-tab ${this._advancedSubTab === 'styling' ? 'active' : ''}"
-                    @click=${() => this._handleAdvancedSubTabChange('styling')}>
-                    Styling
-                </button>
-                <button
-                    class="sub-tab ${this._advancedSubTab === 'animation' ? 'active' : ''}"
-                    @click=${() => this._handleAdvancedSubTabChange('animation')}>
-                    Animation
-                </button>
-                <button
-                    class="sub-tab ${this._advancedSubTab === 'css-grid' ? 'active' : ''}"
-                    @click=${() => this._handleAdvancedSubTabChange('css-grid')}>
-                    CSS Grid
-                </button>
-            </div>
-
-            ${this._renderAdvancedSubTab()}
-        `;
+        return this._renderCssGridSubTab();
     }
 
-    _renderAdvancedSubTab() {
-        switch (this._advancedSubTab) {
-            case 'styling':
-                return this._renderStylingSubTab();
-            case 'animation':
-                return this._renderAnimationSubTab();
-            case 'css-grid':
-                return this._renderCssGridSubTab();
-            default:
-                return '';
-        }
-    }
+    // Old subtabs removed - Grid Styles is now a main tab, Animation is now a main tab
 
-    _renderStylingSubTab() {
-        const isDataTableMode = this._workingConfig.data_mode === 'data-table';
-        const layoutType = this._workingConfig.layout || 'spreadsheet';
-        const showHeaderStyles = isDataTableMode && layoutType === 'spreadsheet';
-
-        // Determine mode for hierarchy diagram
-        let hierarchyMode = 'all';
-        if (this._workingConfig.data_mode === 'manual') {
-            hierarchyMode = 'manual';
-        } else if (isDataTableMode) {
-            hierarchyMode = 'data-table';
-        }
-
+    _renderCssGridSubTab() {
         return html`
             <lcards-form-section
-                header="Style Hierarchy"
-                description="Understanding style precedence"
+                header="CSS Grid Expert Mode"
+                description="Advanced CSS Grid properties"
                 ?expanded=${true}>
 
                 <lcards-style-hierarchy-diagram
@@ -1531,16 +2147,6 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
         lcardsLog.debug('[DataGridStudioV4] Main tab changed to:', tab);
     }
 
-    _handleBasicSubTabChange(subTab) {
-        this._basicSubTab = subTab;
-        lcardsLog.debug('[DataGridStudioV4] Basic sub-tab changed to:', subTab);
-    }
-
-    _handleAdvancedSubTabChange(subTab) {
-        this._advancedSubTab = subTab;
-        lcardsLog.debug('[DataGridStudioV4] Advanced sub-tab changed to:', subTab);
-    }
-
     _handleModeChange(mode) {
         this._updateConfig('data_mode', mode);
 
@@ -1726,20 +2332,6 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
      * Toggle WYSIWYG edit mode
      * @private
      */
-    _toggleEditMode() {
-        lcardsLog.debug('[DataGridStudioV4] Toggle edit mode', {
-            before: this._isEditMode
-        });
-
-        this._isEditMode = !this._isEditMode;
-
-        lcardsLog.debug('[DataGridStudioV4] Toggle edit mode', {
-            after: this._isEditMode
-        });
-
-        this.requestUpdate();
-    }
-
     // ========================================
     // Config Management
     // ========================================
@@ -1873,34 +2465,17 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
         card.setConfig(cardConfig);
         card.hass = this.hass;
 
-        lcardsLog.debug('[DataGridStudioV4] Card config set, attaching listeners');
-
-        // Add WYSIWYG click handler if in edit mode
-        if (this._isEditMode) {
-            lcardsLog.info('[DataGridStudioV4] Attaching click handler for WYSIWYG');
-
-            // Try multiple approaches to catch clicks
-            card.addEventListener('click', this._handlePreviewClick.bind(this), true); // Capture phase
-            card.addEventListener('click', this._handlePreviewClick.bind(this)); // Bubble phase
-
-            card.style.cursor = 'pointer';
-        }
-
         // Add to container
         container.appendChild(card);
 
-        lcardsLog.debug('[DataGridStudioV4] Preview card updated', {
-            isEditMode: this._isEditMode,
-            editorMode: cardConfig.editorMode,
-            config: cardConfig
-        });
+        lcardsLog.debug('[DataGridStudioV4] Preview card updated');
     }
 
-    /**
-     * Handle clicks on preview card in WYSIWYG mode
-     * Detects cell/row/column and opens appropriate editor
-     */
-    _handlePreviewClick(event) {
+    // ========================================
+    // Row/Column Operations
+    // ========================================
+
+    _insertRowBefore(index) {
         lcardsLog.debug('[DataGridStudioV4] Click received', {
             isEditMode: this._isEditMode,
             dataMode: this._workingConfig.data_mode,
@@ -2675,6 +3250,362 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
         this._workingConfig.rows.splice(index, 1);
 
         lcardsLog.info('[DataGridStudioV4] Manual row deleted:', index);
+        this.requestUpdate();
+        this._schedulePreviewUpdate();
+    }
+
+    /**
+     * Add column in Manual mode
+     */
+    _addManualColumn() {
+        if (!this._workingConfig.rows) {
+            this._workingConfig.rows = [];
+        }
+
+        // Add empty cell to each row
+        this._workingConfig.rows.forEach(row => {
+            if (Array.isArray(row)) {
+                row.push('');
+            }
+        });
+
+        // Update grid columns count
+        this._gridColumns = (this._gridColumns || 12) + 1;
+        if (this._workingConfig.grid) {
+            this._workingConfig.grid['grid-template-columns'] = `repeat(${this._gridColumns}, 1fr)`;
+        }
+
+        lcardsLog.info('[DataGridStudioV4] Manual column added');
+        this.requestUpdate();
+        this._schedulePreviewUpdate();
+    }
+
+    /**
+     * Edit cell in Manual mode (inline editor)
+     */
+    _editCell(row, col, value) {
+        this._activeCellEdit = { row, col, value };
+        this._activeRowEdit = null;
+        this._activeColumnEdit = null;
+        lcardsLog.debug('[DataGridStudioV4] Edit cell:', { row, col, value });
+        this.requestUpdate();
+    }
+
+    /**
+     * Edit row in Manual mode
+     */
+    _editRow(rowIndex) {
+        this._activeRowEdit = rowIndex;
+        this._activeCellEdit = null;
+        this._activeColumnEdit = null;
+        lcardsLog.debug('[DataGridStudioV4] Edit row:', rowIndex);
+        this.requestUpdate();
+    }
+
+    /**
+     * Edit column in Manual mode
+     */
+    _editColumn(colIndex) {
+        this._activeColumnEdit = colIndex;
+        this._activeCellEdit = null;
+        this._activeRowEdit = null;
+        lcardsLog.debug('[DataGridStudioV4] Edit column:', colIndex);
+        this.requestUpdate();
+    }
+
+    /**
+     * Save cell edit
+     */
+    _saveCellEdit() {
+        if (!this._activeCellEdit) return;
+
+        const { row, col, value } = this._activeCellEdit;
+
+        // Ensure row exists
+        if (!this._workingConfig.rows[row]) {
+            this._workingConfig.rows[row] = [];
+        }
+
+        // Update cell value
+        this._workingConfig.rows[row][col] = value;
+
+        // Close editor
+        this._activeCellEdit = null;
+
+        lcardsLog.info('[DataGridStudioV4] Cell saved:', { row, col, value });
+        this.requestUpdate();
+        this._schedulePreviewUpdate();
+    }
+
+    /**
+     * Cancel cell edit
+     */
+    _cancelCellEdit() {
+        this._activeCellEdit = null;
+        this.requestUpdate();
+    }
+
+    /**
+     * Render inline cell editor
+     */
+    _renderCellEditor() {
+        const { row, col, value } = this._activeCellEdit;
+
+        return html`
+            <lcards-form-section
+                header="Edit Cell (Row ${row + 1}, Col ${col + 1})"
+                description="Enter static text or Home Assistant template"
+                ?expanded=${true}>
+
+                <ha-textfield
+                    label="Cell Value"
+                    .value=${value}
+                    @input=${(e) => {
+                        this._activeCellEdit.value = e.target.value;
+                        this.requestUpdate();
+                    }}
+                    @keydown=${(e) => {
+                        if (e.key === 'Enter') {
+                            this._saveCellEdit();
+                        } else if (e.key === 'Escape') {
+                            this._cancelCellEdit();
+                        }
+                    }}
+                    style="width: 100%;">
+                </ha-textfield>
+
+                <div style="display: flex; gap: 8px; margin-top: 12px;">
+                    <ha-button @click=${this._saveCellEdit}>
+                        <ha-icon icon="mdi:check" slot="icon"></ha-icon>
+                        Save
+                    </ha-button>
+                    <ha-button @click=${this._cancelCellEdit}>
+                        <ha-icon icon="mdi:close" slot="icon"></ha-icon>
+                        Cancel
+                    </ha-button>
+                </div>
+
+                <lcards-message type="info" style="margin-top: 12px;">
+                    <strong>Template Examples:</strong><br>
+                    • Static: <code>DECK 1</code><br>
+                    • Entity: <code>{{states('sensor.temperature')}}</code><br>
+                    • Formatted: <code>{{states('sensor.temp')|float|round(1)}}°C</code>
+                </lcards-message>
+            </lcards-form-section>
+        `;
+    }
+
+    /**
+     * Render inline row editor
+     */
+    _renderRowEditor() {
+        const rowIndex = this._activeRowEdit;
+        const row = this._workingConfig.rows[rowIndex];
+
+        return html`
+            <lcards-form-section
+                header="Row ${rowIndex + 1} Operations"
+                description="Bulk operations for this row"
+                ?expanded=${true}>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px;">
+                    <ha-button @click=${() => this._insertRowBefore(rowIndex)}>
+                        <ha-icon icon="mdi:table-row-plus-before" slot="icon"></ha-icon>
+                        Insert Before
+                    </ha-button>
+
+                    <ha-button @click=${() => this._insertRowAfter(rowIndex)}>
+                        <ha-icon icon="mdi:table-row-plus-after" slot="icon"></ha-icon>
+                        Insert After
+                    </ha-button>
+
+                    <ha-button @click=${() => this._moveRowUp(rowIndex)} .disabled=${rowIndex === 0}>
+                        <ha-icon icon="mdi:arrow-up-bold" slot="icon"></ha-icon>
+                        Move Up
+                    </ha-button>
+
+                    <ha-button @click=${() => this._moveRowDown(rowIndex)} .disabled=${rowIndex === this._workingConfig.rows.length - 1}>
+                        <ha-icon icon="mdi:arrow-down-bold" slot="icon"></ha-icon>
+                        Move Down
+                    </ha-button>
+
+                    <ha-button @click=${() => this._deleteManualRow(rowIndex)} style="--mdc-theme-primary: var(--error-color);">
+                        <ha-icon icon="mdi:delete" slot="icon"></ha-icon>
+                        Delete Row
+                    </ha-button>
+
+                    <ha-button @click=${() => { this._activeRowEdit = null; this.requestUpdate(); }}>
+                        <ha-icon icon="mdi:close" slot="icon"></ha-icon>
+                        Close
+                    </ha-button>
+                </div>
+            </lcards-form-section>
+        `;
+    }
+
+    /**
+     * Render inline column editor
+     */
+    _renderColumnEditor() {
+        const colIndex = this._activeColumnEdit;
+
+        return html`
+            <lcards-form-section
+                header="Column ${colIndex + 1} Operations"
+                description="Bulk operations for this column"
+                ?expanded=${true}>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px;">
+                    <ha-button @click=${() => this._insertColumnBefore(colIndex)}>
+                        <ha-icon icon="mdi:table-column-plus-before" slot="icon"></ha-icon>
+                        Insert Before
+                    </ha-button>
+
+                    <ha-button @click=${() => this._insertColumnAfter(colIndex)}>
+                        <ha-icon icon="mdi:table-column-plus-after" slot="icon"></ha-icon>
+                        Insert After
+                    </ha-button>
+
+                    <ha-button @click=${() => this._moveColumnLeft(colIndex)} .disabled=${colIndex === 0}>
+                        <ha-icon icon="mdi:arrow-left-bold" slot="icon"></ha-icon>
+                        Move Left
+                    </ha-button>
+
+                    <ha-button @click=${() => this._moveColumnRight(colIndex)} .disabled=${colIndex === this._gridColumns - 1}>
+                        <ha-icon icon="mdi:arrow-right-bold" slot="icon"></ha-icon>
+                        Move Right
+                    </ha-button>
+
+                    <ha-button @click=${() => this._deleteColumn(colIndex)} style="--mdc-theme-primary: var(--error-color);">
+                        <ha-icon icon="mdi:delete" slot="icon"></ha-icon>
+                        Delete Column
+                    </ha-button>
+
+                    <ha-button @click=${() => { this._activeColumnEdit = null; this.requestUpdate(); }}>
+                        <ha-icon icon="mdi:close" slot="icon"></ha-icon>
+                        Close
+                    </ha-button>
+                </div>
+            </lcards-form-section>
+        `;
+    }
+
+    // ========================================
+    // Row/Column Operations
+    // ========================================
+
+    _insertRowBefore(index) {
+        const emptyRow = Array(this._gridColumns).fill('');
+        this._workingConfig.rows.splice(index, 0, emptyRow);
+        this._activeRowEdit = null;
+        lcardsLog.info('[DataGridStudioV4] Row inserted before:', index);
+        this.requestUpdate();
+        this._schedulePreviewUpdate();
+    }
+
+    _insertRowAfter(index) {
+        const emptyRow = Array(this._gridColumns).fill('');
+        this._workingConfig.rows.splice(index + 1, 0, emptyRow);
+        this._activeRowEdit = null;
+        lcardsLog.info('[DataGridStudioV4] Row inserted after:', index);
+        this.requestUpdate();
+        this._schedulePreviewUpdate();
+    }
+
+    _moveRowUp(index) {
+        if (index === 0) return;
+        const row = this._workingConfig.rows.splice(index, 1)[0];
+        this._workingConfig.rows.splice(index - 1, 0, row);
+        this._activeRowEdit = index - 1;
+        lcardsLog.info('[DataGridStudioV4] Row moved up:', index);
+        this.requestUpdate();
+        this._schedulePreviewUpdate();
+    }
+
+    _moveRowDown(index) {
+        if (index === this._workingConfig.rows.length - 1) return;
+        const row = this._workingConfig.rows.splice(index, 1)[0];
+        this._workingConfig.rows.splice(index + 1, 0, row);
+        this._activeRowEdit = index + 1;
+        lcardsLog.info('[DataGridStudioV4] Row moved down:', index);
+        this.requestUpdate();
+        this._schedulePreviewUpdate();
+    }
+
+    _insertColumnBefore(index) {
+        this._workingConfig.rows.forEach(row => {
+            if (Array.isArray(row)) {
+                row.splice(index, 0, '');
+            }
+        });
+        this._gridColumns++;
+        if (this._workingConfig.grid) {
+            this._workingConfig.grid['grid-template-columns'] = `repeat(${this._gridColumns}, 1fr)`;
+        }
+        this._activeColumnEdit = null;
+        lcardsLog.info('[DataGridStudioV4] Column inserted before:', index);
+        this.requestUpdate();
+        this._schedulePreviewUpdate();
+    }
+
+    _insertColumnAfter(index) {
+        this._workingConfig.rows.forEach(row => {
+            if (Array.isArray(row)) {
+                row.splice(index + 1, 0, '');
+            }
+        });
+        this._gridColumns++;
+        if (this._workingConfig.grid) {
+            this._workingConfig.grid['grid-template-columns'] = `repeat(${this._gridColumns}, 1fr)`;
+        }
+        this._activeColumnEdit = null;
+        lcardsLog.info('[DataGridStudioV4] Column inserted after:', index);
+        this.requestUpdate();
+        this._schedulePreviewUpdate();
+    }
+
+    _moveColumnLeft(index) {
+        if (index === 0) return;
+        this._workingConfig.rows.forEach(row => {
+            if (Array.isArray(row)) {
+                const temp = row[index];
+                row[index] = row[index - 1];
+                row[index - 1] = temp;
+            }
+        });
+        this._activeColumnEdit = index - 1;
+        lcardsLog.info('[DataGridStudioV4] Column moved left:', index);
+        this.requestUpdate();
+        this._schedulePreviewUpdate();
+    }
+
+    _moveColumnRight(index) {
+        if (index === this._gridColumns - 1) return;
+        this._workingConfig.rows.forEach(row => {
+            if (Array.isArray(row)) {
+                const temp = row[index];
+                row[index] = row[index + 1];
+                row[index + 1] = temp;
+            }
+        });
+        this._activeColumnEdit = index + 1;
+        lcardsLog.info('[DataGridStudioV4] Column moved right:', index);
+        this.requestUpdate();
+        this._schedulePreviewUpdate();
+    }
+
+    _deleteColumn(index) {
+        this._workingConfig.rows.forEach(row => {
+            if (Array.isArray(row)) {
+                row.splice(index, 1);
+            }
+        });
+        this._gridColumns--;
+        if (this._workingConfig.grid) {
+            this._workingConfig.grid['grid-template-columns'] = `repeat(${this._gridColumns}, 1fr)`;
+        }
+        this._activeColumnEdit = null;
+        lcardsLog.info('[DataGridStudioV4] Column deleted:', index);
         this.requestUpdate();
         this._schedulePreviewUpdate();
     }
