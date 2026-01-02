@@ -34,18 +34,20 @@ export const dataGridSchema = {
 
         "data_mode": {
             "type": "string",
-            "enum": ["random", "template", "datasource"],
-            "default": "random",
+            "enum": ["decorative", "data", "random", "template", "datasource"],
+            "default": "decorative",
             "x-ui-hints": {
                 "label": "Data Mode",
-                "helper": "Choose data input mode: random (decorative), template (manual), datasource (real-time)",
+                "helper": "Choose data input mode: decorative (random) or data (real entities/sensors). Legacy: random→decorative, template/datasource→data",
                 "selector": {
                     "select": {
                         "mode": "dropdown",
                         "options": [
-                            { "value": "random", "label": "Random (Decorative)" },
-                            { "value": "template", "label": "Template (Manual Grid)" },
-                            { "value": "datasource", "label": "DataSource (Real-Time)" }
+                            { "value": "decorative", "label": "Decorative (Random Data)" },
+                            { "value": "data", "label": "Data (Real Entities/Sensors)" },
+                            { "value": "random", "label": "⚠️ Random (deprecated, use decorative)" },
+                            { "value": "template", "label": "⚠️ Template (deprecated, use data)" },
+                            { "value": "datasource", "label": "⚠️ DataSource (deprecated, use data)" }
                         ]
                     }
                 }
@@ -63,7 +65,7 @@ export const dataGridSchema = {
             "x-ui-hints": {
                 "label": "Data Format",
                 "helper": "Format for randomly generated data",
-                "showIf": { "data_mode": "random" },
+                "showIf": { "data_mode": ["decorative", "random"] },
                 "selector": {
                     "select": {
                         "mode": "dropdown",
@@ -86,7 +88,7 @@ export const dataGridSchema = {
             "x-ui-hints": {
                 "label": "Refresh Interval",
                 "helper": "Auto-refresh interval in milliseconds (0 = disabled)",
-                "showIf": { "data_mode": "random" },
+                "showIf": { "data_mode": ["decorative", "random"] },
                 "selector": {
                     "number": {
                         "mode": "box",
@@ -100,83 +102,65 @@ export const dataGridSchema = {
         },
 
         // ====================================================================
-        // TEMPLATE MODE PROPERTIES
+        // DATA MODE PROPERTIES
         // ====================================================================
+
+        "layout": {
+            "type": "string",
+            "enum": ["grid", "timeline"],
+            "default": "grid",
+            "x-ui-hints": {
+                "label": "Layout Type",
+                "helper": "Grid: static structure with auto-detected cells. Timeline: flowing historical data from single source",
+                "showIf": { "data_mode": ["data", "template", "datasource"] },
+                "selector": {
+                    "select": {
+                        "mode": "dropdown",
+                        "options": [
+                            { "value": "grid", "label": "Grid (Static Structure)" },
+                            { "value": "timeline", "label": "Timeline (Flowing History)" }
+                        ]
+                    }
+                }
+            }
+        },
 
         "rows": {
             "type": "array",
             "x-ui-hints": {
                 "label": "Grid Rows",
-                "helper": "Row definitions (template mode: array of arrays; datasource mode: row configs)",
-                "showIf": { "data_mode": ["template", "datasource"] }
+                "helper": "Row definitions. For grid layout: arrays with auto-detected cell types (static text, entity IDs, or {{templates}}). For timeline layout: not used (source at root level)",
+                "showIf": { "data_mode": ["data", "template", "datasource"], "layout": ["grid", undefined] }
             },
             "items": {
                 "oneOf": [
                     {
                         "type": "array",
-                        "title": "Template Row",
+                        "title": "Simple Row",
+                        "description": "Array of cell values (auto-detects static text, entity IDs, or templates)",
                         "items": {
                             "type": ["string", "number"]
                         }
                     },
                     {
                         "type": "object",
-                        "title": "DataSource Row",
+                        "title": "Styled Row",
+                        "description": "Row with values and optional style overrides",
                         "properties": {
-                            "sources": {
+                            "values": {
                                 "type": "array",
                                 "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "type": {
-                                            "type": "string",
-                                            "enum": ["static", "datasource"]
-                                        },
-                                        "column": {
-                                            "type": "number",
-                                            "minimum": 0
-                                        },
-                                        "value": {
-                                            "type": ["string", "number"]
-                                        },
-                                        "source": {
-                                            "type": "string"
-                                        },
-                                        "format": {
-                                            "type": "string"
-                                        }
-                                    }
+                                    "type": ["string", "number"]
                                 }
                             },
                             "style": {
-                                "type": "object"
+                                "type": "object",
+                                "description": "Row-level style overrides"
                             }
-                        }
+                        },
+                        "required": ["values"]
                     }
                 ]
-            }
-        },
-
-        // ====================================================================
-        // DATASOURCE MODE PROPERTIES
-        // ====================================================================
-
-        "layout": {
-            "type": "string",
-            "enum": ["timeline", "spreadsheet"],
-            "x-ui-hints": {
-                "label": "Layout Type",
-                "helper": "Choose layout: timeline (flowing data) or spreadsheet (structured grid)",
-                "showIf": { "data_mode": "datasource" },
-                "selector": {
-                    "select": {
-                        "mode": "dropdown",
-                        "options": [
-                            { "value": "timeline", "label": "Timeline (Flowing Data)" },
-                            { "value": "spreadsheet", "label": "Spreadsheet (Structured Grid)" }
-                        ]
-                    }
-                }
             }
         },
 
@@ -186,7 +170,7 @@ export const dataGridSchema = {
                 "label": "Data Source",
                 "helper": "Entity ID or DataSource name for timeline mode",
                 "showIf": { 
-                    "data_mode": "datasource",
+                    "data_mode": ["data", "datasource"],
                     "layout": "timeline"
                 },
                 "selector": {
@@ -205,7 +189,7 @@ export const dataGridSchema = {
                 "label": "History Hours",
                 "helper": "Hours of historical data to preload",
                 "showIf": { 
-                    "data_mode": "datasource",
+                    "data_mode": ["data", "datasource"],
                     "layout": "timeline"
                 },
                 "selector": {
@@ -227,113 +211,12 @@ export const dataGridSchema = {
                 "label": "Value Template",
                 "helper": "Format template for displayed values (e.g., '{value}°C')",
                 "showIf": { 
-                    "data_mode": "datasource",
+                    "data_mode": ["data", "datasource"],
                     "layout": "timeline"
                 },
                 "selector": {
                     "text": {
                         "placeholder": "{value}°C"
-                    }
-                }
-            }
-        },
-
-        "columns": {
-            "type": "array",
-            "x-ui-hints": {
-                "label": "Column Definitions",
-                "helper": "Define columns for spreadsheet layout",
-                "showIf": { 
-                    "data_mode": "datasource",
-                    "layout": "spreadsheet"
-                }
-            },
-            "items": {
-                "type": "object",
-                "properties": {
-                    "header": {
-                        "type": "string",
-                        "x-ui-hints": {
-                            "label": "Header Text",
-                            "selector": {
-                                "text": {}
-                            }
-                        }
-                    },
-                    "width": {
-                        "type": "number",
-                        "minimum": 0,
-                        "x-ui-hints": {
-                            "label": "Width",
-                            "selector": {
-                                "number": {
-                                    "mode": "box",
-                                    "min": 0,
-                                    "unit_of_measurement": "px"
-                                }
-                            }
-                        }
-                    },
-                    "align": {
-                        "type": "string",
-                        "enum": ["left", "center", "right"],
-                        "default": "left",
-                        "x-ui-hints": {
-                            "label": "Alignment",
-                            "selector": {
-                                "select": {
-                                    "mode": "dropdown",
-                                    "options": [
-                                        { "value": "left", "label": "Left" },
-                                        { "value": "center", "label": "Center" },
-                                        { "value": "right", "label": "Right" }
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "style": {
-                        "type": "object",
-                        "x-ui-hints": {
-                            "label": "Column Style"
-                        }
-                    }
-                }
-            }
-        },
-
-        "data_sources": {
-            "type": "object",
-            "x-ui-hints": {
-                "label": "Data Sources",
-                "helper": "Named DataSource definitions (shared across all LCARdS)"
-            },
-            "additionalProperties": {
-                "type": "object",
-                "properties": {
-                    "entity": {
-                        "type": "string",
-                        "format": "entity",
-                        "x-ui-hints": {
-                            "label": "Entity",
-                            "selector": {
-                                "entity": {}
-                            }
-                        }
-                    },
-                    "windowSeconds": {
-                        "type": "number",
-                        "minimum": 1,
-                        "x-ui-hints": {
-                            "label": "Window (seconds)",
-                            "selector": {
-                                "number": {
-                                    "mode": "box",
-                                    "min": 1,
-                                    "unit_of_measurement": "s"
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -758,140 +641,6 @@ export const dataGridSchema = {
                                     { "value": "ridge", "label": "Ridge" },
                                     { "value": "inset", "label": "Inset" },
                                     { "value": "outset", "label": "Outset" }
-                                ]
-                            }
-                        }
-                    }
-                }
-            }
-        },
-
-        "header_style": {
-            "type": "object",
-            "x-ui-hints": {
-                "label": "Header Style",
-                "helper": "Styling for header row (spreadsheet mode only)",
-                "showIf": { 
-                    "data_mode": "datasource",
-                    "layout": "spreadsheet"
-                }
-            },
-            "properties": {
-                "background": {
-                    "type": "string",
-                    "format": "color",
-                    "x-ui-hints": {
-                        "label": "Background Color",
-                        "selector": {
-                            "ui_color": {}
-                        }
-                    }
-                },
-                "color": {
-                    "type": "string",
-                    "format": "color",
-                    "x-ui-hints": {
-                        "label": "Text Color",
-                        "selector": {
-                            "ui_color": {}
-                        }
-                    }
-                },
-                "font_size": {
-                    "type": "number",
-                    "x-ui-hints": {
-                        "label": "Font Size",
-                        "selector": {
-                            "number": {
-                                "mode": "box",
-                                "min": 8,
-                                "max": 48,
-                                "unit_of_measurement": "px"
-                            }
-                        }
-                    }
-                },
-                "font_weight": {
-                    "type": "number",
-                    "x-ui-hints": {
-                        "label": "Font Weight",
-                        "selector": {
-                            "number": {
-                                "mode": "box",
-                                "min": 100,
-                                "max": 900,
-                                "step": 100
-                            }
-                        }
-                    }
-                },
-                "text_transform": {
-                    "type": "string",
-                    "enum": ["none", "uppercase", "lowercase", "capitalize"],
-                    "default": "uppercase",
-                    "x-ui-hints": {
-                        "label": "Text Transform",
-                        "selector": {
-                            "select": {
-                                "mode": "dropdown",
-                                "options": [
-                                    { "value": "none", "label": "None" },
-                                    { "value": "uppercase", "label": "Uppercase" },
-                                    { "value": "lowercase", "label": "Lowercase" },
-                                    { "value": "capitalize", "label": "Capitalize" }
-                                ]
-                            }
-                        }
-                    }
-                },
-                "padding": {
-                    "type": "string",
-                    "x-ui-hints": {
-                        "label": "Padding",
-                        "selector": {
-                            "text": {
-                                "placeholder": "12px 8px"
-                            }
-                        }
-                    }
-                },
-                "border_bottom_width": {
-                    "type": "number",
-                    "x-ui-hints": {
-                        "label": "Bottom Border Width",
-                        "selector": {
-                            "number": {
-                                "mode": "box",
-                                "min": 0,
-                                "max": 10,
-                                "unit_of_measurement": "px"
-                            }
-                        }
-                    }
-                },
-                "border_bottom_color": {
-                    "type": "string",
-                    "format": "color",
-                    "x-ui-hints": {
-                        "label": "Bottom Border Color",
-                        "selector": {
-                            "ui_color": {}
-                        }
-                    }
-                },
-                "border_bottom_style": {
-                    "type": "string",
-                    "enum": ["solid", "dashed", "dotted"],
-                    "default": "solid",
-                    "x-ui-hints": {
-                        "label": "Bottom Border Style",
-                        "selector": {
-                            "select": {
-                                "mode": "dropdown",
-                                "options": [
-                                    { "value": "solid", "label": "Solid" },
-                                    { "value": "dashed", "label": "Dashed" },
-                                    { "value": "dotted", "label": "Dotted" }
                                 ]
                             }
                         }
