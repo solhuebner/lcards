@@ -38,7 +38,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
     static get properties() {
         return {
             hass: { type: Object },
-            config: { type: Object },
+            _initialConfig: { type: Object }, // Store initial config here
             _workingConfig: { type: Object, state: true },
             _activeTab: { type: String, state: true },
             _basicSubTab: { type: String, state: true },
@@ -51,7 +51,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
     constructor() {
         super();
         this.hass = null;
-        this.config = null;
+        this._initialConfig = null;
         this._workingConfig = {};
         this._activeTab = 'basic';
         this._basicSubTab = 'mode';
@@ -69,10 +69,29 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
         this._activeOverlay = null;
     }
 
+    /**
+     * Getter for config property that returns _workingConfig
+     * This is needed for lcards-color-section compatibility which expects editor.config
+     */
+    get config() {
+        return this._workingConfig;
+    }
+
+    /**
+     * Setter for config property - stores initial config
+     */
+    set config(value) {
+        this._initialConfig = value;
+        // Initialize _workingConfig if not already set
+        if (!this._workingConfig || Object.keys(this._workingConfig).length === 0) {
+            this._workingConfig = JSON.parse(JSON.stringify(value || {}));
+        }
+    }
+
     connectedCallback() {
         super.connectedCallback();
         // Deep clone initial config
-        this._workingConfig = JSON.parse(JSON.stringify(this.config || {}));
+        this._workingConfig = JSON.parse(JSON.stringify(this._initialConfig || {}));
 
         // Ensure data_mode is set - use new simplified naming
         if (!this._workingConfig.data_mode) {
@@ -614,13 +633,109 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                     Click cells in the preview panel (WYSIWYG mode) to edit their content.
                     You can use static values or Home Assistant templates.
                 </lcards-message>
+            </lcards-form-section>
 
-                <ha-button @click=${this._openTemplateHelper}>
-                    <ha-icon icon="mdi:code-braces" slot="icon"></ha-icon>
-                    Template Syntax Helper
-                </ha-button>
+            <lcards-form-section
+                header="Template Syntax Help"
+                description="Common template patterns you can use in cells"
+                ?expanded=${false}>
+
+                ${this._renderTemplateSyntaxExamples()}
             </lcards-form-section>
         `;
+    }
+
+    /**
+     * Render template syntax examples with copy buttons
+     */
+    _renderTemplateSyntaxExamples() {
+        const examples = [
+            {
+                title: 'Static Text',
+                description: 'Display fixed text',
+                code: "'DECK 1'",
+                explanation: 'Wrap text in single quotes for static display'
+            },
+            {
+                title: 'Entity State',
+                description: 'Display current state of an entity',
+                code: "{{states('sensor.temperature')}}",
+                explanation: 'Shows the current value of the sensor'
+            },
+            {
+                title: 'Entity Attribute',
+                description: 'Access specific attribute of an entity',
+                code: "{{state_attr('sensor.temperature', 'unit_of_measurement')}}",
+                explanation: 'Access attributes like unit, friendly_name, etc.'
+            },
+            {
+                title: 'Conditional Display',
+                description: 'Show different text based on condition',
+                code: "{% if states('sensor.temperature')|float > 22 %}WARM{% else %}COOL{% endif %}",
+                explanation: 'Use if/else logic to conditionally display text'
+            },
+            {
+                title: 'Formatted Number',
+                description: 'Format numeric values',
+                code: "{{states('sensor.temperature')|float|round(1)}}°C",
+                explanation: 'Round to 1 decimal place and add unit symbol'
+            },
+            {
+                title: 'Time/Date Display',
+                description: 'Show current time or date',
+                code: "{{as_timestamp(now())|timestamp_custom('%H:%M')}}",
+                explanation: 'Format: %H:%M for 24-hour, %I:%M %p for 12-hour'
+            },
+            {
+                title: 'Multiple States Combined',
+                description: 'Combine multiple entity states',
+                code: "{{states('sensor.temp')}}°C / {{states('sensor.humidity')}}%",
+                explanation: 'Show temperature and humidity in one cell'
+            }
+        ];
+
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                ${examples.map((example, index) => html`
+                    <div style="border: 1px solid var(--divider-color); border-radius: 8px; padding: 12px; background: var(--card-background-color);">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                            <div>
+                                <div style="font-weight: 600; color: var(--primary-text-color); margin-bottom: 4px;">
+                                    ${example.title}
+                                </div>
+                                <div style="font-size: 12px; color: var(--secondary-text-color); margin-bottom: 8px;">
+                                    ${example.description}
+                                </div>
+                            </div>
+                            <ha-icon-button
+                                @click=${() => this._copyToClipboard(example.code)}
+                                title="Copy to clipboard">
+                                <ha-icon icon="mdi:content-copy"></ha-icon>
+                            </ha-icon-button>
+                        </div>
+                        <div style="background: var(--primary-background-color); border-radius: 4px; padding: 10px; font-family: 'Courier New', monospace; font-size: 13px; overflow-x: auto; color: var(--primary-color); border: 1px solid var(--divider-color);">
+                            ${example.code}
+                        </div>
+                        <div style="font-size: 11px; color: var(--secondary-text-color); margin-top: 6px; font-style: italic;">
+                            ${example.explanation}
+                        </div>
+                    </div>
+                `)}
+            </div>
+        `;
+    }
+
+    /**
+     * Copy text to clipboard
+     */
+    _copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            // Show a brief success message
+            lcardsLog.info('[DataGridStudioV4] Copied to clipboard:', text);
+            // TODO: Could show a toast notification here
+        }).catch(err => {
+            lcardsLog.error('[DataGridStudioV4] Failed to copy:', err);
+        });
     }
 
     _renderDataTableModeConfig() {
@@ -986,29 +1101,6 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
         this._updatePreviewCard();
     }
 
-    _openTemplateHelper() {
-        // TODO: Implement template helper dialog
-        lcardsLog.info('[DataGridStudioV4] Template helper not yet implemented');
-        
-        // For now, show a simple alert with examples
-        alert(`Template Syntax Examples:
-
-Entity State:
-{{states('sensor.temperature')}}
-
-Entity Attribute:
-{{state_attr('light.kitchen', 'brightness')}}
-
-Current Time:
-{{now().strftime('%H:%M')}}
-
-Conditional:
-{% if is_state('light.kitchen', 'on') %}ON{% else %}OFF{% endif %}
-
-Math:
-{{(states('sensor.temp') | float * 1.8) + 32}}
-`);
-    }
 
     // ========================================
     // Config Management
@@ -1058,6 +1150,26 @@ Math:
         }
 
         return obj;
+    }
+
+    /**
+     * Set config value at a given path (for lcards-color-section compatibility)
+     * This is an alias for _updateConfig to match the interface expected by lcards-color-section
+     * @param {string} path - Dot-notation path
+     * @param {*} value - New value
+     */
+    _setConfigValue(path, value) {
+        this._updateConfig(path, value);
+    }
+
+    /**
+     * Public updateConfig method (for lcards-color-section compatibility)
+     * This is an alias for _updateConfig
+     * @param {string} path - Dot-notation path
+     * @param {*} value - New value
+     */
+    updateConfig(path, value) {
+        this._updateConfig(path, value);
     }
 
     /**
@@ -1119,38 +1231,56 @@ Math:
             return;
         }
 
-        // Find clicked cell element
-        let target = event.target;
-        while (target && !target.classList.contains('grid-cell') && target.parentElement) {
-            target = target.parentElement;
+        lcardsLog.debug('[DataGridStudioV4] Preview clicked', event.target);
+
+        // The card renders in shadow DOM, so we need to get the composed path
+        const path = event.composedPath();
+        
+        // Find the first grid-cell element in the path
+        let cellElement = null;
+        for (const element of path) {
+            if (element.classList && element.classList.contains('grid-cell')) {
+                cellElement = element;
+                break;
+            }
         }
 
-        if (!target || !target.classList.contains('grid-cell')) {
+        if (!cellElement) {
             lcardsLog.debug('[DataGridStudioV4] Click not on a grid cell');
             return;
         }
 
-        // Get cell position from data attributes (if card supports it)
-        // For now, we'll implement basic detection
-        const cellIndex = Array.from(target.parentElement.children).indexOf(target);
-        const rowElement = target.parentElement;
-        const rowIndex = Array.from(rowElement.parentElement.children).indexOf(rowElement);
+        // Get cell position from data attributes
+        const row = parseInt(cellElement.dataset.row);
+        const col = parseInt(cellElement.dataset.col);
 
-        lcardsLog.debug('[DataGridStudioV4] Cell clicked:', { row: rowIndex, col: cellIndex });
+        // Check if this is a header cell (has data-col but no data-row, or row is undefined)
+        const isHeader = cellElement.classList.contains('grid-header');
 
-        // Determine what to open based on modifier keys
-        if (event.shiftKey) {
+        lcardsLog.debug('[DataGridStudioV4] Cell clicked:', { 
+            row, 
+            col, 
+            isHeader,
+            element: cellElement 
+        });
+
+        // Determine what to open based on click type
+        if (isHeader) {
+            // Header cell = column editor
+            this._openColumnEditor(col, event);
+        } else if (event.shiftKey) {
             // Shift + click = row editor
-            this._openRowEditor(rowIndex, event);
+            this._openRowEditor(row, event);
         } else if (event.ctrlKey || event.metaKey) {
             // Ctrl/Cmd + click = column editor
-            this._openColumnEditor(cellIndex, event);
+            this._openColumnEditor(col, event);
         } else {
             // Normal click = cell editor
-            this._openCellEditor(rowIndex, cellIndex, event);
+            this._openCellEditor(row, col, event);
         }
 
         event.stopPropagation();
+        event.preventDefault();
     }
 
     /**
