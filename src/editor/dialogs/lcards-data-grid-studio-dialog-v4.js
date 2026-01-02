@@ -1,16 +1,15 @@
 /**
  * LCARdS Data Grid Configuration Studio V4
  *
- * Complete redesign with WYSIWYG editing and simplified mode architecture:
- * - Decorative Mode: Auto-generated random data (simplest)
- * - Manual Mode: User-defined cell values with WYSIWYG editing
- * - Data Table Mode: Structured data from entities/datasources
+ * Simplified 2-mode architecture:
+ * - Decorative Mode: Auto-generated random data for LCARS ambiance
+ * - Data Mode: Real entity/sensor data with grid or timeline layouts
  *
  * Key Features:
- * - Click cells/rows/columns in preview to edit
- * - Progressive disclosure (Basic/Advanced tabs)
- * - Visual hierarchy diagrams
- * - No z-index issues (proper overlay management)
+ * - Live preview with configurable grid dimensions
+ * - Grid layout: Flexible spreadsheet-style data display
+ * - Timeline layout: Single-source historical data visualization
+ * - Visual hierarchy diagrams for styling
  *
  * @element lcards-data-grid-studio-dialog-v4
  * @fires config-changed - When configuration is saved (detail: { config })
@@ -116,49 +115,32 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
         // Deep clone initial config
         this._workingConfig = JSON.parse(JSON.stringify(this._initialConfig || {}));
 
-        // Ensure data_mode is set - use new simplified naming
+        // Ensure data_mode is set
         if (!this._workingConfig.data_mode) {
             this._workingConfig.data_mode = 'decorative';
-        } else {
-            // Migrate old mode names to new schema
-            const modeMap = {
-                'random': 'decorative',
-                'template': 'data',
-                'manual': 'data',
-                'datasource': 'data',
-                'data-table': 'data'
-            };
-            if (modeMap[this._workingConfig.data_mode]) {
-                this._workingConfig.data_mode = modeMap[this._workingConfig.data_mode];
-            }
         }
 
-        // Initialize Data mode (grid layout) with empty row structure
-        if (this._workingConfig.data_mode === 'data' && (!this._workingConfig.layout || this._workingConfig.layout === 'grid')) {
-            // Parse grid config to get column count
-            this._parseGridConfigForUI();
-            const numColumns = this._gridColumns || 12;
+        // Ensure grid defaults
+        if (!this._workingConfig.grid) {
+            this._workingConfig.grid = {
+                'grid-template-rows': 'repeat(8, auto)',
+                'grid-template-columns': 'repeat(12, 1fr)',
+                gap: '8px'
+            };
+        }
 
+        // Parse CSS Grid strings to numbers for UI sliders
+        this._parseGridConfigForUI();
+
+        // Initialize Data mode (grid layout) with sample rows matching grid dimensions
+        if (this._workingConfig.data_mode === 'data' && (!this._workingConfig.layout || this._workingConfig.layout === 'grid')) {
             if (!this._workingConfig.rows || this._workingConfig.rows.length === 0) {
-                this._workingConfig.rows = [
-                    ['Label', 'Value', 'Status'],
-                    ['CPU', 'sensor.cpu_usage', 'OK']
-                ];
+                this._initializeGridRows();
             }
         }
 
         // Initialize Data mode timeline layout
         if (this._workingConfig.data_mode === 'data' && this._workingConfig.layout === 'timeline') {
-            // Migrate old layout names
-            const layoutMap = {
-                'column-based': 'grid',
-                'spreadsheet': 'grid',
-                'row-timeline': 'timeline'
-            };
-            if (layoutMap[this._workingConfig.layout]) {
-                this._workingConfig.layout = layoutMap[this._workingConfig.layout];
-            }
-
             // Initialize source for timeline layout
             if (!this._workingConfig.source) {
                 this._workingConfig.source = '';
@@ -174,18 +156,6 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 delete this._workingConfig.rows;
             }
         }
-
-        // Ensure grid defaults
-        if (!this._workingConfig.grid) {
-            this._workingConfig.grid = {
-                'grid-template-rows': 'repeat(8, auto)',
-                'grid-template-columns': 'repeat(12, 1fr)',
-                gap: '8px'
-            };
-        }
-
-        // Parse CSS Grid strings to numbers for UI sliders
-        this._parseGridConfigForUI();
 
         lcardsLog.debug('[DataGridStudioV4] Opened with config:', this._workingConfig);
 
@@ -345,10 +315,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 position: relative;
             }
 
-            /* Gridlines styling via CSS variable */
-            .preview-container lcards-data-grid {
-                --editor-cell-outline: var(--preview-grid-outline, none);
-            }
+            /* Gridlines are injected into card shadow DOM via _injectGridlineStyles() */
 
             /* Make grid cells visible in preview */
             .preview-container lcards-data-grid {
@@ -686,8 +653,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             </div>
 
             <div
-                class="preview-container"
-                style="${this._showGridLines ? '--preview-grid-outline: 1px dashed rgba(var(--rgb-primary-color, 3, 169, 244), 0.3);' : '--preview-grid-outline: none;'}"
+                class="preview-container ${this._showGridLines ? 'show-gridlines' : ''}"
                 ${ref(this._previewRef)}>
                 <!-- Card will be inserted here by _updatePreviewCard() -->
             </div>
@@ -768,13 +734,15 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                     @closed=${(e) => e.stopPropagation()}>
                 </ha-selector>
 
-                <ha-textfield
-                    type="number"
-                    label="Refresh Interval (ms)"
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{number: {min: 0, mode: 'box'}}}\
                     .value=${this._workingConfig.refresh_interval || 0}
-                    @input=${(e) => this._updateConfig('refresh_interval', parseInt(e.target.value) || 0)}
-                    helper="Auto-refresh interval (0 = disabled)">
-                </ha-textfield>
+                    .label=${'Refresh Interval (ms)'}
+                    .helper=${'Auto-refresh interval (0 = disabled)'}
+                    @value-changed=${(e) => this._updateConfig('refresh_interval', parseInt(e.detail.value) || 0)}
+                    @closed=${(e) => e.stopPropagation()}>
+                </ha-selector>
             </lcards-form-section>
         `;
     }
@@ -1006,36 +974,36 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 ?expanded=${true}>
 
                 <lcards-grid-layout>
-                    <ha-textfield
-                        type="number"
-                        label="Rows"
+                    <ha-selector
+                        .hass=${this.hass}
+                        .selector=${{number: {min: 1, max: 50, mode: 'box'}}}
                         .value=${this._gridRows}
-                        @input=${(e) => this._handleGridRowsChange(parseInt(e.target.value) || 1)}
-                        min="1"
-                        max="50"
-                        helper="Number of rows">
-                    </ha-textfield>
+                        .label=${'Rows'}
+                        .helper=${'Number of rows'}
+                        @value-changed=${(e) => this._handleGridRowsChange(parseInt(e.detail.value) || 1)}
+                        @closed=${(e) => e.stopPropagation()}>
+                    </ha-selector>
 
-                    <ha-textfield
-                        type="number"
-                        label="Columns"
+                    <ha-selector
+                        .hass=${this.hass}
+                        .selector=${{number: {min: 1, max: 50, mode: 'box'}}}
                         .value=${this._gridColumns}
-                        @input=${(e) => this._handleGridColumnsChange(parseInt(e.target.value) || 1)}
-                        min="1"
-                        max="50"
-                        helper="Number of columns">
-                    </ha-textfield>
+                        .label=${'Columns'}
+                        .helper=${'Number of columns'}
+                        @value-changed=${(e) => this._handleGridColumnsChange(parseInt(e.detail.value) || 1)}
+                        @closed=${(e) => e.stopPropagation()}>
+                    </ha-selector>
                 </lcards-grid-layout>
 
-                <ha-textfield
-                    type="number"
-                    label="Gap (px)"
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{number: {min: 0, max: 50, mode: 'box'}}}
                     .value=${this._gridGap}
-                    @input=${(e) => this._handleGridGapChange(parseInt(e.target.value) || 0)}
-                    min="0"
-                    max="50"
-                    helper="Space between cells">
-                </ha-textfield>
+                    .label=${'Gap (px)'}
+                    .helper=${'Space between cells'}
+                    @value-changed=${(e) => this._handleGridGapChange(parseInt(e.detail.value) || 0)}
+                    @closed=${(e) => e.stopPropagation()}>
+                </ha-selector>
             </lcards-form-section>
 
             ${dataMode === 'decorative' ? this._renderDecorativeModeConfig() : ''}
@@ -1330,56 +1298,104 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
     }
 
     _renderTimelineDataEditor() {
-        const rows = this._workingConfig.rows || [];
+        const sourceType = this._workingConfig.source_type || 'entity';
 
         return html`
             <lcards-form-section
-                header="Timeline Data Editor"
-                description="Configure datasources for historical timeline display"
+                header="Timeline Configuration"
+                description="Configure single data source for historical timeline display"
                 ?expanded=${true}>
 
                 <lcards-message type="info">
-                    <strong>Timeline Mode:</strong> Each row displays one entity/datasource with historical values.
-                    Configure datasources below - columns will auto-populate with historical data.
+                    <strong>Timeline Mode:</strong> Displays historical values from a single entity or datasource.
+                    The grid columns auto-populate with historical data points.
                 </lcards-message>
 
-                ${rows.length > 0 ? html`
-                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px;">
-                        ${rows.map((row, index) => {
-                            const entityId = typeof row === 'object' ? row.entity_id : (Array.isArray(row) ? row[0] : '');
-                            const label = typeof row === 'object' ? row.label : `Row ${index + 1}`;
-                            return html`
-                                <div style="display: flex; align-items: center; gap: 8px; padding: 12px; background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 4px;">
-                                    <div style="flex: 1;">
-                                        <div style="font-weight: 500; margin-bottom: 4px;">${label || `Row ${index + 1}`}</div>
-                                        <div style="font-size: 12px; color: var(--secondary-text-color);">${entityId || 'No entity selected'}</div>
-                                    </div>
-                                    <ha-icon-button
-                                        @click=${() => this._editTimelineRow(index)}
-                                        title="Edit row datasource">
-                                        <ha-icon icon="mdi:pencil"></ha-icon>
-                                    </ha-icon-button>
-                                    <ha-icon-button
-                                        @click=${() => this._deleteTimelineRow(index)}
-                                        title="Delete row">
-                                        <ha-icon icon="mdi:delete"></ha-icon>
-                                    </ha-icon-button>
-                                </div>
-                            `;
-                        })}
-                    </div>
-                ` : html`
-                    <lcards-message type="warning" style="margin-top: 16px;">
-                        No timeline rows configured. Click "Add Row" to add datasources for historical display.
-                    </lcards-message>
-                `}
+                <!-- Source Type Selector -->
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{select: {mode: 'dropdown', options: [
+                        { value: 'entity', label: 'Entity (from Home Assistant)' },
+                        { value: 'datasource', label: 'DataSource (from LCARdS)' }
+                    ]}}}
+                    .label=${'Source Type'}
+                    .value=${sourceType}
+                    @value-changed=${(e) => this._updateConfig('source_type', e.detail.value)}
+                    @closed=${(e) => e.stopPropagation()}>
+                </ha-selector>
 
-                <ha-button @click=${this._addTimelineRow} style="margin-top: 16px;" disabled>
-                    <ha-icon icon="mdi:table-row-plus-after" slot="icon"></ha-icon>
-                    Add Timeline Row (Timeline limited to 1 row)
-                </ha-button>
+                <!-- Entity Picker (shown when source_type is 'entity') -->
+                ${sourceType === 'entity' ? html`
+                    <ha-selector
+                        .hass=${this.hass}
+                        .selector=${{entity: {}}}
+                        .value=${this._workingConfig.source || ''}
+                        .label=${'Entity'}
+                        @value-changed=${(e) => this._updateConfig('source', e.detail.value)}
+                        @closed=${(e) => e.stopPropagation()}>
+                    </ha-selector>
+                ` : ''}
 
-                ${this._activeTimelineRowEdit !== null ? this._renderTimelineRowEditor() : ''}
+                <!-- DataSource Input (shown when source_type is 'datasource') -->
+                ${sourceType === 'datasource' ? html`
+                    <ha-selector
+                        .hass=${this.hass}
+                        .selector=${{text: {}}}
+                        .value=${this._workingConfig.source || ''}
+                        .label=${'DataSource ID'}
+                        .helper=${'Enter the DataSource ID from your configuration'}
+                        @value-changed=${(e) => this._updateConfig('source', e.detail.value)}
+                        @closed=${(e) => e.stopPropagation()}>
+                    </ha-selector>
+                ` : ''}
+
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{number: {min: 1, max: 168, mode: 'box'}}}
+                    .value=${this._workingConfig.history_hours || 24}
+                    .label=${'History Hours'}
+                    .helper=${'Number of hours of historical data to display'}
+                    @value-changed=${(e) => this._updateConfig('history_hours', parseInt(e.detail.value) || 24)}
+                    @closed=${(e) => e.stopPropagation()}>
+                </ha-selector>
+
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{number: {min: 3, max: 50, mode: 'box'}}}
+                    .value=${this._workingConfig.data_points || 12}
+                    .label=${'Data Points'}
+                    .helper=${'Number of columns (data points) to display'}
+                    @value-changed=${(e) => this._updateConfig('data_points', parseInt(e.detail.value) || 12)}
+                    @closed=${(e) => e.stopPropagation()}>
+                </ha-selector>
+
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{text: {multiline: false}}}
+                    .value=${this._workingConfig.value_template || '{value}'}
+                    .label=${'Value Template'}
+                    .helper=${'Template for formatting displayed values (use {value} for raw value)'}
+                    @value-changed=${(e) => this._updateConfig('value_template', e.detail.value)}
+                    @closed=${(e) => e.stopPropagation()}>
+                </ha-selector>
+
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{select: {mode: 'dropdown', options: [
+                        { value: 'avg', label: 'Average' },
+                        { value: 'min', label: 'Minimum' },
+                        { value: 'max', label: 'Maximum' },
+                        { value: 'last', label: 'Last Value' }
+                    ]}}}
+                    .label=${'Aggregation Method'}
+                    .value=${this._workingConfig.aggregation || 'avg'}
+                    @value-changed=${(e) => this._updateConfig('aggregation', e.detail.value)}
+                    @closed=${(e) => e.stopPropagation()}>
+                </ha-selector>
+
+                <lcards-message type="info" style="margin-top: 12px;">
+                    Timeline will fetch historical data from the ${sourceType} and display it across ${this._workingConfig.data_points || 12} columns.
+                </lcards-message>
             </lcards-form-section>
         `;
     }
@@ -1454,53 +1470,11 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
         `;
     }
 
+    /**
+     * Empty placeholder - timeline config is rendered in _renderTimelineDataEditor()
+     */
     _renderTimelineConfig() {
-        return html`
-            <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--divider-color);">
-                <div style="font-weight: 500; margin-bottom: 8px;">Timeline Settings</div>
-
-                <ha-textfield
-                    type="number"
-                    label="History Hours"
-                    .value=${this._workingConfig.history_hours || 24}
-                    @input=${(e) => this._updateConfig('history_hours', parseInt(e.target.value) || 24)}
-                    helper="Number of hours of history to display"
-                    min="1"
-                    max="168"
-                    style="margin-bottom: 8px;">
-                </ha-textfield>
-
-                <ha-textfield
-                    type="number"
-                    label="Data Points"
-                    .value=${this._workingConfig.data_points || 12}
-                    @input=${(e) => this._updateConfig('data_points', parseInt(e.target.value) || 12)}
-                    helper="Number of columns (data points) to display"
-                    min="3"
-                    max="50"
-                    style="margin-bottom: 8px;">
-                </ha-textfield>
-
-                <ha-selector
-                    .hass=${this.hass}
-                    .selector=${{select: {mode: 'dropdown', options: [
-                        { value: 'avg', label: 'Average' },
-                        { value: 'min', label: 'Minimum' },
-                        { value: 'max', label: 'Maximum' },
-                        { value: 'last', label: 'Last Value' }
-                    ]}}}
-                    .label=${'Aggregation Method'}
-                    .value=${this._workingConfig.aggregation || 'avg'}
-                    @value-changed=${(e) => this._updateConfig('aggregation', e.detail.value)}
-                    @closed=${(e) => e.stopPropagation()}>
-                </ha-selector>
-
-                <lcards-message type="info" style="margin-top: 8px;">
-                    Timeline mode will automatically fetch historical data from configured datasources.
-                    Each row represents one entity's historical values across the specified time period.
-                </lcards-message>
-            </div>
-        `;
+        return '';
     }
 
     // ========================================
@@ -1535,22 +1509,13 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
     }
 
     _renderStyleHierarchySubTab() {
-        // Determine mode for hierarchy diagram
-        let hierarchyMode = 'all';
-        if (this._workingConfig.data_mode === 'manual') {
-            hierarchyMode = 'manual';
-        } else if (this._workingConfig.data_mode === 'data-table') {
-            hierarchyMode = 'data-table';
-        }
-
         return html`
             <lcards-form-section
                 header="Style Hierarchy"
                 description="Understanding style precedence"
                 ?expanded=${true}>
 
-                <lcards-style-hierarchy-diagram
-                    .mode=${hierarchyMode}>
+                <lcards-style-hierarchy-diagram>
                 </lcards-style-hierarchy-diagram>
             </lcards-form-section>
         `;
@@ -2299,36 +2264,9 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
     _handleModeChange(mode) {
         this._updateConfig('data_mode', mode);
 
-        // Initialize mode-specific config
-        if (mode === 'manual') {
-            // Initialize with one empty row matching grid columns for manual mode
-            const numColumns = this._gridColumns || 12;
-            if (!this._workingConfig.rows || this._workingConfig.rows.length === 0) {
-                this._workingConfig.rows = [Array(numColumns).fill('')];
-            }
-        } else if (mode === 'data-table') {
-            // Initialize data table with spreadsheet layout
-            if (!this._workingConfig.layout) {
-                this._workingConfig.layout = 'spreadsheet';
-            }
-
-            // Initialize columns/rows for spreadsheet
-            if (this._workingConfig.layout === 'spreadsheet') {
-                if (!this._workingConfig.columns || this._workingConfig.columns.length === 0) {
-                    this._workingConfig.columns = [
-                        { header: 'Column 1', width: 100, align: 'left' }
-                    ];
-                }
-                if (!this._workingConfig.rows || this._workingConfig.rows.length === 0) {
-                    this._workingConfig.rows = [
-                        {
-                            sources: [
-                                { type: 'static', column: 0, value: '' }
-                            ]
-                        }
-                    ];
-                }
-            }
+        // Initialize data mode with sample rows if needed
+        if (mode === 'data' && (!this._workingConfig.rows || this._workingConfig.rows.length === 0)) {
+            this._initializeGridRows();
         }
 
         lcardsLog.debug('[DataGridStudioV4] Mode changed to:', mode);
@@ -2340,6 +2278,8 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
         e?.stopPropagation();
         this._showGridLines = !this._showGridLines;
         this.requestUpdate();
+        // Need to update preview to inject/remove gridline styles from shadow DOM
+        this._updatePreviewCard();
         lcardsLog.debug('[DataGridStudioV4] Toggled gridlines:', this._showGridLines);
     }
 
@@ -2347,7 +2287,8 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
         e?.stopPropagation();
         this._showAnimations = !this._showAnimations;
         this.requestUpdate();
-        this._schedulePreviewUpdate();
+        // Immediately update preview to add/remove animation config
+        this._updatePreviewCard();
         lcardsLog.debug('[DataGridStudioV4] Toggled animations:', this._showAnimations);
     }
 
@@ -2398,6 +2339,39 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
     }
 
     /**
+     * Initialize grid rows array matching current grid dimensions
+     * @private
+     */
+    _initializeGridRows() {
+        const numRows = this._gridRows || 8;
+        const numCols = this._gridColumns || 12;
+
+        this._workingConfig.rows = [];
+
+        // Create sample rows with appropriate number of columns
+        for (let r = 0; r < numRows; r++) {
+            const row = [];
+            for (let c = 0; c < numCols; c++) {
+                // Sample data for first two rows
+                if (r === 0) {
+                    row.push(c === 0 ? 'Label' : (c === 1 ? 'Value' : ''));
+                } else if (r === 1) {
+                    row.push(c === 0 ? 'CPU' : (c === 1 ? 'sensor.cpu_usage' : ''));
+                } else {
+                    row.push('');
+                }
+            }
+            this._workingConfig.rows.push(row);
+        }
+
+        lcardsLog.debug('[DataGridStudioV4] Initialized grid rows:', {
+            rows: numRows,
+            cols: numCols,
+            rowsArray: this._workingConfig.rows
+        });
+    }
+
+    /**
      * Parse CSS Grid strings back to numbers for UI sliders
      * @private
      */
@@ -2442,7 +2416,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
     }
 
     /**
-     * Handle grid rows change - generates CSS Grid string
+     * Handle grid rows change - generates CSS Grid string and syncs rows array
      * @param {number} value - Number of rows
      * @private
      */
@@ -2454,11 +2428,26 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
         // Store human-readable value for UI binding
         this._gridRows = value;
 
-        lcardsLog.debug('[DataGridStudioV4] Grid rows changed:', { value, cssValue });
+        // Sync rows array for data mode
+        if (this._workingConfig.data_mode === 'data' && this._workingConfig.rows) {
+            const currentRows = this._workingConfig.rows.length;
+            if (value > currentRows) {
+                // Add empty rows
+                for (let i = currentRows; i < value; i++) {
+                    const emptyRow = Array(this._gridColumns).fill('');
+                    this._workingConfig.rows.push(emptyRow);
+                }
+            } else if (value < currentRows) {
+                // Remove excess rows
+                this._workingConfig.rows.splice(value);
+            }
+        }
+
+        lcardsLog.debug('[DataGridStudioV4] Grid rows changed:', { value, cssValue, rowsLength: this._workingConfig.rows?.length });
     }
 
     /**
-     * Handle grid columns change - generates CSS Grid string
+     * Handle grid columns change - generates CSS Grid string and syncs columns in rows
      * @param {number} value - Number of columns
      * @private
      */
@@ -2470,7 +2459,25 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
         // Store human-readable value for UI binding
         this._gridColumns = value;
 
-        lcardsLog.debug('[DataGridStudioV4] Grid columns changed:', { value, cssValue });
+        // Sync columns in all rows for data mode
+        if (this._workingConfig.data_mode === 'data' && this._workingConfig.rows) {
+            this._workingConfig.rows = this._workingConfig.rows.map(row => {
+                if (!Array.isArray(row)) return row;
+
+                const currentCols = row.length;
+                if (value > currentCols) {
+                    // Add empty cells
+                    return [...row, ...Array(value - currentCols).fill('')];
+                } else if (value < currentCols) {
+                    // Remove excess cells
+                    return row.slice(0, value);
+                } else {
+                    return row;
+                }
+            });
+        }
+
+        lcardsLog.debug('[DataGridStudioV4] Grid columns changed:', { value, cssValue, firstRowLength: this._workingConfig.rows?.[0]?.length });
     }
 
     /**
@@ -2602,30 +2609,6 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             delete cardConfig.animation;
         }
 
-        // Add editorMode flag if in edit mode
-        if (this._isEditMode) {
-            cardConfig.editorMode = true;
-        }
-
-        // Ensure style config exists for preview visibility
-        if (!cardConfig.style) {
-            cardConfig.style = {};
-        }
-
-        // Add default colors and padding for visibility in editor
-        if (!cardConfig.style.color) {
-            cardConfig.style.color = '#99ccff'; // LCARS blue
-        }
-        if (!cardConfig.style.background) {
-            cardConfig.style.background = 'transparent';
-        }
-        // Override padding for editor visibility
-        cardConfig.style.padding = '4px 8px';
-        // Add border for visibility
-        cardConfig.style.border_width = 1;
-        cardConfig.style.border_style = 'solid';
-        cardConfig.style.border_color = 'rgba(153, 204, 255, 0.3)';
-
         lcardsLog.debug('[DataGridStudioV4] Setting card config:', cardConfig);
 
         card.setConfig(cardConfig);
@@ -2634,7 +2617,45 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
         // Add to container
         container.appendChild(card);
 
+        // Inject gridline styles into card's shadow DOM if enabled
+        if (this._showGridLines) {
+            this._injectGridlineStyles(card);
+        }
+
         lcardsLog.debug('[DataGridStudioV4] Preview card updated');
+    }
+
+    /**
+     * Inject gridline styles into card's shadow DOM
+     */
+    _injectGridlineStyles(card) {
+        // Wait for card to render
+        requestAnimationFrame(() => {
+            const shadowRoot = card.shadowRoot;
+            if (!shadowRoot) {
+                lcardsLog.warn('[DataGridStudioV4] Card has no shadow root');
+                return;
+            }
+
+            // Check if style already injected
+            const existingStyle = shadowRoot.querySelector('#editor-gridlines-style');
+            if (existingStyle) {
+                return;
+            }
+
+            // Create style element
+            const style = document.createElement('style');
+            style.id = 'editor-gridlines-style';
+            style.textContent = `
+                .grid-cell {
+                    outline: 2px dashed rgba(var(--rgb-primary-color, 3, 169, 244), 0.6) !important;
+                    outline-offset: -1px;
+                }
+            `;
+
+            shadowRoot.appendChild(style);
+            lcardsLog.debug('[DataGridStudioV4] Gridline styles injected into shadow DOM');
+        });
     }
 
     // ========================================
@@ -3059,68 +3080,12 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
     }
 
     /**
-     * Convert v4 config to card-compatible config
-     * Maps new mode names back to old names for card compatibility
+     * Convert editor config to card-compatible config
+     * Simply returns a deep copy - no migration/conversion needed
      */
     _convertConfigForCard(config) {
-        const converted = { ...config };
-
-        // Map mode names back for card compatibility
-        const modeMap = {
-            'decorative': 'random',
-            'manual': 'template',
-            'data-table': 'datasource'
-        };
-
-        if (modeMap[converted.data_mode]) {
-            converted.data_mode = modeMap[converted.data_mode];
-        }
-
-        // Disable animations in preview for cleaner editing experience
-        if (converted.animation) {
-            delete converted.animation;
-        }
-
-        // Convert Data Table structure if needed
-        if (config.data_mode === 'data-table') {
-            const layout = config.layout || 'spreadsheet';
-
-            if (layout === 'spreadsheet' && config.columns && config.rows) {
-                // Convert spreadsheet structure to card-compatible format
-                // For preview, we need to convert the sources structure to flat arrays
-                const flatRows = [];
-
-                // Add header row
-                flatRows.push(config.columns.map(col => col.header || ''));
-
-                // Convert data rows
-                config.rows.forEach(row => {
-                    if (row.sources && Array.isArray(row.sources)) {
-                        // Extract values from sources
-                        const flatRow = row.sources.map(source => {
-                            if (source.type === 'static') {
-                                return source.value || '';
-                            } else if (source.type === 'entity') {
-                                return source.entity_id || '';
-                            } else if (source.type === 'datasource') {
-                                return source.datasource_id || '';
-                            }
-                            return '';
-                        });
-                        flatRows.push(flatRow);
-                    }
-                });
-
-                converted.rows = flatRows;
-
-                // Set data_mode to template for preview
-                converted.data_mode = 'template';
-
-                lcardsLog.debug('[DataGridStudioV4] Converted data-table to flat rows:', flatRows);
-            }
-        }
-
-        return converted;
+        // Deep copy config
+        return JSON.parse(JSON.stringify(config));
     }
 
     /**
@@ -3145,68 +3110,20 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             }
         }
 
-        // Manual mode validation - only validate if not in edit mode
-        if (this._workingConfig.data_mode === 'manual' && !this._isEditMode) {
-            const rows = this._workingConfig.rows || [];
+        // Data mode validation
+        if (this._workingConfig.data_mode === 'data') {
+            const layout = this._workingConfig.layout || 'grid';
 
-            if (rows.length === 0) {
-                errors.push('Manual mode: At least one row is required');
-            }
-        }
-
-        // Data Table mode validation - skip if in edit mode and config is still being built
-        if (this._workingConfig.data_mode === 'data-table') {
-            const layout = this._workingConfig.layout || 'spreadsheet';
-
-            if (layout === 'spreadsheet') {
-                // Spreadsheet layout validation
-                const columns = this._workingConfig.columns || [];
+            if (layout === 'grid') {
+                // Grid layout validation
                 const rows = this._workingConfig.rows || [];
-
-                // Only validate if not in edit mode
-                if (!this._isEditMode) {
-                    if (columns.length === 0) {
-                        errors.push('Data Table (spreadsheet): At least one column is required');
-                    }
-
-                    if (rows.length === 0) {
-                        errors.push('Data Table (spreadsheet): At least one row is required');
-                    }
-
-                    // Validate that all rows have cells for all columns
-                    rows.forEach((row, rowIndex) => {
-                        if (!row.sources || row.sources.length < columns.length) {
-                            errors.push(`Data Table (spreadsheet): Row ${rowIndex + 1} is missing cells for all columns`);
-                        }
-                    });
-
-                    // Validate column headers
-                    columns.forEach((col, colIndex) => {
-                        if (!col.header || col.header.trim() === '') {
-                            errors.push(`Data Table (spreadsheet): Column ${colIndex + 1} is missing a header`);
-                        }
-                    });
+                if (rows.length === 0) {
+                    errors.push('Data mode (grid layout): At least one row is required');
                 }
             } else if (layout === 'timeline') {
-                // Timeline validation
-                const rows = this._workingConfig.rows || [];
-
-                // Only validate if not in edit mode
-                if (!this._isEditMode && rows.length === 0) {
-                    errors.push('Data Table (timeline): At least one row is required');
-                }
-
-                // Validate that all rows have valid entity/datasource
-                if (!this._isEditMode) {
-                    rows.forEach((row, rowIndex) => {
-                        if (!row.source || row.source.trim() === '') {
-                            errors.push(`Data Table (timeline): Row ${rowIndex + 1} is missing a datasource/entity`);
-                        }
-
-                        if (!row.history_hours || row.history_hours < 1 || row.history_hours > 24) {
-                            errors.push(`Data Table (timeline): Row ${rowIndex + 1} history hours must be between 1 and 24`);
-                        }
-                    });
+                // Timeline layout validation
+                if (!this._workingConfig.source || this._workingConfig.source.trim() === '') {
+                    errors.push('Data mode (timeline layout): Source is required');
                 }
             }
         }
