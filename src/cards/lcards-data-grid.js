@@ -1,17 +1,24 @@
 /**
  * LCARdS Data Grid Card
  *
- * A flexible grid visualization card for LCARdS that supports three data input modes:
- * 1. Random (decorative) - Generates random data for cascade visual effect
- * 2. Template (manual grid) - Static or entity-based grid using templates
- * 3. DataSource (real-time) - Dynamic data from DataSourceManager
+ * A flexible grid visualization card for LCARdS that supports two data modes:
+ * 1. Decorative - Generates random data for LCARS aesthetic
+ * 2. Data - Real entity/sensor data with two layouts:
+ *    - Grid: Static structure with auto-detected cell types
+ *    - Timeline: Flowing historical data from single source
  *
  * Features:
  * - CSS Grid layout (native browser optimization)
  * - Cascade animations (row-by-row color cycling with authentic LCARS timing)
- * - Change detection with highlight animations (cell/row/column targeting)
+ * - Change detection with highlight animations
+ * - Hierarchical styling system (grid → row → cell)
  * - Theme token integration
  * - Responsive auto-sizing
+ *
+ * Cell Type Auto-Detection (Grid Layout):
+ * - Static text: 'Label' or 'CPU'
+ * - Entity reference: sensor.temperature (auto-subscribes)
+ * - Template: '{{states.sensor.temp.state}}°C' (Jinja2)
  *
  * ============================================================================
  * ANIMATION CONFIGURATION
@@ -92,34 +99,36 @@
  * DATA MODES
  * ============================================================================
  *
- * @example Random/Decorative Mode
+ * @example Decorative Mode (Auto-Generated Data)
  * ```yaml
  * type: custom:lcards-data-grid
- * data_mode: random
- * format: mixed  # 'digit' | 'float' | 'alpha' | 'mixed'
+ * data_mode: decorative
+ * format: mixed  # 'digit' | 'float' | 'alpha' | 'hex' | 'mixed'
  * grid:
- *   rows: 8
- *   columns: 12
- *   gap: 8
+ *   grid-template-rows: repeat(8, auto)
+ *   grid-template-columns: repeat(12, 1fr)
+ *   gap: 8px
  * ```
  *
- * @example Template Mode
+ * @example Data Mode - Grid Layout (Auto-Detected Cells)
  * ```yaml
  * type: custom:lcards-data-grid
- * data_mode: template
+ * data_mode: data
+ * layout: grid  # default
  * rows:
- *   - ['Living Room', '{{states.sensor.living_temp.state}}°C', '{{states.sensor.living_humidity.state}}%']
- *   - ['Bedroom', '{{states.sensor.bedroom_temp.state}}°C', '{{states.sensor.bedroom_humidity.state}}%']
+ *   - ['System', 'Value', 'Status']
+ *   - ['CPU', sensor.cpu_usage, '{{states.sensor.cpu_usage.state|float > 80 and "HIGH" or "OK"}}']
+ *   - ['Memory', sensor.memory_usage, 'OK']
  * ```
  *
- * @example DataSource Mode (Timeline)
+ * @example Data Mode - Timeline Layout
  * ```yaml
  * type: custom:lcards-data-grid
- * data_mode: datasource
+ * data_mode: data
  * layout: timeline
- * source: sensor_temp_history
- * grid:
- *   columns: 12
+ * source: sensor.temperature
+ * history_hours: 2
+ * value_template: '{value}°C'
  * ```
  *
  * @see {@link https://github.com/snootched/LCARdS} for full documentation
@@ -253,10 +262,9 @@ export class LCARdSDataGrid extends LCARdSCard {
     this._gridData = [];
     this._containerSize = { width: 200, height: 200 };
     this._dataSubscriptions = [];
-    this._templateEntities = [];
+    this._trackedEntities = [];  // Entities to track for updates (used in grid layout)
     this._previousGridData = null;
     this._error = null;
-    this._columnConfig = [];
     this._rowConfig = [];
     this._isInitialized = false;
     this._styleCache = new Map(); // Style cache for performance
@@ -319,16 +327,16 @@ export class LCARdSDataGrid extends LCARdSCard {
    * @protected
    */
   _handleHassUpdate(newHass, oldHass) {
-    // Check if any tracked template entities changed
-    if (this._templateEntities.length > 0) {
-      const hasChanges = this._templateEntities.some(entityId => {
+    // Check if any tracked entities changed (for grid layout)
+    if (this._trackedEntities && this._trackedEntities.length > 0) {
+      const hasChanges = this._trackedEntities.some(entityId => {
         const oldState = oldHass?.states?.[entityId]?.state;
         const newState = newHass?.states?.[entityId]?.state;
         return oldState !== newState;
       });
 
       if (hasChanges) {
-        this._processTemplateGrid();
+        this._reprocessGridData();
       }
     }
   }
@@ -350,24 +358,24 @@ export class LCARdSDataGrid extends LCARdSCard {
    * @private
    */
   async _initializeDataMode() {
-    const dataMode = this.config.data_mode || 'random';
+    const dataMode = this.config.data_mode || 'decorative';
 
     lcardsLog.debug(`[LCARdSDataGrid] Initializing data mode: ${dataMode}`);
 
     try {
       switch (dataMode) {
-        case 'random':
+        case 'decorative':
+        case 'random':  // Legacy support
           this._initializeRandomMode();
           break;
-        case 'template':
-          await this._initializeTemplateMode();
-          break;
-        case 'datasource':
-          await this._initializeDataSourceMode();
+        case 'data':
+        case 'template':  // Legacy support
+        case 'datasource':  // Legacy support
+          await this._initializeDataLayoutMode();
           break;
         default:
-          lcardsLog.warn(`[LCARdSDataGrid] Unknown data_mode: ${dataMode}, falling back to random`);
-          this._initializeRandomMode();
+          lcardsLog.error(`[LCARdSDataGrid] Unknown data_mode: ${dataMode}`);
+          this._error = `Unknown data mode: ${dataMode}`;
       }
     } catch (error) {
       lcardsLog.error('[LCARdSDataGrid] Data mode initialization failed:', error);
@@ -375,6 +383,22 @@ export class LCARdSDataGrid extends LCARdSCard {
     }
 
     this.requestUpdate();
+  }
+
+  /**
+   * Initialize data layout mode (grid or timeline)
+   * @private
+   */
+  async _initializeDataLayoutMode() {
+    const layout = this.config.layout || 'grid';
+
+    lcardsLog.debug(`[LCARdSDataGrid] Data mode with layout: ${layout}`);
+
+    if (layout === 'timeline') {
+      await this._initializeTimelineLayout();
+    } else {
+      await this._initializeGridLayout();
+    }
   }
 
   // ============================================================================
@@ -571,26 +595,27 @@ export class LCARdSDataGrid extends LCARdSCard {
   }
 
   // ============================================================================
-  // MODE 2: TEMPLATE (MANUAL GRID)
+  // MODE 2: DATA - GRID LAYOUT
   // ============================================================================
 
   /**
-   * Initialize template mode
+   * Initialize grid layout (static structure with entity/template cells)
+   * Replaces both template mode and datasource spreadsheet mode
    * @private
    */
-  async _initializeTemplateMode() {
+  async _initializeGridLayout() {
     const rows = this.config.rows;
 
     if (!Array.isArray(rows) || rows.length === 0) {
-      lcardsLog.error('[LCARdSDataGrid] Template mode requires rows array');
-      this._error = 'Template mode requires rows array in config';
+      lcardsLog.error('[LCARdSDataGrid] Data mode (grid layout) requires rows array');
+      this._error = 'Grid layout requires rows configuration';
       return;
     }
 
     // Store row config for hierarchical styling
     // Normalize to ensure _rowConfig always contains row objects
     this._rowConfig = rows.map(row => {
-      // New object format: {values: [...], style: {...}, cellStyles: [...]}
+      // New object format: {values: [...], style: {...}}
       if (row && typeof row === 'object' && !Array.isArray(row)) {
         return row;
       }
@@ -598,172 +623,105 @@ export class LCARdSDataGrid extends LCARdSCard {
       return { values: row };
     });
 
-    // Extract entity dependencies from templates
-    this._extractTemplateDependencies(rows);
+    // Track entities we need to subscribe to
+    this._trackedEntities = [];
 
-    // Process templates
-    await this._processTemplateGrid();
-  }
-
-  /**
-   * Process template-based grid data
-   * Supports both formats:
-   * 1. Old: rows = [['val1', 'val2'], ['val3', 'val4']]
-   * 2. New: rows = [{values: ['val1', 'val2'], style: {...}}, ...]
-   * @private
-   */
-  async _processTemplateGrid() {
-    const rows = this.config.rows || [];
-
-    const processedRows = await Promise.all(
+    // Process each row
+    this._gridData = await Promise.all(
       rows.map(async (row) => {
-        // Handle new object format: {values: [...], style: {...}, cellStyles: [...]}
-        if (row && typeof row === 'object' && !Array.isArray(row)) {
-          if (!Array.isArray(row.values)) {
-            lcardsLog.warn('[LCARdSDataGrid] Row object must have "values" array:', row);
-            return [];
-          }
-
-          // Process the values array
-          const processedValues = await Promise.all(
-            row.values.map(async (cell) => {
-              // Handle null/undefined - keep as-is for proper rendering
-              if (cell === null || cell === undefined) return cell;
-
-              // Process string templates
-              if (typeof cell === 'string') {
-                return await this.processTemplate(cell);
-              }
-
-              // Convert other types to string
-              return String(cell);
-            })
-          );
-
-          return processedValues;
-        }
-
-        // Handle old array format: ['val1', 'val2', 'val3']
-        if (!Array.isArray(row)) {
-          lcardsLog.warn('[LCARdSDataGrid] Template row must be an array or object with values:', row);
+        // Handle both array format and object format with style
+        let rowValues;
+        if (Array.isArray(row)) {
+          rowValues = row;
+        } else if (row && typeof row === 'object' && Array.isArray(row.values)) {
+          rowValues = row.values;
+        } else {
+          lcardsLog.warn('[LCARdSDataGrid] Row must be an array or object with values:', row);
           return [];
         }
 
         return await Promise.all(
-          row.map(async (cell) => {
-            // Handle null/undefined - keep as-is for proper rendering
-            if (cell === null || cell === undefined) return cell;
-
-            // Process string templates
-            if (typeof cell === 'string') {
-              return await this.processTemplate(cell);
-            }
-
-            // Convert other types to string
-            return String(cell);
-          })
+          rowValues.map(async (cell) => await this._processCellValue(cell))
         );
       })
     );
 
-    // Store previous data for change detection
+    lcardsLog.debug('[LCARdSDataGrid] Grid layout initialized', {
+      rows: this._gridData.length,
+      trackedEntities: this._trackedEntities
+    });
+  }
+
+  /**
+   * Process a cell value and return display string
+   * Auto-detects cell type: static, entity, or template
+   * @private
+   * @param {*} cell - Cell value from config
+   * @returns {Promise<string>} Display value
+   */
+  async _processCellValue(cell) {
+    if (cell === null || cell === undefined) {
+      return '';
+    }
+
+    // Convert to string
+    const cellStr = String(cell);
+
+    // Check if it's a template (contains {{ }} or {% %})
+    if (cellStr.includes('{{') || cellStr.includes('{%')) {
+      return await this.processTemplate(cellStr);
+    }
+
+    // Check if it's an entity ID (e.g., sensor.temperature)
+    const isEntityId = /^[a-z_]+\.[a-z0-9_]+$/.test(cellStr);
+    if (isEntityId) {
+      // Track this entity for updates
+      if (!this._trackedEntities.includes(cellStr)) {
+        this._trackedEntities.push(cellStr);
+      }
+
+      // Return current state
+      const state = this.hass?.states?.[cellStr];
+      return state ? state.state : '—';
+    }
+
+    // Static text
+    return cellStr;
+  }
+
+  /**
+   * Re-process grid data when entity states change
+   * @private
+   */
+  async _reprocessGridData() {
+    if (!this.config.rows) return;
+
     this._previousGridData = this._gridData;
 
-    this._gridData = processedRows;
+    this._gridData = await Promise.all(
+      this.config.rows.map(async (row) => {
+        let rowValues;
+        if (Array.isArray(row)) {
+          rowValues = row;
+        } else if (row && typeof row === 'object' && Array.isArray(row.values)) {
+          rowValues = row.values;
+        } else {
+          return [];
+        }
 
-    // Trigger change animations
+        return await Promise.all(
+          rowValues.map(async (cell) => await this._processCellValue(cell))
+        );
+      })
+    );
+
     this._detectAndAnimateChanges();
-
     this.requestUpdate();
   }
 
-  /**
-   * Extract entity dependencies from template strings
-   * Supports both old array format and new object format
-   * @private
-   * @param {Array} rows - Template rows (arrays or objects)
-   */
-  _extractTemplateDependencies(rows) {
-    const entities = new Set();
-
-    // Normalize rows to values arrays
-    const allValues = rows.flatMap(row => {
-      // New object format: {values: [...], style: {...}}
-      if (row && typeof row === 'object' && !Array.isArray(row)) {
-        return row.values || [];
-      }
-      // Old array format: ['val1', 'val2']
-      return row;
-    });
-
-    allValues.forEach(cell => {
-      if (typeof cell !== 'string') return;
-
-      // Match {{states.sensor.temp.state}} patterns
-      const statesMatches = cell.matchAll(/\{\{states\.([^}.\s]+\.[^}.\s]+)/g);
-      for (const match of statesMatches) {
-        entities.add(match[1]);
-      }
-
-      // Match {entity.state} patterns
-      const entityMatches = cell.matchAll(/\{entity\.([^}]+)\}/g);
-      if (this.config.entity) {
-        entities.add(this.config.entity);
-      }
-    });
-
-    this._templateEntities = Array.from(entities);
-
-    // Also add to base class tracked entities for HASS updates
-    if (!this._trackedEntities) {
-      this._trackedEntities = [];
-    }
-    this._templateEntities.forEach(e => {
-      if (!this._trackedEntities.includes(e)) {
-        this._trackedEntities.push(e);
-      }
-    });
-
-    lcardsLog.debug('[LCARdSDataGrid] Tracking template entities:', this._templateEntities);
-  }
-
-  /**
-   * Process templates when tracked entities change (override from LCARdSCard)
-   * @protected
-   * @override
-   */
-  async _processTemplates() {
-    // Call parent to handle icon/label templates
-    await super._processTemplates();
-
-    // Re-process template grid if in template mode
-    if (this.config.data_mode === 'template') {
-      await this._processTemplateGrid();
-    }
-  }
-
   // ============================================================================
-  // MODE 3: DATASOURCE (REAL-TIME)
+  // MODE 2: DATA - TIMELINE LAYOUT
   // ============================================================================
-
-  /**
-   * Initialize datasource mode
-   * @private
-   */
-  async _initializeDataSourceMode() {
-    const layout = this.config.layout || 'timeline';
-
-    lcardsLog.debug(`[LCARdSDataGrid] DataSource mode with layout: ${layout}`);
-
-    if (layout === 'timeline') {
-      await this._initializeTimelineLayout();
-    } else if (layout === 'spreadsheet') {
-      await this._initializeSpreadsheetLayout();
-    } else {
-      lcardsLog.warn(`[LCARdSDataGrid] Unknown layout: ${layout}, using timeline`);
-      await this._initializeTimelineLayout();
-    }
-  }
 
   /**
    * Initialize timeline layout (single source, flowing data)
@@ -899,199 +857,6 @@ export class LCARdSDataGrid extends LCARdSCard {
     // For visual feedback in timeline mode, rely on cascade animation instead.
 
     this.requestUpdate();
-  }
-
-  /**
-   * Initialize spreadsheet layout (multi-source, structured)
-   * @private
-   */
-  async _initializeSpreadsheetLayout() {
-    const columns = this.config.columns;
-    const rows = this.config.rows;
-
-    if (!columns || !rows) {
-      lcardsLog.error('[LCARdSDataGrid] Spreadsheet mode requires columns and rows');
-      this._error = 'Spreadsheet mode requires columns and rows in config';
-      return;
-    }
-
-    this._columnConfig = columns;
-    this._rowConfig = rows;
-
-    const dataSourceManager = this._singletons?.dataSourceManager;
-    if (!dataSourceManager) {
-      lcardsLog.error('[LCARdSDataGrid] DataSourceManager not available');
-      this._error = 'DataSourceManager not available';
-      return;
-    }
-
-    // Initialize grid data as Map for efficient cell updates
-    this._gridDataMap = new Map();
-
-    // Process each row
-    for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-      const rowConfig = rows[rowIndex];
-      const rowData = new Map();
-      this._gridDataMap.set(rowIndex, rowData);
-
-      // Process each source in the row
-      const sources = rowConfig.sources || [];
-      for (const sourceConfig of sources) {
-        const { type, column, source, format, value, aggregation } = sourceConfig;
-
-        // Handle static values
-        if (type === 'static') {
-          rowData.set(column, { value, type: 'static' });
-          continue;
-        }
-
-        // Handle template values
-        if (type === 'template') {
-          const resolved = await this.processTemplate(value);
-          rowData.set(column, { value: resolved, type: 'template' });
-          continue;
-        }
-
-        // Handle datasource values
-        if (type === 'datasource' && source) {
-          // Initialize with loading state
-          rowData.set(column, { value: '...', type: 'datasource', source });
-
-          // Get or create data source
-          let dataSource = dataSourceManager.getSource(source);
-          if (!dataSource) {
-            const isEntityId = /^[a-z_]+\.[a-z0-9_]+$/.test(source);
-            if (isEntityId) {
-              try {
-                dataSource = await dataSourceManager.createDataSource(source, {
-                  entity: source,
-                  history: { enabled: aggregation ? true : false, hours: 1 }
-                });
-              } catch (error) {
-                lcardsLog.warn(`[LCARdSDataGrid] Failed to create data source: ${source}`);
-                rowData.set(column, { value: 'ERR', type: 'error' });
-                continue;
-              }
-            }
-          }
-
-          if (dataSource) {
-            // Subscribe to updates
-            const unsubscribe = dataSource.subscribe((data) => {
-              this._handleCellDataUpdate(rowIndex, column, data, format, aggregation);
-            });
-            this._dataSubscriptions.push(unsubscribe);
-
-            // Get initial data
-            const currentData = dataSource.getCurrentData();
-            if (currentData) {
-              this._handleCellDataUpdate(rowIndex, column, currentData, format, aggregation);
-            }
-          }
-        }
-      }
-    }
-
-    // Convert Map to array for rendering
-    this._updateGridDataFromMap();
-
-    lcardsLog.debug(`[LCARdSDataGrid] Spreadsheet grid initialized: ${rows.length} rows`);
-  }
-
-  /**
-   * Handle data update for a specific cell
-   * @private
-   */
-  _handleCellDataUpdate(rowIndex, colIndex, data, format, aggregation) {
-    const rowData = this._gridDataMap?.get(rowIndex);
-    if (!rowData) return;
-
-    const oldCell = rowData.get(colIndex);
-    const oldValue = oldCell?.value;
-
-    // Apply aggregation if specified
-    let value = data.v !== undefined ? data.v : data;
-    if (Array.isArray(data) && aggregation) {
-      switch (aggregation) {
-        case 'min':
-          value = Math.min(...data);
-          break;
-        case 'max':
-          value = Math.max(...data);
-          break;
-        case 'avg':
-          value = data.reduce((sum, v) => sum + v, 0) / data.length;
-          break;
-        case 'sum':
-          value = data.reduce((sum, v) => sum + v, 0);
-          break;
-        case 'last':
-          value = data[data.length - 1];
-          break;
-        case 'first':
-          value = data[0];
-          break;
-        default:
-          value = data[data.length - 1];
-      }
-    } else if (data.buffer && typeof data.buffer.getAll === 'function' && aggregation) {
-      const values = data.buffer.getAll().map(p => p.v);
-      if (values.length > 0) {
-        switch (aggregation) {
-          case 'min':
-            value = Math.min(...values);
-            break;
-          case 'max':
-            value = Math.max(...values);
-            break;
-          case 'avg':
-            value = values.reduce((sum, v) => sum + v, 0) / values.length;
-            break;
-          default:
-            value = values[values.length - 1];
-        }
-      }
-    }
-
-    // Format value
-    const formattedValue = this._formatCellValue(value, format);
-
-    // Update cell data
-    rowData.set(colIndex, {
-      value: formattedValue,
-      type: 'datasource',
-      changed: oldValue !== formattedValue
-    });
-
-    // Update grid data array
-    this._updateGridDataFromMap();
-
-    // Animate cell if value changed
-    if (oldValue !== formattedValue) {
-      this._animateCellChange(rowIndex, colIndex);
-    }
-
-    this.requestUpdate();
-  }
-
-  /**
-   * Convert Map-based grid data to array for rendering
-   * @private
-   */
-  _updateGridDataFromMap() {
-    if (!this._gridDataMap) return;
-
-    const rows = [];
-    this._gridDataMap.forEach((rowData, rowIndex) => {
-      const row = [];
-      for (let col = 0; col < (this._columnConfig?.length || 0); col++) {
-        const cell = rowData.get(col);
-        row.push(cell?.value || '—');
-      }
-      rows.push(row);
-    });
-
-    this._gridData = rows;
   }
 
   /**
@@ -1861,15 +1626,7 @@ export class LCARdSDataGrid extends LCARdSCard {
       `;
     }
 
-    const dataMode = this.config.data_mode || 'random';
-    const layout = this.config.layout || 'cascade';
-
-    // Spreadsheet layout has headers
-    if (dataMode === 'datasource' && layout === 'spreadsheet' && this._columnConfig?.length > 0) {
-      return this._renderSpreadsheetGrid();
-    }
-
-    // Default cascade/simple grid
+    // All modes use the same grid renderer
     return this._renderCascadeGrid();
   }
 
@@ -1937,95 +1694,6 @@ export class LCARdSDataGrid extends LCARdSCard {
     `;
   }
 
-  /**
-   * Render spreadsheet-style grid with headers
-   * @private
-   */
-  _renderSpreadsheetGrid() {
-    const grid = this.config.grid || {};
-
-    // Build grid-template-columns from column config or parse from grid config
-    let gridCssProps;
-    if (this._columnConfig && this._columnConfig.length > 0) {
-      // Use column widths from column config
-      const gridTemplateColumns = this._columnConfig
-        .map(col => col.width ? `${col.width}px` : '1fr')
-        .join(' ');
-
-      gridCssProps = this._parseGridConfig(grid);
-      gridCssProps['grid-template-columns'] = gridTemplateColumns;
-    } else {
-      gridCssProps = this._parseGridConfig(grid);
-    }
-
-    // Build grid style string
-    const gridStyleParts = [];
-    for (const [prop, value] of Object.entries(gridCssProps)) {
-      gridStyleParts.push(`${prop}: ${value}`);
-    }
-
-    // Add typography from grid-wide style or config defaults
-    const gridStyle = this.config.style || {};
-    const fontSize = gridStyle.font_size || this.config.font_size || 16;
-    const fontFamily = gridStyle.font_family || this.config.font_family || "'Antonio', 'Helvetica Neue', sans-serif";
-    const fontWeight = gridStyle.font_weight || this.config.font_weight || 400;
-
-    gridStyleParts.push(`font-family: ${fontFamily}`);
-    gridStyleParts.push(`font-size: ${typeof fontSize === 'number' ? fontSize + 'px' : fontSize}`);
-    gridStyleParts.push(`font-weight: ${fontWeight}`);
-
-    const gridStyleStr = gridStyleParts.join('; ');
-
-    return html`
-      <div class="lcards-card-container">
-        <div class="data-grid-container">
-          <div class="data-grid" style="${gridStyleStr}">
-            <!-- Column headers -->
-            ${this._columnConfig.map((col, colIndex) => {
-              // Resolve header cell style through hierarchy
-              const headerStyle = this._getCachedCellStyle(0, colIndex, true);
-              const headerCss = this._styleToCSS(headerStyle);
-              const align = col.align || headerStyle.align || 'left';
-
-              return html`
-                <div class="grid-cell grid-header align-${align}"
-                     data-col="${colIndex}"
-                     style="${headerCss}">
-                  ${col.header || ''}
-                </div>
-              `;
-            })}
-
-            <!-- Data rows -->
-            ${this._gridData.map((row, rowIndex) =>
-              row.map((cellValue, colIndex) => {
-                // Resolve cell style through hierarchy
-                const cellStyle = this._getCachedCellStyle(rowIndex, colIndex, false);
-
-                // Exclude color from inline styles if cascade animation is active
-                const hasCascadeAnimation = this.config.animation?.type === 'cascade';
-                const cellCss = this._styleToCSS(cellStyle, { excludeColor: hasCascadeAnimation });
-
-                // Get alignment from resolved style or column config
-                const col = this._columnConfig[colIndex] || {};
-                const align = cellStyle.align || col.align || 'left';
-
-                return html`
-                  <div class="grid-cell align-${align}"
-                       data-row="${rowIndex}"
-                       data-col="${colIndex}"
-                       style="${cellCss}">
-                    ${escapeHtml(this._formatCellValue(cellValue))}
-                  </div>
-                `;
-              })
-            )}
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
   // ============================================================================
   // CARD SIZE & LAYOUT
   // ============================================================================
@@ -2064,7 +1732,7 @@ export class LCARdSDataGrid extends LCARdSCard {
   static getStubConfig() {
     return {
       type: 'custom:lcards-data-grid',
-      data_mode: 'random',
+      data_mode: 'decorative',
       format: 'mixed',
       grid: {
         'grid-template-rows': 'repeat(6,auto)',
