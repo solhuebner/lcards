@@ -2214,6 +2214,15 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
      * @returns {*} Value at path
      */
     _getConfigValue(path) {
+        // Handle special cell style paths from color-section
+        if (path.startsWith('_cellStyle_')) {
+            const match = path.match(/_cellStyle_(\d+)_(\d+)_(\w+)/);
+            if (match) {
+                const [, row, col, property] = match;
+                return this._getCellStyleValue(parseInt(row), parseInt(col), property);
+            }
+        }
+
         const parts = path.split('.');
         let obj = this._workingConfig;
 
@@ -2232,6 +2241,16 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
      * @param {*} value - New value
      */
     _setConfigValue(path, value) {
+        // Handle special cell style paths from color-section
+        if (path.startsWith('_cellStyle_')) {
+            const match = path.match(/_cellStyle_(\d+)_(\d+)_(\w+)/);
+            if (match) {
+                const [, row, col, property] = match;
+                this._setCellStyleValue(parseInt(row), parseInt(col), property, value);
+                return;
+            }
+        }
+
         this._updateConfig(path, value);
     }
 
@@ -2242,7 +2261,181 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
      * @param {*} value - New value
      */
     updateConfig(path, value) {
+        // Handle special cell style paths from color-section
+        if (path.startsWith('_cellStyle_')) {
+            const match = path.match(/_cellStyle_(\d+)_(\d+)_(\w+)/);
+            if (match) {
+                const [, row, col, property] = match;
+                this._setCellStyleValue(parseInt(row), parseInt(col), property, value);
+                return;
+            }
+        }
+
         this._updateConfig(path, value);
+    }
+
+    /**
+     * Get cell style value at specific row/col
+     * @param {number} row - Row index
+     * @param {number} col - Column index
+     * @param {string} property - Style property name
+     * @returns {*} Style value or empty string
+     * @private
+     */
+    _getCellStyleValue(row, col, property) {
+        const rowData = this._workingConfig.rows?.[row];
+        if (!rowData) return '';
+
+        // Handle object format with cellStyles
+        if (typeof rowData === 'object' && !Array.isArray(rowData)) {
+            return rowData.cellStyles?.[col]?.[property] || '';
+        }
+
+        return '';
+    }
+
+    /**
+     * Set cell style value at specific row/col
+     * @param {number} row - Row index
+     * @param {number} col - Column index
+     * @param {string} property - Style property name
+     * @param {*} value - Style value
+     * @private
+     */
+    _setCellStyleValue(row, col, property, value) {
+        // Ensure row exists
+        if (!this._workingConfig.rows[row]) {
+            this._workingConfig.rows[row] = Array(this._gridColumns).fill('');
+        }
+
+        // Convert row to object format if it's an array
+        let rowData = this._workingConfig.rows[row];
+        if (Array.isArray(rowData)) {
+            rowData = {
+                values: [...rowData],
+                cellStyles: []
+            };
+            this._workingConfig.rows[row] = rowData;
+        }
+
+        // Ensure cellStyles array exists
+        if (!rowData.cellStyles) {
+            rowData.cellStyles = [];
+        }
+
+        // Ensure cell style object exists
+        if (!rowData.cellStyles[col]) {
+            rowData.cellStyles[col] = {};
+        }
+
+        // Set the property (or remove if empty)
+        if (value === '' || value === null || value === undefined) {
+            delete rowData.cellStyles[col][property];
+
+            // Clean up empty objects
+            if (Object.keys(rowData.cellStyles[col]).length === 0) {
+                rowData.cellStyles[col] = null;
+            }
+        } else {
+            rowData.cellStyles[col][property] = value;
+        }
+
+        lcardsLog.debug('[DataGridStudioV4] Cell style updated:', { row, col, property, value });
+
+        this.requestUpdate();
+        this._schedulePreviewUpdate();
+    }
+
+    /**
+     * Clear all styles for a specific cell
+     * @param {number} row - Row index
+     * @param {number} col - Column index
+     * @private
+     */
+    _clearCellStyle(row, col) {
+        const rowData = this._workingConfig.rows?.[row];
+        if (!rowData || typeof rowData !== 'object' || Array.isArray(rowData)) {
+            return;
+        }
+
+        if (rowData.cellStyles && rowData.cellStyles[col]) {
+            rowData.cellStyles[col] = null;
+            lcardsLog.info('[DataGridStudioV4] Cell style cleared:', { row, col });
+            this.requestUpdate();
+            this._schedulePreviewUpdate();
+        }
+    }
+
+    /**
+     * Get row style value
+     * @param {number} row - Row index
+     * @param {string} property - Style property name
+     * @returns {string} Property value or empty string
+     * @private
+     */
+    _getRowStyleValue(row, property) {
+        const rowData = this._workingConfig.rows?.[row];
+        if (!rowData || typeof rowData !== 'object' || Array.isArray(rowData)) {
+            return '';
+        }
+        return rowData.style?.[property] || '';
+    }
+
+    /**
+     * Set row style value
+     * @param {number} row - Row index
+     * @param {string} property - Style property name
+     * @param {*} value - Property value
+     * @private
+     */
+    _setRowStyleValue(row, property, value) {
+        let rowData = this._workingConfig.rows?.[row];
+        if (!rowData) return;
+
+        // Convert simple array to object structure if needed
+        if (Array.isArray(rowData)) {
+            rowData = {
+                values: rowData,
+                style: {},
+                cellStyles: []
+            };
+            this._workingConfig.rows[row] = rowData;
+        }
+
+        // Initialize style object if needed
+        if (!rowData.style) {
+            rowData.style = {};
+        }
+
+        // Set or remove the property
+        if (value === '' || value === null || value === undefined) {
+            delete rowData.style[property];
+        } else {
+            rowData.style[property] = value;
+        }
+
+        lcardsLog.debug('[DataGridStudioV4] Row style updated:', { row, property, value });
+        this.requestUpdate();
+        this._schedulePreviewUpdate();
+    }
+
+    /**
+     * Clear all style overrides for a row
+     * @param {number} row - Row index
+     * @private
+     */
+    _clearRowStyle(row) {
+        const rowData = this._workingConfig.rows?.[row];
+        if (!rowData || typeof rowData !== 'object' || Array.isArray(rowData)) {
+            return;
+        }
+
+        if (rowData.style && Object.keys(rowData.style).length > 0) {
+            rowData.style = {};
+            lcardsLog.info('[DataGridStudioV4] Row style cleared:', { row });
+            this.requestUpdate();
+            this._schedulePreviewUpdate();
+        }
     }
 
     /**
@@ -2697,6 +2890,13 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
     _renderCellEditor() {
         const { row, col, value } = this._activeCellEdit;
 
+        // Get current cell style if it exists
+        const rowData = this._workingConfig.rows[row];
+        const cellStyle = (rowData && typeof rowData === 'object' && !Array.isArray(rowData))
+            ? rowData.cellStyles?.[col]
+            : null;
+        const hasCellStyle = cellStyle && Object.keys(cellStyle).length > 0;
+
         return html`
             <lcards-form-section
                 header="Edit Cell (Row ${row + 1}, Col ${col + 1})"
@@ -2733,6 +2933,58 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                         Cancel
                     </ha-button>
                 </div>
+
+                <!-- Cell Style Overrides Section -->
+                <details style="margin-top: 16px;" ?open=${hasCellStyle}>
+                    <summary style="cursor: pointer; font-weight: 600; padding: 8px 0; user-select: none;">
+                        <ha-icon icon="mdi:palette" style="margin-right: 8px;"></ha-icon>
+                        Cell Style Overrides ${hasCellStyle ? '(Active)' : ''}
+                    </summary>
+
+                    <div style="margin-top: 12px; padding-left: 12px; border-left: 3px solid var(--primary-color);">
+                        <lcards-message type="info" style="margin-bottom: 12px;">
+                            Cell styles override row and table-level styles. Leave empty to inherit from parent styles.
+                        </lcards-message>
+
+                        <lcards-color-section
+                            .editor=${this}
+                            header="Cell Colors"
+                            .colorPaths=${[
+                                { path: `_cellStyle_${row}_${col}_color`, label: 'Text Color', helper: 'Override cell text color' },
+                                { path: `_cellStyle_${row}_${col}_background`, label: 'Background', helper: 'Override cell background' }
+                            ]}
+                            ?expanded=${true}
+                            ?useColorPicker=${true}>
+                        </lcards-color-section>
+
+                        <lcards-grid-layout style="margin-top: 12px;">
+                            <ha-textfield
+                                type="text"
+                                label="Font Size"
+                                .value=${this._getCellStyleValue(row, col, 'font_size')}
+                                @input=${(e) => this._setCellStyleValue(row, col, 'font_size', e.target.value)}
+                                helper="e.g., '18px', '1.2rem'">
+                            </ha-textfield>
+
+                            <ha-textfield
+                                type="number"
+                                label="Font Weight"
+                                .value=${this._getCellStyleValue(row, col, 'font_weight')}
+                                @input=${(e) => this._setCellStyleValue(row, col, 'font_weight', e.target.value)}
+                                helper="100-900">
+                            </ha-textfield>
+                        </lcards-grid-layout>
+
+                        <ha-button
+                            appearance="plain"
+                            @click=${() => this._clearCellStyle(row, col)}
+                            style="margin-top: 12px;"
+                            .disabled=${!hasCellStyle}>
+                            <ha-icon icon="mdi:eraser" slot="icon"></ha-icon>
+                            Clear Cell Styles
+                        </ha-button>
+                    </div>
+                </details>
 
                 ${this._renderTemplateExamples()}
             </lcards-form-section>
@@ -2852,7 +3104,13 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
      */
     _renderRowEditor() {
         const rowIndex = this._activeRowEdit;
-        const row = this._workingConfig.rows[rowIndex];
+        const rowData = this._workingConfig.rows[rowIndex];
+
+        // Check if row has style overrides
+        const rowStyle = (rowData && typeof rowData === 'object' && !Array.isArray(rowData))
+            ? rowData.style
+            : null;
+        const hasRowStyle = rowStyle && Object.keys(rowStyle).length > 0;
 
         return html`
             <lcards-form-section
@@ -2891,6 +3149,58 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                         Close
                     </ha-button>
                 </div>
+
+                <!-- Row Style Overrides Section -->
+                <details style="margin-top: 16px;" ?open=${hasRowStyle}>
+                    <summary style="cursor: pointer; font-weight: 600; padding: 8px 0; user-select: none;">
+                        <ha-icon icon="mdi:palette" style="margin-right: 8px;"></ha-icon>
+                        Row Style Overrides ${hasRowStyle ? '(Active)' : ''}
+                    </summary>
+
+                    <div style="margin-top: 12px; padding-left: 12px; border-left: 3px solid var(--primary-color);">
+                        <lcards-message type="info" style="margin-bottom: 12px;">
+                            Row styles apply to all cells in this row, but can be overridden by individual cell styles. Leave empty to inherit from table-level styles.
+                        </lcards-message>
+
+                        <lcards-color-section
+                            .editor=${this}
+                            header="Row Colors"
+                            .colorPaths=${[
+                                { path: `rows.${rowIndex}.style.color`, label: 'Text Color', helper: 'Override row text color' },
+                                { path: `rows.${rowIndex}.style.background`, label: 'Background', helper: 'Override row background' }
+                            ]}
+                            ?expanded=${true}
+                            ?useColorPicker=${true}>
+                        </lcards-color-section>
+
+                        <lcards-grid-layout style="margin-top: 12px;">
+                            <ha-textfield
+                                type="text"
+                                label="Font Size"
+                                .value=${this._getRowStyleValue(rowIndex, 'font_size')}
+                                @input=${(e) => this._setRowStyleValue(rowIndex, 'font_size', e.target.value)}
+                                helper="e.g., '18px', '1.2rem'">
+                            </ha-textfield>
+
+                            <ha-textfield
+                                type="number"
+                                label="Font Weight"
+                                .value=${this._getRowStyleValue(rowIndex, 'font_weight')}
+                                @input=${(e) => this._setRowStyleValue(rowIndex, 'font_weight', e.target.value)}
+                                helper="100-900">
+                            </ha-textfield>
+                        </lcards-grid-layout>
+
+                        <ha-button
+                            appearance="plain"
+                            @click=${() => this._clearRowStyle(rowIndex)}
+                            style="margin-top: 12px;"
+                            .disabled=${!hasRowStyle}>
+                            <ha-icon icon="mdi:eraser" slot="icon"></ha-icon>
+                            Clear Row Styles
+                        </ha-button>
+                    </div>
+                </details>
             </lcards-form-section>
         `;
     }
