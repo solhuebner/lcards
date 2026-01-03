@@ -1683,10 +1683,6 @@ export class LCARdSSlider extends LCARdSButton {
     }
 
     /**
-     * Calculate value as percentage (0-1)
-     * @private
-     */
-    /**
      * Calculate value as percentage (0-1) within DISPLAY range
      * Used for visual rendering of pills/gauge position
      * @private
