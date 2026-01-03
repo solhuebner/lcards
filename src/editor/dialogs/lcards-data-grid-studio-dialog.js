@@ -23,6 +23,7 @@ import { LitElement, html, css } from 'lit';
 import { createRef, ref } from 'lit/directives/ref.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import { LCARdSFormFieldHelper as FormField } from '../components/shared/lcards-form-field.js';
+import { dataGridSchema } from '../../cards/schemas/data-grid-schema.js';
 import '../components/shared/lcards-form-section.js';
 import '../components/shared/lcards-message.js';
 import '../components/shared/lcards-style-hierarchy-diagram.js';
@@ -155,6 +156,53 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
 
         // Schedule initial preview update
         this.updateComplete.then(() => this._updatePreviewCard());
+    }
+
+    /**
+     * Get schema for a given path (required for FormField)
+     * @param {string} path - Config path
+     * @returns {Object|null} Schema definition
+     * @private
+     */
+    _getSchemaForPath(path) {
+        const parts = path.split('.');
+        let schema = dataGridSchema.properties;
+
+        for (const part of parts) {
+            if (!schema || !schema[part]) return null;
+            schema = schema[part];
+            if (schema.properties) schema = schema.properties;
+        }
+
+        return schema;
+    }
+
+    /**
+     * Get config value at path (required for FormField)
+     * @param {string} path - Config path
+     * @returns {*} Config value
+     * @private
+     */
+    _getConfigValue(path) {
+        const parts = path.split('.');
+        let value = this._workingConfig;
+
+        for (const part of parts) {
+            if (value === undefined || value === null) return undefined;
+            value = value[part];
+        }
+
+        return value;
+    }
+
+    /**
+     * Set config value at path (required for FormField)
+     * @param {string} path - Config path
+     * @param {*} value - New value
+     * @private
+     */
+    _setConfigValue(path, value) {
+        this._updateConfig(path, value);
     }
 
     disconnectedCallback() {
@@ -585,30 +633,8 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 icon="mdi:shimmer"
                 ?expanded=${true}>
 
-                <ha-selector
-                    .hass=${this.hass}
-                    .selector=${{select: {mode: 'dropdown', options: [
-                        { value: 'digit', label: 'Digit (0042, 1337)' },
-                        { value: 'float', label: 'Float (42.17, 3.14)' },
-                        { value: 'alpha', label: 'Alpha (AB, XY)' },
-                        { value: 'hex', label: 'Hex (A3F1, 00FF)' },
-                        { value: 'mixed', label: 'Mixed (various)' }
-                    ]}}}
-                    .label=${'Data Format'}
-                    .value=${this._workingConfig.format || 'mixed'}
-                    @value-changed=${(e) => this._updateConfig('format', e.detail.value)}
-                    @closed=${(e) => e.stopPropagation()}>
-                </ha-selector>
-
-                <ha-selector
-                    .hass=${this.hass}
-                    .selector=${{number: {min: 0, mode: 'box'}}}\
-                    .value=${this._workingConfig.refresh_interval || 0}
-                    .label=${'Refresh Interval (ms)'}
-                    .helper=${'Auto-refresh interval (0 = disabled)'}
-                    @value-changed=${(e) => this._updateConfig('refresh_interval', parseInt(e.detail.value) || 0)}
-                    @closed=${(e) => e.stopPropagation()}>
-                </ha-selector>
+                ${FormField.renderField(this, 'format')}
+                ${FormField.renderField(this, 'refresh_interval')}
             </lcards-form-section>
         `;
     }
@@ -1701,21 +1727,8 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 </lcards-font-selector>
 
                 <lcards-grid-layout>
-                    <ha-textfield
-                        type="text"
-                        label="Font Size"
-                        .value=${this._workingConfig.style?.font_size || ''}
-                        @input=${(e) => this._updateConfig('style.font_size', e.target.value)}
-                        helper="e.g., '18px', '1.2rem'">
-                    </ha-textfield>
-
-                    <ha-textfield
-                        type="number"
-                        label="Font Weight"
-                        .value=${this._workingConfig.style?.font_weight || ''}
-                        @input=${(e) => this._updateConfig('style.font_weight', e.target.value)}
-                        helper="100-900">
-                    </ha-textfield>
+                    ${FormField.renderField(this, 'style.font_size')}
+                    ${FormField.renderField(this, 'style.font_weight')}
                 </lcards-grid-layout>
             </lcards-form-section>
 
@@ -1762,35 +1775,11 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 ?expanded=${true}>
 
                 <lcards-grid-layout>
-                    <ha-textfield
-                        type="number"
-                        label="Border Width"
-                        .value=${this._workingConfig.style?.border_width || 0}
-                        @input=${(e) => this._updateConfig('style.border_width', parseInt(e.target.value) || 0)}
-                        helper="Border width in pixels">
-                    </ha-textfield>
-
-                    <ha-textfield
-                        label="Border Color"
-                        .value=${this._workingConfig.style?.border_color || ''}
-                        @input=${(e) => this._updateConfig('style.border_color', e.target.value)}
-                        helper="Border color">
-                    </ha-textfield>
+                    ${FormField.renderField(this, 'style.border_width')}
+                    ${FormField.renderField(this, 'style.border_color')}
                 </lcards-grid-layout>
 
-                <ha-selector
-                    .hass=${this.hass}
-                    .selector=${{select: {mode: 'dropdown', options: [
-                        { value: 'solid', label: 'Solid' },
-                        { value: 'dashed', label: 'Dashed' },
-                        { value: 'dotted', label: 'Dotted' },
-                        { value: 'double', label: 'Double' }
-                    ]}}}
-                    .label=${'Border Style'}
-                    .value=${this._workingConfig.style?.border_style || 'solid'}
-                    @value-changed=${(e) => this._updateConfig('style.border_style', e.detail.value)}
-                    @closed=${(e) => e.stopPropagation()}>
-                </ha-selector>
+                ${FormField.renderField(this, 'style.border_style')}
             </lcards-form-section>
         `;
     }
@@ -1803,43 +1792,11 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 icon="mdi:animation-play"
                 ?expanded=${true}>
 
-                <ha-selector
-                    .hass=${this.hass}
-                    .selector=${{select: {mode: 'dropdown', options: [
-                        { value: 'none', label: 'None' },
-                        { value: 'cascade', label: 'Cascade' }
-                    ]}}}
-                    .label=${'Animation Type'}
-                    .value=${this._workingConfig.animation?.type || 'none'}
-                    @value-changed=${(e) => this._updateConfig('animation.type', e.detail.value)}
-                    @closed=${(e) => e.stopPropagation()}>
-                </ha-selector>
+                ${FormField.renderField(this, 'animation.type')}
 
                 ${this._workingConfig.animation?.type === 'cascade' ? html`
-                    <ha-selector
-                        .hass=${this.hass}
-                        .selector=${{select: {mode: 'dropdown', options: [
-                            { value: 'default', label: 'Default' },
-                            { value: 'niagara', label: 'Niagara' },
-                            { value: 'fast', label: 'Fast' },
-                            { value: 'frozen', label: 'Frozen' }
-                        ]}}}
-                        .label=${'Pattern'}
-                        .value=${this._workingConfig.animation?.pattern || 'default'}
-                        @value-changed=${(e) => this._updateConfig('animation.pattern', e.detail.value)}
-                        @closed=${(e) => e.stopPropagation()}>
-                    </ha-selector>
-
-                    <ha-textfield
-                        type="number"
-                        label="Speed Multiplier"
-                        .value=${this._workingConfig.animation?.speed_multiplier || 1.0}
-                        @input=${(e) => this._updateConfig('animation.speed_multiplier', parseFloat(e.target.value) || 1.0)}
-                        step="0.1"
-                        min="0.1"
-                        max="10"
-                        helper="Speed multiplier (1.0 = normal)">
-                    </ha-textfield>
+                    ${FormField.renderField(this, 'animation.pattern')}
+                    ${FormField.renderField(this, 'animation.speed_multiplier')}
 
                     <!-- CASCADE COLORS - Use lcards-color-section -->
                     <lcards-color-section
@@ -1875,19 +1832,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 icon="mdi:bell-alert"
                 ?expanded=${true}>
 
-                <ha-selector
-                    .hass=${this.hass}
-                    .selector=${{select: {mode: 'dropdown', options: [
-                        { value: 'none', label: 'None' },
-                        { value: 'pulse', label: 'Pulse' },
-                        { value: 'glow', label: 'Glow' },
-                        { value: 'flash', label: 'Flash' }
-                    ]}}}
-                    .label=${'Change Animation'}
-                    .value=${this._workingConfig.change_animation?.preset || 'none'}
-                    @value-changed=${(e) => this._updateConfig('change_animation.preset', e.detail.value)}
-                    @closed=${(e) => e.stopPropagation()}>
-                </ha-selector>
+                ${FormField.renderField(this, 'change_animation.preset')}
             </lcards-form-section>
         `;
     }
