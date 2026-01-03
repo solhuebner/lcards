@@ -686,6 +686,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Data Mode"
                 description="Choose how the grid gets its data"
+                icon="mdi:view-grid"
                 ?expanded=${true}>
 
                 <div class="mode-selector">
@@ -717,6 +718,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Decorative Mode Settings"
                 description="Configure auto-generated random data"
+                icon="mdi:shimmer"
                 ?expanded=${true}>
 
                 <ha-selector
@@ -755,6 +757,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Grid Editor"
                 description="Click cells to edit content. Use static values or HA templates."
+                icon="mdi:table-edit"
                 ?expanded=${true}>
 
                 <lcards-message type="info">
@@ -971,6 +974,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Grid Dimensions"
                 description="Define grid size"
+                icon="mdi:ruler"
                 ?expanded=${true}>
 
                 <lcards-grid-layout>
@@ -1019,6 +1023,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Decorative Mode Settings"
                 description="Configure auto-generated random data"
+                icon="mdi:shimmer"
                 ?expanded=${true}>
 
                 <ha-selector
@@ -1055,6 +1060,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Grid Editor"
                 description="Click cells to edit content. Use static values or HA templates."
+                icon="mdi:table-edit"
                 ?expanded=${true}>
 
                 <lcards-message type="info">
@@ -1160,6 +1166,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Template Syntax Help"
                 description="Common template patterns you can use in cells"
+                icon="mdi:code-braces"
                 ?expanded=${false}>
 
                 ${this._renderTemplateSyntaxExamples()}
@@ -1186,6 +1193,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Spreadsheet Data Editor"
                 description="Configure entity mappings per cell (column-based layout)"
+                icon="mdi:table-edit"
                 ?expanded=${true}>
 
                 <lcards-message type="info">
@@ -1290,6 +1298,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Template Syntax Help"
                 description="Common template patterns for entity data"
+                icon="mdi:code-braces"
                 ?expanded=${false}>
 
                 ${this._renderTemplateSyntaxExamples()}
@@ -1304,6 +1313,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Timeline Configuration"
                 description="Configure single data source for historical timeline display"
+                icon="mdi:chart-timeline-variant"
                 ?expanded=${true}>
 
                 <lcards-message type="info">
@@ -1410,6 +1420,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Edit Timeline Row ${rowIndex + 1}"
                 description="Configure datasource for this timeline row"
+                icon="mdi:table-row"
                 ?expanded=${true}>
 
                 <ha-textfield
@@ -1445,6 +1456,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Data Mode Settings"
                 description="Configure real entity/sensor data"
+                icon="mdi:database"
                 ?expanded=${true}>
 
                 <ha-selector
@@ -1513,6 +1525,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Style Hierarchy"
                 description="Understanding style precedence"
+                icon="mdi:file-tree"
                 ?expanded=${true}>
 
                 <lcards-style-hierarchy-diagram>
@@ -1531,6 +1544,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Typography"
                 description="Font settings for all cells"
+                icon="mdi:format-font"
                 ?expanded=${true}>
 
                 <lcards-font-selector
@@ -1576,6 +1590,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 <lcards-form-section
                     header="Header Style"
                     description="Column header specific styling (Data Table mode only)"
+                    icon="mdi:format-header-1"
                     ?expanded=${true}>
 
                     <lcards-message type="info">
@@ -1666,6 +1681,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Border Settings"
                 description="Cell border configuration"
+                icon="mdi:border-all"
                 ?expanded=${true}>
 
                 <lcards-grid-layout>
@@ -1712,6 +1728,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Row-Level Overrides"
                 description="These styles apply to entire rows"
+                icon="mdi:table-row"
                 ?expanded=${false}>
                 <lcards-message type="info">
                     Use the inline row editor in Grid Structure tab to configure row-specific styles.
@@ -1722,6 +1739,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Column-Level Overrides"
                 description="These styles apply to entire columns"
+                icon="mdi:table-column"
                 ?expanded=${false}>
                 <lcards-message type="info">
                     Use the inline column editor in Grid Structure tab to configure column-specific styles.
@@ -1741,6 +1759,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Cell-Level Overrides"
                 description="These styles have the highest priority"
+                icon="mdi:square"
                 ?expanded=${true}>
                 <lcards-message type="info">
                     Use the inline cell editor in Grid Structure tab to configure cell-specific styles.
@@ -1760,6 +1779,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Cascade Animation"
                 description="Background color cycling effect"
+                icon="mdi:animation-play"
                 ?expanded=${true}>
 
                 <ha-selector
@@ -1830,6 +1850,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Change Detection"
                 description="Highlight cells on data changes"
+                icon="mdi:bell-alert"
                 ?expanded=${true}>
 
                 <ha-selector
@@ -1870,6 +1891,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Grid Dimensions"
                 description="Define grid size"
+                icon="mdi:ruler"
                 ?expanded=${true}>
 
                 <lcards-grid-layout>
@@ -1912,6 +1934,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Typography"
                 description="Font settings for all cells"
+                icon="mdi:format-font"
                 ?expanded=${true}>
 
                 <lcards-font-selector
@@ -1981,6 +2004,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 <lcards-form-section
                     header="Header Style"
                     description="Column header specific styling (Data Table mode only)"
+                    icon="mdi:format-header-1"
                     ?expanded=${true}>
 
                     <lcards-message type="info">
@@ -2071,6 +2095,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Border Settings"
                 description="Cell border configuration"
+                icon="mdi:border-all"
                 ?expanded=${true}>
 
                 <lcards-grid-layout>
@@ -2112,6 +2137,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Cascade Animation"
                 description="Background color cycling effect"
+                icon="mdi:animation-play"
                 ?expanded=${true}>
 
                 <ha-selector
@@ -2183,6 +2209,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             <lcards-form-section
                 header="Change Detection"
                 description="Highlight cells on data changes"
+                icon="mdi:bell-alert"
                 ?expanded=${true}>
 
                 <ha-selector
