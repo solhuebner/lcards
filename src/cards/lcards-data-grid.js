@@ -32,7 +32,7 @@
  * type: custom:lcards-data-grid
  * animation:
  *   type: cascade
- *   pattern: default  # 'default' | 'niagara' | 'fast' | 'frozen' | 'custom'
+ *   pattern: default  # 'default' | 'niagara' | 'fast' | 'custom'
  *   colors:
  *     start: colors.lcars.blue
  *     text: colors.lcars.dark-blue
@@ -66,31 +66,30 @@
  *     start: '#99ccff'
  *     text: '#4466aa'
  *     end: '#aaccff'
- *   cell_stagger: 50  # ms between cells in same row
  *   easing: linear
  * ```
  *
  * CHANGE ANIMATION (One-shot highlight on data changes)
- * Highlights changed cells/rows/columns to draw user attention.
+ * Highlights changed cells to draw user attention.
  *
- * @example Cell-level Change Highlight
+ * @example Cell Change Highlight with Pulse
  * ```yaml
- * change_animation:
- *   preset: pulse        # Any animation preset
- *   target_mode: cell    # 'cell' | 'row' | 'column'
- *   duration: 500
- *   params:
+ * animation:
+ *   highlight_changes: true
+ *   change_preset: pulse
+ *   change_duration: 500
+ *   change_params:
  *     max_scale: 1.08
  *     min_opacity: 0.8
  * ```
  *
- * @example Row-level Change Highlight
+ * @example Cell Change Highlight with Glow
  * ```yaml
- * change_animation:
- *   preset: glow
- *   target_mode: row     # Entire row glows
- *   duration: 600
- *   params:
+ * animation:
+ *   highlight_changes: true
+ *   change_preset: glow
+ *   change_duration: 600
+ *   change_params:
  *     color: var(--lcars-orange)
  *     blur_max: 12
  * ```
@@ -416,11 +415,12 @@ export class LCARdSDataGrid extends LCARdSCard {
 
   /**
    * Format cell value for display, handling null/undefined
+   * Simple string conversion without template support
    * @private
    * @param {*} value - Cell value
    * @returns {string} Display string (empty for null/undefined)
    */
-  _formatCellValue(value) {
+  _formatCellValueSimple(value) {
     if (value === null || value === undefined) {
       return '';
     }
@@ -1692,7 +1692,7 @@ export class LCARdSDataGrid extends LCARdSCard {
                        data-row="${rowIndex}"
                        data-col="${colIndex}"
                        style="${cellCss}">
-                    ${escapeHtml(this._formatCellValue(cellValue))}
+                    ${escapeHtml(this._formatCellValueSimple(cellValue))}
                   </div>
                 `;
               })

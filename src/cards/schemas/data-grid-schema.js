@@ -1,10 +1,10 @@
 /**
  * Data Grid Card Schema
- * 
+ *
  * JSON Schema definition with x-ui-hints for LCARdS Data Grid Card.
  * Supports 3 data modes: random (decorative), template (manual), datasource (real-time)
  * with full CSS Grid configuration and hierarchical styling.
- * 
+ *
  * @see doc/editor/schema-ui-hints.md
  * @see doc/user/configuration/cards/data-grid.md
  */
@@ -19,7 +19,7 @@ export const dataGridSchema = {
         // ====================================================================
         // HOME ASSISTANT REQUIRED PROPERTIES
         // ====================================================================
-        
+
         "type": {
             "type": "string",
             "const": "custom:lcards-data-grid",
@@ -169,7 +169,7 @@ export const dataGridSchema = {
             "x-ui-hints": {
                 "label": "Data Source",
                 "helper": "Entity ID or DataSource name for timeline mode",
-                "showIf": { 
+                "showIf": {
                     "data_mode": ["data", "datasource"],
                     "layout": "timeline"
                 },
@@ -188,7 +188,7 @@ export const dataGridSchema = {
             "x-ui-hints": {
                 "label": "History Hours",
                 "helper": "Hours of historical data to preload",
-                "showIf": { 
+                "showIf": {
                     "data_mode": ["data", "datasource"],
                     "layout": "timeline"
                 },
@@ -210,7 +210,7 @@ export const dataGridSchema = {
             "x-ui-hints": {
                 "label": "Value Template",
                 "helper": "Format template for displayed values (e.g., '{value}°C')",
-                "showIf": { 
+                "showIf": {
                     "data_mode": ["data", "datasource"],
                     "layout": "timeline"
                 },
@@ -502,7 +502,7 @@ export const dataGridSchema = {
                     "type": ["number", "string"],
                     "x-ui-hints": {
                         "label": "Font Size",
-                        "helper": "Font size in px or with unit (e.g., '18px', '1.2rem')",
+                        "helper": "Font size in px or with unit (e.g., '18px', '1.2rem'). Number values auto-convert to px.",
                         "selector": {
                             "text": {
                                 "placeholder": "18"
@@ -516,10 +516,10 @@ export const dataGridSchema = {
                     "format": "font-family",
                     "x-ui-hints": {
                         "label": "Font Family",
-                        "helper": "Font family (LCARdS fonts or system fonts)",
+                        "helper": "Font family for cell text. Use LCARdS fonts (Antonio, Oswald) or system fonts",
                         "selector": {
                             "text": {
-                                "placeholder": "Antonio"
+                                "placeholder": "Antonio, sans-serif"
                             }
                         }
                     }
@@ -545,9 +545,11 @@ export const dataGridSchema = {
                     "format": "color",
                     "x-ui-hints": {
                         "label": "Text Color",
-                        "helper": "Cell text color (supports theme tokens)",
+                        "helper": "Cell text color (supports theme tokens like 'theme:colors.lcars.blue')",
                         "selector": {
-                            "ui_color": {}
+                            "ui_color": {
+                                "default_color": "theme:colors.grid.cellText"
+                            }
                         }
                     }
                 },
@@ -557,9 +559,11 @@ export const dataGridSchema = {
                     "format": "color",
                     "x-ui-hints": {
                         "label": "Background Color",
-                        "helper": "Cell background color",
+                        "helper": "Cell background color (supports theme tokens like 'theme:colors.lcars.dark-blue')",
                         "selector": {
-                            "ui_color": {}
+                            "ui_color": {
+                                "default_color": "transparent"
+                            }
                         }
                     }
                 },
@@ -617,8 +621,11 @@ export const dataGridSchema = {
                     "format": "color",
                     "x-ui-hints": {
                         "label": "Border Color",
+                        "helper": "Cell border color (supports theme tokens)",
                         "selector": {
-                            "ui_color": {}
+                            "ui_color": {
+                                "default_color": "theme:colors.grid.cellBorder"
+                            }
                         }
                     }
                 },
@@ -803,7 +810,7 @@ export const dataGridSchema = {
                     "x-ui-hints": {
                         "label": "Custom Timing",
                         "helper": "Custom per-row timing array (only for pattern: custom)",
-                        "showIf": { 
+                        "showIf": {
                             "animation.type": "cascade",
                             "animation.pattern": "custom"
                         }
