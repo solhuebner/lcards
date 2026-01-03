@@ -185,39 +185,6 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             }
 
             /* Main Tab Navigation */
-            .main-tabs {
-                display: flex;
-                gap: 4px;
-                margin-bottom: 12px;
-                border-bottom: 2px solid var(--divider-color);
-            }
-
-            .main-tab {
-                padding: 12px 24px;
-                background: transparent;
-                border: none;
-                border-bottom: 3px solid transparent;
-                color: var(--secondary-text-color);
-                font-size: 14px;
-                font-weight: 500;
-                cursor: pointer;
-                transition: all 0.2s ease;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-            }
-
-            .main-tab:hover {
-                color: var(--primary-text-color);
-                background: var(--secondary-background-color);
-            }
-
-            .main-tab.active {
-                color: var(--primary-color);
-                border-bottom-color: var(--primary-color);
-                border-bottom-width: 4px;
-            }
-
             /* Studio Layout: Config (60%) | Preview (40%) */
             .studio-layout {
                 display: grid;
@@ -316,46 +283,6 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 display: block;
                 width: 100%;
                 min-height: 300px;
-            }
-
-            /* Sub-tabs styling */
-            .sub-tabs {
-                display: flex;
-                gap: 8px;
-                margin-bottom: 16px;
-                border-bottom: 1px solid var(--divider-color);
-                padding-bottom: 8px;
-            }
-
-            .sub-tab {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                padding: 8px 16px;
-                background: transparent;
-                border: 1px solid transparent;
-                border-radius: 4px;
-                color: var(--secondary-text-color);
-                font-size: 13px;
-                cursor: pointer;
-                transition: all 0.2s ease;
-                white-space: nowrap;
-            }
-
-            .sub-tab ha-icon {
-                --mdc-icon-size: 18px;
-            }
-
-            .sub-tab:hover {
-                background: var(--secondary-background-color);
-                border-color: var(--divider-color);
-            }
-
-            .sub-tab.active {
-                background: var(--primary-color);
-                color: white;
-                border-color: var(--primary-color);
-                font-weight: 500;
             }
 
             /* Mode selector cards */
@@ -477,38 +404,28 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
 
                 <div class="dialog-content">
                     <!-- Main Tab Navigation -->
-                    <div class="main-tabs">
-                        <button
-                            class="main-tab ${this._activeTab === 'mode' ? 'active' : ''}"
-                            @click=${() => this._handleMainTabChange('mode')}>
+                    <ha-tab-group @wa-tab-show=${this._handleMainTabChange}>
+                        <ha-tab-group-tab value="mode" ?active=${this._activeTab === 'mode'}>
                             <ha-icon icon="mdi:view-grid"></ha-icon>
                             Mode
-                        </button>
-                        <button
-                            class="main-tab ${this._activeTab === 'grid-structure' ? 'active' : ''}"
-                            @click=${() => this._handleMainTabChange('grid-structure')}>
+                        </ha-tab-group-tab>
+                        <ha-tab-group-tab value="grid-structure" ?active=${this._activeTab === 'grid-structure'}>
                             <ha-icon icon="mdi:table-settings"></ha-icon>
                             Grid Structure
-                        </button>
-                        <button
-                            class="main-tab ${this._activeTab === 'grid-styles' ? 'active' : ''}"
-                            @click=${() => this._handleMainTabChange('grid-styles')}>
+                        </ha-tab-group-tab>
+                        <ha-tab-group-tab value="grid-styles" ?active=${this._activeTab === 'grid-styles'}>
                             <ha-icon icon="mdi:palette"></ha-icon>
                             Grid Styles
-                        </button>
-                        <button
-                            class="main-tab ${this._activeTab === 'animation' ? 'active' : ''}"
-                            @click=${() => this._handleMainTabChange('animation')}>
+                        </ha-tab-group-tab>
+                        <ha-tab-group-tab value="animation" ?active=${this._activeTab === 'animation'}>
                             <ha-icon icon="mdi:animation"></ha-icon>
                             Animation
-                        </button>
-                        <button
-                            class="main-tab ${this._activeTab === 'advanced' ? 'active' : ''}"
-                            @click=${() => this._handleMainTabChange('advanced')}>
+                        </ha-tab-group-tab>
+                        <ha-tab-group-tab value="advanced" ?active=${this._activeTab === 'advanced'}>
                             <ha-icon icon="mdi:cog"></ha-icon>
                             Advanced
-                        </button>
-                    </div>
+                        </ha-tab-group-tab>
+                    </ha-tab-group>
 
                     <!-- Split Layout: Config (60%) | Preview (40%) -->
                     <div class="studio-layout">
@@ -1449,16 +1366,14 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
         ];
 
         return html`
-            <div class="sub-tabs">
+            <ha-tab-group @wa-tab-show=${this._handleStylesSubTabChange}>
                 ${subTabs.map(tab => html`
-                    <div
-                        class="sub-tab ${this._gridStylesSubTab === tab.id ? 'active' : ''}"
-                        @click=${() => { this._gridStylesSubTab = tab.id; this.requestUpdate(); }}>
+                    <ha-tab-group-tab value="${tab.id}" ?active=${this._gridStylesSubTab === tab.id}>
                         <ha-icon icon="${tab.icon}"></ha-icon>
-                        <span>${tab.label}</span>
-                    </div>
+                        ${tab.label}
+                    </ha-tab-group-tab>
                 `)}
-            </div>
+            </ha-tab-group>
 
             ${this._gridStylesSubTab === 'hierarchy' ? this._renderStyleHierarchySubTab() : ''}
             ${this._gridStylesSubTab === 'table' ? this._renderTableLevelStylesSubTab() : ''}
@@ -1532,98 +1447,6 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 ?expanded=${true}
                 ?useColorPicker=${true}>
             </lcards-color-section>
-
-            ${showHeaderStyles ? html`
-                <lcards-form-section
-                    header="Header Style"
-                    description="Column header specific styling (Data Table mode only)"
-                    icon="mdi:format-header-1"
-                    ?expanded=${true}>
-
-                    <lcards-message type="info">
-                        These styles apply only to column headers in Data Table mode.
-                    </lcards-message>
-
-                    <lcards-grid-layout>
-                        <ha-textfield
-                            label="Font Size"
-                            .value=${this._workingConfig.header_style?.font_size || ''}
-                            @input=${(e) => this._updateConfig('header_style.font_size', e.target.value)}
-                            helper="e.g., '18px', '1.2rem'">
-                        </ha-textfield>
-
-                        <ha-textfield
-                            type="number"
-                            label="Font Weight"
-                            .value=${this._workingConfig.header_style?.font_weight || ''}
-                            @input=${(e) => this._updateConfig('header_style.font_weight', e.target.value)}
-                            helper="100-900">
-                        </ha-textfield>
-                    </lcards-grid-layout>
-
-                    <ha-selector
-                        .hass=${this.hass}
-                        .selector=${{select: {mode: 'dropdown', options: [
-                            { value: 'none', label: 'None' },
-                            { value: 'uppercase', label: 'UPPERCASE' },
-                            { value: 'lowercase', label: 'lowercase' },
-                            { value: 'capitalize', label: 'Capitalize Each Word' }
-                        ]}}}
-                        .label=${'Text Transform'}
-                        .value=${this._workingConfig.header_style?.text_transform || 'none'}
-                        @value-changed=${(e) => this._updateConfig('header_style.text_transform', e.detail.value)}
-                        @closed=${(e) => e.stopPropagation()}>
-                    </ha-selector>
-
-                    <lcards-color-section
-                        .editor=${this}
-                        header="Header Colors"
-                        description="Colors specific to column headers"
-                        .colorPaths=${[
-                            { path: 'header_style.color', label: 'Header Text Color', helper: 'Column header text' },
-                            { path: 'header_style.background', label: 'Header Background', helper: 'Column header background' }
-                        ]}
-                        ?expanded=${false}
-                        ?useColorPicker=${true}>
-                    </lcards-color-section>
-
-                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--divider-color);">
-                        <div style="font-weight: 500; margin-bottom: 8px;">Header Border Bottom</div>
-                        <lcards-grid-layout>
-                            <ha-textfield
-                                type="number"
-                                label="Width (px)"
-                                .value=${this._workingConfig.header_style?.border_bottom_width || 0}
-                                @input=${(e) => this._updateConfig('header_style.border_bottom_width', parseInt(e.target.value) || 0)}
-                                min="0"
-                                max="10"
-                                helper="Border below headers">
-                            </ha-textfield>
-
-                            <ha-textfield
-                                label="Color"
-                                .value=${this._workingConfig.header_style?.border_bottom_color || ''}
-                                @input=${(e) => this._updateConfig('header_style.border_bottom_color', e.target.value)}
-                                helper="Border color">
-                            </ha-textfield>
-                        </lcards-grid-layout>
-
-                        <ha-selector
-                            .hass=${this.hass}
-                            .selector=${{select: {mode: 'dropdown', options: [
-                                { value: 'solid', label: 'Solid' },
-                                { value: 'dashed', label: 'Dashed' },
-                                { value: 'dotted', label: 'Dotted' },
-                                { value: 'double', label: 'Double' }
-                            ]}}}
-                            .label=${'Border Style'}
-                            .value=${this._workingConfig.header_style?.border_bottom_style || 'solid'}
-                            @value-changed=${(e) => this._updateConfig('header_style.border_bottom_style', e.detail.value)}
-                            @closed=${(e) => e.stopPropagation()}>
-                        </ha-selector>
-                    </div>
-                </lcards-form-section>
-            ` : ''}
 
             <lcards-form-section
                 header="Border Settings"
@@ -1813,21 +1636,6 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                     @value-changed=${(e) => this._updateConfig('change_animation.preset', e.detail.value)}
                     @closed=${(e) => e.stopPropagation()}>
                 </ha-selector>
-
-                ${this._workingConfig.change_animation?.preset !== 'none' ? html`
-                    <ha-selector
-                        .hass=${this.hass}
-                        .selector=${{select: {mode: 'dropdown', options: [
-                            { value: 'cell', label: 'Cell' },
-                            { value: 'row', label: 'Row' },
-                            { value: 'column', label: 'Column' }
-                        ]}}}
-                        .label=${'Target Mode'}
-                        .value=${this._workingConfig.change_animation?.target_mode || 'cell'}
-                        @value-changed=${(e) => this._updateConfig('change_animation.target_mode', e.detail.value)}
-                        @closed=${(e) => e.stopPropagation()}>
-                    </ha-selector>
-                ` : ''}
             </lcards-form-section>
         `;
     }
@@ -1946,98 +1754,6 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                     .mode=${hierarchyMode}>
                 </lcards-style-hierarchy-diagram>
             </lcards-form-section>
-
-            ${showHeaderStyles ? html`
-                <lcards-form-section
-                    header="Header Style"
-                    description="Column header specific styling (Data Table mode only)"
-                    icon="mdi:format-header-1"
-                    ?expanded=${true}>
-
-                    <lcards-message type="info">
-                        These styles apply only to column headers in Data Table mode.
-                    </lcards-message>
-
-                    <lcards-grid-layout>
-                        <ha-textfield
-                            label="Font Size"
-                            .value=${this._workingConfig.header_style?.font_size || ''}
-                            @input=${(e) => this._updateConfig('header_style.font_size', e.target.value)}
-                            helper="e.g., '18px', '1.2rem'">
-                        </ha-textfield>
-
-                        <ha-textfield
-                            type="number"
-                            label="Font Weight"
-                            .value=${this._workingConfig.header_style?.font_weight || ''}
-                            @input=${(e) => this._updateConfig('header_style.font_weight', e.target.value)}
-                            helper="100-900">
-                        </ha-textfield>
-                    </lcards-grid-layout>
-
-                    <ha-selector
-                        .hass=${this.hass}
-                        .selector=${{select: {mode: 'dropdown', options: [
-                            { value: 'none', label: 'None' },
-                            { value: 'uppercase', label: 'UPPERCASE' },
-                            { value: 'lowercase', label: 'lowercase' },
-                            { value: 'capitalize', label: 'Capitalize Each Word' }
-                        ]}}}
-                        .label=${'Text Transform'}
-                        .value=${this._workingConfig.header_style?.text_transform || 'none'}
-                        @value-changed=${(e) => this._updateConfig('header_style.text_transform', e.detail.value)}
-                        @closed=${(e) => e.stopPropagation()}>
-                    </ha-selector>
-
-                    <lcards-color-section
-                        .editor=${this}
-                        header="Header Colors"
-                        description="Colors specific to column headers"
-                        .colorPaths=${[
-                            { path: 'header_style.color', label: 'Header Text Color', helper: 'Column header text' },
-                            { path: 'header_style.background', label: 'Header Background', helper: 'Column header background' }
-                        ]}
-                        ?expanded=${false}
-                        ?useColorPicker=${true}>
-                    </lcards-color-section>
-
-                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--divider-color);">
-                        <div style="font-weight: 500; margin-bottom: 8px;">Header Border Bottom</div>
-                        <lcards-grid-layout>
-                            <ha-textfield
-                                type="number"
-                                label="Width (px)"
-                                .value=${this._workingConfig.header_style?.border_bottom_width || 0}
-                                @input=${(e) => this._updateConfig('header_style.border_bottom_width', parseInt(e.target.value) || 0)}
-                                min="0"
-                                max="10"
-                                helper="Border below headers">
-                            </ha-textfield>
-
-                            <ha-textfield
-                                label="Color"
-                                .value=${this._workingConfig.header_style?.border_bottom_color || ''}
-                                @input=${(e) => this._updateConfig('header_style.border_bottom_color', e.target.value)}
-                                helper="Border color">
-                            </ha-textfield>
-                        </lcards-grid-layout>
-
-                        <ha-selector
-                            .hass=${this.hass}
-                            .selector=${{select: {mode: 'dropdown', options: [
-                                { value: 'solid', label: 'Solid' },
-                                { value: 'dashed', label: 'Dashed' },
-                                { value: 'dotted', label: 'Dotted' },
-                                { value: 'double', label: 'Double' }
-                            ]}}}
-                            .label=${'Border Style'}
-                            .value=${this._workingConfig.header_style?.border_bottom_style || 'solid'}
-                            @value-changed=${(e) => this._updateConfig('header_style.border_bottom_style', e.detail.value)}
-                            @closed=${(e) => e.stopPropagation()}>
-                        </ha-selector>
-                    </div>
-                </lcards-form-section>
-            ` : ''}
 
             <lcards-form-section
                 header="Border Settings"
@@ -2172,21 +1888,6 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                     @value-changed=${(e) => this._updateConfig('change_animation.preset', e.detail.value)}
                     @closed=${(e) => e.stopPropagation()}>
                 </ha-selector>
-
-                ${this._workingConfig.change_animation?.preset !== 'none' ? html`
-                    <ha-selector
-                        .hass=${this.hass}
-                        .selector=${{select: {mode: 'dropdown', options: [
-                            { value: 'cell', label: 'Cell' },
-                            { value: 'row', label: 'Row' },
-                            { value: 'column', label: 'Column' }
-                        ]}}}
-                        .label=${'Target Mode'}
-                        .value=${this._workingConfig.change_animation?.target_mode || 'cell'}
-                        @value-changed=${(e) => this._updateConfig('change_animation.target_mode', e.detail.value)}
-                        @closed=${(e) => e.stopPropagation()}>
-                    </ha-selector>
-                ` : ''}
             </lcards-form-section>
         `;
     }
@@ -2230,9 +1931,22 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
     // Event Handlers
     // ========================================
 
-    _handleMainTabChange(tab) {
-        this._activeTab = tab;
-        lcardsLog.debug('[DataGridStudioV4] Main tab changed to:', tab);
+    _handleMainTabChange(e) {
+        const value = e.target.activeTab?.getAttribute('value');
+        if (value !== null && value !== undefined) {
+            this._activeTab = value;
+            lcardsLog.debug('[DataGridStudioV4] Main tab changed to:', value);
+            this.requestUpdate();
+        }
+    }
+
+    _handleStylesSubTabChange(e) {
+        const value = e.target.activeTab?.getAttribute('value');
+        if (value !== null && value !== undefined) {
+            this._gridStylesSubTab = value;
+            lcardsLog.debug('[DataGridStudioV4] Styles sub-tab changed to:', value);
+            this.requestUpdate();
+        }
     }
 
     _handleModeChange(mode) {
