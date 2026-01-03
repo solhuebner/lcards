@@ -1399,7 +1399,7 @@ export class LCARdSSlider extends LCARdSButton {
         const ranges = this._sliderStyle?.ranges || [];
         if (ranges.length > 0) {
             lcardsLog.debug(`[LCARdSSlider] Rendering ${ranges.length} range backgrounds`);
-            
+
             ranges.forEach((rangeConfig, idx) => {
                 const rangeMin = rangeConfig.min;
                 const rangeMax = rangeConfig.max;
@@ -1450,24 +1450,24 @@ export class LCARdSSlider extends LCARdSButton {
         // ====================================================================
         if (ranges.length > 0) {
             const labelColor = this._resolveCssVariable(
-                gaugeConfig?.scale?.labels?.color || 
+                gaugeConfig?.scale?.labels?.color ||
                 'var(--primary-text-color, #ffffff)'
             );
             const labelFontSize = gaugeConfig?.scale?.labels?.font_size || 12;
-            
+
             ranges.forEach((rangeConfig, idx) => {
                 if (!rangeConfig.label) return; // Skip if no label configured
-                
+
                 const rangeMin = rangeConfig.min;
                 const rangeMax = rangeConfig.max;
                 const rangeMidValue = (rangeMin + rangeMax) / 2;
                 const midPercent = (rangeMidValue - min) / range;
-                
+
                 if (isVertical) {
                     // Vertical: label at midpoint Y, right-aligned
                     const yPos = trackHeight * (1 - midPercent);
                     const xPos = trackWidth - 5; // 5px from right edge
-                    
+
                     svg += `
                         <text class="range-label"
                               x="${xPos}" y="${yPos}"
@@ -1482,7 +1482,7 @@ export class LCARdSSlider extends LCARdSButton {
                     // Horizontal: label at midpoint X, centered
                     const xPos = trackWidth * midPercent;
                     const yPos = 15; // 15px from top
-                    
+
                     svg += `
                         <text class="range-label"
                               x="${xPos}" y="${yPos}"
