@@ -312,7 +312,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                 ?outlined=${true}
                 headerLevel="4">
 
-                <lcards-grid-layout>
+                <lcards-grid-layout columns="1">
                     ${FormField.renderField(this, 'style.track.segments.count', {
                         label: 'Segment Count',
                         helper: 'Number of pill segments'
@@ -362,7 +362,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                 ?outlined=${true}
                 headerLevel="4">
 
-                <lcards-grid-layout>
+                <lcards-grid-layout columns="1">
                     ${FormField.renderField(this, 'style.track.segments.appearance.unfilled.opacity', {
                         label: 'Unfilled Opacity',
                         helper: 'Opacity for unfilled pills (0-1, default: 0.2)'
@@ -790,129 +790,6 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
     // ============================================================================
     // HELPER METHODS
     // ============================================================================
-
-    /**
-     * Handle mode switch (pills ↔ gauge)
-     * Applies default config for new mode and cleans old mode settings
-     * @param {CustomEvent} e - Mode change event
-     * @private
-     */
-    _handleTrackTypeChange(e) {
-        const newMode = e.detail.value; // 'pills' or 'gauge'
-        const state = this._getSliderState();
-        const oldMode = state.trackType;
-
-        if (newMode === oldMode) return;
-
-        lcardsLog.info(`[LCARdSSliderEditor] Mode switch: ${oldMode} → ${newMode}`);
-
-        // Clean incompatible config
-        const newConfig = { ...this.config };
-        if (newMode === 'pills') {
-            // Switching to pills - remove gauge config
-            if (newConfig.style?.gauge) {
-                delete newConfig.style.gauge;
-            }
-        } else if (newMode === 'gauge') {
-            // Switching to gauge - remove pills-specific segment config
-            if (newConfig.style?.track?.segments) {
-                delete newConfig.style.track.segments;
-            }
-        }
-
-        // Apply mode defaults
-        let modeDefaults = {};
-        if (newMode === 'pills') {
-            modeDefaults = {
-                style: {
-                    track: {
-                        type: 'pills',
-                        segments: {
-                            count: 20,
-                            gap: 2,
-                            size: { width: 10, height: 40 },
-                            shape: { radius: 2 },
-                            gradient: {
-                                start: '{theme:palette.moonlight}',
-                                end: '{theme:palette.alert-red}',
-                                interpolated: true
-                            },
-                            appearance: {
-                                unfilled: { opacity: 0.2 },
-                                filled: { opacity: 1.0 }
-                            }
-                        },
-                        margin: { left: 0, right: 0, top: 0, bottom: 0 },
-                        background: 'transparent'
-                    }
-                }
-            };
-        } else if (newMode === 'gauge') {
-            modeDefaults = {
-                style: {
-                    track: {
-                        type: 'gauge'
-                    },
-                    gauge: {
-                        progress_bar: {
-                            height: 10,
-                            radius: 5,
-                            color: '{theme:palette.moonlight}'
-                        },
-                        scale: {
-                            tick_marks: {
-                                major: {
-                                    enabled: true,
-                                    interval: 10,
-                                    width: 2,
-                                    height: 12,
-                                    color: '{theme:palette.moonlight}'
-                                },
-                                minor: {
-                                    enabled: true,
-                                    interval: 5,
-                                    width: 1,
-                                    height: 6,
-                                    color: '{theme:palette.text-dim}'
-                                }
-                            },
-                            labels: {
-                                enabled: true,
-                                font_size: 12,
-                                padding: 8,
-                                unit: '',
-                                color: '{theme:palette.text-primary}'
-                            }
-                        },
-                        indicator: {
-                            enabled: false,
-                            type: 'line',
-                            size: { width: 4, height: 25 },
-                            color: '{theme:palette.alert-red}',
-                            border: {
-                                enabled: false,
-                                width: 1,
-                                color: '{theme:palette.moonlight}'
-                            }
-                        }
-                    }
-                }
-            };
-        }
-
-        // Deep merge defaults with existing config
-        const updatedConfig = deepMerge({}, newConfig, modeDefaults);
-
-        // Set track.type explicitly
-        if (!updatedConfig.style) updatedConfig.style = {};
-        if (!updatedConfig.style.track) updatedConfig.style.track = {};
-        updatedConfig.style.track.type = newMode;
-
-        // Fire config changed event
-        this._updateConfig(updatedConfig);
-
-        lcardsLog.debug(`[LCARdSSliderEditor] Applied ${newMode} defaults:`, modeDefaults);
-    }
 
     /**
      * Handle actions change from multi-action editor
