@@ -499,6 +499,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
 
                 <ha-button
                     slot="secondaryAction"
+                    appearance="plain"
                     @click=${this._handleCancel}>
                     Cancel
                 </ha-button>
@@ -1338,7 +1339,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 </ha-entity-picker>
 
                 <div style="display: flex; gap: 8px; margin-top: 16px;">
-                    <ha-button @click=${() => this._closeTimelineRowEditor()}>
+                    <ha-button appearance="plain" @click=${() => this._closeTimelineRowEditor()}>
                         <ha-icon icon="mdi:close" slot="icon"></ha-icon>
                         Close
                     </ha-button>
@@ -2727,7 +2728,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                         <ha-icon icon="mdi:check" slot="icon"></ha-icon>
                         Save
                     </ha-button>
-                    <ha-button @click=${this._cancelCellEdit}>
+                    <ha-button appearance="plain" @click=${this._cancelCellEdit}>
                         <ha-icon icon="mdi:close" slot="icon"></ha-icon>
                         Cancel
                     </ha-button>
@@ -2880,12 +2881,12 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                         Move Down
                     </ha-button>
 
-                    <ha-button @click=${() => this._deleteManualRow(rowIndex)} style="--mdc-theme-primary: var(--error-color);">
+                    <ha-button variant="danger" @click=${() => this._deleteManualRow(rowIndex)}>
                         <ha-icon icon="mdi:delete" slot="icon"></ha-icon>
                         Delete Row
                     </ha-button>
 
-                    <ha-button @click=${() => { this._activeRowEdit = null; this.requestUpdate(); }}>
+                    <ha-button appearance="plain" @click=${() => { this._activeRowEdit = null; this.requestUpdate(); }}>
                         <ha-icon icon="mdi:close" slot="icon"></ha-icon>
                         Close
                     </ha-button>
@@ -2927,12 +2928,12 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                         Move Right
                     </ha-button>
 
-                    <ha-button @click=${() => this._deleteColumn(colIndex)} style="--mdc-theme-primary: var(--error-color);">
+                    <ha-button variant="danger" @click=${() => this._deleteColumn(colIndex)}>
                         <ha-icon icon="mdi:delete" slot="icon"></ha-icon>
                         Delete Column
                     </ha-button>
 
-                    <ha-button @click=${() => { this._activeColumnEdit = null; this.requestUpdate(); }}>
+                    <ha-button appearance="plain" @click=${() => { this._activeColumnEdit = null; this.requestUpdate(); }}>
                         <ha-icon icon="mdi:close" slot="icon"></ha-icon>
                         Close
                     </ha-button>
