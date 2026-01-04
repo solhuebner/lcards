@@ -33,8 +33,6 @@ import '../components/shared/lcards-form-section.js';
 import '../components/shared/lcards-message.js';
 import '../components/lcards-chart-live-preview.js';
 import '../../cards/lcards-chart.js';
-import { getChartSchema } from '../../cards/schemas/chart-schema.js';
-import '../components/editors/lcards-color-section.js';
 
 export class LCARdSChartStudioDialog extends LitElement {
     static get properties() {
@@ -67,9 +65,6 @@ export class LCARdSChartStudioDialog extends LitElement {
         // Data Sources tab state
         this._dataSourceLevel = 'simple';
         this._selectedEntity = '';
-
-        // Initialize chart schema
-        this._chartSchema = getChartSchema();
     }
 
     /**
@@ -122,7 +117,9 @@ export class LCARdSChartStudioDialog extends LitElement {
      * @private
      */
     _getSchemaForPath(path) {
-        return this._getSchemaByPath(path);
+        // Chart schema lookup would go here
+        // For Phase 1, return null (fields won't auto-populate)
+        return null;
     }
 
     /**
@@ -583,51 +580,23 @@ export class LCARdSChartStudioDialog extends LitElement {
      */
     async _showConfirmDialog(title, message) {
         return new Promise((resolve) => {
-            // Create dialog element
-            const dialog = document.createElement('ha-dialog');
-            dialog.heading = title;
-            dialog.open = true;
-            
-            // Create content
-            const content = document.createElement('div');
-            content.textContent = message;
-            content.style.padding = '16px';
-            content.style.lineHeight = '1.5';
-            
-            // Create button bar
-            const buttonBar = document.createElement('div');
-            buttonBar.slot = 'footer';
-            buttonBar.style.display = 'flex';
-            buttonBar.style.gap = '8px';
-            buttonBar.style.justifyContent = 'flex-end';
-            
-            // Cancel button
-            const cancelButton = document.createElement('mwc-button');
-            cancelButton.label = 'Cancel';
-            cancelButton.dialogAction = 'cancel';
-            
-            // Confirm button
-            const confirmButton = document.createElement('mwc-button');
-            confirmButton.label = 'Continue';
-            confirmButton.raised = true;
-            confirmButton.dialogAction = 'confirm';
-            
-            buttonBar.appendChild(cancelButton);
-            buttonBar.appendChild(confirmButton);
-            
-            // Assemble dialog
-            dialog.appendChild(content);
-            dialog.appendChild(buttonBar);
-            
-            // Handle close
-            dialog.addEventListener('closed', (e) => {
-                const confirmed = e.detail.action === 'confirm';
-                resolve(confirmed);
-                setTimeout(() => dialog.remove(), 100);
+            const event = new CustomEvent('show-dialog', {
+                detail: {
+                    dialogTag: 'ha-dialog',
+                    dialogImport: () => Promise.resolve(),
+                    dialogParams: {
+                        title: title,
+                        text: message,
+                        confirmText: 'Continue',
+                        dismissText: 'Cancel',
+                        confirm: () => resolve(true),
+                        cancel: () => resolve(false)
+                    }
+                },
+                bubbles: true,
+                composed: true
             });
-            
-            // Append to body
-            document.body.appendChild(dialog);
+            this.dispatchEvent(event);
         });
     }
 
@@ -1415,30 +1384,7 @@ export class LCARdSChartStudioDialog extends LitElement {
     }
 
     /**
-     * Get schema by dot-notation path
-     * Navigates nested schema structure for lcards-form-control
-     * @private
-     * @param {string} path - Dot-separated path (e.g., 'style.stroke.width')
-     * @returns {Object} Schema object or fallback
-     */
-    _getSchemaByPath(path) {
-        const parts = path.split('.');
-        let schema = this._chartSchema;
-        
-        for (const part of parts) {
-            if (schema.properties && schema.properties[part]) {
-                schema = schema.properties[part];
-            } else {
-                // Fallback for missing schema paths
-                return { type: 'string', 'x-ui-hints': { selector: { text: {} } } };
-            }
-        }
-        
-        return schema;
-    }
-
-    /**
-     * Render single color picker using lcards-color-section
+     * Render single color picker using ha-selector
      * @private
      * @param {string} path - Config path
      * @param {string} label - Field label
@@ -1449,18 +1395,13 @@ export class LCARdSChartStudioDialog extends LitElement {
         const value = this._getNestedValue(path) || fallback;
         
         return html`
-            <lcards-color-section
-                .colors=${value ? [value] : []}
+            <ha-selector
+                .hass=${this.hass}
+                .selector=${{ color_rgb: {} }}
+                .value=${value}
                 .label=${label}
-                .maxColors=${1}
-                .allowEmpty=${false}
-                @colors-changed=${(e) => {
-                    const color = e.detail.colors?.[0];
-                    if (color) {
-                        this._setNestedValue(path, color);
-                    }
-                }}>
-            </lcards-color-section>
+                @value-changed=${(e) => this._setNestedValue(path, e.detail.value)}>
+            </ha-selector>
         `;
     }
 
@@ -1555,13 +1496,26 @@ export class LCARdSChartStudioDialog extends LitElement {
             <div class="gradient-config" style="padding-left: 16px; border-left: 2px solid var(--divider-color); margin-top: 16px;">
                 <h4 style="margin: 0 0 12px 0;">Gradient Settings</h4>
                 
-                ${FormField.renderField(this, 'style.fill.gradient.type', {
-                    label: 'Gradient Direction'
-                })}
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{ select: { options: [
+                        { value: 'vertical', label: 'Vertical' },
+                        { value: 'horizontal', label: 'Horizontal' },
+                        { value: 'diagonal1', label: 'Diagonal ↘' },
+                        { value: 'diagonal2', label: 'Diagonal ↙' }
+                    ]}}}
+                    .value=${gradientType}
+                    .label=${"Gradient Direction"}
+                    @value-changed=${(e) => this._setNestedValue('style.fill.gradient.type', e.detail.value)}>
+                </ha-selector>
 
-                ${FormField.renderField(this, 'style.fill.gradient.shadeIntensity', {
-                    label: 'Shade Intensity'
-                })}
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{ number: { min: 0, max: 1, step: 0.1, mode: 'slider' } }}
+                    .value=${shadeIntensity}
+                    .label=${"Shade Intensity"}
+                    @value-changed=${(e) => this._setNestedValue('style.fill.gradient.shadeIntensity', e.detail.value)}>
+                </ha-selector>
             </div>
         `;
     }
@@ -1637,15 +1591,22 @@ export class LCARdSChartStudioDialog extends LitElement {
                 icon="mdi:resize"
                 ?expanded=${true}>
                 
-                ${FormField.renderField(this, 'height', {
-                    label: 'Height',
-                    helper: 'Chart height in pixels'
-                })}
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{ number: { min: 100, max: 1000, step: 50, mode: 'slider', unit_of_measurement: 'px' } }}
+                    .value=${this._workingConfig.height || 300}
+                    .label=${"Height"}
+                    @value-changed=${(e) => this._setConfigValue('height', e.detail.value)}>
+                </ha-selector>
 
-                ${FormField.renderField(this, 'max_points', {
-                    label: 'Max Data Points',
-                    helper: 'Limit data points for performance (0 = unlimited)'
-                })}
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{ number: { min: 0, max: 10000, step: 100, mode: 'box' } }}
+                    .value=${this._workingConfig.max_points || 0}
+                    .label=${"Max Data Points"}
+                    .helper=${"Limit data points for performance (0 = unlimited)"}
+                    @value-changed=${(e) => this._setConfigValue('max_points', e.detail.value)}>
+                </ha-selector>
             </lcards-form-section>
 
             <!-- X-Axis Type -->
@@ -1655,10 +1616,17 @@ export class LCARdSChartStudioDialog extends LitElement {
                 icon="mdi:axis-x-arrow"
                 ?expanded=${true}>
                 
-                ${FormField.renderField(this, 'xaxis_type', {
-                    label: 'X-Axis Type',
-                    helper: 'Type of x-axis scaling'
-                })}
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{ select: { options: [
+                        { value: 'datetime', label: 'DateTime (Time Series)' },
+                        { value: 'category', label: 'Category (Labels)' },
+                        { value: 'numeric', label: 'Numeric' }
+                    ]}}}
+                    .value=${this._workingConfig.xaxis_type || 'datetime'}
+                    .label=${"X-Axis Type"}
+                    @value-changed=${(e) => this._setConfigValue('xaxis_type', e.detail.value)}>
+                </ha-selector>
             </lcards-form-section>
         `;
     }
@@ -1759,13 +1727,26 @@ export class LCARdSChartStudioDialog extends LitElement {
                 icon="mdi:brush"
                 ?expanded=${true}>
                 
-                ${FormField.renderField(this, 'style.stroke.width', {
-                    label: 'Stroke Width'
-                })}
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{ number: { min: 0, max: 10, step: 0.5, mode: 'slider' } }}
+                    .value=${strokeWidth}
+                    .label=${"Stroke Width"}
+                    @value-changed=${(e) => this._setNestedValue('style.stroke.width', e.detail.value)}>
+                </ha-selector>
 
-                ${FormField.renderField(this, 'style.stroke.curve', {
-                    label: 'Curve Type'
-                })}
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{ select: { options: [
+                        { value: 'smooth', label: 'Smooth' },
+                        { value: 'straight', label: 'Straight' },
+                        { value: 'stepline', label: 'Stepline' },
+                        { value: 'monotoneCubic', label: 'Monotone Cubic' }
+                    ]}}}
+                    .value=${strokeCurve}
+                    .label=${"Curve Type"}
+                    @value-changed=${(e) => this._setNestedValue('style.stroke.curve', e.detail.value)}>
+                </ha-selector>
             </lcards-form-section>
 
             <!-- Fill Configuration -->
@@ -1775,13 +1756,26 @@ export class LCARdSChartStudioDialog extends LitElement {
                 icon="mdi:format-color-fill"
                 ?expanded=${true}>
                 
-                ${FormField.renderField(this, 'style.fill.type', {
-                    label: 'Fill Type'
-                })}
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{ select: { options: [
+                        { value: 'solid', label: 'Solid' },
+                        { value: 'gradient', label: 'Gradient' },
+                        { value: 'pattern', label: 'Pattern' },
+                        { value: 'image', label: 'Image' }
+                    ]}}}
+                    .value=${fillType}
+                    .label=${"Fill Type"}
+                    @value-changed=${(e) => this._setNestedValue('style.fill.type', e.detail.value)}>
+                </ha-selector>
 
-                ${FormField.renderField(this, 'style.fill.opacity', {
-                    label: 'Fill Opacity'
-                })}
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{ number: { min: 0, max: 1, step: 0.1, mode: 'slider' } }}
+                    .value=${fillOpacity}
+                    .label=${"Fill Opacity"}
+                    @value-changed=${(e) => this._setNestedValue('style.fill.opacity', e.detail.value)}>
+                </ha-selector>
 
                 ${fillType === 'gradient' ? this._renderGradientConfig() : ''}
             </lcards-form-section>
@@ -1802,13 +1796,21 @@ export class LCARdSChartStudioDialog extends LitElement {
                 icon="mdi:circle"
                 ?expanded=${true}>
                 
-                ${FormField.renderField(this, 'style.markers.size', {
-                    label: 'Marker Size'
-                })}
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{ number: { min: 0, max: 20, step: 1, mode: 'slider' } }}
+                    .value=${markerSize}
+                    .label=${"Marker Size"}
+                    @value-changed=${(e) => this._setNestedValue('style.markers.size', e.detail.value)}>
+                </ha-selector>
 
-                ${FormField.renderField(this, 'style.markers.stroke.width', {
-                    label: 'Marker Stroke Width'
-                })}
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{ number: { min: 0, max: 10, step: 0.5, mode: 'slider' } }}
+                    .value=${markerStrokeWidth}
+                    .label=${"Marker Stroke Width"}
+                    @value-changed=${(e) => this._setNestedValue('style.markers.stroke.width', e.detail.value)}>
+                </ha-selector>
             </lcards-form-section>
 
             <!-- Grid Configuration -->
@@ -1818,14 +1820,22 @@ export class LCARdSChartStudioDialog extends LitElement {
                 icon="mdi:grid"
                 ?expanded=${true}>
                 
-                ${FormField.renderField(this, 'style.grid.show', {
-                    label: 'Show Grid'
-                })}
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{ boolean: {} }}
+                    .value=${showGrid}
+                    .label=${"Show Grid"}
+                    @value-changed=${(e) => this._setNestedValue('style.grid.show', e.detail.value)}>
+                </ha-selector>
 
                 ${showGrid ? html`
-                    ${FormField.renderField(this, 'style.grid.opacity', {
-                        label: 'Grid Opacity'
-                    })}
+                    <ha-selector
+                        .hass=${this.hass}
+                        .selector=${{ number: { min: 0, max: 1, step: 0.1, mode: 'slider' } }}
+                        .value=${gridOpacity}
+                        .label=${"Grid Opacity"}
+                        @value-changed=${(e) => this._setNestedValue('style.grid.opacity', e.detail.value)}>
+                    </ha-selector>
 
                     ${this._renderColorArray('style.grid.row_colors', 'Grid Row Colors', 'Alternating row background colors')}
                     ${this._renderColorArray('style.grid.column_colors', 'Grid Column Colors', 'Alternating column background colors')}
@@ -1835,298 +1845,28 @@ export class LCARdSChartStudioDialog extends LitElement {
     }
 
     _renderAxesTab() {
-        return html`
-            <!-- X-Axis Configuration -->
-            <lcards-form-section
-                header="X-Axis Configuration"
-                description="Horizontal axis styling and labels"
-                icon="mdi:axis-x-arrow"
-                ?expanded=${true}>
-                
-                <!-- X-Axis Labels -->
-                ${FormField.renderField(this, 'style.xaxis.labels.show', {
-                    label: 'Show X-Axis Labels'
-                })}
-
-                ${FormField.renderField(this, 'style.xaxis.labels.rotate', {
-                    label: 'Label Rotation (degrees)'
-                })}
-
-                <!-- X-Axis Border -->
-                ${FormField.renderField(this, 'style.xaxis.border.show', {
-                    label: 'Show X-Axis Border'
-                })}
-
-                <!-- X-Axis Ticks -->
-                ${FormField.renderField(this, 'style.xaxis.ticks.show', {
-                    label: 'Show X-Axis Ticks'
-                })}
-            </lcards-form-section>
-
-            <!-- Y-Axis Configuration -->
-            <lcards-form-section
-                header="Y-Axis Configuration"
-                description="Vertical axis styling and labels"
-                icon="mdi:axis-y-arrow"
-                ?expanded=${true}>
-                
-                <!-- Y-Axis Labels -->
-                ${FormField.renderField(this, 'style.yaxis.labels.show', {
-                    label: 'Show Y-Axis Labels'
-                })}
-
-                <!-- Y-Axis Border -->
-                ${FormField.renderField(this, 'style.yaxis.border.show', {
-                    label: 'Show Y-Axis Border'
-                })}
-
-                <!-- Y-Axis Ticks -->
-                ${FormField.renderField(this, 'style.yaxis.ticks.show', {
-                    label: 'Show Y-Axis Ticks'
-                })}
-            </lcards-form-section>
-        `;
+        return this._renderComingSoon('Axes', 'Phase 4',
+            'X/Y axis styling, labels, borders, ticks, and formatting');
     }
 
     _renderLegendLabelsTab() {
-        return html`
-            <!-- Legend Configuration -->
-            <lcards-form-section
-                header="Legend Configuration"
-                description="Chart legend positioning and styling"
-                icon="mdi:label-multiple"
-                ?expanded=${true}>
-                
-                ${FormField.renderField(this, 'style.legend.show', {
-                    label: 'Show Legend'
-                })}
-
-                ${this._getNestedValue('style.legend.show') ? html`
-                    ${FormField.renderField(this, 'style.legend.position', {
-                        label: 'Legend Position'
-                    })}
-
-                    ${FormField.renderField(this, 'style.legend.horizontalAlign', {
-                        label: 'Horizontal Alignment'
-                    })}
-                ` : ''}
-            </lcards-form-section>
-
-            <!-- Data Labels Configuration -->
-            <lcards-form-section
-                header="Data Labels"
-                description="Labels displayed on data points"
-                icon="mdi:label-variant"
-                ?expanded=${true}>
-                
-                ${FormField.renderField(this, 'style.data_labels.show', {
-                    label: 'Show Data Labels'
-                })}
-
-                ${this._getNestedValue('style.data_labels.show') ? html`
-                    ${FormField.renderField(this, 'style.data_labels.offsetY', {
-                        label: 'Vertical Offset'
-                    })}
-                ` : ''}
-            </lcards-form-section>
-
-            <!-- Tooltip Configuration -->
-            <lcards-form-section
-                header="Tooltip Configuration"
-                description="Interactive tooltip settings"
-                icon="mdi:tooltip-text"
-                ?expanded=${true}>
-                
-                ${FormField.renderField(this, 'style.display.tooltip.show', {
-                    label: 'Show Tooltip'
-                })}
-
-                ${this._getNestedValue('style.display.tooltip.show') !== false ? html`
-                    ${FormField.renderField(this, 'style.display.tooltip.theme', {
-                        label: 'Tooltip Theme'
-                    })}
-                ` : ''}
-            </lcards-form-section>
-        `;
+        return this._renderComingSoon('Legend & Labels', 'Phase 4',
+            'Legend position, data labels, tooltips, and annotations');
     }
 
     _renderThemeTab() {
-        const monochromeEnabled = this._getNestedValue('style.theme.monochrome.enabled') ?? false;
-        
-        return html`
-            <!-- Theme Mode -->
-            <lcards-form-section
-                header="Theme Mode"
-                description="Light or dark theme for chart"
-                icon="mdi:theme-light-dark"
-                ?expanded=${true}>
-                
-                ${FormField.renderField(this, 'style.theme.mode', {
-                    label: 'Theme Mode'
-                })}
-            </lcards-form-section>
-
-            <!-- Theme Palette -->
-            <lcards-form-section
-                header="Color Palette"
-                description="Predefined color scheme"
-                icon="mdi:palette"
-                ?expanded=${true}>
-                
-                ${FormField.renderField(this, 'style.theme.palette', {
-                    label: 'Palette',
-                    helper: 'Leave blank to use custom series colors'
-                })}
-
-                <lcards-message type="info">
-                    <strong>Note:</strong> Palette colors override series colors defined in the Colors tab.
-                    Leave blank to use custom series colors.
-                </lcards-message>
-            </lcards-form-section>
-
-            <!-- Monochrome Mode -->
-            <lcards-form-section
-                header="Monochrome Mode"
-                description="Single color with shade variations"
-                icon="mdi:invert-colors"
-                ?expanded=${false}>
-                
-                ${FormField.renderField(this, 'style.theme.monochrome.enabled', {
-                    label: 'Enable Monochrome'
-                })}
-
-                ${monochromeEnabled ? html`
-                    <lcards-color-section
-                        .colors=${[this._getNestedValue('style.theme.monochrome.color') || '#FF9900']}
-                        .label=${"Monochrome Base Color"}
-                        .maxColors=${1}
-                        @colors-changed=${(e) => this._setNestedValue('style.theme.monochrome.color', e.detail.colors[0])}>
-                    </lcards-color-section>
-
-                    ${FormField.renderField(this, 'style.theme.monochrome.shade_to', {
-                        label: 'Shade Direction'
-                    })}
-
-                    ${FormField.renderField(this, 'style.theme.monochrome.shade_intensity', {
-                        label: 'Shade Intensity'
-                    })}
-                ` : ''}
-            </lcards-form-section>
-        `;
+        return this._renderComingSoon('Theme', 'Phase 4',
+            'Theme mode, palette selection, and monochrome settings');
     }
 
     _renderAnimationTab() {
-        return html`
-            <lcards-form-section
-                header="Animation Configuration"
-                description="Chart animation and transitions"
-                icon="mdi:animation"
-                ?expanded=${true}>
-                
-                ${FormField.renderField(this, 'style.animation.preset', {
-                    label: 'Animation Preset'
-                })}
-
-                <lcards-message type="info">
-                    <strong>Animation Presets:</strong>
-                    <ul style="margin: 8px 0; padding-left: 20px;">
-                        <li><strong>lcars_standard:</strong> Balanced speed and smoothness</li>
-                        <li><strong>lcars_dramatic:</strong> Slower, more cinematic</li>
-                        <li><strong>lcars_minimal:</strong> Fast, subtle transitions</li>
-                        <li><strong>lcars_realtime:</strong> No animation for live data</li>
-                        <li><strong>none:</strong> Disable all animations</li>
-                    </ul>
-                </lcards-message>
-            </lcards-form-section>
-        `;
+        return this._renderComingSoon('Animation', 'Phase 4',
+            'Animation presets and custom animation configuration');
     }
 
     _renderAdvancedTab() {
-        return html`
-            <!-- Formatters -->
-            <lcards-form-section
-                header="Formatters"
-                description="Custom label and tooltip formatting"
-                icon="mdi:code-braces"
-                ?expanded=${false}>
-                
-                ${FormField.renderField(this, 'style.formatters.xaxis_label', {
-                    label: 'X-Axis Label Format',
-                    helper: "Template: 'MMM DD' or '{value}°C'"
-                })}
-
-                ${FormField.renderField(this, 'style.formatters.yaxis_label', {
-                    label: 'Y-Axis Label Format'
-                })}
-
-                ${FormField.renderField(this, 'style.formatters.tooltip', {
-                    label: 'Tooltip Format',
-                    helper: "Template: '{x|MMM DD}: {y}°C'"
-                })}
-            </lcards-form-section>
-
-            <!-- Typography -->
-            <lcards-form-section
-                header="Typography"
-                description="Font family and size"
-                icon="mdi:format-text"
-                ?expanded=${false}>
-                
-                ${FormField.renderField(this, 'style.typography.font_family', {
-                    label: 'Font Family'
-                })}
-
-                ${FormField.renderField(this, 'style.typography.font_size', {
-                    label: 'Font Size'
-                })}
-            </lcards-form-section>
-
-            <!-- Display Options -->
-            <lcards-form-section
-                header="Display Options"
-                description="Toolbar and other UI elements"
-                icon="mdi:eye"
-                ?expanded=${false}>
-                
-                ${FormField.renderField(this, 'style.display.toolbar', {
-                    label: 'Show Toolbar',
-                    helper: 'Download, zoom, pan controls'
-                })}
-            </lcards-form-section>
-
-            <!-- Raw chart_options Override -->
-            <lcards-form-section
-                header="Raw ApexCharts Options"
-                description="Advanced: Direct ApexCharts configuration override"
-                icon="mdi:code-json"
-                ?expanded=${false}>
-                
-                <lcards-message type="warning">
-                    <strong>Advanced Users Only:</strong> Direct ApexCharts options override.
-                    These settings have highest precedence and may conflict with visual settings above.
-                </lcards-message>
-
-                <ha-yaml-editor
-                    .hass=${this.hass}
-                    .value=${this._getNestedValue('style.chart_options') || {}}
-                    .label=${"chart_options (YAML)"}
-                    @value-changed=${(e) => this._setNestedValue('style.chart_options', e.detail.value)}>
-                </ha-yaml-editor>
-
-                <lcards-message type="info">
-                    <strong>Example:</strong>
-                    <pre style="background: var(--secondary-background-color); padding: 8px; border-radius: 4px; overflow-x: auto;">
-xaxis:
-  type: datetime
-  labels:
-    format: 'HH:mm'
-yaxis:
-  min: 0
-  max: 100
-                    </pre>
-                </lcards-message>
-            </lcards-form-section>
-        `;
+        return this._renderComingSoon('Advanced', 'Phase 5',
+            'Formatters, typography, display options, and raw chart_options override');
     }
 
     /**
