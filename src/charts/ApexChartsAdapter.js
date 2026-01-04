@@ -298,35 +298,74 @@ export class ApexChartsAdapter {
     // ApexCharts doesn't handle null gracefully for optional color arrays
     const nullToUndefined = (value) => value === null ? undefined : value;
 
+    /**
+     * Normalize color value to array format for ApexCharts
+     * 
+     * ApexCharts expects color properties to be arrays. This helper normalizes:
+     * - Single color strings → single-element arrays
+     * - Already-array values → returned as-is  
+     * - null/undefined → returned as null
+     * 
+     * @private
+     * @param {string|Array|null|undefined} value - Color value (single color or array)
+     * @returns {Array|null} Normalized color array or null
+     * 
+     * @example
+     * _normalizeColorArray('#FF9900') // → ['#FF9900']
+     * _normalizeColorArray(['#FF9900', '#99CCFF']) // → ['#FF9900', '#99CCFF']
+     * _normalizeColorArray(null) // → null
+     */
+    const normalizeColorArray = (value) => {
+      if (value === null || value === undefined) {
+        return null;
+      }
+      
+      // Single string color → convert to array
+      if (typeof value === 'string') {
+        return [value];
+      }
+      
+      // Already an array → return as-is
+      if (Array.isArray(value)) {
+        return value;
+      }
+      
+      // Invalid type → log warning and return null
+      lcardsLog.warn('[ApexChartsAdapter] Invalid color value type:', typeof value, value);
+      return null;
+    };
+
     // ============================================================================
     // EXTRACT RESOLVED VALUES
     // ============================================================================
     // All theme tokens are already resolved by chart card, just extract values
+    // Color arrays are normalized to ensure ApexCharts compatibility
 
     // Series colors (Primary data visualization)
-    let colors = style.colors?.series ?? null;
+    // Normalize to array format for ApexCharts compatibility
+    let colors = normalizeColorArray(style.colors?.series);
 
     // Stroke/outline colors
-    let strokeColors = style.colors?.stroke ?? null;
+    let strokeColors = normalizeColorArray(style.colors?.stroke);
     const strokeWidth = style.stroke?.width ?? 2;
     const curve = style.stroke?.curve ?? 'smooth';
 
     // Fill colors (for area/bar charts)
-    const fillColors = style.colors?.fill ?? null;
+    const fillColors = normalizeColorArray(style.colors?.fill);
     const fillType = style.fill?.type ?? 'solid';
     const fillOpacity = style.fill?.opacity ?? 0.7;
 
-    // Background & foreground
+    // Background & foreground (these are single values, not arrays - no normalization)
     const backgroundColor = style.colors?.background ?? 'transparent';
     const foregroundColor = style.colors?.foreground ?? 'var(--lcars-white, #FFFFFF)';
 
     // Grid colors
     const gridColor = style.colors?.grid ?? 'var(--lcars-gray, #999999)';
-    const gridRowColors = style.grid?.row_colors ?? null;
-    const gridColumnColors = style.grid?.column_colors ?? null;
+    const gridRowColors = normalizeColorArray(style.grid?.row_colors);
+    const gridColumnColors = normalizeColorArray(style.grid?.column_colors);
     const showGrid = style.grid?.show ?? true;
 
-    // Axis colors
+    // Axis colors (single values - no normalization needed)
     const unifiedAxisColor = style.colors?.axis?.x ?? style.colors?.axis?.y ?? foregroundColor;
     const xaxisColor = style.colors?.axis?.x ?? unifiedAxisColor;
     const xaxisColors = null; // Not part of nested structure
@@ -337,16 +376,17 @@ export class ApexChartsAdapter {
 
     // Legend colors
     const legendColor = style.colors?.legend?.default ?? foregroundColor;
-    const legendColors = style.colors?.legend?.items ?? null;
+    const legendColors = normalizeColorArray(style.colors?.legend?.items);
     const showLegend = style.legend?.show ?? false;
 
     // Marker colors (data points)
-    const markerColors = style.colors?.marker?.fill ?? colors;
-    const markerStrokeColors = style.colors?.marker?.stroke ?? foregroundColor;
+    // Note: markerColors defaults to series colors if not specified
+    const markerColors = normalizeColorArray(style.colors?.marker?.fill ?? colors);
+    const markerStrokeColors = normalizeColorArray(style.colors?.marker?.stroke) ?? [foregroundColor];
     const markerStrokeWidth = style.markers?.stroke?.width ?? 2;
 
     // Data label colors
-    const dataLabelColors = style.colors?.data_labels ?? foregroundColor;
+    const dataLabelColors = normalizeColorArray(style.colors?.data_labels) ?? [foregroundColor];
     const showDataLabels = style.data_labels?.show ?? false;
 
     // Theme settings
