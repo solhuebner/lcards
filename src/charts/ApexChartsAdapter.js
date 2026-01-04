@@ -1036,7 +1036,7 @@ export class ApexChartsAdapter {
             opacity: 0.8
           },
           legend: {
-            position: style.legend_position || 'bottom',
+            position: style.legend?.position ?? 'bottom',
             fontSize: resolveToken('typography.fontSize.sm', '12px'),
             fontFamily: resolveToken('typography.fontFamily.primary', 'Antonio, Helvetica Neue, sans-serif'),
             labels: {
@@ -1110,7 +1110,7 @@ export class ApexChartsAdapter {
           },
           legend: {
             show: true,
-            position: style.legend_position || 'top',
+            position: style.legend?.position ?? 'top',
             fontSize: resolveToken('typography.fontSize.sm', '12px'),
             fontFamily: resolveToken('typography.fontFamily.primary', 'Antonio, Helvetica Neue, sans-serif'),
             labels: {
@@ -1142,7 +1142,7 @@ export class ApexChartsAdapter {
             enabled: false // Usually too cluttered for scatter
           },
           legend: {
-            position: style.legend_position || 'top',
+            position: style.legend?.position ?? 'top',
             fontSize: resolveToken('typography.fontSize.sm', '12px'),
             fontFamily: resolveToken('typography.fontFamily.primary', 'Antonio, Helvetica Neue, sans-serif'),
             labels: {
