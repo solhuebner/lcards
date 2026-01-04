@@ -1023,6 +1023,24 @@ export function getChartSchema(options = {}) {
                                     }
                                 }
                             },
+                            horizontalAlign: {
+                                type: 'string',
+                                enum: ['left', 'center', 'right'],
+                                default: 'center',
+                                description: 'Legend horizontal alignment',
+                                'x-ui-hints': {
+                                    label: 'Horizontal Alignment',
+                                    selector: {
+                                        select: {
+                                            options: [
+                                                { value: 'left', label: 'Left' },
+                                                { value: 'center', label: 'Center' },
+                                                { value: 'right', label: 'Right' }
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
                             font_size: {
                                 type: 'number',
                                 minimum: 8,
@@ -1068,6 +1086,24 @@ export function getChartSchema(options = {}) {
                                     }
                                 }
                             },
+                            offsetY: {
+                                type: 'number',
+                                minimum: -50,
+                                maximum: 50,
+                                default: 0,
+                                description: 'Vertical offset for data labels',
+                                'x-ui-hints': {
+                                    label: 'Vertical Offset',
+                                    selector: {
+                                        number: {
+                                            mode: 'slider',
+                                            min: -50,
+                                            max: 50,
+                                            step: 1
+                                        }
+                                    }
+                                }
+                            },
                             font_size: {
                                 type: 'number',
                                 minimum: 8,
@@ -1081,6 +1117,160 @@ export function getChartSchema(options = {}) {
                                             min: 8,
                                             max: 24,
                                             step: 1
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+
+                    // ================================================================
+                    // GROUP 7A: XAXIS - X-axis configuration
+                    // ================================================================
+
+                    xaxis: {
+                        type: 'object',
+                        description: 'X-axis configuration',
+                        'x-ui-hints': {
+                            label: 'X-Axis',
+                            helper: 'Configure horizontal axis',
+                            collapsible: true,
+                            defaultCollapsed: true
+                        },
+                        properties: {
+                            labels: {
+                                type: 'object',
+                                description: 'X-axis label configuration',
+                                properties: {
+                                    show: {
+                                        type: 'boolean',
+                                        default: true,
+                                        description: 'Show/hide x-axis labels',
+                                        'x-ui-hints': {
+                                            label: 'Show Labels',
+                                            selector: {
+                                                boolean: {}
+                                            }
+                                        }
+                                    },
+                                    rotate: {
+                                        type: 'number',
+                                        minimum: -90,
+                                        maximum: 90,
+                                        default: 0,
+                                        description: 'Label rotation in degrees',
+                                        'x-ui-hints': {
+                                            label: 'Rotation',
+                                            selector: {
+                                                number: {
+                                                    mode: 'slider',
+                                                    min: -90,
+                                                    max: 90,
+                                                    step: 15
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            border: {
+                                type: 'object',
+                                description: 'X-axis border configuration',
+                                properties: {
+                                    show: {
+                                        type: 'boolean',
+                                        default: true,
+                                        description: 'Show/hide x-axis border',
+                                        'x-ui-hints': {
+                                            label: 'Show Border',
+                                            selector: {
+                                                boolean: {}
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            ticks: {
+                                type: 'object',
+                                description: 'X-axis tick marks configuration',
+                                properties: {
+                                    show: {
+                                        type: 'boolean',
+                                        default: true,
+                                        description: 'Show/hide x-axis tick marks',
+                                        'x-ui-hints': {
+                                            label: 'Show Ticks',
+                                            selector: {
+                                                boolean: {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+
+                    // ================================================================
+                    // GROUP 7B: YAXIS - Y-axis configuration
+                    // ================================================================
+
+                    yaxis: {
+                        type: 'object',
+                        description: 'Y-axis configuration',
+                        'x-ui-hints': {
+                            label: 'Y-Axis',
+                            helper: 'Configure vertical axis',
+                            collapsible: true,
+                            defaultCollapsed: true
+                        },
+                        properties: {
+                            labels: {
+                                type: 'object',
+                                description: 'Y-axis label configuration',
+                                properties: {
+                                    show: {
+                                        type: 'boolean',
+                                        default: true,
+                                        description: 'Show/hide y-axis labels',
+                                        'x-ui-hints': {
+                                            label: 'Show Labels',
+                                            selector: {
+                                                boolean: {}
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            border: {
+                                type: 'object',
+                                description: 'Y-axis border configuration',
+                                properties: {
+                                    show: {
+                                        type: 'boolean',
+                                        default: true,
+                                        description: 'Show/hide y-axis border',
+                                        'x-ui-hints': {
+                                            label: 'Show Border',
+                                            selector: {
+                                                boolean: {}
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            ticks: {
+                                type: 'object',
+                                description: 'Y-axis tick marks configuration',
+                                properties: {
+                                    show: {
+                                        type: 'boolean',
+                                        default: true,
+                                        description: 'Show/hide y-axis tick marks',
+                                        'x-ui-hints': {
+                                            label: 'Show Ticks',
+                                            selector: {
+                                                boolean: {}
+                                            }
                                         }
                                     }
                                 }
