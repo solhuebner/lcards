@@ -466,7 +466,7 @@ graph TD
     SingletonAccess --> DSM[DataSourceManager]
     SingletonAccess --> RE[RulesEngine]
     SingletonAccess --> TM[ThemeManager]
-    SingletonAccess --> AM[AnimationManager]
+    SingletonAccess --> AR[AnimationRegistry]
 
     DSM --> DSSources[View All DataSources]
     DSM --> DSValues[Current Values]
@@ -566,12 +566,13 @@ core.getAllCardInstances();
 - DataSourceManager: ~3 MB (includes all entity buffers)
 - RulesEngine: ~2 MB (all rules + evaluation cache)
 - ThemeManager: ~1 MB (themes + tokens)
-- AnimationManager: ~1 MB (animation registry)
+- AnimationRegistry: ~1 MB (animation instance cache)
 - ValidationService: ~0.5 MB (schemas)
 - **Total shared**: ~7.5 MB (one-time cost)
 
 **Per MSD Card Instance**:
 - MSD SystemsManager: ~1 MB (coordination)
+- AnimationManager: ~0.2 MB (per-card animation control)
 - AdvancedRenderer: ~1.5 MB (overlay instances + DOM)
 - RouterCore: ~0.5 MB (path cache)
 - TemplateProcessor: ~0.3 MB (template cache)
@@ -630,9 +631,13 @@ core.getAllCardInstances();
 - DataSourceManager (entity data, buffers, transformations) - **Used by MSD cards**
 - RulesEngine (rule evaluation, distribution) - **Used by all cards**
 - ThemeManager (themes, tokens) - **Used by all cards**
-- AnimationManager (animation coordination) - **Used by all cards**
+- AnimationRegistry (animation instance caching) - **Used by all cards**
 - ValidationService (schema validation) - **Used by all cards**
 - CoreSystemsManager (entity caching) - **Only used by LCARdS Cards, NOT MSD**
+
+**Per-Card Systems:**
+- AnimationManager (animation playback) - **Per-card instance, uses AnimationRegistry**
+- MSD SystemsManager - **Per MSD card only**
 
 **Card Type Comparison:**
 

@@ -59,12 +59,13 @@ graph TB
         DSM[DataSourceManager Singleton]
         RE[RulesEngine Singleton]
         TM[ThemeManager Singleton]
-        AM[AnimationManager Singleton]
+        AR[AnimationRegistry Singleton]
     end
 
     subgraph "MSD Card A Instance"
         CardA[LCARdS MSD Card A]
         SMA[MSD SystemsManager A]
+        AMA[AnimationManager A - Per Card]
         
         subgraph "Card A Local Systems"
             ARA[AdvancedRenderer A]
@@ -80,6 +81,7 @@ graph TB
     subgraph "MSD Card B Instance"
         CardB[LCARdS MSD Card B]
         SMB[MSD SystemsManager B]
+        AMB[AnimationManager B - Per Card]
         
         subgraph "Card B Local Systems"
             ARB[AdvancedRenderer B]
@@ -117,12 +119,12 @@ graph TB
     SMA -.connects to.-> DSM
     SMA -.connects to.-> RE
     SMA -.connects to.-> TM
-    SMA -.connects to.-> AM
+    AMA -.uses cache.-> AR
 
     SMB -.connects to.-> DSM
     SMB -.connects to.-> RE
     SMB -.connects to.-> TM
-    SMB -.connects to.-> AM
+    AMB -.uses cache.-> AR
 
     %% Data flow from singletons
     DSM -.entity data.-> TPA
@@ -131,15 +133,15 @@ graph TB
     RE -.rule results.-> SMB
     TM -.themes.-> ARA
     TM -.themes.-> ARB
-    AM -.animations.-> ARA
-    AM -.animations.-> ARB
+    AMA -.animations.-> ARA
+    AMB -.animations.-> ARB
 
     classDef singleton fill:#b8e0c1,stroke:#266239,stroke-width:3px,color:#0c2a15
     classDef cardSystem fill:#80bb93,stroke:#083717,stroke-width:2px,color:#0c2a15
     classDef localSystem fill:#458359,stroke:#095320,stroke-width:2px,color:#f3f4f7
 
-    class DSM,RE,TM,AM singleton
-    class CardA,SMA,CardB,SMB cardSystem
+    class DSM,RE,TM,AR singleton
+    class CardA,SMA,CardB,SMB,AMA,AMB cardSystem
     class ARA,RCA,TPA,DRA,CRA,HMA,OUA,ARB,RCB,TPB,DRB,CRB,HMB,OUB localSystem
 ```
 
