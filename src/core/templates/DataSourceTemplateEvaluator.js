@@ -254,7 +254,9 @@ export class DataSourceTemplateEvaluator extends TemplateEvaluator {
       case 'custom':
         // Handle percentage format
         if (formatSpec.endsWith('%')) {
-          const precision = parseInt(formatSpec.slice(1, -1)) || 0;
+          // Extract precision from formats like .2f%, .1f%, etc.
+          const precisionMatch = formatSpec.match(/^\.(\d+)f?%$/);
+          const precision = precisionMatch ? parseInt(precisionMatch[1]) : 0;
           const isAlreadyPercent = metadata?.unit_of_measurement === '%';
           const percentValue = isAlreadyPercent ? value : value * 100;
           return `${percentValue.toFixed(precision)}%`;
@@ -300,6 +302,7 @@ export class DataSourceTemplateEvaluator extends TemplateEvaluator {
   updateDataSourceManager(dataSourceManager) {
     if (!dataSourceManager) {
       lcardsLog.warn('[DataSourceTemplateEvaluator] Attempted to set null dataSourceManager');
+      // Intentionally do not update - protect against null values
       return;
     }
 
