@@ -20,7 +20,6 @@
  */
 
 import { BaseRenderer } from '../renderer/BaseRenderer.js';
-import { TemplateProcessor } from '../utils/TemplateProcessor.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import { isHAEntity } from '../utils/HADomains.js';
 
