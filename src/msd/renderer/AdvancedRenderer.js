@@ -10,7 +10,6 @@ import { AttachmentPointManager } from './AttachmentPointManager.js';
 
 import { MsdControlsRenderer } from '../controls/MsdControlsRenderer.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
-import { TemplateProcessor } from '../utils/TemplateProcessor.js';
 
 // Phase 3: Instance-based overlay architecture (COMPLETE)
 import { OverlayBase } from '../overlays/OverlayBase.js';
@@ -1232,111 +1231,6 @@ export class AdvancedRenderer {
     } catch (error) {
       lcardsLog.error(`[AdvancedRenderer] Error updating overlay ${overlayId}:`, error);
     }
-  }
-
-  /**
-   * Process text template with DataSource data
-   * @private
-   * @param {string} template - Template string
-   * @returns {string} Processed content
-   */
-  _processTextTemplate(template) {
-    if (!TemplateProcessor.hasTemplates(template)) {
-      return template;
-    }
-
-    // Get DataSourceManager
-    const dataSourceManager = window.lcards.debug.msd?.pipelineInstance?.systemsManager?.dataSourceManager;
-    if (!dataSourceManager) {
-      lcardsLog.debug(`[AdvancedRenderer] DataSourceManager not available`);
-      return template;
-    }
-    // Process template
-    return template.replace(/\{([^}]+)\}/g, (match, reference) => {
-      try {
-        const [dataSourceRef, formatSpec] = reference.split(':');
-        const cleanRef = dataSourceRef.trim();
-
-        // Parse the reference: "hvac_complete.aggregations.heating_time.current"
-        const parts = cleanRef.split('.');
-        const sourceName = parts[0];
-
-        // Get the data source
-        const dataSource = dataSourceManager.getSource(sourceName);
-        if (!dataSource) {
-          lcardsLog.debug(`[AdvancedRenderer] DataSource not found: ${sourceName}`);
-          return match;
-        }
-
-        // Get current data
-        const currentData = dataSource.getCurrentData();
-        let value = currentData?.v;
-
-        // Navigate the path
-        if (parts.length > 1) {
-          if (parts[1] === 'transformations' && parts[2]) {
-            // Access transformation: hvac_complete.transformations.is_heating
-            value = currentData?.transformations?.[parts[2]];
-          } else if (parts[1] === 'aggregations' && parts.length > 2) {
-            // Access aggregation with nested path: hvac_complete.aggregations.heating_time.current
-            const aggPath = parts.slice(2).join('.');
-            value = this._getNestedValue(currentData?.aggregations, aggPath);
-          } else if (parts[1] === 'v') {
-            // Direct value access: hvac_complete.v
-            value = currentData?.v;
-          }
-        }
-
-        if (value === null || value === undefined) {
-          lcardsLog.debug(`[AdvancedRenderer] Value not found for: ${cleanRef}`);
-          return match;
-        }
-
-        // Apply formatting
-        if (formatSpec && typeof value === 'number') {
-          return this._formatNumber(value, formatSpec.trim());
-        }
-
-        return String(value);
-
-      } catch (error) {
-        lcardsLog.warn(`[AdvancedRenderer] Template processing error:`, error);
-        return match;
-      }
-    });
-  }
-
-  /**
-   * Get nested value from object using dot notation
-   * @private
-   * @param {Object} obj - Object to traverse
-   * @param {string} path - Dot-separated path
-   * @returns {*} Nested value
-   */
-  _getNestedValue(obj, path) {
-    if (!obj || !path) return undefined;
-
-    return path.split('.').reduce((current, key) => {
-      return current?.[key];
-    }, obj);
-  }
-
-  /**
-   * Format number with format specification
-   * @private
-   * @param {number} value - Number to format
-   * @param {string} formatSpec - Format specification (.1f, .2f, etc.)
-   * @returns {string} Formatted number
-   */
-  _formatNumber(value, formatSpec) {
-    if (formatSpec.endsWith('f')) {
-      const precision = parseInt(formatSpec.slice(1, -1)) || 1;
-      return value.toFixed(precision);
-    }
-    if (formatSpec === 'd') {
-      return Math.round(value).toString();
-    }
-    return String(value);
   }
 
   /**

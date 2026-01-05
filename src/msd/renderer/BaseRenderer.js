@@ -49,9 +49,6 @@ export class BaseRenderer {
     // Initialize ThemeManager reference
     this.themeManager = this._resolveThemeManager();
 
-    // ✅ NEW: Phase 6 - Get StyleResolverService
-    this.styleResolver = this._resolveStyleResolver();
-
     // Container and viewBox will be set by subclasses or render methods
     this.container = null;
     this.viewBox = null;
@@ -61,12 +58,6 @@ export class BaseRenderer {
     this._renderStartTime = null;
     this._featuresUsed = new Set();
     this._styleResolutions = [];
-
-    if (this.styleResolver) {
-      lcardsLog.debug(`[${this.rendererName}] ✅ StyleResolverService available`);
-    } else {
-      lcardsLog.debug(`[${this.rendererName}] ⚠️ StyleResolverService not available, using fallback`);
-    }
   }
 
   /**
@@ -376,42 +367,6 @@ export class BaseRenderer {
   }
 
   /**
-   * Resolve StyleResolverService from various sources
-   * ✅ NEW: Phase 6 - StyleResolverService resolution
-   *
-   * @protected
-   * @returns {Object|null} StyleResolverService instance or null
-   */
-  _resolveStyleResolver() {
-    // Priority 1: Global LCARdS namespace (preferred)
-    if (typeof window !== 'undefined' && window.lcards?.styleResolver) {
-      return window.lcards.styleResolver;
-    }
-
-    // Priority 2: Pipeline instance via systemsManager
-    if (typeof window !== 'undefined') {
-      const pipelineInstance = window.lcards.debug.msd?.pipelineInstance;
-      if (pipelineInstance?.systemsManager?.styleResolver) {
-        return pipelineInstance.systemsManager.styleResolver;
-      }
-
-      // Priority 3: Direct pipeline access
-      if (pipelineInstance?.styleResolver) {
-        return pipelineInstance.styleResolver;
-      }
-
-      // Priority 4: SystemsManager modern reference
-      const systemsManager = window.lcards.debug.msd?.systemsManager;
-      if (systemsManager?.styleResolver) {
-        return systemsManager.styleResolver;
-      }
-    }
-
-    // No StyleResolver available - will use fallback resolution
-    return null;
-  }
-
-  /**
    * Get scaling context for responsive calculations
    *
    * Provides viewBox and container element for scaling calculations.
@@ -435,14 +390,12 @@ export class BaseRenderer {
 
   /**
    * Resolve a style property with full resolution chain
-   * ✅ ENHANCED: Phase 6 - Now uses StyleResolverService when available
    *
    * Resolution chain:
-   * 1. StyleResolverService (if available) - Phase 6
-   * 2. Explicit value from config
-   * 3. Token resolution via ThemeTokenResolver
-   * 4. Theme default
-   * 5. Fallback value
+   * 1. Explicit value from config
+   * 2. Token resolution via ThemeTokenResolver
+   * 3. Theme default
+   * 4. Fallback value
    *
    * @protected
    * @param {*} explicitValue - Explicit value from overlay config
@@ -453,36 +406,6 @@ export class BaseRenderer {
    * @returns {*} Resolved value
    */
   _resolveStyleProperty(explicitValue, tokenPath, resolveToken, fallback, context = {}) {
-    // ✅ NEW: Phase 6 - Use StyleResolverService if available
-    if (this.styleResolver) {
-      try {
-        const result = this.styleResolver.resolveProperty({
-          property: tokenPath ? tokenPath.split('.').pop() : 'unknown',
-          value: explicitValue,
-          tokenPath: tokenPath,
-          defaultValue: fallback,
-          context: {
-            ...context,
-            componentType: this.rendererName.replace('Renderer', '').toLowerCase()
-          }
-        });
-
-        // Track for provenance (Phase 5.2B)
-        this._trackStyleResolution(tokenPath, {
-          source: result.source,
-          value: result.value,
-          provenance: result.provenance
-        });
-
-        return result.value;
-
-      } catch (error) {
-        lcardsLog.warn(`[${this.rendererName}] StyleResolver error, using fallback:`, error);
-        // Fall through to manual resolution
-      }
-    }
-
-    // ✅ FALLBACK: Manual resolution (legacy behavior)
     // Priority 1: Explicit value
     if (explicitValue !== undefined && explicitValue !== null) {
       // Check if it's a token reference string

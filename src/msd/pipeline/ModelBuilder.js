@@ -1,5 +1,4 @@
 import { applyOverlayPatches } from '../../core/rules/RulesEngine.js';
-import { resolveValueMaps } from '../valueMap/resolveValueMaps.js';
 import { resolveDesiredAnimations } from '../../core/animation/resolveAnimations.js';
 import { resolveDesiredTimelines } from '../../core/animation/resolveTimelines.js';
 import { perfTime } from '../../utils/performance.js';
@@ -36,9 +35,6 @@ export class ModelBuilder {
 
     // Apply overlay patches
     const overlaysWithPatches = this._applyOverlayPatches(baseOverlays, ruleResult);
-
-    // Value map substitutions
-    this._resolveValueMaps(overlaysWithPatches);
 
     // Process animations
     const { activeAnimations, animDiff, tlDiff } = this._processAnimations(overlaysWithPatches, ruleResult);
@@ -270,14 +266,6 @@ export class ModelBuilder {
     return result;
   }
 
-  _resolveValueMaps(overlaysWithPatches) {
-    perfTime('value_map.subst', () =>
-      resolveValueMaps(overlaysWithPatches, {
-        getEntity: id => this.systems.entityRuntime.getEntity(id)
-      })
-    );
-  }
-
   _processAnimations(overlaysWithPatches, ruleResult) {
     const desiredAnimations = resolveDesiredAnimations(overlaysWithPatches, this.animationIndex, ruleResult.animations);
     const desiredTimelines = resolveDesiredTimelines(this.timelineDefs);
@@ -350,8 +338,8 @@ export class ModelBuilder {
       overlay.triggers_update.forEach(ref => {
         // Use HADomains utility to distinguish HA entities from MSD datasources
         if (isHAEntity(ref)) {
-          // HA entity - skip for now (handled by MsdTemplateEngine)
-          lcardsLog.debug(`[ModelBuilder] Skipping HA entity: ${ref} (handled by MsdTemplateEngine)`);
+          // HA entity - skip for now (handled by card template systems)
+          lcardsLog.debug(`[ModelBuilder] Skipping HA entity: ${ref} (handled by card template systems)`);
           return;
         }
 

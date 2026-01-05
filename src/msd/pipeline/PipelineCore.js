@@ -6,7 +6,6 @@ import { buildCardModel } from '../model/CardModel.js';
 import { LCARdSUnifiedAPI } from '../../api/LCARdSUnifiedAPI.js';
 import { perfGetAll } from '../../utils/performance.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
-import { StyleResolverService } from '../styles/StyleResolverService.js';
 // ✅ CONSOLIDATED: Use Core ValidationService singleton instead of MSD-specific ValidationService
 import { applyBaseSvgFilters } from '../utils/BaseSvgFilters.js';
 import { lcardsCore } from '../../core/lcards-core.js';
@@ -14,7 +13,6 @@ import { lcardsCore } from '../../core/lcards-core.js';
 /**
  * Initialize the MSD processing/rendering pipeline.
  * ENHANCED: Ensures pack loading and defaults management complete before overlay processing
- * ✅ ENHANCED: Phase 6 - Now includes StyleResolverService initialization
  * ✅ ENHANCED: Phase 7 - Now includes ValidationService initialization and pre-render validation
  *
  * @param {Object} userMsdConfig - User supplied MSD config.
@@ -39,39 +37,6 @@ export async function initMsdPipeline(userMsdConfig, mountEl, hass = null) {
   lcardsLog.trace('[PipelineCore] 🔧 Phase 2: Initializing SystemsManager and loading pack defaults');
   const systemsManager = new SystemsManager();
 
-  // ✅ MOVED: Phase 2.5 - Initialize StyleResolverService BEFORE SystemsManager initialization
-  // This ensures StyleResolver is available when SystemsManager checks for it
-  lcardsLog.trace('[PipelineCore] 🎨 Phase 2.5: Initializing StyleResolverService (before SystemsManager)');
-
-  let styleResolver = null;
-  try {
-    // Get preset configuration from merged config
-    const presets = mergedConfig?.presets || {};
-
-    // Create StyleResolverService instance
-    styleResolver = new StyleResolverService(null, {  // ← ThemeManager not available yet
-      presets,
-      cacheEnabled: true,
-      maxCacheSize: 1000,
-      debug: mergedConfig?.debug?.styleResolver || false
-    });
-
-    // Store in global namespace for access by renderers
-    if (typeof window !== 'undefined') {
-      if (!window.lcards) window.lcards = {};
-      window.lcards.styleResolver = styleResolver;
-    }
-
-    // Store in SystemsManager
-    systemsManager.styleResolver = styleResolver;
-
-    lcardsLog.debug('[PipelineCore] ✅ StyleResolverService initialized (before SystemsManager)');
-  } catch (error) {
-    lcardsLog.warn('[PipelineCore] ⚠️ StyleResolverService initialization failed:', error);
-    lcardsLog.warn('[PipelineCore] ⚠️ Continuing without StyleResolverService - renderers will use fallback resolution');
-    // Don't fail the pipeline - renderers will gracefully fall back to manual resolution
-  }
-
   // ✅ FIXED: Phase 1.5 - Use LCARdS Core Infrastructure (Singleton Architecture)
   lcardsLog.debug('[PipelineCore] 🚀 Phase 1.5: Connecting to LCARdS Core Infrastructure');
   try {
@@ -88,17 +53,6 @@ export async function initMsdPipeline(userMsdConfig, mountEl, hass = null) {
   // CRITICAL: Initialize systems with pack defaults loading before overlay processing
   try {
     await systemsManager.initializeSystemsWithPacksFirst(mergedConfig, mountEl, hass);
-
-    // ✅ NEW: Update StyleResolver with ThemeManager after SystemsManager initializes it
-    if (styleResolver && systemsManager.themeManager) {
-      lcardsLog.debug('[PipelineCore] 🔗 Connecting StyleResolver to ThemeManager');
-      styleResolver.themeManager = systemsManager.themeManager;
-
-      // Re-initialize token resolver with actual theme manager
-      styleResolver.tokenResolver.themeManager = systemsManager.themeManager;
-
-      lcardsLog.debug('[PipelineCore] ✅ StyleResolver connected to ThemeManager');
-    }
 
     // ✅ CONSOLIDATED: Use Core ValidationService singleton instead of creating MSD-specific instance
     lcardsLog.debug('[PipelineCore] ✅ Phase 2.2: Configuring Core ValidationService');

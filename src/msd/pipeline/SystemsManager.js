@@ -186,14 +186,6 @@ export class SystemsManager extends BaseService {
       lcardsLog.debug('[SystemsManager] 🔧 ThemeManager globally accessible via window.lcards.theme');
     }
 
-    // Acquire StyleResolverService reference
-    if (typeof window !== 'undefined' && window.lcards?.styleResolver) {
-      this.styleResolver = window.lcards.styleResolver;
-      lcardsLog.debug('[SystemsManager] ✅ StyleResolverService reference acquired');
-    } else {
-      lcardsLog.warn('[SystemsManager] ⚠️ StyleResolverService not found - renderers will use fallback');
-    }
-
     // PHASE 2: Initialize other critical systems that overlays might need
     lcardsLog.debug('[SystemsManager] ⚙️ Phase 2: Initializing critical systems');
 

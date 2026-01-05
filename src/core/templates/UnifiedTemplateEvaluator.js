@@ -1,7 +1,7 @@
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import { TemplateDetector } from './TemplateDetector.js';
 import { LCARdSCardTemplateEvaluator } from './LCARdSCardTemplateEvaluator.js';
-import { MSDTemplateEvaluator } from '../../msd/templates/MSDTemplateEvaluator.js';
+import { TemplateParser } from './TemplateParser.js';
 
 /**
  * UnifiedTemplateEvaluator - Single unified template processor for all card types
@@ -51,10 +51,6 @@ export class UnifiedTemplateEvaluator {
     // Create LCARdS Card template evaluator (handles JS, tokens, Jinja2)
     // Note: LCARdSCardTemplateEvaluator expects hass inside the context object
     this.lcardsCardEvaluator = new LCARdSCardTemplateEvaluator(this.context);
-
-    // Create MSD template evaluator (handles datasources)
-    // Note: MSDTemplateEvaluator expects dataSourceManager directly, not as an object property
-    this.msdEvaluator = new MSDTemplateEvaluator(this.dataSourceManager);
 
     lcardsLog.debug('[UnifiedTemplateEvaluator] Created', {
       hasHass: !!this.hass,
@@ -162,7 +158,7 @@ export class UnifiedTemplateEvaluator {
     result = this._evaluateExplicitDatasources(result);
 
     // Then evaluate legacy MSD datasources: {sensor.temp}
-    result = this.msdEvaluator.evaluate(result, this.context);
+    result = this._evaluateLegacyDatasources(result);
 
     return result;
   }
@@ -184,11 +180,8 @@ export class UnifiedTemplateEvaluator {
 
     return content.replace(datasourceRegex, (match, reference) => {
       try {
-        // Convert {datasource:sensor.temp} to {sensor.temp} format for MSD evaluator
-        const legacyFormat = `{${reference}}`;
-
-        // Use MSD evaluator to resolve it
-        const resolved = this.msdEvaluator.evaluate(legacyFormat, this.context);
+        // Resolve the datasource reference
+        const resolved = this._resolveDatasourceReference(reference);
 
         lcardsLog.debug('[UnifiedTemplateEvaluator] Resolved explicit datasource', {
           original: match,
@@ -196,7 +189,7 @@ export class UnifiedTemplateEvaluator {
           resolved
         });
 
-        return resolved;
+        return resolved !== null ? String(resolved) : match;
       } catch (error) {
         lcardsLog.error('[UnifiedTemplateEvaluator] Failed to resolve datasource', {
           match,
@@ -279,7 +272,6 @@ export class UnifiedTemplateEvaluator {
    */
   updateDataSourceManager(newDataSourceManager) {
     this.dataSourceManager = newDataSourceManager;
-    this.msdEvaluator = new MSDTemplateEvaluator(newDataSourceManager);
   }
 }
 
