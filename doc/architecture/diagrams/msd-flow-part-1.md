@@ -405,7 +405,7 @@ graph TD
 - Theme tokens and component defaults (via ThemeManager singleton)
 - Style presets (e.g., LCARS button styles)
 - Reusable overlay templates
-- Animation definitions (via AnimationManager singleton)
+- Animation definitions (cached in AnimationRegistry singleton, used by per-card AnimationManagers)
 
 ---
 

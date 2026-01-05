@@ -167,9 +167,10 @@ sequenceDiagram
     SM->>Singletons: Get ThemeManager singleton
     SM->>Singletons: Get DataSourceManager singleton
     SM->>Singletons: Get RulesEngine singleton
-    SM->>Singletons: Get AnimationManager singleton
+    SM->>Singletons: Get AnimationRegistry singleton
     
-    Note over SM: Initialize Local Systems
+    Note over SM: Create Per-Card Systems
+    SM->>Local: new AnimationManager() - Per Card
     SM->>Local: new AdvancedRenderer(mountEl)
     SM->>Local: new RouterCore(config.routing)
     SM->>Local: new TemplateProcessor()
