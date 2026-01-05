@@ -1,5 +1,14 @@
 # MSD Simplification Implementation - Progress Report
 
+> **⚠️ HISTORICAL DOCUMENT - ARCHIVED**
+> 
+> **Status:** COMPLETED - Work described here is finished
+> **Date Archived:** January 2026
+> 
+> This progress report tracked implementation of chart card creation. Work is complete and lcards-chart is now part of the system.
+> 
+> For current architecture, see [Architecture Documentation](/doc/architecture/README.md)
+
 **Date:** 22 November 2025
 **Session:** Week 1-2 Complete
 

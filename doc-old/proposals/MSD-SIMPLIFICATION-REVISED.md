@@ -1,5 +1,14 @@
 # MSD Simplification: Revised Implementation Plan
 
+> **⚠️ HISTORICAL DOCUMENT - ARCHIVED**
+> 
+> **Status:** SUPERSEDED - Architecture evolved in different direction
+> **Date Archived:** January 2026
+> 
+> This proposal suggested transforming MSD overlays to use SimpleCards exclusively. The actual implementation retained MSD's overlay system while creating separate LCARdS Cards (lcards-button, lcards-chart, etc.) as standalone lightweight cards.
+> 
+> For current architecture, see [Architecture Documentation](/doc/architecture/README.md)
+
 **Date:** 22 November 2025
 **Goal:** Transform MSD overlays to use SimpleCards exclusively
 **Timeline:** 3-4 weeks

@@ -2,11 +2,29 @@
 
 > ⚠️ **ARCHIVED DOCUMENTATION**
 >
-> This directory contains historical documentation that may be outdated.
+> This directory contains historical documentation that is outdated and archived for reference only.
 > Please refer to `/doc/` for current documentation.
 >
 > **Last Active Version:** 1.10.70+
 > **Archived:** November 2025
+> **Status:** All documents in this directory are historical
+
+---
+
+## ⚠️ Important Notice
+
+**DO NOT USE THESE DOCUMENTS FOR CURRENT DEVELOPMENT**
+
+All active documentation has been moved to `/doc/`. Documents here are kept for:
+- Historical reference
+- Understanding past decisions
+- Migration tracking
+
+**For current documentation:**
+- [Main Documentation](/doc/README.md)
+- [Architecture Documentation](/doc/architecture/README.md)
+- [Subsystems Documentation](/doc/architecture/subsystems/README.md)
+- [User Documentation](/doc/user/README.md)
 
 ---
 
