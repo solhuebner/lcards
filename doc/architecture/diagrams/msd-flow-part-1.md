@@ -36,23 +36,25 @@ The MSD (Master Systems Display) system follows a **two-tier architecture**: glo
 ### Architecture Summary
 
 **Tier 1: Global Singleton Layer**
-- Shared intelligence systems (RulesEngine, DataSourceManager, ThemeManager, AnimationManager)
+- Shared intelligence systems (RulesEngine, DataSourceManager, ThemeManager, AnimationRegistry)
 - CoreSystemsManager (for LCARdS Cards only - MSD cards do NOT use this)
-- Created once on first MSD card initialization
+- Created once on first card initialization (MSD or LCARdS Card)
 - Serves all cards simultaneously
 - Efficient resource usage through shared processing
 
 **Tier 2: Per-Card Instance Layer**
-- Each MSD card creates its own MSD SystemsManager
-- LCARdS Cards use CoreSystemsManager (NOT MSD SystemsManager)
+- Each MSD card creates its own MSD SystemsManager (per-card instance)
+- Each card creates its own AnimationManager (per-card instance)
+- LCARdS Cards do NOT use MSD SystemsManager
 - Card-specific rendering pipeline (AdvancedRenderer, RouterCore, etc.) - MSD cards only
 - Connects to singleton layer for shared intelligence
 - Independent rendering but coordinated updates
 
 **Important Distinction:**
-- **MSD Cards** → Use DataSourceManager directly (bypass CoreSystemsManager)
-- **LCARdS Cards** → Use CoreSystemsManager for entity caching (lighter weight)
-- Both leverage shared RulesEngine, ThemeManager, AnimationManager
+- **MSD Cards** → Use DataSourceManager singleton directly (bypass CoreSystemsManager)
+- **LCARdS Cards** → Use CoreSystemsManager singleton for entity caching (lighter weight)
+- Both leverage shared RulesEngine singleton, ThemeManager singleton, AnimationRegistry singleton
+- AnimationManager is per-card (not singleton) - works with singleton AnimationRegistry for caching
 
 ### Key Characteristics
 
@@ -77,7 +79,7 @@ graph TB
         RE[🧠 RulesEngine Singleton]
         DSM[📊 DataSourceManager Singleton]
         TM[🎨 ThemeManager Singleton]
-        AM[🎬 AnimationManager Singleton]
+        AR[🎬 AnimationRegistry Singleton]
         VS[✅ ValidationService Singleton]
     end
 
@@ -86,6 +88,7 @@ graph TB
         ProcessA --> PacksA[Pack Merge]
         PacksA --> ModelA[Model Building]
         ModelA --> SysA[MSD SystemsManager A]
+        SysA --> AnimA[AnimationManager A - Per Card]
         SysA --> RenderA[AdvancedRenderer A]
         RenderA --> DisplayA[SVG Display A]
     end
@@ -95,6 +98,7 @@ graph TB
         ProcessB --> PacksB[Pack Merge]
         PacksB --> ModelB[Model Building]
         ModelB --> SysB[MSD SystemsManager B]
+        SysB --> AnimB[AnimationManager B - Per Card]
         SysB --> RenderB[AdvancedRenderer B]
         RenderB --> DisplayB[SVG Display B]
     end
@@ -254,7 +258,7 @@ graph TD
     InitSingletons --> DSM[📊 DataSourceManager Singleton]
     InitSingletons --> RE[🧠 RulesEngine Singleton]
     InitSingletons --> TM[🎨 ThemeManager Singleton]
-    InitSingletons --> AM[🎬 AnimationManager Singleton]
+    InitSingletons --> AR[🎬 AnimationRegistry Singleton]
     InitSingletons --> VS[✅ ValidationService Singleton]
 
     FirstCard -->|No| ReuseSingletons[Reuse Existing Singletons]
@@ -401,7 +405,7 @@ graph TD
 - Theme tokens and component defaults (via ThemeManager singleton)
 - Style presets (e.g., LCARS button styles)
 - Reusable overlay templates
-- Animation definitions (via AnimationManager singleton)
+- Animation definitions (cached in AnimationRegistry singleton, used by per-card AnimationManagers)
 
 ---
 
@@ -461,7 +465,7 @@ graph TD
         LC[lcardsCore] --> DSM[📊 DataSourceManager Singleton]
         LC --> RE[🧠 RulesEngine Singleton]
         LC --> TM[🎨 ThemeManager Singleton]
-        LC --> AM[🎬 AnimationManager Singleton]
+        LC --> AR[🎬 AnimationRegistry Singleton]
         LC --> VS[✅ ValidationService Singleton]
 
         DSM --> Entities[Subscribe to HA Entities]
@@ -474,19 +478,19 @@ graph TD
         TM --> Tokens[Load Theme Tokens]
         TM --> Defaults[Component Defaults]
 
-        AM --> Registry[Initialize Animation Registry]
-        AM --> Triggers[Setup Animation Triggers]
+        AR --> Cache[Initialize Animation Cache]
+        AR --> Presets[Load Animation Presets]
     end
 
     subgraph "Per-Card Layer (Each MSD Card)"
         MSM[MSD SystemsManager] --> RegisterDS[Register DataSources with Singleton]
         MSM --> RegisterRE[Register Rules with Singleton]
-        MSM --> RegisterAM[Register Animations with Singleton]
+        MSM --> AnimMgr[Create AnimationManager - Per Card]
         MSM --> LocalInit[Initialize Local Systems]
 
         RegisterDS --> DSM
         RegisterRE --> RE
-        RegisterAM --> AM
+        AnimMgr --> AR
 
         LocalInit --> Template[TemplateProcessor]
         LocalInit --> Router[RouterCore]

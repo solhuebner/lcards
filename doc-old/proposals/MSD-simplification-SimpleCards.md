@@ -1,5 +1,14 @@
 # LCARdS MSD Refactor: Implementation Plan
 
+> **⚠️ HISTORICAL DOCUMENT - ARCHIVED**
+> 
+> **Status:** SUPERSEDED - Architecture evolved differently
+> **Date Archived:** January 2026
+> 
+> This was an early proposal to convert MSD to a universal canvas system. The actual implementation retained MSD as a complex card type while creating separate LCARdS Cards as lightweight standalone alternatives.
+> 
+> For current architecture, see [Architecture Documentation](/doc/architecture/README.md)
+
 **Project:** Convert MSD from widget library to universal canvas system
 **Goal:** Eliminate ~100KB of duplicate code, unify architecture around SimpleCard pattern
 **Timeline:** 4 weeks

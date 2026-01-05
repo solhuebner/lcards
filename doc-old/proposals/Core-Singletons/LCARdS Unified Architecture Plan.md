@@ -1,9 +1,20 @@
 # LCARdS Unified Architecture Plan
 **Master Systems Display (MSD) Infrastructure Evolution**
 
+> **⚠️ HISTORICAL DOCUMENT - ARCHIVED**
+> 
+> **Status:** COMPLETED - Architecture has been implemented
+> **Date Archived:** January 2026
+> **Implementation Status:** Core singleton architecture is now live in LCARdS v1.12+
+> 
+> This document represents the original proposal for the singleton architecture. The actual implementation may differ from this proposal. For current architecture documentation, see:
+> - [Architecture Overview](/doc/architecture/README.md)
+> - [Subsystems Documentation](/doc/architecture/subsystems/README.md)
+> - [Core Singleton vs Per-Card Architecture](/doc/README.md#-architecture)
+
 **Document Version:** 2.0
 **Date:** 2025-01-07
-**Status:** Ready for Implementation
+**Status:** ~~Ready for Implementation~~ **IMPLEMENTED & ARCHIVED**
 **Author:** LCARdS Development Team
 
 ---
