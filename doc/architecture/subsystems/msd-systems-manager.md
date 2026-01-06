@@ -140,7 +140,7 @@ graph TB
 
     class DSM,RE,TM,AR singleton
     class CardA,SMA,CardB,SMB,AMA,AMB cardSystem
-    class ARA,RCA,TPA,DRA,CRA,HMA,OUA,ARB,RCB,TPB,DRB,CRB,HMB,OUB localSystem
+    class ARA,RCA,DRA,CRA,HMA,OUA,ARB,RCB,DRB,CRB,HMB,OUB localSystem
 ```
 
 ### Initialization Flow
@@ -171,7 +171,6 @@ sequenceDiagram
     SM->>Local: new AnimationManager() - Per Card
     SM->>Local: new AdvancedRenderer(mountEl)
     SM->>Local: new RouterCore(config.routing)
-    SM->>Local: new TemplateProcessor()
     SM->>Local: new MsdDebugRenderer()
     SM->>Local: new MsdControlsRenderer()
     SM->>Local: new MsdHudManager()

@@ -178,8 +178,6 @@ sequenceDiagram
     participant RE as RulesEngine Singleton
     participant CardA as MSD SystemsManager A
     participant CardB as MSD SystemsManager B
-    participant TemplateA as TemplateProcessor A
-    participant TemplateB as TemplateProcessor B
     participant RendererA as AdvancedRenderer A
     participant RendererB as AdvancedRenderer B
     participant DOMA as SVG DOM A
@@ -199,10 +197,9 @@ sequenceDiagram
         RE->>RE: Re-evaluate all rules (shared)
         RE-->>CardA: Card A rule results via callback
 
-        CardA->>TemplateA: Re-process Card A templates
-        TemplateA->>DSM: Get current values
-        DSM-->>TemplateA: Shared processed values
-        TemplateA-->>CardA: Resolved content A
+        Note over CardA: Templates evaluated in card context
+        CardA->>DSM: Get current datasource values
+        DSM-->>CardA: Shared processed values
 
         CardA->>RendererA: incrementalUpdate(Card A overlays)
 
@@ -219,10 +216,9 @@ sequenceDiagram
         Note over RE: Same rule evaluation serves both cards
         RE-->>CardB: Card B rule results via callback
 
-        CardB->>TemplateB: Re-process Card B templates
-        TemplateB->>DSM: Get current values
-        DSM-->>TemplateB: Same shared processed values
-        TemplateB-->>CardB: Resolved content B
+        Note over CardB: Templates evaluated in card context
+        CardB->>DSM: Get current datasource values
+        DSM-->>CardB: Same shared processed values
 
         CardB->>RendererB: incrementalUpdate(Card B overlays)
 
@@ -452,7 +448,6 @@ graph TD
     Systems --> MSM[MSD SystemsManager]
     Systems --> Renderer[AdvancedRenderer]
     Systems --> Router[RouterCore]
-    Systems --> Template[TemplateProcessor]
 
     Model --> Overlays[Inspect Overlays]
     Model --> Dependencies[Dependency Graph]
@@ -571,10 +566,9 @@ core.getAllCardInstances();
 - AnimationManager: ~0.2 MB (per-card animation control)
 - AdvancedRenderer: ~1.5 MB (overlay instances + DOM)
 - RouterCore: ~0.5 MB (path cache)
-- TemplateProcessor: ~0.3 MB (template cache)
 - Debug/Control systems: ~0.5 MB
 - CardModel: ~0.5 MB (overlay definitions)
-- **Total per card**: ~4-5 MB
+- **Total per card**: ~4-4.5 MB
 
 **Scaling Examples**:
 - 1 MSD card: ~7.5 MB (singletons) + ~4.5 MB (card) = **~12 MB**
@@ -617,11 +611,12 @@ core.getAllCardInstances();
 - MSD SystemsManager (orchestrator)
 - AdvancedRenderer (SVG generation)
 - RouterCore (line routing)
-- TemplateProcessor (template resolution)
 - MsdDebugRenderer (debug overlays)
 - MsdControlsRenderer (control overlays)
 - MsdHudManager (HUD management)
 - BaseOverlayUpdater (incremental updates)
+
+**Note:** Template processing uses the unified template system (`src/core/templates/`) with card-specific evaluators - not a per-card system.
 
 **Shared Singleton Systems (Global):**
 - DataSourceManager (entity data, buffers, transformations) - **Used by MSD cards**
