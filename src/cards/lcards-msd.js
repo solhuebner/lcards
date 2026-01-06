@@ -1080,13 +1080,19 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
 
             // Generate instance GUID if not already assigned
             if (!this._msdInstanceGuid) {
-                this._msdInstanceGuid = window.lcards.debug.msd.MsdInstanceManager._generateGuid();
+                this._msdInstanceGuid = window.lcards.debug.msd.MsdInstanceManager.generateGuid();
                 lcardsLog.debug('[LCARdSMSDCard] Generated instance GUID:', this._msdInstanceGuid);
             }
 
-            // Set global card instance reference for debug HUD
+            // Register with global debug system (multi-instance support)
             if (window.lcards.debug.msd) {
+                // Legacy single-instance reference (backward compatibility - will be overwritten by last card)
                 window.lcards.debug.msd.cardInstance = this;
+                
+                // New multi-instance registration
+                if (window.lcards.debug.msd.registerInstance) {
+                    window.lcards.debug.msd.registerInstance(this._msdInstanceGuid, this, null);
+                }
             }
 
             const mount = this.getMountElement();
@@ -1148,21 +1154,22 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
                 return;
             }
 
-            if (!pipelineResult.enabled) {
-                if (pipelineResult.blocked) {
-                    lcardsLog.warn('[LCARdSMSDCard] MSD instance blocked:', pipelineResult.reason);
-                    this._renderContent = pipelineResult.html;
-                } else if (pipelineResult.html) {
-                    lcardsLog.warn('[LCARdSMSDCard] MSD validation failed');
-                    this._renderContent = pipelineResult.html;
-                } else {
-                    lcardsLog.error('[LCARdSMSDCard] MSD initialization failed');
-                    this._renderContent = this._createErrorDisplay(
-                        'MSD Initialization Failed',
-                        'Pipeline initialization failed without error message.',
-                        'Check your MSD configuration and browser console.'
-                    );
-                }
+            // Check for validation/configuration errors
+            if (!pipelineResult.enabled && pipelineResult.html) {
+                lcardsLog.warn('[LCARdSMSDCard] MSD validation or configuration error');
+                this._renderContent = pipelineResult.html;
+                this.requestUpdate();
+                return;
+            }
+
+            // Check for unexpected initialization failure
+            if (!pipelineResult.enabled || !pipelineResult) {
+                lcardsLog.error('[LCARdSMSDCard] MSD initialization failed');
+                this._renderContent = this._createErrorDisplay(
+                    'MSD Initialization Failed',
+                    'Pipeline initialization failed without error message.',
+                    'Check your MSD configuration and browser console.'
+                );
                 this.requestUpdate();
                 return;
             }
@@ -1170,6 +1177,11 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
             // Normal pipeline initialization completed
             this._msdPipeline = pipelineResult;
             lcardsLog.debug('[LCARdSMSDCard] Pipeline initialized successfully via MsdInstanceManager');
+
+            // Update multi-instance registration with pipeline
+            if (window.lcards.debug.msd?.registerInstance) {
+                window.lcards.debug.msd.registerInstance(this._msdInstanceGuid, this, pipelineResult);
+            }
 
             // Set up pipeline callbacks
             this._setupPipelineCallbacks();
@@ -1357,6 +1369,11 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
      * @private
      */
     _cleanupMsdPipeline() {
+        // Unregister from multi-instance tracking
+        if (this._msdInstanceGuid && window.lcards.debug.msd?.unregisterInstance) {
+            window.lcards.debug.msd.unregisterInstance(this._msdInstanceGuid);
+        }
+
         if (this._msdPipeline) {
             try {
                 // Cleanup pipeline resources
