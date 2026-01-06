@@ -14,15 +14,15 @@ import { DebugManager } from '../debug/DebugManager.js';
 
 import { StylePresetManager } from '../../core/presets/StylePresetManager.js';
 
-// ✅ ADDED: Import MSD-specific HUD panels
+// Import MSD-specific HUD panels
 import { RoutingPanel } from '../hud/panels/RoutingPanel.js';
 import { OverlaysPanel } from '../hud/panels/OverlaysPanel.js';
 import { ChannelTrendPanel } from '../hud/panels/ChannelTrendPanel.js';
 
-// ✅ ADDED: Import theme system initialization
+// Import theme system initialization
 import { initializeThemeSystem } from '../../core/themes/initializeThemeSystem.js';
 
-// ✨ ADDED: Import animation system components
+// Import animation system components
 // AnimationManager now imported as shared singleton from lcardsCore
 import { processAnimationConfig } from '../../core/animation/AnimationConfigProcessor.js';
 
@@ -43,7 +43,7 @@ export class SystemsManager extends BaseService {
     this.hudManager = null;
     this.router = null;
     this.animRegistry = null; // Will be set to shared core AnimationRegistry
-    this.animationManager = null; // ✨ NEW: Phase 5 - Animation system
+    this.animationManager = null; // Animation system
     this.rulesEngine = null;
     this.debugManager = new DebugManager();
     this._renderTimeout = null;
@@ -96,10 +96,10 @@ export class SystemsManager extends BaseService {
   }
 
   /**
-   * ENHANCED: Initialize systems with pack defaults loading FIRST
+   * Initialize systems with pack defaults loading FIRST
    * This ensures defaults are available before any overlay processing
    * 
-   * ✅ REFACTORED: Now uses global core managers (no local pack loading)
+   * Now uses global core managers (no local pack loading)
    */
   async initializeSystemsWithPacksFirst(mergedConfig, mountEl, hass) {
     lcardsLog.debug('[SystemsManager] 🚀 Enhanced initialization: using global core managers');
@@ -108,7 +108,7 @@ export class SystemsManager extends BaseService {
     this.mergedConfig = mergedConfig;
     this._hass = hass; // PHASE 1: Use single source
 
-    // ✅ PHASE 1A: Use shared core ThemeManager singleton (real MSD class)
+    // Use shared core ThemeManager singleton (real MSD class)
     lcardsLog.debug('[SystemsManager] 🔗 Using shared core ThemeManager singleton');
     if (!lcardsCore.themeManager) {
       throw new Error('lcardsCore.themeManager is null - core not initialized?');
@@ -123,7 +123,7 @@ export class SystemsManager extends BaseService {
       lcardsLog.warn('[SystemsManager] ⚠️ No active theme - theme system may not be ready');
     }
 
-    // ✅ ENHANCED: Log theme provenance
+    // Log theme provenance
     lcardsLog.info('[SystemsManager] 🎨 Theme system ready (from core):', {
       active: activeTheme?.name,
       activeId: activeTheme?.id,
@@ -150,7 +150,7 @@ export class SystemsManager extends BaseService {
     // Initialize data source manager FIRST (overlays may reference it)
     await this._initializeDataSources(hass, mergedConfig);
 
-    // ✅ Use shared StylePresetManager singleton from lcardsCore (already initialized by core)
+    // Use shared StylePresetManager singleton from lcardsCore (already initialized by core)
     lcardsLog.debug('[SystemsManager] 🎨 Using shared StylePresetManager from lcardsCore');
     if (!lcardsCore.stylePresetManager) {
       throw new Error('lcardsCore.stylePresetManager is null - core not initialized?');
@@ -174,7 +174,7 @@ export class SystemsManager extends BaseService {
   async completeSystems(mergedConfig, cardModel, mountEl, hass) {
     lcardsLog.debug('[SystemsManager] 🔧 Completing systems initialization');
 
-    // ✅ Use shared RulesEngine singleton from lcardsCore and add this MSD's rules
+    // Use shared RulesEngine singleton from lcardsCore and add this MSD's rules
     lcardsLog.debug('[SystemsManager] 🧠 Using shared RulesEngine from lcardsCore');
     if (!lcardsCore.rulesManager) {
       throw new Error('lcardsCore.rulesManager is null - core not initialized?');
@@ -208,7 +208,7 @@ export class SystemsManager extends BaseService {
       // Rebuild the rules index and dependencies
       this.rulesEngine.buildRulesIndex();
       this.rulesEngine.buildDependencyIndex();
-      this.rulesEngine._compileRules();  // ✨ ADDED: Compile newly added rules
+      this.rulesEngine._compileRules();  // Compile newly added rules
       lcardsLog.debug(`[SystemsManager] ✅ Rules added. Total rules in shared engine: ${this.rulesEngine.rules.length}`);
     } else {
       lcardsLog.debug('[SystemsManager] ℹ️ No rules to add from this MSD');
@@ -226,7 +226,7 @@ export class SystemsManager extends BaseService {
 
       // Connect re-evaluation to render pipeline
       // When rules are marked dirty (entity changes), evaluate and apply patches
-      this.rulesEngine.setReEvaluationCallback(async () => {  // ✨ CHANGED: async
+      this.rulesEngine.setReEvaluationCallback(async () => {  // async for Jinja2
         lcardsLog.debug('[SystemsManager] 🔄 RulesEngine re-evaluation callback triggered');
 
         if (!this._hass) {
@@ -235,7 +235,7 @@ export class SystemsManager extends BaseService {
         }
 
         // Evaluate dirty rules (now async for Jinja2 conditions)
-        const ruleResults = await this.rulesEngine.evaluateDirty(this._hass);  // ✨ CHANGED: await
+        const ruleResults = await this.rulesEngine.evaluateDirty(this._hass);  // await
 
         lcardsLog.debug(`[SystemsManager] 🔍 DIRTY RULES RESULT:`, {
           hasBaseSvgUpdate: !!ruleResults.baseSvgUpdate,
@@ -283,7 +283,7 @@ export class SystemsManager extends BaseService {
           this._scheduleFullReRender();
         }
 
-        // ✅ NEW: Apply base_svg filter updates from rules
+        // Apply base_svg filter updates from rules
         if (ruleResults.baseSvgUpdate) {
           lcardsLog.debug(`[SystemsManager] � Rules produced base_svg update`);
           this._applyBaseSvgUpdate(ruleResults.baseSvgUpdate);
@@ -316,15 +316,15 @@ export class SystemsManager extends BaseService {
     this.debugManager.markRouterReady();
     lcardsLog.debug('[SystemsManager] RouterCore marked ready for debug system');
 
-    // ✅ Use shared AnimationRegistry singleton from lcardsCore
+    // Use shared AnimationRegistry singleton from lcardsCore
     lcardsLog.debug('[SystemsManager] 🎭 Using shared AnimationRegistry from lcardsCore');
     if (!lcardsCore.animationRegistry) {
       throw new Error('lcardsCore.animationRegistry is null - core not initialized?');
     }
     this.animRegistry = lcardsCore.animationRegistry;
 
-    // ✨ NEW: Phase 5 - Use shared AnimationManager from lcardsCore
-    lcardsLog.debug('[SystemsManager] 🎬 Phase 5: Using shared AnimationManager from lcardsCore');
+    // Use shared AnimationManager from lcardsCore
+    lcardsLog.debug('[SystemsManager] 🎬 Using shared AnimationManager from lcardsCore');
     if (!lcardsCore.animationManager) {
       throw new Error('lcardsCore.animationManager is null - core not initialized?');
     }
@@ -332,20 +332,20 @@ export class SystemsManager extends BaseService {
 
     lcardsLog.debug('[SystemsManager] ✅ Shared AnimationManager connected');
 
-    // ✅ ADDED: Register MSD panels with global HUD if card GUID is available
+    // Register MSD panels with global HUD if card GUID is available
     if (this._cardGuid) {
       this._registerMsdPanelsWithHud(this._cardGuid);
     }
 
     lcardsLog.debug('[SystemsManager] ✅ All systems initialization complete', {
       hasThemeManager: !!this.themeManager,
-      hasStyleResolver: !!this.styleResolver,  // ✅ NEW: Phase 6
+      hasStyleResolver: !!this.styleResolver,
       hasDataSourceManager: !!this.dataSourceManager,
       hasRouter: !!this.router,
       hasRenderer: !!this.renderer,
       hasRulesEngine: !!this.rulesEngine,
       hasAnimRegistry: !!this.animRegistry,
-      hasAnimationManager: !!this.animationManager,  // ✨ NEW
+      hasAnimationManager: !!this.animationManager,
       hasDebugManager: !!this.debugManager,
       hasControlsRenderer: !!this.controlsRenderer,
       hasDebugRenderer: !!this.debugRenderer
@@ -589,7 +589,7 @@ export class SystemsManager extends BaseService {
             lcardsLog.debug('[SystemsManager] ℹ️ No rule patches needed');
           }
 
-          // ✅ NEW: Apply base_svg filter updates from rules
+          // Apply base_svg filter updates from rules
           if (ruleResults.baseSvgUpdate) {
             lcardsLog.debug(`[SystemsManager] � Rules produced base_svg update`);
             this._applyBaseSvgUpdate(ruleResults.baseSvgUpdate);
@@ -723,7 +723,7 @@ export class SystemsManager extends BaseService {
           const debugOptions = {
             anchors: resolvedModel.anchors || {},
             overlays: resolvedModel.overlays || [],
-            router: this.router,  // ✅ FIXED: Pass router for routing debug visualization
+            router: this.router,  // Pass router for routing debug visualization
             showAnchors: debugState.anchors,
             showBoundingBoxes: debugState.bounding_boxes,
             showRouting: this.debugManager.canRenderRouting(),

@@ -12,9 +12,7 @@ import { lcardsCore } from '../../core/lcards-core.js';
 
 /**
  * Initialize the MSD processing/rendering pipeline.
- * ENHANCED: Ensures pack loading and defaults management complete before overlay processing
- * ✅ ENHANCED: Phase 7 - Now includes ValidationService initialization and pre-render validation
- * ✅ ENHANCED: Phase 8 - Now extracts anchors and viewBox from SVG content
+ * Ensures pack loading and defaults management complete before overlay processing
  *
  * @param {Object} userMsdConfig - User supplied MSD config.
  * @param {string} svgContent - SVG content string (for anchor extraction)
@@ -25,8 +23,8 @@ import { lcardsCore } from '../../core/lcards-core.js';
 export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass = null) {
   lcardsLog.info('[PipelineCore] 🚀 Starting MSD pipeline initialization with SVG extraction');
 
-  // PHASE 1: Configuration processing and pack merging WITH anchor extraction
-  lcardsLog.trace('[PipelineCore] 🔧 Phase 1: Config processing with SVG extraction');
+  // Configuration processing and pack merging WITH anchor extraction
+  lcardsLog.trace('[PipelineCore] 🔧 Config processing with SVG extraction');
   const { mergedConfig, issues, provenance } = await processAndValidateConfig(userMsdConfig, svgContent);
 
   lcardsLog.debug('[PipelineCore] Config processed:', {
@@ -42,29 +40,16 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
     return createDisabledPipeline(mergedConfig, issues, provenance);
   }
 
-  // PHASE 2: Initialize SystemsManager with theme loading BEFORE any overlay processing
-  lcardsLog.trace('[PipelineCore] 🔧 Phase 2: Initializing SystemsManager and loading pack defaults');
+  // Initialize SystemsManager with theme loading BEFORE any overlay processing
+  lcardsLog.trace('[PipelineCore] 🔧 Initializing SystemsManager and loading pack defaults');
   const systemsManager = new SystemsManager();
-
-  // ✅ FIXED: Phase 1.5 - Use LCARdS Core Infrastructure (Singleton Architecture)
-  lcardsLog.debug('[PipelineCore] 🚀 Phase 1.5: Connecting to LCARdS Core Infrastructure');
-  try {
-    // Core is already initialized on module load - just update HASS if needed
-    if (hass && lcardsCore._coreInitialized) {
-      lcardsCore.updateHass(hass);
-    }
-    lcardsLog.debug('[PipelineCore] ✅ LCARdS Core Infrastructure connected');
-  } catch (error) {
-    lcardsLog.warn('[PipelineCore] ⚠️ Core Infrastructure connection failed:', error);
-    lcardsLog.warn('[PipelineCore] ⚠️ Continuing with local systems only');
-  }
 
   // CRITICAL: Initialize systems with pack defaults loading before overlay processing
   try {
     await systemsManager.initializeSystemsWithPacksFirst(mergedConfig, mountEl, hass);
 
-    // ✅ CONSOLIDATED: Use Core ValidationService singleton instead of creating MSD-specific instance
-    lcardsLog.debug('[PipelineCore] ✅ Phase 2.2: Configuring Core ValidationService');
+    // Use Core ValidationService singleton instead of creating MSD-specific instance
+    lcardsLog.debug('[PipelineCore] ✅ Configuring Core ValidationService');
     let validationService = null;
 
     try {
@@ -157,9 +142,9 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
     themeCount: systemsManager.themeManager.listThemes().length
   });
 
-  // ✅ NEW: Phase 7 - Phase 2.3: Pre-render validation of overlays
+  // Pre-render validation of overlays
   if (systemsManager.validationService && mergedConfig.overlays && mergedConfig.overlays.length > 0) {
-    lcardsLog.debug('[PipelineCore] 🔍 Phase 2.3: Validating overlays before rendering');
+    lcardsLog.debug('[PipelineCore] 🔍 Validating overlays before rendering');
 
     const validation = systemsManager.validationService.validateAll(mergedConfig.overlays, {
       viewBox: mergedConfig.view_box || [0, 0, 800, 600],
@@ -211,8 +196,8 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
     lcardsLog.debug('[PipelineCore] ⏭️ Skipping overlay validation (ValidationService not available)');
   }
 
-  // PHASE 3: Build card model (now safe to process overlays)
-  lcardsLog.debug('[PipelineCore] 🏗️ Phase 3: Building card model');
+  // Build card model (now safe to process overlays)
+  lcardsLog.debug('[PipelineCore] 🏗️ Building card model');
   const cardModel = await buildCardModel(mergedConfig);
 
   // Ensure anchors are available
@@ -224,8 +209,8 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
     }
   }
 
-  // PHASE 4: Complete systems initialization with card model
-  lcardsLog.debug('[PipelineCore] ⚙️ Phase 4: Completing systems initialization');
+  // Complete systems initialization with card model
+  lcardsLog.debug('[PipelineCore] ⚙️ Completing systems initialization');
   try {
     await systemsManager.completeSystems(mergedConfig, cardModel, mountEl, hass);
   } catch (error) {
@@ -239,16 +224,12 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
     systemsManager.ingestHass(hass);
   }
 
-  // PHASE 5: Early debug and routing setup
-  lcardsLog.debug('[PipelineCore] 🔍 Phase 5: Setting up debug infrastructure');
+  // Early debug and routing setup
+  lcardsLog.debug('[PipelineCore] 🔍 Setting up debug infrastructure');
   if (typeof window !== 'undefined') {
     window.lcards = window.lcards || {};
     window.lcards.debug = window.lcards.debug || {};
     window.lcards.debug.msd = window.lcards.debug.msd || {};
-
-    // ✅ PHASE 4: Deprecated - use pipelineInstance._internal.debugManager
-    window.lcards.debug.msd.debugManager = systemsManager.debugManager;
-    window.lcards.debug.msd.routing = systemsManager.router;
 
     // Make core systems available BEFORE any overlay rendering
     window.lcards.debug.msd.pipelineInstance = {
@@ -258,7 +239,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
       themeManager: systemsManager.themeManager,
       validationService: systemsManager.validationService,
 
-      // ✅ PHASE 4: Internal subsystems namespace (non-public API)
+      // Internal subsystems namespace (non-public API)
       _internal: {
         debugManager: systemsManager.debugManager,
         router: systemsManager.router
@@ -282,8 +263,8 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
     }
   }
 
-  // PHASE 6: Initialize model builder (now everything is ready)
-  lcardsLog.debug('[PipelineCore] 🏭 Phase 6: Initializing model builder');
+  // Initialize model builder (now everything is ready)
+  lcardsLog.debug('[PipelineCore] 🏭 Initializing model builder');
   const modelBuilder = new ModelBuilder(mergedConfig, cardModel, systemsManager);
 
   // Store ModelBuilder reference in SystemsManager for accessibility
@@ -435,8 +416,8 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
   // Connect reRender callback to systems
   systemsManager.setReRenderCallback(reRender);
 
-  // PHASE 7: Initial render - now everything is properly sequenced
-  lcardsLog.debug('[PipelineCore] 🎬 Phase 7: Performing initial render');
+  // Initial render - now everything is properly sequenced
+  lcardsLog.debug('[PipelineCore] 🎬 Performing initial render');
   lcardsLog.debug('[PipelineCore] DataSourceManager status:', {
     sourcesCount: systemsManager.dataSourceManager?.getAllSources?.()?.length || 0,
     entityCount: systemsManager.dataSourceManager?.listIds?.()?.length || 0
@@ -449,7 +430,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
     errors: initialRenderResult?.errors || 0
   });
 
-  // ✅ NEW: Apply base SVG filters after initial render
+  // Apply base SVG filters after initial render
   if (cardModel.baseSvg?.filters) {
     lcardsLog.debug('[PipelineCore] 🎨 Applying initial base SVG filters:', cardModel.baseSvg.filters);
     try {
@@ -495,8 +476,8 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
     }
   }
 
-  // PHASE 8: Create pipeline API and finalize
-  lcardsLog.debug('[PipelineCore] 🔌 Phase 8: Creating pipeline API');
+  // Create pipeline API and finalize
+  lcardsLog.debug('[PipelineCore] 🔌 Creating pipeline API');
   const pipelineApi = createPipelineApi(
     mergedConfig, cardModel, systemsManager, modelBuilder, reRender
   );
@@ -509,7 +490,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
     window.lcards.debug.msd.hud.setMountElement(mountEl);
   }
 
-  // ✅ PHASE 4: Attach unified API AFTER DebugInterface setup
+  // Attach unified API AFTER DebugInterface setup
   // This ensures modern namespaces overwrite legacy properties
   lcardsLog.debug('[PipelineCore] Attaching unified API after DebugInterface setup');
   LCARdSUnifiedAPI.attach();
@@ -522,34 +503,9 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
     window.lcards.debug.msd.validation = { issues: () => mergedConfig.__issues };
     window.lcards.debug.msd.pipelineInstance = pipelineApi;
     window.lcards.debug.msd._provenance = provenance;
-
-    // Ensure routing reference is consistent (in case late changes happened)
-    if (!window.lcards.debug.msd.routing) {
-      window.lcards.debug.msd.routing = systemsManager.router;
-      try {
-        window.dispatchEvent(new CustomEvent('msd-routing-ready'));
-      } catch(_) {}
-    }
   }
 
-  // ✅ NEW: Register the MSD card with LCARdS Core Infrastructure
-  try {
-    // Generate unique card ID based on config or element
-    const cardId = `msd_${mergedConfig.id || Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    lcardsLog.debug('[PipelineCore] 🏷️ Registering MSD card with core:', cardId);
-
-    await lcardsCore.registerCard(cardId, {
-      type: 'msd',
-      mountEl,
-      pipelineApi
-    }, mergedConfig);
-
-    lcardsLog.debug('[PipelineCore] ✅ MSD card registered with LCARdS Core Infrastructure');
-  } catch (error) {
-    lcardsLog.warn('[PipelineCore] ⚠️ Failed to register MSD card with core:', error);
-  }
-
-  lcardsLog.debug('[PipelineCore] ✅ Pipeline initialization complete with enhanced sequencing');
+  lcardsLog.debug('[PipelineCore] ✅ Pipeline initialization complete');
   return pipelineApi;
 }
 
