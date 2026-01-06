@@ -4,7 +4,7 @@
  * Complete schema for MSD (Master Systems Display) cards.
  * Includes validation for card-level config (base_svg, view_box, anchors, etc.)
  * Overlay-level validation handled by overlay schemas (line, control).
- * 
+ *
  * @module cards/schemas/msd-schema
  */
 
@@ -23,7 +23,7 @@ export function getMsdSchema(options = {}) {
     type: 'object',
     title: 'MSD Card',
     description: 'Master Systems Display card with overlays and routing',
-    
+
     'x-ui': {
       category: 'advanced',
       icon: 'mdi:monitor-dashboard',
@@ -64,7 +64,7 @@ export function getMsdSchema(options = {}) {
             },
             errorMessage: 'base_svg.source is required'
           },
-          
+
           filter_preset: {
             type: 'string',
             enum: availableFilterPresets,
@@ -295,17 +295,10 @@ export function getMsdSchema(options = {}) {
             description: 'Show routing grid'
           }
         }
-      },
-
-      theme: {
-        type: 'string',
-        optional: true,
-        description: 'Theme to use for this card',
-        'x-ui': {
-          control: 'text',
-          label: 'Theme'
-        }
       }
+
+      // NOTE: 'theme' field removed - theme is now global via ThemeManager singleton
+      // Per-card theme configuration is no longer supported
     },
 
     validators: [

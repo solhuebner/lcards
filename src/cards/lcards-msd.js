@@ -142,12 +142,14 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
         });
 
         // Store full config for MSD pipeline (includes rules, data_sources, etc. at root level)
-        // Exclude Home Assistant metadata (type, grid_options)
+        // Exclude Home Assistant metadata (type, grid_options) and processed artifacts (theme objects)
         this._fullConfig = {
             ...config,
             // Remove HA card infrastructure metadata
             type: undefined,
-            grid_options: undefined
+            grid_options: undefined,
+            // Remove CoreConfigManager processed artifacts (theme object becomes theme string or undefined)
+            theme: typeof config.theme === 'string' ? config.theme : undefined
         };
 
         // Also extract MSD configuration for backward compatibility
@@ -177,8 +179,8 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
         });
         this._resetInitializationState();
 
-        // Handle SVG loading
-        this._handleSvgLoading(this._msdConfig);
+        // SVG loading deferred to _onFirstUpdated when singletons are available
+        // (AssetManager not available yet during setConfig)
 
         // Prepare for MSD pipeline initialization
         this._prepareMsdPipeline();
@@ -295,6 +297,17 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
      */
     _onFirstUpdated(changedProperties) {
         lcardsLog.debug('[LCARdSMSDCard] First updated, marking component ready');
+
+        // Initialize singletons first (inherited method)
+        if (super._onFirstUpdated) {
+            super._onFirstUpdated(changedProperties);
+        }
+
+        // Now that singletons are available, handle SVG loading
+        if (this._msdConfig) {
+            this._handleSvgLoading(this._msdConfig);
+        }
+
         this._componentReady = true;
         this._tryInitializePipeline();
     }
@@ -764,7 +777,8 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
             return '';
         }
 
-        const assetManager = this._singletons?.assetManager;
+        // Direct core access pattern (see _handleSvgLoading for design rationale)
+        const assetManager = window.lcards?.core?.getAssetManager?.();
         if (!assetManager) {
             lcardsLog.error('[LCARdSMSDCard] AssetManager not available');
             return '';
@@ -776,7 +790,7 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
             svgKey = source.replace('builtin:', '');
         } else if (source.startsWith('/local/')) {
             svgKey = source.split('/').pop().replace('.svg', '');
-            
+
             // Register external SVG if not already registered
             if (!assetManager.getRegistry('svg').has(svgKey)) {
                 assetManager.register('svg', svgKey, null, {
@@ -793,7 +807,7 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
 
         // Get SVG content (synchronous if cached, async if needs loading)
         const svgContent = assetManager.getRegistry('svg').get(svgKey);
-        
+
         if (!svgContent) {
             // Trigger async load
             assetManager.get('svg', svgKey).then(loadedContent => {
@@ -831,7 +845,7 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
                 const wrappedContent = tempDiv.innerHTML;
 
                 lcardsLog.debug('[LCARdSMSDCard] 🎨 Wrapped base SVG content in #__msd-base-content for filter isolation');
-                
+
                 return wrappedContent;
             }
         } catch (error) {
@@ -856,16 +870,22 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
         }
 
         const source = msdConfig.base_svg.source;
-        
+
         if (source === 'none') {
             // No SVG - pipeline will use explicit view_box from config
             lcardsLog.debug('[LCARdSMSDCard] base_svg: "none" - no SVG to load');
             return;
         }
 
-        const assetManager = this._singletons?.assetManager;
+        // DESIGN NOTE: MSD accesses core systems directly, not via _singletons
+        // _singletons is a convenience wrapper used by LCARdSCard for simple cards.
+        // MSD extends LCARdSNativeCard (not LCARdSCard) because it has its own
+        // sophisticated pipeline with integrated SystemsManager, DataSourceManager,
+        // RulesEngine, and template evaluation. Direct core access avoids conflicts
+        // with simple card behavior and keeps MSD's architecture clean.
+        const assetManager = window.lcards?.core?.getAssetManager?.();
         if (!assetManager) {
-            lcardsLog.error('[LCARdSMSDCard] AssetManager not available');
+            lcardsLog.warn('[LCARdSMSDCard] AssetManager not available yet - core not initialized');
             return;
         }
 
@@ -875,7 +895,7 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
             svgKey = source.replace('builtin:', '');
         } else if (source.startsWith('/local/')) {
             svgKey = source.split('/').pop().replace('.svg', '');
-            
+
             // Register external SVG
             if (!assetManager.getRegistry('svg').has(svgKey)) {
                 assetManager.register('svg', svgKey, null, {
@@ -945,7 +965,7 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
             if (window.lcards.debug.msd) {
                 // Legacy single-instance reference (backward compatibility - will be overwritten by last card)
                 window.lcards.debug.msd.cardInstance = this;
-                
+
                 // New multi-instance registration
                 if (window.lcards.debug.msd.registerInstance) {
                     window.lcards.debug.msd.registerInstance(this._msdInstanceGuid, this, null);
@@ -962,13 +982,13 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
             // Get SVG content (already loaded by AssetManager in _handleSvgLoading)
             const source = this._msdConfig?.base_svg?.source;
             let svgContent = null;
-            
+
             if (source && source !== 'none') {
                 svgContent = window.lcards?.getSvgContent?.(source);
-                
+
                 if (!svgContent) {
                     lcardsLog.warn('[LCARdSMSDCard] SVG not loaded yet, will retry');
-                    
+
                     // Retry after short delay
                     if (this._initRetryCount < this._maxInitRetries) {
                         this._initRetryCount++;
@@ -983,6 +1003,8 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
 
             // ✅ SIMPLIFIED: Build config with root-level properties
             // NO anchor injection - pipeline handles extraction
+            // CRITICAL: Only extract specific root fields (rules, data_sources) to avoid
+            // injecting theme objects or other processed config artifacts from CoreConfigManager
             const enhancedConfig = {
                 ...this._msdConfig,  // Start with msd section (overlays, base_svg, etc.)
                 ...(this._fullConfig.rules ? { rules: this._fullConfig.rules } : {}),  // Add rules from root

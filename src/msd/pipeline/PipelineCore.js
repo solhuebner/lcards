@@ -28,7 +28,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
   // PHASE 1: Configuration processing and pack merging WITH anchor extraction
   lcardsLog.trace('[PipelineCore] 🔧 Phase 1: Config processing with SVG extraction');
   const { mergedConfig, issues, provenance } = await processAndValidateConfig(userMsdConfig, svgContent);
-  
+
   lcardsLog.debug('[PipelineCore] Config processed:', {
     hasViewBox: !!mergedConfig.view_box,
     anchorCount: mergedConfig.anchors ? Object.keys(mergedConfig.anchors).length : 0,
@@ -256,7 +256,6 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
       dataSourceManager: systemsManager.dataSourceManager,
       config: mergedConfig,
       themeManager: systemsManager.themeManager,
-      styleResolver: styleResolver,  // ✅ NEW: Phase 6 - Add StyleResolver to debug
       validationService: systemsManager.validationService,
 
       // ✅ PHASE 4: Internal subsystems namespace (non-public API)
@@ -270,7 +269,6 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
       hasSystemsManager: !!systemsManager,
       hasDataSourceManager: !!systemsManager.dataSourceManager,
       hasThemeManager: !!systemsManager.themeManager,
-      hasStyleResolver: !!styleResolver,  // ✅ NEW: Phase 6
       hasValidationService: !!systemsManager.validationService,
       hasRouter: !!systemsManager.router,
       dataSourceCount: systemsManager.dataSourceManager?.listIds?.()?.length || 0
