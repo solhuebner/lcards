@@ -1,20 +1,74 @@
 import { lcardsLog } from '../../utils/lcards-logging.js';
+import { AnchorProcessor } from './AnchorProcessor.js';
 
 /**
  * Process and validate MSD config using CoreConfigManager
- * Requires CoreConfigManager to be initialized (part of lcards-core.js startup)
+ * NOW HANDLES: anchor extraction, viewBox resolution, complete config building
+ * 
+ * @param {Object} userMsdConfig - User MSD configuration
+ * @param {string} svgContent - SVG content string (for anchor extraction)
+ * @returns {Promise<Object>} { mergedConfig, issues, provenance }
  */
-export async function processAndValidateConfig(userMsdConfig) {
+export async function processAndValidateConfig(userMsdConfig, svgContent = null) {
   const core = window.lcards?.core || window.lcardsCore;
 
   if (!core?.configManager?.initialized) {
     throw new Error('[ConfigProcessor] CoreConfigManager not initialized - this is a fatal error');
   }
 
-  lcardsLog.debug('[ConfigProcessor] Using CoreConfigManager for MSD processing');
+  lcardsLog.debug('[ConfigProcessor] Processing config with SVG extraction');
 
+  // ✅ NEW: Extract SVG metadata BEFORE config processing
+  let viewBox = null;
+  let anchors = {};
+  
+  if (svgContent) {
+    // Extract viewBox from SVG
+    viewBox = window.lcards?.getSvgViewBox?.(svgContent);
+    
+    // Extract and merge anchors
+    const anchorResult = AnchorProcessor.processAnchors(
+      svgContent,
+      userMsdConfig.anchors || {},
+      viewBox || [0, 0, 1920, 1080]
+    );
+    
+    anchors = anchorResult.anchors;
+    
+    lcardsLog.debug('[ConfigProcessor] SVG metadata extracted:', {
+      viewBox,
+      anchorCount: anchorResult.metadata.totalCount,
+      svgAnchors: anchorResult.metadata.svgAnchorCount,
+      userAnchors: anchorResult.metadata.userAnchorCount
+    });
+  } else if (userMsdConfig.base_svg?.source === 'none') {
+    // No SVG - use explicit viewBox from config
+    viewBox = userMsdConfig.view_box;
+    anchors = AnchorProcessor.processAnchors(
+      null,
+      userMsdConfig.anchors || {},
+      viewBox || [0, 0, 1920, 1080]
+    ).anchors;
+    
+    lcardsLog.debug('[ConfigProcessor] base_svg: "none" - using explicit viewBox:', viewBox);
+  }
+
+  // ✅ CRITICAL: Merge extracted metadata into config BEFORE validation
+  // This ensures anchors/viewBox flow through merge pipeline with provenance
+  const enhancedConfig = {
+    ...userMsdConfig,
+    view_box: viewBox || userMsdConfig.view_box || [0, 0, 1920, 1080],
+    anchors: anchors,
+    _svgMetadata: {
+      extractedViewBox: viewBox,
+      extractedAnchors: Object.keys(anchors).length,
+      processingSource: svgContent ? 'svg_extraction' : 'config_explicit'
+    }
+  };
+
+  // Process through CoreConfigManager (includes validation)
   const result = await core.configManager.processConfig(
-    userMsdConfig,
+    enhancedConfig,
     'msd',
     { hass: window.hass }
   );

@@ -35,9 +35,7 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
             _renderContent: { type: String, state: true },
             _msdInstanceGuid: { type: String, state: true },
             _msdInitialized: { type: Boolean, state: true },
-            _blockUpdates: { type: Boolean, state: true },
-            _viewBox: { type: Array, state: true },
-            _anchors: { type: Object, state: true }
+            _blockUpdates: { type: Boolean, state: true }
         };
     }
 
@@ -94,9 +92,6 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
         this._msdInstanceGuid = null;
         this._msdInitialized = false;
         this._blockUpdates = false;
-        this._viewBox = null;
-        this._anchors = null;
-        this._anchorsReady = false;
         this._componentReady = false;
         this._initRetryCount = 0;
         this._maxInitRetries = 5; // Reduced to 5 retries (500ms max) to avoid log spam
@@ -322,12 +317,12 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
     }
 
     /**
-     * Try to initialize the pipeline if both component and anchors are ready
+     * Try to initialize the pipeline if component is ready
      * @private
      */
     _tryInitializePipeline() {
-        if (this._componentReady && this._anchorsReady && !this._msdInitialized) {
-            lcardsLog.debug('[LCARdSMSDCard] Both component and anchors ready, waiting for DOM render...');
+        if (this._componentReady && !this._msdInitialized) {
+            lcardsLog.debug('[LCARdSMSDCard] Component ready, waiting for DOM render...');
 
             // Wait for the next frame to ensure DOM is fully rendered
             requestAnimationFrame(() => {
@@ -351,7 +346,6 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
         } else {
             lcardsLog.debug('[LCARdSMSDCard] Pipeline initialization delayed:', {
                 componentReady: this._componentReady,
-                anchorsReady: this._anchorsReady,
                 msdInitialized: this._msdInitialized
             });
         }
@@ -565,14 +559,6 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
             `;
         }
 
-        if (!this._anchorsReady) {
-            return html`
-                <div class="lcards-msd-loading">
-                    Loading SVG and anchors...
-                </div>
-            `;
-        }
-
         return html`
             ${this._renderSvgContainer()}
         `;
@@ -706,7 +692,8 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
      * @private
      */
     _renderSvgContainer() {
-        const viewBox = this._viewBox || [0, 0, 1920, 1200];
+        // Get viewBox from config (will be extracted by pipeline)
+        const viewBox = this._msdConfig?.view_box || [0, 0, 1920, 1200];
         const [vbX, vbY, vbW, vbH] = viewBox;
         const aspect = vbW && vbH ? (vbW / vbH) : 2;
         const source = this._msdConfig?.base_svg?.source;
@@ -859,7 +846,8 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
     // ============================================================================
 
     /**
-     * Handle SVG loading (simplified with AssetManager)
+     * Handle SVG loading (simplified - no anchor processing)
+     * Pipeline will handle anchor extraction
      * @private
      */
     _handleSvgLoading(msdConfig) {
@@ -870,8 +858,8 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
         const source = msdConfig.base_svg.source;
         
         if (source === 'none') {
-            // No SVG - process anchors immediately
-            this._processAnchors(msdConfig);
+            // No SVG - pipeline will use explicit view_box from config
+            lcardsLog.debug('[LCARdSMSDCard] base_svg: "none" - no SVG to load');
             return;
         }
 
@@ -898,124 +886,17 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
         }
 
         if (!svgKey) {
+            lcardsLog.warn('[LCARdSMSDCard] Could not determine SVG key from source:', source);
             return;
         }
 
-        // Check if SVG is available
-        const registry = assetManager.getRegistry('svg');
-        if (registry.has(svgKey)) {
-            const content = registry.get(svgKey);
-            if (content) {
-                // SVG available - process anchors
-                this._processAnchors(msdConfig);
-            } else {
-                // SVG registered but not loaded - wait for load
-                assetManager.get('svg', svgKey).then(() => {
-                    this._processAnchors(msdConfig);
-                });
-            }
-        } else {
-            lcardsLog.warn('[LCARdSMSDCard] SVG not registered:', svgKey);
-        }
-    }
-
-    /**
-     * Process anchors from SVG and user configuration
-     * @private
-     */
-    _processAnchors(msdConfig) {
-        try {
-            lcardsLog.debug('[LCARdSMSDCard] Processing anchors for MSD config');
-
-            const source = msdConfig.base_svg?.source;
-            let svgContent = null;
-            let viewBox = null;
-
-            // Get SVG content and viewBox
-            if (source === 'none') {
-                // Use explicit view_box from config
-                viewBox = msdConfig.view_box;
-                svgContent = '';
-                lcardsLog.debug('[LCARdSMSDCard] Using explicit viewBox for "none" source:', viewBox);
-            } else {
-                // Get SVG content from cache
-                lcardsLog.debug('[LCARdSMSDCard] Getting SVG content for:', source);
-                lcardsLog.debug('[LCARdSMSDCard] getSvgContent available:', !!window.lcards?.getSvgContent);
-                lcardsLog.debug('[LCARdSMSDCard] assets available:', !!window.lcards?.assets);
-                lcardsLog.debug('[LCARdSMSDCard] svg_templates available:', !!window.lcards?.assets?.svg_templates);
-
-                if (window.lcards?.getSvgContent) {
-                    svgContent = window.lcards.getSvgContent(source);
-                    lcardsLog.debug('[LCARdSMSDCard] SVG content retrieved:', !!svgContent, svgContent ? svgContent.length + ' chars' : 'null');
-                }
-
-                if (svgContent && window.lcards?.getSvgViewBox) {
-                    viewBox = window.lcards.getSvgViewBox(svgContent);
-                    lcardsLog.debug('[LCARdSMSDCard] Extracted viewBox from SVG:', viewBox);
-                }
-            }
-
-            if (!viewBox) {
-                lcardsLog.warn('[LCARdSMSDCard] No viewBox available, using fallback');
-                viewBox = [0, 0, 1920, 1080]; // Default fallback
-            }
-
-            // Extract SVG anchors
-            lcardsLog.debug('[LCARdSMSDCard] Extracting SVG anchors, source:', source, 'svgContent length:', svgContent?.length);
-            lcardsLog.debug('[LCARdSMSDCard] findSvgAnchors available:', !!window.lcards?.findSvgAnchors);
-
-            const svgAnchors = (source === 'none' || !svgContent) ? {} :
-                               (window.lcards?.findSvgAnchors?.(svgContent) || {});
-
-            lcardsLog.debug('[LCARdSMSDCard] SVG anchors found:', Object.keys(svgAnchors), svgAnchors);
-
-            // Get user-defined anchors
-            const userAnchors = msdConfig.anchors || {};
-
-            // Resolve all anchors
-            const resolvedAnchors = {};
-            const [minX, minY, vw, vh] = viewBox;
-
-            // Add SVG anchors
-            for (const [name, pos] of Object.entries(svgAnchors)) {
-                resolvedAnchors[name] = pos;
-            }
-
-            // Add user anchors with percentage resolution
-            for (const [name, pos] of Object.entries(userAnchors)) {
-                if (Array.isArray(pos) && pos.length === 2) {
-                    let [x, y] = pos;
-                    if (typeof x === 'string' && x.endsWith('%')) {
-                        x = minX + (parseFloat(x) / 100) * vw;
-                    }
-                    if (typeof y === 'string' && y.endsWith('%')) {
-                        y = minY + (parseFloat(y) / 100) * vh;
-                    }
-                    resolvedAnchors[name] = [Number(x), Number(y)];
-                } else {
-                    resolvedAnchors[name] = pos;
-                }
-            }
-
-            // Store anchors (like YAML template did)
-            this._viewBox = viewBox;
-            this._anchors = resolvedAnchors;
-
-            lcardsLog.debug('[LCARdSMSDCard] Anchors processed:', {
-                svgAnchorCount: Object.keys(svgAnchors).length,
-                userAnchorCount: Object.keys(userAnchors).length,
-                totalAnchors: Object.keys(resolvedAnchors).length,
-                viewBox,
-                anchors: resolvedAnchors
-            });
-
-            // Mark anchors as ready and try to initialize pipeline
-            this._anchorsReady = true;
-            this._tryInitializePipeline();
-
-        } catch (error) {
-            lcardsLog.error('[LCARdSMSDCard] Failed to process anchors:', error);
-        }
+        // Trigger async load if needed (AssetManager handles caching)
+        assetManager.get('svg', svgKey).then(() => {
+            lcardsLog.debug('[LCARdSMSDCard] SVG loaded:', svgKey);
+            // SVG loaded - pipeline initialization can proceed
+        }).catch(error => {
+            lcardsLog.error('[LCARdSMSDCard] Failed to load SVG:', error);
+        });
     }
 
     /**
@@ -1030,6 +911,7 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
 
     /**
      * Initialize MSD pipeline using MsdInstanceManager
+     * Card now just loads SVG and passes everything to pipeline
      * @private
      */
     async _initializeMsdPipeline() {
@@ -1039,7 +921,7 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
 
         try {
             this._blockUpdates = true;
-            lcardsLog.debug('[LCARdSMSDCard] Initializing MSD pipeline via MsdInstanceManager');
+            lcardsLog.info('[LCARdSMSDCard] 🚀 Initializing MSD pipeline');
 
             // Check if MSD system is fully loaded
             if (!window.lcards?.debug?.msd?.MsdInstanceManager) {
@@ -1070,36 +952,50 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
                 }
             }
 
+            // Get mount element
             const mount = this.getMountElement();
+            if (!mount) {
+                lcardsLog.error('[LCARdSMSDCard] Mount element not found');
+                return;
+            }
+
+            // Get SVG content (already loaded by AssetManager in _handleSvgLoading)
+            const source = this._msdConfig?.base_svg?.source;
+            let svgContent = null;
+            
+            if (source && source !== 'none') {
+                svgContent = window.lcards?.getSvgContent?.(source);
+                
+                if (!svgContent) {
+                    lcardsLog.warn('[LCARdSMSDCard] SVG not loaded yet, will retry');
+                    
+                    // Retry after short delay
+                    if (this._initRetryCount < this._maxInitRetries) {
+                        this._initRetryCount++;
+                        setTimeout(() => this._initializeMsdPipeline(), 100);
+                    }
+                    return;
+                }
+            }
+
+            // Detect preview mode
             const isPreview = window.lcards.debug.msd.MsdInstanceManager.detectPreviewMode(mount);
 
-            lcardsLog.debug('[LCARdSMSDCard] Requesting MSD instance:', {
-                guid: this._msdInstanceGuid,
-                isPreview,
-                hasMount: !!mount,
-                hasAnchors: !!this._anchors,
-                anchorCount: this._anchors ? Object.keys(this._anchors).length : 0
-            });
-
-            // Enhance config with processed anchors (like YAML template did)
-            // Merge root-level properties (rules, data_sources) with msd section
+            // ✅ SIMPLIFIED: Build config with root-level properties
+            // NO anchor injection - pipeline handles extraction
             const enhancedConfig = {
                 ...this._msdConfig,  // Start with msd section (overlays, base_svg, etc.)
                 ...(this._fullConfig.rules ? { rules: this._fullConfig.rules } : {}),  // Add rules from root
-                ...(this._fullConfig.data_sources ? { data_sources: this._fullConfig.data_sources } : {}),  // Add data_sources from root
-                // Add processed anchors if available
-                ...(this._anchors && Object.keys(this._anchors).length > 0 ? { anchors: this._anchors } : {})
+                ...(this._fullConfig.data_sources ? { data_sources: this._fullConfig.data_sources } : {})  // Add data_sources from root
             };
 
-            lcardsLog.debug('[LCARdSMSDCard] Enhanced config structure:', {
+            lcardsLog.debug('[LCARdSMSDCard] Passing config to pipeline:', {
                 hasRules: !!enhancedConfig.rules,
-                rulesCount: enhancedConfig.rules?.length || 0,
                 hasDataSources: !!enhancedConfig.data_sources,
                 hasOverlays: !!enhancedConfig.overlays,
-                overlaysCount: enhancedConfig.overlays?.length || 0,
                 hasBaseSvg: !!enhancedConfig.base_svg,
-                hasAnchors: !!enhancedConfig.anchors,
-                anchorCount: enhancedConfig.anchors ? Object.keys(enhancedConfig.anchors).length : 0
+                hasSvgContent: !!svgContent,
+                svgContentLength: svgContent?.length || 0
             });
 
             // ADDED: Cache raw overlays for control recovery (replaces YAML template JavaScript processing)
@@ -1113,9 +1009,10 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
                 });
             }
 
-            // Use MsdInstanceManager.requestInstance like the YAML template
+            // ✅ NEW: Pass SVG content to pipeline for anchor extraction
             const pipelineResult = await window.lcards.debug.msd.MsdInstanceManager.requestInstance(
                 enhancedConfig,
+                svgContent,  // ✅ NEW: Pipeline will extract anchors from SVG
                 mount,
                 this.hass,
                 isPreview
@@ -1182,10 +1079,11 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
             await this._updateMsdRendering();
 
             this._msdInitialized = true;
-            lcardsLog.debug('[LCARdSMSDCard] MSD pipeline initialized successfully');
+            lcardsLog.info('[LCARdSMSDCard] ✅ MSD pipeline initialized successfully');
 
         } catch (error) {
-            lcardsLog.error('[LCARdSMSDCard] Failed to initialize MSD pipeline:', error);
+            lcardsLog.error('[LCARdSMSDCard] ❌ Pipeline initialization failed:', error);
+            lcardsLog.error('[LCARdSMSDCard] Error stack:', error.stack);
             this._renderContent = this._createErrorDisplay(
                 'MSD Pipeline Error',
                 error.message || 'Unknown error occurred during initialization.',
