@@ -129,8 +129,9 @@ log('='.repeat(60), 'blue');
 log('AssetManager Registration Validation', 'blue');
 log('='.repeat(60), 'blue');
 
-const buttonComponentsPath = path.join(__dirname, '../src/core/packs/components/buttons/index.js');
-const lcardsJsPath = path.join(__dirname, '../src/lcards.js');
+const SRC_PATH = path.join(__dirname, '../src');
+const buttonComponentsPath = path.join(SRC_PATH, 'core/packs/components/buttons/index.js');
+const lcardsJsPath = path.join(SRC_PATH, 'lcards.js');
 
 const buttonComponentsPassed = checkFile(buttonComponentsPath, buttonComponentsChecks);
 const lcardsJsPassed = checkFile(lcardsJsPath, lcardsJsChecks);

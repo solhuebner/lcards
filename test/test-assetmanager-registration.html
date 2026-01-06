@@ -184,7 +184,7 @@
                     // Test 4: Check button metadata
                     output += '<div class="test-section"><h2>Test 4: Button Component Metadata</h2>';
                     try {
-                        const basicMetadata = assetManager.getMetadata('button', 'basic');
+                        const basicMetadata = assetManager.getMetadata('button', 'base');
                         if (basicMetadata) {
                             output += '<div class="test-result success">✅ PASS: Button metadata retrieved</div>';
                             output += `<pre>${JSON.stringify(basicMetadata, null, 2)}</pre>`;

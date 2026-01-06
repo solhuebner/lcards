@@ -28,8 +28,8 @@ window.lcards.core.assetManager.listAssets('slider')
 
 ### Test 3: Check Button Metadata
 ```javascript
-// Should return metadata for 'basic' button component
-window.lcards.core.assetManager.getMetadata('button', 'basic')
+// Should return metadata for 'base' button component
+window.lcards.core.assetManager.getMetadata('button', 'base')
 // Expected: { pack: 'lcards_buttons', type: 'svg-function', registeredAt: <timestamp> }
 ```
 

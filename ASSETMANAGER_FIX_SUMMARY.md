@@ -132,7 +132,7 @@ window.lcards.core.assetManager.listAssets('slider').length
 // Expected: 3
 
 // Test 3: Button metadata
-window.lcards.core.assetManager.getMetadata('button', 'basic')
+window.lcards.core.assetManager.getMetadata('button', 'base')
 // Expected: { pack: 'lcards_buttons', type: 'svg-function', registeredAt: ... }
 
 // Test 4: Slider metadata
