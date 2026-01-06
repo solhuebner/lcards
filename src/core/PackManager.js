@@ -71,19 +71,13 @@ export class PackManager {
       this._registerStylePresets(pack);
     }
 
-    // Register animations to AnimationRegistry
-    if (pack.animations && Array.isArray(pack.animations)) {
-      this._registerAnimations(pack);
-    }
+    // Note: Themes and animations are handled during manager initialization,
+    // not via PackManager. Rules are added directly to RulesEngine.
+    // This is intentional to avoid duplication with existing initialization.
 
-    // Register rules to RulesEngine
+    // Register rules to RulesEngine (if any)
     if (pack.rules && Array.isArray(pack.rules)) {
       this._registerRules(pack);
-    }
-
-    // Register themes to ThemeManager
-    if (pack.themes) {
-      this._registerThemes(pack);
     }
 
     // Store pack reference
@@ -118,31 +112,11 @@ export class PackManager {
     lcardsLog.debug(`[PackManager] Registered ${presetCount} style presets from pack: ${pack.id}`);
   }
 
-  /**
-   * Register animations from pack
-   * @private
-   */
-  _registerAnimations(pack) {
-    if (!this.core.animationRegistry) {
-      lcardsLog.warn(`[PackManager] AnimationRegistry not available for pack: ${pack.id}`);
-      return;
-    }
 
-    let animCount = 0;
-    pack.animations.forEach(anim => {
-      if (anim.id) {
-        this.core.animationRegistry.register(anim.id, anim);
-        animCount++;
-      }
-    });
-
-    if (animCount > 0) {
-      lcardsLog.debug(`[PackManager] Registered ${animCount} animations from pack: ${pack.id}`);
-    }
-  }
 
   /**
    * Register rules from pack
+   * Add rules directly to RulesEngine.rules array
    * @private
    */
   _registerRules(pack) {
@@ -153,35 +127,24 @@ export class PackManager {
 
     let ruleCount = 0;
     pack.rules.forEach(rule => {
-      this.core.rulesManager.registerRule(rule);
-      ruleCount++;
+      if (rule.id) {
+        // Add rule directly to the rules array
+        this.core.rulesManager.rules.push(rule);
+        // Update the index
+        this.core.rulesManager.rulesById.set(rule.id, rule);
+        ruleCount++;
+      }
     });
 
     if (ruleCount > 0) {
+      // Rebuild dependency index and mark rules dirty
+      this.core.rulesManager.buildDependencyIndex();
+      this.core.rulesManager.markAllDirty();
       lcardsLog.debug(`[PackManager] Registered ${ruleCount} rules from pack: ${pack.id}`);
     }
   }
 
-  /**
-   * Register themes from pack
-   * @private
-   */
-  _registerThemes(pack) {
-    if (!this.core.themeManager) {
-      lcardsLog.warn(`[PackManager] ThemeManager not available for pack: ${pack.id}`);
-      return;
-    }
 
-    let themeCount = 0;
-    Object.entries(pack.themes).forEach(([themeId, theme]) => {
-      this.core.themeManager.registerTheme(themeId, theme);
-      themeCount++;
-    });
-
-    if (themeCount > 0) {
-      lcardsLog.debug(`[PackManager] Registered ${themeCount} themes from pack: ${pack.id}`);
-    }
-  }
 
   /**
    * Get loaded pack by ID
