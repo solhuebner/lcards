@@ -39,6 +39,7 @@ import { PerformancePanel } from './hud/panels/PerformancePanel.js';  // ✅ Per
 import { ValidationPanel } from './hud/panels/ValidationPanel.js';  // ✅ Validation aggregation
 import { DebugFlagsPanel } from './hud/panels/DebugFlagsPanel.js';  // ✅ Debug feature toggles
 import { SystemHealthPanel } from './hud/panels/SystemHealthPanel.js';  // ✅ System health monitoring
+import { PackManager } from './PackManager.js';  // ✅ Pack registration system
 
 /**
  * LCARdSCore - Central coordinator for all LCARdS infrastructure
@@ -65,6 +66,7 @@ class LCARdSCore {
         this.configManager = null;       // Unified configuration processing
         this.hudManager = null;          // Global HUD system (Phase 3)
         this.hudService = null;          // HUD keyboard shortcuts (Phase 3)
+        this.packManager = null;         // Pack loading and registration (Phase 4)
 
         // ===== REGISTRIES =====
         this._cardInstances = new Map();     // Map<cardId, CardContext>
@@ -201,7 +203,12 @@ class LCARdSCore {
             this.actionHandler = new LCARdSActionHandler();
             lcardsLog.debug('[LCARdSCore] ✅ ActionHandler initialized');
 
-            // Update ConfigManager context with late-initialized systems (Phase 2d)
+            // Initialize PackManager (Phase 2d) - ✅ Centralized pack loading and registration
+            this.packManager = new PackManager(this);
+            await this.packManager.loadBuiltinPacks(['core', 'lcards_buttons', 'lcards_sliders', 'lcars_fx', 'builtin_themes']);
+            lcardsLog.info('[LCARdSCore] ✅ PackManager initialized and builtin packs loaded');
+
+            // Update ConfigManager context with late-initialized systems (Phase 2e)
             // ConfigManager was initialized early (after ValidationService), now add theme/style managers
             if (this.configManager) {
                 await this.configManager.updateContext({
