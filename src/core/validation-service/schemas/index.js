@@ -11,13 +11,11 @@
 
 import { commonSchema } from './common.js';
 import { lineOverlaySchema } from './lineOverlay.js';
-import { msdCardSchema } from './msdCard.js';
 
 // Re-export all schemas
 export {
   commonSchema,
-  lineOverlaySchema,
-  msdCardSchema
+  lineOverlaySchema
 };
 
 /**
@@ -32,17 +30,22 @@ export {
  * registerAllSchemas(schemaRegistry);
  */
 export function registerAllSchemas(schemaRegistry) {
-  // Register common schema (inherited by all)
+  // Register common schema (inherited by all overlays)
   schemaRegistry.registerCommon(commonSchema);
 
-  // Register type-specific schemas
+  // Register overlay type schemas
   schemaRegistry.register('line', lineOverlaySchema);
-  schemaRegistry.register('msd-card', msdCardSchema);
 
-  // Note: Card schemas (button, data-grid, etc.) are self-registered by each card
-  // using CoreConfigManager.registerCardSchema() when the card class is loaded.
+  // Card schemas self-register via static registerSchema() methods
+  // Called by lcards.js after core init:
+  // - LCARdSButton.registerSchema()
+  // - LCARdSChart.registerSchema()
+  // - LCARdSDataGrid.registerSchema()
+  // - LCARdSSlider.registerSchema()
+  // - LCARdSElbow.registerSchema()
+  // - LCARdSMSDCard.registerSchema() ← MSD now self-registers
 
-  // Note: button, text, apexchart, status_grid schemas removed (v1.16.22+)
+  // Note: button, text, apexchart, status_grid overlay schemas removed (v1.16.22+)
   // These overlay types are deprecated - use LCARdS cards instead:
   // - button/text → custom:lcards-button
   // - apexchart → custom:lcards-chart

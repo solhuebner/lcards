@@ -11,6 +11,7 @@ import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { LCARdSNativeCard } from '../base/LCARdSNativeCard.js';
 import { lcardsLog } from '../utils/lcards-logging.js';
 import { initMsdPipeline } from '../msd/index.js';
+import { getMsdSchema } from './schemas/msd-schema.js';
 
 /**
  * Native MSD Card implementation
@@ -1402,6 +1403,7 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
     }
 
     /**
+    /**
      * Register schema with CoreConfigManager
      * Called by lcards.js after core initialization
      * @static
@@ -1414,94 +1416,20 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
             return;
         }
 
-        // Register MSD card schema for validation
-        // Note: MSD has minimal card-level schema since most validation happens at overlay level
-        configManager.registerCardSchema('msd', {
-        type: 'object',
-        required: ['type'],
-        properties: {
-            type: {
-                type: 'string',
-                enum: ['custom:lcards-msd', 'custom:lcards-msd-card', 'custom:cb-lcars-card'],
-                description: 'Card type identifier'
-            },
-            data_sources: {
-                type: 'object',
-                description: 'Named data source definitions for overlays',
-                additionalProperties: {
-                    type: 'object',
-                    properties: {
-                        entity: {
-                            type: 'string',
-                            format: 'entity',
-                            description: 'Entity ID to fetch data from'
-                        },
-                        windowSeconds: {
-                            type: 'number',
-                            minimum: 1,
-                            description: 'Time window in seconds for historical data'
-                        }
-                    },
-                    required: ['entity']
-                }
-            },
-            base_svg: {
-                type: 'string',
-                description: 'Path to base SVG file'
-            },
-            msd: {
-                type: 'object',
-                description: 'MSD configuration section',
-                properties: {
-                    overlays: {
-                        type: 'array',
-                        description: 'Array of overlay configurations (validated separately via CoreValidationService)'
-                    },
-                    anchors: {
-                        type: 'object',
-                        description: 'Named anchor points for overlay positioning'
-                    },
-                    routing: {
-                        type: 'object',
-                        description: 'Screen routing configuration'
-                    },
-                    rules: {
-                        type: 'array',
-                        description: 'Dynamic styling rules'
-                    },
-                    packs: {
-                        type: 'array',
-                        description: 'Configuration packs to merge'
-                    }
-                }
-            },
-            overlays: {
-                type: 'array',
-                description: 'Array of overlay configurations (validated separately via CoreValidationService)'
-            },
-            anchors: {
-                type: 'object',
-                description: 'Named anchor points for overlay positioning'
-            },
-            routing: {
-                type: 'object',
-                description: 'Screen routing configuration'
-            },
-            rules: {
-                type: 'array',
-                description: 'Dynamic styling rules'
-            },
-            packs: {
-                type: 'array',
-                description: 'Configuration packs to merge'
-            },
-            debug: {
-                type: 'object',
-                description: 'Debug configuration'
-            }
-        }
-    });
+        // Get available filter presets from theme if available
+        const themeManager = window.lcards?.core?.themeManager;
+        const availableFilterPresets = themeManager?.getFilterPresets?.() || [
+            'dimmed', 'subtle', 'backdrop', 'faded', 'red-alert', 'monochrome', 'none'
+        ];
 
-        lcardsLog.debug('[LCARdSMSDCard] Schema registered with CoreConfigManager');
+        // Generate schema with options
+        const schema = getMsdSchema({
+            availableFilterPresets
+        });
+
+        // Register with version
+        configManager.registerCardSchema('msd', schema, { version: '1.22.0' });
+
+        lcardsLog.debug('[LCARdSMSDCard] Schema registered with CoreConfigManager (v1.22.0)');
     }
 }

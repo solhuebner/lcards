@@ -8,6 +8,25 @@
 
 ---
 
+## ⚠️ Schema Registration Change (v1.22+)
+
+**Previous:** MSD schema registered globally by core validation service  
+**Current:** MSD card self-registers schema (standard LCARdS pattern)
+
+**Impact:** None for users, maintainers only
+
+**Pattern:**
+```javascript
+// MSD follows standard LCARdS card pattern:
+LCARdSMSDCard.registerSchema();  // Called by lcards.js
+```
+
+**Schema Location:** `src/cards/schemas/msd-schema.js` (moved from `src/core/validation-service/schemas/msdCard.js`)
+
+**Overlay Schemas:** Line and control overlay schemas remain in core validation - they're rendering infrastructure, not card-specific.
+
+---
+
 ## ⚠️ Breaking Changes in v1.22+
 
 **Removed Fields:**
@@ -90,9 +109,9 @@ For complete schema documentation including:
 - Data source definitions
 - Migration guides from legacy overlay types
 
-Please refer to the source file: `src/core/validation-service/schemas/msdCard.js`
+Please refer to the source file: `src/cards/schemas/msd-schema.js`
 
-Or view the backup documentation: `doc/architecture/schemas/msd-schema-definition.md.bak`
+Or view the inline documentation in the schema file for complete property definitions.
 
 ---
 
@@ -132,4 +151,4 @@ MSD cards integrate with the following core systems:
 
 **Last Updated:** January 2026  
 **Version:** v1.22+  
-**Schema File:** `src/core/validation-service/schemas/msdCard.js`
+**Schema File:** `src/cards/schemas/msd-schema.js`
