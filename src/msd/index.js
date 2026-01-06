@@ -4,7 +4,7 @@ import { buildCardModel } from './model/CardModel.js';
 import { MsdInstanceManager } from './pipeline/MsdInstanceManager.js';
 import { mergePacks } from '../core/packs/mergePacks.js';
 
-import "./hud/hudService.js";
+import "./hud/MsdHudUtilities.js";
 
 // Main exports
 export { initMsdPipeline, processMsdConfig };
