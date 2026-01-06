@@ -526,23 +526,43 @@ themes.forEach((theme, index) => {
 
 ## API Design Notes
 
-### Single-Instance Mode (Phase 0)
+### Multi-Instance Support (v1.12.0+)
 
-The current implementation supports a single MSD card instance. Many methods accept an optional `cardId` parameter for future multi-instance support, but currently:
+**LCARdS MSD now supports multiple card instances** on the same dashboard. Each instance maintains independent state while sharing global singleton services.
 
-- If `cardId` is provided, it's ignored
-- The API operates on the current/only instance
-- Multi-instance support will be added in a future phase
+#### Instance Management
+
+```javascript
+// List all active MSD instances
+const instances = window.lcards.debug.msd.listInstances();
+
+// Get specific instance by GUID
+const instance = window.lcards.debug.msd.getInstance('msd_1234567890_abc123');
+
+// Access instance data
+console.log(instance.cardInstance);  // Card element
+console.log(instance.pipelineInstance);  // Pipeline API
+```
+
+#### Backward Compatibility
+
+Legacy single-instance references remain available for backward compatibility:
+
+```javascript
+// These still work but refer to the most recently active instance:
+window.lcards.debug.msd.cardInstance
+window.lcards.debug.msd.pipelineInstance
+window.lcards.debug.msd.dataSourceManager
+```
 
 ### Flexible Arguments
 
 Some methods support flexible argument patterns:
 
 ```javascript
-// These are equivalent in single-instance mode:
+// Overlay operations with optional card ID:
 window.lcards.msd.overlays.highlight('my_overlay');
-window.lcards.msd.overlays.highlight(null, 'my_overlay');
-window.lcards.msd.overlays.highlight('ignored-card-id', 'my_overlay');
+window.lcards.msd.overlays.highlight(cardId, 'my_overlay');
 ```
 
 ### Error Handling
