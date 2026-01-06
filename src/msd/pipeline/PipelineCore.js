@@ -1,5 +1,5 @@
 import { processAndValidateConfig } from './ConfigProcessor.js';
-import { SystemsManager } from './SystemsManager.js';
+import { MsdCardCoordinator } from './MsdCardCoordinator.js';
 import { ModelBuilder } from './ModelBuilder.js';
 import { setupDebugInterface } from '../debug/DebugInterface.js';
 import { buildCardModel } from '../model/CardModel.js';
@@ -40,13 +40,13 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
     return createDisabledPipeline(mergedConfig, issues, provenance);
   }
 
-  // Initialize SystemsManager with theme loading BEFORE any overlay processing
-  lcardsLog.trace('[PipelineCore] 🔧 Initializing SystemsManager and loading pack defaults');
-  const systemsManager = new SystemsManager();
+  // Initialize MsdCardCoordinator with theme loading BEFORE any overlay processing
+  lcardsLog.trace('[PipelineCore] 🔧 Initializing MsdCardCoordinator and loading pack defaults');
+  const coordinator = new MsdCardCoordinator();
 
   // CRITICAL: Initialize systems with pack defaults loading before overlay processing
   try {
-    await systemsManager.initializeSystemsWithPacksFirst(mergedConfig, mountEl, hass);
+    await coordinator.initializeSystemsWithPacksFirst(mergedConfig, mountEl, hass);
 
     // Use Core ValidationService singleton instead of creating MSD-specific instance
     lcardsLog.debug('[PipelineCore] ✅ Configuring Core ValidationService');
@@ -75,13 +75,13 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
         });
 
         // Connect ValidationService to ThemeManager and DataSourceManager
-        if (systemsManager.themeManager) {
-          validationService.setThemeManager(systemsManager.themeManager);
+        if (coordinator.themeManager) {
+          validationService.setThemeManager(coordinator.themeManager);
           lcardsLog.debug('[PipelineCore] 🔗 ValidationService connected to ThemeManager');
         }
 
-        if (systemsManager.dataSourceManager) {
-          validationService.setDataSourceManager(systemsManager.dataSourceManager);
+        if (coordinator.dataSourceManager) {
+          validationService.setDataSourceManager(coordinator.dataSourceManager);
           lcardsLog.debug('[PipelineCore] 🔗 ValidationService connected to DataSourceManager');
         }
 
@@ -92,8 +92,8 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
           lcardsLog.debug('[PipelineCore] ✅ ValidationService available at window.lcards.validationService');
         }
 
-        // Store in SystemsManager (reference to core singleton)
-        systemsManager.validationService = validationService;
+        // Store in MsdCardCoordinator (reference to core singleton)
+        coordinator.validationService = validationService;
 
         lcardsLog.debug('[PipelineCore] ✅ Core ValidationService configured for MSD');
       } else {
@@ -107,23 +107,23 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
     }
 
   } catch (error) {
-    lcardsLog.error('[PipelineCore] ❌ SystemsManager initialization failed:', error);
-    throw new Error(`SystemsManager initialization failed: ${error.message}`);
+    lcardsLog.error('[PipelineCore] ❌ MsdCardCoordinator initialization failed:', error);
+    throw new Error(`MsdCardCoordinator initialization failed: ${error.message}`);
   }
 
   // Verify theme manager is ready with enhanced validation
-  if (!systemsManager.themeManager) {
+  if (!coordinator.themeManager) {
     throw new Error('ThemeManager initialization failed - cannot proceed with overlay rendering');
   }
 
   // Validate theme is loaded
-  const activeTheme = systemsManager.themeManager.getActiveTheme();
+  const activeTheme = coordinator.themeManager.getActiveTheme();
 
   lcardsLog.debug('[PipelineCore] 🔍 Theme validation:', {
     activeTheme: activeTheme?.name || 'none',
     themeId: activeTheme?.id || 'none',
-    availableThemes: systemsManager.themeManager.listThemes(),
-    initialized: systemsManager.themeManager.initialized
+    availableThemes: coordinator.themeManager.listThemes(),
+    initialized: coordinator.themeManager.initialized
   });
 
   if (!activeTheme) {
@@ -137,19 +137,19 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
   }
 
   lcardsLog.debug('[PipelineCore] ✅ Theme system loaded and ready:', {
-    hasThemeManager: !!systemsManager.themeManager,
+    hasThemeManager: !!coordinator.themeManager,
     activeTheme: activeTheme?.name,
-    themeCount: systemsManager.themeManager.listThemes().length
+    themeCount: coordinator.themeManager.listThemes().length
   });
 
   // Pre-render validation of overlays
-  if (systemsManager.validationService && mergedConfig.overlays && mergedConfig.overlays.length > 0) {
+  if (coordinator.validationService && mergedConfig.overlays && mergedConfig.overlays.length > 0) {
     lcardsLog.debug('[PipelineCore] 🔍 Validating overlays before rendering');
 
-    const validation = systemsManager.validationService.validateAll(mergedConfig.overlays, {
+    const validation = coordinator.validationService.validateAll(mergedConfig.overlays, {
       viewBox: mergedConfig.view_box || [0, 0, 800, 600],
       anchors: mergedConfig.anchors || {},
-      dataSourceManager: systemsManager.dataSourceManager
+      dataSourceManager: coordinator.dataSourceManager
     });
 
     if (!validation.valid) {
@@ -162,7 +162,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
 
       // Log detailed validation errors in debug mode
       if (mergedConfig?.debug?.validation) {
-        const formattedErrors = systemsManager.validationService.formatErrors(validation);
+        const formattedErrors = coordinator.validationService.formatErrors(validation);
         lcardsLog.debug('[PipelineCore] Validation details:\n' + formattedErrors);
       }
 
@@ -192,7 +192,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
       summary: validation.summary,
       results: validation.results
     };
-  } else if (!systemsManager.validationService) {
+  } else if (!coordinator.validationService) {
     lcardsLog.debug('[PipelineCore] ⏭️ Skipping overlay validation (ValidationService not available)');
   }
 
@@ -212,7 +212,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
   // Complete systems initialization with card model
   lcardsLog.debug('[PipelineCore] ⚙️ Completing systems initialization');
   try {
-    await systemsManager.completeSystems(mergedConfig, cardModel, mountEl, hass);
+    await coordinator.completeSystems(mergedConfig, cardModel, mountEl, hass);
   } catch (error) {
     lcardsLog.error('[PipelineCore] ❌ Systems completion failed:', error);
     throw new Error(`Systems completion failed: ${error.message}`);
@@ -221,7 +221,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
   // Initialize HASS state
   if (hass) {
     lcardsLog.debug('[PipelineCore] 📥 Initializing HASS via ingestHass');
-    systemsManager.ingestHass(hass);
+    coordinator.ingestHass(hass);
   }
 
   // Early debug and routing setup
@@ -233,26 +233,26 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
 
     // Make core systems available BEFORE any overlay rendering
     window.lcards.debug.msd.pipelineInstance = {
-      systemsManager: systemsManager,
-      dataSourceManager: systemsManager.dataSourceManager,
+      coordinator: coordinator,
+      dataSourceManager: coordinator.dataSourceManager,
       config: mergedConfig,
-      themeManager: systemsManager.themeManager,
-      validationService: systemsManager.validationService,
+      themeManager: coordinator.themeManager,
+      validationService: coordinator.validationService,
 
       // Internal subsystems namespace (non-public API)
       _internal: {
-        debugManager: systemsManager.debugManager,
-        router: systemsManager.router
+        debugManager: coordinator.debugManager,
+        router: coordinator.router
       }
     };
 
     lcardsLog.debug('[PipelineCore] Essential subsystems ready for overlay rendering:', {
-      hasSystemsManager: !!systemsManager,
-      hasDataSourceManager: !!systemsManager.dataSourceManager,
-      hasThemeManager: !!systemsManager.themeManager,
-      hasValidationService: !!systemsManager.validationService,
-      hasRouter: !!systemsManager.router,
-      dataSourceCount: systemsManager.dataSourceManager?.listIds?.()?.length || 0
+      hasCoordinator: !!coordinator,
+      hasDataSourceManager: !!coordinator.dataSourceManager,
+      hasThemeManager: !!coordinator.themeManager,
+      hasValidationService: !!coordinator.validationService,
+      hasRouter: !!coordinator.router,
+      dataSourceCount: coordinator.dataSourceManager?.listIds?.()?.length || 0
     });
 
     // Dispatch routing ready event
@@ -265,10 +265,10 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
 
   // Initialize model builder (now everything is ready)
   lcardsLog.debug('[PipelineCore] 🏭 Initializing model builder');
-  const modelBuilder = new ModelBuilder(mergedConfig, cardModel, systemsManager);
+  const modelBuilder = new ModelBuilder(mergedConfig, cardModel, coordinator);
 
-  // Store ModelBuilder reference in SystemsManager for accessibility
-  systemsManager.modelBuilder = modelBuilder;
+  // Store ModelBuilder reference in MsdCardCoordinator for accessibility
+  coordinator.modelBuilder = modelBuilder;
 
   /**
    * Internal re-render function that recomputes the model
@@ -278,24 +278,24 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
   async function reRender() {
     lcardsLog.info('[PipelineCore] 🔄 reRender() ENTRY - FULL RE-RENDER TRIGGERED', {
       timestamp: new Date().toISOString(),
-      renderInProgress: systemsManager._renderInProgress,
-      rulePatches: systemsManager.rulesEngine?.getLastEvaluationResult?.()?.overlayPatches?.length || 'N/A'
+      renderInProgress: coordinator._renderInProgress,
+      rulePatches: coordinator.rulesEngine?.getLastEvaluationResult?.()?.overlayPatches?.length || 'N/A'
     });
 
-    if (!systemsManager.themeManager) {
+    if (!coordinator.themeManager) {
       lcardsLog.error('[PipelineCore] ❌ ThemeManager not available during re-render - aborting');
       return { success: false, error: 'ThemeManager not available' };
     }
 
     // IMPROVED: Queue renders instead of blocking them
-    if (systemsManager._renderInProgress) {
+    if (coordinator._renderInProgress) {
       lcardsLog.debug('[PipelineCore] 🕐 Render in progress, queueing re-render');
-      systemsManager._queuedReRender = true;
+      coordinator._queuedReRender = true;
       return { success: false, reason: 'render_in_progress', queued: true };
     }
 
-    systemsManager._renderInProgress = true;
-    systemsManager._queuedReRender = false;
+    coordinator._renderInProgress = true;
+    coordinator._queuedReRender = false;
 
     try {
       lcardsLog.debug('[PipelineCore] 📊 Computing resolved model...');
@@ -314,7 +314,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
       // ADDED: Defensive rendering with error boundary
       let renderResult;
       try {
-        renderResult = systemsManager.renderer.render(resolvedModel);
+        renderResult = coordinator.renderer.render(resolvedModel);
         lcardsLog.debug('[PipelineCore] ✅ AdvancedRenderer.render() completed successfully:', renderResult);
       } catch (renderError) {
         lcardsLog.error('[PipelineCore] ❌ AdvancedRenderer.render() FAILED:', renderError);
@@ -323,7 +323,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
       }
 
       // ANIMATION INTEGRATION: Notify AnimationManager about rendered overlays
-      if (systemsManager.animationManager) {
+      if (coordinator.animationManager) {
         lcardsLog.debug('[PipelineCore] 🎬 Notifying AnimationManager about rendered overlays...');
 
         // Track text overlays for re-initialization after font stabilization
@@ -331,13 +331,13 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
 
         for (const overlay of resolvedModel.overlays) {
           // Check if AnimationManager has animations registered for this overlay
-          const hasAnimations = systemsManager.animationManager.registeredAnimations.has(overlay.id);
+          const hasAnimations = coordinator.animationManager.registeredAnimations.has(overlay.id);
           if (hasAnimations) {
             // Find the rendered element
             const element = mountEl.querySelector(`[data-overlay-id="${overlay.id}"]`);
             if (element) {
               try {
-                await systemsManager.animationManager.onOverlayRendered(overlay.id, element, overlay);
+                await coordinator.animationManager.onOverlayRendered(overlay.id, element, overlay);
                 lcardsLog.debug(`[PipelineCore] ✅ Initialized animations for overlay: ${overlay.id}`);
 
                 // Track text overlays for re-initialization after font stabilization
@@ -365,7 +365,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
               const element = mountEl.querySelector(`[data-overlay-id="${id}"]`);
               if (element) {
                 try {
-                  await systemsManager.animationManager.onOverlayRendered(id, element, overlay);
+                  await coordinator.animationManager.onOverlayRendered(id, element, overlay);
                   lcardsLog.debug(`[PipelineCore] ✅ Re-initialized animations for text overlay: ${id}`);
                 } catch (animError) {
                   lcardsLog.error(`[PipelineCore] ❌ Failed to re-initialize animations for ${id}:`, animError);
@@ -381,7 +381,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
       lcardsLog.debug('[PipelineCore] 🎮 Starting renderDebugAndControls()...');
       // CHANGED: Make debug and controls rendering more defensive
       try {
-        await systemsManager.renderDebugAndControls(resolvedModel, mountEl);
+        await coordinator.renderDebugAndControls(resolvedModel, mountEl);
         lcardsLog.debug('[PipelineCore] ✅ renderDebugAndControls() completed successfully');
       } catch (debugControlsError) {
         lcardsLog.error('[PipelineCore] ❌ renderDebugAndControls() FAILED:', debugControlsError);
@@ -400,13 +400,13 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
       lcardsLog.error('[PipelineCore] ❌ Complete failure stack:', error.stack);
       return { success: false, error: error.message };
     } finally {
-      systemsManager._renderInProgress = false;
+      coordinator._renderInProgress = false;
       lcardsLog.debug('[PipelineCore] 🏁 reRender() FINALLY block - _renderInProgress reset to false');
 
       // IMPROVED: Execute queued re-render if one was requested
-      if (systemsManager._queuedReRender) {
+      if (coordinator._queuedReRender) {
         lcardsLog.debug('[PipelineCore] 🔄 Executing queued re-render');
-        systemsManager._queuedReRender = false;
+        coordinator._queuedReRender = false;
         // Use setTimeout to avoid immediate recursion and allow stack to clear
         setTimeout(() => reRender(), 50);
       }
@@ -414,13 +414,13 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
   }
 
   // Connect reRender callback to systems
-  systemsManager.setReRenderCallback(reRender);
+  coordinator.setReRenderCallback(reRender);
 
   // Initial render - now everything is properly sequenced
   lcardsLog.debug('[PipelineCore] 🎬 Performing initial render');
   lcardsLog.debug('[PipelineCore] DataSourceManager status:', {
-    sourcesCount: systemsManager.dataSourceManager?.getAllSources?.()?.length || 0,
-    entityCount: systemsManager.dataSourceManager?.listIds?.()?.length || 0
+    sourcesCount: coordinator.dataSourceManager?.getAllSources?.()?.length || 0,
+    entityCount: coordinator.dataSourceManager?.listIds?.()?.length || 0
   });
 
   const initialRenderResult = await reRender();
@@ -479,11 +479,11 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
   // Create pipeline API and finalize
   lcardsLog.debug('[PipelineCore] 🔌 Creating pipeline API');
   const pipelineApi = createPipelineApi(
-    mergedConfig, cardModel, systemsManager, modelBuilder, reRender
+    mergedConfig, cardModel, coordinator, modelBuilder, reRender
   );
 
   // Setup debug interface with DebugManager integration
-  setupDebugInterface(pipelineApi, mergedConfig, provenance, systemsManager, modelBuilder);
+  setupDebugInterface(pipelineApi, mergedConfig, provenance, coordinator, modelBuilder);
 
   // Initialize HUD service with mount element
   if (typeof window !== 'undefined' && window.lcards.debug.msd?.hud?.setMountElement) {
@@ -729,24 +729,24 @@ function createValidationErrorDisplay(issues, mergedConfig) {
  * Creates and returns the MSD pipeline external API.
  * @param {Object} mergedConfig
  * @param {Object} cardModel
- * @param {SystemsManager} systemsManager
+ * @param {MsdCardCoordinator} coordinator
  * @param {ModelBuilder} modelBuilder
  * @param {Function} reRender
  * @returns {Object} API
  */
-function createPipelineApi(mergedConfig, cardModel, systemsManager, modelBuilder, reRender) {
+function createPipelineApi(mergedConfig, cardModel, coordinator, modelBuilder, reRender) {
   const api = {
     enabled: true,
     version: mergedConfig.version || 1,
     config: mergedConfig,
 
     // Core systems
-    systemsManager,
-    dataSourceManager: systemsManager.dataSourceManager,
-    rulesEngine: systemsManager.rulesEngine,
-    renderer: systemsManager.renderer,
-    router: systemsManager.router,
-    validationService: systemsManager.validationService,
+    coordinator,
+    dataSourceManager: coordinator.dataSourceManager,
+    rulesEngine: coordinator.rulesEngine,
+    renderer: coordinator.renderer,
+    router: coordinator.router,
+    validationService: coordinator.validationService,
 
     /**
      * Inspect routing for a given overlay id and compute path data.
@@ -761,8 +761,8 @@ function createPipelineApi(mergedConfig, cardModel, systemsManager, modelBuilder
       const a1 = cardModel.anchors[raw.anchor];
       const a2 = cardModel.anchors[raw.attach_to] || cardModel.anchors[raw.attachTo];
       if (!a1 || !a2) return null;
-      const req = systemsManager.router.buildRouteRequest(ov, a1, a2);
-      return systemsManager.router.computePath(req);
+      const req = coordinator.router.buildRouteRequest(ov, a1, a2);
+      return coordinator.router.computePath(req);
     },
 
     getResolvedModel: () => modelBuilder.getResolvedModel(),
@@ -792,41 +792,41 @@ function createPipelineApi(mergedConfig, cardModel, systemsManager, modelBuilder
       cardModel.anchors[id] = [Number(pt[0]), Number(pt[1])];
       const resolvedModel = modelBuilder.getResolvedModel();
       if (resolvedModel?.anchors) resolvedModel.anchors[id] = cardModel.anchors[id];
-      systemsManager.router.invalidate && systemsManager.router.invalidate('*');
+      coordinator.router.invalidate && coordinator.router.invalidate('*');
       try {
-        if (systemsManager.renderer && resolvedModel) {
-          systemsManager.renderer._routerOverlaySync = false;
-          systemsManager.renderer.render(resolvedModel);
+        if (coordinator.renderer && resolvedModel) {
+          coordinator.renderer._routerOverlaySync = false;
+          coordinator.renderer.render(resolvedModel);
         }
       } catch(_) {}
       return true;
     },
 
     async ingestHass(hass) {
-      // Distribute HASS to SystemsManager (which will handle Rules Engine)
-      if (this.systemsManager) {
-        this.systemsManager.ingestHass(hass);
+      // Distribute HASS to MsdCardCoordinator (which will handle Rules Engine)
+      if (this.coordinator) {
+        this.coordinator.ingestHass(hass);
       }
     },
 
-    updateEntities: (map) => systemsManager.updateEntities(map),
-    listEntities: () => systemsManager.entityRuntime.listIds(),
-    getEntity: (id) => systemsManager.entityRuntime.getEntity(id),
+    updateEntities: (map) => coordinator.updateEntities(map),
+    listEntities: () => coordinator.entityRuntime.listIds(),
+    getEntity: (id) => coordinator.entityRuntime.getEntity(id),
     getActiveProfiles: () => [],
     getAnchors: () => ({ ...cardModel.anchors }),
     getPerf: () => perfGetAll(),
 
     // Add debug API powered by DebugManager
     debug: {
-      enable: (feature) => systemsManager.debugManager.enable(feature),
-      disable: (feature) => systemsManager.debugManager.disable(feature),
-      toggle: (feature) => systemsManager.debugManager.toggle(feature),
-      setScale: (scale) => systemsManager.debugManager.setScale(scale),
-      status: () => systemsManager.debugManager.getSnapshot(),
-      onChange: (callback) => systemsManager.debugManager.onChange(callback)
+      enable: (feature) => coordinator.debugManager.enable(feature),
+      disable: (feature) => coordinator.debugManager.disable(feature),
+      toggle: (feature) => coordinator.debugManager.toggle(feature),
+      setScale: (scale) => coordinator.debugManager.setScale(scale),
+      status: () => coordinator.debugManager.getSnapshot(),
+      onChange: (callback) => coordinator.debugManager.onChange(callback)
     },
 
-    getDataSourceManager: () => systemsManager.dataSourceManager,
+    getDataSourceManager: () => coordinator.dataSourceManager,
     _reRenderCallback: reRender,
 
     // Action system methods
@@ -837,8 +837,8 @@ function createPipelineApi(mergedConfig, cardModel, systemsManager, modelBuilder
         hasHandleAction: typeof cardInstance?._handleAction,
         hasHass: !!cardInstance?.hass
       });
-      // Store in SystemsManager for broader access
-      systemsManager.cardInstance = cardInstance;
+      // Store in MsdCardCoordinator for broader access
+      coordinator.cardInstance = cardInstance;
       lcardsLog.debug('[PipelineCore] Card instance set via API for action system');
     }
   };
