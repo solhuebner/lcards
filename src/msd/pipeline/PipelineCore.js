@@ -14,18 +14,27 @@ import { lcardsCore } from '../../core/lcards-core.js';
  * Initialize the MSD processing/rendering pipeline.
  * ENHANCED: Ensures pack loading and defaults management complete before overlay processing
  * ✅ ENHANCED: Phase 7 - Now includes ValidationService initialization and pre-render validation
+ * ✅ ENHANCED: Phase 8 - Now extracts anchors and viewBox from SVG content
  *
  * @param {Object} userMsdConfig - User supplied MSD config.
+ * @param {string} svgContent - SVG content string (for anchor extraction)
  * @param {HTMLElement|ShadowRoot} mountEl - Mount/root element (may be a shadowRoot).
  * @param {Object|null} hass - Home Assistant instance (if available).
  * @returns {Promise<Object>} Pipeline API
  */
-export async function initMsdPipeline(userMsdConfig, mountEl, hass = null) {
-  lcardsLog.debug('[PipelineCore] 🚀 Starting MSD pipeline initialization with enhanced sequencing');
+export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass = null) {
+  lcardsLog.info('[PipelineCore] 🚀 Starting MSD pipeline initialization with SVG extraction');
 
-  // PHASE 1: Configuration processing and pack merging
-  lcardsLog.debug('[PipelineCore] 📋 Phase 1: Processing and validating configuration');
-  const { mergedConfig, issues, provenance } = await processAndValidateConfig(userMsdConfig);
+  // PHASE 1: Configuration processing and pack merging WITH anchor extraction
+  lcardsLog.trace('[PipelineCore] 🔧 Phase 1: Config processing with SVG extraction');
+  const { mergedConfig, issues, provenance } = await processAndValidateConfig(userMsdConfig, svgContent);
+  
+  lcardsLog.debug('[PipelineCore] Config processed:', {
+    hasViewBox: !!mergedConfig.view_box,
+    anchorCount: mergedConfig.anchors ? Object.keys(mergedConfig.anchors).length : 0,
+    overlayCount: mergedConfig.overlays?.length || 0,
+    svgMetadata: mergedConfig._svgMetadata
+  });
 
   // Handle validation errors early
   if (issues.errors.length) {

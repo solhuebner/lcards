@@ -18,9 +18,6 @@ export class ModelBuilder {
   }
 
   async computeResolvedModel() {
-    // Anchor repair diagnostic
-    this._ensureAnchors();
-
     // Assemble base overlays with profiles
     const baseOverlays = this._assembleBaseOverlays();
 
@@ -71,23 +68,6 @@ export class ModelBuilder {
 
   getResolvedModel() {
     return this._resolvedModelRef;
-  }
-
-  _ensureAnchors() {
-    if (!this.cardModel.anchors || Object.keys(this.cardModel.anchors).length === 0) {
-      if (this.mergedConfig.anchors && Object.keys(this.mergedConfig.anchors).length) {
-        lcardsLog.warn('[ModelBuilder] computeResolvedModel: anchors missing – repairing from merged.anchors');
-        this.cardModel.anchors = { ...this.mergedConfig.anchors };
-      } else {
-        // Check if this is base_svg: "none" case - different messaging
-        const baseSvgSource = this.mergedConfig.base_svg?.source;
-        if (baseSvgSource === 'none') {
-          lcardsLog.debug('[ModelBuilder] No anchors available for base_svg: "none" - overlays will use position coordinates');
-        } else {
-          lcardsLog.warn('[ModelBuilder] computeResolvedModel: anchors missing and no merged fallback available.');
-        }
-      }
-    }
   }
 
 
