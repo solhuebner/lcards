@@ -4,16 +4,15 @@
  * Provides high-level operations for dashboard builders and integrations.
  * All methods are safe for user scripts and automations.
  *
- * Design principle: Future-ready for multi-instance support
+ * Design principle: Multi-instance support via DOM queries
  * - All methods accept optional `cardId` parameter
- * - Phase 0: Single-instance (uses MsdInstanceManager.getCurrentInstance())
- * - Phase X: Multi-instance (cardId selects specific instance)
+ * - Uses standard DOM queries to find MSD cards
+ * - No instance registry required
  *
  * @module MsdRuntimeAPI
  */
 
 import { lcardsLog } from '../utils/lcards-logging.js';
-import { MsdInstanceManager } from '../msd/pipeline/MsdInstanceManager.js';
 import { MsdIntrospection } from '../msd/introspection/MsdIntrospection.js';
 
 export class MsdRuntimeAPI {
@@ -34,31 +33,34 @@ export class MsdRuntimeAPI {
       /**
        * Get MSD instance by ID
        *
-       * Currently returns single global instance (multi-instance in Phase X)
+       * Uses DOM queries to find MSD card and return its pipeline
        *
-       * @param {string} [cardId] - Card ID (ignored in Phase 0, future-ready)
+       * @param {string} [cardId] - Card ID to find specific card, or null for first card
        * @returns {Object|null} Pipeline API instance or null if not available
        *
        * @example
-       * const instance = window.lcards.msd.getInstance();
+       * const instance = window.lcards.msd.getInstance('engineering');
        * console.log('Instance:', instance);
        */
       getInstance(cardId = null) {
         try {
-          const instance = MsdInstanceManager.getCurrentInstance();
+          let card;
+          
+          if (cardId) {
+            // Get specific card by ID
+            card = document.querySelector(`lcards-msd[id="${cardId}"]`);
+          } else {
+            // Get first MSD card
+            card = document.querySelector('lcards-msd');
+          }
 
-          if (!instance) {
-            lcardsLog.debug('[RuntimeAPI] No MSD instance available');
+          if (!card) {
+            lcardsLog.debug('[RuntimeAPI] No MSD card found', cardId ? `with id="${cardId}"` : '');
             return null;
           }
 
-          // In Phase X, we'd use cardId to select specific instance
-          // For now, just log if cardId was provided (for future compatibility testing)
-          if (cardId) {
-            lcardsLog.debug('[RuntimeAPI] cardId parameter provided but ignored in single-instance mode:', cardId);
-          }
-
-          return instance;
+          // Return the pipeline instance
+          return card._msdPipeline || null;
         } catch (error) {
           lcardsLog.error('[RuntimeAPI] Error getting instance:', error);
           return null;
@@ -86,17 +88,30 @@ export class MsdRuntimeAPI {
       /**
        * Get all MSD instances
        *
-       * Currently returns array with single instance (multi-instance in Phase X)
+       * Returns array of all MSD card pipelines on the page
        *
-       * @returns {Array} Array of pipeline instances (length 0 or 1 in Phase 0)
+       * @returns {Array} Array of pipeline instances
        *
        * @example
        * const instances = window.lcards.msd.getAllInstances();
        * console.log(`Found ${instances.length} instance(s)`);
        */
       getAllInstances() {
-        const current = MsdRuntimeAPI.create().getInstance();
-        return current ? [current] : [];
+        try {
+          const cards = document.querySelectorAll('lcards-msd');
+          const instances = [];
+          
+          cards.forEach(card => {
+            if (card._msdPipeline) {
+              instances.push(card._msdPipeline);
+            }
+          });
+          
+          return instances;
+        } catch (error) {
+          lcardsLog.error('[RuntimeAPI] Error getting all instances:', error);
+          return [];
+        }
       },
 
       // ==========================================
