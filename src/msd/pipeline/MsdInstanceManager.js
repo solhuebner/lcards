@@ -34,13 +34,15 @@ export class MsdInstanceManager {
    * @param {HTMLElement} mountEl - Mount element
    * @param {Object} hass - Home Assistant instance
    * @param {boolean} isPreview - Whether this is a preview render
+   * @param {string} cardGuid - Card instance GUID for HUD registration
    * @returns {Promise<Object>} Pipeline API or preview content
    */
-  static async requestInstance(userMsdConfig, svgContent, mountEl, hass, isPreview = false) {
+  static async requestInstance(userMsdConfig, svgContent, mountEl, hass, isPreview = false, cardGuid = null) {
     lcardsLog.debug('[MsdInstanceManager] 🚀 requestInstance called:', {
       isPreview,
       hasSvgContent: !!svgContent,
       mountElTag: mountEl?.tagName,
+      cardGuid,
       timestamp: new Date().toISOString()
     });
 
@@ -54,7 +56,8 @@ export class MsdInstanceManager {
     lcardsLog.debug('[MsdInstanceManager] 🔧 Initializing MSD pipeline (multi-instance mode)');
 
     try {
-      const pipelineApi = await initMsdPipeline(userMsdConfig, svgContent, mountEl, hass);
+      // ✅ FIXED: Pass cardGuid to pipeline for early coordinator setup
+      const pipelineApi = await initMsdPipeline(userMsdConfig, svgContent, mountEl, hass, cardGuid);
 
       // Support setCardInstance for compatibility
       if (pipelineApi.setCardInstance && typeof pipelineApi.setCardInstance === 'function') {

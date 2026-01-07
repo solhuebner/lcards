@@ -955,10 +955,18 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
                 return;
             }
 
-            // Generate instance GUID if not already assigned
+            // Generate instance GUID using config.id as primary identifier (matches other LCARdS cards)
+            // Priority: user-provided config.id > auto-generated GUID
             if (!this._msdInstanceGuid) {
-                this._msdInstanceGuid = window.lcards.debug.msd.MsdInstanceManager.generateGuid();
-                lcardsLog.debug('[LCARdSMSDCard] Generated instance GUID:', this._msdInstanceGuid);
+                if (this.config.id) {
+                    // User provided stable ID - use it directly
+                    this._msdInstanceGuid = `msd-${this.config.id}`;
+                    lcardsLog.debug('[LCARdSMSDCard] Using config.id as instance GUID:', this._msdInstanceGuid);
+                } else {
+                    // Auto-generate GUID for anonymous cards
+                    this._msdInstanceGuid = window.lcards.debug.msd.MsdInstanceManager.generateGuid();
+                    lcardsLog.debug('[LCARdSMSDCard] Generated instance GUID:', this._msdInstanceGuid);
+                }
             }
 
             // Register with global debug system (multi-instance support)
@@ -1031,13 +1039,14 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
                 });
             }
 
-            // ✅ NEW: Pass SVG content to pipeline for anchor extraction
+            // ✅ FIXED: Pass card GUID to pipeline for early coordinator setup
             const pipelineResult = await window.lcards.debug.msd.MsdInstanceManager.requestInstance(
                 enhancedConfig,
-                svgContent,  // ✅ NEW: Pipeline will extract anchors from SVG
+                svgContent,  // ✅ Pipeline will extract anchors from SVG
                 mount,
                 this.hass,
-                isPreview
+                isPreview,
+                this._msdInstanceGuid  // ✅ NEW: Pass GUID for HUD registration
             );
 
             if (pipelineResult.preview) {
@@ -1086,11 +1095,9 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
                 lcardsLog.debug('[LCARdSMSDCard] Card instance set via pipeline API');
             }
 
-            // ✅ ADDED: Set card GUID in SystemsManager for HUD registration
-            if (this._msdPipeline.systemsManager && this._msdInstanceGuid) {
-                this._msdPipeline.systemsManager.setCardGuid(this._msdInstanceGuid);
-                lcardsLog.debug('[LCARdSMSDCard] Card GUID set in SystemsManager for HUD registration');
-            }
+            // ✅ REMOVED: Redundant setCardGuid() call - now handled early in pipeline
+            // The coordinator.setCardGuid() is now called in PipelineCore BEFORE completeSystems()
+            // This ensures HUD registration happens with the correct GUID
 
             // Initialize HASS state
             if (this._msdPipeline.systemsManager) {

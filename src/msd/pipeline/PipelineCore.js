@@ -18,10 +18,14 @@ import { lcardsCore } from '../../core/lcards-core.js';
  * @param {string} svgContent - SVG content string (for anchor extraction)
  * @param {HTMLElement|ShadowRoot} mountEl - Mount/root element (may be a shadowRoot).
  * @param {Object|null} hass - Home Assistant instance (if available).
+ * @param {string|null} cardGuid - Card instance GUID for HUD registration
  * @returns {Promise<Object>} Pipeline API
  */
-export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass = null) {
-  lcardsLog.info('[PipelineCore] 🚀 Starting MSD pipeline initialization with SVG extraction');
+export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass = null, cardGuid = null) {
+  lcardsLog.info('[PipelineCore] 🚀 Starting MSD pipeline initialization with SVG extraction', {
+    hasCardGuid: !!cardGuid,
+    cardGuid
+  });
 
   // Configuration processing and pack merging WITH anchor extraction
   lcardsLog.trace('[PipelineCore] 🔧 Config processing with SVG extraction');
@@ -47,6 +51,14 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
   // CRITICAL: Initialize systems with pack defaults loading before overlay processing
   try {
     await coordinator.initializeSystemsWithPacksFirst(mergedConfig, mountEl, hass);
+
+    // ✅ CRITICAL FIX: Set card GUID BEFORE completeSystems() for HUD registration
+    if (cardGuid) {
+      coordinator.setCardGuid(cardGuid);
+      lcardsLog.debug('[PipelineCore] ✅ Card GUID set in coordinator BEFORE completeSystems:', cardGuid);
+    } else {
+      lcardsLog.warn('[PipelineCore] ⚠️ No card GUID provided - HUD registration may fail');
+    }
 
     // Use Core ValidationService singleton instead of creating MSD-specific instance
     lcardsLog.debug('[PipelineCore] ✅ Configuring Core ValidationService');
