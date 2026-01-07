@@ -1,4 +1,4 @@
-import { initMsdPipeline } from './pipeline/PipelineCore.js';
+import { initMsdPipeline as initMsdPipelineCore } from './pipeline/PipelineCore.js';
 import { processMsdConfig } from './pipeline/ConfigProcessor.js';
 import { buildCardModel } from './model/CardModel.js';
 import { MsdInstanceManager } from './pipeline/MsdInstanceManager.js';
@@ -7,7 +7,7 @@ import { mergePacks } from '../core/packs/mergePacks.js';
 import "./hud/MsdHudUtilities.js";
 
 // Main exports
-export { initMsdPipeline, processMsdConfig };
+export { initMsdPipelineCore as initMsdPipeline, processMsdConfig };
 
 /**
  * MSD Production Namespace & Debug Interface Setup
@@ -123,18 +123,18 @@ export { initMsdPipeline, processMsdConfig };
 
   // Debug tools and helpers
   Object.assign(window.lcards.debug.msd, {
-    // Core functions
+    // Core functions (reference imported functions with clear names)
     mergePacks,
     buildCardModel,
-    initMsdPipeline,
+    initMsdPipeline: initMsdPipelineCore,  // Reference to core function
 
     // Legacy single-instance reference (for backward compatibility)
     pipelineInstance: null,
 
     // Initialize MSD pipeline (wrapper with debug logging)
-    async initMsdPipeline(mergedConfig, svgContent, mount, hass, cardGuid) {
+    async initMsdPipelineWithLogging(mergedConfig, svgContent, mount, hass, cardGuid) {
       try {
-        const pipelineApi = await initMsdPipeline(mergedConfig, svgContent, mount, hass, cardGuid);
+        const pipelineApi = await initMsdPipelineCore(mergedConfig, svgContent, mount, hass, cardGuid);
 
         // Set the authoritative pipelineInstance property (legacy compatibility)
         this.pipelineInstance = pipelineApi;
