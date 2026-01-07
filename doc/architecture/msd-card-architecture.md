@@ -149,21 +149,6 @@ window.lcards.cards.msd.listInstances();
 window.lcards.core.hudManager.setActiveCard('msd-engineering-display');
 ```
 
-### Backward Compatibility
-
-Legacy code accessing `window.lcards.debug.msd` continues to work:
-
-```javascript
-// ✅ WORKS: Legacy single-instance reference (uses first registered card)
-window.lcards.debug.msd.pipelineInstance
-
-// ✅ WORKS: Debug methods delegated to production namespace
-window.lcards.debug.msd.listInstances()
-
-// ✅ WORKS: Legacy instance map access (read-only)
-window.lcards.debug.msd.instances
-```
-
 ### Migration Guide
 
 **For Users:**

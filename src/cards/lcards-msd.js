@@ -970,17 +970,9 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
             }
 
             // Register with global system (multi-instance support)
-            // ✅ UPDATED: Use production namespace for instance registration
-            if (window.lcards.cards?.msd) {
-                // Production multi-instance registration
-                if (window.lcards.cards.msd.registerInstance) {
-                    window.lcards.cards.msd.registerInstance(this._msdInstanceGuid, this, null);
-                }
-            }
-
-            // Legacy debug namespace (backward compatibility)
-            if (window.lcards.debug?.msd) {
-                window.lcards.debug.msd.cardInstance = this;
+            // Production multi-instance registration
+            if (window.lcards.cards?.msd?.registerInstance) {
+                window.lcards.cards.msd.registerInstance(this._msdInstanceGuid, this, null);
             }
 
             // Get mount element

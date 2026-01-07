@@ -127,29 +127,8 @@ export { initMsdPipelineCore as initMsdPipeline, processMsdConfig };
     mergePacks,
     buildCardModel,
     
-    // Legacy single-instance reference (for backward compatibility)
-    pipelineInstance: null,
-
     // Pipeline initialization - DIRECT reference to core function
-    // Use this for programmatic initialization (same as imported function)
     initMsdPipeline: initMsdPipelineCore,
-
-    // DEPRECATED: Legacy wrapper that sets pipelineInstance property
-    // This is maintained for old code that relies on window.lcards.debug.msd.pipelineInstance
-    // New code should use getInstance() from production namespace
-    async initMsdPipelineDeprecated(mergedConfig, svgContent, mount, hass, cardGuid) {
-      try {
-        const pipelineApi = await initMsdPipelineCore(mergedConfig, svgContent, mount, hass, cardGuid);
-        
-        // Set legacy single-instance reference
-        this.pipelineInstance = pipelineApi;
-        
-        return pipelineApi;
-      } catch (error) {
-        console.error('[MSD Debug] Pipeline initialization failed:', error);
-        throw error;
-      }
-    },
 
     // ============================================================================
     // PROVENANCE DEBUG HELPERS
@@ -335,83 +314,10 @@ export { initMsdPipelineCore as initMsdPipeline, processMsdConfig };
       console.groupEnd();
 
       return overlayIds;
-    },
-
-    // ============================================================================
-    // MULTI-INSTANCE DEBUG HELPERS (delegate to production namespace)
-    // ============================================================================
-
-    registerInstance(...args) {
-      return window.lcards.cards.msd.registerInstance(...args);
-    },
-
-    unregisterInstance(...args) {
-      return window.lcards.cards.msd.unregisterInstance(...args);
-    },
-
-    getInstance(...args) {
-      return window.lcards.cards.msd.getInstance(...args);
-    },
-
-    listInstances(...args) {
-      return window.lcards.cards.msd.listInstances(...args);
-    },
-
-    // Legacy instance map access (read-only)
-    get instances() {
-      return window.lcards.cards.msd.getInstanceRegistry();
     }
   });
 
-  // ============================================================================
-  // BACKWARD COMPATIBILITY PROPERTIES
-  // ============================================================================
-
-  // DataSourceManager property with getter (uses last registered instance)
-  Object.defineProperty(window.lcards.debug.msd, 'dataSourceManager', {
-    get() {
-      // Try to get from pipelineInstance (legacy single-instance reference)
-      if (window.lcards.debug.msd.pipelineInstance?.dataSourceManager) {
-        return window.lcards.debug.msd.pipelineInstance.dataSourceManager;
-      }
-      if (window.lcards.debug.msd.pipelineInstance?.systemsManager?.dataSourceManager) {
-        return window.lcards.debug.msd.pipelineInstance.systemsManager.dataSourceManager;
-      }
-      
-      // Fallback: Get from any registered instance
-      const instances = Array.from(window.lcards.cards.msd.getInstanceRegistry().values());
-      if (instances.length > 0) {
-        return instances[0].pipelineInstance?.systemsManager?.dataSourceManager;
-      }
-      
-      return null;
-    },
-    configurable: true
-  });
-
-  // cardInstance property (uses last set value or first registered instance)
-  Object.defineProperty(window.lcards.debug.msd, 'cardInstance', {
-    get() {
-      // If explicitly set, use that
-      if (window.lcards.debug.msd._explicitCardInstance) {
-        return window.lcards.debug.msd._explicitCardInstance;
-      }
-      
-      // Otherwise, return first registered instance
-      const instances = Array.from(window.lcards.cards.msd.getInstanceRegistry().values());
-      if (instances.length > 0) {
-        return instances[0].cardInstance;
-      }
-      
-      return null;
-    },
-    set(value) {
-      window.lcards.debug.msd._explicitCardInstance = value;
-    },
-    configurable: true
-  });
-
-  console.log('[MSD index.js] ✅ Debug namespace initialized with backward compatibility');
+  console.log('[MSD index.js] ✅ Debug namespace initialized');
 
   // ============================================================================
   // GLOBAL DEBUG HELPERS
