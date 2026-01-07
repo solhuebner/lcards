@@ -1,4 +1,4 @@
-import { initMsdPipeline } from './pipeline/PipelineCore.js';
+import { initMsdPipeline as initMsdPipelineCore } from './pipeline/PipelineCore.js';
 import { processMsdConfig } from './pipeline/ConfigProcessor.js';
 import { buildCardModel } from './model/CardModel.js';
 import { MsdInstanceManager } from './pipeline/MsdInstanceManager.js';
@@ -7,59 +7,135 @@ import { mergePacks } from '../core/packs/mergePacks.js';
 import "./hud/MsdHudUtilities.js";
 
 // Main exports
-export { initMsdPipeline, processMsdConfig };
+export { initMsdPipelineCore as initMsdPipeline, processMsdConfig };
 
-// Debug exposure - IMMEDIATE execution at module load time
-(function attachDebug() {
+/**
+ * MSD Production Namespace & Debug Interface Setup
+ * 
+ * ARCHITECTURE CHANGE (v1.17.0+):
+ * - Production APIs: window.lcards.cards.msd.*
+ * - Debug tools: window.lcards.debug.msd.*
+ * 
+ * This matches the core architecture pattern where production
+ * systems live under window.lcards.core.* and MSD is a card
+ * system under window.lcards.cards.*
+ */
+(function attachMsdNamespaces() {
   if (typeof window === 'undefined') return;
 
-  // Safely create nested namespace structure
+  // ============================================================================
+  // PRODUCTION NAMESPACE: window.lcards.cards.msd.*
+  // ============================================================================
+  
   window.lcards = window.lcards || {};
-  window.lcards.debug = window.lcards.debug || {};
-  window.lcards.debug.msd = window.lcards.debug.msd || {};
+  window.lcards.cards = window.lcards.cards || {};
+  window.lcards.cards.msd = window.lcards.cards.msd || {};
 
-  // CRITICAL: Attach MsdInstanceManager FIRST before anything else
-  window.lcards.debug.msd.MsdInstanceManager = MsdInstanceManager;
+  // Multi-instance registry (Map of card instances by GUID)
+  const instanceRegistry = new Map();
 
-  // NEW: Multi-instance support - Map of card instances by GUID
-  window.lcards.debug.msd.instances = window.lcards.debug.msd.instances || new Map();
+  // Production API methods
+  Object.assign(window.lcards.cards.msd, {
+    /**
+     * Register a new MSD card instance
+     * @param {string} guid - Card instance GUID
+     * @param {Object} cardInstance - Card element reference
+     * @param {Object} pipelineInstance - Pipeline API reference
+     */
+    registerInstance(guid, cardInstance, pipelineInstance) {
+      if (!guid) {
+        console.warn('[MSD] Cannot register instance without GUID');
+        return;
+      }
 
-  console.log('[MSD index.js] ✅ MsdInstanceManager attached to window.lcards.debug.msd:', !!window.lcards.debug.msd.MsdInstanceManager);
-  console.log('[MSD index.js] ✅ Multi-instance map initialized');
+      instanceRegistry.set(guid, {
+        guid,
+        cardInstance,
+        pipelineInstance,
+        registeredAt: new Date().toISOString()
+      });
 
-  // CRITICAL FIX: Single Object.assign to preserve MsdInstanceManager
-  // Previous bug: Two Object.assign calls caused the second to overwrite the first
-  Object.assign(window.lcards.debug.msd, {
-    // Core functions (preserve from first Object.assign)
-    mergePacks,
-    buildCardModel,
-    initMsdPipeline,
+      console.log(`[MSD] ✅ Registered instance: ${guid}`);
+      console.log(`[MSD] Total instances: ${instanceRegistry.size}`);
+    },
 
-    // Authoritative pipeline instance
-    pipelineInstance: null,
-
-    // Initialize MSD pipeline (overrides imported function with enhanced version)
-    async initMsdPipeline(mergedConfig, mount, hass) {
-      try {
-        const pipelineApi = await initMsdPipeline(mergedConfig, mount, hass);
-
-        // Set the authoritative pipelineInstance property
-        this.pipelineInstance = pipelineApi;
-
-        return pipelineApi;
-      } catch (error) {
-        console.error('[MSD Debug] Pipeline initialization failed:', error);
-        throw error;
+    /**
+     * Unregister an MSD card instance
+     * @param {string} guid - Card instance GUID
+     */
+    unregisterInstance(guid) {
+      const removed = instanceRegistry.delete(guid);
+      if (removed) {
+        console.log(`[MSD] 🗑️ Unregistered instance: ${guid}`);
+        console.log(`[MSD] Remaining instances: ${instanceRegistry.size}`);
       }
     },
 
-    // ✅ NEW: Enhanced provenance debug helpers
+    /**
+     * Get instance data by GUID
+     * @param {string} guid - Card instance GUID
+     * @returns {Object|null} Instance data
+     */
+    getInstance(guid) {
+      return instanceRegistry.get(guid) || null;
+    },
+
+    /**
+     * List all registered instances
+     * @returns {Array} Array of instance data
+     */
+    listInstances() {
+      const instances = Array.from(instanceRegistry.values());
+      console.group(`📊 MSD Instances (${instances.length})`);
+      instances.forEach(inst => {
+        console.log(`${inst.guid}:`, {
+          hasCard: !!inst.cardInstance,
+          hasPipeline: !!inst.pipelineInstance,
+          registeredAt: inst.registeredAt
+        });
+      });
+      console.groupEnd();
+      return instances;
+    },
+
+    /**
+     * Get instance registry (read-only access)
+     * @returns {Map} Instance registry
+     */
+    getInstanceRegistry() {
+      return instanceRegistry;
+    }
+  });
+
+  console.log('[MSD index.js] ✅ Production namespace initialized: window.lcards.cards.msd');
+
+  // ============================================================================
+  // DEBUG NAMESPACE: window.lcards.debug.msd.*
+  // ============================================================================
+  
+  window.lcards.debug = window.lcards.debug || {};
+  window.lcards.debug.msd = window.lcards.debug.msd || {};
+
+  // CRITICAL: Attach MsdInstanceManager FIRST
+  window.lcards.debug.msd.MsdInstanceManager = MsdInstanceManager;
+
+  console.log('[MSD index.js] ✅ MsdInstanceManager attached to window.lcards.debug.msd');
+
+  // Debug tools and helpers
+  Object.assign(window.lcards.debug.msd, {
+    // Core functions
+    mergePacks,
+    buildCardModel,
+    
+    // Pipeline initialization - DIRECT reference to core function
+    initMsdPipeline: initMsdPipelineCore,
+
+    // ============================================================================
+    // PROVENANCE DEBUG HELPERS
+    // ============================================================================
 
     /**
      * Get theme provenance information
-     * Shows which theme is active, where it came from, and what was requested
-     *
-     * @returns {Object|null} Theme provenance data
      */
     getThemeProvenance() {
       const config = this.pipelineInstance?.config;
@@ -89,9 +165,6 @@ export { initMsdPipeline, processMsdConfig };
 
     /**
      * Get pack loading information
-     * Shows which packs were loaded and their capabilities
-     *
-     * @returns {Object|null} Pack information
      */
     getPackInfo() {
       const config = this.pipelineInstance?.config;
@@ -119,10 +192,6 @@ export { initMsdPipeline, processMsdConfig };
 
     /**
      * Get style resolution provenance for an overlay
-     * (Will be populated by renderers in future update)
-     *
-     * @param {string} overlayId - Overlay ID to get style provenance for
-     * @returns {Object|null} Style resolution provenance
      */
     getStyleProvenance(overlayId) {
       const config = this.pipelineInstance?.config;
@@ -152,10 +221,6 @@ export { initMsdPipeline, processMsdConfig };
 
     /**
      * Get renderer information for an overlay
-     * (Will be populated by renderers in future update)
-     *
-     * @param {string} overlayId - Overlay ID to get renderer info for
-     * @returns {Object|null} Renderer information
      */
     getRendererInfo(overlayId) {
       const config = this.pipelineInstance?.config;
@@ -183,10 +248,6 @@ export { initMsdPipeline, processMsdConfig };
 
     /**
      * Get complete provenance for an overlay
-     * Shows all tracked information for a single overlay
-     *
-     * @param {string} overlayId - Overlay ID to get complete provenance for
-     * @returns {Object|null} Complete provenance data
      */
     getOverlayProvenance(overlayId) {
       const config = this.pipelineInstance?.config;
@@ -230,8 +291,6 @@ export { initMsdPipeline, processMsdConfig };
 
     /**
      * List all tracked overlays with provenance
-     *
-     * @returns {Array<string>|null} Array of overlay IDs
      */
     listTrackedOverlays() {
       const config = this.pipelineInstance?.config;
@@ -255,114 +314,33 @@ export { initMsdPipeline, processMsdConfig };
       console.groupEnd();
 
       return overlayIds;
-    },
-
-    // NEW: Multi-instance support methods
-
-    /**
-     * Register a new MSD card instance
-     * @param {string} guid - Card instance GUID
-     * @param {Object} cardInstance - Card element reference
-     * @param {Object} pipelineInstance - Pipeline API reference
-     */
-    registerInstance(guid, cardInstance, pipelineInstance) {
-      if (!guid) {
-        console.warn('[MSD Debug] Cannot register instance without GUID');
-        return;
-      }
-
-      window.lcards.debug.msd.instances.set(guid, {
-        guid,
-        cardInstance,
-        pipelineInstance,
-        registeredAt: new Date().toISOString()
-      });
-
-      console.log(`[MSD Debug] ✅ Registered instance: ${guid}`);
-      console.log(`[MSD Debug] Total instances: ${window.lcards.debug.msd.instances.size}`);
-    },
-
-    /**
-     * Unregister an MSD card instance
-     * @param {string} guid - Card instance GUID
-     */
-    unregisterInstance(guid) {
-      const removed = window.lcards.debug.msd.instances.delete(guid);
-      if (removed) {
-        console.log(`[MSD Debug] 🗑️ Unregistered instance: ${guid}`);
-        console.log(`[MSD Debug] Remaining instances: ${window.lcards.debug.msd.instances.size}`);
-      }
-    },
-
-    /**
-     * Get instance data by GUID
-     * @param {string} guid - Card instance GUID
-     * @returns {Object|null} Instance data
-     */
-    getInstance(guid) {
-      return window.lcards.debug.msd.instances.get(guid) || null;
-    },
-
-    /**
-     * List all registered instances
-     * @returns {Array} Array of instance data
-     */
-    listInstances() {
-      const instances = Array.from(window.lcards.debug.msd.instances.values());
-      console.group(`📊 MSD Instances (${instances.length})`);
-      instances.forEach(inst => {
-        console.log(`${inst.guid}:`, {
-          hasCard: !!inst.cardInstance,
-          hasPipeline: !!inst.pipelineInstance,
-          registeredAt: inst.registeredAt
-        });
-      });
-      console.groupEnd();
-      return instances;
     }
   });
 
-  // DataSourceManager property with getter (backward compatibility - uses last registered instance)
-  Object.defineProperty(window.lcards.debug.msd, 'dataSourceManager', {
-    get() {
-      // Try to get from pipelineInstance (legacy single-instance reference)
-      if (window.lcards.debug.msd.pipelineInstance?.dataSourceManager) {
-        return window.lcards.debug.msd.pipelineInstance.dataSourceManager;
-      }
-      if (window.lcards.debug.msd.pipelineInstance?.systemsManager?.dataSourceManager) {
-        return window.lcards.debug.msd.pipelineInstance.systemsManager.dataSourceManager;
-      }
-      
-      // Fallback: Get from any registered instance
-      const instances = Array.from(window.lcards.debug.msd.instances.values());
-      if (instances.length > 0) {
-        return instances[0].pipelineInstance?.systemsManager?.dataSourceManager;
-      }
-      
-      return null;
-    },
-    configurable: true  // Allow it to be redefined if needed
-  });
+  console.log('[MSD index.js] ✅ Debug namespace initialized');
 
-  // Backward compatibility: cardInstance property (uses last set value or first registered instance)
-  Object.defineProperty(window.lcards.debug.msd, 'cardInstance', {
-    get() {
-      // If explicitly set, use that
-      if (window.lcards.debug.msd._explicitCardInstance) {
-        return window.lcards.debug.msd._explicitCardInstance;
-      }
-      
-      // Otherwise, return first registered instance
-      const instances = Array.from(window.lcards.debug.msd.instances.values());
-      if (instances.length > 0) {
-        return instances[0].cardInstance;
-      }
-      
-      return null;
-    },
-    set(value) {
-      window.lcards.debug.msd._explicitCardInstance = value;
-    },
-    configurable: true
-  });
+  // ============================================================================
+  // GLOBAL DEBUG HELPERS
+  // ============================================================================
+
+  if (!window.__msdStatus) {
+    window.__msdStatus = () => {
+      const instances = window.lcards.cards.msd.listInstances();
+      const status = {
+        'Multi-Instance Mode': 'Enabled',
+        'Active Instances': instances.length,
+        'Production API': 'window.lcards.cards.msd',
+        'Debug API': 'window.lcards.debug.msd',
+        'Timestamp': new Date().toISOString()
+      };
+
+      console.table(status);
+      console.log('💡 Production API: window.lcards.cards.msd.listInstances()');
+      console.log('💡 Debug tools: window.lcards.debug.msd.getThemeProvenance()');
+      console.log('💡 Inspect cards: Use browser DevTools Elements tab');
+      return status;
+    };
+  }
+
+  console.log('[MSD index.js] ✅ Global debug helpers initialized');
 })();

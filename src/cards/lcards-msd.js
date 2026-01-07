@@ -955,21 +955,24 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
                 return;
             }
 
-            // Generate instance GUID if not already assigned
+            // Generate instance GUID using config.id as primary identifier (matches other LCARdS cards)
+            // Priority: user-provided config.id > auto-generated GUID
             if (!this._msdInstanceGuid) {
-                this._msdInstanceGuid = window.lcards.debug.msd.MsdInstanceManager.generateGuid();
-                lcardsLog.debug('[LCARdSMSDCard] Generated instance GUID:', this._msdInstanceGuid);
+                if (this.config.id) {
+                    // User provided stable ID - use it directly
+                    this._msdInstanceGuid = `msd-${this.config.id}`;
+                    lcardsLog.debug('[LCARdSMSDCard] Using config.id as instance GUID:', this._msdInstanceGuid);
+                } else {
+                    // Auto-generate GUID for anonymous cards
+                    this._msdInstanceGuid = window.lcards.debug.msd.MsdInstanceManager.generateGuid();
+                    lcardsLog.debug('[LCARdSMSDCard] Generated instance GUID:', this._msdInstanceGuid);
+                }
             }
 
-            // Register with global debug system (multi-instance support)
-            if (window.lcards.debug.msd) {
-                // Legacy single-instance reference (backward compatibility - will be overwritten by last card)
-                window.lcards.debug.msd.cardInstance = this;
-
-                // New multi-instance registration
-                if (window.lcards.debug.msd.registerInstance) {
-                    window.lcards.debug.msd.registerInstance(this._msdInstanceGuid, this, null);
-                }
+            // Register with global system (multi-instance support)
+            // Production multi-instance registration
+            if (window.lcards.cards?.msd?.registerInstance) {
+                window.lcards.cards.msd.registerInstance(this._msdInstanceGuid, this, null);
             }
 
             // Get mount element
@@ -1031,13 +1034,14 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
                 });
             }
 
-            // ✅ NEW: Pass SVG content to pipeline for anchor extraction
+            // ✅ FIXED: Pass card GUID to pipeline for early coordinator setup
             const pipelineResult = await window.lcards.debug.msd.MsdInstanceManager.requestInstance(
                 enhancedConfig,
-                svgContent,  // ✅ NEW: Pipeline will extract anchors from SVG
+                svgContent,  // ✅ Pipeline will extract anchors from SVG
                 mount,
                 this.hass,
-                isPreview
+                isPreview,
+                this._msdInstanceGuid  // ✅ NEW: Pass GUID for HUD registration
             );
 
             if (pipelineResult.preview) {
@@ -1072,9 +1076,9 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
             this._msdPipeline = pipelineResult;
             lcardsLog.debug('[LCARdSMSDCard] Pipeline initialized successfully via MsdInstanceManager');
 
-            // Update multi-instance registration with pipeline
-            if (window.lcards.debug.msd?.registerInstance) {
-                window.lcards.debug.msd.registerInstance(this._msdInstanceGuid, this, pipelineResult);
+            // Update multi-instance registration with pipeline (production namespace)
+            if (window.lcards.cards?.msd?.registerInstance) {
+                window.lcards.cards.msd.registerInstance(this._msdInstanceGuid, this, pipelineResult);
             }
 
             // Set up pipeline callbacks
@@ -1086,11 +1090,8 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
                 lcardsLog.debug('[LCARdSMSDCard] Card instance set via pipeline API');
             }
 
-            // ✅ ADDED: Set card GUID in SystemsManager for HUD registration
-            if (this._msdPipeline.systemsManager && this._msdInstanceGuid) {
-                this._msdPipeline.systemsManager.setCardGuid(this._msdInstanceGuid);
-                lcardsLog.debug('[LCARdSMSDCard] Card GUID set in SystemsManager for HUD registration');
-            }
+            // NOTE: Card GUID is set early in pipeline (PipelineCore) BEFORE completeSystems()
+            // to ensure HUD panels register with correct GUID. No need to set it again here.
 
             // Initialize HASS state
             if (this._msdPipeline.systemsManager) {
@@ -1291,6 +1292,12 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
      */
     disconnectedCallback() {
         super.disconnectedCallback();
+
+        // Unregister from production namespace (multi-instance support)
+        if (this._msdInstanceGuid && window.lcards?.cards?.msd) {
+            window.lcards.cards.msd.unregisterInstance(this._msdInstanceGuid);
+            lcardsLog.debug('[LCARdSMSDCard] Unregistered from MSD registry:', this._msdInstanceGuid);
+        }
 
         // Unregister from global HUD
         if (this._msdInstanceGuid && window.lcards?.core?.hudManager) {
