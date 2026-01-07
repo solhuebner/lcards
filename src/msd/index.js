@@ -123,22 +123,27 @@ export { initMsdPipelineCore as initMsdPipeline, processMsdConfig };
 
   // Debug tools and helpers
   Object.assign(window.lcards.debug.msd, {
-    // Core functions (reference imported functions with clear names)
+    // Core functions
     mergePacks,
     buildCardModel,
-    initMsdPipeline: initMsdPipelineCore,  // Reference to core function
-
+    
     // Legacy single-instance reference (for backward compatibility)
     pipelineInstance: null,
 
-    // Initialize MSD pipeline (wrapper with debug logging)
-    async initMsdPipelineWithLogging(mergedConfig, svgContent, mount, hass, cardGuid) {
+    // Pipeline initialization - DIRECT reference to core function
+    // Use this for programmatic initialization (same as imported function)
+    initMsdPipeline: initMsdPipelineCore,
+
+    // DEPRECATED: Legacy wrapper that sets pipelineInstance property
+    // This is maintained for old code that relies on window.lcards.debug.msd.pipelineInstance
+    // New code should use getInstance() from production namespace
+    async initMsdPipelineDeprecated(mergedConfig, svgContent, mount, hass, cardGuid) {
       try {
         const pipelineApi = await initMsdPipelineCore(mergedConfig, svgContent, mount, hass, cardGuid);
-
-        // Set the authoritative pipelineInstance property (legacy compatibility)
+        
+        // Set legacy single-instance reference
         this.pipelineInstance = pipelineApi;
-
+        
         return pipelineApi;
       } catch (error) {
         console.error('[MSD Debug] Pipeline initialization failed:', error);

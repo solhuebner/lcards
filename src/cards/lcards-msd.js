@@ -1098,9 +1098,8 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
                 lcardsLog.debug('[LCARdSMSDCard] Card instance set via pipeline API');
             }
 
-            // ✅ REMOVED: Redundant setCardGuid() call - now handled early in pipeline
-            // The coordinator.setCardGuid() is now called in PipelineCore BEFORE completeSystems()
-            // This ensures HUD registration happens with the correct GUID
+            // NOTE: Card GUID is set early in pipeline (PipelineCore) BEFORE completeSystems()
+            // to ensure HUD panels register with correct GUID. No need to set it again here.
 
             // Initialize HASS state
             if (this._msdPipeline.systemsManager) {
