@@ -969,15 +969,18 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
                 }
             }
 
-            // Register with global debug system (multi-instance support)
-            if (window.lcards.debug.msd) {
-                // Legacy single-instance reference (backward compatibility - will be overwritten by last card)
-                window.lcards.debug.msd.cardInstance = this;
-
-                // New multi-instance registration
-                if (window.lcards.debug.msd.registerInstance) {
-                    window.lcards.debug.msd.registerInstance(this._msdInstanceGuid, this, null);
+            // Register with global system (multi-instance support)
+            // ✅ UPDATED: Use production namespace for instance registration
+            if (window.lcards.cards?.msd) {
+                // Production multi-instance registration
+                if (window.lcards.cards.msd.registerInstance) {
+                    window.lcards.cards.msd.registerInstance(this._msdInstanceGuid, this, null);
                 }
+            }
+
+            // Legacy debug namespace (backward compatibility)
+            if (window.lcards.debug?.msd) {
+                window.lcards.debug.msd.cardInstance = this;
             }
 
             // Get mount element
@@ -1081,9 +1084,9 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
             this._msdPipeline = pipelineResult;
             lcardsLog.debug('[LCARdSMSDCard] Pipeline initialized successfully via MsdInstanceManager');
 
-            // Update multi-instance registration with pipeline
-            if (window.lcards.debug.msd?.registerInstance) {
-                window.lcards.debug.msd.registerInstance(this._msdInstanceGuid, this, pipelineResult);
+            // Update multi-instance registration with pipeline (production namespace)
+            if (window.lcards.cards?.msd?.registerInstance) {
+                window.lcards.cards.msd.registerInstance(this._msdInstanceGuid, this, pipelineResult);
             }
 
             // Set up pipeline callbacks
@@ -1298,6 +1301,12 @@ export class LCARdSMSDCard extends LCARdSNativeCard {
      */
     disconnectedCallback() {
         super.disconnectedCallback();
+
+        // Unregister from production namespace (multi-instance support)
+        if (this._msdInstanceGuid && window.lcards?.cards?.msd) {
+            window.lcards.cards.msd.unregisterInstance(this._msdInstanceGuid);
+            lcardsLog.debug('[LCARdSMSDCard] Unregistered from MSD registry:', this._msdInstanceGuid);
+        }
 
         // Unregister from global HUD
         if (this._msdInstanceGuid && window.lcards?.core?.hudManager) {
