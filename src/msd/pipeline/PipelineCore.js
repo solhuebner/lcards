@@ -267,11 +267,6 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
       rulePatches: coordinator.rulesEngine?.getLastEvaluationResult?.()?.overlayPatches?.length || 'N/A'
     });
 
-    if (!coordinator.themeManager) {
-      lcardsLog.error('[PipelineCore] ❌ ThemeManager not available during re-render - aborting');
-      return { success: false, error: 'ThemeManager not available' };
-    }
-
     // IMPROVED: Queue renders instead of blocking them
     if (coordinator._renderInProgress) {
       lcardsLog.debug('[PipelineCore] 🕐 Render in progress, queueing re-render');
