@@ -209,44 +209,15 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
     coordinator.ingestHass(hass);
   }
 
-  // Early debug and routing setup
-  lcardsLog.debug('[PipelineCore] 🔍 Setting up debug infrastructure');
-  if (typeof window !== 'undefined') {
-    window.lcards = window.lcards || {};
-    window.lcards.debug = window.lcards.debug || {};
-    window.lcards.debug.msd = window.lcards.debug.msd || {};
-
-    // Make core systems available BEFORE any overlay rendering
-    window.lcards.debug.msd.pipelineInstance = {
-      coordinator: coordinator,
-      dataSourceManager: coordinator.dataSourceManager,
-      config: mergedConfig,
-      themeManager: coordinator.themeManager,
-      validationService: coordinator.validationService,
-
-      // Internal subsystems namespace (non-public API)
-      _internal: {
-        debugManager: coordinator.debugManager,
-        router: coordinator.router
-      }
-    };
-
-    lcardsLog.debug('[PipelineCore] Essential subsystems ready for overlay rendering:', {
-      hasCoordinator: !!coordinator,
-      hasDataSourceManager: !!coordinator.dataSourceManager,
-      hasThemeManager: !!coordinator.themeManager,
-      hasValidationService: !!coordinator.validationService,
-      hasRouter: !!coordinator.router,
-      dataSourceCount: coordinator.dataSourceManager?.listIds?.()?.length || 0
-    });
-
-    // Dispatch routing ready event
-    try {
-      window.dispatchEvent(new CustomEvent('msd-routing-ready'));
-    } catch (e) {
-      // Non-fatal; older browsers or sandbox contexts might block custom events.
-    }
-  }
+  // Pipeline initialization logging
+  lcardsLog.debug('[PipelineCore] ✅ Core systems initialized:', {
+    hasCoordinator: !!coordinator,
+    hasDataSourceManager: !!coordinator.dataSourceManager,
+    hasThemeManager: !!coordinator.themeManager,
+    hasValidationService: !!coordinator.validationService,
+    hasRouter: !!coordinator.router,
+    dataSourceCount: coordinator.dataSourceManager?.listIds?.()?.length || 0
+  });
 
   // Initialize model builder (now everything is ready)
   lcardsLog.debug('[PipelineCore] 🏭 Initializing model builder');
