@@ -19,30 +19,11 @@ export function getMsdSchema(options = {}) {
     availableFilterPresets = ['dimmed', 'subtle', 'backdrop', 'faded', 'red-alert', 'monochrome', 'none']
   } = options;
 
-  return {
+  // Define the MSD configuration object schema
+  const msdConfigSchema = {
     type: 'object',
-    title: 'MSD Card',
-    description: 'Master Systems Display card with overlays and routing',
-
-    'x-ui': {
-      category: 'advanced',
-      icon: 'mdi:monitor-dashboard',
-      documentation: 'doc/architecture/schemas/msd-schema-definition.md'
-    },
-
     required: ['base_svg'],
-
     properties: {
-      type: {
-        type: 'string',
-        enum: ['custom:lcards-msd', 'custom:lcards-msd-card', 'custom:cb-lcars-card'],
-        description: 'Card type identifier',
-        'x-ui': {
-          control: 'select',
-          label: 'Card Type'
-        }
-      },
-
       base_svg: {
         type: 'object',
         title: 'Base SVG Configuration',
@@ -229,51 +210,6 @@ export function getMsdSchema(options = {}) {
         }
       },
 
-      data_sources: {
-        type: 'object',
-        optional: true,
-        description: 'Named data source definitions',
-        additionalProperties: {
-          type: 'object',
-          properties: {
-            entity: {
-              type: 'string',
-              format: 'entity',
-              description: 'Entity ID to fetch data from'
-            },
-            windowSeconds: {
-              type: 'number',
-              minimum: 1,
-              optional: true,
-              description: 'Time window in seconds for historical data'
-            },
-            update_interval: {
-              type: 'number',
-              minimum: 1,
-              optional: true,
-              description: 'Update interval in seconds'
-            },
-            history_size: {
-              type: 'number',
-              minimum: 1,
-              optional: true,
-              description: 'Maximum number of historical data points to keep'
-            }
-          },
-          required: ['entity']
-        }
-      },
-
-      rules: {
-        type: 'array',
-        optional: true,
-        description: 'Dynamic styling rules',
-        'x-ui': {
-          control: 'array',
-          label: 'Rules'
-        }
-      },
-
       debug: {
         type: 'object',
         optional: true,
@@ -302,7 +238,7 @@ export function getMsdSchema(options = {}) {
     },
 
     validators: [
-      // Warn about deprecated fields
+      // Warn about deprecated fields at msd config level
       (config, context) => {
         if (config.use_packs) {
           return {
@@ -335,23 +271,6 @@ export function getMsdSchema(options = {}) {
         return { valid: true };
       },
 
-      // Warn if msd.version is present (nested structure)
-      (config, context) => {
-        if (config.msd?.version) {
-          return {
-            valid: true,
-            warnings: [{
-              field: 'msd.version',
-              type: 'deprecated_field',
-              message: 'Field "msd.version" is no longer required (v1.22+).',
-              severity: 'warning',
-              suggestion: 'Remove "version" from msd configuration'
-            }]
-          };
-        }
-        return { valid: true };
-      },
-
       // Validate view_box requirement when base_svg.source is "none"
       (config, context) => {
         if (config.base_svg?.source === 'none' && (!config.view_box || config.view_box === 'auto')) {
@@ -363,6 +282,88 @@ export function getMsdSchema(options = {}) {
               message: 'view_box must be explicitly specified when base_svg.source is "none"',
               severity: 'error',
               suggestion: 'Add view_box: [minX, minY, width, height]'
+            }]
+          };
+        }
+        return { valid: true };
+      }
+    ]
+  };
+
+  // Return the top-level card schema with nested msd configuration
+  return {
+    type: 'object',
+    title: 'MSD Card',
+    description: 'Master Systems Display card with overlays and routing',
+
+    'x-ui': {
+      category: 'advanced',
+      icon: 'mdi:monitor-dashboard',
+      documentation: 'doc/architecture/schemas/msd-schema-definition.md'
+    },
+
+    required: ['type', 'msd'],
+
+    properties: {
+      type: {
+        type: 'string',
+        enum: ['custom:lcards-msd', 'custom:lcards-msd-card', 'custom:cb-lcars-card'],
+        description: 'Card type identifier',
+        'x-ui': {
+          control: 'select',
+          label: 'Card Type'
+        }
+      },
+
+      msd: msdConfigSchema,
+
+      // Root-level properties (shared across cards)
+      data_sources: {
+        type: 'object',
+        optional: true,
+        description: 'Named data source definitions (can be defined at root for sharing)',
+        additionalProperties: {
+          type: 'object',
+          properties: {
+            entity: {
+              type: 'string',
+              format: 'entity',
+              description: 'Entity ID to fetch data from'
+            },
+            windowSeconds: {
+              type: 'number',
+              minimum: 1,
+              optional: true,
+              description: 'Time window in seconds for historical data'
+            }
+          },
+          required: ['entity']
+        }
+      },
+
+      rules: {
+        type: 'array',
+        optional: true,
+        description: 'Dynamic styling rules (can be defined at root for sharing)',
+        'x-ui': {
+          control: 'array',
+          label: 'Rules'
+        }
+      }
+    },
+
+    validators: [
+      // Warn if msd.version is present (nested structure)
+      (config, context) => {
+        if (config.msd?.version) {
+          return {
+            valid: true,
+            warnings: [{
+              field: 'msd.version',
+              type: 'deprecated_field',
+              message: 'Field "msd.version" is no longer required (v1.22+).',
+              severity: 'warning',
+              suggestion: 'Remove "version" from msd configuration'
             }]
           };
         }

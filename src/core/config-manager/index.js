@@ -161,12 +161,8 @@ export class CoreConfigManager {
     this.stats.configurationsProcessed++;
 
     try {
-      // Check if this is MSD-style pack-based config
-      if (this._usePackMerging(cardType, userConfig)) {
-        return await this._processMSDConfig(userConfig, cardType, context);
-      }
-
-      // LCARdS Card: Four-layer merge
+      // All cards use standard four-layer merge (defaults, theme, preset/component, user)
+      // PackManager handles packs globally - no per-card pack merging needed
       return await this._processLCARdSCardConfig(userConfig, cardType, context);
 
     } catch (error) {
@@ -277,19 +273,37 @@ export class CoreConfigManager {
   // ============================================================================
   // PRIVATE METHODS - MSD Processing
   // ============================================================================
+  // PRIVATE METHODS - MSD Processing (DEPRECATED - NO LONGER USED)
+  // ============================================================================
+  // NOTE: MSD now uses standard LCARdS card processing via _processLCARdSCardConfig
+  // This method and mergePacks are legacy code kept temporarily for reference only
 
   /**
    * Process MSD-style pack-based configuration
+   * @deprecated MSD now uses standard four-layer merge like other LCARdS cards
    * @private
    */
   async _processMSDConfig(userConfig, cardType, context) {
     lcardsLog.debug(`[CoreConfigManager] Processing MSD config (pack-based merge)`);
 
-    // Use existing mergePacks system (preserves all MSD provenance)
-    const mergedConfig = await mergePacks(userConfig);
-    const provenance = mergedConfig.__provenance;
+    // Extract MSD configuration from nested structure
+    // User config: { type: 'custom:lcards-msd-card', msd: {...}, data_sources: {...}, rules: [...] }
+    const msdContent = userConfig.msd || userConfig;
 
-    // Validate
+    // Merge MSD content with packs (preserves all MSD provenance)
+    const mergedMsdContent = await mergePacks(msdContent);
+    const provenance = mergedMsdContent.__provenance;
+
+    // Reconstruct full config structure for validation
+    const mergedConfig = {
+      type: userConfig.type,
+      msd: mergedMsdContent,
+      // Include root-level properties if present
+      ...(userConfig.data_sources ? { data_sources: userConfig.data_sources } : {}),
+      ...(userConfig.rules ? { rules: userConfig.rules } : {})
+    };
+
+    // Validate against card schema (expects { type, msd } structure)
     const validation = this._validateConfig(mergedConfig, cardType, context);
     if (!validation.valid) {
       this.stats.validationErrors++;
@@ -611,10 +625,10 @@ export class CoreConfigManager {
    * @private
    */
   _usePackMerging(cardType, userConfig) {
-    // Use pack merging if:
-    // 1. Card type is 'msd', OR
-    // 2. Config has use_packs property
-    return cardType === 'msd' || !!userConfig.use_packs;
+    // DEPRECATED: Pack merging removed in MSD refactor
+    // All packs loaded globally by PackManager, not per-card
+    // MSD now uses standard four-layer merge like other LCARdS cards
+    return false;
   }
 
   /**

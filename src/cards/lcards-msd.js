@@ -171,7 +171,14 @@ export class LCARdSMSDCard extends LCARdSCard {
         this._msdConfig = mergedConfig;
         this._configIssues = issues;
 
-        return mergedConfig;
+        // Return full config structure (not just msd content) for schema validation
+        return {
+            type: config.type,
+            msd: mergedConfig,
+            // Include root-level properties if present
+            ...(config.data_sources ? { data_sources: config.data_sources } : {}),
+            ...(config.rules ? { rules: config.rules } : {})
+        };
     }
 
     /**
@@ -212,7 +219,7 @@ export class LCARdSMSDCard extends LCARdSCard {
      * @param {Object} newHass - New HASS object
      * @param {Object} oldHass - Old HASS object
      * @protected
-     * 
+     *
      * NOTE: We don't call super._handleHassUpdate() because MSD has its own
      * sophisticated SystemsManager that handles entity monitoring, rule evaluation,
      * and template updates internally. The MSD pipeline manages all HASS distribution
@@ -293,7 +300,7 @@ export class LCARdSMSDCard extends LCARdSCard {
         // Forward HASS to MSD pipeline but don't trigger card re-renders
         if (hass && oldHass !== hass) {
             lcardsLog.debug(`[LCARdSMSDCard] HASS updated for ${this._cardGuid}, forwarding to MSD pipeline`);
-            
+
             // Call the unified handler directly
             this._handleHassUpdate(hass, oldHass);
 
@@ -323,7 +330,7 @@ export class LCARdSMSDCard extends LCARdSCard {
         }
 
         this._svgContent = await assetManager.loadSvg(baseSvgConfig?.source);
-        
+
         if (this._svgContent) {
             lcardsLog.debug('[LCARdSMSDCard] SVG loaded:', baseSvgConfig?.source);
         }
@@ -933,28 +940,31 @@ export class LCARdSMSDCard extends LCARdSCard {
 
     /**
      * Register schema with CoreConfigManager
+     * Called by lcards.js after core initialization
+     * @static
      */
     static registerSchema() {
-        // Register MSD schema
-        const core = window.lcards?.core || window.lcardsCore;
-        if (core?.configManager) {
-            core.configManager.registerSchema('msd', getMsdSchema());
-            lcardsLog.debug('[LCARdSMSDCard] Schema registered with CoreConfigManager');
+        const configManager = window.lcards?.core?.configManager;
+
+        if (!configManager) {
+            lcardsLog.error('[LCARdSMSDCard] CoreConfigManager not available for schema registration');
+            return;
         }
-    }
-}
 
-// Register schema on load
-if (typeof window !== 'undefined') {
-    // Defer registration until core is ready
-    if (window.lcards?.core?.configManager) {
-        LCARdSMSDCard.registerSchema();
-    } else {
-        window.addEventListener('lcards-core-ready', () => {
-            LCARdSMSDCard.registerSchema();
+        // Register behavioral defaults
+        configManager.registerCardDefaults('msd', {
+            // MSD defaults if any
         });
+
+        // Build MSD schema
+        const msdSchema = getMsdSchema();
+
+        // Register JSON schema for validation
+        configManager.registerCardSchema('msd', msdSchema, { version: '1.22.0' });
+
+        lcardsLog.debug('[LCARdSMSDCard] Registered with CoreConfigManager (v1.22.0)');
     }
 }
 
-// Register custom element
-customElements.define('lcards-msd-card', LCARdSMSDCard);
+// NOTE: Card registration (customElements.define and window.customCards) handled in src/lcards.js
+// This ensures all core singletons are initialized before cards can be instantiated
