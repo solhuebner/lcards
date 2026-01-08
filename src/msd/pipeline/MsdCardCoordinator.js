@@ -770,18 +770,17 @@ export class MsdCardCoordinator extends BaseService {
           // REMOVED: Defensive container creation - not needed with SVG foreignObject approach
           // The renderControls() method handles all necessary container creation internally
 
-          // ADDED: Defensive controls rendering with timeout
-          const renderPromise = this.controlsRenderer.renderControls(controlOverlays, resolvedModel);
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Controls render timeout')), 5000)
-          );
-
-          await Promise.race([renderPromise, timeoutPromise]);
-          lcardsLog.debug('[MsdCardCoordinator] ✅ Controls rendered successfully');
+          // Wait for controls to initialize (no timeout - let cards load naturally)
+          await this.controlsRenderer.renderControls(controlOverlays, resolvedModel);
+          lcardsLog.info('[MsdCardCoordinator] ✅ Controls rendered successfully');
 
         } catch (error) {
           lcardsLog.error('[MsdCardCoordinator] ❌ Controls rendering failed:', error);
-          lcardsLog.error('[MsdCardCoordinator] Error stack:', error.stack);
+          // Don't show stack trace for all errors to reduce noise
+          if (error.message && !error.message.includes('timeout')) {
+            lcardsLog.error('[MsdCardCoordinator] Error details:', error.stack);
+          }
+          // MSD will still display - controls are non-critical
         }
       }
 

@@ -179,18 +179,26 @@ export class MsdControlsRenderer {
       return;
     }
 
+    // ✅ NEW: Check if already rendered with same config to avoid duplicate creation
     const signature = controlOverlays.map(o => o.id).sort().join('|');
     if (
       this._lastSignature === signature &&
       this.controlElements.size === controlOverlays.length
     ) {
-      lcardsLog.debug('[MsdControlsRenderer] renderControls skipped (unchanged signature)', signature);
+      lcardsLog.debug('[MsdControlsRenderer] Skipped duplicate creation - controls already exist', {
+        signature,
+        elementCount: this.controlElements.size,
+        controlIds: controlOverlays.map(o => o.id)
+      });
+      
+      // Just update HASS context, don't recreate
+      this._updateAllControlsHass(this.hass);
       return;
     }
 
     this._isRendering = true;
     try {
-      lcardsLog.debug('[MsdControlsRenderer] renderControls called', {
+      lcardsLog.debug('[MsdControlsRenderer] renderControls called - creating controls', {
         count: controlOverlays.length,
         ids: controlOverlays.map(o => o.id),
         signature,
