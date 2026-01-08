@@ -193,14 +193,14 @@ export class LCARdSMSDCard extends LCARdSCard {
         if (this._msdConfig?.base_svg && !this._svgContent) {
             lcardsLog.debug('[LCARdSMSDCard] Loading base SVG:', this._msdConfig.base_svg.source);
             await this._loadBaseSvg(this._msdConfig.base_svg);
-            
+
             if (!this._svgContent) {
                 lcardsLog.error('[LCARdSMSDCard] Failed to load SVG');
                 this._configIssues = { errors: ['Failed to load base SVG'] };
                 this.requestUpdate();
                 return;
             }
-            
+
             lcardsLog.debug('[LCARdSMSDCard] SVG loaded:', this._svgContent.length, 'bytes');
         }
 
@@ -230,7 +230,7 @@ export class LCARdSMSDCard extends LCARdSCard {
             svgLength: this._svgContent?.length,
             guid: this._msdInstanceGuid
         });
-        
+
         await this._initializeMsdPipeline();
     }
 
@@ -263,6 +263,13 @@ export class LCARdSMSDCard extends LCARdSCard {
      * @protected
      */
     _renderCard() {
+        lcardsLog.trace('[LCARdSMSDCard] _renderCard called:', {
+            isPreviewMode: this._isPreviewMode,
+            hasConfigIssues: !!this._configIssues?.errors?.length,
+            msdInitialized: this._msdInitialized,
+            hasPipeline: !!this._msdPipeline
+        });
+
         // Check for preview mode (editor or card picker)
         const configKeys = Object.keys(this.config || {});
         const isCardPicker = configKeys.length === 1 && configKeys[0] === 'type';
@@ -277,7 +284,9 @@ export class LCARdSMSDCard extends LCARdSCard {
         }
 
         // Show loading state while pipeline initializes
-        if (!this._msdPipeline || !this._msdInitialized) {
+        // NOTE: We only check _msdInitialized, not _msdPipeline, because during initialization
+        // we set _msdInitialized=true first to trigger SVG rendering, then initialize the pipeline
+        if (!this._msdInitialized) {
             return html`
                 <div class="lcards-msd-loading">
                     <ha-circular-progress active></ha-circular-progress>
@@ -402,12 +411,38 @@ export class LCARdSMSDCard extends LCARdSCard {
         try {
             lcardsLog.info('[LCARdSMSDCard] 🚀 Initializing MSD pipeline');
 
+            // ✅ CRITICAL FIX: Mark as initialized BEFORE pipeline init
+            // This allows _renderCard() to render the SVG container
+            this._msdInitialized = true;
+
+            // ✅ CRITICAL FIX: Request update to trigger re-render with SVG container
+            // This ensures _renderCard() switches from loading spinner to _renderSvgContainer()
+            this.requestUpdate();
+
+            // ✅ CRITICAL FIX: Wait for the new render cycle to complete
+            // This ensures the SVG container is actually mounted in the DOM
+            // before the renderer tries to access it
+            await this.updateComplete;
+
+            lcardsLog.debug('[LCARdSMSDCard] SVG container rendered and mounted to DOM');
+
             // Get mount element
             const mount = this.renderRoot;
             if (!mount) {
                 lcardsLog.error('[LCARdSMSDCard] Mount element not found');
+                this._msdInitialized = false;  // Reset on failure
                 return;
             }
+
+            // Verify SVG is actually in the DOM before proceeding
+            const svg = mount.querySelector('svg');
+            if (!svg) {
+                lcardsLog.error('[LCARdSMSDCard] SVG element not found in render root after update');
+                this._msdInitialized = false;  // Reset on failure
+                return;
+            }
+
+            lcardsLog.debug('[LCARdSMSDCard] Confirmed SVG element exists in DOM');
 
             // Pass the full config (with nested structure) to pipeline
             // The pipeline expects: { type, msd: {...}, rules?, data_sources? }
@@ -430,6 +465,7 @@ export class LCARdSMSDCard extends LCARdSCard {
             if (!pipelineResult || !pipelineResult.enabled) {
                 lcardsLog.error('[LCARdSMSDCard] Pipeline initialization failed or disabled');
                 this._configIssues = pipelineResult?.issues || { errors: ['Pipeline initialization failed'] };
+                this._msdInitialized = false;  // Reset on failure
                 this.requestUpdate();
                 return;
             }
@@ -444,16 +480,14 @@ export class LCARdSMSDCard extends LCARdSCard {
                 this._msdPipeline.setCardInstance(this);
             }
 
-            // Mark as initialized
-            this._msdInitialized = true;
-
-            lcardsLog.info('[LCARdSMSDCard] ✅ MSD pipeline initialized successfully');
+            lcardsLog.info('[LCARdSMSDCard] ✅ MSD pipeline initialized successfully with SVG container mounted');
 
         } catch (error) {
             lcardsLog.error('[LCARdSMSDCard] Pipeline initialization error:', error);
             this._configIssues = {
                 errors: [{ message: `Pipeline initialization failed: ${error.message}` }]
             };
+            this._msdInitialized = false;  // Reset on failure
             this.requestUpdate();
         }
     }
@@ -794,11 +828,20 @@ export class LCARdSMSDCard extends LCARdSCard {
      * @private
      */
     _renderSvgContainer() {
+        lcardsLog.trace('[LCARdSMSDCard] _renderSvgContainer called');
+
         // Get viewBox from config (will be extracted by pipeline)
         const viewBox = this._msdConfig?.view_box || [0, 0, 1920, 1200];
         const [vbX, vbY, vbW, vbH] = viewBox;
         const aspect = vbW && vbH ? (vbW / vbH) : 2;
         const source = this._msdConfig?.base_svg?.source;
+
+        lcardsLog.debug('[LCARdSMSDCard] Rendering SVG container:', {
+            source,
+            viewBox,
+            aspect,
+            hasSvgContent: !!this._svgContent
+        });
 
         // For "none" source, create empty SVG container
         if (source === 'none') {
