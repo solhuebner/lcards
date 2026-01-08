@@ -11,7 +11,6 @@ import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { LCARdSCard } from '../base/LCARdSCard.js';
 import { lcardsLog } from '../utils/lcards-logging.js';
 import { initMsdPipeline } from '../msd/index.js';
-import { processAndValidateConfig } from '../msd/pipeline/ConfigProcessor.js';
 import { getMsdSchema } from './schemas/msd-schema.js';
 
 /**
@@ -114,71 +113,29 @@ export class LCARdSMSDCard extends LCARdSCard {
     }
 
     /**
-     * Process configuration through MSD pipeline
-     * Called by parent LCARdSCard during setConfig
-     * @param {Object} config - Raw card configuration
-     * @returns {Promise<Object>} Processed MSD configuration
+     * Called when config is updated by CoreConfigManager
+     * Extract MSD configuration from processed config
      * @protected
      */
-    async _processConfig(config) {
-        lcardsLog.debug('[LCARdSMSDCard] _processConfig called');
+    _onConfigUpdated() {
+        lcardsLog.debug('[LCARdSMSDCard] _onConfigUpdated called');
 
-        // Store full config for MSD pipeline (includes rules, data_sources, etc. at root level)
-        this._fullConfig = {
-            ...config,
-            // Remove HA card infrastructure metadata
-            type: undefined,
-            grid_options: undefined,
-            // Remove CoreConfigManager processed artifacts
-            theme: typeof config.theme === 'string' ? config.theme : undefined
-        };
+        // Extract MSD config from processed config
+        // After CoreConfigManager processing, config structure is: { type, msd: {...}, data_sources, rules }
+        if (this.config?.msd) {
+            this._msdConfig = this.config.msd;
+            this._fullConfig = this.config;
 
-        // Extract MSD configuration
-        this._msdConfig = config.msd;
-
-        // Skip MSD processing for card picker context
-        const configKeys = Object.keys(config || {});
-        const isCardPicker = configKeys.length === 1 && configKeys[0] === 'type';
-
-        if (isCardPicker) {
-            lcardsLog.debug('[LCARdSMSDCard] Card picker context - skipping MSD processing');
-            return config;
-        }
-
-        if (!this._msdConfig) {
-            throw new Error('MSD configuration is required');
-        }
-
-        // Load SVG if needed (before processing)
-        await this._loadBaseSvg(this._msdConfig.base_svg);
-
-        // ✅ CRITICAL: Process through ConfigProcessor to get provenance
-        const { mergedConfig, provenance, issues } = await processAndValidateConfig(
-            this._msdConfig,
-            this._svgContent
-        );
-
-        // ✅ CRITICAL: Track provenance using inherited tracker
-        if (this._provenanceTracker && provenance) {
-            this._provenanceTracker.trackConfig(provenance);
-            lcardsLog.debug('[LCARdSMSDCard] ✅ Provenance tracked:', {
-                layers: provenance.merge_order?.length || 0,
-                fields: Object.keys(provenance.field_sources || {}).length
+            lcardsLog.debug('[LCARdSMSDCard] Extracted MSD config:', {
+                hasBaseSvg: !!this._msdConfig.base_svg,
+                hasViewBox: !!this._msdConfig.view_box,
+                hasOverlays: !!this._msdConfig.overlays,
+                overlayCount: this._msdConfig.overlays?.length || 0
             });
+
+            // DON'T load SVG here - singletons may not be initialized yet
+            // SVG loading will happen in _onFirstUpdated() when AssetManager is guaranteed available
         }
-
-        // Store processed config and issues
-        this._msdConfig = mergedConfig;
-        this._configIssues = issues;
-
-        // Return full config structure (not just msd content) for schema validation
-        return {
-            type: config.type,
-            msd: mergedConfig,
-            // Include root-level properties if present
-            ...(config.data_sources ? { data_sources: config.data_sources } : {}),
-            ...(config.rules ? { rules: config.rules } : {})
-        };
     }
 
     /**
@@ -197,6 +154,11 @@ export class LCARdSMSDCard extends LCARdSCard {
         if (this._configIssues?.errors?.length > 0) {
             lcardsLog.error('[LCARdSMSDCard] Validation errors present, skipping initialization');
             return;
+        }
+
+        // Load SVG now that singletons are initialized
+        if (this._msdConfig?.base_svg && !this._svgContent) {
+            await this._loadBaseSvg(this._msdConfig.base_svg);
         }
 
         // Generate instance GUID
@@ -323,16 +285,32 @@ export class LCARdSMSDCard extends LCARdSCard {
      * @private
      */
     async _loadBaseSvg(baseSvgConfig) {
-        const assetManager = this._singletons?.assetManager;
+        lcardsLog.debug('[LCARdSMSDCard] _loadBaseSvg called:', {
+            hasConfig: !!baseSvgConfig,
+            configType: typeof baseSvgConfig,
+            source: baseSvgConfig?.source,
+            isObject: baseSvgConfig && typeof baseSvgConfig === 'object'
+        });
+
+        // Get AssetManager from singletons or global core
+        const assetManager = this._singletons?.assetManager || window.lcards?.core?.assetManager;
         if (!assetManager) {
-            lcardsLog.warn('[LCARdSMSDCard] AssetManager not available');
+            lcardsLog.warn('[LCARdSMSDCard] AssetManager not available (neither from singletons nor global core)');
             return;
         }
 
-        this._svgContent = await assetManager.loadSvg(baseSvgConfig?.source);
+        const svgSource = baseSvgConfig?.source;
+        lcardsLog.debug('[LCARdSMSDCard] Loading SVG from source:', svgSource);
+
+        this._svgContent = await assetManager.loadSvg(svgSource);
 
         if (this._svgContent) {
-            lcardsLog.debug('[LCARdSMSDCard] SVG loaded:', baseSvgConfig?.source);
+            lcardsLog.debug('[LCARdSMSDCard] SVG loaded successfully:', {
+                source: svgSource,
+                contentLength: this._svgContent?.length || 0
+            });
+        } else {
+            lcardsLog.warn('[LCARdSMSDCard] SVG load returned null/undefined for:', svgSource);
         }
     }
 
@@ -360,23 +338,18 @@ export class LCARdSMSDCard extends LCARdSCard {
                 return;
             }
 
-            // Build enhanced config with root-level properties
-            const enhancedConfig = {
-                ...this._msdConfig,
-                ...(this._fullConfig?.rules ? { rules: this._fullConfig.rules } : {}),
-                ...(this._fullConfig?.data_sources ? { data_sources: this._fullConfig.data_sources } : {})
-            };
-
+            // Pass the full config (with nested structure) to pipeline
+            // The pipeline expects: { type, msd: {...}, rules?, data_sources? }
             lcardsLog.debug('[LCARdSMSDCard] Calling initMsdPipeline with config:', {
-                hasRules: !!enhancedConfig.rules,
-                hasDataSources: !!enhancedConfig.data_sources,
-                hasOverlays: !!enhancedConfig.overlays,
+                hasRules: !!this._fullConfig?.rules,
+                hasDataSources: !!this._fullConfig?.data_sources,
+                hasOverlays: !!this._msdConfig?.overlays,
                 hasSvgContent: !!this._svgContent
             });
 
-            // Initialize MSD pipeline
+            // Initialize MSD pipeline with full config structure
             const pipelineResult = await initMsdPipeline(
-                enhancedConfig,
+                this._fullConfig,  // Pass full config with nested msd property
                 this._svgContent,
                 mount,
                 this.hass,

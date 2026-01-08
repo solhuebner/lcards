@@ -89,7 +89,8 @@ export async function buildCardModel(mergedConfig) {
     const anchors = {}; // merged + normalized numeric
 
     // Preserve template property in overlays
-    const overlaysBase = mergedConfig.overlays.map(o => {
+    // Default to empty array if no overlays defined (e.g., testing base SVG only)
+    const overlaysBase = (mergedConfig.overlays || []).map(o => {
       const baseOverlay = {
         id: o.id,
         type: o.type,

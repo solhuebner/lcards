@@ -4,7 +4,7 @@ import { AnchorProcessor } from './AnchorProcessor.js';
 /**
  * Process and validate MSD config using CoreConfigManager
  * NOW HANDLES: anchor extraction, viewBox resolution, complete config building
- * 
+ *
  * @param {Object} userMsdConfig - User MSD configuration
  * @param {string} svgContent - SVG content string (for anchor extraction)
  * @returns {Promise<Object>} { mergedConfig, issues, provenance }
@@ -21,20 +21,20 @@ export async function processAndValidateConfig(userMsdConfig, svgContent = null)
   // ✅ NEW: Extract SVG metadata BEFORE config processing
   let viewBox = null;
   let anchors = {};
-  
+
   if (svgContent) {
     // Extract viewBox from SVG
     viewBox = window.lcards?.getSvgViewBox?.(svgContent);
-    
+
     // Extract and merge anchors
     const anchorResult = AnchorProcessor.processAnchors(
       svgContent,
       userMsdConfig.anchors || {},
       viewBox || [0, 0, 1920, 1080]
     );
-    
+
     anchors = anchorResult.anchors;
-    
+
     lcardsLog.debug('[ConfigProcessor] SVG metadata extracted:', {
       viewBox,
       anchorCount: anchorResult.metadata.totalCount,
@@ -49,7 +49,7 @@ export async function processAndValidateConfig(userMsdConfig, svgContent = null)
       userMsdConfig.anchors || {},
       viewBox || [0, 0, 1920, 1080]
     ).anchors;
-    
+
     lcardsLog.debug('[ConfigProcessor] base_svg: "none" - using explicit viewBox:', viewBox);
   }
 
@@ -73,7 +73,11 @@ export async function processAndValidateConfig(userMsdConfig, svgContent = null)
     { hass: window.hass }
   );
 
-  const mergedConfig = result.mergedConfig;
+  // Extract the 'msd' property from the nested config structure
+  // CoreConfigManager returns: { type, msd: {...}, rules, data_sources }
+  // But CardModel expects flat structure: { base_svg, overlays, anchors, ... }
+  const fullConfig = result.mergedConfig;
+  const mergedConfig = fullConfig.msd || fullConfig; // Extract msd property or use full config if already flat
   const provenance = result.provenance;
 
   // Convert CoreConfigManager result to MSD validation format
