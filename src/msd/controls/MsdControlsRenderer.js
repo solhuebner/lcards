@@ -249,7 +249,13 @@ export class MsdControlsRenderer {
       this.controlElements.delete(overlay.id);
     }
 
-    lcardsLog.debug('[MsdControlsRenderer] Creating control overlay', overlay.id);
+    lcardsLog.debug('[MsdControlsRenderer] Creating control overlay', overlay.id, {
+      overlayPosition: overlay.position,
+      overlayAnchor: overlay.anchor,
+      overlayType: overlay.type,
+      overlayKeys: Object.keys(overlay)
+    });
+
     const controlElement = await this.createControlElement(overlay);
     if (!controlElement) return;
 
@@ -259,17 +265,17 @@ export class MsdControlsRenderer {
 
   /**
    * Resolve card definition from control overlay
-   * 
+   *
    * ENFORCES SINGLE PATTERN: Nested card property only
-   * 
+   *
    * Correct pattern:
    *   { type: 'control', card: { type: 'custom:some-card', ... } }
-   * 
+   *
    * Rejected patterns:
    *   - Flat/direct: { type: 'custom:lcards-button', entity: '...' }
    *   - Legacy: { type: 'control', card_config: {...} }
    *   - Legacy: { type: 'control', cardConfig: {...} }
-   * 
+   *
    * @param {Object} overlay - Control overlay configuration
    * @returns {Object|null} Card definition or null if invalid
    */
@@ -286,12 +292,12 @@ export class MsdControlsRenderer {
         lcardsLog.error('[MsdControlsRenderer] Card property must be an object for', overlay.id);
         return null;
       }
-      
+
       if (!overlay.card.type) {
         lcardsLog.error('[MsdControlsRenderer] Card definition missing required "type" property for', overlay.id);
         return null;
       }
-      
+
       return overlay.card;
     }
 
@@ -306,7 +312,7 @@ export class MsdControlsRenderer {
                   '    position: [x, y]\n' +
                   '    size: [width, height]'
     });
-    
+
     return null;
   }
 
@@ -1269,13 +1275,23 @@ export class MsdControlsRenderer {
   // Helper methods for position and size resolution
   resolvePosition(position, resolvedModel) {
     // Use the OverlayUtils for consistency with other overlays
+    lcardsLog.debug('[MSD Controls] Resolving position:', {
+      position,
+      anchorsAvailable: Object.keys(resolvedModel.anchors || {}),
+      anchorsObject: resolvedModel.anchors
+    });
+
     const resolved = OverlayUtils.resolvePosition(position, resolvedModel.anchors || {});
     if (resolved) {
+      lcardsLog.debug('[MSD Controls] Position resolved to:', resolved);
       return resolved;
     }
 
     // Fallback: Return default position if resolution fails
-    lcardsLog.warn('[MSD Controls] Position resolution failed, using default [0, 0]');
+    lcardsLog.warn('[MSD Controls] Position resolution failed, using default [0, 0]', {
+      position,
+      anchorsProvided: Object.keys(resolvedModel.anchors || {})
+    });
     return [0, 0];
   }
 

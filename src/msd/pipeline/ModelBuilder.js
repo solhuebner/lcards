@@ -80,10 +80,11 @@ export class ModelBuilder {
         // Resolve any theme token references in the style
         const resolvedStyle = this._resolveThemeTokensInStyle(baseStyle, o.type);
 
-        // FIXED: Preserve ALL properties from raw overlay config
-        // Start with all raw properties, then override with processed values
+        // FIXED: Preserve ALL properties from raw overlay config AND from baseOverlay
+        // Start with all raw properties, then override with processed values from CardModel
         const resolvedOverlay = {
           ...o.raw,  // Start with ALL raw properties (includes entities, card, etc.)
+          ...o,      // Overlay baseOverlay properties from CardModel (position, attach_to, etc.)
           id: o.id,
           type: o.type,
           style: resolvedStyle,

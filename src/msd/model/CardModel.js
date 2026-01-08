@@ -86,7 +86,13 @@ export async function buildCardModel(mergedConfig) {
       filters: resolvedFilters
     };
 
-    const anchors = {}; // merged + normalized numeric
+    // Copy anchors from config - these are used by OverlayUtils.resolvePosition()
+    const anchors = mergedConfig.anchors || {};
+
+    lcardsLog.debug('[CardModel] Anchors from config:', {
+      count: Object.keys(anchors).length,
+      anchors: anchors
+    });
 
     // Preserve template property in overlays
     // Default to empty array if no overlays defined (e.g., testing base SVG only)
@@ -112,8 +118,27 @@ export async function buildCardModel(mergedConfig) {
       if (o.source) baseOverlay.source = o.source;
       if (o.data_source) baseOverlay.data_source = o.data_source;
       if (o.sources) baseOverlay.sources = o.sources;
-      if (o.position) baseOverlay.position = o.position;
+
+      // Position: support both explicit position and anchor reference
+      // Position takes precedence if both are specified
+      if (o.position) {
+        baseOverlay.position = o.position;
+      } else if (o.anchor) {
+        baseOverlay.position = o.anchor; // Use anchor as position (will be resolved by OverlayUtils)
+      }
+
       if (o.size) baseOverlay.size = o.size;
+
+      // Line overlay properties
+      if (o.attach_to) baseOverlay.attach_to = o.attach_to;
+      if (o.channel) baseOverlay.channel = o.channel;
+      if (o.smooth !== undefined) baseOverlay.smooth = o.smooth;
+      if (o.routing_strategy) baseOverlay.routing_strategy = o.routing_strategy;
+      if (o.gap) baseOverlay.gap = o.gap;
+      if (o.attach_side) baseOverlay.attach_side = o.attach_side;
+
+      // Control overlay properties
+      if (o.card) baseOverlay.card = o.card;
 
       return baseOverlay;
     });
