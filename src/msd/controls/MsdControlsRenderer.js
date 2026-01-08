@@ -198,6 +198,7 @@ export class MsdControlsRenderer {
       // CRITICAL: Update HASS context even when skipping recreation
       // Controls need fresh HASS state for entity updates, state changes, and card reactivity
       // Without this, cards would display stale data from previous render cycle
+      // _updateAllControlsHass() iterates through controlElements and applies new HASS to each card
       this._updateAllControlsHass(this.hass);
       return;
     }
