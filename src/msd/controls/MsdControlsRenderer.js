@@ -179,18 +179,33 @@ export class MsdControlsRenderer {
       return;
     }
 
+    // ✅ NEW: Check if already rendered with same config to avoid duplicate creation
+    // Generate signature from sorted overlay IDs to detect duplicate configurations
     const signature = controlOverlays.map(o => o.id).sort().join('|');
-    if (
-      this._lastSignature === signature &&
-      this.controlElements.size === controlOverlays.length
-    ) {
-      lcardsLog.debug('[MsdControlsRenderer] renderControls skipped (unchanged signature)', signature);
+    
+    // Verify that all overlay IDs exist in controlElements (robust duplicate detection)
+    const controlsAlreadyRendered = this._lastSignature === signature &&
+      this.controlElements.size === controlOverlays.length &&
+      controlOverlays.every(overlay => this.controlElements.has(overlay.id));
+    
+    if (controlsAlreadyRendered) {
+      lcardsLog.debug('[MsdControlsRenderer] Skipped duplicate creation - controls already exist', {
+        signature,
+        elementCount: this.controlElements.size,
+        controlIds: controlOverlays.map(o => o.id)
+      });
+      
+      // CRITICAL: Update HASS context even when skipping recreation
+      // Controls need fresh HASS state for entity updates, state changes, and card reactivity
+      // Without this, cards would display stale data from previous render cycle
+      // _updateAllControlsHass() iterates through controlElements and applies new HASS to each card
+      this._updateAllControlsHass(this.hass);
       return;
     }
 
     this._isRendering = true;
     try {
-      lcardsLog.debug('[MsdControlsRenderer] renderControls called', {
+      lcardsLog.debug('[MsdControlsRenderer] renderControls called - creating controls', {
         count: controlOverlays.length,
         ids: controlOverlays.map(o => o.id),
         signature,
@@ -204,6 +219,10 @@ export class MsdControlsRenderer {
         return;
       }
 
+      // DESIGN DECISION: All-or-nothing approach to control rendering
+      // If signature check fails (different controls or partial match), clear everything and recreate
+      // This ensures consistency and avoids complex partial update logic
+      // Signature check above handles the common case (same controls, just need HASS update)
       lcardsLog.debug('[MsdControlsRenderer] SVG container found, clearing existing controls');
       svgContainer.innerHTML = '';
       this.controlElements.clear();
