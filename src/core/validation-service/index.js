@@ -662,6 +662,12 @@ export class CoreValidationService {
   _validateEntity(entityId, path, result) {
     this.stats.entityChecks++;
 
+    // Skip validation if HASS is not available or doesn't have states yet
+    if (!this.hass || !this.hass.states || Object.keys(this.hass.states).length === 0) {
+      lcardsLog.trace(`[CoreValidationService] Skipping entity validation - HASS not ready (entity: ${entityId})`);
+      return;
+    }
+
     // Check cache first
     if (this.entityCache.has(entityId)) {
       const cached = this.entityCache.get(entityId);

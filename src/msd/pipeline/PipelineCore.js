@@ -130,59 +130,11 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
   // Coordinator references it directly (no validation needed)
   lcardsLog.debug('[PipelineCore] ✅ Theme system ready');
 
-  // Pre-render validation of overlays
-  if (coordinator.validationService && mergedConfig.overlays && mergedConfig.overlays.length > 0) {
-    lcardsLog.debug('[PipelineCore] 🔍 Validating overlays before rendering');
-
-    const validation = coordinator.validationService.validateAll(mergedConfig.overlays, {
-      viewBox: mergedConfig.view_box || [0, 0, 800, 600],
-      anchors: mergedConfig.anchors || {},
-      dataSourceManager: coordinator.dataSourceManager
-    });
-
-    if (!validation.valid) {
-      lcardsLog.warn('[PipelineCore] ⚠️ Overlay validation found issues:', {
-        total: validation.summary.total,
-        invalid: validation.summary.invalid,
-        errors: validation.summary.errors,
-        warnings: validation.summary.warnings
-      });
-
-      // Log detailed validation errors in debug mode
-      if (mergedConfig?.debug?.validation) {
-        const formattedErrors = coordinator.validationService.formatErrors(validation);
-        lcardsLog.debug('[PipelineCore] Validation details:\n' + formattedErrors);
-      }
-
-      // In strict mode, filter out invalid overlays
-      if (mergedConfig?.debug?.strictValidation) {
-        const validOverlayIds = validation.results
-          .filter(r => r.valid)
-          .map(r => r.overlayId);
-
-        const originalCount = mergedConfig.overlays.length;
-        mergedConfig.overlays = mergedConfig.overlays.filter(o =>
-          validOverlayIds.includes(o.id)
-        );
-
-        lcardsLog.info('[PipelineCore] 🚮 Filtered out invalid overlays in strict mode:', {
-          removed: originalCount - mergedConfig.overlays.length,
-          remaining: mergedConfig.overlays.length
-        });
-      }
-    } else {
-      lcardsLog.debug('[PipelineCore] ✅ All overlays passed validation');
-    }
-
-    // Store validation results in config for debugging
-    mergedConfig.__validation = {
-      timestamp: Date.now(),
-      summary: validation.summary,
-      results: validation.results
-    };
-  } else if (!coordinator.validationService) {
-    lcardsLog.debug('[PipelineCore] ⏭️ Skipping overlay validation (ValidationService not available)');
-  }
+  // ✅ REMOVED: Redundant overlay validation pass
+  // Validation already happened in ConfigProcessor via CoreConfigManager.processConfig()
+  // Results are in mergedConfig.__issues from the main validation pass
+  // No need to validate overlays again here - it's redundant and causes false positives
+  // when schemas check for properties that get added during ModelBuilder processing
 
   // Build card model (now safe to process overlays)
   lcardsLog.debug('[PipelineCore] 🏗️ Building card model');
@@ -447,7 +399,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
 
   // Provenance tracked in card via _provenanceTracker (PR #165)
   // Access via: card.getProvenance()
-  
+
   // Augment debug tracking with validation issues helper
   if (typeof window !== 'undefined') {
     window.lcards = window.lcards || {};
@@ -460,7 +412,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
     hasProvenance: !!provenance,
     layers: provenance?.merge_order?.length || 0
   });
-  
+
   return pipelineApi;
 }
 
@@ -473,11 +425,11 @@ function createDisabledPipeline(mergedConfig, issues, provenance, fullUserConfig
     errors: issues.errors,
     warnings: issues.warnings,
     html: errorHtml, // ADDED: HTML content for rendering
-    
+
     // ✅ FIX: Return full config with provenance
     config: fullUserConfig,
     msdConfig: mergedConfig,
-    
+
     getResolvedModel: () => null,
     ingestHass: () => {},
     updateEntities: () => {},
@@ -687,7 +639,7 @@ function createValidationErrorDisplay(issues, mergedConfig) {
 
 /**
  * Creates and returns the MSD pipeline external API.
- * 
+ *
  * @param {Object} mergedConfig - Processed MSD config with flat structure: {base_svg, overlays, anchors, ...}
  * @param {Object} cardModel - Built card model
  * @param {MsdCardCoordinator} coordinator - Card coordinator instance
@@ -700,10 +652,10 @@ function createPipelineApi(mergedConfig, cardModel, coordinator, modelBuilder, r
   const api = {
     enabled: true,
     version: mergedConfig.version || 1,
-    
+
     // Full card config with provenance metadata
     config: fullUserConfig,
-    
+
     // Processed MSD config for backward compatibility
     msdConfig: mergedConfig,
 

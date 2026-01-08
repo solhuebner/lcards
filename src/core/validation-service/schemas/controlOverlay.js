@@ -9,7 +9,7 @@
 
 /**
  * Control overlay validation schema
- * 
+ *
  * Enforces the nested card pattern:
  * ```yaml
  * - type: control
@@ -172,7 +172,7 @@ export const controlOverlaySchema = {
     // Reject legacy card_config / cardConfig patterns
     (overlay, context) => {
       const warnings = [];
-      
+
       if (overlay.card_config) {
         warnings.push({
           field: 'card_config',
@@ -209,17 +209,17 @@ export const controlOverlaySchema = {
       return { valid: true };
     },
 
-    // Validate position is provided
+    // Validate position OR anchor is provided
     (overlay, context) => {
-      if (!overlay.position) {
+      if (!overlay.position && !overlay.anchor) {
         return {
           valid: false,
           errors: [{
             field: 'position',
             type: 'required_field',
-            message: 'Control overlay requires "position" property',
+            message: 'Control overlay requires either "position" or "anchor" property',
             severity: 'error',
-            suggestion: 'Add position coordinates: position: [x, y]'
+            suggestion: 'Add position coordinates: position: [x, y] OR anchor reference: anchor: "anchor_name"'
           }]
         };
       }

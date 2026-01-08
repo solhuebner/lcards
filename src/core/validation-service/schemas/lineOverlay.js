@@ -145,17 +145,18 @@ export const lineOverlaySchema = {
     (overlay, context) => {
       const hasPoints = overlay.points && Array.isArray(overlay.points) && overlay.points.length >= 2;
       const hasAttachment = overlay.attach_to || overlay.attachTo;
+      const hasAnchor = overlay.anchor; // Lines can also start from an anchor
 
-      // Points required UNLESS line uses attachment-based positioning
-      if (!hasPoints && !hasAttachment) {
+      // Points required UNLESS line uses attachment-based OR anchor-based positioning
+      if (!hasPoints && !hasAttachment && !hasAnchor) {
         return {
           valid: false,
           errors: [{
             field: 'points',
             type: 'required_field',
-            message: 'Line overlay requires "points" field unless using "attach_to"',
+            message: 'Line overlay requires "points", "anchor", or "attach_to" field',
             severity: 'error',
-            suggestion: 'Add a "points" field with coordinate pairs, or use "attach_to" for attachment-based positioning'
+            suggestion: 'Add a "points" field with coordinate pairs, "anchor" for start position, or use "attach_to" for attachment-based positioning'
           }]
         };
       }

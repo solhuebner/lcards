@@ -107,8 +107,9 @@ export class OverlayValidator {
     }
 
     // Validate anchor references (if config uses anchors)
+    // Pass overlays too so we can accept overlay IDs as virtual anchors
     if (context.anchors) {
-      this._validateAnchorReferences(config, context.anchors, result);
+      this._validateAnchorReferences(config, context.anchors, result, context.overlays);
     }
 
     // Validate attach_to references (if config attaches to another)
@@ -274,12 +275,16 @@ export class OverlayValidator {
   /**
    * Validate anchor references
    *
+   * Accepts both explicit anchors AND overlay IDs as valid anchor targets
+   * (overlay-to-overlay connections like line-to-control)
+   *
    * @private
    * @param {Object} config - Configuration
    * @param {Object} anchors - Available anchors
    * @param {Object} result - Validation result
+   * @param {Array<Object>} overlays - All overlays (for virtual anchor lookup)
    */
-  _validateAnchorReferences(config, anchors, result) {
+  _validateAnchorReferences(config, anchors, result, overlays = []) {
     const anchorFields = ['anchor', 'position'];
 
     anchorFields.forEach(field => {
@@ -287,8 +292,14 @@ export class OverlayValidator {
 
       // Check if it's an anchor reference (string)
       if (typeof value === 'string' && value.length > 0) {
-        // Check if anchor exists
-        if (!anchors[value]) {
+        // Check if anchor exists in anchors object
+        const anchorExists = anchors[value];
+
+        // Check if it's an overlay ID (virtual anchor for overlay-to-overlay connections)
+        const overlayExists = overlays && overlays.some(o => o.id === value);
+
+        // Valid if it's either an explicit anchor OR an overlay ID
+        if (!anchorExists && !overlayExists) {
           result.errors.push({
             field: field,
             type: 'invalid_reference',
@@ -296,7 +307,7 @@ export class OverlayValidator {
             referenceType: 'anchors',
             message: `Anchor "${value}" not found`,
             severity: 'error',
-            suggestion: `Ensure anchor "${value}" is defined in your configuration`,
+            suggestion: `Ensure anchor "${value}" is defined in your configuration or references a valid overlay ID`,
             helpUrl: 'https://docs.cb-lcars.com/msd/anchors'
           });
         }
