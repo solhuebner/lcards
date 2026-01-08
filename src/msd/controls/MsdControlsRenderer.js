@@ -191,7 +191,9 @@ export class MsdControlsRenderer {
         controlIds: controlOverlays.map(o => o.id)
       });
       
-      // Just update HASS context, don't recreate
+      // CRITICAL: Update HASS context even when skipping recreation
+      // Controls need fresh HASS state for entity updates, state changes, and card reactivity
+      // Without this, cards would display stale data from previous render cycle
       this._updateAllControlsHass(this.hass);
       return;
     }

@@ -776,11 +776,10 @@ export class MsdCardCoordinator extends BaseService {
 
         } catch (error) {
           lcardsLog.error('[MsdCardCoordinator] ❌ Controls rendering failed:', error);
-          // Don't show stack trace for all errors to reduce noise
-          if (error.message && !error.message.includes('timeout')) {
-            lcardsLog.error('[MsdCardCoordinator] Error details:', error.stack);
-          }
-          // MSD will still display - controls are non-critical
+          // Log stack trace for debugging, but MSD will still display - controls are non-critical
+          lcardsLog.error('[MsdCardCoordinator] Error details:', error.stack);
+          // Note: Removed arbitrary timeout mechanism - cards now load naturally
+          // Slow-loading cards (mini-graph-card, etc.) will succeed given enough time
         }
       }
 
