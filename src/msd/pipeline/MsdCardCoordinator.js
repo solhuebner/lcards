@@ -158,7 +158,7 @@ export class MsdCardCoordinator extends BaseService {
     if (!this.stylePresetManager.initialized) {
       lcardsLog.warn('[MsdCardCoordinator] ⚠️ StylePresetManager not initialized - this should not happen');
     }
-    
+
     lcardsLog.debug('[MsdCardCoordinator] ✅ Connected to core singletons', {
       theme: !!this.themeManager,
       stylePresets: !!this.stylePresetManager,
@@ -677,11 +677,11 @@ export class MsdCardCoordinator extends BaseService {
     this.controlsRenderer = null;
     this.router = null;
     this.debugManager = null;
-    
+
     // DO NOT null singleton references - they are shared across all cards!
     // These remain accessible from window.lcards.core for other cards:
     // - this.dataSourceManager
-    // - this.rulesEngine  
+    // - this.rulesEngine
     // - this.themeManager
     // - this.animationManager
     // - this.stylePresetManager
@@ -748,18 +748,20 @@ export class MsdCardCoordinator extends BaseService {
       }
 
       // FIXED: Render control overlays with comprehensive error handling
+      // NOTE: Control overlays are now rendered by AdvancedRenderer during Phase 2a
+      // This prevents duplicate rendering. We only keep debug visualization here.
       const controlOverlays = resolvedModel.overlays.filter(o => o.type === 'control');
       if (controlOverlays.length > 0) {
-        lcardsLog.debug('[MsdCardCoordinator] Rendering control overlays:', controlOverlays.map(c => c.id));
-
+        lcardsLog.debug('[MsdCardCoordinator] Control overlays detected (rendered by AdvancedRenderer):', controlOverlays.map(c => c.id));
+        // REMOVED: Duplicate rendering - AdvancedRenderer handles this in Phase 2a
+        // The code below is disabled to prevent duplicate foreignObjects in SVG
+        /*
         try {
-          // ADDED: Validate controls renderer exists
           if (!this.controlsRenderer) {
             lcardsLog.error('[MsdCardCoordinator] No controls renderer available');
             return;
           }
 
-          // Ensure controls renderer has current HASS context
           if (this._hass && this.controlsRenderer) {
             this.controlsRenderer.setHass(this._hass);
             lcardsLog.debug('[MsdCardCoordinator] HASS context applied to controls renderer');
@@ -767,20 +769,14 @@ export class MsdCardCoordinator extends BaseService {
             lcardsLog.warn('[MsdCardCoordinator] No HASS context available for controls');
           }
 
-          // REMOVED: Defensive container creation - not needed with SVG foreignObject approach
-          // The renderControls() method handles all necessary container creation internally
-
-          // Wait for controls to initialize (no timeout - let cards load naturally)
           await this.controlsRenderer.renderControls(controlOverlays, resolvedModel);
           lcardsLog.info('[MsdCardCoordinator] ✅ Controls rendered successfully');
 
         } catch (error) {
           lcardsLog.error('[MsdCardCoordinator] ❌ Controls rendering failed:', error);
-          // Log stack trace for debugging, but MSD will still display - controls are non-critical
           lcardsLog.error('[MsdCardCoordinator] Error details:', error.stack);
-          // Note: Removed arbitrary timeout mechanism - cards now load naturally
-          // Slow-loading cards (mini-graph-card, etc.) will succeed given enough time
         }
+        */
       }
 
     } catch (error) {

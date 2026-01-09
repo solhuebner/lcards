@@ -286,6 +286,8 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
 
       lcardsLog.debug('[PipelineCore] 🎮 Starting renderDebugAndControls()...');
       // CHANGED: Make debug and controls rendering more defensive
+      // NOTE: Controls are now rendered by AdvancedRenderer in Phase 2a
+      // This only handles debug visualization overlays (anchors, bounding boxes, etc.)
       try {
         await coordinator.renderDebugAndControls(resolvedModel, mountEl);
         lcardsLog.debug('[PipelineCore] ✅ renderDebugAndControls() completed successfully');

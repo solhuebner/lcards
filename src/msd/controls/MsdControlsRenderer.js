@@ -182,19 +182,19 @@ export class MsdControlsRenderer {
     // ✅ NEW: Check if already rendered with same config to avoid duplicate creation
     // Generate signature from sorted overlay IDs to detect duplicate configurations
     const signature = controlOverlays.map(o => o.id).sort().join('|');
-    
+
     // Verify that all overlay IDs exist in controlElements (robust duplicate detection)
     const controlsAlreadyRendered = this._lastSignature === signature &&
       this.controlElements.size === controlOverlays.length &&
       controlOverlays.every(overlay => this.controlElements.has(overlay.id));
-    
+
     if (controlsAlreadyRendered) {
       lcardsLog.debug('[MsdControlsRenderer] Skipped duplicate creation - controls already exist', {
         signature,
         elementCount: this.controlElements.size,
         controlIds: controlOverlays.map(o => o.id)
       });
-      
+
       // CRITICAL: Update HASS context even when skipping recreation
       // Controls need fresh HASS state for entity updates, state changes, and card reactivity
       // Without this, cards would display stale data from previous render cycle
@@ -256,15 +256,27 @@ export class MsdControlsRenderer {
   }
 
   async renderControlOverlay(overlay, resolvedModel) {
-    // Remove any existing foreignObject for this overlay
-    const existingForeignObject = document.querySelector(`#msd-control-foreign-${overlay.id}`);
-    if (existingForeignObject) {
-      lcardsLog.debug('[MsdControlsRenderer] Existing foreignObject found for', overlay.id, '- removing to avoid duplicates');
-      try { existingForeignObject.remove(); } catch(_) {}
+    lcardsLog.debug('[MsdControlsRenderer] renderControlOverlay called for:', overlay.id);
+
+    // CRITICAL FIX: Get SVG container first, then search for existing foreignObject within it
+    const svgContainer = this.getSvgControlsContainer();
+    if (svgContainer) {
+      const existingForeignObject = svgContainer.querySelector(`foreignObject[id="${overlay.id}"]`);
+      if (existingForeignObject) {
+        lcardsLog.debug('[MsdControlsRenderer] Removing existing foreignObject for', overlay.id);
+        try {
+          existingForeignObject.remove();
+        } catch (e) {
+          lcardsLog.warn('[MsdControlsRenderer] Failed to remove existing foreignObject:', e);
+        }
+      }
+    } else {
+      lcardsLog.warn('[MsdControlsRenderer] SVG container not available for cleanup of', overlay.id);
     }
 
     // If we somehow already have a control element instance registered, drop it (fresh rebuild model)
     if (this.controlElements.has(overlay.id)) {
+      lcardsLog.debug('[MsdControlsRenderer] Clearing existing control element entry for', overlay.id);
       this.controlElements.delete(overlay.id);
     }
 
@@ -275,11 +287,32 @@ export class MsdControlsRenderer {
       overlayKeys: Object.keys(overlay)
     });
 
-    const controlElement = await this.createControlElement(overlay);
-    if (!controlElement) return;
+    // ADDED: Wrap in try-catch to prevent one failing card from blocking others
+    try {
+      const controlElement = await this.createControlElement(overlay);
+      if (!controlElement) {
+        lcardsLog.warn('[MsdControlsRenderer] createControlElement returned null for', overlay. id);
+        return;
+      }
 
-    this.positionControlElement(controlElement, overlay, resolvedModel);
-    this.controlElements.set(overlay.id, controlElement);
+      lcardsLog.debug('[MsdControlsRenderer] Created control element for', overlay.id, {
+        tagName: controlElement.tagName,
+        className: controlElement.className,
+        hasSetConfig: typeof controlElement.setConfig === 'function'
+      });
+
+      // Position the control (creates foreignObject and adds to SVG)
+      this.positionControlElement(controlElement, overlay, resolvedModel);
+
+      // Store the wrapper element
+      this.controlElements. set(overlay.id, controlElement);
+
+      lcardsLog.debug('[MsdControlsRenderer] ✅ Successfully rendered control overlay:', overlay.id);
+
+    } catch (error) {
+      lcardsLog.error('[MsdControlsRenderer] Failed to render control overlay', overlay.id, error);
+      // Continue with other controls
+    }
   }
 
   /**
@@ -422,43 +455,52 @@ export class MsdControlsRenderer {
   }
 
   async createControlElement(overlay) {
-    const cardDef = this.resolveCardDefinition(overlay);
+    const cardDef = this. resolveCardDefinition(overlay);
     if (!cardDef) {
       lcardsLog.warn('[MsdControlsRenderer] No card definition found for control overlay', overlay.id);
       return null;
     }
 
     try {
-      // Browser environment - Fixed card creation and configuration
       const cardType = cardDef.type;
       let cardElement = null;
 
-      // FIXED: Use the new normalization method
       const normalizedCardType = this._normalizeCardType(cardType);
 
       lcardsLog.debug('[MsdControls] Creating card element:', {
         originalType: cardType,
         normalizedType: normalizedCardType,
-        overlayId: overlay.id
+        overlayId: overlay.id,
+        hasEntities: !!cardDef.entities,
+        entityCount: cardDef.entities?. length
       });
 
-      // ADDED: Special handling for HA built-in cards
-      if (normalizedCardType.startsWith('hui-')) {
+      // Special handling for HA built-in cards
+      if (normalizedCardType. startsWith('hui-')) {
+        lcardsLog.debug('[MsdControls] Creating HA built-in card:', normalizedCardType);
         cardElement = await this._createHomeAssistantCard(normalizedCardType, cardDef, overlay);
       } else {
-        // Handle custom cards with existing logic
+        // Handle custom cards
+        lcardsLog.debug('[MsdControls] Creating custom card:', normalizedCardType);
         cardElement = await this._createCustomCard(normalizedCardType, cardDef, overlay);
       }
 
-      // Fallback: Create a placeholder
+      // Fallback:  Create a placeholder
       if (!cardElement) {
-        lcardsLog.warn(`Could not create card element for type: ${cardType}, creating fallback`);
+        lcardsLog.warn(`[MsdControls] Could not create card element for type: ${cardType}, creating fallback`);
         cardElement = this._createFallbackCard(cardType, cardDef);
+      } else {
+        lcardsLog.debug('[MsdControls] Card element created successfully:', {
+          overlayId: overlay.id,
+          cardType,
+          tagName: cardElement.tagName,
+          hasSetConfig: typeof cardElement.setConfig === 'function'
+        });
       }
 
       // FIXED: Apply HASS context BEFORE configuration
       lcardsLog.debug('[MsdControls] Applying HASS and config:', {
-        overlayId: overlay.id,
+        overlayId: overlay. id,
         hasHass: !!this.hass,
         hasSetConfig: typeof cardElement.setConfig === 'function'
       });
@@ -474,20 +516,26 @@ export class MsdControlsRenderer {
       // Create wrapper for positioning
       const wrapper = document.createElement('div');
       wrapper.className = 'msd-control-wrapper';
-      wrapper.dataset.msdControlId = overlay.id;
-      wrapper.style.position = 'absolute';
+      wrapper.dataset.msdControlId = overlay. id;
+      wrapper.style. position = 'absolute';
       wrapper.style.pointerEvents = 'auto';
-      wrapper.style.touchAction = 'manipulation'; // ADDED: Better touch handling
+      wrapper.style.touchAction = 'manipulation';
       wrapper.appendChild(cardElement);
 
       // Event isolation
       this._setupEventIsolation(wrapper, cardElement, overlay);
 
+      lcardsLog.debug('[MsdControls] Wrapper created for:', overlay.id, {
+        wrapperHasCard: wrapper.children.length > 0,
+        cardTagName: cardElement.tagName
+      });
+
       return wrapper;
 
     } catch (error) {
-      lcardsLog.error(`[MSD Controls] Failed to create card ${cardDef?.type}:`, error);
-      return this._createFallbackCard(cardDef?.type || 'unknown', cardDef);
+      lcardsLog.error(`[MSD Controls] Failed to create card ${cardDef?. type} for ${overlay.id}:`, error);
+      lcardsLog.error('[MSD Controls] Error stack:', error.stack);
+      return this._createFallbackCard(cardDef?. type || 'unknown', cardDef);
     }
   }
 
@@ -1194,7 +1242,7 @@ export class MsdControlsRenderer {
    */
   createSvgForeignObject(overlayId, position, size) {
     const targetContainer = this.renderer.container || this.renderer.mountEl;
-    const svg = targetContainer?.querySelector('svg');
+    const svg = targetContainer?. querySelector('svg');
 
     if (!svg) {
       lcardsLog.warn('[MSD Controls] No SVG element found for foreignObject creation');
@@ -1210,13 +1258,21 @@ export class MsdControlsRenderer {
       foreignObject.setAttribute('width', size[0]);
       foreignObject.setAttribute('height', size[1]);
 
-      // Add identification attributes - use overlay ID directly for easier lookup
+      // FIXED: Use consistent ID format for easier cleanup
+      // Use overlay ID directly as the foreignObject ID
       foreignObject.setAttribute('data-msd-control-id', overlayId);
-      foreignObject.setAttribute('id', overlayId);  // Use overlay ID directly
+      foreignObject.setAttribute('id', overlayId);  // ← ID matches overlay ID directly
 
       // Ensure proper event handling
       foreignObject.style.pointerEvents = 'auto';
       foreignObject.style.overflow = 'visible';
+
+      lcardsLog.debug('[MSD Controls] Created foreignObject for', overlayId, {
+        x: position[0],
+        y: position[1],
+        width: size[0],
+        height: size[1]
+      });
 
       return foreignObject;
 
