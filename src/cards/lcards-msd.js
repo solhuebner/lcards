@@ -998,52 +998,64 @@ export class LCARdSMSDCard extends LCARdSCard {
         return html`
             <div style="
                 width: 100%;
-                height: 300px;
-                background: linear-gradient(135deg, #001122 0%, #000611 100%);
-                border: 1px solid var(--lcars-cyan, #00ffff);
-                border-radius: 8px;
+                height: 56px;
+                background: linear-gradient(180deg, #000611 0%, #0252a2 100%);
+                border: 2px solid #9999ff;
+                border-radius: 20px;
                 display: flex;
                 align-items: center;
-                justify-content: center;
                 position: relative;
                 overflow: hidden;
+                box-shadow: inset 0 0 20px rgba(153, 153, 255, 0.1);
             ">
-                <svg viewBox="0 0 400 200" style="width: 80%; height: 80%; max-width: 320px;">
-                    <!-- LCARS-style interface mockup -->
-                    <defs>
-                        <linearGradient id="lcarsGlow" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" style="stop-color:#00ffff;stop-opacity:0.3" />
-                            <stop offset="50%" style="stop-color:#00ffff;stop-opacity:0.8" />
-                            <stop offset="100%" style="stop-color:#00ffff;stop-opacity:0.3" />
-                        </linearGradient>
-                    </defs>
+                <!-- Left LCARS cap -->
+                <div style="
+                    width: 52px;
+                    height: 100%;
+                    background: linear-gradient(90deg, #ff9933 0%, #ffaa55 100%);
+                    border-radius: 20px 0 0 20px;
+                    margin-right: 8px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-family: Antonio, monospace;
+                    font-size: 18px;
+                    color: #000;
+                    font-weight: bold;
+                    letter-spacing: 0.5px;
+                    box-shadow: 0 0 10px rgba(255, 153, 51, 0.4);
+                ">
+                    MSD
+                </div>
 
-                    <!-- Main panel -->
-                    <rect x="20" y="20" width="360" height="160" rx="8" fill="#000611" stroke="var(--lcars-cyan, #00ffff)" stroke-width="1" opacity="0.7"/>
+                <!-- Mock system lines -->
+                <div style="flex: 1; display: flex; align-items: center; gap: 6px; padding: 0 8px;">
+                    <div style="width: 60px; height: 10px; background: linear-gradient(90deg, #9999ff 0%, #7777dd 100%); border-radius: 5px; box-shadow: 0 0 4px rgba(153, 153, 255, 0.5);"></div>
+                    <div style="width: 40px; height: 10px; background: linear-gradient(90deg, #66ccff 0%, #4499dd 100%); border-radius: 5px; box-shadow: 0 0 4px rgba(102, 204, 255, 0.5);"></div>
+                    <div style="width: 30px; height: 10px; background: linear-gradient(90deg, #ff9933 0%, #dd7722 100%); border-radius: 5px; box-shadow: 0 0 4px rgba(255, 153, 51, 0.5);"></div>
+                    <div style="width: 45px; height: 10px; background: linear-gradient(90deg, #66ff66 0%, #44dd44 100%); border-radius: 5px; box-shadow: 0 0 4px rgba(102, 255, 102, 0.5);"></div>
+                    <div style="width: 35px; height: 10px; background: linear-gradient(90deg, #ff6666 0%, #dd4444 100%); border-radius: 5px; box-shadow: 0 0 4px rgba(255, 102, 102, 0.5);"></div>
+                </div>
 
-                    <!-- LCARS-style bars -->
-                    <rect x="30" y="30" width="80" height="12" rx="6" fill="var(--lcars-orange, #ff9900)" opacity="0.8"/>
-                    <rect x="30" y="50" width="120" height="12" rx="6" fill="var(--lcars-cyan, #00ffff)" opacity="0.6"/>
-                    <rect x="30" y="70" width="60" height="12" rx="6" fill="var(--lcars-blue, #0099ff)" opacity="0.8"/>
-
-                    <!-- Right side bars -->
-                    <rect x="290" y="30" width="80" height="12" rx="6" fill="var(--lcars-red, #ff6600)" opacity="0.6"/>
-                    <rect x="270" y="50" width="100" height="12" rx="6" fill="var(--lcars-cyan, #00ffff)" opacity="0.8"/>
-                    <rect x="310" y="70" width="60" height="12" rx="6" fill="var(--lcars-orange, #ff9900)" opacity="0.6"/>
-
-                    <!-- Center display area -->
-                    <rect x="60" y="100" width="280" height="60" rx="4" fill="none" stroke="var(--lcars-cyan, #00ffff)" stroke-width="1" opacity="0.4"/>
-
-                    <!-- Text -->
-                    <text x="200" y="125" text-anchor="middle" fill="var(--lcars-cyan, #00ffff)"
-                          font-family="Antonio, monospace" font-size="14" opacity="0.8">
-                        LCARdS MSD
-                    </text>
-                    <text x="200" y="145" text-anchor="middle" fill="var(--lcars-orange, #ff9900)"
-                          font-family="Antonio, monospace" font-size="10" opacity="0.6">
-                        Master Systems Display
-                    </text>
-                </svg>
+                <!-- Right info badge -->
+                <div style="
+                    min-width: 40px;
+                    height: 100%;
+                    background: linear-gradient(180deg, #9999ff 0%, #7777dd 100%);
+                    border-radius: 0 20px 20px 0;
+                    margin-left: 8px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    font-family: Antonio, monospace;
+                    color: #000;
+                    font-weight: bold;
+                    box-shadow: 0 0 10px rgba(153, 153, 255, 0.4);
+                ">
+                    <div style="font-size: 14px; line-height: 1;">⬢</div>
+                    <div style="font-size: 6px; letter-spacing: 0.5px; margin-top: 2px;">LCARS</div>
+                </div>
             </div>
         `;
     }
@@ -1057,42 +1069,142 @@ export class LCARdSMSDCard extends LCARdSCard {
         lcardsLog.debug('[LCARdSMSDCard] Rendering Tier 2: editor stats display');
         const hasConfig = this._msdConfig && Object.keys(this._msdConfig).length > 0;
         const baseSvgSource = this._msdConfig?.base_svg?.source || 'Not configured';
+        const overlayCount = this._msdConfig?.overlays ? Object.keys(this._msdConfig.overlays).length : 0;
+        const dataSourceCount = this._fullConfig?.data_sources ? Object.keys(this._fullConfig.data_sources).length : 0;
+        const rulesCount = this._fullConfig?.rules ? this._fullConfig.rules.length : 0;
+        const viewBox = this._msdConfig?.view_box || [0, 0, 1920, 1200];
 
         return html`
             <div style="
                 width: 100%;
-                height: 400px;
-                background: linear-gradient(135deg, #001122 0%, #000611 100%);
-                border: 2px solid var(--lcars-cyan, #00ffff);
-                border-radius: 8px;
+                height: 450px;
+                background: linear-gradient(180deg, #000611 0%, #001a33 100%);
+                border: 3px solid #9999ff;
+                border-radius: 24px;
                 display: flex;
                 flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                color: var(--lcars-cyan, #00ffff);
                 font-family: 'Antonio', monospace;
                 position: relative;
                 overflow: hidden;
+                box-shadow: inset 0 0 40px rgba(153, 153, 255, 0.1);
             ">
-                <div style="font-size: 24px; font-weight: bold; margin-bottom: 16px; color: var(--lcars-orange, #ff9900);">
-                    LCARdS MSD Card
-                </div>
-                <div style="font-size: 14px; margin-bottom: 8px;">
-                    Master Systems Display
-                </div>
-                ${hasConfig ? html`
-                    <div style="font-size: 12px; opacity: 0.7; margin-bottom: 4px;">
-                        Base SVG: ${baseSvgSource}
+                <!-- Header bar -->
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    padding: 16px 20px;
+                    background: linear-gradient(90deg, #ff9933 0%, #ffaa55 50%, #ff9933 100%);
+                    border-radius: 20px 20px 0 0;
+                    gap: 12px;
+                    box-shadow: 0 2px 10px rgba(255, 153, 51, 0.3);
+                ">
+                    <div style="font-size: 20px; font-weight: bold; color: #000; letter-spacing: 1px;">⬢</div>
+                    <div style="flex: 1;">
+                        <div style="font-size: 18px; font-weight: bold; color: #000; letter-spacing: 1px;">MASTER SYSTEMS DISPLAY</div>
+                        <div style="font-size: 11px; color: #000; opacity: 0.7; letter-spacing: 0.5px;">LCARdS Configuration Editor</div>
                     </div>
-                    <div style="font-size: 12px; opacity: 0.7;">
-                        Overlays: ${this._msdConfig?.overlays ? Object.keys(this._msdConfig.overlays).length : 0}
+                    <div style="font-size: 24px; color: #000;">●</div>
+                </div>
+
+                ${hasConfig ? html`
+                    <!-- Configuration details -->
+                    <div style="flex: 1; padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+                        <!-- Status row -->
+                        <div style="display: flex; gap: 12px;">
+                            <div style="
+                                flex: 1;
+                                background: linear-gradient(135deg, rgba(153, 153, 255, 0.15) 0%, rgba(102, 102, 204, 0.1) 100%);
+                                border: 2px solid #9999ff;
+                                border-radius: 12px;
+                                padding: 12px;
+                                box-shadow: 0 0 10px rgba(153, 153, 255, 0.2);
+                            ">
+                                <div style="font-size: 10px; color: #9999ff; opacity: 0.7; letter-spacing: 1px; margin-bottom: 4px;">STATUS</div>
+                                <div style="font-size: 16px; color: #66ff66; font-weight: bold;">● CONFIGURED</div>
+                            </div>
+                            <div style="
+                                flex: 1;
+                                background: linear-gradient(135deg, rgba(102, 204, 255, 0.15) 0%, rgba(68, 153, 221, 0.1) 100%);
+                                border: 2px solid #66ccff;
+                                border-radius: 12px;
+                                padding: 12px;
+                                box-shadow: 0 0 10px rgba(102, 204, 255, 0.2);
+                            ">
+                                <div style="font-size: 10px; color: #66ccff; opacity: 0.7; letter-spacing: 1px; margin-bottom: 4px;">VIEWBOX</div>
+                                <div style="font-size: 13px; color: #66ccff; font-weight: bold;">${viewBox[2]} × ${viewBox[3]}</div>
+                            </div>
+                        </div>
+
+                        <!-- SVG Source -->
+                        <div style="
+                            background: linear-gradient(135deg, rgba(255, 153, 51, 0.15) 0%, rgba(221, 119, 34, 0.1) 100%);
+                            border: 2px solid #ff9933;
+                            border-radius: 12px;
+                            padding: 12px;
+                            box-shadow: 0 0 10px rgba(255, 153, 51, 0.2);
+                        ">
+                            <div style="font-size: 10px; color: #ff9933; opacity: 0.7; letter-spacing: 1px; margin-bottom: 4px;">BASE SVG SOURCE</div>
+                            <div style="font-size: 13px; color: #ff9933; font-weight: bold; word-break: break-all;">${baseSvgSource}</div>
+                        </div>
+
+                        <!-- Stats grid -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                            <div style="
+                                background: linear-gradient(135deg, rgba(153, 153, 255, 0.15) 0%, rgba(102, 102, 204, 0.1) 100%);
+                                border: 2px solid #9999ff;
+                                border-radius: 12px;
+                                padding: 12px;
+                                text-align: center;
+                                box-shadow: 0 0 10px rgba(153, 153, 255, 0.2);
+                            ">
+                                <div style="font-size: 24px; color: #9999ff; font-weight: bold;">${overlayCount}</div>
+                                <div style="font-size: 9px; color: #9999ff; opacity: 0.7; letter-spacing: 0.5px; margin-top: 2px;">OVERLAYS</div>
+                            </div>
+                            <div style="
+                                background: linear-gradient(135deg, rgba(102, 204, 255, 0.15) 0%, rgba(68, 153, 221, 0.1) 100%);
+                                border: 2px solid #66ccff;
+                                border-radius: 12px;
+                                padding: 12px;
+                                text-align: center;
+                                box-shadow: 0 0 10px rgba(102, 204, 255, 0.2);
+                            ">
+                                <div style="font-size: 24px; color: #66ccff; font-weight: bold;">${dataSourceCount}</div>
+                                <div style="font-size: 9px; color: #66ccff; opacity: 0.7; letter-spacing: 0.5px; margin-top: 2px;">DATA SOURCES</div>
+                            </div>
+                            <div style="
+                                background: linear-gradient(135deg, rgba(255, 102, 102, 0.15) 0%, rgba(221, 68, 68, 0.1) 100%);
+                                border: 2px solid #ff6666;
+                                border-radius: 12px;
+                                padding: 12px;
+                                text-align: center;
+                                box-shadow: 0 0 10px rgba(255, 102, 102, 0.2);
+                            ">
+                                <div style="font-size: 24px; color: #ff6666; font-weight: bold;">${rulesCount}</div>
+                                <div style="font-size: 9px; color: #ff6666; opacity: 0.7; letter-spacing: 0.5px; margin-top: 2px;">RULES</div>
+                            </div>
+                        </div>
+
+                        <!-- Info message -->
+                        <div style="
+                            margin-top: auto;
+                            padding: 8px 12px;
+                            background: rgba(153, 153, 255, 0.1);
+                            border-left: 3px solid #9999ff;
+                            border-radius: 4px;
+                        ">
+                            <div style="font-size: 10px; color: #9999ff; opacity: 0.8; line-height: 1.4;">
+                                ⓘ Full MSD preview available on dashboard. Use YAML editor to modify configuration.
+                            </div>
+                        </div>
                     </div>
                 ` : html`
-                    <div style="font-size: 12px; opacity: 0.7; margin-bottom: 8px;">
-                        Configuration will appear after setup
-                    </div>
-                    <div style="font-size: 10px; opacity: 0.5; text-align: center; max-width: 300px;">
-                        Add MSD configuration with base_svg, overlays, data_sources, and rules to create your custom LCARS display
+                    <!-- No configuration -->
+                    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px;">
+                        <div style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;">⬢</div>
+                        <div style="font-size: 16px; color: #9999ff; margin-bottom: 8px; font-weight: bold;">NO CONFIGURATION</div>
+                        <div style="font-size: 11px; color: #66ccff; opacity: 0.7; text-align: center; max-width: 300px; line-height: 1.6;">
+                            Add MSD configuration with base_svg, overlays, data_sources, and rules to create your custom LCARS display
+                        </div>
                     </div>
                 `}
             </div>
