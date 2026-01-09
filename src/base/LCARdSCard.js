@@ -1159,8 +1159,14 @@ export class LCARdSCard extends LCARdSNativeCard {
             overlayId: this._overlayId
         });
 
-        if (!overlayPatches || !this._overlayId) {
-            lcardsLog.warn(`[LCARdSCard] Cannot apply patches - missing overlayPatches or overlayId`);
+        // Skip warning if no overlayId - some cards (like MSD) override this method entirely
+        if (!overlayPatches) {
+            return;
+        }
+
+        if (!this._overlayId) {
+            // Card doesn't use single overlay ID (e.g., MSD with multiple overlays)
+            // This is expected if the card overrides _applyRulePatches()
             return;
         }
 
