@@ -22,10 +22,10 @@ function _getAllMsdCards() {
     lcardsLog.warn('[MsdDebugAPI] SystemsManager not available');
     return [];
   }
-  
+
   const registered = core.systemsManager._registeredCards;
   const msdCards = [];
-  
+
   registered.forEach((cardData, cardId) => {
     // Check if it's an MSD card
     if (cardData.card?.tagName === 'LCARDS-MSD-CARD') {
@@ -36,7 +36,7 @@ function _getAllMsdCards() {
       });
     }
   });
-  
+
   return msdCards;
 }
 
@@ -48,16 +48,16 @@ function _getAllMsdCards() {
  */
 function _getMsdCard(cardId = null) {
   const allCards = _getAllMsdCards();
-  
+
   if (allCards.length === 0) {
     return null;
   }
-  
+
   // If no ID specified, return first card
   if (!cardId) {
     return allCards[0].card;
   }
-  
+
   // Find by config ID
   const found = allCards.find(c => c.config?.id === cardId);
   return found ? found.card : null;
@@ -71,12 +71,12 @@ function _getMsdCard(cardId = null) {
  */
 function _getMsdPipeline(cardId = null) {
   const card = _getMsdCard(cardId);
-  
+
   if (!card?._msdPipeline) {
     lcardsLog.warn('[MsdDebugAPI] No MSD card found or pipeline not initialized');
     return null;
   }
-  
+
   // Warn if using default (null) selector with multiple cards
   if (cardId === null) {
     const allCards = _getAllMsdCards();
@@ -90,7 +90,7 @@ function _getMsdPipeline(cardId = null) {
       );
     }
   }
-  
+
   return card._msdPipeline;
 }
 
@@ -129,19 +129,19 @@ function _getMsdConfig(cardId = null) {
 /**
  * MSD Debug API
  * Provides debugging utilities for MSD cards
- * 
+ *
  * Supports multiple MSD card instances on the same dashboard.
  * All methods accept an optional cardId parameter for multi-card targeting.
- * 
+ *
  * @example
  * // Single MSD card - use default selector
  * window.lcards.debug.msd.inspect('overlay1')
- * 
+ *
  * @example
  * // Multiple MSD cards - discover available cards first
  * const cards = window.lcards.debug.msd.listMsdCards()
  * // Returns: [{id: 'bridge', selector: '...', overlayCount: 15}, ...]
- * 
+ *
  * // Then target specific card
  * window.lcards.debug.msd.inspect('overlay1', 'lcards-msd[id="bridge"]')
  * window.lcards.debug.msd.getRouterMetrics('lcards-msd[id="engineering"]')
@@ -249,9 +249,9 @@ export class MsdDebugAPI {
        * List all MSD cards on the page
        * Useful for discovering card IDs when debugging multiple instances
        * Uses SystemsManager for reliable card discovery
-       * 
+       *
        * @returns {Array<Object>} Array of card info objects
-       * 
+       *
        * @example
        * // Discover all MSD cards
        * window.lcards.debug.msd.listMsdCards()
@@ -279,17 +279,17 @@ export class MsdDebugAPI {
        */
       listMsdCards() {
         const cards = _getAllMsdCards();
-        
+
         if (cards.length === 0) {
           lcardsLog.warn('[MsdDebugAPI] No MSD cards found on page');
           return [];
         }
-        
+
         const cardInfo = cards.map((cardData) => {
           const { card, config, cardId } = cardData;
           const pipeline = card._msdPipeline;
           const configId = config?.id || 'unnamed';
-          
+
           return {
             id: configId,
             systemId: cardId,
@@ -300,7 +300,7 @@ export class MsdDebugAPI {
             element: card
           };
         });
-        
+
         lcardsLog.info(`[MsdDebugAPI] Found ${cards.length} MSD card(s):`, cardInfo.map(c => c.id));
         return cardInfo;
       },
@@ -806,12 +806,12 @@ export class MsdDebugAPI {
               lcardsLog.warn('[MsdDebugAPI] No MSD card found or pipeline not ready');
               return null;
             }
-            
+
             // Access routing inspect method
             if (typeof pipeline.routingInspect === 'function') {
               return pipeline.routingInspect(overlayId);
             }
-            
+
             lcardsLog.warn('[MsdDebugAPI] routingInspect method not available');
             return null;
           } catch (error) {
@@ -850,7 +850,7 @@ export class MsdDebugAPI {
             if (typeof coordinator.router.stats === 'function') {
               return coordinator.router.stats();
             }
-            
+
             return { cacheHits: 0, pathsComputed: 0, invalidations: 0, error: 'stats method not available' };
           } catch (error) {
             lcardsLog.error('[DebugAPI] Error getting routing stats:', error);
@@ -888,7 +888,7 @@ export class MsdDebugAPI {
               lcardsLog.debug(`[DebugAPI] Invalidated routing cache: ${id}`);
               return true;
             }
-            
+
             lcardsLog.warn('[MsdDebugAPI] Router invalidate method not available');
             return false;
           } catch (error) {
@@ -919,38 +919,38 @@ export class MsdDebugAPI {
               lcardsLog.warn('[MsdDebugAPI] No MSD card found or pipeline not ready');
               return null;
             }
-            
+
             // Try to get the model and manipulate routing mode
             const model = typeof pipeline.getResolvedModel === 'function' ? pipeline.getResolvedModel() : null;
             if (!model) {
               lcardsLog.warn('[MsdDebugAPI] Could not get resolved model');
               return null;
             }
-            
+
             const ov = model.overlays.find(o => o.id === overlayId);
             if (!ov) {
               lcardsLog.warn('[MsdDebugAPI] Overlay not found:', overlayId);
               return null;
             }
-            
+
             // Temporarily change routing mode and inspect
             ov._raw = ov._raw || {};
             const original = ov._raw.route_mode_full;
             ov._raw.route_mode_full = mode;
-            
+
             const coordinator = _getMsdCoordinator(cardId);
             if (coordinator?.router?.invalidate) {
               coordinator.router.invalidate('*');
             }
-            
+
             const result = this.inspect(overlayId, cardId);
-            
+
             // Restore original
             ov._raw.route_mode_full = original;
             if (coordinator?.router?.invalidate) {
               coordinator.router.invalidate('*');
             }
-            
+
             return result;
           } catch (error) {
             lcardsLog.error('[DebugAPI] Error in inspectAs:', error);
@@ -2633,6 +2633,164 @@ export class MsdDebugAPI {
             lcardsLog.error('[DebugAPI] Error getting pipeline instance:', error);
             return null;
           }
+        }
+      },
+
+      /**
+       * Anchors introspection namespace
+       *
+       * Provides comprehensive anchor debugging and introspection.
+       * Reveals where anchors are stored at each pipeline stage.
+       */
+      anchors: {
+        /**
+         * Get all anchors from resolved model
+         *
+         * Returns the final merged anchor list used for rendering.
+         * This is the "source of truth" for overlay positioning.
+         *
+         * @param {string|null} cardId - Config ID or null for first card
+         * @returns {Object} Anchor dictionary { name: [x, y] }
+         *
+         * @example
+         * const anchors = window.lcards.debug.msd.anchors.getAll();
+         * console.table(anchors);
+         */
+        getAll(cardId = null) {
+          try {
+            const pipeline = _getMsdPipeline(cardId);
+            const model = pipeline?.getResolvedModel?.();
+            return model?.anchors || {};
+          } catch (error) {
+            lcardsLog.error('[DebugAPI] Error getting anchors:', error);
+            return {};
+          }
+        },
+
+        /**
+         * Get anchor by name
+         *
+         * @param {string} name - Anchor name
+         * @param {string|null} cardId - Config ID or null for first card
+         * @returns {Array|null} [x, y] coordinates or null
+         *
+         * @example
+         * const bridge = window.lcards.debug.msd.anchors.get('bridge');
+         * console.log('Bridge position:', bridge);
+         */
+        get(name, cardId = null) {
+          const anchors = this.getAll(cardId);
+          return anchors[name] || null;
+        },
+
+        /**
+         * Trace anchor through pipeline stages
+         *
+         * Shows where anchors are stored and how they flow through:
+         * 1. SVG extraction (AnchorProcessor)
+         * 2. CoreConfigManager processing
+         * 3. ConfigProcessor merging
+         * 4. CardModel storage
+         * 5. resolvedModel (final)
+         *
+         * Reveals the architectural issue with anchor splitting.
+         *
+         * @param {string|null} cardId - Config ID or null for first card
+         * @returns {Object} Anchor trace data
+         *
+         * @example
+         * const trace = window.lcards.debug.msd.anchors.trace();
+         * console.log('Anchor flow:', trace);
+         */
+        trace(cardId = null) {
+          try {
+            const card = _getMsdCard(cardId);
+            const pipeline = card?._msdPipeline;
+            const coordinator = pipeline?.coordinator;
+            const cardModel = coordinator?.cardModel;
+            const resolvedModel = pipeline?.getResolvedModel?.();
+            const fullConfig = card?._fullConfig;
+
+            const trace = {
+              description: 'Anchor data flow through MSD pipeline',
+              stages: {
+                '1_cardModel': {
+                  source: 'CardModel.anchors',
+                  count: cardModel?.anchors ? Object.keys(cardModel.anchors).length : 0,
+                  anchors: cardModel?.anchors || {},
+                  note: 'Anchors from merged config after ConfigProcessor'
+                },
+                '2_resolvedModel': {
+                  source: 'resolvedModel.anchors',
+                  count: resolvedModel?.anchors ? Object.keys(resolvedModel.anchors).length : 0,
+                  anchors: resolvedModel?.anchors || {},
+                  note: 'Final anchors used for rendering (copied from cardModel)'
+                },
+                '3_fullConfig_toplevel': {
+                  source: 'fullConfig.anchors (top-level)',
+                  count: fullConfig?.anchors ? Object.keys(fullConfig.anchors).length : 0,
+                  anchors: fullConfig?.anchors || {},
+                  note: 'Extracted anchors from SVG (placed by CoreConfigManager)'
+                },
+                '4_fullConfig_nested': {
+                  source: 'fullConfig.msd.anchors (nested)',
+                  count: fullConfig?.msd?.anchors ? Object.keys(fullConfig.msd.anchors).length : 0,
+                  anchors: fullConfig?.msd?.anchors || {},
+                  note: 'User-defined anchors from YAML config'
+                }
+              },
+              issue: {
+                description: 'CoreConfigManager splits anchors across levels',
+                extracted_location: 'fullConfig.anchors (top-level)',
+                user_location: 'fullConfig.msd.anchors (nested)',
+                fix_location: 'ConfigProcessor merges them after processConfig() returns',
+                is_working: resolvedModel?.anchors && Object.keys(resolvedModel.anchors).length > 0
+              }
+            };
+
+            return trace;
+          } catch (error) {
+            lcardsLog.error('[DebugAPI] Error tracing anchors:', error);
+            return { error: error.message };
+          }
+        },
+
+        /**
+         * List all anchor names with source info
+         *
+         * Shows which anchors came from SVG vs user config.
+         * Requires user to inspect trace() output to determine source.
+         *
+         * @param {string|null} cardId - Config ID or null for first card
+         * @returns {Array} Array of anchor names
+         *
+         * @example
+         * const names = window.lcards.debug.msd.anchors.list();
+         * console.log('Available anchors:', names);
+         */
+        list(cardId = null) {
+          const anchors = this.getAll(cardId);
+          return Object.keys(anchors).sort();
+        },
+
+        /**
+         * Print anchor table to console
+         *
+         * Nice formatted output of all anchors.
+         *
+         * @param {string|null} cardId - Config ID or null for first card
+         *
+         * @example
+         * window.lcards.debug.msd.anchors.print();
+         */
+        print(cardId = null) {
+          const anchors = this.getAll(cardId);
+          const formatted = {};
+          Object.entries(anchors).forEach(([name, pos]) => {
+            formatted[name] = { x: pos[0], y: pos[1] };
+          });
+          console.table(formatted);
+          console.log(`Total: ${Object.keys(anchors).length} anchors`);
         }
       }
     };

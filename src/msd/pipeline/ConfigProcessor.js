@@ -58,7 +58,7 @@ export async function processAndValidateConfig(userMsdConfig, svgContent = null)
   const enhancedConfig = {
     ...userMsdConfig,
     view_box: viewBox || userMsdConfig.view_box || [0, 0, 1920, 1080],
-    anchors: anchors,
+    anchors: anchors,  // Put extracted anchors here - will be at top-level after processConfig
     _svgMetadata: {
       extractedViewBox: viewBox,
       extractedAnchors: Object.keys(anchors).length,
@@ -79,6 +79,22 @@ export async function processAndValidateConfig(userMsdConfig, svgContent = null)
   const fullConfig = result.mergedConfig;
   const mergedConfig = fullConfig.msd || fullConfig; // Extract msd property or use full config if already flat
   const provenance = result.provenance;
+
+  // ✅ FIX: Merge top-level anchors (extracted from SVG) with nested anchors (user-defined)
+  // CoreConfigManager places extracted anchors at fullConfig.anchors (top-level)
+  // but user-defined anchors are at fullConfig.msd.anchors (nested)
+  // User anchors should override extracted anchors with same name
+  if (fullConfig.anchors && Object.keys(fullConfig.anchors).length > 0) {
+    mergedConfig.anchors = {
+      ...fullConfig.anchors,           // Extracted anchors (base layer)
+      ...(mergedConfig.anchors || {})  // User anchors (override layer)
+    };
+    lcardsLog.debug('[ConfigProcessor] Merged anchors after CoreConfigManager:', {
+      extractedCount: Object.keys(fullConfig.anchors).length,
+      userCount: Object.keys(mergedConfig.anchors || {}).length - Object.keys(fullConfig.anchors).length,
+      totalCount: Object.keys(mergedConfig.anchors).length
+    });
+  }
 
   // Convert CoreConfigManager result to MSD validation format
   const issues = {
