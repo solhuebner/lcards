@@ -355,12 +355,13 @@ export class LCARdSMSDCard extends LCARdSCard {
      * Called by core rulesManager when rules affecting this MSD are re-evaluated
      * @protected
      */
-    async _onRulePatchesChanged() {
+    _onRulePatchesChanged() {
         lcardsLog.debug('[LCARdSMSDCard] _onRulePatchesChanged - rules updated for MSD card');
 
         // Apply rule patches to overlay configs before re-rendering
         // this._lastRulePatches is inherited from LCARdSCard base class
         // Structure: { overlayId: { style: {...}, ... }, ... }
+        // ✨ Templates are now evaluated by RulesEngine before patches reach the card
         if (this._lastRulePatches && this._msdConfig?.overlays) {
             const patchKeys = Object.keys(this._lastRulePatches);
             lcardsLog.debug('[LCARdSMSDCard] Applying rule patches to overlays:', {
@@ -370,35 +371,10 @@ export class LCARdSMSDCard extends LCARdSCard {
             });
 
             // CRITICAL: Overlay objects are frozen - we must create NEW overlay objects, not mutate
-            // Create a new overlays array with patched copies
-            // CRITICAL: Evaluate templates in patch values before applying (rules can contain Jinja2 templates)
-            const evaluatedPatches = {};
-            for (const overlayId of patchKeys) {
-                const patch = this._lastRulePatches[overlayId];
-                evaluatedPatches[overlayId] = { ...patch };
-
-                // Evaluate templates in style properties
-                if (patch.style) {
-                    evaluatedPatches[overlayId].style = {};
-                    for (const [key, value] of Object.entries(patch.style)) {
-                        if (typeof value === 'string') {
-                            // Evaluate template (supports Jinja2, JavaScript, Tokens, DataSource)
-                            evaluatedPatches[overlayId].style[key] = await this.processTemplate(value);
-                            lcardsLog.debug(`[LCARdSMSDCard] Evaluated template for ${overlayId}.style.${key}:`, {
-                                original: value,
-                                evaluated: evaluatedPatches[overlayId].style[key]
-                            });
-                        } else {
-                            evaluatedPatches[overlayId].style[key] = value;
-                        }
-                    }
-                }
-            }
-
             this._msdConfig.overlays = this._msdConfig.overlays.map(overlay => {
                 const overlayId = overlay.id;
-                if (overlayId && evaluatedPatches[overlayId]) {
-                    const patch = evaluatedPatches[overlayId];
+                if (overlayId && this._lastRulePatches[overlayId]) {
+                    const patch = this._lastRulePatches[overlayId];
 
                     // Create new overlay object with patches applied
                     const patchedOverlay = { ...overlay };

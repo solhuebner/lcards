@@ -170,30 +170,10 @@ export class TemplateDetector {
     const hasControlStructures = content.includes('{%');
     const hasComments = content.includes('{#');
 
-    if (!hasExpressions && !hasControlStructures && !hasComments) {
-      return false;
-    }
-
-    // Jinja2 indicators requiring server-side rendering:
-    // - Function calls: states(), state_attr(), now(), etc.
-    // - Filters: | round, | float, | int, etc.
-    // - Control structures: {% if %}, {% for %}, {% set %}, etc.
-    // - Comments: {# comment #}
-    // - Dot notation to states object: states.domain.entity_id.attribute
-
-    const jinja2Patterns = [
-      /\{\{\s*states\s*\(/,              // {{states('entity')}}
-      /\{\{\s*state_attr\s*\(/,          // {{state_attr('entity', 'attr')}}
-      /\{\{\s*now\s*\(/,                 // {{now()}}
-      /\{\{\s*is_state\s*\(/,            // {{is_state('entity', 'on')}}
-      /\{\{\s*has_value\s*\(/,           // {{has_value('entity')}}
-      /\{\{\s*states\.[a-z_]+\.[a-z0-9_]+/i,  // {{states.domain.entity_id}} dot notation
-      /\{\{[^}]*\|[^}]+\}\}/,            // {{value | filter}}
-      /\{%[\s\S]*?%\}/,                  // {% if/for/set/etc %}
-      /\{#[\s\S]*?#\}/                   // {# comment #}
-    ];
-
-    return jinja2Patterns.some(pattern => pattern.test(content));
+    // SIMPLIFIED LOGIC: Since LCARdS tokens use single braces {token},
+    // ANY double-brace {{ or control structure {% is DEFINITIVELY Jinja2.
+    // No need for complex pattern matching - if we see these markers, it's Jinja2.
+    return hasExpressions || hasControlStructures || hasComments;
   }
 
   /**

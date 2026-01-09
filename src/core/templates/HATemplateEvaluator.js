@@ -75,8 +75,19 @@ export class HATemplateEvaluator extends TemplateEvaluator {
    * @throws {Error} If hass connection is unavailable or API call fails
    */
   async _renderTemplate(template) {
-    if (!this.context.hass || !this.context.hass.connection) {
-      throw new Error('Home Assistant connection not available');
+    const hass = this.context.hass || this.hass;
+    if (!hass) {
+      throw new Error('Home Assistant object not available');
+    }
+
+    if (!hass.connection) {
+      // Connection not ready yet - wait a bit and retry
+      lcardsLog.debug('[HATemplateEvaluator] Connection not ready, waiting for HA connection...');
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      if (!hass.connection) {
+        throw new Error('Home Assistant connection not available after wait');
+      }
     }
 
     return new Promise((resolve, reject) => {
@@ -87,7 +98,7 @@ export class HATemplateEvaluator extends TemplateEvaluator {
       }, 5000);
 
       // Subscribe to render_template - it will immediately return result
-      this.context.hass.connection.subscribeMessage(
+      hass.connection.subscribeMessage(
         (result) => {
           clearTimeout(timeout);
           if (unsubscribe) unsubscribe();

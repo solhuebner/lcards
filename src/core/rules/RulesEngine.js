@@ -95,17 +95,18 @@ export class RulesEngine extends BaseService {
       return;
     }
 
+    // Create evaluator WITHOUT hass in context - we'll update it before each evaluation
+    // This ensures we always use fresh hass with current connection state
     this._templateEvaluator = new UnifiedTemplateEvaluator({
-      hass: hass,
+      hass: null, // Will be updated before evaluation
       context: {
-        hass: hass,
         config: {},
         variables: {}
       },
       dataSourceManager: this.dataSourceManager
     });
 
-    lcardsLog.debug('[RulesEngine] Template evaluator initialized for Jinja2/JS conditions');
+    lcardsLog.debug('[RulesEngine] Template evaluator initialized (hass will be updated on each evaluation)');
   }
 
   /**
@@ -592,7 +593,7 @@ export class RulesEngine extends BaseService {
 
       if (matched && rule.apply) {
         // Resolve overlay selectors to patches (supports bulk targeting)
-        result.overlayPatches = this._resolveOverlaySelectors(rule.apply, contextOverlays);  // ✨ CHANGED: Pass contextOverlays
+        result.overlayPatches = await this._resolveOverlaySelectors(rule.apply, contextOverlays);  // ✨ CHANGED: await async call
 
         // Add ruleId and condition info to each patch for provenance tracking
         if (result.overlayPatches) {
@@ -712,7 +713,7 @@ export class RulesEngine extends BaseService {
    * @returns {Array<Object>} Array of overlay patches with {id, style, ...}
    * @private
    */
-  _resolveOverlaySelectors(ruleApply, contextOverlays = null) {  // ✨ CHANGED: Accept overlays parameter
+  async _resolveOverlaySelectors(ruleApply, contextOverlays = null) {  // ✨ CHANGED: Made async for template evaluation
     if (!ruleApply.overlays) return [];
 
     const startTime = performance.now();
@@ -838,19 +839,114 @@ export class RulesEngine extends BaseService {
     }
 
     const patches = Array.from(patchMap.values());
+
+    // ✨ NEW: Evaluate templates in patch values (Jinja2, JavaScript, Tokens, DataSources)
+    // This must happen BEFORE patches are sent to cards so they receive evaluated values
+    const evaluatedPatches = await this._evaluateTemplatesInPatches(patches);
+
     const resolutionTime = performance.now() - startTime;
 
     perfCount('rules.selector.resolutions', 1);
-    perfCount('rules.selector.patches', patches.length);
+    perfCount('rules.selector.patches', evaluatedPatches.length);
 
     lcardsLog.debug('[RulesEngine] Selector resolution complete:', {
       selectors: Object.keys(ruleApply.overlays).filter(k => k !== 'exclude').length,
       excluded: excludeIds.size,
-      patchesGenerated: patches.length,
+      patchesGenerated: evaluatedPatches.length,
       resolutionTime: `${resolutionTime.toFixed(2)}ms`
     });
 
-    return patches;
+    return evaluatedPatches;
+  }
+
+  /**
+   * Evaluate templates in patch values recursively
+   * Handles Jinja2, JavaScript, Tokens, and DataSource templates
+   *
+   * @private
+   * @param {Array} patches - Array of patch objects
+   * @returns {Promise<Array>} Patches with evaluated templates
+   */
+  async _evaluateTemplatesInPatches(patches) {
+    if (!patches || patches.length === 0) return patches;
+    if (!this._templateEvaluator) {
+      lcardsLog.warn('[RulesEngine] No template evaluator available for patch evaluation');
+      return patches;
+    }
+
+    // Update template evaluator with FRESH hass (ensures connection is available)
+    const freshHass = this._systemsManager?.getHass();
+    if (freshHass) {
+      this._templateEvaluator.hass = freshHass;
+      this._templateEvaluator.context.hass = freshHass;
+      lcardsLog.debug('[RulesEngine] Updated template evaluator with fresh hass', {
+        hasConnection: !!freshHass.connection,
+        connectionType: freshHass.connection?.constructor?.name
+      });
+    } else {
+      lcardsLog.warn('[RulesEngine] No hass available for template evaluation');
+    }
+
+    const evaluatedPatches = [];
+
+    for (const patch of patches) {
+      const evaluatedPatch = { ...patch };
+
+      // Evaluate templates in style properties
+      if (patch.style) {
+        evaluatedPatch.style = {};
+        for (const [key, value] of Object.entries(patch.style)) {
+          if (typeof value === 'string') {
+            try {
+              // Use template evaluator to handle all template types
+              const evaluated = await this._templateEvaluator.evaluateAsync(value);
+              evaluatedPatch.style[key] = evaluated;
+
+              // Log if value changed (template was evaluated)
+              if (evaluated !== value) {
+                lcardsLog.debug(`[RulesEngine] Evaluated template in patch ${patch.id}.style.${key}:`, {
+                  original: value,
+                  evaluated: evaluated
+                });
+              }
+            } catch (error) {
+              lcardsLog.error(`[RulesEngine] Template evaluation failed for ${patch.id}.style.${key}:`, error);
+              evaluatedPatch.style[key] = value; // Use original value on error
+            }
+          } else {
+            evaluatedPatch.style[key] = value;
+          }
+        }
+      }
+
+      // Evaluate templates in other top-level properties (like text content, etc.)
+      for (const [key, value] of Object.entries(patch)) {
+        if (key === 'style' || key === 'id' || key === 'ruleId' || key === 'ruleCondition') {
+          continue; // Skip already processed or metadata fields
+        }
+
+        if (typeof value === 'string') {
+          try {
+            const evaluated = await this._templateEvaluator.evaluateAsync(value);
+            evaluatedPatch[key] = evaluated;
+
+            if (evaluated !== value) {
+              lcardsLog.debug(`[RulesEngine] Evaluated template in patch ${patch.id}.${key}:`, {
+                original: value,
+                evaluated: evaluated
+              });
+            }
+          } catch (error) {
+            lcardsLog.error(`[RulesEngine] Template evaluation failed for ${patch.id}.${key}:`, error);
+            evaluatedPatch[key] = value;
+          }
+        }
+      }
+
+      evaluatedPatches.push(evaluatedPatch);
+    }
+
+    return evaluatedPatches;
   }
 
   /**
