@@ -4639,9 +4639,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 <!-- Channel Help -->
                 ${this._renderChannelHelp()}
             </div>
-
-            <!-- Channel Form Dialog -->
-            ${this._editingChannelId !== null ? this._renderChannelFormDialog() : ''}
         `;
     }
 
@@ -6194,6 +6191,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
             <!-- Line Form Dialog (Phase 4) -->
             ${this._showLineForm ? this._renderLineFormDialog() : ''}
+
+            <!-- Channel Form Dialog (Phase 5) -->
+            ${this._editingChannelId !== null ? this._renderChannelFormDialog() : ''}
         `;
     }
 }
