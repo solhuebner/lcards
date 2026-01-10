@@ -101,6 +101,14 @@ export class MsdDebugRenderer {
     // REDUCED: Only log when actually rendering features
     lcardsLog.debug('[MsdDebugRenderer] 🔍 Rendering debug features', debugState);
 
+    // Render grid if enabled (Phase 2)
+    if (opts.grid || debugState.grid) {
+      this.renderCoordinateGrid(viewBox, {
+        spacing: opts.gridSpacing || debugState.gridSpacing || 50,
+        showLabels: true
+      });
+    }
+
     // Render enabled features using DebugManager state
     if (debugState.anchors && opts.anchors) {
       this.renderAnchorMarkers(opts.anchors);
@@ -311,6 +319,93 @@ export class MsdDebugRenderer {
 
     group.innerHTML = crosshair + label;
     return group;
+  }
+
+  /**
+   * Render coordinate grid for visual reference
+   * @param {Array} viewBox - ViewBox [minX, minY, width, height]
+   * @param {Object} options - Grid options
+   * @param {number} options.spacing - Grid spacing (default: 50)
+   * @param {string} options.color - Grid line color (default: 'rgba(255, 255, 255, 0.2)')
+   * @param {number} options.strokeWidth - Line stroke width (default: 0.5)
+   * @param {boolean} options.showLabels - Show coordinate labels (default: true)
+   * @returns {string} SVG markup for grid
+   */
+  renderCoordinateGrid(viewBox, options = {}) {
+    if (!this.debugLayer) return '';
+
+    const spacing = options.spacing || 50;
+    const color = options.color || 'rgba(255, 255, 255, 0.2)';
+    const strokeWidth = options.strokeWidth || 0.5;
+    const showLabels = options.showLabels !== false;
+
+    const [minX, minY, width, height] = viewBox;
+    const maxX = minX + width;
+    const maxY = minY + height;
+
+    const doc = this.debugLayer.ownerDocument;
+    const gridGroup = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
+    gridGroup.setAttribute('class', 'msd-debug-grid');
+    gridGroup.setAttribute('opacity', '0.5');
+
+    // Vertical lines
+    for (let x = Math.ceil(minX / spacing) * spacing; x <= maxX; x += spacing) {
+      const line = doc.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', x);
+      line.setAttribute('y1', minY);
+      line.setAttribute('x2', x);
+      line.setAttribute('y2', maxY);
+      line.setAttribute('stroke', color);
+      line.setAttribute('stroke-width', strokeWidth);
+      gridGroup.appendChild(line);
+
+      // Add coordinate label
+      if (showLabels && x % (spacing * 2) === 0) {
+        const text = doc.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', x);
+        text.setAttribute('y', minY + 12);
+        text.setAttribute('fill', color);
+        text.setAttribute('font-size', 10);
+        text.setAttribute('font-family', 'monospace');
+        text.textContent = x;
+        gridGroup.appendChild(text);
+      }
+    }
+
+    // Horizontal lines
+    for (let y = Math.ceil(minY / spacing) * spacing; y <= maxY; y += spacing) {
+      const line = doc.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', minX);
+      line.setAttribute('y1', y);
+      line.setAttribute('x2', maxX);
+      line.setAttribute('y2', y);
+      line.setAttribute('stroke', color);
+      line.setAttribute('stroke-width', strokeWidth);
+      gridGroup.appendChild(line);
+
+      // Add coordinate label
+      if (showLabels && y % (spacing * 2) === 0) {
+        const text = doc.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', minX + 4);
+        text.setAttribute('y', y - 2);
+        text.setAttribute('fill', color);
+        text.setAttribute('font-size', 10);
+        text.setAttribute('font-family', 'monospace');
+        text.textContent = y;
+        gridGroup.appendChild(text);
+      }
+    }
+
+    // Append grid to debug layer
+    // Remove existing grid first
+    const existingGrid = this.debugLayer.querySelector('.msd-debug-grid');
+    if (existingGrid) {
+      existingGrid.remove();
+    }
+    this.debugLayer.insertBefore(gridGroup, this.debugLayer.firstChild); // Insert at beginning so it's behind other elements
+
+    lcardsLog.debug('[MsdDebugRenderer] Rendered coordinate grid', { viewBox, spacing });
+    return gridGroup.outerHTML;
   }
 
   /**
