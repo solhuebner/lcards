@@ -87,6 +87,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             _showAnchorMarkers: { type: Boolean, state: true },  // Show all anchor markers
             _showBoundingBoxes: { type: Boolean, state: true },  // Show all control bounding boxes
             _showRoutingPaths: { type: Boolean, state: true },  // Show all line routing paths
+            _showRoutingChannels: { type: Boolean, state: true },  // Show all routing channel areas
             _showAttachmentPoints: { type: Boolean, state: true },  // Show 9-point attachment grid
             // Controls Tab Properties
             _showControlForm: { type: Boolean, state: true },
@@ -2480,8 +2481,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
             // Try to find in overlays
             const overlays = this._workingConfig.msd?.overlays || [];
             const overlay = overlays.find(o => o.id === line.anchor);
-            if (overlay && overlay.position) {
-                startPos = overlay.position;
+            if (overlay) {
+                if (overlay.position) {
+                    startPos = overlay.position;
+                } else if (overlay.anchor) {
+                    startPos = OverlayUtils.resolvePosition(overlay.anchor, allAnchors);
+                }
             }
         }
 
@@ -2490,8 +2495,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
             // Try to find in overlays
             const overlays = this._workingConfig.msd?.overlays || [];
             const overlay = overlays.find(o => o.id === line.attach_to);
-            if (overlay && overlay.position) {
-                endPos = overlay.position;
+            if (overlay) {
+                if (overlay.position) {
+                    endPos = overlay.position;
+                } else if (overlay.anchor) {
+                    endPos = OverlayUtils.resolvePosition(overlay.anchor, allAnchors);
+                }
             }
         }
 
@@ -2647,6 +2656,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
     _renderGridOverlay() {
         if (!this._showGrid) return '';
 
+        console.log('[MSDStudio] _renderGridOverlay called, _showGrid:', this._showGrid);
+
         // Get viewBox from config
         const viewBox = this._workingConfig.msd?.view_box;
         let viewBoxX = 0, viewBoxY = 0, viewBoxWidth = 1920, viewBoxHeight = 1200;
@@ -2673,40 +2684,73 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
         // Get SVG for coordinate conversion
         const livePreview = this.shadowRoot.querySelector('lcards-msd-live-preview');
-        if (!livePreview) return '';
+        if (!livePreview) {
+            console.log('[MSDStudio] Could not find lcards-msd-live-preview');
+            return '';
+        }
 
         const livePreviewShadow = livePreview.shadowRoot;
-        if (!livePreviewShadow) return '';
+        if (!livePreviewShadow) {
+            console.log('[MSDStudio] Could not find livePreview.shadowRoot');
+            return '';
+        }
 
         const cardContainer = livePreviewShadow.querySelector('.preview-card-container');
-        if (!cardContainer) return '';
+        if (!cardContainer) {
+            console.log('[MSDStudio] Could not find .preview-card-container');
+            return '';
+        }
 
         const msdCard = cardContainer.querySelector('lcards-msd-card');
-        if (!msdCard) return '';
+        if (!msdCard) {
+            console.log('[MSDStudio] Could not find lcards-msd-card');
+            return '';
+        }
 
         const shadowRoot = msdCard.shadowRoot || msdCard.renderRoot;
-        if (!shadowRoot) return '';
+        if (!shadowRoot) {
+            console.log('[MSDStudio] Could not find msdCard.shadowRoot');
+            return '';
+        }
 
         const svg = shadowRoot.querySelector('svg');
-        if (!svg) return '';
+        if (!svg) {
+            console.log('[MSDStudio] Could not find svg');
+            return '';
+        }
+
+        console.log('[MSDStudio] Found SVG, calculating grid...');
+        console.log('[MSDStudio] Grid lines:', { verticalLines: verticalLines.length, horizontalLines: horizontalLines.length });
+        console.log('[MSDStudio] ViewBox:', { viewBoxX, viewBoxY, viewBoxWidth, viewBoxHeight });
 
         const rect = svg.getBoundingClientRect();
         const previewPanel = this.shadowRoot.querySelector('.preview-panel');
         if (!previewPanel) return '';
         const panelRect = previewPanel.getBoundingClientRect();
 
+        console.log('[MSDStudio] SVG Rect:', rect);
+        console.log('[MSDStudio] Panel rect:', panelRect);
+
         // Calculate scale
         const scaleX = viewBoxWidth / rect.width;
         const scaleY = viewBoxHeight / rect.height;
         const scale = Math.max(scaleX, scaleY);
+
+        console.log('[MSDStudio] Scale:', { scaleX, scaleY, scale });
 
         const renderedWidth = viewBoxWidth / scale;
         const renderedHeight = viewBoxHeight / scale;
         const offsetX = (rect.width - renderedWidth) / 2;
         const offsetY = (rect.height - renderedHeight) / 2;
 
+        // Calculate preview panel dimensions for full-height/width lines
+        const panelWidth = panelRect.width;
+        const panelHeight = panelRect.height;
+
+        console.log('[MSDStudio] Rendering grid with', verticalLines.length, 'vertical and', horizontalLines.length, 'horizontal lines');
+
         return html`
-            <svg style="
+            <div style="
                 position: absolute;
                 top: 0;
                 left: 0;
@@ -2719,32 +2763,33 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     const svgPixelX = (x - viewBoxX) / scale + offsetX;
                     const pixelX = (rect.left - panelRect.left) + svgPixelX;
                     return html`
-                        <line
-                            x1="${pixelX}"
-                            y1="0"
-                            x2="${pixelX}"
-                            y2="100%"
-                            stroke="${gridColor}"
-                            stroke-width="1"
-                            opacity="0.3"
-                        />
+                        <div style="
+                            position: absolute;
+                            left: ${pixelX}px;
+                            top: 0;
+                            width: 1px;
+                            height: 100%;
+                            background: ${gridColor};
+                            opacity: 0.3;
+                        "></div>
                     `;
                 })}
                 ${horizontalLines.map(y => {
                     const svgPixelY = (y - viewBoxY) / scale + offsetY;
                     const pixelY = (rect.top - panelRect.top) + svgPixelY;
                     return html`
-                        <line
-                            x1="0"
-                            y1="${pixelY}"
-                            x2="100%"
-                            y2="${pixelY}"
-                            stroke="${gridColor}"
-                            stroke-width="1"
-                            opacity="0.3"
-                        />
+                        <div style="
+                            position: absolute;
+                            left: 0;
+                            top: ${pixelY}px;
+                            width: 100%;
+                            height: 1px;
+                            background: ${gridColor};
+                            opacity: 0.3;
+                        "></div>
                     `;
                 })}
+            </div>
             </svg>
         `;
     }
@@ -2998,14 +3043,21 @@ export class LCARdSMSDStudioDialog extends LitElement {
     _renderRoutingPaths() {
         if (!this._showRoutingPaths) return '';
 
-        const lines = this._workingConfig.msd?.lines || [];
-        if (lines.length === 0) return '';
+        console.log('[MSDStudio] _renderRoutingPaths called, _showRoutingPaths:', this._showRoutingPaths);
+
+        const overlays = this._workingConfig.msd?.overlays || [];
+        const lines = overlays.filter(o => o.type === 'line');
+        if (lines.length === 0) {
+            console.log('[MSDStudio] No line overlays found');
+            return '';
+        }
+
+        console.log('[MSDStudio] Found', lines.length, 'line overlays');
 
         // Get all anchors (user + base_svg)
         const userAnchors = this._workingConfig.msd?.anchors || {};
         const baseSvgAnchors = this._getBaseSvgAnchors();
         const allAnchors = { ...userAnchors, ...baseSvgAnchors };
-        const overlays = this._workingConfig.msd?.overlays || [];
 
         // Get SVG for coordinate conversion
         const livePreview = this.shadowRoot.querySelector('lcards-msd-live-preview');
@@ -3063,7 +3115,11 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     if (!startPos) {
                         const overlay = overlays.find(o => o.id === line.anchor);
                         if (overlay) {
-                            startPos = overlay.position || overlay.anchor;
+                            if (overlay.position) {
+                                startPos = overlay.position;
+                            } else if (overlay.anchor) {
+                                startPos = OverlayUtils.resolvePosition(overlay.anchor, allAnchors);
+                            }
                         }
                     }
 
@@ -3072,7 +3128,11 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     if (!endPos) {
                         const overlay = overlays.find(o => o.id === line.attach_to);
                         if (overlay) {
-                            endPos = overlay.position || overlay.anchor;
+                            if (overlay.position) {
+                                endPos = overlay.position;
+                            } else if (overlay.anchor) {
+                                endPos = OverlayUtils.resolvePosition(overlay.anchor, allAnchors);
+                            }
                         }
                     }
 
@@ -3117,6 +3177,124 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
+     * Render persistent routing channels overlay
+     * Shows all routing channel areas when toggled on in Lines tab
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderChannelsOverlay() {
+        if (!this._showRoutingChannels) return '';
+
+        console.log('[MSDStudio] _renderChannelsOverlay called, _showRoutingChannels:', this._showRoutingChannels);
+
+        const channels = this._workingConfig.msd?.channels || {};
+        if (Object.keys(channels).length === 0) {
+            console.log('[MSDStudio] No channels found');
+            return '';
+        }
+
+        console.log('[MSDStudio] Found', Object.keys(channels).length, 'channels');
+
+        // Get SVG for coordinate conversion
+        const livePreview = this.shadowRoot.querySelector('lcards-msd-live-preview');
+        if (!livePreview) return '';
+
+        const livePreviewShadow = livePreview.shadowRoot;
+        if (!livePreviewShadow) return '';
+
+        const cardContainer = livePreviewShadow.querySelector('.preview-card-container');
+        if (!cardContainer) return '';
+
+        const msdCard = cardContainer.querySelector('lcards-msd-card');
+        if (!msdCard) return '';
+
+        const shadowRoot = msdCard.shadowRoot || msdCard.renderRoot;
+        if (!shadowRoot) return '';
+
+        const svg = shadowRoot.querySelector('svg');
+        if (!svg) return '';
+
+        const viewBox = this._workingConfig.msd?.view_box;
+        let viewBoxX = 0, viewBoxY = 0, viewBoxWidth = 1920, viewBoxHeight = 1200;
+
+        if (Array.isArray(viewBox) && viewBox.length === 4) {
+            [viewBoxX, viewBoxY, viewBoxWidth, viewBoxHeight] = viewBox;
+        }
+
+        const rect = svg.getBoundingClientRect();
+        const previewPanel = this.shadowRoot.querySelector('.preview-panel');
+        if (!previewPanel) return '';
+        const panelRect = previewPanel.getBoundingClientRect();
+
+        const scaleX = viewBoxWidth / rect.width;
+        const scaleY = viewBoxHeight / rect.height;
+        const scale = Math.max(scaleX, scaleY);
+
+        const renderedWidth = viewBoxWidth / scale;
+        const renderedHeight = viewBoxHeight / scale;
+        const offsetX = (rect.width - renderedWidth) / 2;
+        const offsetY = (rect.height - renderedHeight) / 2;
+
+        return html`
+            <div style="
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+                z-index: 997;
+            ">
+                ${Object.entries(channels).map(([channelId, channel]) => {
+                    if (!channel.bounds || !Array.isArray(channel.bounds) || channel.bounds.length !== 4) return '';
+
+                    const [x, y, width, height] = channel.bounds;
+
+                    const svgPixelX = (x - viewBoxX) / scale + offsetX;
+                    const svgPixelY = (y - viewBoxY) / scale + offsetY;
+                    const pixelWidth = width / scale;
+                    const pixelHeight = height / scale;
+
+                    const pixelX = (rect.left - panelRect.left) + svgPixelX;
+                    const pixelY = (rect.top - panelRect.top) + svgPixelY;
+
+                    const color = channel.color || '#00FFAA';
+
+                    return html`
+                        <!-- Channel rectangle -->
+                        <div style="
+                            position: absolute;
+                            left: ${pixelX}px;
+                            top: ${pixelY}px;
+                            width: ${pixelWidth}px;
+                            height: ${pixelHeight}px;
+                            border: 2px dashed ${color};
+                            background: ${color}22;
+                            opacity: 0.6;
+                        "></div>
+                        <!-- Channel ID label -->
+                        <div style="
+                            position: absolute;
+                            left: ${pixelX + 4}px;
+                            top: ${pixelY + 4}px;
+                            background: ${color};
+                            color: black;
+                            padding: 2px 6px;
+                            border-radius: 3px;
+                            font-family: 'Courier New', monospace;
+                            font-size: 10px;
+                            font-weight: 700;
+                            white-space: nowrap;
+                        ">
+                            ${channelId}
+                        </div>
+                    `;
+                })}
+            </div>
+        `;
+    }
+
+    /**
      * Render channel highlight overlay
      * Shows pulsing highlight around selected channel
      * @returns {TemplateResult}
@@ -3128,9 +3306,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
         // Find the channel
         const channels = this._workingConfig.msd?.channels || {};
         const channel = channels[this._highlightedChannel];
-        if (!channel || !channel.rect) return '';
+        if (!channel || !channel.bounds) return '';
 
-        const [x, y, width, height] = channel.rect;
+        const [x, y, width, height] = channel.bounds;
 
         // Get SVG element and calculate pixel positions
         const livePreview = this.shadowRoot.querySelector('lcards-msd-live-preview');
@@ -4189,9 +4367,10 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         </ha-formfield>
                         <ha-formfield label="Show Routing Channels">
                             <ha-switch
-                                ?checked=${this._debugSettings.routing_channels}
+                                ?checked=${this._showRoutingChannels}
                                 @change=${(e) => {
-                                    this._updateDebugSetting('routing_channels', e.target.checked);
+                                    this._showRoutingChannels = e.target.checked;
+                                    this.requestUpdate();
                                 }}>
                             </ha-switch>
                         </ha-formfield>
@@ -4387,9 +4566,10 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     <div style="display: flex; flex-direction: column; gap: 12px;">
                         <ha-formfield label="Show Routing Channels">
                             <ha-switch
-                                ?checked=${this._debugSettings.routing_channels}
+                                ?checked=${this._showRoutingChannels}
                                 @change=${(e) => {
-                                    this._updateDebugSetting('routing_channels', e.target.checked);
+                                    this._showRoutingChannels = e.target.checked;
+                                    this.requestUpdate();
                                 }}>
                             </ha-switch>
                         </ha-formfield>
@@ -5956,6 +6136,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                             ${this._renderAnchorMarkers()}
                             ${this._renderBoundingBoxes()}
                             ${this._renderRoutingPaths()}
+                            ${this._renderChannelsOverlay()}
 
                             <!-- Temporary Highlights -->
                             ${this._renderAnchorHighlight()}
