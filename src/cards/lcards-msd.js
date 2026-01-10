@@ -13,6 +13,9 @@ import { lcardsLog } from '../utils/lcards-logging.js';
 import { initMsdPipeline } from '../msd/index.js';
 import { getMsdSchema } from './schemas/msd-schema.js';
 
+// Import editor component for getConfigElement()
+import '../editor/cards/lcards-msd-editor.js';
+
 /**
  * Native MSD Card implementation
  *
@@ -37,8 +40,7 @@ export class LCARdSMSDCard extends LCARdSCard {
      * @returns {HTMLElement} Editor element
      */
     static getConfigElement() {
-        // Import editor dynamically to avoid circular dependencies
-        import('../editor/cards/lcards-msd-editor.js');
+        // Static import - editor bundled with card (webpack config doesn't support splitting)
         return document.createElement('lcards-msd-editor');
     }
 
