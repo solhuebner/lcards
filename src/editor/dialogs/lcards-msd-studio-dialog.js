@@ -62,7 +62,19 @@ export class LCARdSMSDStudioDialog extends LitElement {
             _activeTab: { type: String, state: true },
             _activeMode: { type: String, state: true },
             _validationErrors: { type: Array, state: true },
-            _debugSettings: { type: Object, state: true }
+            _debugSettings: { type: Object, state: true },
+            // Base SVG Tab Properties
+            _viewBoxMode: { type: String, state: true }, // 'auto' or 'custom'
+            _customFiltersEnabled: { type: Boolean, state: true },
+            // Anchors Tab Properties
+            _showAnchorForm: { type: Boolean, state: true },
+            _editingAnchorName: { type: String, state: true },
+            _anchorFormName: { type: String, state: true },
+            _anchorFormPosition: { type: Array, state: true },
+            _anchorFormUnit: { type: String, state: true },
+            _showGrid: { type: Boolean, state: true },
+            _gridSpacing: { type: Number, state: true },
+            _snapToGrid: { type: Boolean, state: true }
         };
     }
 
@@ -79,11 +91,26 @@ export class LCARdSMSDStudioDialog extends LitElement {
             bounding_boxes: true,
             attachment_points: false,
             routing_channels: false,
-            line_paths: true
+            line_paths: true,
+            grid: false
         };
 
         // Debounce timer for preview updates
         this._previewUpdateTimer = null;
+
+        // Base SVG Tab State
+        this._viewBoxMode = 'auto';
+        this._customFiltersEnabled = false;
+
+        // Anchors Tab State
+        this._showAnchorForm = false;
+        this._editingAnchorName = null;
+        this._anchorFormName = '';
+        this._anchorFormPosition = [0, 0];
+        this._anchorFormUnit = 'vb';
+        this._showGrid = false;
+        this._gridSpacing = 50;
+        this._snapToGrid = false;
 
         lcardsLog.debug('[MSDStudio] Initialized');
     }
@@ -582,18 +609,283 @@ export class LCARdSMSDStudioDialog extends LitElement {
         `;
     }
 
+    // ============================
+    // Base SVG Tab Helper Methods
+    // ============================
+
+    /**
+     * Render SVG source helper text
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderSvgSourceHelper() {
+        return html`
+            <ha-alert alert-type="info">
+                <strong>Builtin Templates:</strong><br>
+                • builtin:ncc-1701-a (Enterprise-A)<br>
+                • builtin:ncc-1701-a-blue (Enterprise-A Blue)<br>
+                • builtin:ncc-1701-d (Enterprise-D)<br>
+                <br>
+                <strong>Custom SVG:</strong><br>
+                • /local/my-ship.svg (from www/ folder)<br>
+                • /hacsfiles/lcards/ships/custom.svg<br>
+            </ha-alert>
+        `;
+    }
+
+    /**
+     * Render viewBox helper text
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderViewBoxHelper() {
+        return html`
+            <ha-alert alert-type="info">
+                ViewBox defines the coordinate system for your MSD display.<br>
+                <strong>Auto:</strong> Extract from SVG (recommended)<br>
+                <strong>Custom:</strong> Define [minX, minY, width, height] manually
+            </ha-alert>
+        `;
+    }
+
+    /**
+     * Render custom filters sliders
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderCustomFilters() {
+        const filters = this._workingConfig.msd?.base_svg?.filters || {};
+
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 12px; padding: 12px; background: var(--secondary-background-color); border-radius: 8px;">
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{ number: { min: 0, max: 1, step: 0.1, mode: 'slider' } }}
+                    .value=${filters.opacity ?? 1}
+                    .label=${'Opacity'}
+                    @value-changed=${(e) => this._setNestedValue('msd.base_svg.filters.opacity', e.detail.value)}>
+                </ha-selector>
+
+                <ha-textfield
+                    type="text"
+                    label="Blur (px)"
+                    .value=${filters.blur || '0px'}
+                    @input=${(e) => this._setNestedValue('msd.base_svg.filters.blur', e.target.value)}
+                    helper-text="e.g., 0px, 2px, 5px">
+                </ha-textfield>
+
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{ number: { min: 0, max: 2, step: 0.1, mode: 'slider' } }}
+                    .value=${filters.brightness ?? 1}
+                    .label=${'Brightness'}
+                    @value-changed=${(e) => this._setNestedValue('msd.base_svg.filters.brightness', e.detail.value)}>
+                </ha-selector>
+
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{ number: { min: 0, max: 2, step: 0.1, mode: 'slider' } }}
+                    .value=${filters.contrast ?? 1}
+                    .label=${'Contrast'}
+                    @value-changed=${(e) => this._setNestedValue('msd.base_svg.filters.contrast', e.detail.value)}>
+                </ha-selector>
+
+                <ha-selector
+                    .hass=${this.hass}
+                    .selector=${{ number: { min: 0, max: 1, step: 0.1, mode: 'slider' } }}
+                    .value=${filters.grayscale ?? 0}
+                    .label=${'Grayscale'}
+                    @value-changed=${(e) => this._setNestedValue('msd.base_svg.filters.grayscale', e.detail.value)}>
+                </ha-selector>
+            </div>
+        `;
+    }
+
+    /**
+     * Handle viewBox mode change
+     * @param {string} mode - 'auto' or 'custom'
+     * @private
+     */
+    _handleViewBoxModeChange(mode) {
+        this._viewBoxMode = mode;
+        if (mode === 'auto') {
+            // Remove explicit view_box when switching to auto
+            if (this._workingConfig.msd?.view_box) {
+                delete this._workingConfig.msd.view_box;
+                this._schedulePreviewUpdate();
+            }
+        } else {
+            // Initialize view_box array if not present
+            if (!this._workingConfig.msd.view_box) {
+                this._setNestedValue('msd.view_box', [0, 0, 400, 200]);
+            }
+        }
+        this.requestUpdate();
+    }
+
+    /**
+     * Update viewBox value at specific index
+     * @param {number} index - Index in viewBox array (0-3)
+     * @param {string} value - New value
+     * @private
+     */
+    _updateViewBoxValue(index, value) {
+        const viewBox = [...(this._workingConfig.msd?.view_box || [0, 0, 400, 200])];
+        viewBox[index] = parseFloat(value) || 0;
+        this._setNestedValue('msd.view_box', viewBox);
+    }
+
+    /**
+     * Disable custom filters
+     * @private
+     */
+    _disableCustomFilters() {
+        if (this._workingConfig.msd?.base_svg?.filters) {
+            delete this._workingConfig.msd.base_svg.filters;
+            this._schedulePreviewUpdate();
+            this.requestUpdate();
+        }
+    }
+
     /**
      * Render Base SVG tab (Phase 2)
      * @returns {TemplateResult}
      * @private
      */
     _renderBaseSvgTab() {
-        return this._renderPlaceholder(
-            'Base SVG Configuration',
-            'Configure the base SVG template for your MSD card. Select from builtin templates or provide a custom SVG. Configure viewBox dimensions and apply filters.',
-            'Phase 2',
-            'mdi:image'
-        );
+        // Initialize base_svg structure if not present
+        if (!this._workingConfig.msd) {
+            this._workingConfig.msd = {};
+        }
+        if (!this._workingConfig.msd.base_svg) {
+            this._workingConfig.msd.base_svg = { source: '' };
+        }
+
+        const baseSvg = this._workingConfig.msd.base_svg;
+        const viewBox = this._workingConfig.msd.view_box || [];
+
+        return html`
+            <div style="padding: 8px;">
+                <!-- SVG Source Section -->
+                <lcards-form-section
+                    header="SVG Source"
+                    description="Configure the base SVG template for your MSD display"
+                    ?expanded=${true}>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <ha-textfield
+                            label="SVG Source"
+                            .value=${baseSvg.source || ''}
+                            @input=${(e) => this._setNestedValue('msd.base_svg.source', e.target.value)}
+                            helper-text="Enter builtin template (e.g., builtin:ncc-1701-a) or custom path (e.g., /local/my-ship.svg)">
+                        </ha-textfield>
+                        ${this._renderSvgSourceHelper()}
+                    </div>
+                </lcards-form-section>
+
+                <!-- ViewBox Section -->
+                <lcards-form-section
+                    header="ViewBox"
+                    description="Configure the coordinate system for your MSD display"
+                    ?expanded=${true}>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <ha-formfield label="Auto-detect from SVG">
+                            <ha-radio
+                                name="viewbox-mode"
+                                value="auto"
+                                ?checked=${this._viewBoxMode === 'auto'}
+                                @change=${() => this._handleViewBoxModeChange('auto')}>
+                            </ha-radio>
+                        </ha-formfield>
+                        <ha-formfield label="Custom viewBox">
+                            <ha-radio
+                                name="viewbox-mode"
+                                value="custom"
+                                ?checked=${this._viewBoxMode === 'custom'}
+                                @change=${() => this._handleViewBoxModeChange('custom')}>
+                            </ha-radio>
+                        </ha-formfield>
+
+                        ${this._viewBoxMode === 'custom' ? html`
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 8px;">
+                                <ha-textfield
+                                    type="number"
+                                    label="Min X"
+                                    .value=${String(viewBox[0] || 0)}
+                                    @input=${(e) => this._updateViewBoxValue(0, e.target.value)}>
+                                </ha-textfield>
+                                <ha-textfield
+                                    type="number"
+                                    label="Min Y"
+                                    .value=${String(viewBox[1] || 0)}
+                                    @input=${(e) => this._updateViewBoxValue(1, e.target.value)}>
+                                </ha-textfield>
+                                <ha-textfield
+                                    type="number"
+                                    label="Width"
+                                    .value=${String(viewBox[2] || 400)}
+                                    @input=${(e) => this._updateViewBoxValue(2, e.target.value)}>
+                                </ha-textfield>
+                                <ha-textfield
+                                    type="number"
+                                    label="Height"
+                                    .value=${String(viewBox[3] || 200)}
+                                    @input=${(e) => this._updateViewBoxValue(3, e.target.value)}>
+                                </ha-textfield>
+                            </div>
+                        ` : ''}
+                        ${this._renderViewBoxHelper()}
+                    </div>
+                </lcards-form-section>
+
+                <!-- Filters Section -->
+                <lcards-form-section
+                    header="Filters"
+                    description="Apply visual filters to the base SVG"
+                    ?expanded=${true}>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <ha-selector
+                            .hass=${this.hass}
+                            .selector=${{
+                                select: {
+                                    options: [
+                                        { value: '', label: 'None' },
+                                        { value: 'dimmed', label: 'Dimmed' },
+                                        { value: 'subtle', label: 'Subtle' },
+                                        { value: 'backdrop', label: 'Backdrop' },
+                                        { value: 'faded', label: 'Faded' },
+                                        { value: 'red-alert', label: 'Red Alert' },
+                                        { value: 'monochrome', label: 'Monochrome' }
+                                    ]
+                                }
+                            }}
+                            .value=${baseSvg.filter_preset || ''}
+                            .label=${'Filter Preset'}
+                            @value-changed=${(e) => {
+                                this._setNestedValue('msd.base_svg.filter_preset', e.detail.value);
+                                if (!e.detail.value) {
+                                    // Clear preset when None selected
+                                    this._setNestedValue('msd.base_svg.filter_preset', undefined);
+                                }
+                            }}>
+                        </ha-selector>
+
+                        <ha-formfield label="Enable Custom Filters">
+                            <ha-switch
+                                ?checked=${this._customFiltersEnabled}
+                                @change=${(e) => {
+                                    this._customFiltersEnabled = e.target.checked;
+                                    if (!e.target.checked) {
+                                        this._disableCustomFilters();
+                                    }
+                                }}>
+                            </ha-switch>
+                        </ha-formfield>
+
+                        ${this._customFiltersEnabled ? this._renderCustomFilters() : ''}
+                    </div>
+                </lcards-form-section>
+            </div>
+        `;
     }
 
     /**
@@ -602,12 +894,502 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _renderAnchorsTab() {
-        return this._renderPlaceholder(
-            'Anchor Management',
-            'Create and manage named anchors for positioning overlays. Click on the preview to place anchors, or enter coordinates manually. Anchors serve as reference points for controls and lines.',
-            'Phase 2',
-            'mdi:map-marker'
-        );
+        // Initialize anchors structure if not present
+        if (!this._workingConfig.msd) {
+            this._workingConfig.msd = {};
+        }
+        if (!this._workingConfig.msd.anchors) {
+            this._workingConfig.msd.anchors = {};
+        }
+
+        const anchors = this._workingConfig.msd.anchors;
+        const anchorEntries = Object.entries(anchors);
+
+        return html`
+            <div style="padding: 8px;">
+                <!-- Anchor Actions -->
+                <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                    <ha-button @click=${this._openAnchorForm} raised>
+                        <ha-icon icon="mdi:map-marker-plus" slot="icon"></ha-icon>
+                        Add Anchor
+                    </ha-button>
+                    <ha-button @click=${() => this._setMode(MODES.PLACE_ANCHOR)} 
+                               ?disabled=${this._activeMode === MODES.PLACE_ANCHOR}>
+                        <ha-icon icon="mdi:cursor-default-click" slot="icon"></ha-icon>
+                        Place on Canvas
+                    </ha-button>
+                </div>
+
+                <!-- Coordinate Helpers -->
+                ${this._renderCoordinateHelpers()}
+
+                <!-- Anchor List -->
+                <lcards-form-section
+                    header="Anchors"
+                    description="Named reference points for positioning overlays"
+                    ?expanded=${true}>
+                    ${anchorEntries.length === 0 ? html`
+                        <div style="text-align: center; padding: 24px; color: var(--secondary-text-color);">
+                            <ha-icon icon="mdi:map-marker-off" style="--mdc-icon-size: 48px; opacity: 0.5;"></ha-icon>
+                            <p>No anchors defined. Click "Add Anchor" or "Place on Canvas" to create one.</p>
+                        </div>
+                    ` : html`
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            ${anchorEntries.map(([name, position]) => this._renderAnchorItem(name, position))}
+                        </div>
+                    `}
+                </lcards-form-section>
+
+                <!-- Anchor Form Dialog -->
+                ${this._showAnchorForm ? this._renderAnchorFormDialog() : ''}
+            </div>
+        `;
+    }
+
+    // ============================
+    // Anchors Tab Helper Methods
+    // ============================
+
+    /**
+     * Render coordinate helpers
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderCoordinateHelpers() {
+        return html`
+            <lcards-form-section
+                header="Coordinate Helpers"
+                description="Visual aids for precise anchor placement"
+                ?expanded=${false}>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <ha-formfield label="Show Grid Overlay">
+                        <ha-switch
+                            ?checked=${this._showGrid}
+                            @change=${(e) => {
+                                this._showGrid = e.target.checked;
+                                this._updateDebugSetting('grid', e.target.checked);
+                            }}>
+                        </ha-switch>
+                    </ha-formfield>
+
+                    <ha-selector
+                        .hass=${this.hass}
+                        .selector=${{
+                            select: {
+                                options: [
+                                    { value: 10, label: '10px' },
+                                    { value: 20, label: '20px' },
+                                    { value: 50, label: '50px' },
+                                    { value: 100, label: '100px' }
+                                ]
+                            }
+                        }}
+                        .value=${this._gridSpacing}
+                        .label=${'Grid Spacing'}
+                        @value-changed=${(e) => {
+                            this._gridSpacing = e.detail.value;
+                            this._updateDebugSetting('gridSpacing', e.detail.value);
+                        }}>
+                    </ha-selector>
+
+                    <ha-formfield label="Snap to Grid">
+                        <ha-switch
+                            ?checked=${this._snapToGrid}
+                            @change=${(e) => this._snapToGrid = e.target.checked}>
+                        </ha-switch>
+                    </ha-formfield>
+                </div>
+            </lcards-form-section>
+        `;
+    }
+
+    /**
+     * Render individual anchor item
+     * @param {string} name - Anchor name
+     * @param {Array} position - Anchor position [x, y]
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderAnchorItem(name, position) {
+        const [x, y] = Array.isArray(position) ? position : [0, 0];
+
+        return html`
+            <ha-card style="padding: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <ha-icon icon="mdi:map-marker" style="--mdc-icon-size: 32px; color: var(--primary-color);"></ha-icon>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; margin-bottom: 4px;">${name}</div>
+                        <div style="font-size: 12px; color: var(--secondary-text-color);">
+                            Position: [${x}, ${y}]
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <ha-icon-button
+                            @click=${() => this._editAnchor(name)}
+                            .label=${'Edit'}
+                            .path=${'M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z'}>
+                        </ha-icon-button>
+                        <ha-icon-button
+                            @click=${() => this._highlightAnchorInPreview(name)}
+                            .label=${'Highlight'}
+                            .path=${'M12,2A7,7 0 0,1 19,9C19,11.38 17.19,13.47 14.39,17.31C13.57,18.45 12.61,19.74 12,20.65C11.39,19.74 10.43,18.45 9.61,17.31C6.81,13.47 5,11.38 5,9A7,7 0 0,1 12,2M12,6A3,3 0 0,0 9,9A3,3 0 0,0 12,12A3,3 0 0,0 15,9A3,3 0 0,0 12,6Z'}>
+                        </ha-icon-button>
+                        <ha-icon-button
+                            @click=${() => this._deleteAnchor(name)}
+                            .label=${'Delete'}
+                            .path=${'M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z'}>
+                        </ha-icon-button>
+                    </div>
+                </div>
+            </ha-card>
+        `;
+    }
+
+    /**
+     * Render anchor form dialog
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderAnchorFormDialog() {
+        const isEditing = !!this._editingAnchorName;
+        const title = isEditing ? `Edit Anchor: ${this._editingAnchorName}` : 'Add Anchor';
+
+        return html`
+            <ha-dialog
+                open
+                @closed=${this._closeAnchorForm}
+                .heading=${title}>
+                <div style="display: flex; flex-direction: column; gap: 12px; padding: 8px;">
+                    <ha-textfield
+                        label="Anchor Name"
+                        .value=${this._anchorFormName}
+                        ?disabled=${isEditing}
+                        @input=${(e) => this._anchorFormName = e.target.value}
+                        required
+                        helper-text="Unique identifier for this anchor">
+                    </ha-textfield>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 100px; gap: 12px;">
+                        <ha-textfield
+                            type="number"
+                            label="X Position"
+                            .value=${String(this._anchorFormPosition[0] || 0)}
+                            @input=${(e) => this._updateAnchorFormPosition(0, e.target.value)}>
+                        </ha-textfield>
+                        <ha-textfield
+                            type="number"
+                            label="Y Position"
+                            .value=${String(this._anchorFormPosition[1] || 0)}
+                            @input=${(e) => this._updateAnchorFormPosition(1, e.target.value)}>
+                        </ha-textfield>
+                        <ha-selector
+                            .hass=${this.hass}
+                            .selector=${{
+                                select: {
+                                    options: [
+                                        { value: 'vb', label: 'vb' },
+                                        { value: 'px', label: 'px' },
+                                        { value: '%', label: '%' }
+                                    ]
+                                }
+                            }}
+                            .value=${this._anchorFormUnit}
+                            .label=${'Unit'}
+                            @value-changed=${(e) => this._anchorFormUnit = e.detail.value}>
+                        </ha-selector>
+                    </div>
+
+                    <ha-alert alert-type="info">
+                        <strong>Units:</strong><br>
+                        • <strong>vb</strong>: ViewBox coordinates (default)<br>
+                        • <strong>px</strong>: Pixel coordinates<br>
+                        • <strong>%</strong>: Percentage of viewBox dimensions
+                    </ha-alert>
+                </div>
+
+                <div slot="primaryAction">
+                    <ha-button @click=${this._saveAnchor}>
+                        <ha-icon icon="mdi:content-save" slot="icon"></ha-icon>
+                        Save
+                    </ha-button>
+                </div>
+
+                <div slot="secondaryAction">
+                    <ha-button @click=${this._closeAnchorForm}>
+                        <ha-icon icon="mdi:close" slot="icon"></ha-icon>
+                        Cancel
+                    </ha-button>
+                </div>
+            </ha-dialog>
+        `;
+    }
+
+    /**
+     * Open anchor form dialog
+     * @private
+     */
+    _openAnchorForm() {
+        this._showAnchorForm = true;
+        this._editingAnchorName = null;
+        this._anchorFormName = this._generateAnchorName();
+        this._anchorFormPosition = [0, 0];
+        this._anchorFormUnit = 'vb';
+        this.requestUpdate();
+    }
+
+    /**
+     * Edit existing anchor
+     * @param {string} name - Anchor name to edit
+     * @private
+     */
+    _editAnchor(name) {
+        const position = this._workingConfig.msd?.anchors?.[name];
+        if (!position) return;
+
+        this._showAnchorForm = true;
+        this._editingAnchorName = name;
+        this._anchorFormName = name;
+        this._anchorFormPosition = Array.isArray(position) ? [...position] : [0, 0];
+        this._anchorFormUnit = 'vb';
+        this.requestUpdate();
+    }
+
+    /**
+     * Save anchor (create or update)
+     * @private
+     */
+    _saveAnchor() {
+        // Validate name
+        if (!this._anchorFormName || this._anchorFormName.trim() === '') {
+            alert('Anchor name is required');
+            return;
+        }
+
+        // Check for duplicate names (only when creating new)
+        if (!this._editingAnchorName) {
+            const existingAnchors = this._workingConfig.msd?.anchors || {};
+            if (existingAnchors[this._anchorFormName]) {
+                alert(`Anchor name "${this._anchorFormName}" already exists`);
+                return;
+            }
+        }
+
+        // If editing and name changed, delete old entry
+        if (this._editingAnchorName && this._editingAnchorName !== this._anchorFormName) {
+            delete this._workingConfig.msd.anchors[this._editingAnchorName];
+        }
+
+        // Save anchor
+        const path = `msd.anchors.${this._anchorFormName}`;
+        this._setNestedValue(path, [...this._anchorFormPosition]);
+
+        // Close dialog
+        this._closeAnchorForm();
+        lcardsLog.debug('[MSDStudio] Anchor saved:', this._anchorFormName, this._anchorFormPosition);
+    }
+
+    /**
+     * Delete anchor
+     * @param {string} name - Anchor name to delete
+     * @private
+     */
+    _deleteAnchor(name) {
+        if (!confirm(`Delete anchor "${name}"?`)) {
+            return;
+        }
+
+        if (this._workingConfig.msd?.anchors?.[name]) {
+            delete this._workingConfig.msd.anchors[name];
+            this._schedulePreviewUpdate();
+            this.requestUpdate();
+            lcardsLog.debug('[MSDStudio] Anchor deleted:', name);
+        }
+    }
+
+    /**
+     * Close anchor form dialog
+     * @private
+     */
+    _closeAnchorForm() {
+        this._showAnchorForm = false;
+        this._editingAnchorName = null;
+        this._anchorFormName = '';
+        this._anchorFormPosition = [0, 0];
+        this.requestUpdate();
+    }
+
+    /**
+     * Highlight anchor in preview
+     * @param {string} name - Anchor name
+     * @private
+     */
+    _highlightAnchorInPreview(name) {
+        // TODO: Implement highlight animation in preview
+        lcardsLog.debug('[MSDStudio] Highlight anchor in preview:', name);
+        // This would trigger a temporary highlight effect in the live preview
+    }
+
+    /**
+     * Update anchor form position
+     * @param {number} index - Position array index (0 or 1)
+     * @param {string} value - New value
+     * @private
+     */
+    _updateAnchorFormPosition(index, value) {
+        this._anchorFormPosition = [...this._anchorFormPosition];
+        this._anchorFormPosition[index] = parseFloat(value) || 0;
+        this.requestUpdate();
+    }
+
+    /**
+     * Generate unique anchor name
+     * @returns {string}
+     * @private
+     */
+    _generateAnchorName() {
+        const anchors = this._workingConfig.msd?.anchors || {};
+        let counter = 1;
+        let name = `anchor_${counter}`;
+        while (anchors[name]) {
+            counter++;
+            name = `anchor_${counter}`;
+        }
+        return name;
+    }
+
+    // ============================
+    // Place Anchor Mode Methods
+    // ============================
+
+    /**
+     * Handle preview click
+     * @param {MouseEvent} event - Click event
+     * @private
+     */
+    _handlePreviewClick(event) {
+        // Only handle clicks in specific modes
+        if (this._activeMode === MODES.PLACE_ANCHOR) {
+            this._handlePlaceAnchorClick(event);
+        } else if (this._activeMode === MODES.PLACE_CONTROL) {
+            // Phase 3: Handle control placement
+            lcardsLog.debug('[MSDStudio] Place Control mode - Phase 3');
+        } else if (this._activeMode === MODES.CONNECT_LINE) {
+            // Phase 4: Handle line connection
+            lcardsLog.debug('[MSDStudio] Connect Line mode - Phase 4');
+        }
+    }
+
+    /**
+     * Handle place anchor click
+     * @param {MouseEvent} event - Click event
+     * @private
+     */
+    _handlePlaceAnchorClick(event) {
+        // Get coordinates from click
+        const coords = this._getPreviewCoordinates(event);
+        if (!coords) {
+            lcardsLog.warn('[MSDStudio] Could not get preview coordinates');
+            return;
+        }
+
+        lcardsLog.debug('[MSDStudio] Place anchor at:', coords);
+
+        // Apply snap-to-grid if enabled
+        let [x, y] = coords;
+        if (this._snapToGrid && this._gridSpacing > 0) {
+            x = Math.round(x / this._gridSpacing) * this._gridSpacing;
+            y = Math.round(y / this._gridSpacing) * this._gridSpacing;
+            lcardsLog.debug('[MSDStudio] Snapped to grid:', [x, y]);
+        }
+
+        // Open anchor form with pre-filled position
+        this._showAnchorForm = true;
+        this._editingAnchorName = null;
+        this._anchorFormName = this._generateAnchorName();
+        this._anchorFormPosition = [x, y];
+        this._anchorFormUnit = 'vb';
+
+        // Exit Place Anchor mode
+        this._activeMode = MODES.VIEW;
+
+        this.requestUpdate();
+    }
+
+    /**
+     * Get preview coordinates from click event
+     * Converts click position to viewBox coordinates
+     * @param {MouseEvent} event - Click event
+     * @returns {Array|null} [x, y] in viewBox coordinates or null
+     * @private
+     */
+    _getPreviewCoordinates(event) {
+        // Find the SVG element in the preview
+        const previewPanel = event.currentTarget;
+        const svgElement = previewPanel.querySelector('svg');
+        
+        if (!svgElement) {
+            lcardsLog.warn('[MSDStudio] No SVG found in preview');
+            return null;
+        }
+
+        // Get click position relative to SVG
+        const rect = svgElement.getBoundingClientRect();
+        const clickX = event.clientX - rect.left;
+        const clickY = event.clientY - rect.top;
+
+        // Get viewBox
+        const viewBoxAttr = svgElement.getAttribute('viewBox');
+        let viewBox = [0, 0, 400, 200]; // fallback
+        if (viewBoxAttr) {
+            const parts = viewBoxAttr.split(/\s+/).map(parseFloat);
+            if (parts.length === 4) {
+                viewBox = parts;
+            }
+        }
+
+        const [vbMinX, vbMinY, vbWidth, vbHeight] = viewBox;
+
+        // Calculate scale factors
+        const scaleX = vbWidth / rect.width;
+        const scaleY = vbHeight / rect.height;
+
+        // Convert to viewBox coordinates
+        const x = vbMinX + (clickX * scaleX);
+        const y = vbMinY + (clickY * scaleY);
+
+        return [x, y];
+    }
+
+    // ============================
+    // Debug Settings Methods
+    // ============================
+
+    /**
+     * Get debug settings (merges defaults with editor state)
+     * @returns {Object}
+     * @private
+     */
+    _getDebugSettings() {
+        return {
+            ...this._debugSettings,
+            grid: this._showGrid,
+            gridSpacing: this._gridSpacing
+        };
+    }
+
+    /**
+     * Update debug setting
+     * @param {string} key - Setting key
+     * @param {*} value - Setting value
+     * @private
+     */
+    _updateDebugSetting(key, value) {
+        this._debugSettings = {
+            ...this._debugSettings,
+            [key]: value
+        };
+        this._schedulePreviewUpdate();
+        this.requestUpdate();
     }
 
     /**
@@ -709,11 +1491,11 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         </div>
 
                         <!-- Preview Panel (40%) -->
-                        <div class="preview-panel">
+                        <div class="preview-panel" @click=${this._handlePreviewClick}>
                             <lcards-msd-live-preview
                                 .hass=${this.hass}
                                 .config=${this._workingConfig}
-                                .debugSettings=${this._debugSettings}
+                                .debugSettings=${this._getDebugSettings()}
                                 .showRefreshButton=${true}>
                             </lcards-msd-live-preview>
                         </div>
