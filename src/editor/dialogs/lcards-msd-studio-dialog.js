@@ -30,9 +30,11 @@
 import { LitElement, html, css } from 'lit';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import { editorStyles } from '../base/editor-styles.js';
+import { OverlayUtils } from '../../msd/renderer/OverlayUtils.js';
 import '../components/shared/lcards-form-section.js';
 import '../components/shared/lcards-message.js';
 import '../components/editors/lcards-color-section.js';
+import '../components/editors/lcards-position-picker.js';
 import '../components/lcards-msd-live-preview.js';
 
 // Mode constants
@@ -167,16 +169,14 @@ export class LCARdSMSDStudioDialog extends LitElement {
         this._editingLineId = null;
         this._lineFormData = {
             id: '',
-            anchor: '',              // Source: anchor name, overlay ID, or [x,y]
-            attach_to: '',           // Target: same as anchor
-            anchor_side: 'center',   // Source attachment point (for overlays)
-            attach_side: 'center',   // Target attachment point (for overlays)
-            anchor_gap: 0,           // Source gap (pixels)
-            attach_gap: 0,           // Target gap (pixels)
+            anchor: '',              // Source: anchor name or control ID
+            attach_to: '',           // Target: anchor name or control ID
+            anchor_side: 'center',   // Source attachment point (for controls)
+            attach_side: 'center',   // Target attachment point (for controls/anchors)
             route: 'auto',           // Routing mode string
             style: {                 // Style object
-                color: 'var(--lcars-orange)',
-                width: 2,
+                stroke: 'var(--lcars-orange)',
+                stroke_width: 2,
                 dash_array: '',      // e.g., "5,5" for dashed
                 marker_end: null     // Optional marker config
             }
@@ -2138,6 +2138,252 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
+     * Render connection attachment points overlay
+     * Shows 9-point attachment grid for anchors and controls in connect line mode
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderAttachmentPointsOverlay() {
+        if (this._activeMode !== MODES.CONNECT_LINE) return '';
+
+        // Get all anchors and controls
+        const anchors = this._workingConfig.msd?.anchors || {};
+        const controls = this._getControlOverlays();
+
+        // Try to find the SVG to calculate pixel positions
+        const livePreview = this.shadowRoot?.querySelector('lcards-msd-live-preview');
+        if (!livePreview) return '';
+
+        const livePreviewShadow = livePreview.shadowRoot;
+        if (!livePreviewShadow) return '';
+
+        const cardContainer = livePreviewShadow.querySelector('.preview-card-container');
+        if (!cardContainer) return '';
+
+        const msdCard = cardContainer.querySelector('lcards-msd-card');
+        if (!msdCard) return '';
+
+        const shadowRoot = msdCard.shadowRoot || msdCard.renderRoot;
+        if (!shadowRoot) return '';
+
+        const svg = shadowRoot.querySelector('svg');
+        if (!svg) return '';
+
+        // Get viewBox from config
+        const viewBox = this._workingConfig.msd?.view_box;
+        let viewBoxX = 0, viewBoxY = 0, viewBoxWidth = 1920, viewBoxHeight = 1200;
+
+        if (Array.isArray(viewBox) && viewBox.length === 4) {
+            [viewBoxX, viewBoxY, viewBoxWidth, viewBoxHeight] = viewBox;
+        }
+
+        // Get SVG rect and calculate position helpers
+        const rect = svg.getBoundingClientRect();
+        const previewPanel = this.shadowRoot.querySelector('.preview-panel');
+        if (!previewPanel) return '';
+        const panelRect = previewPanel.getBoundingClientRect();
+
+        // Calculate scale accounting for aspect ratio
+        const scaleX = viewBoxWidth / rect.width;
+        const scaleY = viewBoxHeight / rect.height;
+        const scale = Math.max(scaleX, scaleY);
+
+        // Calculate rendered dimensions
+        const renderedWidth = viewBoxWidth / scale;
+        const renderedHeight = viewBoxHeight / scale;
+
+        // Calculate offset due to centering
+        const offsetX = (rect.width - renderedWidth) / 2;
+        const offsetY = (rect.height - renderedHeight) / 2;
+
+        // Helper function to convert viewBox coords to pixel position
+        const toPixelPos = (vbX, vbY) => {
+            const svgPixelX = (vbX - viewBoxX) / scale + offsetX;
+            const svgPixelY = (vbY - viewBoxY) / scale + offsetY;
+            return {
+                x: (rect.left - panelRect.left) + svgPixelX,
+                y: (rect.top - panelRect.top) + svgPixelY
+            };
+        };
+
+        // 9-point attachment positions (relative offsets: -1, 0, 1 for left/center/right, top/center/bottom)
+        const attachmentPoints = [
+            { name: 'top-left', dx: -0.5, dy: -0.5 },
+            { name: 'top-center', dx: 0, dy: -0.5 },
+            { name: 'top-right', dx: 0.5, dy: -0.5 },
+            { name: 'middle-left', dx: -0.5, dy: 0 },
+            { name: 'center', dx: 0, dy: 0 },
+            { name: 'middle-right', dx: 0.5, dy: 0 },
+            { name: 'bottom-left', dx: -0.5, dy: 0.5 },
+            { name: 'bottom-center', dx: 0, dy: 0.5 },
+            { name: 'bottom-right', dx: 0.5, dy: 0.5 }
+        ];
+
+        // Render attachment points for anchors
+        const anchorElements = Object.entries(anchors).map(([name, position]) => {
+            if (!Array.isArray(position)) return '';
+            const [vbX, vbY] = position;
+            const pixelPos = toPixelPos(vbX, vbY);
+
+            // For anchors (points), show a single ring of attachment points around the position
+            return attachmentPoints.map(point => {
+                const px = pixelPos.x + (point.dx * 30); // 30px radius from center
+                const py = pixelPos.y + (point.dy * 30);
+
+                const isSource = this._connectLineState.source?.type === 'anchor' &&
+                                this._connectLineState.source?.id === name &&
+                                this._connectLineState.source?.point === point.name;
+
+                return html`
+                    <div
+                        class="attachment-point"
+                        data-connection-type="anchor"
+                        data-connection-id="${name}"
+                        data-connection-point="${point.name}"
+                        @click=${this._handleAttachmentPointClick}
+                        style="
+                            position: absolute;
+                            left: ${px}px;
+                            top: ${py}px;
+                            transform: translate(-50%, -50%);
+                            width: 12px;
+                            height: 12px;
+                            background: ${isSource ? '#2196F3' : '#00FFFF'};
+                            border: 2px solid ${isSource ? '#1976D2' : '#00BCD4'};
+                            border-radius: 50%;
+                            cursor: pointer;
+                            box-shadow: 0 0 8px ${isSource ? 'rgba(33, 150, 243, 0.8)' : 'rgba(0, 255, 255, 0.6)'};
+                            transition: all 0.2s;
+                            pointer-events: auto;
+                            z-index: 1000;
+                        "
+                        @mouseenter=${(e) => e.target.style.transform = 'translate(-50%, -50%) scale(1.5)'}
+                        @mouseleave=${(e) => e.target.style.transform = 'translate(-50%, -50%) scale(1)'}
+                    ></div>
+                `;
+            });
+        });
+
+        // Render attachment points for controls (rectangles with corners and edges)
+        const controlElements = controls.map((control, index) => {
+            // Resolve position for both anchored and explicitly positioned controls
+            let resolvedPosition;
+            if (control.position && Array.isArray(control.position)) {
+                // Explicitly positioned
+                resolvedPosition = control.position;
+            } else if (control.anchor) {
+                // Anchored to a named anchor - resolve using OverlayUtils
+                resolvedPosition = OverlayUtils.resolvePosition(control.anchor, anchors);
+                if (!resolvedPosition) {
+                    lcardsLog.warn('[MSDStudio] Failed to resolve anchor for control:', control.id, control.anchor);
+                    return '';
+                }
+            } else {
+                // No position info
+                lcardsLog.warn('[MSDStudio] Control has neither position nor anchor:', control.id);
+                return '';
+            }
+
+            if (!control.size) {
+                lcardsLog.warn('[MSDStudio] Control missing size:', control.id);
+                return '';
+            }
+
+            const [vbX, vbY] = resolvedPosition;
+            const [width, height] = control.size;
+
+            // Calculate control corners
+            const topLeft = toPixelPos(vbX, vbY);
+            const bottomRight = toPixelPos(vbX + width, vbY + height);
+            const centerX = (topLeft.x + bottomRight.x) / 2;
+            const centerY = (topLeft.y + bottomRight.y) / 2;
+            const pixelWidth = bottomRight.x - topLeft.x;
+            const pixelHeight = bottomRight.y - topLeft.y;
+
+            return attachmentPoints.map(point => {
+                const px = centerX + (point.dx * pixelWidth / 2);
+                const py = centerY + (point.dy * pixelHeight / 2);
+
+                const isSource = this._connectLineState.source?.type === 'control' &&
+                                this._connectLineState.source?.id === control.id &&
+                                this._connectLineState.source?.point === point.name;
+
+                return html`
+                    <div
+                        class="attachment-point"
+                        data-connection-type="control"
+                        data-connection-id="${control.id}"
+                        data-connection-point="${point.name}"
+                        @click=${this._handleAttachmentPointClick}
+                        style="
+                            position: absolute;
+                            left: ${px}px;
+                            top: ${py}px;
+                            transform: translate(-50%, -50%);
+                            width: 12px;
+                            height: 12px;
+                            background: ${isSource ? '#2196F3' : '#FF9900'};
+                            border: 2px solid ${isSource ? '#1976D2' : '#F57C00'};
+                            border-radius: 50%;
+                            cursor: pointer;
+                            box-shadow: 0 0 8px ${isSource ? 'rgba(33, 150, 243, 0.8)' : 'rgba(255, 153, 0, 0.6)'};
+                            transition: all 0.2s;
+                            pointer-events: auto;
+                            z-index: 1000;
+                        "
+                        @mouseenter=${(e) => e.target.style.transform = 'translate(-50%, -50%) scale(1.5)'}
+                        @mouseleave=${(e) => e.target.style.transform = 'translate(-50%, -50%) scale(1)'}
+                    ></div>
+                `;
+            });
+        });
+
+        return html`
+            <div style="
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+                z-index: 1000;
+            ">
+                ${anchorElements}
+                ${controlElements}
+            </div>
+        `;
+    }
+
+    /**
+     * Handle attachment point click in connect line mode
+     * @param {Event} e - Click event
+     * @private
+     */
+    _handleAttachmentPointClick(e) {
+        e.stopPropagation();
+
+        const target = e.currentTarget;
+        const connectionInfo = {
+            type: target.dataset.connectionType,
+            id: target.dataset.connectionId,
+            point: target.dataset.connectionPoint,
+            gap: 0
+        };
+
+        if (!this._connectLineState.source) {
+            // First click - set source
+            this._connectLineState = { ...this._connectLineState, source: connectionInfo };
+            lcardsLog.info('[MSDStudio] Connect line source set:', connectionInfo);
+            this.requestUpdate();
+        } else {
+            // Second click - open line form with connection data
+            lcardsLog.info('[MSDStudio] Connect line target set:', connectionInfo);
+            this._openLineFormWithConnection(this._connectLineState.source, connectionInfo);
+            this._clearConnectLineState();
+        }
+    }
+
+    /**
      * Render draw channel overlay (Phase 5)
      * Shows temporary rectangle while drawing
      * @returns {TemplateResult}
@@ -3885,26 +4131,25 @@ export class LCARdSMSDStudioDialog extends LitElement {
             route: this._lineFormData.route
         };
 
-        // Only add optional properties if set
+        // Always include attach_side (used for both anchors and controls)
+        if (this._lineFormData.attach_side) {
+            lineOverlay.attach_side = this._lineFormData.attach_side;
+        }
+
+        // Only add anchor_side if anchor is a control (overlay)
         if (this._lineFormData.anchor_side && this._isOverlayId(this._lineFormData.anchor)) {
             lineOverlay.anchor_side = this._lineFormData.anchor_side;
         }
-        if (this._lineFormData.attach_side && this._isOverlayId(this._lineFormData.attach_to)) {
-            lineOverlay.attach_side = this._lineFormData.attach_side;
-        }
-        if (this._lineFormData.anchor_gap) {
-            lineOverlay.anchor_gap = this._lineFormData.anchor_gap;
-        }
-        if (this._lineFormData.attach_gap) {
-            lineOverlay.attach_gap = this._lineFormData.attach_gap;
-        }
+
+        // Add style if present
         if (this._lineFormData.style && Object.keys(this._lineFormData.style).length > 0) {
             // Only include non-empty style properties
             const style = {};
-            if (this._lineFormData.style.color) style.color = this._lineFormData.style.color;
-            if (this._lineFormData.style.width) style.width = this._lineFormData.style.width;
+            if (this._lineFormData.style.stroke) style.stroke = this._lineFormData.style.stroke;
+            if (this._lineFormData.style.stroke_width) style.stroke_width = this._lineFormData.style.stroke_width;
             if (this._lineFormData.style.dash_array) style.dash_array = this._lineFormData.style.dash_array;
             if (this._lineFormData.style.marker_end) style.marker_end = this._lineFormData.style.marker_end;
+            if (this._lineFormData.style.marker_start) style.marker_start = this._lineFormData.style.marker_start;
             if (Object.keys(style).length > 0) {
                 lineOverlay.style = style;
             }
@@ -3982,13 +4227,54 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @param {string} attachSide - Optional target side
      * @private
      */
-    _openLineFormWithConnection(anchor, attachTo, anchorSide = null, attachSide = null) {
+    /**
+     * Open line form with connection data pre-filled
+     * @param {Object} source - Source connection info {type, id, point}
+     * @param {Object} target - Target connection info {type, id, point}
+     * @private
+     */
+    _openLineFormWithConnection(source, target) {
         this._openLineForm();
-        this._lineFormData.anchor = anchor;
-        this._lineFormData.attach_to = attachTo;
-        if (anchorSide) this._lineFormData.anchor_side = anchorSide;
-        if (attachSide) this._lineFormData.attach_side = attachSide;
+
+        // Set anchor (source) - just the ID
+        this._lineFormData.anchor = source.id;
+
+        // Set attach_to (target) - just the ID
+        this._lineFormData.attach_to = target.id;
+
+        // Set anchor_side (source attachment point) - convert point name to side format
+        if (source.point) {
+            this._lineFormData.anchor_side = this._convertPointToSide(source.point);
+        }
+
+        // Set attach_side (target attachment point)
+        if (target.point) {
+            this._lineFormData.attach_side = this._convertPointToSide(target.point);
+        }
+
         this.requestUpdate();
+    }
+
+    /**
+     * Convert attachment point name to side format
+     * @param {string} point - Point name (e.g., 'top-left', 'middle-center')
+     * @returns {string} - Side format (e.g., 'top-left', 'center')
+     * @private
+     */
+    _convertPointToSide(point) {
+        // Map attachment point names to side names
+        const mapping = {
+            'top-left': 'top-left',
+            'top-center': 'top',
+            'top-right': 'top-right',
+            'middle-left': 'left',
+            'center': 'center',
+            'middle-right': 'right',
+            'bottom-left': 'bottom-left',
+            'bottom-center': 'bottom',
+            'bottom-right': 'bottom-right'
+        };
+        return mapping[point] || 'center';
     }
 
     /**
@@ -4147,31 +4433,16 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
                     ${anchorIsOverlay ? html`
                         <!-- Anchor Side (only for overlays) -->
-                        <ha-selector
-                            .hass=${this.hass}
-                            .selector=${{
-                                select: {
-                                    options: [
-                                        { value: 'center', label: 'Center' },
-                                        { value: 'top', label: 'Top' },
-                                        { value: 'bottom', label: 'Bottom' },
-                                        { value: 'left', label: 'Left' },
-                                        { value: 'right', label: 'Right' },
-                                        { value: 'top-left', label: 'Top Left' },
-                                        { value: 'top-right', label: 'Top Right' },
-                                        { value: 'bottom-left', label: 'Bottom Left' },
-                                        { value: 'bottom-right', label: 'Bottom Right' }
-                                    ]
-                                }
-                            }}
+                        <lcards-position-picker
                             .value=${this._lineFormData.anchor_side}
                             .label=${'Anchor Side'}
+                            .helper=${'Select attachment point on the source control'}
                             @value-changed=${(e) => {
                                 this._lineFormData.anchor_side = e.detail.value;
                                 this.requestUpdate();
                             }}
                             style="margin-top: 12px;">
-                        </ha-selector>
+                        </lcards-position-picker>
                     ` : ''}
 
                     <!-- Anchor Gap -->
@@ -4213,34 +4484,17 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         style="margin-top: 12px;">
                     </ha-selector>
 
-                    ${attachToIsOverlay ? html`
-                        <!-- Attach Side (only for overlays) -->
-                        <ha-selector
-                            .hass=${this.hass}
-                            .selector=${{
-                                select: {
-                                    options: [
-                                        { value: 'center', label: 'Center' },
-                                        { value: 'top', label: 'Top' },
-                                        { value: 'bottom', label: 'Bottom' },
-                                        { value: 'left', label: 'Left' },
-                                        { value: 'right', label: 'Right' },
-                                        { value: 'top-left', label: 'Top Left' },
-                                        { value: 'top-right', label: 'Top Right' },
-                                        { value: 'bottom-left', label: 'Bottom Left' },
-                                        { value: 'bottom-right', label: 'Bottom Right' }
-                                    ]
-                                }
-                            }}
-                            .value=${this._lineFormData.attach_side}
-                            .label=${'Attach Side'}
-                            @value-changed=${(e) => {
-                                this._lineFormData.attach_side = e.detail.value;
-                                this.requestUpdate();
-                            }}
-                            style="margin-top: 12px;">
-                        </ha-selector>
-                    ` : ''}
+                    <!-- Attach Side (always shown) -->
+                    <lcards-position-picker
+                        .value=${this._lineFormData.attach_side}
+                        .label=${'Attach Side'}
+                        .helper=${'Select attachment point on the target'}
+                        @value-changed=${(e) => {
+                            this._lineFormData.attach_side = e.detail.value;
+                            this.requestUpdate();
+                        }}
+                        style="margin-top: 12px;">
+                    </lcards-position-picker>
 
                     <!-- Attach Gap -->
                     <ha-textfield
@@ -4692,6 +4946,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
                             <!-- Anchor Highlight -->
                             ${this._renderAnchorHighlight()}
+
+                            <!-- Attachment Points (Connect Line Mode) -->
+                            ${this._renderAttachmentPointsOverlay()}
                         </div>
                     </div>
                 </div>
