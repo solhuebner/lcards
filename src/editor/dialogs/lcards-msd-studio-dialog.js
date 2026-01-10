@@ -1193,8 +1193,13 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @param {string} name - Anchor name to delete
      * @private
      */
-    _deleteAnchor(name) {
-        if (!confirm(`Delete anchor "${name}"?`)) {
+    async _deleteAnchor(name) {
+        const confirmed = await this._showConfirmDialog(
+            'Delete Anchor',
+            `Are you sure you want to delete anchor "${name}"?`
+        );
+        
+        if (!confirmed) {
             return;
         }
 
@@ -1204,6 +1209,64 @@ export class LCARdSMSDStudioDialog extends LitElement {
             this.requestUpdate();
             lcardsLog.debug('[MSDStudio] Anchor deleted:', name);
         }
+    }
+
+    /**
+     * Show confirmation dialog using HA design system
+     * @private
+     * @param {string} title - Dialog title
+     * @param {string} message - Dialog message
+     * @returns {Promise<boolean>} True if confirmed, false if cancelled
+     */
+    async _showConfirmDialog(title, message) {
+        return new Promise((resolve) => {
+            // Create dialog element
+            const dialog = document.createElement('ha-dialog');
+            dialog.heading = title;
+            dialog.open = true;
+
+            // Create content
+            const content = document.createElement('div');
+            content.textContent = message;
+            content.style.padding = '16px';
+            content.style.lineHeight = '1.5';
+            dialog.appendChild(content);
+
+            // Create button container
+            const buttonContainer = document.createElement('div');
+            buttonContainer.slot = 'secondaryAction';
+            buttonContainer.style.display = 'flex';
+            buttonContainer.style.gap = '8px';
+
+            // Cancel button
+            const cancelButton = document.createElement('ha-button');
+            cancelButton.textContent = 'Cancel';
+            cancelButton.addEventListener('click', () => {
+                dialog.close();
+                resolve(false);
+            });
+
+            // Confirm button
+            const confirmButton = document.createElement('ha-button');
+            confirmButton.textContent = 'Continue';
+            confirmButton.setAttribute('raised', '');
+            confirmButton.addEventListener('click', () => {
+                dialog.close();
+                resolve(true);
+            });
+
+            buttonContainer.appendChild(cancelButton);
+            buttonContainer.appendChild(confirmButton);
+            dialog.appendChild(buttonContainer);
+
+            // Handle dialog close (ESC key or backdrop click)
+            dialog.addEventListener('closed', () => {
+                setTimeout(() => dialog.remove(), 100);
+            });
+
+            // Append to body
+            document.body.appendChild(dialog);
+        });
     }
 
     /**
