@@ -341,6 +341,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             }
 
             .preview-panel {
+                position: relative;
                 display: flex;
                 flex-direction: column;
                 overflow: hidden;
@@ -1540,9 +1541,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
         // Track cursor for crosshair guidelines (place modes)
         if (this._activeMode === MODES.PLACE_ANCHOR ||
             this._activeMode === MODES.PLACE_CONTROL) {
-            const coords = this._getPreviewCoordinates(event);
-            if (coords) {
-                this._cursorPosition = coords;
+            const result = this._getPreviewCoordinatesWithPixels(event);
+            if (result) {
+                this._cursorPosition = result;
                 this.requestUpdate();
             }
         }
@@ -1744,6 +1745,111 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
+     * Get preview coordinates with both pixel and viewBox positions
+     * @param {MouseEvent} event - Mouse event
+     * @returns {Object|null} - Object with {x, y, pixelX, pixelY} or null
+     * @private
+     */
+    _getPreviewCoordinatesWithPixels(event) {
+        const previewPanel = event.currentTarget;
+        const livePreview = previewPanel.querySelector('lcards-msd-live-preview');
+        if (!livePreview) return null;
+
+        const livePreviewShadow = livePreview.shadowRoot;
+        if (!livePreviewShadow) return null;
+
+        const cardContainer = livePreviewShadow.querySelector('.preview-card-container');
+        if (!cardContainer) return null;
+
+        const msdCard = cardContainer.querySelector('lcards-msd-card');
+        if (!msdCard) return null;
+
+        const shadowRoot = msdCard.shadowRoot || msdCard.renderRoot;
+        if (!shadowRoot) return null;
+
+        const svg = shadowRoot.querySelector('svg');
+        if (!svg) return null;
+
+        // Get bounding rect of SVG element relative to viewport
+        const rect = svg.getBoundingClientRect();
+
+        // Get preview panel rect
+        const panelRect = previewPanel.getBoundingClientRect();
+
+        // Calculate mouse position relative to SVG
+        const svgX = event.clientX - rect.left;
+        const svgY = event.clientY - rect.top;
+
+        // Get viewBox from config
+        const viewBox = this._workingConfig.msd?.view_box;
+        let vbX = 0, vbY = 0, vbWidth = 1920, vbHeight = 1200;
+
+        if (Array.isArray(viewBox) && viewBox.length === 4) {
+            [vbX, vbY, vbWidth, vbHeight] = viewBox;
+        } else if (viewBox === 'auto') {
+            const svgViewBox = svg.getAttribute('viewBox');
+            if (svgViewBox) {
+                const parts = svgViewBox.split(/\s+/).map(Number);
+                if (parts.length === 4) {
+                    [vbX, vbY, vbWidth, vbHeight] = parts;
+                }
+            }
+        }
+
+        // Calculate scale from screen pixels to viewBox units
+        const scaleX = vbWidth / rect.width;
+        const scaleY = vbHeight / rect.height;
+
+        // SVG uses preserveAspectRatio="xMidYMid meet" by default, so we need to use
+        // the same scale for both axes (the smaller one) to maintain aspect ratio
+        const scale = Math.max(scaleX, scaleY);
+
+        // Calculate the actual rendered size of the viewBox content
+        const renderedWidth = vbWidth / scale;
+        const renderedHeight = vbHeight / scale;
+
+        // Calculate the offset due to centering (letterboxing/pillarboxing)
+        const offsetX = (rect.width - renderedWidth) / 2;
+        const offsetY = (rect.height - renderedHeight) / 2;
+
+        // Adjust mouse position to account for letterboxing
+        const adjustedSvgX = svgX - offsetX;
+        const adjustedSvgY = svgY - offsetY;
+
+        // Convert to unsnapped viewBox coordinates
+        let coordX = vbX + (adjustedSvgX * scale);
+        let coordY = vbY + (adjustedSvgY * scale);
+
+        // Calculate pixel position relative to preview panel (default: actual mouse position)
+        let pixelX = event.clientX - panelRect.left;
+        let pixelY = event.clientY - panelRect.top;
+
+        // If snap is enabled, snap viewBox coords and convert back to pixels
+        const debugSettings = this._getDebugSettings();
+        if (debugSettings.snap_to_grid) {
+            const gridSpacing = debugSettings.grid_spacing || 50;
+            coordX = Math.round(coordX / gridSpacing) * gridSpacing;
+            coordY = Math.round(coordY / gridSpacing) * gridSpacing;
+
+            // Convert snapped viewBox coords back to pixel position relative to SVG
+            // Account for letterboxing offset
+            const snappedSvgX = (coordX - vbX) / scale + offsetX;
+            const snappedSvgY = (coordY - vbY) / scale + offsetY;
+
+            // Convert to preview panel coordinates
+            pixelX = (rect.left - panelRect.left) + snappedSvgX;
+            pixelY = (rect.top - panelRect.top) + snappedSvgY;
+        }
+
+        return {
+            x: Math.round(coordX),
+            y: Math.round(coordY),
+            pixelX,
+            pixelY
+        };
+    }
+
+    /**
      * Handle draw channel click (Phase 5)
      * @param {MouseEvent} event - Click event
      * @private
@@ -1805,7 +1911,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         if (this._activeMode !== MODES.PLACE_ANCHOR &&
             this._activeMode !== MODES.PLACE_CONTROL) return '';
 
-        const { x, y } = this._cursorPosition;
+        const { x, y, pixelX, pixelY } = this._cursorPosition;
 
         // Show snapped position if snap enabled
         const debugSettings = this._getDebugSettings();
@@ -1817,15 +1923,41 @@ export class LCARdSMSDStudioDialog extends LitElement {
             displayY = Math.round(y / gridSpacing) * gridSpacing;
         }
 
+        const lineColor = debugSettings.snap_to_grid ? 'rgba(0, 255, 0, 0.5)' : 'rgba(255, 153, 0, 0.5)';
+
         return html`
             <div style="
                 position: absolute;
-                top: 50%; left: 50%;
-                width: 100%; height: 100%;
-                transform: translate(-50%, -50%);
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
                 pointer-events: none;
                 z-index: 999;
+                overflow: hidden;
             ">
+                <!-- Vertical guideline -->
+                <div style="
+                    position: absolute;
+                    left: ${pixelX}px;
+                    top: 0;
+                    width: 2px;
+                    height: 100%;
+                    background: ${lineColor};
+                    box-shadow: 0 0 4px ${lineColor};
+                "></div>
+
+                <!-- Horizontal guideline -->
+                <div style="
+                    position: absolute;
+                    top: ${pixelY}px;
+                    left: 0;
+                    height: 2px;
+                    width: 100%;
+                    background: ${lineColor};
+                    box-shadow: 0 0 4px ${lineColor};
+                "></div>
+
                 <!-- Coordinate display at cursor -->
                 <div style="
                     position: absolute;
