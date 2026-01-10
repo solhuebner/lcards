@@ -167,11 +167,23 @@ export class LCARdSMSDLivePreview extends LitElement {
     }
 
     /**
+     * Lifecycle: First update
+     * Initialize preview card
+     */
+    firstUpdated() {
+        super.firstUpdated();
+        // Initial preview render
+        this._updatePreviewCard();
+    }
+
+    /**
      * Lifecycle: Property changed
      * Schedule preview update on config change
      */
     updated(changedProps) {
-        if (changedProps.has('config') || changedProps.has('debugSettings')) {
+        super.updated(changedProps);
+        
+        if (changedProps.has('config') || changedProps.has('debugSettings') || changedProps.has('hass')) {
             this._schedulePreviewUpdate();
         }
     }
@@ -187,6 +199,7 @@ export class LCARdSMSDLivePreview extends LitElement {
 
         this._debounceTimer = setTimeout(() => {
             this._renderKey++;
+            this._updatePreviewCard();
             this._debounceTimer = null;
             lcardsLog.debug('[MSDLivePreview] Preview updated (debounced)');
         }, 300);
@@ -202,7 +215,84 @@ export class LCARdSMSDLivePreview extends LitElement {
             this._debounceTimer = null;
         }
         this._renderKey++;
+        this._updatePreviewCard();
         lcardsLog.debug('[MSDLivePreview] Preview refreshed (manual)');
+    }
+
+    /**
+     * Update preview card (manual DOM manipulation like chart studio)
+     * @private
+     */
+    _updatePreviewCard() {
+        const container = this.shadowRoot?.querySelector('.preview-card-container');
+        if (!container) {
+            lcardsLog.warn('[MSDLivePreview] Preview container not found');
+            return;
+        }
+
+        // Clear existing preview
+        while (container.firstChild) {
+            container.firstChild.remove();
+        }
+
+        // Check if we have base SVG configured
+        if (!this._hasBaseSvg()) {
+            // Render empty state directly in container
+            container.innerHTML = `
+                <div class="preview-empty">
+                    <ha-icon icon="mdi:image-off"></ha-icon>
+                    <p class="empty-message">No base SVG configured</p>
+                    <p class="empty-helper">
+                        Configure a base SVG in the "Base SVG" tab to see the preview
+                    </p>
+                </div>
+            `;
+            return;
+        }
+
+        // Get preview config
+        const previewConfig = this._getPreviewConfig();
+        if (!previewConfig) {
+            lcardsLog.warn('[MSDLivePreview] No valid config for preview');
+            return;
+        }
+
+        try {
+            // Manually create card element
+            const card = document.createElement('lcards-msd');
+
+            lcardsLog.debug('[MSDLivePreview] Creating preview card with config:', previewConfig);
+            lcardsLog.debug('[MSDLivePreview] HASS object available:', !!this.hass);
+
+            // CRITICAL: Set config and hass BEFORE appending
+            // This ensures setConfig() is called before hass is set
+            card.setConfig(previewConfig);
+            if (this.hass) {
+                card.hass = this.hass;
+            }
+
+            // NOW append to DOM after card is fully configured
+            container.appendChild(card);
+
+            lcardsLog.debug('[MSDLivePreview] Preview card configured and appended');
+        } catch (error) {
+            lcardsLog.error('[MSDLivePreview] Failed to update preview:', error);
+            this._renderErrorInContainer(container, error);
+        }
+    }
+
+    /**
+     * Render error state in container
+     * @private
+     */
+    _renderErrorInContainer(container, error) {
+        container.innerHTML = `
+            <div class="preview-error">
+                <ha-icon icon="mdi:alert-circle"></ha-icon>
+                <p class="error-message">Preview Error</p>
+                <p class="error-details">${error.message}</p>
+            </div>
+        `;
     }
 
     /**
@@ -241,65 +331,6 @@ export class LCARdSMSDLivePreview extends LitElement {
     }
 
     /**
-     * Render preview content
-     * @returns {TemplateResult}
-     * @private
-     */
-    _renderPreview() {
-        if (!this.config || !this._hasBaseSvg()) {
-            return this._renderEmptyState();
-        }
-
-        try {
-            const previewConfig = this._getPreviewConfig();
-            
-            return html`
-                <lcards-msd
-                    .hass=${this.hass}
-                    .config=${previewConfig}
-                    key=${this._renderKey}>
-                </lcards-msd>
-            `;
-        } catch (error) {
-            lcardsLog.error('[MSDLivePreview] Error rendering preview:', error);
-            return this._renderErrorState(error);
-        }
-    }
-
-    /**
-     * Render empty state (no base SVG configured)
-     * @returns {TemplateResult}
-     * @private
-     */
-    _renderEmptyState() {
-        return html`
-            <div class="preview-empty">
-                <ha-icon icon="mdi:image-off"></ha-icon>
-                <p class="empty-message">No base SVG configured</p>
-                <p class="empty-helper">
-                    Configure a base SVG in the "Base SVG" tab to see the preview
-                </p>
-            </div>
-        `;
-    }
-
-    /**
-     * Render error state
-     * @param {Error} error - Error object
-     * @returns {TemplateResult}
-     * @private
-     */
-    _renderErrorState(error) {
-        return html`
-            <div class="preview-error">
-                <ha-icon icon="mdi:alert-circle"></ha-icon>
-                <p class="error-message">Preview Error</p>
-                <p class="error-details">${error.message}</p>
-            </div>
-        `;
-    }
-
-    /**
      * Render component
      */
     render() {
@@ -320,9 +351,8 @@ export class LCARdSMSDLivePreview extends LitElement {
                     ` : ''}
                 </div>
 
-                <!-- Preview Card -->
+                <!-- Preview Card Container (populated by _updatePreviewCard) -->
                 <div class="preview-card-container">
-                    ${this._renderPreview()}
                 </div>
 
                 <!-- Footer -->
