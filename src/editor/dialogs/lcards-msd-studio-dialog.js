@@ -143,36 +143,20 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 display: block;
             }
 
-            /* Dialog Sizing */
-            .dialog-container {
-                width: 95vw;
-                height: 90vh;
+            /* ha-dialog Sizing */
+            ha-dialog {
+                --mdc-dialog-min-width: 95vw;
+                --mdc-dialog-max-width: 95vw;
+                --mdc-dialog-min-height: 90vh;
+            }
+
+            /* Dialog Content */
+            .dialog-content {
                 display: flex;
                 flex-direction: column;
-                overflow: hidden;
-            }
-
-            /* Header */
-            .studio-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 16px 24px;
-                background: var(--card-background-color);
-                border-bottom: 2px solid var(--divider-color);
-            }
-
-            .studio-title {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                font-size: 20px;
-                font-weight: 600;
-            }
-
-            .studio-actions {
-                display: flex;
-                gap: 8px;
+                min-height: 80vh;
+                max-height: 90vh;
+                gap: 0;
             }
 
             /* Mode Toolbar */
@@ -219,7 +203,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             }
 
             /* Split Panel Layout */
-            .studio-content {
+            .studio-layout {
                 flex: 1;
                 display: grid;
                 grid-template-columns: 60% 40%;
@@ -280,34 +264,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 padding: 16px;
             }
 
-            /* Footer */
-            .studio-footer {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 12px 24px;
-                background: var(--card-background-color);
-                border-top: 2px solid var(--divider-color);
-                font-size: 13px;
-            }
-
-            .footer-status {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                color: var(--secondary-text-color);
-            }
-
-            .footer-mode {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                padding: 4px 12px;
-                background: var(--primary-background-color);
-                border-radius: 12px;
-                font-weight: 500;
-            }
-
             /* Placeholder Content */
             .placeholder-content {
                 display: flex;
@@ -337,9 +293,23 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 max-width: 500px;
             }
 
+            /* Mode Status Badge */
+            .mode-status {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 6px 12px;
+                background: var(--primary-background-color);
+                border-radius: 12px;
+                font-size: 12px;
+                font-weight: 500;
+                color: var(--primary-text-color);
+                margin-left: auto;
+            }
+
             /* Responsive */
             @media (max-width: 1024px) {
-                .studio-content {
+                .studio-layout {
                     grid-template-columns: 1fr;
                     grid-template-rows: 1fr 1fr;
                 }
@@ -527,6 +497,11 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         <span class="mode-button-label">${this._getModeLabel(mode)}</span>
                     </div>
                 `)}
+                <!-- Mode Status Badge -->
+                <div class="mode-status">
+                    <ha-icon icon=${this._getModeIcon(this._activeMode)}></ha-icon>
+                    <span>Mode: ${this._getModeLabel(this._activeMode)}</span>
+                </div>
             </div>
         `;
     }
@@ -696,64 +671,55 @@ export class LCARdSMSDStudioDialog extends LitElement {
      */
     render() {
         return html`
-            <div class="dialog-container">
-                <!-- Header -->
-                <div class="studio-header">
-                    <div class="studio-title">
-                        <ha-icon icon="mdi:monitor-dashboard"></ha-icon>
-                        <span>MSD Configuration Studio</span>
-                    </div>
-                    <div class="studio-actions">
-                        <ha-button @click=${this._handleReset}>
-                            <ha-icon icon="mdi:restore" slot="icon"></ha-icon>
-                            Reset
-                        </ha-button>
-                        <ha-button @click=${this._handleCancel}>
-                            Cancel
-                        </ha-button>
-                        <ha-button raised @click=${this._handleSave}>
-                            <ha-icon icon="mdi:content-save" slot="icon"></ha-icon>
-                            Save
-                        </ha-button>
-                    </div>
+            <ha-dialog
+                open
+                @closed=${this._handleClose}
+                .heading=${'MSD Configuration Studio'}>
+
+                <div slot="primaryAction">
+                    <ha-button @click=${this._handleSave}>
+                        <ha-icon icon="mdi:content-save" slot="icon"></ha-icon>
+                        Save
+                    </ha-button>
                 </div>
 
-                <!-- Mode Toolbar -->
-                ${this._renderModeToolbar()}
+                <div slot="secondaryAction">
+                    <ha-button @click=${this._handleReset}>
+                        <ha-icon icon="mdi:restore" slot="icon"></ha-icon>
+                        Reset
+                    </ha-button>
+                    <ha-button @click=${this._handleCancel}>
+                        <ha-icon icon="mdi:close" slot="icon"></ha-icon>
+                        Cancel
+                    </ha-button>
+                </div>
 
-                <!-- Split Panel Content -->
-                <div class="studio-content">
-                    <!-- Configuration Panel (60%) -->
-                    <div class="config-panel">
-                        ${this._renderTabNav()}
-                        <div class="tab-content">
-                            ${this._renderTabContent()}
+                <div class="dialog-content">
+                    <!-- Mode Toolbar -->
+                    ${this._renderModeToolbar()}
+
+                    <!-- Split Panel Layout -->
+                    <div class="studio-layout">
+                        <!-- Configuration Panel (60%) -->
+                        <div class="config-panel">
+                            ${this._renderTabNav()}
+                            <div class="tab-content">
+                                ${this._renderTabContent()}
+                            </div>
+                        </div>
+
+                        <!-- Preview Panel (40%) -->
+                        <div class="preview-panel">
+                            <lcards-msd-live-preview
+                                .hass=${this.hass}
+                                .config=${this._workingConfig}
+                                .debugSettings=${this._debugSettings}
+                                .showRefreshButton=${true}>
+                            </lcards-msd-live-preview>
                         </div>
                     </div>
-
-                    <!-- Preview Panel (40%) -->
-                    <div class="preview-panel">
-                        <lcards-msd-live-preview
-                            .hass=${this.hass}
-                            .config=${this._workingConfig}
-                            .debugSettings=${this._debugSettings}
-                            .showRefreshButton=${true}>
-                        </lcards-msd-live-preview>
-                    </div>
                 </div>
-
-                <!-- Footer -->
-                <div class="studio-footer">
-                    <div class="footer-status">
-                        <ha-icon icon="mdi:check-circle" style="color: var(--success-color);"></ha-icon>
-                        <span>Ready</span>
-                    </div>
-                    <div class="footer-mode">
-                        <ha-icon icon=${this._getModeIcon(this._activeMode)}></ha-icon>
-                        <span>Mode: ${this._getModeLabel(this._activeMode)}</span>
-                    </div>
-                </div>
-            </div>
+            </ha-dialog>
         `;
     }
 }
