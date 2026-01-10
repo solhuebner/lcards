@@ -52,8 +52,7 @@ const TABS = {
     ANCHORS: 'anchors',
     CONTROLS: 'controls',
     LINES: 'lines',
-    CHANNELS: 'channels',
-    DEBUG: 'debug'
+    CHANNELS: 'channels'
 };
 
 export class LCARdSMSDStudioDialog extends LitElement {
@@ -748,8 +747,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             { id: TABS.ANCHORS, label: 'Anchors', icon: 'mdi:map-marker' },
             { id: TABS.CONTROLS, label: 'Controls', icon: 'mdi:widgets' },
             { id: TABS.LINES, label: 'Lines', icon: 'mdi:vector-line' },
-            { id: TABS.CHANNELS, label: 'Channels', icon: 'mdi:chart-timeline-variant' },
-            { id: TABS.DEBUG, label: 'Debug', icon: 'mdi:bug' }
+            { id: TABS.CHANNELS, label: 'Channels', icon: 'mdi:chart-timeline-variant' }
         ];
 
         return html`
@@ -782,8 +780,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 return this._renderLinesTab();
             case TABS.CHANNELS:
                 return this._renderChannelsTab();
-            case TABS.DEBUG:
-                return this._renderDebugTab();
             default:
                 return html`<div>Unknown tab</div>`;
         }
@@ -5031,187 +5027,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @returns {TemplateResult}
      * @private
      */
-    _renderDebugTab() {
-        return html`
-            <div style="padding: 8px;">
-                <!-- Info Message about Distributed Settings -->
-                <lcards-message type="info" style="margin-bottom: 16px;">
-                    <strong>Quick Access:</strong> Common visualization settings have been moved to their related tabs:
-                    <ul style="margin: 8px 0 0 20px; font-size: 13px;">
-                        <li><strong>Anchors Tab:</strong> Show Anchors, Grid Settings</li>
-                        <li><strong>Controls Tab:</strong> Bounding Boxes, Attachment Points</li>
-                        <li><strong>Lines Tab:</strong> Line Paths, Routing Channels</li>
-                        <li><strong>Channels Tab:</strong> Routing Channels</li>
-                    </ul>
-                </lcards-message>
-
-                <!-- Scale Settings -->
-                <lcards-form-section
-                    header="Debug Scale"
-                    description="Adjust size of debug markers and labels"
-                    icon="mdi:magnify"
-                    ?expanded=${true}
-                    style="margin-top: 16px;">
-
-                    <div style="margin-top: 12px;">
-                        <label class="form-label">Debug Scale (${(this._debugSettings.debug_scale ?? 1.0).toFixed(1)}x)</label>
-                        <ha-selector
-                            .hass=${this.hass}
-                            .selector=${{
-                                number: {
-                                    min: 0.5,
-                                    max: 3.0,
-                                    step: 0.1,
-                                    mode: 'slider'
-                                }
-                            }}
-                            .value=${this._debugSettings.debug_scale ?? 1.0}
-                            @value-changed=${(e) => this._updateDebugSetting('debug_scale', e.detail.value)}>
-                        </ha-selector>
-                    </div>
-                </lcards-form-section>
-
-                <!-- Preview Settings -->
-                <lcards-form-section
-                    header="Preview Settings"
-                    description="Control preview behavior"
-                    icon="mdi:monitor-eye"
-                    ?expanded=${true}
-                    style="margin-top: 16px;">
-
-                    <div style="margin-top: 12px;">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                            <input
-                                type="checkbox"
-                                ?checked=${this._debugSettings.auto_refresh ?? true}
-                                @change=${(e) => this._updateDebugSetting('auto_refresh', e.target.checked)}
-                                style="width: 18px; height: 18px; cursor: pointer;">
-                            <span>Auto-refresh (300ms debounce)</span>
-                        </label>
-                    </div>
-
-                    <div style="margin-top: 12px;">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                            <input
-                                type="checkbox"
-                                ?checked=${this._debugSettings.interactive_preview ?? false}
-                                @change=${(e) => this._updateDebugSetting('interactive_preview', e.target.checked)}
-                                style="width: 18px; height: 18px; cursor: pointer;">
-                            <span>Interactive Preview (click to select)</span>
-                        </label>
-                    </div>
-
-                    <ha-button @click=${() => this._schedulePreviewUpdate()} style="margin-top: 12px;">
-                        <ha-icon icon="mdi:refresh" slot="icon"></ha-icon>
-                        Manual Refresh
-                    </ha-button>
-                </lcards-form-section>
-
-                <!-- Visualization Colors -->
-                <lcards-form-section
-                    header="Visualization Colors"
-                    description="Customize debug visualization colors"
-                    icon="mdi:palette"
-                    ?expanded=${false}
-                    style="margin-top: 16px;">
-
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-top: 12px;">
-                        <!-- Anchor Marker Color -->
-                        <div>
-                            <label class="form-label">Anchor Markers</label>
-                            <ha-textfield
-                                type="color"
-                                .value=${this._debugSettings.anchor_color || '#00FFFF'}
-                                @input=${(e) => this._updateDebugSetting('anchor_color', e.target.value)}
-                                style="width: 100%;">
-                            </ha-textfield>
-                        </div>
-
-                        <!-- Bounding Box Color -->
-                        <div>
-                            <label class="form-label">Bounding Boxes</label>
-                            <ha-textfield
-                                type="color"
-                                .value=${this._debugSettings.bbox_color || '#FFA500'}
-                                @input=${(e) => this._updateDebugSetting('bbox_color', e.target.value)}
-                                style="width: 100%;">
-                            </ha-textfield>
-                        </div>
-
-                        <!-- Attachment Point Color -->
-                        <div>
-                            <label class="form-label">Attachment Points</label>
-                            <ha-textfield
-                                type="color"
-                                .value=${this._debugSettings.attachment_color || '#00FF00'}
-                                @input=${(e) => this._updateDebugSetting('attachment_color', e.target.value)}
-                                style="width: 100%;">
-                            </ha-textfield>
-                        </div>
-
-                        <!-- Bundling Channel Color -->
-                        <div>
-                            <label class="form-label">Bundling Channels</label>
-                            <ha-textfield
-                                type="color"
-                                .value=${this._debugSettings.bundling_color || '#00FF00'}
-                                @input=${(e) => this._updateDebugSetting('bundling_color', e.target.value)}
-                                style="width: 100%;">
-                            </ha-textfield>
-                        </div>
-
-                        <!-- Avoiding Channel Color -->
-                        <div>
-                            <label class="form-label">Avoiding Channels</label>
-                            <ha-textfield
-                                type="color"
-                                .value=${this._debugSettings.avoiding_color || '#FF0000'}
-                                @input=${(e) => this._updateDebugSetting('avoiding_color', e.target.value)}
-                                style="width: 100%;">
-                            </ha-textfield>
-                        </div>
-
-                        <!-- Waypoint Channel Color -->
-                        <div>
-                            <label class="form-label">Waypoint Channels</label>
-                            <ha-textfield
-                                type="color"
-                                .value=${this._debugSettings.waypoint_color || '#0000FF'}
-                                @input=${(e) => this._updateDebugSetting('waypoint_color', e.target.value)}
-                                style="width: 100%;">
-                            </ha-textfield>
-                        </div>
-                    </div>
-                </lcards-form-section>
-
-                <!-- Help Section -->
-                ${this._renderDebugHelp()}
-            </div>
-        `;
-    }
-
-    /**
-     * Render debug help documentation
-     * @returns {TemplateResult}
-     * @private
-     */
-    _renderDebugHelp() {
-        return html`
-            <lcards-message type="info" style="margin-top: 16px;">
-                <strong>About Debug Visualizations:</strong>
-                <ul style="margin: 8px 0; padding-left: 20px; font-size: 13px;">
-                    <li><strong>Anchors</strong>: Cyan crosshairs with labels showing named anchor positions</li>
-                    <li><strong>Bounding Boxes</strong>: Orange dashed rectangles showing control overlay bounds</li>
-                    <li><strong>Attachment Points</strong>: Green dots showing 9-point attachment grid on controls</li>
-                    <li><strong>Routing Channels</strong>: Colored translucent rectangles showing routing regions</li>
-                    <li><strong>Line Paths</strong>: Magenta waypoint markers showing line routing</li>
-                    <li><strong>Grid</strong>: Coordinate grid overlay with snap-to-grid support</li>
-                    <li><strong>Coordinates</strong>: Mouse position tooltip for precise placement</li>
-                </ul>
-            </lcards-message>
-        `;
-    }
-
     /**
      * Update debug setting
      * @param {string} key - Setting key
