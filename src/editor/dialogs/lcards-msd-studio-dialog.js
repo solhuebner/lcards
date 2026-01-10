@@ -190,6 +190,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         };
         this._drawChannelState = {
             startPoint: null,
+            currentPoint: null,
             drawing: false,
             tempRectElement: null
         };
@@ -357,6 +358,10 @@ export class LCARdSMSDStudioDialog extends LitElement {
             }
 
             .preview-panel.mode-draw_channel {
+                cursor: crosshair;
+            }
+
+            .preview-panel.mode-draw_channel.drawing {
                 cursor: crosshair;
             }
 
@@ -1715,6 +1720,80 @@ export class LCARdSMSDStudioDialog extends LitElement {
             this._activeMode = MODES.VIEW;
             this.requestUpdate();
         }
+    }
+
+    /**
+     * Handle preview mouse move (for draw channel visual feedback)
+     * @param {MouseEvent} event - Mouse move event
+     * @private
+     */
+    _handlePreviewMouseMove(event) {
+        // Only track mouse in draw channel mode while drawing
+        if (this._activeMode === MODES.DRAW_CHANNEL && this._drawChannelState.drawing) {
+            const coords = this._getPreviewCoordinates(event);
+            if (coords) {
+                this._drawChannelState.currentPoint = [coords.x, coords.y];
+                this.requestUpdate();
+            }
+        }
+    }
+
+    /**
+     * Handle preview mouse leave (cancel draw if in progress)
+     * @private
+     */
+    _handlePreviewMouseLeave() {
+        // Optional: could cancel draw on mouse leave
+        // For now, just clear current point
+        if (this._drawChannelState.drawing) {
+            this._drawChannelState.currentPoint = null;
+            this.requestUpdate();
+        }
+    }
+
+    /**
+     * Render draw channel overlay (Phase 5)
+     * Shows temporary rectangle while drawing
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderDrawChannelOverlay() {
+        if (this._activeMode !== MODES.DRAW_CHANNEL || !this._drawChannelState.drawing || !this._drawChannelState.currentPoint) {
+            return '';
+        }
+
+        const [startX, startY] = this._drawChannelState.startPoint;
+        const [currentX, currentY] = this._drawChannelState.currentPoint;
+
+        // Calculate rectangle bounds
+        const x = Math.min(startX, currentX);
+        const y = Math.min(startY, currentY);
+        const width = Math.abs(currentX - startX);
+        const height = Math.abs(currentY - startY);
+
+        return html`
+            <div style="
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                pointer-events: none;
+                z-index: 1000;
+            ">
+                <svg style="width: 100%; height: 100%; position: absolute;">
+                    <rect
+                        x="${x}px"
+                        y="${y}px"
+                        width="${width}px"
+                        height="${height}px"
+                        fill="rgba(0, 255, 0, 0.2)"
+                        stroke="#00FF00"
+                        stroke-width="2"
+                        stroke-dasharray="5,5" />
+                </svg>
+            </div>
+        `;
     }
 
     // ============================
@@ -4125,6 +4204,26 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 </div>
 
                 <div class="dialog-content">
+                    <!-- Help Banner -->
+                    <div style="
+                        padding: 8px 24px;
+                        background: var(--info-color, #2196F3);
+                        color: white;
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        font-size: 13px;
+                    ">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <ha-icon icon="mdi:information" style="--mdc-icon-size: 18px;"></ha-icon>
+                            <span><strong>MSD Configuration Studio</strong> - Full-featured editor for Master Systems Display cards</span>
+                        </div>
+                        <ha-button style="--mdc-theme-primary: white;" @click=${() => window.open('https://github.com/snootched/LCARdS/tree/main/doc', '_blank')}>
+                            <ha-icon icon="mdi:book-open-variant" slot="icon"></ha-icon>
+                            Documentation
+                        </ha-button>
+                    </div>
+
                     <!-- Mode Toolbar -->
                     ${this._renderModeToolbar()}
 
@@ -4139,13 +4238,19 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         </div>
 
                         <!-- Preview Panel (40%) -->
-                        <div class="preview-panel mode-${this._activeMode}" @click=${this._handlePreviewClick}>
+                        <div class="preview-panel mode-${this._activeMode}" 
+                             @click=${this._handlePreviewClick}
+                             @mousemove=${this._handlePreviewMouseMove}
+                             @mouseleave=${this._handlePreviewMouseLeave}>
                             <lcards-msd-live-preview
                                 .hass=${this.hass}
                                 .config=${this._workingConfig}
                                 .debugSettings=${this._getDebugSettings()}
                                 .showRefreshButton=${true}>
                             </lcards-msd-live-preview>
+                            
+                            <!-- Draw Channel Rectangle Overlay -->
+                            ${this._renderDrawChannelOverlay()}
                         </div>
                     </div>
                 </div>
