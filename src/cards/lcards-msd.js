@@ -395,6 +395,18 @@ export class LCARdSMSDCard extends LCARdSCard {
                 patchedOverlays: patchKeys
             });
 
+            // Check if patches are style-only (can be applied via DOM without full re-render)
+            const isStyleOnlyPatch = this._isStyleOnlyPatch(this._lastRulePatches);
+
+            if (isStyleOnlyPatch) {
+                lcardsLog.debug('[LCARdSMSDCard] ✨ Style-only patch detected - applying directly to DOM (no animation reset)');
+                this._applyStylePatchesToDOM(this._lastRulePatches);
+                return; // Skip full re-render
+            }
+
+            // For non-style patches, proceed with full update
+            lcardsLog.debug('[LCARdSMSDCard] Non-style patch detected - full re-render required');
+
             // CRITICAL: Overlay objects are frozen - we must create NEW overlay objects, not mutate
             this._msdConfig.overlays = this._msdConfig.overlays.map(overlay => {
                 const overlayId = overlay.id;
@@ -594,7 +606,7 @@ export class LCARdSMSDCard extends LCARdSCard {
             timestamp: new Date().toISOString(),
             hasHass: !!hass,
             cardGuid: this._cardGuid,
-            callerStack: new Error().stack.split('\n').slice(1, 4).map(line => line.trim()).join(' → ')
+            callerStack: new Error().stack.split('').slice(1, 4).map(line => line.trim()).join(' → ')
         });
 
         const oldHass = this._hass;
@@ -1387,6 +1399,163 @@ export class LCARdSMSDCard extends LCARdSCard {
         }
 
         return svgContent;
+    }
+
+    // ============================================================================
+    // Selective DOM Patching (Avoid Full Re-render)
+    // ============================================================================
+
+    /**
+     * Check if rule patches only contain style changes (no structural changes)
+     * @param {Object} patches - Rule patches by overlay ID
+     * @returns {boolean} True if only style properties are patched
+     * @private
+     */
+    _isStyleOnlyPatch(patches) {
+        for (const overlayId in patches) {
+            const patch = patches[overlayId];
+            const keys = Object.keys(patch);
+
+            // Check if patch contains non-style properties
+            for (const key of keys) {
+                if (key !== 'style' && key !== 'id' && key !== 'ruleId' && key !== 'ruleCondition') {
+                    lcardsLog.debug(`[LCARdSMSDCard] Non-style property detected: ${key} - full re-render required`);
+                    return false; // Structural change requires full re-render
+                }
+            }
+        }
+
+        return true; // All patches are style-only
+    }
+
+    /**
+     * Apply style patches directly to DOM elements without full re-render
+     * This preserves animation state and avoids expensive pipeline reinit
+     * @param {Object} patches - Rule patches by overlay ID
+     * @private
+     */
+    _applyStylePatchesToDOM(patches) {
+        const mountEl = this.getMountElement();
+        if (!mountEl) {
+            lcardsLog.warn('[LCARdSMSDCard] Cannot apply DOM patches - no mount element');
+            return;
+        }
+
+        let patchCount = 0;
+
+        for (const overlayId in patches) {
+            const patch = patches[overlayId];
+            if (!patch.style) continue;
+
+            // Find overlay element in DOM
+            const overlayEl = mountEl.querySelector(`#${overlayId}`);
+            if (!overlayEl) {
+                lcardsLog.debug(`[LCARdSMSDCard] Overlay element not found: ${overlayId}`);
+                continue;
+            }
+
+            // Get overlay type to determine how to apply style
+            const overlay = this._msdConfig?.overlays?.find(o => o.id === overlayId);
+            const overlayType = overlay?.type;
+
+            // Apply style properties based on overlay type
+            if (overlayType === 'line') {
+                this._applyLineStyleToDOM(overlayEl, patch.style);
+            } else if (overlayType === 'control') {
+                this._applyControlStyleToDOM(overlayEl, patch.style);
+            } else {
+                lcardsLog.warn(`[LCARdSMSDCard] Unknown overlay type for DOM patching: ${overlayType}`);            }
+
+            patchCount++;
+        }
+
+        lcardsLog.info(`[LCARdSMSDCard] ✅ Applied ${patchCount} style patches directly to DOM (animations preserved)`);    }
+
+    /**
+     * Apply line style patch to SVG path element
+     * @param {SVGElement} lineEl - SVG path or group element
+     * @param {Object} style - Style properties to apply
+     * @private
+     */
+    _applyLineStyleToDOM(lineEl, style) {
+        // If element is a group, find child path/line elements
+        let targetElements = [lineEl];
+        if (lineEl.tagName.toLowerCase() === 'g') {
+            const children = lineEl.querySelectorAll('path, line, polyline, polygon');
+            if (children.length > 0) {
+                targetElements = Array.from(children);
+            }
+        }
+
+        // Map line style properties to SVG attributes
+        const styleMapping = {
+            color: 'stroke',           // line.style.color → SVG stroke
+            stroke: 'stroke',          // also accept direct stroke
+            width: 'stroke-width',
+            opacity: 'opacity',
+            dash_array: 'stroke-dasharray',
+            dasharray: 'stroke-dasharray'
+        };
+
+        for (const [configKey, value] of Object.entries(style)) {
+            const svgAttr = styleMapping[configKey];
+
+            if (svgAttr && value !== null && value !== undefined) {
+                // Resolve CSS variables if present
+                const resolvedValue = this._resolveCSSVariable(value);
+
+                // Apply to all target elements (group children or the element itself)
+                targetElements.forEach(el => {
+                    el.setAttribute(svgAttr, resolvedValue);
+                });
+            }
+        }
+    }
+
+    /**
+     * Apply control overlay style patch to container element
+     * @param {HTMLElement} controlEl - Control overlay container
+     * @param {Object} style - Style properties to apply
+     * @private
+     */
+    _applyControlStyleToDOM(controlEl, style) {
+        // Apply style properties to control container
+        for (const [key, value] of Object.entries(style)) {
+            if (value !== null && value !== undefined) {
+                const resolvedValue = this._resolveCSSVariable(value);
+                controlEl.style[key] = resolvedValue;
+                lcardsLog.trace(`[LCARdSMSDCard]   Set style.${key}=${resolvedValue}`);            }
+        }
+    }
+
+    /**
+     * Resolve CSS variable references to actual values
+     * @param {string} value - CSS value (may contain var(--variable))
+     * @returns {string} Resolved value
+     * @private
+     */
+    _resolveCSSVariable(value) {
+        if (typeof value !== 'string') return value;
+
+        // If it's a CSS variable reference, resolve it
+        if (value.startsWith('var(')) {
+            const varMatch = value.match(/var\(([^,)]+)(?:,\s*([^)]+))?\)/);
+            if (varMatch) {
+                const varName = varMatch[1].trim();
+                const fallback = varMatch[2]?.trim();
+
+                // Get computed value from root
+                const computedValue = getComputedStyle(document.documentElement).getPropertyValue(varName);
+
+                if (computedValue) {
+                    return computedValue.trim();
+                } else if (fallback) {
+                    return this._resolveCSSVariable(fallback); // Recursively resolve fallback
+                }
+            }
+        }
+
+        return value;
     }
 
     // ============================================================================
