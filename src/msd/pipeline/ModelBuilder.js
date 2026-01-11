@@ -11,7 +11,7 @@ export class ModelBuilder {
     this.cardModel = cardModel;
     this.systems = coordinator;
 
-    this.animationIndex = new Map((mergedConfig.animations || []).map(a => [a.id, a]));
+    // animationIndex removed - animations now defined directly on overlays
     this.timelineDefs = mergedConfig.timelines || [];
 
     this._resolvedModelRef = null;
@@ -158,35 +158,14 @@ export class ModelBuilder {
   // MSD card receives rule patches through _onRulePatchesChanged() lifecycle hook
 
   _processAnimations(overlaysWithPatches, ruleResult) {
-    const desiredAnimations = resolveDesiredAnimations(overlaysWithPatches, this.animationIndex, ruleResult.animations);
+    // Legacy animation_ref system removed
+    // Animations are now handled directly by AnimationManager from overlay.animations arrays
     const desiredTimelines = resolveDesiredTimelines(this.timelineDefs);
-    const activeAnimations = [];
 
-    desiredAnimations.forEach(animDef => {
-      const instance = this.systems.animRegistry.getOrCreateInstance(animDef.definition, animDef.targets);
-      if (instance) {
-        activeAnimations.push({
-          id: animDef.id,
-          instance,
-          hash: this.systems.animRegistry.computeInstanceHash(animDef.definition)
-        });
-      }
-    });
-
-    const animDiff = { active: activeAnimations };
+    const animDiff = { active: [] };
     const tlDiff = { active: desiredTimelines };
 
-    // Assign animation hash to overlays
-    const overlayAnimByKey = new Map();
-    animDiff.active.forEach(a => {
-      if (a.overlayId) overlayAnimByKey.set(a.overlayId, a.hash);
-    });
-    overlaysWithPatches.forEach(o => {
-      const h = overlayAnimByKey.get(o.id);
-      if (h) o.animation_hash = h;
-    });
-
-    return { activeAnimations, animDiff, tlDiff };
+    return { activeAnimations: [], animDiff, tlDiff };
   }
 
 

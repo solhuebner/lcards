@@ -955,7 +955,11 @@ msd:
       style:
         color: '#00ff00'
         width: 2
-      animation_ref: pulse
+      animations:
+        - trigger: on_load
+          preset: pulse
+          params:
+            duration: 800
 
     - id: server2_storage
       type: line
@@ -1081,8 +1085,9 @@ Packs are now loaded globally by PackManager at startup. Configure packs in them
 - Presets available globally from loaded packs
 
 ### AnimationRegistry
-- Manages animation definitions
-- Reference animations via `animation_ref` in overlays
+- Manages animation instances and caching
+- Animations defined directly on overlay configs via animations[] array
+- No registry lookup or animation_ref needed
 
 ---
 

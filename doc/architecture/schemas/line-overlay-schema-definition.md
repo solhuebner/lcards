@@ -293,9 +293,14 @@ overlays:
     # ANIMATION
     # ==========================================================================
 
-    animation_ref: <animation-id>
-      # Reference to animation definition in animations: section
-      # Enables animated line effects (trace, pulse, draw, etc.)
+    animations:
+      # Array of animation configurations defined directly on the overlay
+      # Handled by AnimationManager - no registry lookup needed
+      - trigger: on_load
+        preset: pulse
+        params:
+          duration: 1000
+          max_scale: 1.1
 ```
 
 ---

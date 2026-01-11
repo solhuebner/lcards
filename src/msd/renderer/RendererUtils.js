@@ -1519,10 +1519,7 @@ export class RendererUtils {
       }
     });
 
-    if (animationConfig.animation_ref || animationConfig.animationRef) {
-      const ref = animationConfig.animation_ref || animationConfig.animationRef;
-      attributes.push(`data-animation-ref="${ref}"`);
-    }
+    // animation_ref removed - animations now defined directly on overlays
 
     return attributes;
   }

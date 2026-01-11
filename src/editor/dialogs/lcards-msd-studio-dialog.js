@@ -5742,8 +5742,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             // Channel routing
             route_channels: [],
             channel_mode: 'prefer',
-            // Animation
-            animation_ref: '',
+            // Animation - handled via animations array
             style: {
                 color: 'var(--lcars-orange)',
                 width: 2,

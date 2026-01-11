@@ -78,13 +78,7 @@ export class AnimationRegistry {
       // Exclude: targets, callbacks, DOM-specific properties
     };
 
-    // Handle animation_ref and overrides
-    if (definition.animation_ref) {
-      semantic.animation_ref = definition.animation_ref;
-      if (definition.override) {
-        semantic.override = this.normalizeParams(definition.override.params);
-      }
-    }
+    // animation_ref removed - no longer part of architecture
 
     return computeObjectHash(semantic);
   }

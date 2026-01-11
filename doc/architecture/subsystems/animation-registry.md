@@ -627,11 +627,6 @@ const csv = registry.exportStats({ format: 'csv' });
 ```yaml
 animations:
   - id: pulse_anim
-    preset: pulse
-    params:
-      duration: 1000
-      max_scale: 1.15
-
 overlays:
   - id: my_control
     type: control
@@ -640,7 +635,12 @@ overlays:
     card:
       type: custom:lcards-button-card
       entity: light.main
-    animation_ref: pulse_anim
+    animations:
+      - trigger: on_load
+        preset: pulse
+        params:
+          duration: 1000
+          max_scale: 1.15
 ```
 
 **Processing:**
@@ -657,23 +657,25 @@ const instance = registry.getOrCreateInstance({
 ### Example 2: Multiple Overlays with Same Animation
 
 ```yaml
-animations:
-  - id: fade_in
-    preset: fade
-    params:
-      duration: 600
-
 overlays:
   - id: line1
     type: line
     attach_start: anchor1.middle-right
     attach_end: anchor2.middle-left
-    animation_ref: fade_in
+    animations:
+      - trigger: on_load
+        preset: fade
+        params:
+          duration: 600
   - id: line2
     type: line
     attach_start: anchor3.middle-right
     attach_end: anchor4.middle-left
-    animation_ref: fade_in
+    animations:
+      - trigger: on_load
+        preset: fade
+        params:
+          duration: 600
   - id: control1
     type: control
     position: [100, 100]
@@ -681,7 +683,11 @@ overlays:
     card:
       type: custom:lcards-button-card
       entity: light.main
-    animation_ref: fade_in
+    animations:
+      - trigger: on_load
+        preset: fade
+        params:
+          duration: 600
 ```
 
 **Processing:**
@@ -749,13 +755,6 @@ registerAnimationPreset('slide', (def) => {
 
 **Usage:**
 ```yaml
-animations:
-  - id: slide_in
-    preset: slide
-    params:
-      direction: 'left'
-      duration: 600
-
 overlays:
   - id: panel
     type: control
@@ -763,7 +762,12 @@ overlays:
     size: [300, 200]
     card:
       type: custom:lcards-panel-card
-    animation_ref: slide_in
+    animations:
+      - trigger: on_load
+        preset: slide
+        params:
+          direction: 'left'
+          duration: 600
 ```
 
 ---
