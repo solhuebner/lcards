@@ -187,26 +187,220 @@ export function getMsdSchema(options = {}) {
       routing: {
         type: 'object',
         optional: true,
-        description: 'Line routing configuration',
+        description: 'Global line routing configuration (lines can override with per-line properties)',
         properties: {
-          default_mode: {
-            type: 'string',
-            enum: ['manhattan', 'direct', 'auto', 'smart'],
-            optional: true,
-            description: 'Default routing algorithm'
-          },
+          // Basic routing
           clearance: {
             type: 'number',
             min: 0,
             optional: true,
-            description: 'Minimum clearance around obstacles'
+            default: 0,
+            description: 'Minimum clearance around obstacles (pixels)'
           },
-          grid_size: {
+          grid_resolution: {
+            type: 'number',
+            min: 5,
+            optional: true,
+            default: 64,
+            description: 'Grid cell size for grid-based routing (pixels)'
+          },
+
+          // Path smoothing (flat format)
+          smoothing_mode: {
+            type: 'string',
+            enum: ['none', 'chaikin'],
+            optional: true,
+            default: 'none',
+            description: 'Path smoothing algorithm'
+          },
+          smoothing_iterations: {
+            type: 'number',
+            min: 1,
+            max: 5,
+            optional: true,
+            default: 1,
+            description: 'Number of smoothing iterations'
+          },
+          smoothing_max_points: {
             type: 'number',
             min: 1,
             optional: true,
-            description: 'Grid cell size for routing'
+            default: 160,
+            description: 'Maximum points after smoothing'
+          },
+
+          // Path smoothing (nested format - alternate)
+          smoothing: {
+            type: 'object',
+            optional: true,
+            description: 'Nested smoothing configuration (alternate format)',
+            properties: {
+              mode: {
+                type: 'string',
+                enum: ['none', 'chaikin'],
+                optional: true,
+                default: 'none',
+                description: 'Smoothing algorithm (same as smoothing_mode)'
+              },
+              iterations: {
+                type: 'number',
+                min: 1,
+                max: 5,
+                optional: true,
+                default: 1,
+                description: 'Number of iterations (same as smoothing_iterations)'
+              },
+              max_points: {
+                type: 'number',
+                min: 1,
+                optional: true,
+                default: 160,
+                description: 'Max points (same as smoothing_max_points)'
+              }
+            }
+          },
+
+          // Smart routing
+          smart_proximity: {
+            type: 'number',
+            min: 0,
+            optional: true,
+            default: 0,
+            description: 'Proximity band for smart routing (pixels)'
+          },
+          smart_detour_span: {
+            type: 'number',
+            min: 1,
+            optional: true,
+            default: 48,
+            description: 'Maximum detour distance for smart routing (pixels)'
+          },
+          smart_max_extra_bends: {
+            type: 'number',
+            min: 0,
+            optional: true,
+            default: 3,
+            description: 'Maximum additional bends allowed by smart routing'
+          },
+          smart_min_improvement: {
+            type: 'number',
+            min: 0,
+            optional: true,
+            default: 4,
+            description: 'Minimum cost improvement to accept detour (pixels)'
+          },
+          smart_max_detours_per_elbow: {
+            type: 'number',
+            min: 1,
+            optional: true,
+            default: 4,
+            description: 'Maximum detour attempts per elbow'
+          },
+
+          // Channel configuration
+          channel_force_penalty: {
+            type: 'number',
+            min: 0,
+            optional: true,
+            default: 800,
+            description: 'Penalty for lines outside forced channels'
+          },
+          channel_avoid_multiplier: {
+            type: 'number',
+            min: 0,
+            optional: true,
+            default: 1.0,
+            description: 'Multiplier for avoid channel penalties'
+          },
+          channel_target_coverage: {
+            type: 'number',
+            min: 0,
+            max: 1,
+            optional: true,
+            default: 0.6,
+            description: 'Target channel coverage for prefer mode (0-1)'
+          },
+          channel_shaping_max_attempts: {
+            type: 'number',
+            min: 1,
+            optional: true,
+            default: 12,
+            description: 'Maximum attempts for channel shaping'
+          },
+          channel_shaping_span: {
+            type: 'number',
+            min: 1,
+            optional: true,
+            default: 32,
+            description: 'Maximum shift distance during channel shaping (pixels)'
+          },
+          channel_min_coverage_gain: {
+            type: 'number',
+            min: 0,
+            max: 1,
+            optional: true,
+            default: 0.04,
+            description: 'Minimum coverage improvement to accept shaping (0-1)'
+          },
+
+          // Cost function weights
+          cost_defaults: {
+            type: 'object',
+            optional: true,
+            description: 'Cost function weights for routing algorithms',
+            properties: {
+              bend: {
+                type: 'number',
+                optional: true,
+                default: 10,
+                description: 'Cost weight for each bend/elbow in path'
+              },
+              proximity: {
+                type: 'number',
+                optional: true,
+                default: 4,
+                description: 'Cost weight for proximity to obstacles'
+              }
+            }
           }
+        }
+      },
+
+      channels: {
+        type: 'object',
+        optional: true,
+        description: 'Named routing channels that influence line behavior',
+        patternProperties: {
+          '^[a-zA-Z0-9_-]+$': {
+            type: 'object',
+            required: ['bounds', 'type'],
+            properties: {
+              bounds: {
+                type: 'array',
+                minItems: 4,
+                maxItems: 4,
+                items: { type: 'number' },
+                description: 'Channel rectangle [x, y, width, height]'
+              },
+              type: {
+                type: 'string',
+                enum: ['bundling', 'avoiding', 'waypoint'],
+                description: 'Channel behavior type'
+              },
+              weight: {
+                type: 'number',
+                min: 0,
+                optional: true,
+                default: 0.5,
+                description: 'Channel influence weight (0-1)'
+              }
+            }
+          }
+        },
+        'x-ui': {
+          control: 'yaml',
+          label: 'Routing Channels',
+          helper: 'Define channels: channel_id: { bounds: [x,y,w,h], type: bundling|avoiding|waypoint, weight: 0.5 }'
         }
       },
 

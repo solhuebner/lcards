@@ -336,21 +336,6 @@ export class LCARdSMSDLivePreview extends LitElement {
     render() {
         return html`
             <div class="preview-container">
-                <!-- Header -->
-                <div class="preview-header">
-                    <div class="preview-title">
-                        <ha-icon icon="mdi:eye"></ha-icon>
-                        <span>Live Preview</span>
-                    </div>
-                    ${this.showRefreshButton ? html`
-                        <ha-icon-button
-                            @click=${this._forceRefresh}
-                            title="Refresh preview">
-                            <ha-icon icon="mdi:refresh"></ha-icon>
-                        </ha-icon-button>
-                    ` : ''}
-                </div>
-
                 <!-- Preview Card Container (populated by _updatePreviewCard) -->
                 <div class="preview-card-container">
                 </div>
