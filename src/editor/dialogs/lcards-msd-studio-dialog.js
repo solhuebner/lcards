@@ -198,7 +198,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 marker_end: null     // Optional marker config
             }
         };
-        this._lineFormActiveSubtab = 'connection';
+        this._lineFormActiveSubtab = 'basic';
         this._connectLineState = { source: null, tempLineElement: null };
 
         // Channels Tab State (Phase 5)
@@ -5810,7 +5810,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 marker_end: null
             }
         };
-        this._lineFormActiveSubtab = 'connection';
+        this._lineFormActiveSubtab = 'basic';
         this._showLineForm = true;
 
         this.requestUpdate();
@@ -5856,7 +5856,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             }
         };
 
-        this._lineFormActiveSubtab = 'connection';
+        this._lineFormActiveSubtab = 'basic';
         this._showLineForm = true;
         this.requestUpdate();
     }
@@ -6168,28 +6168,48 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 @closed=${this._closeLineForm}
                 .heading=${title}>
 
+                <!-- Sticky Line Preview -->
+                <div style="position: sticky; top: 0; z-index: 10; background: var(--card-background-color); padding: 16px 24px; border-bottom: 1px solid var(--divider-color);">
+                    ${this._renderLineStylePreview()}
+                </div>
+
                 <!-- Subtabs -->
-                <div style="display: flex; gap: 8px; padding: 0 24px; border-bottom: 1px solid var(--divider-color);">
+                <div style="display: flex; gap: 8px; padding: 0 24px; border-bottom: 1px solid var(--divider-color); overflow-x: auto;">
                     <button
-                        class="tab-button ${this._lineFormActiveSubtab === 'connection' ? 'active' : ''}"
-                        @click=${() => { this._lineFormActiveSubtab = 'connection'; this.requestUpdate(); }}
-                        style="padding: 12px 16px; background: transparent; border: none; border-bottom: 3px solid ${this._lineFormActiveSubtab === 'connection' ? 'var(--primary-color)' : 'transparent'}; cursor: pointer; font-weight: 500;">
-                        Connection & Routing
+                        class="tab-button ${this._lineFormActiveSubtab === 'basic' ? 'active' : ''}"
+                        @click=${() => { this._lineFormActiveSubtab = 'basic'; this.requestUpdate(); }}
+                        style="padding: 12px 16px; background: transparent; border: none; border-bottom: 3px solid ${this._lineFormActiveSubtab === 'basic' ? 'var(--primary-color)' : 'transparent'}; cursor: pointer; font-weight: 500; white-space: nowrap;">
+                        Basic
                     </button>
                     <button
                         class="tab-button ${this._lineFormActiveSubtab === 'style' ? 'active' : ''}"
                         @click=${() => { this._lineFormActiveSubtab = 'style'; this.requestUpdate(); }}
-                        style="padding: 12px 16px; background: transparent; border: none; border-bottom: 3px solid ${this._lineFormActiveSubtab === 'style' ? 'var(--primary-color)' : 'transparent'}; cursor: pointer; font-weight: 500;">
-                        Style & Animation
+                        style="padding: 12px 16px; background: transparent; border: none; border-bottom: 3px solid ${this._lineFormActiveSubtab === 'style' ? 'var(--primary-color)' : 'transparent'}; cursor: pointer; font-weight: 500; white-space: nowrap;">
+                        Style
+                    </button>
+                    <button
+                        class="tab-button ${this._lineFormActiveSubtab === 'markers' ? 'active' : ''}"
+                        @click=${() => { this._lineFormActiveSubtab = 'markers'; this.requestUpdate(); }}
+                        style="padding: 12px 16px; background: transparent; border: none; border-bottom: 3px solid ${this._lineFormActiveSubtab === 'markers' ? 'var(--primary-color)' : 'transparent'}; cursor: pointer; font-weight: 500; white-space: nowrap;">
+                        Markers
+                    </button>
+                    <button
+                        class="tab-button ${this._lineFormActiveSubtab === 'animation' ? 'active' : ''}"
+                        @click=${() => { this._lineFormActiveSubtab = 'animation'; this.requestUpdate(); }}
+                        style="padding: 12px 16px; background: transparent; border: none; border-bottom: 3px solid ${this._lineFormActiveSubtab === 'animation' ? 'var(--primary-color)' : 'transparent'}; cursor: pointer; font-weight: 500; white-space: nowrap;">
+                        Animation
+                    </button>
+                    <button
+                        class="tab-button ${this._lineFormActiveSubtab === 'routing' ? 'active' : ''}"
+                        @click=${() => { this._lineFormActiveSubtab = 'routing'; this.requestUpdate(); }}
+                        style="padding: 12px 16px; background: transparent; border: none; border-bottom: 3px solid ${this._lineFormActiveSubtab === 'routing' ? 'var(--primary-color)' : 'transparent'}; cursor: pointer; font-weight: 500; white-space: nowrap;">
+                        Routing
                     </button>
                 </div>
 
                 <!-- Subtab Content -->
                 <div style="padding: 16px; max-height: 60vh; overflow-y: auto;">
-                    ${this._lineFormActiveSubtab === 'connection'
-                        ? this._renderLineFormConnection()
-                        : this._renderLineFormStyle()
-                    }
+                    ${this._renderLineFormTabContent()}
                 </div>
 
                 <div slot="primaryAction">
@@ -6210,11 +6230,33 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
-     * Render Connection & Routing subtab (Fixed schema)
+     * Route to appropriate tab content renderer
      * @returns {TemplateResult}
      * @private
      */
-    _renderLineFormConnection() {
+    _renderLineFormTabContent() {
+        switch (this._lineFormActiveSubtab) {
+            case 'basic':
+                return this._renderLineFormBasic();
+            case 'style':
+                return this._renderLineFormStyle();
+            case 'markers':
+                return this._renderLineFormMarkers();
+            case 'routing':
+                return this._renderLineFormRouting();
+            case 'animation':
+                return this._renderLineFormAnimation();
+            default:
+                return this._renderLineFormBasic();
+        }
+    }
+
+    /**
+     * Render Basic tab (Line ID + Start/End points)
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderLineFormBasic() {
         // Build complete anchor dropdown options - INCLUDING base_svg anchors
         const userAnchors = this._workingConfig.msd?.anchors || {};
         const baseSvgAnchors = this._getBaseSvgAnchors();
@@ -6284,28 +6326,29 @@ export class LCARdSMSDStudioDialog extends LitElement {
                             style="margin-top: 12px;">
                         </ha-selector>
 
-                        <lcards-position-picker
-                            .value=${this._lineFormData.anchor_side || 'center'}
-                            .label=${'Anchor Side'}
-                            .helper=${'Select attachment point on the source'}
-                            @value-changed=${(e) => {
-                                this._lineFormData.anchor_side = e.detail.value;
-                                this.requestUpdate();
-                            }}
-                            style="margin-top: 12px;">
-                        </lcards-position-picker>
+                        <div style="display: grid; grid-template-columns: 1fr 120px; gap: 12px; margin-top: 12px; align-items: start;">
+                            <lcards-position-picker
+                                .value=${this._lineFormData.anchor_side || 'center'}
+                                .label=${'Anchor Side'}
+                                .helper=${'Select attachment point on the source'}
+                                @value-changed=${(e) => {
+                                    this._lineFormData.anchor_side = e.detail.value;
+                                    this.requestUpdate();
+                                }}>
+                            </lcards-position-picker>
 
-                        <ha-textfield
-                            type="number"
-                            label="Gap (pixels)"
-                            .value=${String(this._lineFormData.anchor_gap || 0)}
-                            @input=${(e) => {
-                                this._lineFormData.anchor_gap = Number(e.target.value);
-                                this.requestUpdate();
-                            }}
-                            helper-text="Distance from source connection point"
-                            style="margin-top: 12px; width: 100%;">
-                        </ha-textfield>
+                            <ha-textfield
+                                type="number"
+                                label="Gap (px)"
+                                .value=${String(this._lineFormData.anchor_gap || 0)}
+                                @input=${(e) => {
+                                    this._lineFormData.anchor_gap = Number(e.target.value);
+                                    this.requestUpdate();
+                                }}
+                                helper-text="Distance from point"
+                                style="width: 100%;">
+                            </ha-textfield>
+                        </div>
                     </lcards-form-section>
 
                     <!-- Flow Arrow -->
@@ -6336,31 +6379,46 @@ export class LCARdSMSDStudioDialog extends LitElement {
                             style="margin-top: 12px;">
                         </ha-selector>
 
-                        <lcards-position-picker
-                            .value=${this._lineFormData.attach_side || 'center'}
-                            .label=${'Attach Side'}
-                            .helper=${'Select attachment point on the target'}
-                            @value-changed=${(e) => {
-                                this._lineFormData.attach_side = e.detail.value;
-                                this.requestUpdate();
-                            }}
-                            style="margin-top: 12px;">
-                        </lcards-position-picker>
+                        <div style="display: grid; grid-template-columns: 1fr 120px; gap: 12px; margin-top: 12px; align-items: start;">
+                            <lcards-position-picker
+                                .value=${this._lineFormData.attach_side || 'center'}
+                                .label=${'Attach Side'}
+                                .helper=${'Select attachment point on the target'}
+                                @value-changed=${(e) => {
+                                    this._lineFormData.attach_side = e.detail.value;
+                                    this.requestUpdate();
+                                }}>
+                            </lcards-position-picker>
 
-                        <ha-textfield
-                            type="number"
-                            label="Gap (pixels)"
-                            .value=${String(this._lineFormData.attach_gap || 0)}
-                            @input=${(e) => {
-                                this._lineFormData.attach_gap = Number(e.target.value);
-                                this.requestUpdate();
-                            }}
-                            helper-text="Distance from target connection point"
-                            style="margin-top: 12px; width: 100%;">
-                        </ha-textfield>
+                            <ha-textfield
+                                type="number"
+                                label="Gap (px)"
+                                .value=${String(this._lineFormData.attach_gap || 0)}
+                                @input=${(e) => {
+                                    this._lineFormData.attach_gap = Number(e.target.value);
+                                    this.requestUpdate();
+                                }}
+                                helper-text="Distance from point"
+                                style="width: 100%;">
+                            </ha-textfield>
+                        </div>
                     </lcards-form-section>
                 </div>
+            </div>
+        `;
+    }
 
+    /**
+     * Render Routing tab
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderLineFormRouting() {
+        // Get routing mode info
+        const routingInfo = this._getRoutingModeInfo(this._lineFormData.route || 'auto');
+
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 16px;">
                 <!-- Routing Configuration - 2 Column Layout -->
                 <lcards-form-section
                     header="Routing Configuration"
@@ -6413,22 +6471,190 @@ export class LCARdSMSDStudioDialog extends LitElement {
                             </div>
 
                             <ha-textfield
-                        type="number"
-                        label="Clearance (pixels)"
-                        .value=${String(this._lineFormData.clearance || '')}
-                        @input=${(e) => {
-                            const val = e.target.value;
-                            this._lineFormData.clearance = val ? Number(val) : undefined;
-                            this.requestUpdate();
-                        }}
-                        helper-text="Minimum pixels from obstacles (default: 8)"
-                        style="margin-top: 12px; width: 100%;">
-                    </ha-textfield>
+                                type="number"
+                                label="Clearance (pixels)"
+                                .value=${String(this._lineFormData.clearance || '')}
+                                @input=${(e) => {
+                                    const val = e.target.value;
+                                    this._lineFormData.clearance = val ? Number(val) : undefined;
+                                    this.requestUpdate();
+                                }}
+                                helper-text="Minimum pixels from obstacles (default: 8)"
+                                style="margin-top: 12px; width: 100%;">
+                            </ha-textfield>
 
                             <!-- Channel Routing -->
                             ${this._renderChannelRoutingOptions()}
                         </div>
                     </div>
+                </lcards-form-section>
+            </div>
+        `;
+    }
+
+    /**
+     * Render Markers tab
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderLineFormMarkers() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <lcards-form-section
+                    header="Start Marker"
+                    description="Marker at the beginning of the line"
+                    ?expanded=${true}>
+
+                    <ha-selector
+                        .hass=${this.hass}
+                        .selector=${{
+                            select: {
+                                options: [
+                                    { value: 'none', label: 'None' },
+                                    { value: 'arrow', label: 'Arrow' },
+                                    { value: 'dot', label: 'Dot' },
+                                    { value: 'diamond', label: 'Diamond' },
+                                    { value: 'square', label: 'Square' },
+                                    { value: 'triangle', label: 'Triangle' }
+                                ]
+                            }
+                        }}
+                        .value=${this._lineFormData.style?.marker_start?.type || 'none'}
+                        .label=${'Type'}
+                        @value-changed=${(e) => {
+                            const markerType = e.detail.value;
+                            if (markerType === 'none') {
+                                const { marker_start, ...styleWithoutMarkerStart } = this._lineFormData.style || {};
+                                this._lineFormData.style = styleWithoutMarkerStart;
+                            } else {
+                                const existingSize = this._lineFormData.style?.marker_start?.size || 'medium';
+                                this._lineFormData.style = {
+                                    ...this._lineFormData.style,
+                                    marker_start: { type: markerType, size: existingSize }
+                                };
+                            }
+                            this.requestUpdate();
+                        }}>
+                    </ha-selector>
+
+                    ${this._lineFormData.style?.marker_start?.type && this._lineFormData.style.marker_start.type !== 'none' ? html`
+                        <ha-selector
+                            .hass=${this.hass}
+                            .selector=${{
+                                select: {
+                                    options: [
+                                        { value: 'small', label: 'Small' },
+                                        { value: 'medium', label: 'Medium' },
+                                        { value: 'large', label: 'Large' }
+                                    ]
+                                }
+                            }}
+                            .value=${this._lineFormData.style.marker_start.size || 'medium'}
+                            .label=${'Size'}
+                            @value-changed=${(e) => {
+                                this._lineFormData.style = {
+                                    ...this._lineFormData.style,
+                                    marker_start: {
+                                        ...this._lineFormData.style.marker_start,
+                                        size: e.detail.value
+                                    }
+                                };
+                                this.requestUpdate();
+                            }}
+                            style="margin-top: 12px;">
+                        </ha-selector>
+                    ` : ''}
+                </lcards-form-section>
+
+                <lcards-form-section
+                    header="End Marker"
+                    description="Marker at the end of the line"
+                    ?expanded=${true}>
+
+                    <ha-selector
+                        .hass=${this.hass}
+                        .selector=${{
+                            select: {
+                                options: [
+                                    { value: 'none', label: 'None' },
+                                    { value: 'arrow', label: 'Arrow' },
+                                    { value: 'dot', label: 'Dot' },
+                                    { value: 'diamond', label: 'Diamond' },
+                                    { value: 'square', label: 'Square' },
+                                    { value: 'triangle', label: 'Triangle' }
+                                ]
+                            }
+                        }}
+                        .value=${this._lineFormData.style?.marker_end?.type || 'none'}
+                        .label=${'Type'}
+                        @value-changed=${(e) => {
+                            const markerType = e.detail.value;
+                            if (markerType === 'none') {
+                                this._lineFormData.style = { ...this._lineFormData.style, marker_end: null };
+                            } else {
+                                const existingSize = this._lineFormData.style?.marker_end?.size || 'medium';
+                                this._lineFormData.style = {
+                                    ...this._lineFormData.style,
+                                    marker_end: { type: markerType, size: existingSize }
+                                };
+                            }
+                            this.requestUpdate();
+                        }}>
+                    </ha-selector>
+
+                    ${this._lineFormData.style?.marker_end?.type && this._lineFormData.style.marker_end.type !== 'none' ? html`
+                        <ha-selector
+                            .hass=${this.hass}
+                            .selector=${{
+                                select: {
+                                    options: [
+                                        { value: 'small', label: 'Small' },
+                                        { value: 'medium', label: 'Medium' },
+                                        { value: 'large', label: 'Large' }
+                                    ]
+                                }
+                            }}
+                            .value=${this._lineFormData.style.marker_end.size || 'medium'}
+                            .label=${'Size'}
+                            @value-changed=${(e) => {
+                                this._lineFormData.style = {
+                                    ...this._lineFormData.style,
+                                    marker_end: {
+                                        ...this._lineFormData.style.marker_end,
+                                        size: e.detail.value
+                                    }
+                                };
+                                this.requestUpdate();
+                            }}
+                            style="margin-top: 12px;">
+                        </ha-selector>
+                    ` : ''}
+                </lcards-form-section>
+            </div>
+        `;
+    }
+
+    /**
+     * Render Animation tab
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderLineFormAnimation() {
+        return html`
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <lcards-form-section
+                    header="Line Animations"
+                    description="Configure animations for this line"
+                    ?expanded=${true}>
+
+                    <lcards-animation-editor
+                        .hass=${this.hass}
+                        .animations=${this._lineFormData.animations || []}
+                        @animations-changed=${(e) => {
+                            this._lineFormData.animations = e.detail.value;
+                            this.requestUpdate();
+                        }}
+                    ></lcards-animation-editor>
                 </lcards-form-section>
             </div>
         `;
@@ -6460,15 +6686,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
         return html`
             <div style="display: flex; flex-direction: column; gap: 16px;">
-                <!-- Visual Line Preview at Top -->
-                ${this._renderLineStylePreview()}
-
                 <!-- Two Column Layout for Style Controls -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start;">
 
                     <!-- Left Column: Color, Width, Style -->
                     <lcards-form-section
-                        header="Stroke"
+                        header="Line Style"
                         description="Line appearance settings"
                         ?expanded=${true}>
 
@@ -6558,157 +6781,153 @@ export class LCARdSMSDStudioDialog extends LitElement {
                             style="margin-top: 12px;">
                         </ha-selector>
 
-                        <!-- Custom Dash Pattern (conditional) -->
-                        ${lineStylePreset === 'custom' ? html`
-                            <ha-textfield
-                                label="Pattern"
-                                .value=${dashArray}
-                                @input=${(e) => {
-                                    this._lineFormData.style = { ...this._lineFormData.style, dash_array: e.target.value };
-                                    this.requestUpdate();
-                                }}
-                                helper-text="e.g., '5,5' or '10,5,2,5'"
-                                style="margin-top: 12px; width: 100%;">
-                            </ha-textfield>
+                        <!-- Dash Pattern Customization (conditional - all non-solid presets) -->
+                        ${lineStylePreset !== 'solid' ? html`
+                            <div style="margin-top: 16px; padding: 12px; background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 4px;">
+                                <div style="font-weight: 500; font-size: 13px; margin-bottom: 12px;">
+                                    ${lineStylePreset === 'custom' ? 'Custom' : 'Customize'} Dash Pattern
+                                </div>
+
+                                <!-- Parse existing dash_array -->
+                                ${(() => {
+                                    const parts = (dashArray || '').split(',').map(p => parseFloat(p.trim()) || 0);
+                                    const dash1 = parts[0] || 5;
+                                    const gap1 = parts[1] || 5;
+                                    const dash2 = parts[2] || 0;
+                                    const gap2 = parts[3] || 0;
+
+                                    return html`
+                                        <!-- Dash 1 -->
+                                        <ha-selector
+                                            .hass=${this.hass}
+                                            .selector=${{
+                                                number: {
+                                                    min: 0,
+                                                    max: 50,
+                                                    step: 1,
+                                                    mode: 'slider'
+                                                }
+                                            }}
+                                            .value=${dash1}
+                                            .label=${'Dash Length'}
+                                            @value-changed=${(e) => {
+                                                const newDash1 = e.detail.value;
+                                                let pattern;
+                                                if (dash2 > 0) {
+                                                    pattern = `${newDash1},${gap1},${dash2},${gap2}`;
+                                                } else {
+                                                    pattern = `${newDash1},${gap1}`;
+                                                }
+                                                this._lineFormData.style = { ...this._lineFormData.style, dash_array: pattern };
+                                                this.requestUpdate();
+                                            }}>
+                                        </ha-selector>
+
+                                        <!-- Gap 1 -->
+                                        <ha-selector
+                                            .hass=${this.hass}
+                                            .selector=${{
+                                                number: {
+                                                    min: 0,
+                                                    max: 50,
+                                                    step: 1,
+                                                    mode: 'slider'
+                                                }
+                                            }}
+                                            .value=${gap1}
+                                            .label=${'Gap Length'}
+                                            @value-changed=${(e) => {
+                                                const newGap1 = e.detail.value;
+                                                let pattern;
+                                                if (dash2 > 0) {
+                                                    pattern = `${dash1},${newGap1},${dash2},${gap2}`;
+                                                } else {
+                                                    pattern = `${dash1},${newGap1}`;
+                                                }
+                                                this._lineFormData.style = { ...this._lineFormData.style, dash_array: pattern };
+                                                this.requestUpdate();
+                                            }}
+                                            style="margin-top: 12px;">
+                                        </ha-selector>
+
+                                        <!-- Toggle for complex pattern (only show for simple patterns) -->
+                                        ${(lineStylePreset === 'dotted' || lineStylePreset === 'dashed' || lineStylePreset === 'custom') ? html`
+                                            <ha-formfield label="Add secondary dash/gap" style="margin-top: 12px;">
+                                                <ha-checkbox
+                                                    ?checked=${dash2 > 0}
+                                                    @change=${(e) => {
+                                                        if (e.target.checked) {
+                                                            this._lineFormData.style = { ...this._lineFormData.style, dash_array: `${dash1},${gap1},2,2` };
+                                                        } else {
+                                                            this._lineFormData.style = { ...this._lineFormData.style, dash_array: `${dash1},${gap1}` };
+                                                        }
+                                                        this.requestUpdate();
+                                                    }}>
+                                                </ha-checkbox>
+                                            </ha-formfield>
+                                        ` : ''}
+
+                                        ${dash2 > 0 ? html`
+                                            <!-- Dash 2 -->
+                                            <ha-selector
+                                                .hass=${this.hass}
+                                                .selector=${{
+                                                    number: {
+                                                        min: 0,
+                                                        max: 50,
+                                                        step: 1,
+                                                        mode: 'slider'
+                                                    }
+                                                }}
+                                                .value=${dash2}
+                                                .label=${'Secondary Dash'}
+                                                @value-changed=${(e) => {
+                                                    const newDash2 = e.detail.value;
+                                                    const pattern = `${dash1},${gap1},${newDash2},${gap2}`;
+                                                    this._lineFormData.style = { ...this._lineFormData.style, dash_array: pattern };
+                                                    this.requestUpdate();
+                                                }}
+                                                style="margin-top: 12px;">
+                                            </ha-selector>
+
+                                            <!-- Gap 2 -->
+                                            <ha-selector
+                                                .hass=${this.hass}
+                                                .selector=${{
+                                                    number: {
+                                                        min: 0,
+                                                        max: 50,
+                                                        step: 1,
+                                                        mode: 'slider'
+                                                    }
+                                                }}
+                                                .value=${gap2}
+                                                .label=${'Secondary Gap'}
+                                                @value-changed=${(e) => {
+                                                    const newGap2 = e.detail.value;
+                                                    const pattern = `${dash1},${gap1},${dash2},${newGap2}`;
+                                                    this._lineFormData.style = { ...this._lineFormData.style, dash_array: pattern };
+                                                    this.requestUpdate();
+                                                }}
+                                                style="margin-top: 12px;">
+                                            </ha-selector>
+                                        ` : ''}
+
+                                        <!-- Current Pattern Display -->
+                                        <div style="margin-top: 12px; font-size: 12px; color: var(--secondary-text-color); font-family: monospace;">
+                                            Pattern: ${dash2 > 0 ? `${dash1},${gap1},${dash2},${gap2}` : `${dash1},${gap1}`}
+                                        </div>
+                                    `;
+                                })()}
+                            </div>
                         ` : ''}
                     </lcards-form-section>
 
-                    <!-- Right Column: Markers -->
+                    <!-- Right Column: Line Shape -->
                     <lcards-form-section
-                        header="Markers"
-                        description="Line endpoints"
+                        header="Line Shape"
+                        description="Corner and smoothing settings"
                         ?expanded=${true}>
-
-                        <!-- Start Marker -->
-                        <ha-selector
-                            .hass=${this.hass}
-                            .selector=${{
-                                select: {
-                                    options: [
-                                        { value: 'none', label: 'None' },
-                                        { value: 'arrow', label: 'Arrow' },
-                                        { value: 'dot', label: 'Dot' },
-                                        { value: 'diamond', label: 'Diamond' },
-                                        { value: 'square', label: 'Square' },
-                                        { value: 'triangle', label: 'Triangle' }
-                                    ]
-                                }
-                            }}
-                            .value=${this._lineFormData.style?.marker_start?.type || 'none'}
-                            .label=${'Start Marker'}
-                            @value-changed=${(e) => {
-                                const markerType = e.detail.value;
-                                if (markerType === 'none') {
-                                    const { marker_start, ...styleWithoutMarkerStart } = this._lineFormData.style || {};
-                                    this._lineFormData.style = styleWithoutMarkerStart;
-                                } else {
-                                    const existingSize = this._lineFormData.style?.marker_start?.size || 'medium';
-                                    this._lineFormData.style = {
-                                        ...this._lineFormData.style,
-                                        marker_start: { type: markerType, size: existingSize }
-                                    };
-                                }
-                                this.requestUpdate();
-                            }}>
-                        </ha-selector>
-
-                        <!-- Start Marker Size (conditional) -->
-                        ${this._lineFormData.style?.marker_start?.type && this._lineFormData.style.marker_start.type !== 'none' ? html`
-                            <ha-selector
-                                .hass=${this.hass}
-                                .selector=${{
-                                    select: {
-                                        options: [
-                                            { value: 'small', label: 'Small' },
-                                            { value: 'medium', label: 'Medium' },
-                                            { value: 'large', label: 'Large' }
-                                        ]
-                                    }
-                                }}
-                                .value=${this._lineFormData.style.marker_start.size || 'medium'}
-                                .label=${'Start Size'}
-                                @value-changed=${(e) => {
-                                    this._lineFormData.style = {
-                                        ...this._lineFormData.style,
-                                        marker_start: {
-                                            ...this._lineFormData.style.marker_start,
-                                            size: e.detail.value
-                                        }
-                                    };
-                                    this.requestUpdate();
-                                }}
-                                style="margin-top: 12px;">
-                            </ha-selector>
-                        ` : ''}
-
-                        <!-- End Marker -->
-                        <ha-selector
-                            .hass=${this.hass}
-                            .selector=${{
-                                select: {
-                                    options: [
-                                        { value: 'none', label: 'None' },
-                                        { value: 'arrow', label: 'Arrow' },
-                                        { value: 'dot', label: 'Dot' },
-                                        { value: 'diamond', label: 'Diamond' },
-                                        { value: 'square', label: 'Square' },
-                                        { value: 'triangle', label: 'Triangle' }
-                                    ]
-                                }
-                            }}
-                            .value=${this._lineFormData.style?.marker_end?.type || 'none'}
-                            .label=${'End Marker'}
-                            @value-changed=${(e) => {
-                                const markerType = e.detail.value;
-                                if (markerType === 'none') {
-                                    this._lineFormData.style = { ...this._lineFormData.style, marker_end: null };
-                                } else {
-                                    const existingSize = this._lineFormData.style?.marker_end?.size || 'medium';
-                                    this._lineFormData.style = {
-                                        ...this._lineFormData.style,
-                                        marker_end: { type: markerType, size: existingSize }
-                                    };
-                                }
-                                this.requestUpdate();
-                            }}>
-                        </ha-selector>
-
-                        <!-- Marker Size (conditional) -->
-                        ${this._lineFormData.style?.marker_end?.type && this._lineFormData.style.marker_end.type !== 'none' ? html`
-                            <ha-selector
-                                .hass=${this.hass}
-                                .selector=${{
-                                    select: {
-                                        options: [
-                                            { value: 'small', label: 'Small' },
-                                            { value: 'medium', label: 'Medium' },
-                                            { value: 'large', label: 'Large' }
-                                        ]
-                                    }
-                                }}
-                                .value=${this._lineFormData.style.marker_end.size || 'medium'}
-                                .label=${'End Size'}
-                                @value-changed=${(e) => {
-                                    this._lineFormData.style = {
-                                        ...this._lineFormData.style,
-                                        marker_end: {
-                                            ...this._lineFormData.style.marker_end,
-                                            size: e.detail.value
-                                        }
-                                    };
-                                    this.requestUpdate();
-                                }}
-                                style="margin-top: 12px;">
-                            </ha-selector>
-                        ` : ''}
-                    </lcards-form-section>
-                </div>
-
-                <!-- Line Shape Section (Full Width) -->
-                <lcards-form-section
-                    header="Line Shape"
-                    description="Corner and smoothing settings"
-                    ?expanded=${false}>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <!-- Left Column: Corner Settings -->
@@ -6757,11 +6976,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                     style="margin-top: 12px; width: 100%;">
                                 </ha-textfield>
                             ` : ''}
-                        </div>
 
-                        <!-- Right Column: Smoothing Settings -->
-                        <div>
-                            <ha-selector
+                        <!-- Smoothing Settings -->
+                        <ha-selector
                                 .hass=${this.hass}
                                 .selector=${{select: {
                                     options: [
@@ -6774,7 +6991,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                 @value-changed=${(e) => {
                                     this._lineFormData.smoothing_mode = e.detail.value;
                                     this.requestUpdate();
-                                }}>
+                                }}
+                                style="margin-top: 16px;">
                             </ha-selector>
 
                             ${(this._lineFormData.smoothing_mode === 'chaikin') ? html`
@@ -6790,23 +7008,97 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                     style="margin-top: 12px; width: 100%;">
                                 </ha-textfield>
                             ` : ''}
+                    </lcards-form-section>
+                </div>
+
+                <!-- Advanced Stroke Properties (Full Width) -->
+                <lcards-form-section
+                    header="⚙️ Advanced Stroke Properties"
+                    description="Fine-tune SVG stroke rendering (for advanced users)"
+                    ?expanded=${false}>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <!-- Left Column -->
+                        <div>
+                            <!-- Line Cap -->
+                            <ha-selector
+                                .hass=${this.hass}
+                                .selector=${{
+                                    select: {
+                                        options: [
+                                            { value: 'butt', label: 'Butt (Flat)' },
+                                            { value: 'round', label: 'Round' },
+                                            { value: 'square', label: 'Square (Extended)' }
+                                        ]
+                                    }
+                                }}
+                                .value=${this._lineFormData.style?.linecap || 'butt'}
+                                .label=${'Line Cap'}
+                                @value-changed=${(e) => {
+                                    this._lineFormData.style = { ...this._lineFormData.style, linecap: e.detail.value };
+                                    this.requestUpdate();
+                                }}
+                                helper-text="How line endpoints are drawn">
+                            </ha-selector>
+
+                            <!-- Line Join -->
+                            <ha-selector
+                                .hass=${this.hass}
+                                .selector=${{
+                                    select: {
+                                        options: [
+                                            { value: 'miter', label: 'Miter (Sharp)' },
+                                            { value: 'round', label: 'Round' },
+                                            { value: 'bevel', label: 'Bevel (Cut)' }
+                                        ]
+                                    }
+                                }}
+                                .value=${this._lineFormData.style?.linejoin || this._lineFormData.corner_style || 'miter'}
+                                .label=${'Line Join'}
+                                @value-changed=${(e) => {
+                                    this._lineFormData.style = { ...this._lineFormData.style, linejoin: e.detail.value };
+                                    this.requestUpdate();
+                                }}
+                                helper-text="How line segments connect"
+                                style="margin-top: 12px;">
+                            </ha-selector>
+                        </div>
+
+                        <!-- Right Column -->
+                        <div>
+                            <!-- Stroke Override -->
+                            <ha-textfield
+                                label="Stroke Override"
+                                .value=${this._lineFormData.style?.stroke || ''}
+                                @input=${(e) => {
+                                    const value = e.target.value.trim();
+                                    if (value === '') {
+                                        // Remove stroke override
+                                        const { stroke, ...styleWithoutStroke } = this._lineFormData.style || {};
+                                        this._lineFormData.style = styleWithoutStroke;
+                                    } else {
+                                        this._lineFormData.style = { ...this._lineFormData.style, stroke: value };
+                                    }
+                                    this.requestUpdate();
+                                }}
+                                helper-text="Override color with custom stroke (e.g., url(#gradient))"
+                                style="width: 100%;">
+                            </ha-textfield>
+
+                            <!-- Dash Offset -->
+                            <ha-textfield
+                                type="number"
+                                label="Dash Offset"
+                                .value=${String(this._lineFormData.style?.dash_offset || 0)}
+                                @input=${(e) => {
+                                    this._lineFormData.style = { ...this._lineFormData.style, dash_offset: Number(e.target.value) || 0 };
+                                    this.requestUpdate();
+                                }}
+                                helper-text="Shifts the dash pattern (pixels)"
+                                style="margin-top: 12px; width: 100%;">
+                            </ha-textfield>
                         </div>
                     </div>
-                </lcards-form-section>
-
-                <!-- Animation Section (Full Width) -->
-                <lcards-form-section
-                    header="Animations"
-                    description="Configure animations for this line"
-                    ?expanded=${false}>
-                    <lcards-animation-editor
-                        .hass=${this.hass}
-                        .animations=${this._lineFormData.animations || []}
-                        @animations-changed=${(e) => {
-                            this._lineFormData.animations = e.detail.value;
-                            this.requestUpdate();
-                        }}
-                    ></lcards-animation-editor>
                 </lcards-form-section>
             </div>
         `;
@@ -6879,7 +7171,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         return html`
             <div style="margin-top: 0; padding: 20px; background: #0a0a0a; border-radius: 8px; border: 1px solid #333;">
                 <div style="font-size: 12px; font-weight: 500; margin-bottom: 12px; color: #999;">Preview</div>
-                <svg viewBox="0 0 300 50" style="width: 100%; height: 60px; background: #000;">
+                <svg viewBox="0 0 300 50" style="width: 100%; height: 85px; background: #000;">
                     <defs>
                         ${createMarker(markerStart, 'start-preview')}
                         ${createMarker(markerEnd, 'end-preview')}

@@ -61,7 +61,7 @@ export class LCARdSFormSection extends LitElement {
             }
 
             ha-expansion-panel[expanded] {
-                background-color: var(--chip-background-color, #f5f5f5);
+                background-color: rgba(60, 60, 60, 0.5);
             }
 
             .section-content {
