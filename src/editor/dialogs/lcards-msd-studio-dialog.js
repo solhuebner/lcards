@@ -82,6 +82,10 @@ export class LCARdSMSDStudioDialog extends LitElement {
             _highlightedControl: { type: String, state: true },  // For control highlight animation
             _highlightedLine: { type: String, state: true },  // For line highlight animation
             _highlightedChannel: { type: String, state: true },  // For channel highlight animation
+            // Canvas Toolbar Properties
+            _canvasToolbarExpanded: { type: Boolean, state: true },
+            _showCrosshairs: { type: Boolean, state: true },
+            _enableSnapping: { type: Boolean, state: true },
             // Persistent debug overlays
             _showAnchorMarkers: { type: Boolean, state: true },  // Show all anchor markers
             _showBoundingBoxes: { type: Boolean, state: true },  // Show all control bounding boxes
@@ -293,47 +297,90 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 gap: 0;
             }
 
-            /* Mode Toolbar */
-            .mode-toolbar {
+            /* Canvas Toolbar (Floating) */
+            .canvas-toolbar {
+                position: absolute;
+                top: 12px;
+                right: 12px;
                 display: flex;
                 gap: 8px;
-                padding: 12px 24px;
-                background: var(--secondary-background-color);
-                border-bottom: 1px solid var(--divider-color);
+                background: rgba(0, 0, 0, 0.75);
+                backdrop-filter: blur(8px);
+                border-radius: 24px;
+                padding: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                z-index: 100;
+                transition: all 0.3s ease;
             }
 
-            .mode-button {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 4px;
-                padding: 8px 12px;
-                background: var(--card-background-color);
-                border: 2px solid var(--divider-color);
-                border-radius: 8px;
-                cursor: pointer;
-                transition: all 0.2s;
+            .canvas-toolbar.collapsed {
+                padding: 8px;
             }
 
-            .mode-button:hover {
-                background: var(--primary-background-color);
-                border-color: var(--primary-color);
-            }
-
-            .mode-button.active {
+            .canvas-toolbar-toggle {
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
                 background: var(--primary-color);
-                color: var(--text-primary-color);
+                border: none;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s;
+                flex-shrink: 0;
+            }
+
+            .canvas-toolbar-toggle:hover {
+                background: var(--primary-color);
+                filter: brightness(1.2);
+            }
+
+            .canvas-toolbar-toggle ha-icon {
+                --mdc-icon-size: 24px;
+                color: white;
+            }
+
+            .canvas-toolbar-buttons {
+                display: flex;
+                gap: 4px;
+                align-items: center;
+            }
+
+            .canvas-toolbar-divider {
+                width: 1px;
+                height: 32px;
+                background: rgba(255, 255, 255, 0.2);
+                margin: 0 4px;
+            }
+
+            .canvas-toolbar-button {
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.1);
+                border: 2px solid transparent;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s;
+                flex-shrink: 0;
+            }
+
+            .canvas-toolbar-button:hover {
+                background: rgba(255, 255, 255, 0.2);
                 border-color: var(--primary-color);
             }
 
-            .mode-button ha-icon {
-                --mdc-icon-size: 24px;
+            .canvas-toolbar-button.active {
+                background: var(--primary-color);
+                border-color: var(--primary-color);
             }
 
-            .mode-button-label {
-                font-size: 11px;
-                font-weight: 500;
-                white-space: nowrap;
+            .canvas-toolbar-button ha-icon {
+                --mdc-icon-size: 20px;
+                color: white;
             }
 
             /* Split Panel Layout */
@@ -496,6 +543,20 @@ export class LCARdSMSDStudioDialog extends LitElement {
         } else {
             this._activeMode = mode;
         }
+
+        // Clear any ongoing drawing/placement state
+        if (this._activeMode !== MODES.DRAW_CHANNEL) {
+            this._drawChannelState = {
+                startPoint: null,
+                currentPoint: null,
+                drawing: false,
+                tempRectElement: null
+            };
+        }
+        if (this._activeMode !== MODES.CONNECT_LINE) {
+            this._connectLineState = { source: null, tempLineElement: null };
+        }
+
         lcardsLog.debug('[MSDStudio] Mode changed:', this._activeMode);
         this.requestUpdate();
     }
@@ -703,35 +764,70 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
-     * Render mode toolbar
+     * Render canvas toolbar (floating on preview)
      * @returns {TemplateResult}
      * @private
      */
-    _renderModeToolbar() {
-        const modes = [
-            MODES.VIEW,
-            MODES.PLACE_ANCHOR,
-            MODES.PLACE_CONTROL,
-            MODES.CONNECT_LINE,
-            MODES.DRAW_CHANNEL
+    _renderCanvasToolbar() {
+        const modeButtons = [
+            { mode: MODES.VIEW, icon: 'mdi:cursor-default', tooltip: 'View Mode' },
+            { mode: MODES.PLACE_ANCHOR, icon: 'mdi:map-marker-plus', tooltip: 'Place Anchor' },
+            { mode: MODES.PLACE_CONTROL, icon: 'mdi:widgets', tooltip: 'Place Control' },
+            { mode: MODES.CONNECT_LINE, icon: 'mdi:vector-line', tooltip: 'Connect Line' },
+            { mode: MODES.DRAW_CHANNEL, icon: 'mdi:chart-timeline-variant', tooltip: 'Draw Channel' }
+        ];
+
+        const debugToggles = [
+            { key: 'show_crosshairs', prop: '_showCrosshairs', icon: 'mdi:crosshairs', tooltip: 'Crosshairs' },
+            { key: 'snap_to_grid', prop: '_enableSnapping', icon: 'mdi:magnet', tooltip: 'Grid Snapping' },
+            { key: 'show_grid', prop: '_showGrid', icon: 'mdi:grid', tooltip: 'Grid Display' },
+            { key: 'show_anchor_markers', prop: '_showAnchorMarkers', icon: 'mdi:map-marker', tooltip: 'Anchors' },
+            { key: 'show_bounding_boxes', prop: '_showBoundingBoxes', icon: 'mdi:border-outside', tooltip: 'Bounding Boxes' },
+            { key: 'show_routing_paths', prop: '_showRoutingPaths', icon: 'mdi:vector-line', tooltip: 'Routing Paths' },
+            { key: 'show_channels', prop: '_showRoutingChannels', icon: 'mdi:chart-timeline-variant', tooltip: 'Routing Channels' },
+            { key: 'show_attachment_points', prop: '_showAttachmentPoints', icon: 'mdi:dot-net', tooltip: 'Attachment Points' }
         ];
 
         return html`
-            <div class="mode-toolbar">
-                ${modes.map(mode => html`
-                    <div
-                        class="mode-button ${this._activeMode === mode ? 'active' : ''}"
-                        @click=${() => this._setMode(mode)}
-                        title="${this._getModeTooltip(mode)}">
-                        <ha-icon icon=${this._getModeIcon(mode)}></ha-icon>
-                        <span class="mode-button-label">${this._getModeLabel(mode)}</span>
+            <div class="canvas-toolbar ${this._canvasToolbarExpanded ? '' : 'collapsed'}">
+                <!-- Toggle Button -->
+                <button
+                    class="canvas-toolbar-toggle"
+                    @click=${() => { this._canvasToolbarExpanded = !this._canvasToolbarExpanded; this.requestUpdate(); }}
+                    title="${this._canvasToolbarExpanded ? 'Collapse Toolbar' : 'Expand Toolbar'}">
+                    <ha-icon icon="mdi:${this._canvasToolbarExpanded ? 'chevron-right' : 'tools'}"></ha-icon>
+                </button>
+
+                ${this._canvasToolbarExpanded ? html`
+                    <div class="canvas-toolbar-buttons">
+                        <!-- Mode Controls -->
+                        ${modeButtons.map(btn => html`
+                            <button
+                                class="canvas-toolbar-button ${this._activeMode === btn.mode ? 'active' : ''}"
+                                @click=${async (e) => {
+                                    e.stopPropagation();
+                                    this._setMode(btn.mode);
+                                    await this.updateComplete;
+                                }}
+                                title="${btn.tooltip}">
+                                <ha-icon icon="${btn.icon}"></ha-icon>
+                            </button>
+                        `)}
+
+                        <!-- Divider -->
+                        <div class="canvas-toolbar-divider"></div>
+
+                        <!-- Debug Toggles -->
+                        ${debugToggles.map(toggle => html`
+                            <button
+                                class="canvas-toolbar-button ${this[toggle.prop] ? 'active' : ''}"
+                                @click=${(e) => { e.stopPropagation(); this[toggle.prop] = !this[toggle.prop]; this.requestUpdate(); }}
+                                title="${toggle.tooltip}">
+                                <ha-icon icon="${toggle.icon}"></ha-icon>
+                            </button>
+                        `)}
                     </div>
-                `)}
-                <!-- Mode Status Badge -->
-                <div class="mode-status">
-                    <ha-icon icon=${this._getModeIcon(this._activeMode)}></ha-icon>
-                    <span>Mode: ${this._getModeLabel(this._activeMode)}</span>
-                </div>
+                ` : ''}
             </div>
         `;
     }
@@ -1707,9 +1803,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _handlePreviewMouseMove(event) {
-        // Track cursor for crosshair guidelines (place modes)
-        if (this._activeMode === MODES.PLACE_ANCHOR ||
-            this._activeMode === MODES.PLACE_CONTROL) {
+        // Track cursor for crosshair guidelines (when enabled OR in placement modes)
+        const shouldTrackCursor = this._showCrosshairs ||
+            this._activeMode === MODES.PLACE_ANCHOR ||
+            this._activeMode === MODES.PLACE_CONTROL;
+
+        if (shouldTrackCursor) {
             const result = this._getPreviewCoordinatesWithPixels(event);
             if (result) {
                 this._cursorPosition = result;
@@ -1895,10 +1994,10 @@ export class LCARdSMSDStudioDialog extends LitElement {
         let coordX = vbX + (x * scaleX);
         let coordY = vbY + (y * scaleY);
 
-        // Apply snap-to-grid if enabled
-        const debugSettings = this._getDebugSettings();
-        if (debugSettings.snap_to_grid) {
-            const gridSpacing = debugSettings.grid_spacing || 50;
+        // Apply snap-to-grid if enabled (check both toolbar toggle and tab setting)
+        const snapEnabled = this._enableSnapping || this._snapToGrid;
+        if (snapEnabled) {
+            const gridSpacing = this._gridSpacing || 50;
             coordX = Math.round(coordX / gridSpacing) * gridSpacing;
             coordY = Math.round(coordY / gridSpacing) * gridSpacing;
         }
@@ -2076,23 +2175,74 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _renderCrosshairGuidelines() {
-        if (!this._cursorPosition) return '';
-        if (this._activeMode !== MODES.PLACE_ANCHOR &&
-            this._activeMode !== MODES.PLACE_CONTROL) return '';
+        // Show crosshairs if toggle is on OR if in placement mode
+        const showCrosshairs = this._showCrosshairs ||
+            this._activeMode === MODES.PLACE_ANCHOR ||
+            this._activeMode === MODES.PLACE_CONTROL;
 
-        const { x, y, pixelX, pixelY } = this._cursorPosition;
+        if (!this._cursorPosition || !showCrosshairs) return '';
 
-        // Show snapped position if snap enabled
-        const debugSettings = this._getDebugSettings();
+        let { x, y, pixelX, pixelY } = this._cursorPosition;
+
+        // Calculate snapped coordinates for display
+        const snapEnabled = this._enableSnapping || this._snapToGrid;
         let displayX = x;
         let displayY = y;
-        if (debugSettings.snap_to_grid) {
-            const gridSpacing = debugSettings.grid_spacing || 50;
+        let snappedPixelX = pixelX;
+        let snappedPixelY = pixelY;
+
+        if (snapEnabled) {
+            const gridSpacing = this._gridSpacing || 50;
             displayX = Math.round(x / gridSpacing) * gridSpacing;
             displayY = Math.round(y / gridSpacing) * gridSpacing;
+
+            // Calculate snapped pixel position accounting for letterboxing
+            const viewBox = this._workingConfig.msd?.view_box;
+            let vbX = 0, vbY = 0, vbWidth = 1920, vbHeight = 1200;
+            if (Array.isArray(viewBox) && viewBox.length === 4) {
+                [vbX, vbY, vbWidth, vbHeight] = viewBox;
+            }
+
+            // Find SVG to get rect and calculate letterboxing
+            const previewPanel = this.shadowRoot?.querySelector('.preview-panel');
+            if (previewPanel) {
+                const livePreview = previewPanel.querySelector('lcards-msd-live-preview');
+                if (livePreview?.shadowRoot) {
+                    const cardContainer = livePreview.shadowRoot.querySelector('.preview-card-container');
+                    if (cardContainer) {
+                        const msdCard = cardContainer.querySelector('lcards-msd-card');
+                        if (msdCard?.shadowRoot) {
+                            const svg = msdCard.shadowRoot.querySelector('svg');
+                            if (svg) {
+                                const rect = svg.getBoundingClientRect();
+                                const panelRect = previewPanel.getBoundingClientRect();
+
+                                // Calculate scale accounting for preserveAspectRatio
+                                const scaleX = vbWidth / rect.width;
+                                const scaleY = vbHeight / rect.height;
+                                const scale = Math.max(scaleX, scaleY);
+
+                                // Calculate rendered size and letterboxing offset
+                                const renderedWidth = vbWidth / scale;
+                                const renderedHeight = vbHeight / scale;
+                                const offsetX = (rect.width - renderedWidth) / 2;
+                                const offsetY = (rect.height - renderedHeight) / 2;
+
+                                // Convert snapped viewBox coords to pixel position
+                                const snappedSvgX = (displayX - vbX) / scale + offsetX;
+                                const snappedSvgY = (displayY - vbY) / scale + offsetY;
+
+                                // Convert to preview panel coordinates
+                                snappedPixelX = (rect.left - panelRect.left) + snappedSvgX;
+                                snappedPixelY = (rect.top - panelRect.top) + snappedSvgY;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
-        const lineColor = debugSettings.snap_to_grid ? 'rgba(0, 255, 0, 0.5)' : 'rgba(255, 153, 0, 0.5)';
+        const lineColor = snapEnabled ? 'rgba(0, 255, 0, 0.5)' : 'rgba(255, 153, 0, 0.5)';
 
         return html`
             <div style="
@@ -2108,7 +2258,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 <!-- Vertical guideline -->
                 <div style="
                     position: absolute;
-                    left: ${pixelX}px;
+                    left: ${snappedPixelX}px;
                     top: 0;
                     width: 2px;
                     height: 100%;
@@ -2119,7 +2269,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 <!-- Horizontal guideline -->
                 <div style="
                     position: absolute;
-                    top: ${pixelY}px;
+                    top: ${snappedPixelY}px;
                     left: 0;
                     height: 2px;
                     width: 100%;
@@ -2131,20 +2281,20 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 <div style="
                     position: absolute;
                     background: rgba(0, 0, 0, 0.85);
-                    color: ${debugSettings.snap_to_grid ? '#00FF00' : '#FF9900'};
+                    color: ${snapEnabled ? '#00FF00' : '#FF9900'};
                     padding: 6px 10px;
                     border-radius: 4px;
                     font-family: 'Courier New', monospace;
                     font-size: 13px;
                     font-weight: 600;
                     white-space: nowrap;
-                    border: 2px solid ${debugSettings.snap_to_grid ? '#00FF00' : '#FF9900'};
+                    border: 2px solid ${snapEnabled ? '#00FF00' : '#FF9900'};
                     box-shadow: 0 2px 8px rgba(0,0,0,0.5);
                     bottom: 20px;
                     right: 20px;
                 ">
                     [${displayX}, ${displayY}]
-                    ${debugSettings.snap_to_grid ? html`<span style="margin-left: 8px;">⊞ SNAP</span>` : ''}
+                    ${snapEnabled ? html`<span style="margin-left: 8px;">⊞ SNAP</span>` : ''}
                 </div>
             </div>
         `;
@@ -5947,9 +6097,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         </ha-button>
                     </div>
 
-                    <!-- Mode Toolbar -->
-                    ${this._renderModeToolbar()}
-
                     <!-- Split Panel Layout -->
                     <div class="studio-layout">
                         <!-- Configuration Panel (60%) -->
@@ -5993,6 +6140,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
                             <!-- Attachment Points (Connect Line Mode) -->
                             ${this._renderAttachmentPointsOverlay()}
+
+                            <!-- Canvas Toolbar (Floating) -->
+                            ${this._renderCanvasToolbar()}
                         </div>
                     </div>
                 </div>
