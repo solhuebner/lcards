@@ -52,7 +52,7 @@ const TABS = {
     ANCHORS: 'anchors',
     CONTROLS: 'controls',
     LINES: 'lines',
-    CHANNELS: 'channels'
+    ROUTING: 'routing'
 };
 
 export class LCARdSMSDStudioDialog extends LitElement {
@@ -191,8 +191,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
             attach_side: 'center',   // Target attachment point (for controls/anchors)
             route: 'auto',           // Routing mode string
             style: {                 // Style object
-                stroke: 'var(--lcars-orange)',
-                stroke_width: 2,
+                color: 'var(--lcars-orange)',
+                width: 2,
                 dash_array: '',      // e.g., "5,5" for dashed
                 marker_end: null     // Optional marker config
             }
@@ -943,7 +943,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             { id: TABS.ANCHORS, label: 'Anchors', icon: 'mdi:map-marker' },
             { id: TABS.CONTROLS, label: 'Controls', icon: 'mdi:widgets' },
             { id: TABS.LINES, label: 'Lines', icon: 'mdi:vector-line' },
-            { id: TABS.CHANNELS, label: 'Channels', icon: 'mdi:chart-timeline-variant' }
+            { id: TABS.ROUTING, label: 'Routing', icon: 'mdi:routes' }
         ];
 
         return html`
@@ -974,8 +974,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 return this._renderControlsTab();
             case TABS.LINES:
                 return this._renderLinesTab();
-            case TABS.CHANNELS:
-                return this._renderChannelsTab();
+            case TABS.ROUTING:
+                return this._renderRoutingTab();
             default:
                 return html`<div>Unknown tab</div>`;
         }
@@ -4923,8 +4923,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const sourceStr = this._formatConnectionPoint(line.source || line.anchor);
         const targetStr = this._formatConnectionPoint(line.target || line.attach_to);
         const routingMode = line.routing?.mode || 'direct';
-        const strokeColor = line.style?.stroke || '#FF9900';
-        const strokeWidth = line.style?.stroke_width || 2;
+        const strokeColor = line.style?.color || '#FF9900';
+        const strokeWidth = line.style?.width || 2;
 
         return html`
             <ha-card style="padding: 12px; margin-bottom: 8px;">
@@ -4946,7 +4946,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                             x2="30" y2="10"
                             stroke="${strokeColor}"
                             stroke-width="${strokeWidth}"
-                            stroke-dasharray="${line.style?.stroke_dasharray || ''}">
+                            stroke-dasharray="${line.style?.dash_array || ''}">
                         </line>
                     </svg>
                 </div>
@@ -5036,50 +5036,45 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @returns {TemplateResult}
      * @private
      */
-    _renderChannelsTab() {
+    _renderRoutingTab() {
+        const routing = this._workingConfig.msd?.routing || {};
         const channels = this._workingConfig.msd?.channels || {};
         const channelCount = Object.keys(channels).length;
 
         return html`
             <div style="padding: 8px;">
-                <!-- Channel Actions -->
-                <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                    <ha-button @click=${this._openChannelForm} raised>
-                        <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
-                        Add Channel
-                    </ha-button>
-                    <ha-button @click=${() => this._setMode('draw_channel')}
-                               ?disabled=${this._activeMode === MODES.DRAW_CHANNEL}>
-                        <ha-icon icon="mdi:vector-rectangle" slot="icon"></ha-icon>
-                        Draw on Canvas
-                    </ha-button>
-                </div>
-
-                <!-- Visualization Helpers -->
-                <lcards-form-section
-                    header="Visualization Helpers"
-                    description="Visual aids for channel management"
-                    ?expanded=${false}
-                    style="margin-bottom: 16px;">
-                    <div style="display: flex; flex-direction: column; gap: 12px;">
-                        <ha-formfield label="Show Routing Channels">
-                            <ha-switch
-                                ?checked=${this._showRoutingChannels}
-                                @change=${(e) => {
-                                    this._showRoutingChannels = e.target.checked;
-                                    this.requestUpdate();
-                                }}>
-                            </ha-switch>
-                        </ha-formfield>
-                    </div>
-                </lcards-form-section>
-
-                <!-- Channels List -->
+                <!-- Routing Channels -->
                 <lcards-form-section
                     header="Routing Channels"
                     description="Define regions that influence line routing behavior"
-                    ?expanded=${true}>
+                    ?expanded=${true}
+                    style="margin-bottom: 16px;">
 
+                    <!-- Channel Actions -->
+                    <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                        <ha-button @click=${this._openChannelForm} raised>
+                            <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                            Add Channel
+                        </ha-button>
+                        <ha-button @click=${() => this._setMode('draw_channel')}
+                                   ?disabled=${this._activeMode === MODES.DRAW_CHANNEL}>
+                            <ha-icon icon="mdi:vector-rectangle" slot="icon"></ha-icon>
+                            Draw on Canvas
+                        </ha-button>
+                    </div>
+
+                    <!-- Visualization Helper -->
+                    <ha-formfield label="Show Routing Channels" style="margin-bottom: 16px;">
+                        <ha-switch
+                            ?checked=${this._showRoutingChannels}
+                            @change=${(e) => {
+                                this._showRoutingChannels = e.target.checked;
+                                this.requestUpdate();
+                            }}>
+                        </ha-switch>
+                    </ha-formfield>
+
+                    <!-- Channels List -->
                     ${channelCount === 0 ? html`
                         <lcards-message type="info">
                             <strong>No routing channels defined.</strong>
@@ -5099,9 +5094,210 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     `}
                 </lcards-form-section>
 
-                <!-- Channel Help -->
-                ${this._renderChannelHelp()}
-            </div>
+                <!-- Global Routing Defaults (Advanced) -->
+                <lcards-form-section
+                    header="⚙️ Advanced Routing Configuration"
+                    description="Fine-tune global routing behavior for all lines"
+                    ?expanded=${false}
+                    style="margin-bottom: 16px;">
+
+                    <!-- Help Text -->
+                    <lcards-message type="info" style="margin-bottom: 16px;">
+                        <strong>Advanced Tuning</strong>
+                        <p style="margin: 8px 0 0 0; font-size: 13px; line-height: 1.4;">
+                            These settings control the default routing behavior for all lines. Individual lines can override these values.
+                            Most users can leave these at their defaults. Only adjust if you need specific routing characteristics.
+                        </p>
+                    </lcards-message>
+
+                    <!-- Basic Routing -->
+                    <div style="margin-bottom: 16px;">
+                        <div style="font-weight: 500; margin-bottom: 8px;">Basic Routing</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <ha-textfield
+                                label="Clearance (px)"
+                                type="number"
+                                min="0"
+                                step="1"
+                                .value=${routing.clearance ?? ''}
+                                @input=${(e) => this._updateRoutingConfig('clearance', e.target.value ? parseFloat(e.target.value) : undefined)}
+                                helper-text="Min distance from obstacles (default: 0)">
+                            </ha-textfield>
+                            <ha-textfield
+                                label="Grid Resolution (px)"
+                                type="number"
+                                min="5"
+                                step="1"
+                                .value=${routing.grid_resolution ?? ''}
+                                @input=${(e) => this._updateRoutingConfig('grid_resolution', e.target.value ? parseFloat(e.target.value) : undefined)}
+                                helper-text="Grid cell size (default: 64)">
+                            </ha-textfield>
+                        </div>
+                    </div>
+
+                    <!-- Path Smoothing -->
+                    <div style="margin-bottom: 16px;">
+                        <div style="font-weight: 500; margin-bottom: 8px;">Path Smoothing</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                            <ha-select
+                                label="Smoothing Mode"
+                                .value=${routing.smoothing_mode ?? 'none'}
+                                @change=${(e) => this._updateRoutingConfig('smoothing_mode', e.target.value)}>
+                                <mwc-list-item value="none">None</mwc-list-item>
+                                <mwc-list-item value="chaikin">Chaikin</mwc-list-item>
+                            </ha-select>
+                            <ha-textfield
+                                label="Iterations"
+                                type="number"
+                                min="1"
+                                max="5"
+                                .value=${routing.smoothing_iterations ?? ''}
+                                @input=${(e) => this._updateRoutingConfig('smoothing_iterations', e.target.value ? parseInt(e.target.value) : undefined)}
+                                helper-text="1-5 (default: 1)">
+                            </ha-textfield>
+                            <ha-textfield
+                                label="Max Points"
+                                type="number"
+                                min="1"
+                                .value=${routing.smoothing_max_points ?? ''}
+                                @input=${(e) => this._updateRoutingConfig('smoothing_max_points', e.target.value ? parseInt(e.target.value) : undefined)}
+                                helper-text="Default: 160">
+                            </ha-textfield>
+                        </div>
+                    </div>
+
+                    <!-- Smart Routing -->
+                    <div style="margin-bottom: 16px;">
+                        <div style="font-weight: 500; margin-bottom: 8px;">Smart Routing</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <ha-textfield
+                                label="Proximity Band (px)"
+                                type="number"
+                                min="0"
+                                .value=${routing.smart_proximity ?? ''}
+                                @input=${(e) => this._updateRoutingConfig('smart_proximity', e.target.value ? parseFloat(e.target.value) : undefined)}
+                                helper-text="Obstacle avoidance distance (default: 0)">
+                            </ha-textfield>
+                            <ha-textfield
+                                label="Detour Span (px)"
+                                type="number"
+                                min="1"
+                                .value=${routing.smart_detour_span ?? ''}
+                                @input=${(e) => this._updateRoutingConfig('smart_detour_span', e.target.value ? parseFloat(e.target.value) : undefined)}
+                                helper-text="Max elbow shift (default: 48)">
+                            </ha-textfield>
+                            <ha-textfield
+                                label="Max Extra Bends"
+                                type="number"
+                                min="0"
+                                .value=${routing.smart_max_extra_bends ?? ''}
+                                @input=${(e) => this._updateRoutingConfig('smart_max_extra_bends', e.target.value ? parseInt(e.target.value) : undefined)}
+                                helper-text="Max added bends (default: 3)">
+                            </ha-textfield>
+                            <ha-textfield
+                                label="Min Improvement (px)"
+                                type="number"
+                                min="0"
+                                .value=${routing.smart_min_improvement ?? ''}
+                                @input=${(e) => this._updateRoutingConfig('smart_min_improvement', e.target.value ? parseFloat(e.target.value) : undefined)}
+                                helper-text="Min cost gain (default: 4)">
+                            </ha-textfield>
+                            <ha-textfield
+                                label="Max Detours Per Elbow"
+                                type="number"
+                                min="1"
+                                .value=${routing.smart_max_detours_per_elbow ?? ''}
+                                @input=${(e) => this._updateRoutingConfig('smart_max_detours_per_elbow', e.target.value ? parseInt(e.target.value) : undefined)}
+                                helper-text="Default: 4">
+                            </ha-textfield>
+                        </div>
+                    </div>
+
+                    <!-- Channel Configuration -->
+                    <div style="margin-bottom: 16px;">
+                        <div style="font-weight: 500; margin-bottom: 8px;">Channel Behavior</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <ha-textfield
+                                label="Force Penalty"
+                                type="number"
+                                min="0"
+                                .value=${routing.channel_force_penalty ?? ''}
+                                @input=${(e) => this._updateRoutingConfig('channel_force_penalty', e.target.value ? parseFloat(e.target.value) : undefined)}
+                                helper-text="Penalty for exiting forced channels (default: 800)">
+                            </ha-textfield>
+                            <ha-textfield
+                                label="Avoid Multiplier"
+                                type="number"
+                                min="0"
+                                step="0.1"
+                                .value=${routing.channel_avoid_multiplier ?? ''}
+                                @input=${(e) => this._updateRoutingConfig('channel_avoid_multiplier', e.target.value ? parseFloat(e.target.value) : undefined)}
+                                helper-text="Avoid channel strength (default: 1.0)">
+                            </ha-textfield>
+                            <ha-textfield
+                                label="Target Coverage"
+                                type="number"
+                                min="0"
+                                max="1"
+                                step="0.1"
+                                .value=${routing.channel_target_coverage ?? ''}
+                                @input=${(e) => this._updateRoutingConfig('channel_target_coverage', e.target.value ? parseFloat(e.target.value) : undefined)}
+                                helper-text="Prefer mode target 0-1 (default: 0.6)">
+                            </ha-textfield>
+                            <ha-textfield
+                                label="Shaping Max Attempts"
+                                type="number"
+                                min="1"
+                                .value=${routing.channel_shaping_max_attempts ?? ''}
+                                @input=${(e) => this._updateRoutingConfig('channel_shaping_max_attempts', e.target.value ? parseInt(e.target.value) : undefined)}
+                                helper-text="Max shaping iterations (default: 12)">
+                            </ha-textfield>
+                            <ha-textfield
+                                label="Shaping Span (px)"
+                                type="number"
+                                min="1"
+                                .value=${routing.channel_shaping_span ?? ''}
+                                @input=${(e) => this._updateRoutingConfig('channel_shaping_span', e.target.value ? parseFloat(e.target.value) : undefined)}
+                                helper-text="Max shaping shift (default: 32)">
+                            </ha-textfield>
+                            <ha-textfield
+                                label="Min Coverage Gain"
+                                type="number"
+                                min="0"
+                                max="1"
+                                step="0.01"
+                                .value=${routing.channel_min_coverage_gain ?? ''}
+                                @input=${(e) => this._updateRoutingConfig('channel_min_coverage_gain', e.target.value ? parseFloat(e.target.value) : undefined)}
+                                helper-text="Min gain threshold 0-1 (default: 0.04)">
+                            </ha-textfield>
+                        </div>
+                    </div>
+
+                    <!-- Cost Function Weights -->
+                    <div>
+                        <div style="font-weight: 500; margin-bottom: 8px;">Cost Function Weights</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <ha-textfield
+                                label="Bend Cost"
+                                type="number"
+                                min="0"
+                                .value=${routing.cost_defaults?.bend ?? ''}
+                                @input=${(e) => this._updateRoutingCostDefaults('bend', e.target.value ? parseFloat(e.target.value) : undefined)}
+                                helper-text="Cost per bend (default: 10)">
+                            </ha-textfield>
+                            <ha-textfield
+                                label="Proximity Cost"
+                                type="number"
+                                min="0"
+                                .value=${routing.cost_defaults?.proximity ?? ''}
+                                @input=${(e) => this._updateRoutingCostDefaults('proximity', e.target.value ? parseFloat(e.target.value) : undefined)}
+                                helper-text="Cost for obstacle proximity (default: 4)">
+                            </ha-textfield>
+                        </div>
+                    </div>
+                </lcards-form-section>
+
+
         `;
     }
 
@@ -5548,8 +5744,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
             // Animation
             animation_ref: '',
             style: {
-                stroke: 'var(--lcars-orange)',
-                stroke_width: 2,
+                color: 'var(--lcars-orange)',
+                width: 2,
                 dash_array: '',
                 marker_end: null
             }
@@ -5589,12 +5785,15 @@ export class LCARdSMSDStudioDialog extends LitElement {
             channel_mode: line.channel_mode || 'prefer',
             // Animation
             animation_ref: line.animation_ref || '',
-            // Style
+            // Style (load with backward compatibility for old property names)
             style: {
-                stroke: line.style?.stroke || line.style?.color || 'var(--lcars-orange)',
-                stroke_width: line.style?.stroke_width || line.style?.width || 2,
+                color: line.style?.color || line.style?.stroke || 'var(--lcars-orange)',
+                width: line.style?.width || line.style?.stroke_width || 2,
+                opacity: line.style?.opacity ?? 1,
                 dash_array: line.style?.dash_array || '',
-                marker_end: line.style?.marker_end || null
+                marker_end: line.style?.marker_end || null,
+                glow: line.style?.glow || null,
+                shadow: line.style?.shadow || null
             }
         };
 
@@ -5675,16 +5874,19 @@ export class LCARdSMSDStudioDialog extends LitElement {
             lineOverlay.channel_mode = this._lineFormData.channel_mode;
         }
 
-        // Add style if present (using stroke/stroke_width)
+        // Add style if present (using canonical property names)
         if (this._lineFormData.style && Object.keys(this._lineFormData.style).length > 0) {
             const style = {};
 
             // Core stroke properties (always save if present)
-            if (this._lineFormData.style.stroke != null) {
-                style.stroke = this._lineFormData.style.stroke;
+            if (this._lineFormData.style.color != null) {
+                style.color = this._lineFormData.style.color;
             }
-            if (this._lineFormData.style.stroke_width != null) {
-                style.stroke_width = this._lineFormData.style.stroke_width;
+            if (this._lineFormData.style.width != null) {
+                style.width = this._lineFormData.style.width;
+            }
+            if (this._lineFormData.style.opacity != null && this._lineFormData.style.opacity !== 1) {
+                style.opacity = this._lineFormData.style.opacity;
             }
 
             // Optional properties
@@ -5696,6 +5898,14 @@ export class LCARdSMSDStudioDialog extends LitElement {
             }
             if (this._lineFormData.style.marker_start) {
                 style.marker_start = this._lineFormData.style.marker_start;
+            }
+
+            // Effects
+            if (this._lineFormData.style.glow && this._lineFormData.style.glow.color) {
+                style.glow = this._lineFormData.style.glow;
+            }
+            if (this._lineFormData.style.shadow && this._lineFormData.style.shadow.color) {
+                style.shadow = this._lineFormData.style.shadow;
             }
 
             if (Object.keys(style).length > 0) {
@@ -6275,9 +6485,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         <div style="margin-bottom: 12px;">
                             <label style="display: block; margin-bottom: 8px; font-weight: 500; font-size: 13px;">Color</label>
                             <lcards-color-picker
-                                .value=${this._lineFormData.style?.stroke || 'var(--lcars-orange)'}
+                                .value=${this._lineFormData.style?.color || 'var(--lcars-orange)'}
                                 @value-changed=${(e) => {
-                                    this._lineFormData.style = { ...this._lineFormData.style, stroke: e.detail.value };
+                                    this._lineFormData.style = { ...this._lineFormData.style, color: e.detail.value };
                                     this.requestUpdate();
                                 }}>
                             </lcards-color-picker>
@@ -6294,12 +6504,33 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                     mode: 'slider'
                                 }
                             }}
-                            .value=${this._lineFormData.style?.stroke_width || 2}
+                            .value=${this._lineFormData.style?.width || 2}
                             .label=${'Width'}
                             @value-changed=${(e) => {
-                                this._lineFormData.style = { ...this._lineFormData.style, stroke_width: e.detail.value };
+                                this._lineFormData.style = { ...this._lineFormData.style, width: e.detail.value };
                                 this.requestUpdate();
                             }}
+                            style="margin-top: 12px;">
+                        </ha-selector>
+
+                        <!-- Opacity Slider -->
+                        <ha-selector
+                            .hass=${this.hass}
+                            .selector=${{
+                                number: {
+                                    min: 0,
+                                    max: 1,
+                                    step: 0.01,
+                                    mode: 'slider'
+                                }
+                            }}
+                            .value=${this._lineFormData.style?.opacity ?? 1}
+                            .label=${'Opacity'}
+                            @value-changed=${(e) => {
+                                this._lineFormData.style = { ...this._lineFormData.style, opacity: e.detail.value };
+                                this.requestUpdate();
+                            }}
+                            helper-text="Line opacity (0 = transparent, 1 = opaque)"
                             style="margin-top: 12px;">
                         </ha-selector>
 
@@ -6422,6 +6653,174 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 <!-- Visual Line Preview (Full Width) -->
                 ${this._renderLineStylePreview()}
 
+                <!-- Effects Section (Full Width) -->
+                <lcards-form-section
+                    header="Effects"
+                    description="SVG effects for the line"
+                    ?expanded=${false}>
+
+                    <!-- Glow Effect -->
+                    <div style="margin-bottom: 16px;">
+                        <ha-textfield
+                            label="Glow Color"
+                            .value=${this._lineFormData.style?.glow?.color || ''}
+                            @input=${(e) => {
+                                const glow = this._lineFormData.style?.glow || {};
+                                if (e.target.value) {
+                                    this._lineFormData.style = {
+                                        ...this._lineFormData.style,
+                                        glow: { ...glow, color: e.target.value }
+                                    };
+                                } else {
+                                    const { glow: _, ...styleWithoutGlow } = this._lineFormData.style || {};
+                                    this._lineFormData.style = Object.keys(glow).length === 1 ? styleWithoutGlow : { ...this._lineFormData.style, glow };
+                                }
+                                this.requestUpdate();
+                            }}
+                            helper-text="Color for glow effect (e.g., #ff9900)"
+                            style="width: 100%;">
+                        </ha-textfield>
+
+                        ${this._lineFormData.style?.glow?.color ? html`
+                            <ha-selector
+                                .hass=${this.hass}
+                                .selector=${{
+                                    number: {
+                                        min: 0,
+                                        max: 20,
+                                        step: 0.5,
+                                        mode: 'slider'
+                                    }
+                                }}
+                                .value=${this._lineFormData.style.glow.size || 8}
+                                .label=${'Glow Size'}
+                                @value-changed=${(e) => {
+                                    this._lineFormData.style = {
+                                        ...this._lineFormData.style,
+                                        glow: {
+                                            ...this._lineFormData.style.glow,
+                                            size: e.detail.value
+                                        }
+                                    };
+                                    this.requestUpdate();
+                                }}
+                                style="margin-top: 12px;">
+                            </ha-selector>
+
+                            <ha-selector
+                                .hass=${this.hass}
+                                .selector=${{
+                                    number: {
+                                        min: 0,
+                                        max: 1,
+                                        step: 0.01,
+                                        mode: 'slider'
+                                    }
+                                }}
+                                .value=${this._lineFormData.style.glow.opacity ?? 0.6}
+                                .label=${'Glow Opacity'}
+                                @value-changed=${(e) => {
+                                    this._lineFormData.style = {
+                                        ...this._lineFormData.style,
+                                        glow: {
+                                            ...this._lineFormData.style.glow,
+                                            opacity: e.detail.value
+                                        }
+                                    };
+                                    this.requestUpdate();
+                                }}
+                                style="margin-top: 12px;">
+                            </ha-selector>
+                        ` : ''}
+                    </div>
+
+                    <!-- Shadow Effect -->
+                    <div>
+                        <ha-textfield
+                            label="Shadow Color"
+                            .value=${this._lineFormData.style?.shadow?.color || ''}
+                            @input=${(e) => {
+                                const shadow = this._lineFormData.style?.shadow || {};
+                                if (e.target.value) {
+                                    this._lineFormData.style = {
+                                        ...this._lineFormData.style,
+                                        shadow: { ...shadow, color: e.target.value }
+                                    };
+                                } else {
+                                    const { shadow: _, ...styleWithoutShadow } = this._lineFormData.style || {};
+                                    this._lineFormData.style = Object.keys(shadow).length === 1 ? styleWithoutShadow : { ...this._lineFormData.style, shadow };
+                                }
+                                this.requestUpdate();
+                            }}
+                            helper-text="Color for drop shadow (e.g., rgba(0,0,0,0.5))"
+                            style="width: 100%;">
+                        </ha-textfield>
+
+                        ${this._lineFormData.style?.shadow?.color ? html`
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+                                <ha-textfield
+                                    label="Offset X"
+                                    type="number"
+                                    .value=${this._lineFormData.style.shadow.offset?.[0] || 0}
+                                    @input=${(e) => {
+                                        const offset = this._lineFormData.style.shadow.offset || [0, 0];
+                                        this._lineFormData.style = {
+                                            ...this._lineFormData.style,
+                                            shadow: {
+                                                ...this._lineFormData.style.shadow,
+                                                offset: [Number(e.target.value), offset[1]]
+                                            }
+                                        };
+                                        this.requestUpdate();
+                                    }}>
+                                </ha-textfield>
+
+                                <ha-textfield
+                                    label="Offset Y"
+                                    type="number"
+                                    .value=${this._lineFormData.style.shadow.offset?.[1] || 0}
+                                    @input=${(e) => {
+                                        const offset = this._lineFormData.style.shadow.offset || [0, 0];
+                                        this._lineFormData.style = {
+                                            ...this._lineFormData.style,
+                                            shadow: {
+                                                ...this._lineFormData.style.shadow,
+                                                offset: [offset[0], Number(e.target.value)]
+                                            }
+                                        };
+                                        this.requestUpdate();
+                                    }}>
+                                </ha-textfield>
+                            </div>
+
+                            <ha-selector
+                                .hass=${this.hass}
+                                .selector=${{
+                                    number: {
+                                        min: 0,
+                                        max: 20,
+                                        step: 0.5,
+                                        mode: 'slider'
+                                    }
+                                }}
+                                .value=${this._lineFormData.style.shadow.blur || 4}
+                                .label=${'Shadow Blur'}
+                                @value-changed=${(e) => {
+                                    this._lineFormData.style = {
+                                        ...this._lineFormData.style,
+                                        shadow: {
+                                            ...this._lineFormData.style.shadow,
+                                            blur: e.detail.value
+                                        }
+                                    };
+                                    this.requestUpdate();
+                                }}
+                                style="margin-top: 12px;">
+                            </ha-selector>
+                        ` : ''}
+                    </div>
+                </lcards-form-section>
+
                 <!-- Animation Section (Full Width) -->
                 ${animations.length > 0 ? html`
                     <lcards-form-section
@@ -6486,8 +6885,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _renderLineStylePreview() {
-        const stroke = this._lineFormData.style?.stroke || 'var(--lcars-orange)';
-        const strokeWidth = this._lineFormData.style?.stroke_width || 2;
+        const color = this._lineFormData.style?.color || 'var(--lcars-orange)';
+        const width = this._lineFormData.style?.width || 2;
+        const opacity = this._lineFormData.style?.opacity ?? 1;
         const dashArray = this._lineFormData.style?.dash_array || '';
         const markerEnd = this._lineFormData.style?.marker_end;
 
@@ -6499,33 +6899,34 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         <!-- Arrow marker -->
                         ${markerEnd?.type === 'arrow' ? html`
                             <marker id="arrow-preview" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto">
-                                <path d="M 0 0 L 10 5 L 0 10 z" fill="${stroke}" />
+                                <path d="M 0 0 L 10 5 L 0 10 z" fill="${color}" opacity="${opacity}" />
                             </marker>
                         ` : ''}
                         <!-- Dot marker -->
                         ${markerEnd?.type === 'dot' ? html`
                             <marker id="dot-preview" markerWidth="8" markerHeight="8" refX="4" refY="4">
-                                <circle cx="4" cy="4" r="3" fill="${stroke}" />
+                                <circle cx="4" cy="4" r="3" fill="${color}" opacity="${opacity}" />
                             </marker>
                         ` : ''}
                         <!-- Diamond marker -->
                         ${markerEnd?.type === 'diamond' ? html`
                             <marker id="diamond-preview" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto">
-                                <path d="M 5 0 L 10 5 L 5 10 L 0 5 z" fill="${stroke}" />
+                                <path d="M 5 0 L 10 5 L 5 10 L 0 5 z" fill="${color}" opacity="${opacity}" />
                             </marker>
                         ` : ''}
                         <!-- Square marker -->
                         ${markerEnd?.type === 'square' ? html`
                             <marker id="square-preview" markerWidth="8" markerHeight="8" refX="4" refY="4">
-                                <rect x="1" y="1" width="6" height="6" fill="${stroke}" />
+                                <rect x="1" y="1" width="6" height="6" fill="${color}" opacity="${opacity}" />
                             </marker>
                         ` : ''}
                     </defs>
                     <line
                         x1="20" y1="25"
                         x2="280" y2="25"
-                        stroke="${stroke}"
-                        stroke-width="${strokeWidth}"
+                        stroke="${color}"
+                        stroke-width="${width}"
+                        stroke-opacity="${opacity}"
                         stroke-dasharray="${dashArray}"
                         marker-end="${markerEnd?.type && markerEnd.type !== 'none' ? `url(#${markerEnd.type}-preview)` : ''}"
                     />
@@ -6590,6 +6991,61 @@ export class LCARdSMSDStudioDialog extends LitElement {
         }
 
         // Note: Tab shortcuts 1-6 removed due to conflict with number inputs in forms
+    }
+
+    /**
+     * Update routing configuration property
+     * @param {string} key - Routing config key
+     * @param {*} value - Property value
+     * @private
+     */
+    _updateRoutingConfig(key, value) {
+        if (!this._workingConfig.msd) {
+            this._workingConfig.msd = {};
+        }
+        if (!this._workingConfig.msd.routing) {
+            this._workingConfig.msd.routing = {};
+        }
+
+        if (value === undefined || value === null || value === '') {
+            delete this._workingConfig.msd.routing[key];
+        } else {
+            this._workingConfig.msd.routing[key] = value;
+        }
+
+        this._markDirty();
+        this.requestUpdate();
+    }
+
+    /**
+     * Update routing cost_defaults nested property
+     * @param {string} key - Cost defaults key (bend or proximity)
+     * @param {*} value - Property value
+     * @private
+     */
+    _updateRoutingCostDefaults(key, value) {
+        if (!this._workingConfig.msd) {
+            this._workingConfig.msd = {};
+        }
+        if (!this._workingConfig.msd.routing) {
+            this._workingConfig.msd.routing = {};
+        }
+        if (!this._workingConfig.msd.routing.cost_defaults) {
+            this._workingConfig.msd.routing.cost_defaults = {};
+        }
+
+        if (value === undefined || value === null || value === '') {
+            delete this._workingConfig.msd.routing.cost_defaults[key];
+            // Clean up empty cost_defaults object
+            if (Object.keys(this._workingConfig.msd.routing.cost_defaults).length === 0) {
+                delete this._workingConfig.msd.routing.cost_defaults;
+            }
+        } else {
+            this._workingConfig.msd.routing.cost_defaults[key] = value;
+        }
+
+        this._markDirty();
+        this.requestUpdate();
     }
 
     /**
