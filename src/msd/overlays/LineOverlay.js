@@ -828,48 +828,58 @@ export class LineOverlay extends OverlayBase {
   _createMarkerDefinition(marker, markerId) {
     if (!marker || !marker.type) return '';
 
-    // Size mapping (viewBox-relative)
-    const sizeMap = {
-      small: { viewBox: 8, scale: 0.7 },
-      medium: { viewBox: 10, scale: 1.0 },
-      large: { viewBox: 14, scale: 1.3 }
-    };
-
-    const sizeConfig = sizeMap[marker.size || 'medium'];
-    const vb = sizeConfig.viewBox;
-    const scale = sizeConfig.scale;
+    // Use size directly in pixels
+    const vb = marker.size || 10; // Default to 10px
     const center = vb / 2;
-    const color = marker.color || 'currentColor';
+
+    // Color configuration with separate stroke and fill
+    const fillColor = marker.fill || marker.color || 'currentColor';
+    const strokeColor = marker.stroke || 'none';
+    const strokeWidth = marker.stroke_width || 0;
 
     let shape = '';
 
     switch (marker.type) {
       case 'arrow':
-        shape = `<path d="M 0 0 L ${vb} ${center} L 0 ${vb} Z" fill="${color}" />`;
+        shape = `<path d="M 0 0 L ${vb} ${center} L 0 ${vb} Z" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" />`;
         break;
 
       case 'dot':
-        const radius = (vb / 3) * scale;
-        shape = `<circle cx="${center}" cy="${center}" r="${radius}" fill="${color}" />`;
+        const radius = vb / 3;
+        shape = `<circle cx="${center}" cy="${center}" r="${radius}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" />`;
         break;
 
       case 'diamond':
-        shape = `<path d="M ${center} 0 L ${vb} ${center} L ${center} ${vb} L 0 ${center} Z" fill="${color}" />`;
+        shape = `<path d="M ${center} 0 L ${vb} ${center} L ${center} ${vb} L 0 ${center} Z" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" />`;
         break;
 
       case 'square':
-        const size = vb * 0.6;
-        const offset = (vb - size) / 2;
-        shape = `<rect x="${offset}" y="${offset}" width="${size}" height="${size}" fill="${color}" />`;
+        const sqSize = vb * 0.6;
+        const sqOffset = (vb - sqSize) / 2;
+        shape = `<rect x="${sqOffset}" y="${sqOffset}" width="${sqSize}" height="${sqSize}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" />`;
         break;
 
       case 'triangle':
-        shape = `<path d="M ${center} 0 L ${vb} ${vb} L 0 ${vb} Z" fill="${color}" />`;
+        shape = `<path d="M ${center} 0 L ${vb} ${vb} L 0 ${vb} Z" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" />`;
+        break;
+
+      case 'line':
+        // Orthogonal line (perpendicular to path direction)
+        const lineLength = vb * 0.8;
+        const lineOffset = (vb - lineLength) / 2;
+        shape = `<line x1="${center}" y1="${lineOffset}" x2="${center}" y2="${vb - lineOffset}" stroke="${fillColor}" stroke-width="${Math.max(strokeWidth || 2, 2)}" stroke-linecap="round" />`;
+        break;
+
+      case 'rect':
+        // Rectangle with fill and optional stroke
+        const rectSize = vb * 0.7;
+        const rectOffset = (vb - rectSize) / 2;
+        shape = `<rect x="${rectOffset}" y="${rectOffset}" width="${rectSize}" height="${rectSize}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" />`;
         break;
 
       default:
         // Fallback to dot
-        shape = `<circle cx="${center}" cy="${center}" r="${vb/3}" fill="${color}" />`;
+        shape = `<circle cx="${center}" cy="${center}" r="${vb/3}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" />`;
     }
 
     return `<marker

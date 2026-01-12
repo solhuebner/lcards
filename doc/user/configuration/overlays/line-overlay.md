@@ -697,18 +697,56 @@ style:
 
 ### Arrows & Markers
 
+Line overlays support rich marker configuration with multiple shapes, custom sizing, and independent fill/stroke colors:
+
 ```yaml
 style:
-  marker-end: url(#arrow)        # Arrow at end
-  marker-start: url(#arrow)      # Arrow at start
-  marker-mid: url(#circle)       # Marker at midpoints
+  marker_start:
+    type: arrow              # Shape type
+    size: medium             # small | medium | large | custom
+    fill: '#ff6600'          # Fill color (optional, inherits line color)
+    stroke: '#000000'        # Outline color (optional)
+    stroke_width: 1          # Outline thickness (optional)
+
+  marker_end:
+    type: dot
+    size: large
+    fill: 'var(--lcars-orange)'
 ```
 
-**Common markers:**
-- `url(#arrow)` - Standard arrow
-- `url(#arrow-open)` - Hollow arrow
-- `url(#circle)` - Circle marker
-- `url(#diamond)` - Diamond marker
+**Available marker types:**
+- `arrow` - Filled triangle pointing in line direction
+- `dot` - Filled circle
+- `diamond` - Filled diamond shape
+- `square` - Filled square
+- `triangle` - Filled triangle (pointing forward)
+- `line` - Orthogonal line (perpendicular bar)
+- `rect` - Outlined rectangle (stroke only, no fill)
+
+**Size presets:**
+- `small`: 4px viewBox
+- `medium`: 6px viewBox (default)
+- `large`: 10px viewBox
+- `custom`: Use `custom_size` property for pixel-based sizing
+
+**Custom size example:**
+```yaml
+style:
+  marker_end:
+    type: arrow
+    size: custom
+    custom_size: 15          # 15px marker
+    fill: 'var(--lcars-red)'
+    stroke: '#000'
+    stroke_width: 2
+```
+
+**Color properties:**
+- `fill`: Primary marker color (defaults to line color if not specified)
+- `stroke`: Optional outline color (defaults to 'none')
+- `stroke_width`: Outline thickness in pixels (defaults to 0)
+
+**Note:** The `line` and `rect` marker types are particularly useful for creating terminal indicators or boundary markers in technical diagrams.
 
 ### Colors
 

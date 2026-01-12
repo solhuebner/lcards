@@ -28,6 +28,7 @@
  */
 
 import { LitElement, html, css } from 'lit';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import { editorStyles } from '../base/editor-styles.js';
 import { OverlayUtils } from '../../msd/renderer/OverlayUtils.js';
@@ -1706,10 +1707,10 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * Save anchor (create or update)
      * @private
      */
-    _saveAnchor() {
+    async _saveAnchor() {
         // Validate name
         if (!this._anchorFormName || this._anchorFormName.trim() === '') {
-            alert('Anchor name is required');
+            await this._showDialog('Missing Name', 'Anchor name is required', 'error');
             return;
         }
 
@@ -1717,7 +1718,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         if (!this._editingAnchorName) {
             const existingAnchors = this._workingConfig.msd?.anchors || {};
             if (existingAnchors[this._anchorFormName]) {
-                alert(`Anchor name "${this._anchorFormName}" already exists`);
+                await this._showDialog('Duplicate Anchor', `Anchor name "${this._anchorFormName}" already exists`, 'error');
                 return;
             }
         }
@@ -5670,10 +5671,10 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * Save channel
      * @private
      */
-    _saveChannel() {
+    async _saveChannel() {
         const id = this._channelFormData.id;
         if (!id || id.trim() === '') {
-            alert('Channel ID is required');
+            await this._showDialog('Missing ID', 'Channel ID is required', 'error');
             return;
         }
 
@@ -5704,7 +5705,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     async _deleteChannel(id) {
-        if (!confirm(`Delete routing channel "${id}"? Lines using this channel may be affected.`)) {
+        if (!await this._showConfirmDialog('Delete Channel', `Delete routing channel "${id}"?<br><br>Lines using this channel may be affected.`)) {
             return;
         }
 
@@ -6006,8 +6007,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @param {Object} line - Line to delete
      * @private
      */
-    _deleteLine(line) {
-        if (!confirm(`Delete line "${line.id}"?`)) {
+    async _deleteLine(line) {
+        if (!await this._showConfirmDialog('Delete Line', `Delete line "${line.id}"?`)) {
             return;
         }
 
@@ -6515,7 +6516,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                     { value: 'dot', label: 'Dot' },
                                     { value: 'diamond', label: 'Diamond' },
                                     { value: 'square', label: 'Square' },
-                                    { value: 'triangle', label: 'Triangle' }
+                                    { value: 'triangle', label: 'Triangle' },
+                                    { value: 'line', label: 'Line (Orthogonal)' },
+                                    { value: 'rect', label: 'Rectangle (Outlined)' }
                                 ]
                             }
                         }}
@@ -6527,7 +6530,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                 const { marker_start, ...styleWithoutMarkerStart } = this._lineFormData.style || {};
                                 this._lineFormData.style = styleWithoutMarkerStart;
                             } else {
-                                const existingSize = this._lineFormData.style?.marker_start?.size || 'medium';
+                                const existingSize = this._lineFormData.style?.marker_start?.size ?? 10;
                                 this._lineFormData.style = {
                                     ...this._lineFormData.style,
                                     marker_start: { type: markerType, size: existingSize }
@@ -6538,31 +6541,80 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     </ha-selector>
 
                     ${this._lineFormData.style?.marker_start?.type && this._lineFormData.style.marker_start.type !== 'none' ? html`
-                        <ha-selector
-                            .hass=${this.hass}
-                            .selector=${{
-                                select: {
-                                    options: [
-                                        { value: 'small', label: 'Small' },
-                                        { value: 'medium', label: 'Medium' },
-                                        { value: 'large', label: 'Large' }
-                                    ]
-                                }
-                            }}
-                            .value=${this._lineFormData.style.marker_start.size || 'medium'}
-                            .label=${'Size'}
-                            @value-changed=${(e) => {
+                        <ha-textfield
+                            type="number"
+                            label="Size (pixels)"
+                            .value=${String(this._lineFormData.style.marker_start.size ?? 10)}
+                            step="1"
+                            min="1"
+                            style="margin-top: 12px;"
+                            @input=${(e) => {
                                 this._lineFormData.style = {
                                     ...this._lineFormData.style,
                                     marker_start: {
                                         ...this._lineFormData.style.marker_start,
-                                        size: e.detail.value
+                                        size: Number(e.target.value) || 10
                                     }
                                 };
                                 this.requestUpdate();
-                            }}
-                            style="margin-top: 12px;">
-                        </ha-selector>
+                            }}>
+                        </ha-textfield>
+
+                        <div style="margin-top: 12px;">
+                            <div style="font-size: 14px; font-weight: 500; margin-bottom: 8px; color: var(--primary-text-color);">Fill Color</div>
+                            <lcards-color-picker
+                                .hass=${this.hass}
+                                .value=${this._lineFormData.style.marker_start.fill || ''}
+                                ?showPreview=${true}
+                                @value-changed=${(e) => {
+                                    this._lineFormData.style = {
+                                        ...this._lineFormData.style,
+                                        marker_start: {
+                                            ...this._lineFormData.style.marker_start,
+                                            fill: e.detail.value
+                                        }
+                                    };
+                                    this.requestUpdate();
+                                }}>
+                            </lcards-color-picker>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 120px; gap: 12px; margin-top: 12px;">
+                            <div>
+                                <div style="font-size: 14px; font-weight: 500; margin-bottom: 8px; color: var(--primary-text-color);">Stroke Color</div>
+                                <lcards-color-picker
+                                    .hass=${this.hass}
+                                    .value=${this._lineFormData.style.marker_start.stroke || ''}
+                                    ?showPreview=${true}
+                                    @value-changed=${(e) => {
+                                        this._lineFormData.style = {
+                                            ...this._lineFormData.style,
+                                            marker_start: {
+                                                ...this._lineFormData.style.marker_start,
+                                                stroke: e.detail.value
+                                            }
+                                        };
+                                        this.requestUpdate();
+                                    }}>
+                                </lcards-color-picker>
+                            </div>
+
+                            <ha-textfield
+                                type="number"
+                                label="Stroke Width"
+                                .value=${String(this._lineFormData.style.marker_start.stroke_width || 0)}
+                                @input=${(e) => {
+                                    this._lineFormData.style = {
+                                        ...this._lineFormData.style,
+                                        marker_start: {
+                                            ...this._lineFormData.style.marker_start,
+                                            stroke_width: Number(e.target.value) || 0
+                                        }
+                                    };
+                                    this.requestUpdate();
+                                }}>
+                            </ha-textfield>
+                        </div>
                     ` : ''}
                 </lcards-form-section>
 
@@ -6581,7 +6633,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                     { value: 'dot', label: 'Dot' },
                                     { value: 'diamond', label: 'Diamond' },
                                     { value: 'square', label: 'Square' },
-                                    { value: 'triangle', label: 'Triangle' }
+                                    { value: 'triangle', label: 'Triangle' },
+                                    { value: 'line', label: 'Line (Orthogonal)' },
+                                    { value: 'rect', label: 'Rectangle (Outlined)' }
                                 ]
                             }
                         }}
@@ -6592,7 +6646,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                             if (markerType === 'none') {
                                 this._lineFormData.style = { ...this._lineFormData.style, marker_end: null };
                             } else {
-                                const existingSize = this._lineFormData.style?.marker_end?.size || 'medium';
+                                const existingSize = this._lineFormData.style?.marker_end?.size ?? 10;
                                 this._lineFormData.style = {
                                     ...this._lineFormData.style,
                                     marker_end: { type: markerType, size: existingSize }
@@ -6603,31 +6657,80 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     </ha-selector>
 
                     ${this._lineFormData.style?.marker_end?.type && this._lineFormData.style.marker_end.type !== 'none' ? html`
-                        <ha-selector
-                            .hass=${this.hass}
-                            .selector=${{
-                                select: {
-                                    options: [
-                                        { value: 'small', label: 'Small' },
-                                        { value: 'medium', label: 'Medium' },
-                                        { value: 'large', label: 'Large' }
-                                    ]
-                                }
-                            }}
-                            .value=${this._lineFormData.style.marker_end.size || 'medium'}
-                            .label=${'Size'}
-                            @value-changed=${(e) => {
+                        <ha-textfield
+                            type="number"
+                            label="Size (pixels)"
+                            .value=${String(this._lineFormData.style.marker_end.size ?? 10)}
+                            step="1"
+                            min="1"
+                            style="margin-top: 12px;"
+                            @input=${(e) => {
                                 this._lineFormData.style = {
                                     ...this._lineFormData.style,
                                     marker_end: {
                                         ...this._lineFormData.style.marker_end,
-                                        size: e.detail.value
+                                        size: Number(e.target.value) || 10
                                     }
                                 };
                                 this.requestUpdate();
-                            }}
-                            style="margin-top: 12px;">
-                        </ha-selector>
+                            }}>
+                        </ha-textfield>
+
+                        <div style="margin-top: 12px;">
+                            <div style="font-size: 14px; font-weight: 500; margin-bottom: 8px; color: var(--primary-text-color);">Fill Color</div>
+                            <lcards-color-picker
+                                .hass=${this.hass}
+                                .value=${this._lineFormData.style.marker_end.fill || ''}
+                                ?showPreview=${true}
+                                @value-changed=${(e) => {
+                                    this._lineFormData.style = {
+                                        ...this._lineFormData.style,
+                                        marker_end: {
+                                            ...this._lineFormData.style.marker_end,
+                                            fill: e.detail.value
+                                        }
+                                    };
+                                    this.requestUpdate();
+                                }}>
+                            </lcards-color-picker>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 120px; gap: 12px; margin-top: 12px;">
+                            <div>
+                                <div style="font-size: 14px; font-weight: 500; margin-bottom: 8px; color: var(--primary-text-color);">Stroke Color</div>
+                                <lcards-color-picker
+                                    .hass=${this.hass}
+                                    .value=${this._lineFormData.style.marker_end.stroke || ''}
+                                    ?showPreview=${true}
+                                    @value-changed=${(e) => {
+                                        this._lineFormData.style = {
+                                            ...this._lineFormData.style,
+                                            marker_end: {
+                                                ...this._lineFormData.style.marker_end,
+                                                stroke: e.detail.value
+                                            }
+                                        };
+                                        this.requestUpdate();
+                                    }}>
+                                </lcards-color-picker>
+                            </div>
+
+                            <ha-textfield
+                                type="number"
+                                label="Stroke Width"
+                                .value=${String(this._lineFormData.style.marker_end.stroke_width || 0)}
+                                @input=${(e) => {
+                                    this._lineFormData.style = {
+                                        ...this._lineFormData.style,
+                                        marker_end: {
+                                            ...this._lineFormData.style.marker_end,
+                                            stroke_width: Number(e.target.value) || 0
+                                        }
+                                    };
+                                    this.requestUpdate();
+                                }}>
+                            </ha-textfield>
+                        </div>
                     ` : ''}
                 </lcards-form-section>
             </div>
@@ -7125,29 +7228,45 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const createMarker = (marker, id) => {
             if (!marker?.type || marker.type === 'none') return '';
 
-            const sizeScale = marker.size === 'small' ? 0.7 : marker.size === 'large' ? 1.3 : 1.0;
-            const baseSize = 10;
-            const size = baseSize * sizeScale;
+            // Use marker size directly in pixels
+            const size = marker.size ?? 10;
             const half = size / 2;
+
+            // Determine colors
+            const fillColor = marker.fill || color;
+            const strokeColor = marker.stroke || 'none';
+            const strokeWidth = marker.stroke_width || 0;
 
             let shape = '';
             switch (marker.type) {
                 case 'arrow':
-                    shape = `<path d="M 0 0 L ${size} ${half} L 0 ${size} z" fill="${color}" opacity="${opacity}" />`;
+                    shape = `<path d="M 0 0 L ${size} ${half} L 0 ${size} z" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
                     break;
                 case 'dot':
-                    shape = `<circle cx="${half}" cy="${half}" r="${half * 0.6}" fill="${color}" opacity="${opacity}" />`;
+                    shape = `<circle cx="${half}" cy="${half}" r="${half * 0.6}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
                     break;
                 case 'diamond':
-                    shape = `<path d="M ${half} 0 L ${size} ${half} L ${half} ${size} L 0 ${half} z" fill="${color}" opacity="${opacity}" />`;
+                    shape = `<path d="M ${half} 0 L ${size} ${half} L ${half} ${size} L 0 ${half} z" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
                     break;
                 case 'square':
                     const offset = size * 0.15;
                     const sqSize = size * 0.7;
-                    shape = `<rect x="${offset}" y="${offset}" width="${sqSize}" height="${sqSize}" fill="${color}" opacity="${opacity}" />`;
+                    shape = `<rect x="${offset}" y="${offset}" width="${sqSize}" height="${sqSize}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
                     break;
                 case 'triangle':
-                    shape = `<path d="M ${half} 0 L ${size} ${size} L 0 ${size} z" fill="${color}" opacity="${opacity}" />`;
+                    shape = `<path d="M ${half} 0 L ${size} ${size} L 0 ${size} z" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
+                    break;
+                case 'line':
+                    // Orthogonal line marker
+                    const lineLength = size * 0.8;
+                    const lineOffset = (size - lineLength) / 2;
+                    shape = `<line x1="${half}" y1="${lineOffset}" x2="${half}" y2="${size - lineOffset}" stroke="${fillColor}" stroke-width="${Math.max(strokeWidth || 2, 2)}" stroke-linecap="round" opacity="${opacity}" />`;
+                    break;
+                case 'rect':
+                    // Rectangle marker with fill and optional stroke
+                    const rectSize = size * 0.7;
+                    const rectOffset = (size - rectSize) / 2;
+                    shape = `<rect x="${rectOffset}" y="${rectOffset}" width="${rectSize}" height="${rectSize}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
                     break;
             }
 
@@ -7175,8 +7294,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 <div style="font-size: 12px; font-weight: 500; margin-bottom: 12px; color: #999;">Preview</div>
                 <svg viewBox="0 0 300 50" style="width: 100%; height: 85px; background: #000;">
                     <defs>
-                        ${createMarker(markerStart, 'start-preview')}
-                        ${createMarker(markerEnd, 'end-preview')}
+                        ${unsafeHTML(createMarker(markerStart, 'start-preview'))}
+                        ${unsafeHTML(createMarker(markerEnd, 'end-preview'))}
                     </defs>
                     <path
                         d="${pathD}"
@@ -7318,14 +7437,16 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const msd = this._workingConfig.msd || {};
 
         // Validate line connections
-        const anchors = msd.anchors || {};
+        const userAnchors = msd.anchors || {};
+        const baseSvgAnchors = this._getBaseSvgAnchors(); // Get base SVG anchors
+        const allAnchors = { ...baseSvgAnchors, ...userAnchors }; // Merge both
         const overlays = msd.overlays || [];
         const lineOverlays = overlays.filter(o => o.type === 'line');
 
         lineOverlays.forEach(line => {
-            // Check if anchor exists
+            // Check if anchor exists (check user anchors, base SVG anchors, and overlays)
             if (line.anchor && typeof line.anchor === 'string') {
-                const anchorExists = anchors[line.anchor] || overlays.find(o => o.id === line.anchor && o.type !== 'line');
+                const anchorExists = allAnchors[line.anchor] || overlays.find(o => o.id === line.anchor && o.type !== 'line');
                 if (!anchorExists) {
                     errors.push({
                         type: 'line',
@@ -7336,9 +7457,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 }
             }
 
-            // Check if attach_to exists
+            // Check if attach_to exists (check user anchors, base SVG anchors, and overlays)
             if (line.attach_to && typeof line.attach_to === 'string') {
-                const targetExists = anchors[line.attach_to] || overlays.find(o => o.id === line.attach_to && o.type !== 'line');
+                const targetExists = allAnchors[line.attach_to] || overlays.find(o => o.id === line.attach_to && o.type !== 'line');
                 if (!targetExists) {
                     errors.push({
                         type: 'line',
@@ -7427,12 +7548,16 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * Show validation errors dialog (Phase 7)
      * @private
      */
-    _showValidationErrors() {
+    async _showValidationErrors() {
         const errorsList = this._validationErrors.map(err =>
             `• ${err.message}`
-        ).join('\n');
+        ).join('<br>');
 
-        alert(`Validation Errors:\n\n${errorsList}\n\nPlease fix these issues before saving.`);
+        await this._showDialog(
+            'Validation Errors',
+            `${errorsList}<br><br><strong>Please fix these issues before saving.</strong>`,
+            'warning'
+        );
     }
 
     /**
@@ -7469,8 +7594,96 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @returns {boolean}
      * @private
      */
-    _confirmAction(message) {
-        return confirm(message);
+    async _confirmAction(message) {
+        return await this._showConfirmDialog('Confirm Action', message);
+    }
+
+    /**
+     * Show HA-style dialog
+     * @param {string} title - Dialog title
+     * @param {string} message - Dialog message (supports HTML)
+     * @param {string} type - Dialog type: 'info', 'warning', 'error'
+     * @private
+     */
+    async _showDialog(title, message, type = 'info') {
+        const iconMap = {
+            info: 'mdi:information',
+            warning: 'mdi:alert',
+            error: 'mdi:alert-circle'
+        };
+
+        return new Promise((resolve) => {
+            const dialog = document.createElement('ha-dialog');
+            dialog.heading = title;
+            dialog.open = true;
+
+            const content = document.createElement('div');
+            content.innerHTML = message;
+            content.style.padding = '16px';
+            dialog.appendChild(content);
+
+            const closeButton = document.createElement('ha-button');
+            closeButton.slot = 'primaryAction';
+            closeButton.textContent = 'OK';
+            closeButton.addEventListener('click', () => {
+                dialog.close();
+                resolve();
+            });
+
+            dialog.appendChild(closeButton);
+
+            dialog.addEventListener('closed', () => {
+                dialog.remove();
+            });
+
+            document.body.appendChild(dialog);
+        });
+    }
+
+    /**
+     * Show HA-style confirmation dialog
+     * @param {string} title - Dialog title
+     * @param {string} message - Dialog message (supports HTML)
+     * @returns {Promise<boolean>} True if confirmed
+     * @private
+     */
+    async _showConfirmDialog(title, message) {
+        return new Promise((resolve) => {
+            const dialog = document.createElement('ha-dialog');
+            dialog.heading = title;
+            dialog.open = true;
+
+            const content = document.createElement('div');
+            content.innerHTML = message;
+            content.style.padding = '16px';
+            dialog.appendChild(content);
+
+            const cancelButton = document.createElement('ha-button');
+            cancelButton.slot = 'secondaryAction';
+            cancelButton.textContent = 'Cancel';
+            cancelButton.addEventListener('click', () => {
+                dialog.close();
+                resolve(false);
+            });
+
+            const confirmButton = document.createElement('ha-button');
+            confirmButton.slot = 'primaryAction';
+            confirmButton.textContent = 'Confirm';
+            confirmButton.style.cssText = '--mdc-theme-primary: var(--error-color, #f44336)';
+            confirmButton.addEventListener('click', () => {
+                dialog.close();
+                resolve(true);
+            });
+
+            dialog.appendChild(cancelButton);
+            dialog.appendChild(confirmButton);
+
+            dialog.addEventListener('closed', () => {
+                dialog.remove();
+            });
+
+            document.body.appendChild(dialog);
+        });
     }
 
     /**

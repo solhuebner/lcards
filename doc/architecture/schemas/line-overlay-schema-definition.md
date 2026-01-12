@@ -264,14 +264,38 @@ overlays:
 
       # --- Markers (Line Endpoints/Midpoints) ---
       marker_start:
-        type: arrow | dot | diamond | square
+        type: arrow | dot | diamond | square | triangle | line | rect
           # Marker shape
+          # - arrow: Filled triangle pointing in line direction
+          # - dot: Filled circle
+          # - diamond: Filled diamond shape
+          # - square: Filled square
+          # - triangle: Filled triangle
+          # - line: Orthogonal line (perpendicular bar)
+          # - rect: Outlined rectangle (stroke only)
 
-        size: small | medium | large
-          # Marker size preset
+        size: small | medium | large | custom
+          # Marker size preset or custom
+          # - small: 4px viewBox
+          # - medium: 6px viewBox (default)
+          # - large: 10px viewBox
+          # - custom: Use custom_size property
 
-        color: <color>
-          # Marker color (defaults to line color)
+        custom_size: <number>
+          # Custom marker size in pixels (when size: custom)
+          # Default: 6
+
+        fill: <color>
+          # Marker fill color
+          # Default: Inherits from line color
+
+        stroke: <color>
+          # Marker outline color
+          # Default: 'none'
+
+        stroke_width: <number>
+          # Marker outline thickness in pixels
+          # Default: 0
 
         rotate: <boolean>
           # Rotate marker with line direction
@@ -280,13 +304,19 @@ overlays:
       marker_mid:
         type: <marker-type>
         size: <size>
-        color: <color>
+        custom_size: <number>
+        fill: <color>
+        stroke: <color>
+        stroke_width: <number>
         # Applied at path midpoints (for multi-segment paths)
 
       marker_end:
         type: <marker-type>
         size: <size>
-        color: <color>
+        custom_size: <number>
+        fill: <color>
+        stroke: <color>
+        stroke_width: <number>
         rotate: <boolean>
 
     # ==========================================================================
