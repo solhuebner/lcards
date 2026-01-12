@@ -361,8 +361,8 @@ export class LineOverlay extends OverlayBase {
       )),
 
       // Advanced stroke styling
-      lineCap: (style.line_cap || 'round').toLowerCase(),
-      lineJoin: (style.line_join || 'round').toLowerCase(),
+      lineCap: (style.line_cap || 'butt').toLowerCase(),
+      lineJoin: (style.line_join || 'miter').toLowerCase(),
       miterLimit: Number(style.miter_limit || 4),
 
       // Dash patterns

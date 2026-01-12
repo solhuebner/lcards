@@ -6169,7 +6169,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 .heading=${title}>
 
                 <!-- Sticky Line Preview -->
-                <div style="position: sticky; top: 0; z-index: 10; background: var(--card-background-color); padding: 16px 24px; border-bottom: 1px solid var(--divider-color);">
+                <div style="position: sticky; top: 0; background: var(--card-background-color); padding: 16px 24px; border-bottom: 1px solid var(--divider-color);">
                     ${this._renderLineStylePreview()}
                 </div>
 
@@ -7032,10 +7032,10 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                         ]
                                     }
                                 }}
-                                .value=${this._lineFormData.style?.linecap || 'butt'}
+                                .value=${this._lineFormData.style?.line_cap || 'butt'}
                                 .label=${'Line Cap'}
                                 @value-changed=${(e) => {
-                                    this._lineFormData.style = { ...this._lineFormData.style, linecap: e.detail.value };
+                                    this._lineFormData.style = { ...this._lineFormData.style, line_cap: e.detail.value };
                                     this.requestUpdate();
                                 }}
                                 helper-text="How line endpoints are drawn">
@@ -7053,10 +7053,10 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                         ]
                                     }
                                 }}
-                                .value=${this._lineFormData.style?.linejoin || this._lineFormData.corner_style || 'miter'}
+                                .value=${this._lineFormData.style?.line_join || this._lineFormData.corner_style || 'miter'}
                                 .label=${'Line Join'}
                                 @value-changed=${(e) => {
-                                    this._lineFormData.style = { ...this._lineFormData.style, linejoin: e.detail.value };
+                                    this._lineFormData.style = { ...this._lineFormData.style, line_join: e.detail.value };
                                     this.requestUpdate();
                                 }}
                                 helper-text="How line segments connect"
@@ -7118,6 +7118,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const markerEnd = this._lineFormData.style?.marker_end;
         const cornerStyle = this._lineFormData.corner_style || 'miter';
         const cornerRadius = this._lineFormData.corner_radius || 12;
+        const linecap = this._lineFormData.style?.line_cap || 'butt';
+        const linejoin = this._lineFormData.style?.line_join || cornerStyle;
 
         // Helper function to create marker definition
         const createMarker = (marker, id) => {
@@ -7182,8 +7184,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         stroke-width="${width}"
                         stroke-opacity="${opacity}"
                         stroke-dasharray="${dashArray}"
-                        stroke-linecap="${cornerStyle === 'round' ? 'round' : 'butt'}"
-                        stroke-linejoin="${cornerStyle}"
+                        stroke-linecap="${linecap}"
+                        stroke-linejoin="${linejoin}"
                         fill="none"
                         marker-start="${markerStart?.type && markerStart.type !== 'none' ? 'url(#start-preview)' : ''}"
                         marker-end="${markerEnd?.type && markerEnd.type !== 'none' ? 'url(#end-preview)' : ''}"
