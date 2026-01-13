@@ -6,6 +6,7 @@ import * as componentsRegistry from './components/index.js';
 import { BUTTON_PRESETS } from './style-presets/buttons/index.js';
 import { SLIDER_PRESETS } from './style-presets/sliders/index.js';
 import { BUILTIN_THEMES_PACK } from './themes/builtin-themes.js';
+import { registerBuiltinAnimationPresets } from './animations/index.js';
 
 /**
  * Core Builtin Pack
@@ -18,27 +19,6 @@ const CORE_PACK = {
   id: 'core',
   version: '1.14.18',
   animations: [],
-  timelines: [],
-  rules: []
-};
-
-/**
- * LCARS FX Pack
- *
- * Sample builtin animations and effects pack.
- * Provides common animation presets like pulse_soft.
- */
-// New sample builtin pack (Phase A) – expand later with real defaults.
-const LCARS_FX_PACK = {
-  id: 'lcars_fx',
-  version: '1.14.18',
-  animations: [
-    {
-      id: 'pulse_soft',
-      preset: 'pulse',
-      params: { duration: 1800, loop: true, alternate: true, max_scale: 1.07 }
-    }
-  ],
   timelines: [],
   rules: []
 };
@@ -101,16 +81,18 @@ const LCARDS_SLIDERS_PACK = {
 
 const BUILTIN_REGISTRY = {
   core: CORE_PACK,
-  lcars_fx: LCARS_FX_PACK,
   lcards_buttons: LCARDS_BUTTONS_PACK,
-  lcards_sliders: LCARDS_SLIDERS_PACK,  // ✅ ADD: Register sliders pack
-  builtin_themes: BUILTIN_THEMES_PACK  // ✅ ADD: Register the themes pack
+  lcards_sliders: LCARDS_SLIDERS_PACK,
+  builtin_themes: BUILTIN_THEMES_PACK
 };
 
 // Remove getBuiltinPack() function entirely - it's not needed anymore
 // All packs are now in BUILTIN_REGISTRY
 
 export function loadBuiltinPacks(requested = ['core', 'lcards_buttons', 'lcards_sliders']) {
+  // Register animation presets during pack loading
+  registerBuiltinAnimationPresets();
+  
   // ✅ CRITICAL FIX: Always load builtin_themes pack for theme system
   const packsToLoad = [...new Set([...requested, 'builtin_themes'])];
 
