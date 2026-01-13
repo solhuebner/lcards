@@ -1,7 +1,3 @@
-import { lcarsClassicTokens } from '../themes/tokens/lcarsClassicTokens.js';
-import { lcarsDs9Tokens } from '../themes/tokens/lcarsDs9Tokens.js';
-import { lcarsVoyagerTokens } from '../themes/tokens/lcarsVoyagerTokens.js';
-import { lcarsHighContrastTokens } from '../themes/tokens/lcarsHighContrastTokens.js';
 import * as componentsRegistry from './components/index.js';
 import { BUTTON_PRESETS } from './style-presets/buttons/index.js';
 import { SLIDER_PRESETS } from './style-presets/sliders/index.js';
