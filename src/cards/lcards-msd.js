@@ -1225,7 +1225,7 @@ export class LCARdSMSDCard extends LCARdSCard {
                             border-radius: 4px;
                         ">
                             <div style="font-size: 10px; color: #9999ff; opacity: 0.8; line-height: 1.4;">
-                                ⓘ Full MSD preview available on dashboard. Use YAML editor to modify configuration.
+                                ⓘ Full MSD preview available in MSD Configuration Studio.
                             </div>
                         </div>
                     </div>

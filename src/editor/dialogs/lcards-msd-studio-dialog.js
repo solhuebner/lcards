@@ -78,6 +78,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             _anchorFormPosition: { type: Array, state: true },
             _anchorFormUnit: { type: String, state: true },
             _showGrid: { type: Boolean, state: true },
+            _showGridSettings: { type: Boolean, state: true },  // Popup for grid settings
             _gridSpacing: { type: Number, state: true },
             _snapToGrid: { type: Boolean, state: true },
             _cursorPosition: { type: Object, state: true },  // For crosshair guidelines
@@ -165,6 +166,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         this._anchorFormPosition = [0, 0];
         this._anchorFormUnit = 'vb';
         this._showGrid = true;  // Enable grid by default
+        this._showGridSettings = false;  // Grid settings popup closed by default
         this._gridSpacing = 50;
         this._snapToGrid = false;
         this._showCrosshairs = true;  // Enable crosshairs by default
@@ -389,6 +391,45 @@ export class LCARdSMSDStudioDialog extends LitElement {
             .canvas-toolbar-button ha-icon {
                 --mdc-icon-size: 20px;
                 color: white;
+            }
+
+            /* Grid Settings Popup */
+            .grid-settings-popup {
+                position: absolute;
+                top: 60px;
+                right: 12px;
+                width: 280px;
+                background: var(--card-background-color);
+                border: 1px solid var(--divider-color);
+                border-radius: 12px;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+                z-index: 999;
+                animation: slideIn 0.2s ease;
+            }
+
+            @keyframes slideIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(-10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            .grid-settings-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 12px 16px;
+                border-bottom: 1px solid var(--divider-color);
+            }
+
+            .grid-settings-content {
+                padding: 16px;
+                max-height: 400px;
+                overflow-y: auto;
             }
 
             /* Split Panel Layout */
@@ -901,9 +942,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         ];
 
         const debugToggles = [
-            { key: 'show_crosshairs', prop: '_showCrosshairs', icon: 'mdi:crosshairs', tooltip: 'Crosshairs' },
             { key: 'snap_to_grid', prop: '_enableSnapping', icon: 'mdi:magnet', tooltip: 'Grid Snapping' },
-            { key: 'show_grid', prop: '_showGrid', icon: 'mdi:grid', tooltip: 'Grid Display' },
             { key: 'show_anchor_markers', prop: '_showAnchorMarkers', icon: 'mdi:map-marker', tooltip: 'Anchors' },
             { key: 'show_bounding_boxes', prop: '_showBoundingBoxes', icon: 'mdi:border-outside', tooltip: 'Bounding Boxes' },
             { key: 'show_routing_paths', prop: '_showRoutingPaths', icon: 'mdi:vector-line', tooltip: 'Routing Paths' },
@@ -940,6 +979,26 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         <!-- Divider -->
                         <div class="canvas-toolbar-divider"></div>
 
+                        <!-- Crosshairs Button -->
+                        <button
+                            class="canvas-toolbar-button ${this._showCrosshairs ? 'active' : ''}"
+                            @click=${(e) => { e.stopPropagation(); this._showCrosshairs = !this._showCrosshairs; this.requestUpdate(); }}
+                            title="Crosshairs">
+                            <ha-icon icon="mdi:crosshairs"></ha-icon>
+                        </button>
+
+                        <!-- Grid Settings Button (Special) -->
+                        <button
+                            class="canvas-toolbar-button ${this._showGrid ? 'active' : ''}"
+                            @click=${(e) => {
+                                e.stopPropagation();
+                                this._showGridSettings = !this._showGridSettings;
+                                this.requestUpdate();
+                            }}
+                            title="Grid Settings">
+                            <ha-icon icon="mdi:grid"></ha-icon>
+                        </button>
+
                         <!-- Debug Toggles -->
                         ${debugToggles.map(toggle => html`
                             <button
@@ -951,6 +1010,102 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         `)}
                     </div>
                 ` : ''}
+            </div>
+        `;
+    }
+
+    /**
+     * Render grid settings popup (floating next to toolbar)
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderGridSettingsPopup() {
+        if (!this._showGridSettings) return '';
+
+        return html`
+            <div class="grid-settings-popup">
+                <div class="grid-settings-header">
+                    <span style="font-weight: 600; font-size: 14px;">Grid Settings</span>
+                    <ha-icon-button
+                        @click=${() => { this._showGridSettings = false; this.requestUpdate(); }}
+                        style="--mdc-icon-size: 20px;">
+                        <ha-icon icon="mdi:close"></ha-icon>
+                    </ha-icon-button>
+                </div>
+
+                <div class="grid-settings-content">
+                    <!-- Enable/Disable Grid -->
+                    <ha-formfield label="Show Grid">
+                        <ha-switch
+                            ?checked=${this._showGrid}
+                            @change=${(e) => {
+                                this._showGrid = e.target.checked;
+                                this._updateDebugSetting('grid', e.target.checked);
+                            }}>
+                        </ha-switch>
+                    </ha-formfield>
+
+                    ${this._showGrid ? html`
+                        <!-- Grid Spacing Slider -->
+                        <div style="margin-top: 16px;">
+                            <ha-selector
+                                .hass=${this.hass}
+                                .selector=${{
+                                    number: {
+                                        min: 10,
+                                        max: 150,
+                                        step: 5,
+                                        mode: 'slider'
+                                    }
+                                }}
+                                .value=${this._gridSpacing}
+                                .label=${'Grid Size (px)'}
+                                @value-changed=${(e) => {
+                                    this._gridSpacing = e.detail.value;
+                                    this._updateDebugSetting('gridSpacing', e.detail.value);
+                                }}>
+                            </ha-selector>
+                        </div>
+
+                        <!-- Snap to Grid -->
+                        <ha-formfield label="Snap to Grid" style="margin-top: 12px;">
+                            <ha-switch
+                                ?checked=${this._enableSnapping}
+                                @change=${(e) => this._enableSnapping = e.target.checked}>
+                            </ha-switch>
+                        </ha-formfield>
+
+                        <!-- Grid Color -->
+                        <div style="margin-top: 12px;">
+                            <label style="display: block; margin-bottom: 4px; font-size: 13px;">
+                                Grid Color
+                            </label>
+                            <input
+                                type="color"
+                                .value=${this._debugSettings.grid_color || '#cccccc'}
+                                @input=${(e) => this._updateDebugSetting('grid_color', e.target.value)}
+                                style="width: 100%; height: 32px; border: 1px solid var(--divider-color); border-radius: 4px; cursor: pointer;">
+                        </div>
+
+                        <!-- Grid Opacity -->
+                        <div style="margin-top: 12px;">
+                            <ha-selector
+                                .hass=${this.hass}
+                                .selector=${{
+                                    number: {
+                                        min: 0.1,
+                                        max: 1,
+                                        step: 0.1,
+                                        mode: 'slider'
+                                    }
+                                }}
+                                .value=${this._debugSettings.grid_opacity || 0.3}
+                                .label=${'Grid Opacity'}
+                                @value-changed=${(e) => this._updateDebugSetting('grid_opacity', e.detail.value)}>
+                            </ha-selector>
+                        </div>
+                    ` : ''}
+                </div>
             </div>
         `;
     }
@@ -1441,9 +1596,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     </ha-button>
                 </div>
 
-                <!-- Coordinate Helpers -->
-                ${this._renderCoordinateHelpers()}
-
                 <!-- Base SVG Anchors (Read-Only) -->
                 ${baseSvgEntries.length > 0 ? html`
                     <lcards-form-section
@@ -1574,105 +1726,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     </div>
                 </div>
             </ha-card>
-        `;
-    }
-
-    /**
-     * Render coordinate helpers
-     * @returns {TemplateResult}
-     * @private
-     */
-    _renderCoordinateHelpers() {
-        return html`
-            <lcards-form-section
-                header="Coordinate Helpers"
-                description="Visual aids for precise anchor placement"
-                ?expanded=${false}>
-                <div style="display: flex; flex-direction: column; gap: 12px;">
-                    <ha-formfield label="Show Grid Overlay">
-                        <ha-switch
-                            ?checked=${this._showGrid}
-                            @change=${(e) => {
-                                this._showGrid = e.target.checked;
-                                this._updateDebugSetting('grid', e.target.checked);
-                            }}>
-                        </ha-switch>
-                    </ha-formfield>
-
-                    <!-- Grid Settings (when enabled) -->
-                    ${this._showGrid ? html`
-                        <div style="margin-left: 20px; margin-top: 8px; padding: 12px; background: var(--card-background-color, #fff); border-radius: 8px; border: 1px solid var(--divider-color, #e0e0e0);">
-                            <!-- Grid Spacing -->
-                            <ha-selector
-                                .hass=${this.hass}
-                                .selector=${{
-                                    number: {
-                                        min: 10,
-                                        max: 150,
-                                        step: 5,
-                                        mode: 'slider'
-                                    }
-                                }}
-                                .value=${this._gridSpacing}
-                                .label=${'Grid Spacing (px)'}
-                                @value-changed=${(e) => {
-                                    this._gridSpacing = e.detail.value;
-                                    this._updateDebugSetting('gridSpacing', e.detail.value);
-                                }}>
-                            </ha-selector>
-
-                            <!-- Snap to Grid -->
-                            <ha-formfield label="Snap to Grid" style="margin-top: 12px;">
-                                <ha-switch
-                                    ?checked=${this._snapToGrid}
-                                    @change=${(e) => this._snapToGrid = e.target.checked}>
-                                </ha-switch>
-                            </ha-formfield>
-
-                            <!-- Grid Color -->
-                            <div style="margin-top: 12px;">
-                                <label style="display: block; margin-bottom: 4px; font-size: 14px; color: var(--primary-text-color);">
-                                    Grid Color
-                                </label>
-                                <input
-                                    type="color"
-                                    .value=${this._debugSettings.grid_color || '#cccccc'}
-                                    @input=${(e) => this._updateDebugSetting('grid_color', e.target.value)}
-                                    style="width: 100%; height: 36px; border: 1px solid var(--divider-color); border-radius: 4px; cursor: pointer;">
-                            </div>
-
-                            <!-- Grid Opacity -->
-                            <div style="margin-top: 12px;">
-                                <ha-selector
-                                    .hass=${this.hass}
-                                    .selector=${{
-                                        number: {
-                                            min: 0.1,
-                                            max: 1.0,
-                                            step: 0.1,
-                                            mode: 'slider'
-                                        }
-                                    }}
-                                    .value=${this._debugSettings.grid_opacity ?? 0.3}
-                                    .label=${`Grid Opacity (${(this._debugSettings.grid_opacity ?? 0.3).toFixed(1)})`}
-                                    @value-changed=${(e) => this._updateDebugSetting('grid_opacity', e.detail.value)}>
-                                </ha-selector>
-                            </div>
-                        </div>
-                    ` : ''}
-
-                    <!-- Show Anchor Markers -->
-                    <ha-formfield label="Show Anchor Markers" style="margin-top: 12px;">
-                        <ha-switch
-                            ?checked=${this._showAnchorMarkers}
-                            @change=${(e) => {
-                                this._showAnchorMarkers = e.target.checked;
-                                this.requestUpdate();
-                            }}>
-                        </ha-switch>
-                    </ha-formfield>
-                </div>
-            </lcards-form-section>
         `;
     }
 
@@ -8232,6 +8285,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
                             <!-- Canvas Toolbar (Floating) -->
                             ${this._renderCanvasToolbar()}
+
+                            <!-- Grid Settings Popup (when opened) -->
+                            ${this._renderGridSettingsPopup()}
                         </div>
                     </div>
                 </div>
