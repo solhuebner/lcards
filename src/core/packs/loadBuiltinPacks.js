@@ -27,7 +27,7 @@ const CORE_PACK = {
  * All presets use nested CB-LCARS schema structure.
  *
  * Schema: doc/architecture/button-schema-definition.md
- * Theme Tokens: src/core/themes/tokens/lcarsClassicTokens.js
+ * Theme Tokens: src/core/packs/themes/tokens/lcarsClassicTokens.js
  */
 const LCARDS_BUTTONS_PACK = {
   id: 'lcards_buttons',

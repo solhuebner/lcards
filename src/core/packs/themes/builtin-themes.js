@@ -7,10 +7,10 @@
  * @module core/packs/themes/builtin-themes
  */
 
-import { lcarsClassicTokens } from '../../themes/tokens/lcarsClassicTokens.js';
-import { lcarsDs9Tokens } from '../../themes/tokens/lcarsDs9Tokens.js';
-import { lcarsVoyagerTokens } from '../../themes/tokens/lcarsVoyagerTokens.js';
-import { lcarsHighContrastTokens } from '../../themes/tokens/lcarsHighContrastTokens.js';
+import { lcarsClassicTokens } from './tokens/lcarsClassicTokens.js';
+import { lcarsDs9Tokens } from './tokens/lcarsDs9Tokens.js';
+import { lcarsVoyagerTokens } from './tokens/lcarsVoyagerTokens.js';
+import { lcarsHighContrastTokens } from './tokens/lcarsHighContrastTokens.js';
 
 /**
  * Builtin Themes Pack

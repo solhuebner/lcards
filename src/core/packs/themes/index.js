@@ -10,7 +10,7 @@
 export { BUILTIN_THEMES_PACK } from './builtin-themes.js';
 
 // Re-export theme tokens for convenience
-export { lcarsClassicTokens } from '../../themes/tokens/lcarsClassicTokens.js';
-export { lcarsDs9Tokens } from '../../themes/tokens/lcarsDs9Tokens.js';
-export { lcarsVoyagerTokens } from '../../themes/tokens/lcarsVoyagerTokens.js';
-export { lcarsHighContrastTokens } from '../../themes/tokens/lcarsHighContrastTokens.js';
+export { lcarsClassicTokens } from './tokens/lcarsClassicTokens.js';
+export { lcarsDs9Tokens } from './tokens/lcarsDs9Tokens.js';
+export { lcarsVoyagerTokens } from './tokens/lcarsVoyagerTokens.js';
+export { lcarsHighContrastTokens } from './tokens/lcarsHighContrastTokens.js';
