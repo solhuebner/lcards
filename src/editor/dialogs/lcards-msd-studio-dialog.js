@@ -4915,73 +4915,242 @@ export class LCARdSMSDStudioDialog extends LitElement {
     _renderControlFormCard() {
         const cardType = this._controlFormCard?.type || '';
 
+        lcardsLog.debug('[MSDStudio] Rendering Card tab, cardType:', cardType, 'full config:', this._controlFormCard);
+
         return html`
             <div style="display: flex; flex-direction: column; gap: 16px;">
-                <!-- Card Type Picker -->
-                <lcards-form-section
-                    header="Card Type"
-                    description="Select the type of Home Assistant card to display"
-                    ?expanded=${true}>
-                    <ha-selector
-                        .hass=${this.hass}
-                        .selector=${{
-                            select: {
-                                options: [
-                                    { value: '', label: 'Select card type...' },
-                                    { value: 'button', label: 'Button Card' },
-                                    { value: 'entities', label: 'Entities Card' },
-                                    { value: 'entity', label: 'Entity Card' },
-                                    { value: 'glance', label: 'Glance Card' },
-                                    { value: 'light', label: 'Light Card' },
-                                    { value: 'custom:lcards-button', label: 'LCARdS Button' },
-                                    { value: 'custom:lcards-gauge', label: 'LCARdS Gauge' },
-                                    { value: 'custom:lcards-slider', label: 'LCARdS Slider' },
-                                    { value: 'custom:lcards-label', label: 'LCARdS Label' }
-                                ],
-                                mode: 'dropdown'
-                            }
-                        }}
-                        .value=${cardType}
-                        .label=${'Card Type'}
-                        @value-changed=${(e) => {
-                            const newType = e.detail.value;
-                            if (newType) {
-                                this._controlFormCard = { type: newType };
-                            } else {
-                                this._controlFormCard = { type: '' };
-                            }
-                            this.requestUpdate();
-                        }}>
-                    </ha-selector>
-                </lcards-form-section>
-
-                <!-- Full Card Configuration Editor -->
-                ${cardType ? html`
+                ${!cardType ? html`
+                    <!-- Card Picker (Visual Grid) -->
                     <lcards-form-section
-                        header="Card Configuration"
-                        description="Configure the card properties using HA's UI card editor"
+                        header="Select Card Type"
+                        description="Choose a card to display in this control overlay"
                         ?expanded=${true}>
-                        <ha-selector
-                            .hass=${this.hass}
-                            .selector=${{ ui: {} }}
-                            .value=${this._controlFormCard}
-                            .label=${'Full Card Config'}
-                            @value-changed=${(e) => {
-                                this._controlFormCard = e.detail.value || { type: cardType };
-                                this.requestUpdate();
-                            }}>
-                        </ha-selector>
+                        <div style="padding: 16px;">
+                            ${this._renderCardPicker()}
+                        </div>
                     </lcards-form-section>
                 ` : html`
-                    <lcards-message type="info">
-                        <strong>Select a card type above to configure</strong>
-                        <p style="margin: 8px 0; font-size: 13px;">
-                            Choose a card type from the dropdown, then configure its properties below.
-                        </p>
-                    </lcards-message>
+                    <!-- Selected Card Info + Change Button -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 8px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <ha-icon icon="mdi:card-outline" style="--mdc-icon-size: 24px; color: var(--primary-color);"></ha-icon>
+                            <div>
+                                <div style="font-weight: 600; font-size: 14px;">${cardType}</div>
+                                <div style="font-size: 12px; color: var(--secondary-text-color);">Selected card type</div>
+                            </div>
+                        </div>
+                        <ha-button
+                            @click=${() => {
+                                this._resetCardPicker();
+                                this._controlFormCard = { type: '' };
+                                this.requestUpdate();
+                            }}>
+                            <ha-icon icon="mdi:swap-horizontal" slot="icon"></ha-icon>
+                            Change Card
+                        </ha-button>
+                    </div>
+
+                    <!-- Full Card Configuration Editor -->
+                    <lcards-form-section
+                        header="Card Configuration"
+                        description="Configure the card properties using Home Assistant's native card editor"
+                        ?expanded=${true}>
+                        <div style="padding: 16px;">
+                            <hui-card-element-editor
+                                .hass=${this.hass}
+                                .lovelace=${this._getRealLovelace()}
+                                .value=${this._controlFormCard}
+                                @value-changed=${(e) => {
+                                    lcardsLog.debug('[MSDStudio] Card config changed:', e.detail.value);
+                                    this._controlFormCard = e.detail.value || { type: cardType };
+                                    this.requestUpdate();
+                                }}>
+                            </hui-card-element-editor>
+                        </div>
+                    </lcards-form-section>
                 `}
             </div>
         `;
+    }
+
+    /**
+     * Get available card types from HA registry
+     * @returns {Array} Array of card type objects
+     * @private
+     */
+    _getAvailableCardTypes() {
+        const cards = [];
+
+        // Standard HA cards
+        const standardCards = [
+            { type: 'button', name: 'Button', icon: 'mdi:gesture-tap-button' },
+            { type: 'entities', name: 'Entities', icon: 'mdi:format-list-bulleted' },
+            { type: 'entity', name: 'Entity', icon: 'mdi:card-bulleted' },
+            { type: 'glance', name: 'Glance', icon: 'mdi:view-dashboard' },
+            { type: 'light', name: 'Light', icon: 'mdi:lightbulb' },
+            { type: 'thermostat', name: 'Thermostat', icon: 'mdi:thermostat' },
+            { type: 'media-control', name: 'Media Control', icon: 'mdi:play-circle' },
+            { type: 'weather-forecast', name: 'Weather', icon: 'mdi:weather-partly-cloudy' },
+            { type: 'sensor', name: 'Sensor', icon: 'mdi:eye' },
+            { type: 'gauge', name: 'Gauge', icon: 'mdi:gauge' },
+            { type: 'history-graph', name: 'History', icon: 'mdi:chart-line' },
+            { type: 'markdown', name: 'Markdown', icon: 'mdi:language-markdown' },
+            { type: 'picture', name: 'Picture', icon: 'mdi:image' },
+            { type: 'picture-entity', name: 'Picture Entity', icon: 'mdi:image-frame' },
+            { type: 'picture-glance', name: 'Picture Glance', icon: 'mdi:view-carousel' },
+            { type: 'conditional', name: 'Conditional', icon: 'mdi:eye-check' },
+            { type: 'map', name: 'Map', icon: 'mdi:map' }
+        ];
+
+        cards.push(...standardCards);
+
+        // Add custom cards from window.customCards
+        if (window.customCards) {
+            window.customCards
+                .filter(card => !card.type?.startsWith('custom:lcards-')) // Exclude our own cards
+                .forEach(card => {
+                    cards.push({
+                        type: card.type,
+                        name: card.name || card.type,
+                        icon: 'mdi:puzzle'
+                    });
+                });
+        }
+
+        return cards;
+    }
+
+    /**
+     * Render custom card picker grid (hui-card-picker not available)
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderCardPicker() {
+        lcardsLog.debug('[MSDStudio] Rendering custom card picker (hui-card-picker not registered)');
+
+        const cards = this._getAvailableCardTypes();
+
+        return html`
+            <div style="padding: 16px;">
+                <div style="
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                    gap: 8px;
+                    max-height: 400px;
+                    overflow-y: auto;
+                ">
+                    ${cards.map(card => html`
+                        <mwc-button
+                            style="
+                                height: 80px;
+                                flex-direction: column;
+                                --mdc-theme-primary: var(--primary-color);
+                            "
+                            @click=${() => this._selectCardType(card.type)}>
+                            <ha-icon
+                                icon="${card.icon}"
+                                style="margin-bottom: 8px; --mdc-icon-size: 32px;">
+                            </ha-icon>
+                            <div style="font-size: 12px;">${card.name}</div>
+                        </mwc-button>
+                    `)}
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Handle card type selection
+     * @param {string} cardType - Selected card type
+     * @private
+     */
+    _selectCardType(cardType) {
+        lcardsLog.debug('[MSDStudio] Card type selected:', cardType);
+        this._controlFormCard = { type: cardType };
+        this.requestUpdate();
+    }
+
+    /**
+     * Handle card type selection from value-changed event (legacy)
+     * @param {CustomEvent} e - Value changed event
+     * @private
+     */
+    _handleCardTypeSelected(e) {
+        lcardsLog.debug('[MSDStudio] Card type selected from event:', e.detail);
+        const cardType = e.detail.value;
+        if (cardType) {
+            this._selectCardType(cardType);
+        }
+    }
+
+    /**
+     * Reset picker state (legacy)
+     * @private
+     */
+    _resetCardPicker() {
+        // No-op - kept for compatibility
+    }
+
+    /**
+     * Get the real Lovelace instance from Home Assistant UI
+     * Required for hui-card-element-editor
+     * @returns {Object|null} Real Lovelace instance or null if not found
+     * @private
+     */
+    _getRealLovelace() {
+        try {
+            let root = document.querySelector('home-assistant');
+            root = root && root.shadowRoot;
+            root = root && root.querySelector('home-assistant-main');
+            root = root && root.shadowRoot;
+            root = root && root.querySelector('app-drawer-layout partial-panel-resolver, ha-drawer partial-panel-resolver');
+            root = (root && root.shadowRoot) || root;
+            root = root && root.querySelector('ha-panel-lovelace');
+            root = root && root.shadowRoot;
+            root = root && root.querySelector('hui-root');
+            if (root && root.lovelace) {
+                return root.lovelace;
+            }
+        } catch (err) {
+            lcardsLog.warn('[MSDStudio] Failed to get real Lovelace:', err);
+        }
+        return null;
+    }
+
+    /**
+     * Render Control Preview Panel (Right Side)
+        const realLovelace = this._getRealLovelace();
+
+        if (realLovelace) {
+            lcardsLog.debug('[MSDStudio] Using REAL Lovelace instance:', {
+                mode: realLovelace.mode,
+                hasConfig: !!realLovelace.config,
+                viewsCount: realLovelace.config?.views?.length,
+                hasEditMode: realLovelace.editMode !== undefined,
+                hasSaveConfig: typeof realLovelace.saveConfig === 'function',
+                hasDeleteCard: typeof realLovelace.deleteCard === 'function'
+            });
+            return realLovelace;
+        }
+
+        // Fallback to minimal mock (shouldn't happen in normal HA usage)
+        lcardsLog.warn('[MSDStudio] Could not get real Lovelace, using minimal mock');
+        const lovelaceConfig = {
+            mode: 'storage',
+            config: {
+                title: 'LCARdS Studio',
+                views: [
+                    {
+                        title: 'Main',
+                        cards: []
+                    }
+                ]
+            },
+            language: this.hass?.language || 'en',
+            editMode: true
+        };
+
+        return lovelaceConfig;
     }
 
     /**

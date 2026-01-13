@@ -28,16 +28,30 @@ const dpadSvg = `<?xml version="1.0" encoding="UTF-8"?>
       </cc:Work>
     </rdf:RDF>
   </metadata>
+
+  <!-- Background -->
+
+  <!--
+  <rect id="background" width="80" height="80" fill="#1a1a2e" />
+  -->
   <rect id="background" width="80" height="80" fill="none" />
+
+  <!-- Diagonal Corner Segments -->
   <path id="up-left" d="m33 33v-32.35c-15.992 2.4474-29.977 16.417-32.424 32.35z" />
-  <path id="up-right" d="m47 33v-32.35c15.992 2.4474-29.977 16.417 32.424 32.35z" />
+  <path id="up-right" d="m47 33v-32.35c15.992 2.4474 29.977 16.417 32.424 32.35z" />
   <path id="down-left" d="m33 47v32.35c-15.992-2.4474-29.977-16.417-32.424-32.35z" />
   <path id="down-right" d="m47 47v32.35c15.992-2.4474 29.977-16.417 32.424-32.35z" />
+
+  <!-- Directional Arrows -->
   <path id="up" d="m34 10h12v-9.5c-3.8785-0.47437-8.044-0.4824-12 0z" />
   <path id="down" d="m46 70h-12v9.5c3.8785 0.47437 8.044 0.4824 12 0z" />
   <path id="left" d="m10 46v-12h-9.5c-0.47437 3.8785-0.4824 8.044 0 12z" />
   <path id="right" d="m70 34v12h9.5c0.47437-3.8785 0.4824-8.044 0-12z" />
+
+  <!-- Center Button (plus shape) -->
   <path id="center" d="m11 34v12h23v23h12v-23h23v-12h-23v-23h-12v23z" />
+
+  <!-- Decorative Lines (optional - can be styled or hidden) -->
   <g id="decorative-lines" opacity="0.3">
     <path d="m34 13.49h12" stroke="#000" stroke-width="0.75" fill="none"/>
     <path d="m34 16.2h12" stroke="#000" stroke-width="0.75" fill="none"/>
@@ -53,27 +67,27 @@ const dpadSvg = `<?xml version="1.0" encoding="UTF-8"?>
 
 /**
  * D-Pad component registry (unified format)
- * 
+ *
  * This follows the same structure as slider and button components:
  * - svg: Inline SVG content (no external shapes registry needed)
  * - orientation: Layout direction (auto for flexible, or locked)
  * - features: Array of supported features
  * - segments: Pre-defined interactive regions with styles and actions
  * - metadata: Discovery and documentation info
- * 
+ *
  * @type {Object.<string, Object>}
  */
 export const dpadComponents = {
     'dpad': {
         // Inline SVG content (migrated from shapes registry)
         svg: dpadSvg,
-        
+
         // Orientation (locked for d-pad due to directional nature)
         orientation: 'square',
-        
+
         // Features supported by this component
         features: ['multi-segment', 'state-based-styling'],
-        
+
         // Default segment configurations with theme token references
         segments: {
             // Directional arrows
@@ -145,14 +159,14 @@ export const dpadComponents = {
                 }
             },
         },
-        
+
         // Metadata for discovery and documentation
         metadata: {
             id: 'dpad',
             name: 'D-Pad Control',
             description: 'Interactive directional control with 9 segments',
             version: '1.0.0',
-            
+
             // Example usage documentation
             examples: {
                 basic: {
