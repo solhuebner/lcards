@@ -546,17 +546,14 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 cursor: crosshair;
             }
 
-            /* Tab Navigation with HA Tabs */
-            ha-tabs {
-                --paper-tabs-selection-bar-color: var(--primary-color);
+            /* Tab Navigation with HA Tab Group */
+            ha-tab-group {
+                display: block;
+                margin-bottom: 12px;
                 border-bottom: 2px solid var(--divider-color);
             }
 
-            ha-tabs paper-tab {
-                --paper-tab-ink: var(--primary-color);
-            }
-
-            ha-tabs paper-tab ha-icon {
+            ha-tab-group-tab ha-icon {
                 --mdc-icon-size: 18px;
                 margin-right: 8px;
             }
@@ -892,6 +889,19 @@ export class LCARdSMSDStudioDialog extends LitElement {
         this._activeTab = tabId;
         lcardsLog.debug('[MSDStudio] Tab changed:', this._activeTab);
         this.requestUpdate();
+    }
+
+    /**
+     * Handle main tab change from ha-tab-group
+     * @param {CustomEvent} event - Tab change event
+     * @private
+     */
+    _handleMainTabChange(event) {
+        event.stopPropagation();
+        const tabId = event.target.activeTab?.getAttribute('value');
+        if (tabId) {
+            this._setActiveTab(tabId);
+        }
     }
 
     /**
@@ -1299,17 +1309,14 @@ export class LCARdSMSDStudioDialog extends LitElement {
         ];
 
         return html`
-            <ha-tabs
-                scrollable
-                .selected=${tabs.findIndex(t => t.id === this._activeTab)}
-                @iron-select=${(e) => this._setActiveTab(tabs[e.detail.selected].id)}>
+            <ha-tab-group @wa-tab-show=${this._handleMainTabChange}>
                 ${tabs.map(tab => html`
-                    <paper-tab>
+                    <ha-tab-group-tab value="${tab.id}" ?active=${this._activeTab === tab.id}>
                         <ha-icon icon="${tab.icon}"></ha-icon>
                         ${tab.label}
-                    </paper-tab>
+                    </ha-tab-group-tab>
                 `)}
-            </ha-tabs>
+            </ha-tab-group>
         `;
     }
 
@@ -6248,6 +6255,20 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
+     * Handle control form tab change
+     * @param {CustomEvent} event - Tab change event
+     * @private
+     */
+    _handleControlFormTabChange(event) {
+        event.stopPropagation();
+        const tabValue = event.target.activeTab?.getAttribute('value');
+        if (tabValue) {
+            this._controlFormActiveSubtab = tabValue;
+            this.requestUpdate();
+        }
+    }
+
+    /**
      * Generate unique control ID
      * @returns {string}
      * @private
@@ -6286,16 +6307,10 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     <!-- LEFT COLUMN: Configuration Panel -->
                     <div class="config-panel">
                         <!-- Subtabs -->
-                        <ha-tabs
-                            .selected=${this._controlFormActiveSubtab === 'placement' ? 0 : 1}
-                            @iron-select=${(e) => {
-                                this._controlFormActiveSubtab = e.detail.selected === 0 ? 'placement' : 'card';
-                                this.requestUpdate();
-                            }}
-                            style="margin-bottom: 16px;">
-                            <paper-tab>Placement</paper-tab>
-                            <paper-tab>Card</paper-tab>
-                        </ha-tabs>
+                        <ha-tab-group @wa-tab-show=${this._handleControlFormTabChange} style="margin-bottom: 16px;">
+                            <ha-tab-group-tab value="placement" ?active=${this._controlFormActiveSubtab === 'placement'}>Placement</ha-tab-group-tab>
+                            <ha-tab-group-tab value="card" ?active=${this._controlFormActiveSubtab === 'card'}>Card</ha-tab-group-tab>
+                        </ha-tab-group>
 
                         <!-- Subtab Content -->
                         <div style="max-height: 60vh; overflow-y: auto;">
@@ -8027,6 +8042,20 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
+     * Handle line form tab change
+     * @param {CustomEvent} event - Tab change event
+     * @private
+     */
+    _handleLineFormTabChange(event) {
+        event.stopPropagation();
+        const tabValue = event.target.activeTab?.getAttribute('value');
+        if (tabValue) {
+            this._lineFormActiveSubtab = tabValue;
+            this.requestUpdate();
+        }
+    }
+
+    /**
      * Delete line overlay
      * @param {Object} line - Line to delete
      * @private
@@ -8199,21 +8228,13 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 </div>
 
                 <!-- Subtabs -->
-                <ha-tabs
-                    scrollable
-                    .selected=${['basic', 'style', 'markers', 'animation', 'routing'].indexOf(this._lineFormActiveSubtab)}
-                    @iron-select=${(e) => {
-                        const tabs = ['basic', 'style', 'markers', 'animation', 'routing'];
-                        this._lineFormActiveSubtab = tabs[e.detail.selected];
-                        this.requestUpdate();
-                    }}
-                    style="padding: 0 24px;">
-                    <paper-tab>Basic</paper-tab>
-                    <paper-tab>Style</paper-tab>
-                    <paper-tab>Markers</paper-tab>
-                    <paper-tab>Animation</paper-tab>
-                    <paper-tab>Routing</paper-tab>
-                </ha-tabs>
+                <ha-tab-group @wa-tab-show=${this._handleLineFormTabChange} style="padding: 0 24px;">
+                    <ha-tab-group-tab value="basic" ?active=${this._lineFormActiveSubtab === 'basic'}>Basic</ha-tab-group-tab>
+                    <ha-tab-group-tab value="style" ?active=${this._lineFormActiveSubtab === 'style'}>Style</ha-tab-group-tab>
+                    <ha-tab-group-tab value="markers" ?active=${this._lineFormActiveSubtab === 'markers'}>Markers</ha-tab-group-tab>
+                    <ha-tab-group-tab value="animation" ?active=${this._lineFormActiveSubtab === 'animation'}>Animation</ha-tab-group-tab>
+                    <ha-tab-group-tab value="routing" ?active=${this._lineFormActiveSubtab === 'routing'}>Routing</ha-tab-group-tab>
+                </ha-tab-group>
 
                 <!-- Subtab Content -->
                 <div style="padding: 16px; max-height: 60vh; overflow-y: auto;">
