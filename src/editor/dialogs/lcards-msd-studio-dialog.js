@@ -582,6 +582,22 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 border-bottom-width: 4px;
             }
 
+            /* Card Picker Button Styling */
+            .card-picker-button {
+                height: 80px;
+                flex-direction: column;
+                --ha-button-text-color: var(--primary-text-color);
+            }
+
+            .card-picker-button ha-icon {
+                --mdc-icon-size: 32px;
+                margin-bottom: 8px;
+            }
+
+            .card-picker-button div {
+                font-size: 12px;
+            }
+
             /* Tab Content */
             .tab-content {
                 flex: 1;
@@ -1764,7 +1780,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             <div style="padding: 8px;">
                 <!-- Anchor Actions -->
                 <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                    <ha-button @click=${this._openAnchorForm} raised>
+                    <ha-button @click=${this._openAnchorForm}>
                         <ha-icon icon="mdi:map-marker-plus" slot="icon"></ha-icon>
                         Add Anchor
                     </ha-button>
@@ -2013,7 +2029,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 </div>
 
                 <div slot="secondaryAction">
-                    <ha-button @click=${this._closeAnchorForm}>
+                    <ha-button @click=${this._closeAnchorForm} appearance="plain">
                         <ha-icon icon="mdi:close" slot="icon"></ha-icon>
                         Cancel
                     </ha-button>
@@ -5795,7 +5811,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             <div style="padding: 8px;">
                 <!-- Control Actions -->
                 <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                    <ha-button @click=${this._openControlForm} raised>
+                    <ha-button @click=${this._openControlForm}>
                         <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
                         Add Control
                     </ha-button>
@@ -6328,7 +6344,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 </div>
 
                 <div slot="secondaryAction">
-                    <ha-button @click=${this._closeControlForm}>
+                    <ha-button @click=${this._closeControlForm} appearance="plain">
                         <ha-icon icon="mdi:close" slot="icon"></ha-icon>
                         Cancel
                     </ha-button>
@@ -6529,7 +6545,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                 this._resetCardPicker();
                                 this._controlFormCard = { type: '' };
                                 this.requestUpdate();
-                            }}>
+                            }}
+                            appearance="plain">
                             <ha-icon icon="mdi:swap-horizontal" slot="icon"></ha-icon>
                             Change Card
                         </ha-button>
@@ -6625,19 +6642,15 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     overflow-y: auto;
                 ">
                     ${cards.map(card => html`
-                        <mwc-button
-                            style="
-                                height: 80px;
-                                flex-direction: column;
-                                --mdc-theme-primary: var(--primary-color);
-                            "
+                        <ha-button
+                            class="card-picker-button"
                             @click=${() => this._selectCardType(card.type)}>
                             <ha-icon
                                 icon="${card.icon}"
-                                style="margin-bottom: 8px; --mdc-icon-size: 32px;">
+                                slot="icon">
                             </ha-icon>
-                            <div style="font-size: 12px;">${card.name}</div>
-                        </mwc-button>
+                            <div>${card.name}</div>
+                        </ha-button>
                     `)}
                 </div>
             </div>
@@ -6875,7 +6888,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             <div style="padding: 8px;">
                 <!-- Line Actions -->
                 <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                    <ha-button @click=${this._openLineForm} raised>
+                    <ha-button @click=${this._openLineForm}>
                         <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
                         Add Line
                     </ha-button>
@@ -7091,7 +7104,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
                     <!-- Channel Actions -->
                     <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                        <ha-button @click=${this._openChannelForm} raised>
+                        <ha-button @click=${this._openChannelForm}>
                             <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
                             Add Channel
                         </ha-button>
@@ -7624,7 +7637,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     </ha-button>
                 </div>
                 <div slot="secondaryAction">
-                    <ha-button @click=${this._closeChannelForm}>
+                    <ha-button @click=${this._closeChannelForm} appearance="plain">
                         Cancel
                     </ha-button>
                 </div>
@@ -8255,7 +8268,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 </div>
 
                 <div slot="secondaryAction">
-                    <ha-button @click=${this._closeLineForm}>
+                    <ha-button @click=${this._closeLineForm} appearance="plain">
                         <ha-icon icon="mdi:close" slot="icon"></ha-icon>
                         Cancel
                     </ha-button>
@@ -9571,7 +9584,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             ">
                 <ha-icon icon="mdi:alert-circle" style="--mdc-icon-size: 20px;"></ha-icon>
                 <span><strong>${errorCount}</strong> validation error${errorCount > 1 ? 's' : ''} found</span>
-                <ha-button @click=${this._showValidationErrors} style="margin-left: auto;">
+                <ha-button @click=${this._showValidationErrors} appearance="plain" style="margin-left: auto;">
                     View Details
                 </ha-button>
             </div>
@@ -9765,7 +9778,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                             <ha-icon icon="mdi:information" style="--mdc-icon-size: 18px;"></ha-icon>
                             <span><strong>MSD Configuration Studio</strong> - Full-featured editor for Master Systems Display cards</span>
                         </div>
-                        <ha-button style="--mdc-theme-primary: white;" @click=${() => window.open('https://github.com/snootched/LCARdS/tree/main/doc', '_blank')}>
+                        <ha-button @click=${() => window.open('https://github.com/snootched/LCARdS/tree/main/doc', '_blank')}>
                             <ha-icon icon="mdi:book-open-variant" slot="icon"></ha-icon>
                             Documentation
                         </ha-button>
