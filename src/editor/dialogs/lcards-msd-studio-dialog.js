@@ -121,7 +121,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
             // Anchor Drag State (for interactive anchor dragging)
             _anchorDragState: { type: Object, state: true },
             // Channel Resize State (for interactive channel resizing)
-            _channelResizeState: { type: Object, state: true }
+            _channelResizeState: { type: Object, state: true },
+            // Line Endpoint Drag State (TEST - for debugging)
+            _lineEndpointDragState: { type: Object, state: true }
         };
     }
 
@@ -265,6 +267,15 @@ export class LCARdSMSDStudioDialog extends LitElement {
             handle: null,  // 'tl', 't', 'tr', 'r', 'br', 'b', 'bl', 'l'
             startPos: null,
             startBounds: null
+        };
+
+        // Line Endpoint Drag State (TEST - for debugging)
+        this._lineEndpointDragState = {
+            active: false,
+            lineId: null,
+            endpoint: null,
+            startPos: null,
+            originalTarget: null
         };
 
         lcardsLog.debug('[MSDStudio] Initialized');
@@ -3054,6 +3065,312 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     // ============================
+    // Line Endpoint Drag Methods (TEST)
+    // ============================
+
+    /**
+     * Resolve control position (either direct position or from anchor)
+     * @param {Object} control - Control overlay object
+     * @returns {Array|null} [x, y] position or null
+     * @private
+     */
+    _resolveControlPosition(control) {
+        lcardsLog.debug('[MSDStudio] Resolving control position:', control.id, 'position:', control.position, 'anchor:', control.anchor);
+        if (control.position && Array.isArray(control.position)) {
+            lcardsLog.debug('[MSDStudio] Control has direct position:', control.position);
+            return control.position;
+        }
+
+        if (control.anchor) {
+            const userAnchors = this._workingConfig.msd?.anchors || {};
+            const baseSvgAnchors = this._getBaseSvgAnchors();
+            const allAnchors = { ...userAnchors, ...baseSvgAnchors };
+            const pos = allAnchors[control.anchor];
+            lcardsLog.debug('[MSDStudio] Control resolved from anchor:', control.anchor, '→', pos);
+            return pos || null;
+        }
+
+        lcardsLog.warn('[MSDStudio] Control has no position or anchor:', control.id);
+        return null;
+    }
+
+    /**
+     * Resolve position with side for controls or anchors
+     * Returns the specific attachment point based on side property
+     * @param {string} targetId - ID of anchor or control
+     * @param {string|null} side - Side specification (e.g., 'top', 'left', 'center', null)
+     * @returns {Array|null} [x, y] coordinates or null
+     * @private
+     */
+    _resolvePositionWithSide(targetId, side) {
+        const overlays = this._workingConfig.msd?.overlays || [];
+        const userAnchors = this._workingConfig.msd?.anchors || {};
+        const baseSvgAnchors = this._getBaseSvgAnchors();
+        const allAnchors = { ...userAnchors, ...baseSvgAnchors };
+
+        // Check if it's an anchor
+        // Anchors are just points - no side offsets (use anchor_gap property instead)
+        if (allAnchors[targetId]) {
+            return allAnchors[targetId];
+        }
+
+        // Check if it's a control
+        const control = overlays.find(o => o.id === targetId && o.type === 'control');
+        if (control) {
+            const pos = this._resolveControlPosition(control);
+            if (!pos) return null;
+
+            const [x, y] = pos;
+            const size = control.size || [100, 100];
+            const [w, h] = size;
+
+            if (!side || side === 'center') {
+                return [x + w/2, y + h/2];
+            }
+
+            // Return edge point based on side
+            switch (side) {
+                case 'top': return [x + w/2, y];
+                case 'bottom': return [x + w/2, y + h];
+                case 'left': return [x, y + h/2];
+                case 'right': return [x + w, y + h/2];
+                case 'top-left': return [x, y];
+                case 'top-right': return [x + w, y];
+                case 'bottom-left': return [x, y + h];
+                case 'bottom-right': return [x + w, y + h];
+                default: return [x + w/2, y + h/2];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get attachment target at coordinates with side detection
+     * @param {Array} coords - [x, y] coordinates
+     * @returns {Object|null} {type: 'anchor'|'control', id: string, side: string|null} or null
+     * @private
+     */
+    _getAttachmentTargetAt(coords) {
+        const [mouseX, mouseY] = coords;
+        const threshold = 30; // ViewBox units
+
+        lcardsLog.debug('[MSDStudio] Checking snap at:', mouseX, mouseY);
+
+        // Check controls first (9-point attachment)
+        const overlays = this._workingConfig.msd?.overlays || [];
+        const controls = overlays.filter(o => o.type === 'control');
+
+        for (const control of controls) {
+            const pos = this._resolveControlPosition(control);
+            if (!pos) continue;
+
+            const [x, y] = pos;
+            const size = control.size || [100, 100];
+            const [w, h] = size;
+
+            // 9-point grid: center + 8 edges/corners
+            const points = {
+                'center': [x + w/2, y + h/2],
+                'top': [x + w/2, y],
+                'bottom': [x + w/2, y + h],
+                'left': [x, y + h/2],
+                'right': [x + w, y + h/2],
+                'top-left': [x, y],
+                'top-right': [x + w, y],
+                'bottom-left': [x, y + h],
+                'bottom-right': [x + w, y + h]
+            };
+
+            for (const [side, [px, py]] of Object.entries(points)) {
+                const dist = Math.sqrt(Math.pow(mouseX - px, 2) + Math.pow(mouseY - py, 2));
+                if (dist < threshold) {
+                    lcardsLog.debug('[MSDStudio] Snap found on control:', control.id, 'side:', side, 'dist:', dist);
+                    return { type: 'control', id: control.id, side: side === 'center' ? null : side };
+                }
+            }
+        }
+
+        // Check anchors (single point - gap is controlled by anchor_gap property)
+        const userAnchors = this._workingConfig.msd?.anchors || {};
+        const baseSvgAnchors = this._getBaseSvgAnchors();
+        const allAnchors = { ...userAnchors, ...baseSvgAnchors };
+
+        for (const [name, pos] of Object.entries(allAnchors)) {
+            const [x, y] = pos;
+
+            // Anchors are just points - no side attachments
+            const dist = Math.sqrt(Math.pow(mouseX - x, 2) + Math.pow(mouseY - y, 2));
+            if (dist < threshold) {
+                return { type: 'anchor', id: name, side: null };
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Handle line endpoint drag start (TEST - not connected to events)
+     * @param {MouseEvent} event - Mouse down event
+     * @param {string} lineId - Line ID
+     * @param {string} endpoint - 'start' or 'end'
+     * @private
+     */
+    _handleLineEndpointDragStart(event, lineId, endpoint) {
+        event.stopPropagation();
+        event.preventDefault();
+
+        lcardsLog.debug('[MSDStudio] Line endpoint drag start:', lineId, endpoint);
+
+        const overlays = this._workingConfig.msd?.overlays || [];
+        const line = overlays.find(o => o.id === lineId && o.type === 'line');
+        if (!line) {
+            lcardsLog.warn('[MSDStudio] Line not found:', lineId);
+            return;
+        }
+
+        const coords = this._getPreviewCoordinatesFromMouseEvent(event);
+        if (!coords) {
+            lcardsLog.warn('[MSDStudio] Could not get coordinates');
+            return;
+        }
+
+        let originalTarget = null;
+        if (endpoint === 'start') {
+            originalTarget = line.anchor;
+        } else if (endpoint === 'end') {
+            const attachTo = line.attach_to;
+            if (Array.isArray(attachTo)) {
+                originalTarget = attachTo[attachTo.length - 1];
+            } else {
+                originalTarget = attachTo;
+            }
+        }
+
+        this._lineEndpointDragState = {
+            active: true,
+            lineId,
+            endpoint,
+            startPos: [coords.x, coords.y],
+            currentPos: [coords.x, coords.y],  // Set immediately so circle renders at start
+            originalTarget,
+            originalShowAttachmentPoints: this._showAttachmentPoints  // Save original state
+        };
+
+        // Enable attachment points during drag
+        this._showAttachmentPoints = true;
+
+        // Set up document-level listeners
+        const handleMouseMove = (e) => this._handleLineEndpointDrag(e);
+        const handleMouseUp = () => {
+            this._finishLineEndpointDrag();
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+
+            // Restore attachment points state
+            const originalState = this._lineEndpointDragState.originalShowAttachmentPoints;
+            this._lineEndpointDragState = { active: false, lineId: null, endpoint: null, startPos: null, originalTarget: null };
+            this._showAttachmentPoints = originalState;
+
+            this.requestUpdate();
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+
+        lcardsLog.debug('[MSDStudio] Line endpoint drag listeners added');
+        this.requestUpdate();
+    }
+
+    /**
+     * Handle line endpoint drag move (TEST - not connected to events)
+     * @param {MouseEvent} event - Mouse move event
+     * @private
+     */
+    _handleLineEndpointDrag(event) {
+        if (!this._lineEndpointDragState.active) return;
+
+        const coords = this._getPreviewCoordinatesFromMouseEvent(event);
+        if (!coords) return;
+
+        this._lineEndpointDragState.currentPos = [coords.x, coords.y];
+        this.requestUpdate();
+    }
+
+    /**
+     * Finish line endpoint drag
+     * @private
+     */
+    _finishLineEndpointDrag() {
+        if (!this._lineEndpointDragState.active || !this._lineEndpointDragState.currentPos) return;
+
+        const { lineId, endpoint, currentPos, originalTarget } = this._lineEndpointDragState;
+
+        const target = this._getAttachmentTargetAt(currentPos);
+        if (!target) {
+            lcardsLog.info('[MSDStudio] No valid target found - canceling drag');
+            // No valid target, cancel the drag (don't modify line config)
+            return;
+        }
+
+        const overlays = this._workingConfig.msd?.overlays || [];
+        const line = overlays.find(o => o.id === lineId && o.type === 'line');
+        if (!line) return;
+
+        if (endpoint === 'start') {
+            // Update anchor
+            line.anchor = target.id;
+
+            // Set anchor_side only if attaching to a control (not an anchor point)
+            if (target.type === 'control' && target.side) {
+                line.anchor_side = target.side;
+            } else {
+                // Anchor point or center attachment - remove anchor_side
+                delete line.anchor_side;
+            }
+
+            lcardsLog.info('[MSDStudio] Updated line start to:', target.id, 'side:', target.side);
+        } else if (endpoint === 'end') {
+            // Update attach_to
+            if (typeof line.attach_to === 'string' || !line.attach_to) {
+                line.attach_to = target.id;
+            } else if (Array.isArray(line.attach_to)) {
+                if (line.attach_to.length === 0) {
+                    line.attach_to.push(target.id);
+                } else {
+                    line.attach_to[line.attach_to.length - 1] = target.id;
+                }
+            }
+
+            // Set attach_side only if attaching to a control (not an anchor point)
+            if (target.type === 'control' && target.side) {
+                line.attach_side = target.side;
+            } else {
+                // Anchor point or center attachment - remove attach_side
+                delete line.attach_side;
+            }
+
+            lcardsLog.info('[MSDStudio] Updated line end to:', target.id, 'side:', target.side);
+        }
+
+        // Force preview update to refresh routing paths
+        this._schedulePreviewUpdate();
+
+        // Toggle routing paths to force re-render of overlay
+        const wasShowingPaths = this._showRoutingPaths;
+        if (wasShowingPaths) {
+            this._showRoutingPaths = false;
+            this.requestUpdate();
+            setTimeout(() => {
+                this._showRoutingPaths = true;
+                this.requestUpdate();
+            }, 50);
+        } else {
+            this.requestUpdate();
+        }
+    }
+
+    // ============================
     // Control Double-Click Handler
     // ============================
 
@@ -4585,33 +4902,17 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 z-index: 997;
             ">
                 ${lines.map(line => {
-                    // Resolve start position
-                    let startPos = allAnchors[line.anchor];
-                    if (!startPos) {
-                        const overlay = overlays.find(o => o.id === line.anchor);
-                        if (overlay) {
-                            if (overlay.position) {
-                                startPos = overlay.position;
-                            } else if (overlay.anchor) {
-                                startPos = OverlayUtils.resolvePosition(overlay.anchor, allAnchors);
-                            }
-                        }
-                    }
+                    // Resolve start position with side support
+                    const startPos = this._resolvePositionWithSide(line.anchor, line.anchor_side);
+                    if (!startPos) return '';
 
-                    // Resolve end position
-                    let endPos = allAnchors[line.attach_to];
-                    if (!endPos) {
-                        const overlay = overlays.find(o => o.id === line.attach_to);
-                        if (overlay) {
-                            if (overlay.position) {
-                                endPos = overlay.position;
-                            } else if (overlay.anchor) {
-                                endPos = OverlayUtils.resolvePosition(overlay.anchor, allAnchors);
-                            }
-                        }
+                    // Resolve end position with side support
+                    let endTarget = line.attach_to;
+                    if (Array.isArray(endTarget)) {
+                        endTarget = endTarget[endTarget.length - 1];
                     }
-
-                    if (!startPos || !endPos) return '';
+                    const endPos = this._resolvePositionWithSide(endTarget, line.attach_side);
+                    if (!endPos) return '';                    if (!startPos || !endPos) return '';
 
                     const [startX, startY] = startPos;
                     const [endX, endY] = endPos;
@@ -4664,6 +4965,222 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 })}
             </div>
         `;
+    }
+
+    /**
+     * Render line endpoint markers (TEST - adding coordinate conversion)
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderLineEndpointMarkers() {
+        if (!this._showRoutingPaths) return '';
+
+        const overlays = this._workingConfig.msd?.overlays || [];
+        const lines = overlays.filter(o => o.type === 'line');
+        if (lines.length === 0) return '';
+
+        // Get anchors
+        const userAnchors = this._workingConfig.msd?.anchors || {};
+        const baseSvgAnchors = this._getBaseSvgAnchors();
+        const allAnchors = { ...userAnchors, ...baseSvgAnchors };
+
+        // Get coordinate conversion context (same as _renderRoutingPaths)
+        const livePreview = this.shadowRoot.querySelector('lcards-msd-live-preview');
+        if (!livePreview) return '';
+
+        const livePreviewShadow = livePreview.shadowRoot;
+        if (!livePreviewShadow) return '';
+
+        const cardContainer = livePreviewShadow.querySelector('.preview-card-container');
+        if (!cardContainer) return '';
+
+        const msdCard = cardContainer.querySelector('lcards-msd-card');
+        if (!msdCard) return '';
+
+        const shadowRoot = msdCard.shadowRoot || msdCard.renderRoot;
+        if (!shadowRoot) return '';
+
+        const svg = shadowRoot.querySelector('svg');
+        if (!svg) return '';
+
+        const viewBox = svg.getAttribute('viewBox')?.split(' ').map(Number);
+        if (!viewBox || viewBox.length !== 4) return '';
+
+        const [viewBoxX, viewBoxY, viewBoxWidth, viewBoxHeight] = viewBox;
+        const rect = svg.getBoundingClientRect();
+        const panelRect = this.shadowRoot.querySelector('.preview-panel')?.getBoundingClientRect();
+        if (!panelRect) return '';
+
+        const scale = Math.max(viewBoxWidth / rect.width, viewBoxHeight / rect.height);
+        const renderedWidth = viewBoxWidth / scale;
+        const renderedHeight = viewBoxHeight / scale;
+        const offsetX = (rect.width - renderedWidth) / 2;
+        const offsetY = (rect.height - renderedHeight) / 2;
+
+        // Detect overlapping endpoints and calculate offsets for them
+        const endpointPositions = new Map(); // key: "x,y", value: array of {line, endpoint, pos}
+
+        lines.forEach(line => {
+            // Get start position
+            const startPos = this._resolvePositionWithSide(line.anchor, line.anchor_side);
+            if (startPos) {
+                const key = `${startPos[0]},${startPos[1]}`;
+                if (!endpointPositions.has(key)) {
+                    endpointPositions.set(key, []);
+                }
+                endpointPositions.get(key).push({ line, endpoint: 'start', pos: startPos });
+            }
+
+            // Get end position
+            let endTarget = line.attach_to;
+            if (Array.isArray(endTarget)) {
+                endTarget = endTarget[endTarget.length - 1];
+            }
+            const endPos = this._resolvePositionWithSide(endTarget, line.attach_side);
+            if (endPos) {
+                const key = `${endPos[0]},${endPos[1]}`;
+                if (!endpointPositions.has(key)) {
+                    endpointPositions.set(key, []);
+                }
+                endpointPositions.get(key).push({ line, endpoint: 'end', pos: endPos });
+            }
+        });
+
+        // Calculate offsets for overlapping endpoints (spread in circle)
+        const endpointOffsets = new Map(); // key: "lineId:endpoint", value: {dx, dy} in pixels
+        endpointPositions.forEach((endpoints, posKey) => {
+            if (endpoints.length > 1) {
+                // Multiple endpoints at this position - spread them in a circle
+                const radius = 16; // pixels
+                endpoints.forEach((ep, index) => {
+                    const angle = (index / endpoints.length) * 2 * Math.PI;
+                    const dx = Math.cos(angle) * radius;
+                    const dy = Math.sin(angle) * radius;
+                    endpointOffsets.set(`${ep.line.id}:${ep.endpoint}`, { dx, dy });
+                });
+            }
+        });
+
+        // TEST: Add lines.map() loop with simple rendering (no state checks)
+        return html`
+            <div style="
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+                z-index: 999;
+            ">
+                ${lines.map(line => {
+                    // Get start position with side consideration
+                    const startPos = this._resolvePositionWithSide(line.anchor, line.anchor_side);
+                    if (!startPos) return '';
+
+                    // Get end position with side consideration
+                    let endTarget = line.attach_to;
+                    if (Array.isArray(endTarget)) {
+                        endTarget = endTarget[endTarget.length - 1];
+                    }
+                    const endPos = this._resolvePositionWithSide(endTarget, line.attach_side);
+                    if (!endPos) return '';
+
+                    // Convert to screen coordinates
+                    const [startX, startY] = startPos;
+                    const [endX, endY] = endPos;
+
+                    const pixelStartX = (startX - viewBoxX) / scale + offsetX + (rect.left - panelRect.left);
+                    const pixelStartY = (startY - viewBoxY) / scale + offsetY + (rect.top - panelRect.top);
+                    const pixelEndX = (endX - viewBoxX) / scale + offsetX + (rect.left - panelRect.left);
+                    const pixelEndY = (endY - viewBoxY) / scale + offsetY + (rect.top - panelRect.top);
+
+                    // Check if this line is being dragged
+                    const isDragging = this._lineEndpointDragState.active && this._lineEndpointDragState.lineId === line.id;
+                    const dragEndpoint = isDragging ? this._lineEndpointDragState.endpoint : null;
+
+                    // Get offset for overlapping endpoints
+                    const startOffset = endpointOffsets.get(`${line.id}:start`) || { dx: 0, dy: 0 };
+                    const endOffset = endpointOffsets.get(`${line.id}:end`) || { dx: 0, dy: 0 };
+
+                    // Calculate drag position if applicable
+                    let dragPixelX = 0, dragPixelY = 0;
+                    if (isDragging && this._lineEndpointDragState.currentPos) {
+                        const [dragX, dragY] = this._lineEndpointDragState.currentPos;
+                        dragPixelX = (dragX - viewBoxX) / scale + offsetX + (rect.left - panelRect.left);
+                        dragPixelY = (dragY - viewBoxY) / scale + offsetY + (rect.top - panelRect.top);
+                    }
+
+                    return html`
+                        <div class="line-endpoint-marker start"
+                             data-line-id="${line.id}"
+                             data-endpoint="start"
+                             style="position: absolute;
+                                    left: ${(dragEndpoint === 'start' && isDragging ? dragPixelX : pixelStartX) + startOffset.dx}px;
+                                    top: ${(dragEndpoint === 'start' && isDragging ? dragPixelY : pixelStartY) + startOffset.dy}px;
+                                    width: 12px;
+                                    height: 12px;
+                                    background: var(--lcars-blue, #9999ff);
+                                    border: 2px solid var(--lcars-gold, #ff9900);
+                                    border-radius: 50%;
+                                    transform: translate(-50%, -50%);
+                                    pointer-events: auto;
+                                    cursor: move;
+                                    z-index: 1000;
+                                    transition: all 0.2s;"
+                             @mousedown=${(e) => this._handleLineEndpointDragStart(e, line.id, 'start')}
+                             @mouseenter=${(e) => {
+                                 e.target.style.transform = 'translate(-50%, -50%) scale(1.8)';
+                                 e.target.style.zIndex = '1100';
+                                 e.target.style.boxShadow = '0 0 12px rgba(153, 153, 255, 0.9), 0 0 20px rgba(153, 153, 255, 0.5)';
+                             }}
+                             @mouseleave=${(e) => {
+                                 e.target.style.transform = 'translate(-50%, -50%) scale(1)';
+                                 e.target.style.zIndex = '1000';
+                                 e.target.style.boxShadow = 'none';
+                             }}>
+                        </div>
+                        <div class="line-endpoint-marker end"
+                             data-line-id="${line.id}"
+                             data-endpoint="end"
+                             style="position: absolute;
+                                    left: ${(dragEndpoint === 'end' && isDragging ? dragPixelX : pixelEndX) + endOffset.dx}px;
+                                    top: ${(dragEndpoint === 'end' && isDragging ? dragPixelY : pixelEndY) + endOffset.dy}px;
+                                    width: 12px;
+                                    height: 12px;
+                                    background: var(--lcars-red, #ff6666);
+                                    border: 2px solid var(--lcars-gold, #ff9900);
+                                    border-radius: 50%;
+                                    transform: translate(-50%, -50%);
+                                    pointer-events: auto;
+                                    cursor: move;
+                                    z-index: 1000;
+                                    transition: all 0.2s;"
+                             @mousedown=${(e) => this._handleLineEndpointDragStart(e, line.id, 'end')}
+                             @mouseenter=${(e) => {
+                                 e.target.style.transform = 'translate(-50%, -50%) scale(1.8)';
+                                 e.target.style.zIndex = '1100';
+                                 e.target.style.boxShadow = '0 0 12px rgba(255, 102, 102, 0.9), 0 0 20px rgba(255, 102, 102, 0.5)';
+                             }}
+                             @mouseleave=${(e) => {
+                                 e.target.style.transform = 'translate(-50%, -50%) scale(1)';
+                                 e.target.style.zIndex = '1000';
+                                 e.target.style.boxShadow = 'none';
+                             }}>
+                        </div>
+                    `;
+                })}
+            </div>
+        `;
+    }
+
+    /**
+     * Render attach point indicators during line endpoint drag
+     * (Not needed - attachment points are controlled by property toggle in drag handlers)
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderDragAttachPoints() {
+        return '';
     }
 
     /**
@@ -4997,62 +5514,64 @@ export class LCARdSMSDStudioDialog extends LitElement {
             };
         };
 
-        // 9-point attachment positions (relative offsets: -1, 0, 1 for left/center/right, top/center/bottom)
-        const attachmentPoints = [
-            { name: 'top-left', dx: -0.5, dy: -0.5 },
-            { name: 'top-center', dx: 0, dy: -0.5 },
-            { name: 'top-right', dx: 0.5, dy: -0.5 },
-            { name: 'middle-left', dx: -0.5, dy: 0 },
+        // 9-point attachment positions for controls (relative offsets)
+        // Edge points: ±1.0 = AT the edge; center: 0 = at center
+        // These match the snap detection coordinates in _getAttachmentTargetAt
+        const controlAttachmentPoints = [
+            { name: 'top-left', dx: -1.0, dy: -1.0 },
+            { name: 'top', dx: 0, dy: -1.0 },
+            { name: 'top-right', dx: 1.0, dy: -1.0 },
+            { name: 'left', dx: -1.0, dy: 0 },
             { name: 'center', dx: 0, dy: 0 },
-            { name: 'middle-right', dx: 0.5, dy: 0 },
-            { name: 'bottom-left', dx: -0.5, dy: 0.5 },
-            { name: 'bottom-center', dx: 0, dy: 0.5 },
-            { name: 'bottom-right', dx: 0.5, dy: 0.5 }
+            { name: 'right', dx: 1.0, dy: 0 },
+            { name: 'bottom-left', dx: -1.0, dy: 1.0 },
+            { name: 'bottom', dx: 0, dy: 1.0 },
+            { name: 'bottom-right', dx: 1.0, dy: 1.0 }
         ];
 
+        // Anchors are single points (gap is controlled by anchor_gap property in line config)
         // Render attachment points for anchors
         const anchorElements = Object.entries(anchors).map(([name, position]) => {
             if (!Array.isArray(position)) return '';
             const [vbX, vbY] = position;
             const pixelPos = toPixelPos(vbX, vbY);
 
-            // For anchors (points), show a single ring of attachment points around the position
-            return attachmentPoints.map(point => {
-                const px = pixelPos.x + (point.dx * 30); // 30px radius from center
-                const py = pixelPos.y + (point.dy * 30);
+            // For anchors, show single center point
+            const point = { name: 'center', dx: 0, dy: 0 };
+            const px = pixelPos.x;
+            const py = pixelPos.y;
 
-                const isSource = this._connectLineState.source?.type === 'anchor' &&
-                                this._connectLineState.source?.id === name &&
-                                this._connectLineState.source?.point === point.name;
+            const isSource = this._connectLineState.source?.type === 'anchor' &&
+                            this._connectLineState.source?.id === name &&
+                            this._connectLineState.source?.point === point.name;
 
-                return html`
-                    <div
-                        class="attachment-point"
-                        data-connection-type="anchor"
-                        data-connection-id="${name}"
-                        data-connection-point="${point.name}"
-                        @click=${this._handleAttachmentPointClick}
-                        style="
-                            position: absolute;
-                            left: ${px}px;
-                            top: ${py}px;
-                            transform: translate(-50%, -50%);
-                            width: 12px;
-                            height: 12px;
-                            background: ${isSource ? '#2196F3' : '#00FFFF'};
-                            border: 2px solid ${isSource ? '#1976D2' : '#00BCD4'};
-                            border-radius: 50%;
-                            cursor: pointer;
-                            box-shadow: 0 0 8px ${isSource ? 'rgba(33, 150, 243, 0.8)' : 'rgba(0, 255, 255, 0.6)'};
-                            transition: all 0.2s;
-                            pointer-events: auto;
-                            z-index: 1000;
-                        "
-                        @mouseenter=${(e) => e.target.style.transform = 'translate(-50%, -50%) scale(1.5)'}
-                        @mouseleave=${(e) => e.target.style.transform = 'translate(-50%, -50%) scale(1)'}
-                    ></div>
-                `;
-            });
+            return html`
+                <div
+                    class="attachment-point"
+                    data-connection-type="anchor"
+                    data-connection-id="${name}"
+                    data-connection-point="${point.name}"
+                    @click=${this._handleAttachmentPointClick}
+                    style="
+                        position: absolute;
+                        left: ${px}px;
+                        top: ${py}px;
+                        transform: translate(-50%, -50%);
+                        width: 12px;
+                        height: 12px;
+                        background: ${isSource ? '#2196F3' : '#00FFFF'};
+                        border: 2px solid ${isSource ? '#1976D2' : '#00BCD4'};
+                        border-radius: 50%;
+                        cursor: pointer;
+                        box-shadow: 0 0 8px ${isSource ? 'rgba(33, 150, 243, 0.8)' : 'rgba(0, 255, 255, 0.6)'};
+                        transition: all 0.2s;
+                        pointer-events: auto;
+                        z-index: 1000;
+                    "
+                    @mouseenter=${(e) => e.target.style.transform = 'translate(-50%, -50%) scale(1.5)'}
+                    @mouseleave=${(e) => e.target.style.transform = 'translate(-50%, -50%) scale(1)'}
+                ></div>
+            `;
         });
 
         // Render attachment points for controls (rectangles with corners and edges)
@@ -5091,7 +5610,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
             const pixelWidth = bottomRight.x - topLeft.x;
             const pixelHeight = bottomRight.y - topLeft.y;
 
-            return attachmentPoints.map(point => {
+            // Use 9-point grid for controls
+            return controlAttachmentPoints.map(point => {
                 const px = centerX + (point.dx * pixelWidth / 2);
                 const py = centerY + (point.dy * pixelHeight / 2);
 
@@ -9284,6 +9804,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
                             ${this._renderAnchorMarkers()}
                             ${this._renderBoundingBoxes()}
                             ${this._renderRoutingPaths()}
+                            ${this._renderLineEndpointMarkers()}
+                            ${this._renderDragAttachPoints()}
                             ${this._renderChannelsOverlay()}
 
                             <!-- Temporary Highlights -->
