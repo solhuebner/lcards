@@ -546,40 +546,19 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 cursor: crosshair;
             }
 
-            /* Tab Navigation */
-            .tab-nav {
-                display: flex;
-                gap: 0;
-                padding: 0 16px;
-                background: var(--card-background-color);
+            /* Tab Navigation with HA Tabs */
+            ha-tabs {
+                --paper-tabs-selection-bar-color: var(--primary-color);
                 border-bottom: 2px solid var(--divider-color);
-                overflow-x: auto;
-                overflow-y: hidden;
-                white-space: nowrap;
-                scrollbar-width: thin;
             }
 
-            .tab-button {
-                padding: 12px 20px;
-                background: transparent;
-                border: none;
-                border-bottom: 3px solid transparent;
-                cursor: pointer;
-                font-size: 14px;
-                font-weight: 500;
-                color: var(--secondary-text-color);
-                transition: all 0.2s;
+            ha-tabs paper-tab {
+                --paper-tab-ink: var(--primary-color);
             }
 
-            .tab-button:hover {
-                background: var(--primary-background-color);
-                color: var(--primary-text-color);
-            }
-
-            .tab-button.active {
-                color: var(--primary-color);
-                border-bottom-color: var(--primary-color);
-                border-bottom-width: 4px;
+            ha-tabs paper-tab ha-icon {
+                --mdc-icon-size: 18px;
+                margin-right: 8px;
             }
 
             /* Card Picker Button Styling */
@@ -1320,15 +1299,17 @@ export class LCARdSMSDStudioDialog extends LitElement {
         ];
 
         return html`
-            <div class="tab-nav">
+            <ha-tabs
+                scrollable
+                .selected=${tabs.findIndex(t => t.id === this._activeTab)}
+                @iron-select=${(e) => this._setActiveTab(tabs[e.detail.selected].id)}>
                 ${tabs.map(tab => html`
-                    <button
-                        class="tab-button ${this._activeTab === tab.id ? 'active' : ''}"
-                        @click=${() => this._setActiveTab(tab.id)}>
+                    <paper-tab>
+                        <ha-icon icon="${tab.icon}"></ha-icon>
                         ${tab.label}
-                    </button>
+                    </paper-tab>
                 `)}
-            </div>
+            </ha-tabs>
         `;
     }
 
@@ -6305,20 +6286,16 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     <!-- LEFT COLUMN: Configuration Panel -->
                     <div class="config-panel">
                         <!-- Subtabs -->
-                        <div style="display: flex; gap: 8px; padding: 0 0 12px 0; border-bottom: 1px solid var(--divider-color); margin-bottom: 16px;">
-                            <button
-                                class="tab-button ${this._controlFormActiveSubtab === 'placement' ? 'active' : ''}"
-                                @click=${() => { this._controlFormActiveSubtab = 'placement'; this.requestUpdate(); }}
-                                style="padding: 12px 16px; background: transparent; border: none; border-bottom: 3px solid ${this._controlFormActiveSubtab === 'placement' ? 'var(--primary-color)' : 'transparent'}; cursor: pointer; font-weight: 500;">
-                                Placement
-                            </button>
-                            <button
-                                class="tab-button ${this._controlFormActiveSubtab === 'card' ? 'active' : ''}"
-                                @click=${() => { this._controlFormActiveSubtab = 'card'; this.requestUpdate(); }}
-                                style="padding: 12px 16px; background: transparent; border: none; border-bottom: 3px solid ${this._controlFormActiveSubtab === 'card' ? 'var(--primary-color)' : 'transparent'}; cursor: pointer; font-weight: 500;">
-                                Card
-                            </button>
-                        </div>
+                        <ha-tabs
+                            .selected=${this._controlFormActiveSubtab === 'placement' ? 0 : 1}
+                            @iron-select=${(e) => {
+                                this._controlFormActiveSubtab = e.detail.selected === 0 ? 'placement' : 'card';
+                                this.requestUpdate();
+                            }}
+                            style="margin-bottom: 16px;">
+                            <paper-tab>Placement</paper-tab>
+                            <paper-tab>Card</paper-tab>
+                        </ha-tabs>
 
                         <!-- Subtab Content -->
                         <div style="max-height: 60vh; overflow-y: auto;">
@@ -8222,38 +8199,21 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 </div>
 
                 <!-- Subtabs -->
-                <div style="display: flex; gap: 8px; padding: 0 24px; border-bottom: 1px solid var(--divider-color); overflow-x: auto;">
-                    <button
-                        class="tab-button ${this._lineFormActiveSubtab === 'basic' ? 'active' : ''}"
-                        @click=${() => { this._lineFormActiveSubtab = 'basic'; this.requestUpdate(); }}
-                        style="padding: 12px 16px; background: transparent; border: none; border-bottom: 3px solid ${this._lineFormActiveSubtab === 'basic' ? 'var(--primary-color)' : 'transparent'}; cursor: pointer; font-weight: 500; white-space: nowrap;">
-                        Basic
-                    </button>
-                    <button
-                        class="tab-button ${this._lineFormActiveSubtab === 'style' ? 'active' : ''}"
-                        @click=${() => { this._lineFormActiveSubtab = 'style'; this.requestUpdate(); }}
-                        style="padding: 12px 16px; background: transparent; border: none; border-bottom: 3px solid ${this._lineFormActiveSubtab === 'style' ? 'var(--primary-color)' : 'transparent'}; cursor: pointer; font-weight: 500; white-space: nowrap;">
-                        Style
-                    </button>
-                    <button
-                        class="tab-button ${this._lineFormActiveSubtab === 'markers' ? 'active' : ''}"
-                        @click=${() => { this._lineFormActiveSubtab = 'markers'; this.requestUpdate(); }}
-                        style="padding: 12px 16px; background: transparent; border: none; border-bottom: 3px solid ${this._lineFormActiveSubtab === 'markers' ? 'var(--primary-color)' : 'transparent'}; cursor: pointer; font-weight: 500; white-space: nowrap;">
-                        Markers
-                    </button>
-                    <button
-                        class="tab-button ${this._lineFormActiveSubtab === 'animation' ? 'active' : ''}"
-                        @click=${() => { this._lineFormActiveSubtab = 'animation'; this.requestUpdate(); }}
-                        style="padding: 12px 16px; background: transparent; border: none; border-bottom: 3px solid ${this._lineFormActiveSubtab === 'animation' ? 'var(--primary-color)' : 'transparent'}; cursor: pointer; font-weight: 500; white-space: nowrap;">
-                        Animation
-                    </button>
-                    <button
-                        class="tab-button ${this._lineFormActiveSubtab === 'routing' ? 'active' : ''}"
-                        @click=${() => { this._lineFormActiveSubtab = 'routing'; this.requestUpdate(); }}
-                        style="padding: 12px 16px; background: transparent; border: none; border-bottom: 3px solid ${this._lineFormActiveSubtab === 'routing' ? 'var(--primary-color)' : 'transparent'}; cursor: pointer; font-weight: 500; white-space: nowrap;">
-                        Routing
-                    </button>
-                </div>
+                <ha-tabs
+                    scrollable
+                    .selected=${['basic', 'style', 'markers', 'animation', 'routing'].indexOf(this._lineFormActiveSubtab)}
+                    @iron-select=${(e) => {
+                        const tabs = ['basic', 'style', 'markers', 'animation', 'routing'];
+                        this._lineFormActiveSubtab = tabs[e.detail.selected];
+                        this.requestUpdate();
+                    }}
+                    style="padding: 0 24px;">
+                    <paper-tab>Basic</paper-tab>
+                    <paper-tab>Style</paper-tab>
+                    <paper-tab>Markers</paper-tab>
+                    <paper-tab>Animation</paper-tab>
+                    <paper-tab>Routing</paper-tab>
+                </ha-tabs>
 
                 <!-- Subtab Content -->
                 <div style="padding: 16px; max-height: 60vh; overflow-y: auto;">
