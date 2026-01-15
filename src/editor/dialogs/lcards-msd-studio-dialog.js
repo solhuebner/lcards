@@ -1196,7 +1196,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @param {string} mode - 'auto' or 'custom'
      * @private
      */
-    _handleViewBoxModeChange(mode) {
+    async _handleViewBoxModeChange(mode) {
         this._viewBoxMode = mode;
         if (mode === 'auto') {
             // Remove explicit view_box when switching to auto
@@ -1204,13 +1204,74 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 delete this._workingConfig.msd.view_box;
                 this._schedulePreviewUpdate();
             }
+            // Auto-extract viewBox from current SVG
+            await this._autoExtractViewBox();
         } else {
             // Initialize view_box array if not present
             if (!this._workingConfig.msd.view_box) {
-                this._setNestedValue('msd.view_box', [0, 0, 400, 200]);
+                // Try to extract from current SVG first
+                const extracted = await this._extractViewBoxFromSvg();
+                if (extracted) {
+                    this._setNestedValue('msd.view_box', extracted);
+                } else {
+                    this._setNestedValue('msd.view_box', [0, 0, 400, 200]);
+                }
             }
         }
         this.requestUpdate();
+    }
+
+    /**
+     * Handle SVG source change
+     * @param {string} value - New SVG source value
+     * @private
+     */
+    async _handleSvgSourceChange(value) {
+        this._setNestedValue('msd.base_svg.source', value);
+
+        // If in auto viewBox mode, extract viewBox from new SVG
+        if (this._viewBoxMode === 'auto') {
+            await this._autoExtractViewBox();
+        }
+    }
+
+    /**
+     * Auto-extract viewBox from current SVG (for auto mode)
+     * @private
+     */
+    async _autoExtractViewBox() {
+        const source = this._workingConfig.msd?.base_svg?.source;
+        if (!source || source === 'none') return;
+
+        const extracted = await this._extractViewBoxFromSvg();
+        if (extracted && this._viewBoxMode === 'auto') {
+            // Temporarily set viewBox for preview, but don't persist to config
+            // The card will extract it during render
+            lcardsLog.debug('[MSDStudio] Auto-extracted viewBox for preview:', extracted);
+        }
+    }
+
+    /**
+     * Extract viewBox from current SVG source
+     * @returns {Array|null} ViewBox array [x, y, w, h] or null
+     * @private
+     */
+    async _extractViewBoxFromSvg() {
+        const source = this._workingConfig.msd?.base_svg?.source;
+        if (!source || source === 'none') return null;
+
+        try {
+            const { getSvgContent, getSvgViewBox } = await import('../../utils/lcards-anchor-helpers.js');
+            const svgContent = getSvgContent(source);
+            if (svgContent) {
+                const viewBox = getSvgViewBox(svgContent);
+                lcardsLog.debug('[MSDStudio] Extracted viewBox from SVG:', viewBox);
+                return viewBox;
+            }
+        } catch (error) {
+            lcardsLog.error('[MSDStudio] Error extracting viewBox:', error);
+        }
+        return null;
     }
 
     /**
@@ -1349,13 +1410,13 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                 }}
                                 .value=${baseSvg.source || ''}
                                 .label=${'SVG Asset'}
-                                @value-changed=${(e) => this._setNestedValue('msd.base_svg.source', e.detail.value)}>
+                                @value-changed=${(e) => this._handleSvgSourceChange(e.detail.value)}>
                             </ha-selector>
                         ` : this._svgSourceMode === 'custom' ? html`
                             <ha-textfield
                                 label="Custom SVG Path"
                                 .value=${baseSvg.source || ''}
-                                @input=${(e) => this._setNestedValue('msd.base_svg.source', e.target.value)}
+                                @input=${(e) => this._handleSvgSourceChange(e.target.value)}
                                 helper-text="Enter custom path (e.g., /local/my-ship.svg)">
                             </ha-textfield>
                         ` : html`

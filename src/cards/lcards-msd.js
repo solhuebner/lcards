@@ -1373,12 +1373,31 @@ export class LCARdSMSDCard extends LCARdSCard {
         }
 
         // Wrap SVG content in #__msd-base-content group (like YAML template did)
+        // AND apply proper viewBox to outer wrapper for correct scaling
         try {
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = svgContent;
             const svgEl = tempDiv.querySelector('svg');
 
             if (svgEl) {
+                // Get viewBox from config (CardModel extracts this from SVG or uses default)
+                const viewBox = this._msdConfig?.view_box || [0, 0, 1920, 1200];
+                const [vbX, vbY, vbW, vbH] = viewBox;
+
+                // Apply viewBox to outer SVG element for proper coordinate system
+                svgEl.setAttribute('viewBox', `${vbX} ${vbY} ${vbW} ${vbH}`);
+                svgEl.setAttribute('width', '100%');
+                svgEl.setAttribute('height', '100%');
+                svgEl.setAttribute('style', 'display: block;');
+
+                // Remove width/height from any nested SVG elements to avoid conflicts
+                // The outer viewBox defines the coordinate system, nested SVGs should inherit it
+                const nestedSvgs = svgEl.querySelectorAll('svg');
+                nestedSvgs.forEach(nestedSvg => {
+                    nestedSvg.removeAttribute('width');
+                    nestedSvg.removeAttribute('height');
+                });
+
                 // Get all child nodes
                 const children = Array.from(svgEl.childNodes);
 
@@ -1397,7 +1416,7 @@ export class LCARdSMSDCard extends LCARdSCard {
                 // Serialize back to string
                 const wrappedContent = tempDiv.innerHTML;
 
-                lcardsLog.debug('[LCARdSMSDCard] 🎨 Wrapped base SVG content in #__msd-base-content for filter isolation');
+                lcardsLog.debug('[LCARdSMSDCard] 🎨 Wrapped base SVG with viewBox [%d, %d, %d, %d] for proper scaling', vbX, vbY, vbW, vbH);
 
                 return wrappedContent;
             }
