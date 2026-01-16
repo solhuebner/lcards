@@ -555,4 +555,68 @@ export const msdStudioStyles = css`
             gap: 16px;
         }
     }
+
+    /* HA Native Card Picker Styles */
+    .card-picker-container {
+        min-height: 300px;
+        max-height: 500px;
+        overflow-y: auto;
+    }
+
+    /* HA Native Card Editor Styles */
+    .card-editor-container {
+        min-height: 200px;
+    }
+
+    /* Selected Card Header */
+    .selected-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px;
+        background: var(--card-background-color);
+        border: 1px solid var(--divider-color);
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+
+    .selected-card-header:hover {
+        border-color: var(--primary-color);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Preview Tab Styles */
+    .control-preview-panel {
+        background: var(--card-background-color);
+        border-radius: 8px;
+        min-height: 400px;
+    }
+
+    .preview-card-wrapper {
+        background: var(--primary-background-color);
+        border: 2px solid var(--divider-color);
+        border-radius: 12px;
+        padding: 20px;
+        transition: border-color 0.3s ease;
+    }
+
+    .preview-card-wrapper:hover {
+        border-color: var(--primary-color);
+    }
+
+    .preview-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--divider-color);
+    }
+
+    .preview-footer {
+        padding-top: 12px;
+        border-top: 1px solid var(--divider-color);
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        text-align: center;
+    }
 `;

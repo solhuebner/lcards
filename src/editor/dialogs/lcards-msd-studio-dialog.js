@@ -5946,13 +5946,16 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         <ha-tab-group @wa-tab-show=${this._handleControlFormTabChange} style="margin-bottom: 16px;">
                             <ha-tab-group-tab value="placement" ?active=${this._controlFormActiveSubtab === 'placement'}>Placement</ha-tab-group-tab>
                             <ha-tab-group-tab value="card" ?active=${this._controlFormActiveSubtab === 'card'}>Card</ha-tab-group-tab>
+                            <ha-tab-group-tab value="preview" ?active=${this._controlFormActiveSubtab === 'preview'}>Preview</ha-tab-group-tab>
                         </ha-tab-group>
 
                         <!-- Subtab Content -->
                         <div style="max-height: 60vh; overflow-y: auto;">
                             ${this._controlFormActiveSubtab === 'placement'
                                 ? this._renderControlFormPlacement()
-                                : this._renderControlFormCard()
+                                : this._controlFormActiveSubtab === 'card'
+                                ? this._renderControlFormCard()
+                                : this._renderControlFormPreview()
                             }
                         </div>
                     </div>
@@ -6142,50 +6145,69 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _renderControlFormCard() {
+        // Check HA component availability
+        const HuiCardPicker = customElements.get('hui-card-picker');
+        const HuiCardElementEditor = customElements.get('hui-card-element-editor');
+
+        if (!HuiCardPicker || !HuiCardElementEditor) {
+            lcardsLog.warn('[MSDStudio] HA components unavailable, using legacy picker');
+            return this._renderControlFormCardLegacy();
+        }
+
+        // Use HA native components
+        return this._renderControlFormCardNative();
+    }
+
+    /**
+     * Render Card subtab using HA native components
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderControlFormCardNative() {
         const cardType = this._controlFormCard?.type || '';
 
-        lcardsLog.debug('[MSDStudio] Rendering Card tab, cardType:', cardType, 'full config:', this._controlFormCard);
+        lcardsLog.debug('[MSDStudio] Rendering Card tab with HA native components, cardType:', cardType);
 
         return html`
             <div style="display: flex; flex-direction: column; gap: 16px;">
                 ${!cardType ? html`
-                    <!-- Card Picker (Visual Grid) -->
+                    <!-- HA Native Card Picker -->
                     <lcards-form-section
                         header="Select Card Type"
                         description="Choose a card to display in this control overlay"
                         ?expanded=${true}>
-                        <div style="padding: 16px;">
-                            ${this._renderCardPicker()}
+                        <div class="card-picker-container" style="padding: 16px;">
+                            <hui-card-picker
+                                .hass=${this.hass}
+                                .lovelace=${this._getRealLovelace()}
+                                @config-changed=${this._handleCardPicked}>
+                            </hui-card-picker>
                         </div>
                     </lcards-form-section>
                 ` : html`
                     <!-- Selected Card Info + Change Button -->
-                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 8px;">
+                    <div class="selected-card-header" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 8px;">
                         <div style="display: flex; align-items: center; gap: 12px;">
-                            <ha-icon icon="mdi:card-outline" style="--mdc-icon-size: 24px; color: var(--primary-color);"></ha-icon>
+                            <ha-icon icon="${this._getCardIcon(cardType)}" style="--mdc-icon-size: 24px; color: var(--primary-color);"></ha-icon>
                             <div>
-                                <div style="font-weight: 600; font-size: 14px;">${cardType}</div>
+                                <div style="font-weight: 600; font-size: 14px;">${this._getCardTypeName(cardType)}</div>
                                 <div style="font-size: 12px; color: var(--secondary-text-color);">Selected card type</div>
                             </div>
                         </div>
                         <ha-button
-                            @click=${() => {
-                                this._resetCardPicker();
-                                this._controlFormCard = { type: '' };
-                                this.requestUpdate();
-                            }}
+                            @click=${this._resetCardPicker}
                             appearance="plain">
                             <ha-icon icon="mdi:swap-horizontal" slot="icon"></ha-icon>
-                            Change Card
+                            Change Card Type
                         </ha-button>
                     </div>
 
-                    <!-- Full Card Configuration Editor -->
+                    <!-- HA Native Card Configuration Editor -->
                     <lcards-form-section
                         header="Card Configuration"
                         description="Configure the card properties using Home Assistant's native card editor"
                         ?expanded=${true}>
-                        <div style="padding: 16px;">
+                        <div class="card-editor-container" style="padding: 16px;">
                             <hui-card-element-editor
                                 .hass=${this.hass}
                                 .lovelace=${this._getRealLovelace()}
@@ -6201,6 +6223,232 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 `}
             </div>
         `;
+    }
+
+    /**
+     * Render Card subtab using legacy implementation (fallback)
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderControlFormCardLegacy() {
+        const cardType = this._controlFormCard?.type || '';
+
+        lcardsLog.debug('[MSDStudio] Rendering Card tab with legacy picker, cardType:', cardType);
+
+        return html`
+            <lcards-message type="warning" style="margin-bottom: 16px;">
+                Using legacy card picker (HA components unavailable)
+            </lcards-message>
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                ${!cardType ? html`
+                    <!-- Legacy Card Picker (Visual Grid) -->
+                    <lcards-form-section
+                        header="Select Card Type"
+                        description="Choose a card to display in this control overlay"
+                        ?expanded=${true}>
+                        <div style="padding: 16px;">
+                            ${this._renderCardPickerLegacy()}
+                        </div>
+                    </lcards-form-section>
+                ` : html`
+                    <!-- Selected Card Info + Change Button -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 8px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <ha-icon icon="mdi:card-outline" style="--mdc-icon-size: 24px; color: var(--primary-color);"></ha-icon>
+                            <div>
+                                <div style="font-weight: 600; font-size: 14px;">${cardType}</div>
+                                <div style="font-size: 12px; color: var(--secondary-text-color);">Selected card type</div>
+                            </div>
+                        </div>
+                        <ha-button
+                            @click=${() => {
+                                this._controlFormCard = { type: '' };
+                                this.requestUpdate();
+                            }}
+                            appearance="plain">
+                            <ha-icon icon="mdi:swap-horizontal" slot="icon"></ha-icon>
+                            Change Card
+                        </ha-button>
+                    </div>
+
+                    <!-- Full Card Configuration Editor -->
+                    <lcards-form-section
+                        header="Card Configuration"
+                        description="Configure the card properties using generic editor"
+                        ?expanded=${true}>
+                        <div style="padding: 16px;">
+                            <ha-selector
+                                .selector=${{ ui: {} }}
+                                .value=${this._controlFormCard}
+                                @value-changed=${(e) => {
+                                    lcardsLog.debug('[MSDStudio] Card config changed:', e.detail.value);
+                                    this._controlFormCard = e.detail.value || { type: cardType };
+                                    this.requestUpdate();
+                                }}>
+                            </ha-selector>
+                        </div>
+                    </lcards-form-section>
+                `}
+            </div>
+        `;
+    }
+
+    /**
+     * Render Preview subtab
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderControlFormPreview() {
+        const card = this._controlFormCard || {};
+        
+        if (!card.type) {
+            return html`
+                <div class="control-preview-panel" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center;">
+                    <ha-icon icon="mdi:card-outline" style="--mdc-icon-size: 64px; color: var(--disabled-text-color); opacity: 0.3;"></ha-icon>
+                    <div style="margin-top: 16px; color: var(--secondary-text-color);">
+                        <strong>No Card Selected</strong>
+                    </div>
+                    <div style="margin-top: 8px; font-size: 14px; color: var(--disabled-text-color);">
+                        Select a card type in the "Card" tab to see live preview
+                    </div>
+                </div>
+            `;
+        }
+
+        try {
+            // Create preview container
+            const previewId = `card-preview-${Date.now()}`;
+            
+            // Defer card creation until after render
+            setTimeout(() => this._createPreviewCardInTab(previewId, card), 0);
+
+            return html`
+                <div class="control-preview-panel" style="display: flex; flex-direction: column; gap: 16px; padding: 16px;">
+                    <!-- Preview Header -->
+                    <div class="preview-header" style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid var(--divider-color);">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <ha-icon icon="${this._getCardIcon(card.type)}" style="--mdc-icon-size: 24px; color: var(--primary-color);"></ha-icon>
+                            <div>
+                                <div style="font-weight: 600; font-size: 14px;">${this._getCardTypeName(card.type)}</div>
+                                <div style="font-size: 12px; color: var(--secondary-text-color);">Live Preview</div>
+                            </div>
+                        </div>
+                        <ha-chip>
+                            <ha-icon icon="mdi:eye" slot="icon"></ha-icon>
+                            Real-time
+                        </ha-chip>
+                    </div>
+
+                    <!-- Preview Card Wrapper -->
+                    <div class="preview-card-wrapper" style="
+                        flex: 1;
+                        background: var(--card-background-color);
+                        border: 2px solid var(--divider-color);
+                        border-radius: 12px;
+                        padding: 20px;
+                        min-height: 200px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        overflow: auto;
+                    ">
+                        <div id="${previewId}" style="width: 100%; max-width: 500px;"></div>
+                    </div>
+
+                    <!-- Preview Footer -->
+                    <div class="preview-footer" style="padding-top: 12px; border-top: 1px solid var(--divider-color); font-size: 12px; color: var(--secondary-text-color); text-align: center;">
+                        Preview updates automatically when you modify the card configuration
+                    </div>
+                </div>
+            `;
+        } catch (error) {
+            lcardsLog.error('[MSDStudio] Preview render error:', error);
+            return html`
+                <lcards-message type="error">
+                    Failed to render preview: ${error.message}
+                </lcards-message>
+            `;
+        }
+    }
+
+    /**
+     * Create and mount preview card in Preview tab
+     * @param {string} containerId - Container element ID
+     * @param {Object} cardConfig - Card configuration
+     * @private
+     */
+    async _createPreviewCardInTab(containerId, cardConfig) {
+        const container = this.shadowRoot?.getElementById(containerId);
+        if (!container) {
+            lcardsLog.debug('[MSDStudio] Preview container not found:', containerId);
+            return;
+        }
+
+        // Clear existing content
+        container.innerHTML = '';
+
+        try {
+            const cardType = cardConfig.type;
+            const normalizedType = this._normalizeCardType(cardType);
+
+            lcardsLog.debug('[MSDStudio] Creating preview card in tab:', { cardType, normalizedType });
+
+            let cardElement = null;
+
+            // Try to create the card element
+            if (customElements.get(normalizedType)) {
+                cardElement = document.createElement(normalizedType);
+                lcardsLog.debug('[MSDStudio] Preview card created via createElement:', normalizedType);
+            } else {
+                // Card might not be registered yet
+                container.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--secondary-text-color);">Loading card...</div>';
+                
+                // Wait for registration
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                if (customElements.get(normalizedType)) {
+                    cardElement = document.createElement(normalizedType);
+                } else {
+                    throw new Error(`Card type "${cardType}" not registered`);
+                }
+            }
+
+            if (!cardElement) {
+                throw new Error(`Failed to create card element for type: ${cardType}`);
+            }
+
+            // Set HASS context first
+            if (this.hass) {
+                cardElement.hass = this.hass;
+            }
+
+            // Set card configuration
+            if (typeof cardElement.setConfig === 'function') {
+                cardElement.setConfig(cardConfig);
+                lcardsLog.debug('[MSDStudio] Preview card config set successfully');
+            } else {
+                lcardsLog.warn('[MSDStudio] Preview card has no setConfig method:', normalizedType);
+                container.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--warning-color);">Card does not support configuration</div>';
+                return;
+            }
+
+            // Apply sizing styles
+            cardElement.style.width = '100%';
+            cardElement.style.display = 'block';
+
+            // Mount the card
+            container.innerHTML = '';
+            container.appendChild(cardElement);
+            lcardsLog.debug('[MSDStudio] Preview card mounted successfully in tab');
+
+        } catch (error) {
+            lcardsLog.error('[MSDStudio] Failed to create preview card in tab:', error);
+            container.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--error-color);">
+                <ha-icon icon="mdi:alert-circle" style="--mdc-icon-size: 32px; display: block; margin: 0 auto 8px;"></ha-icon>
+                <strong>Preview Error</strong><br/>
+                <span style="font-size: 12px;">${error.message}</span>
+            </div>`;
+        }
     }
 
     /**
@@ -6251,12 +6499,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
-     * Render custom card picker grid (hui-card-picker not available)
+     * Render custom card picker grid (legacy fallback)
      * @returns {TemplateResult}
      * @private
      */
-    _renderCardPicker() {
-        lcardsLog.debug('[MSDStudio] Rendering custom card picker (hui-card-picker not registered)');
+    _renderCardPickerLegacy() {
+        lcardsLog.debug('[MSDStudio] Rendering legacy card picker grid');
 
         const cards = this._getAvailableCardTypes();
 
@@ -6370,11 +6618,124 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
-     * Reset picker state (legacy)
+     * Handle card picked from hui-card-picker
+     * @param {CustomEvent} e - Config changed event from hui-card-picker
+     * @private
+     */
+    _handleCardPicked(e) {
+        lcardsLog.debug('[MSDStudio] Card picked:', e.detail);
+        const pickedCard = e.detail.config;
+        
+        if (!pickedCard || !pickedCard.type) {
+            lcardsLog.warn('[MSDStudio] Invalid card picked:', pickedCard);
+            return;
+        }
+
+        // Try to get enhanced stub config from the card class
+        const stubConfig = this._getEnhancedStubConfig(pickedCard);
+        this._controlFormCard = stubConfig;
+        
+        lcardsLog.debug('[MSDStudio] Card set to:', this._controlFormCard);
+        this.requestUpdate();
+    }
+
+    /**
+     * Get enhanced stub config for picked card
+     * @param {Object} pickedCard - Card config from hui-card-picker
+     * @returns {Object} Enhanced stub configuration
+     * @private
+     */
+    _getEnhancedStubConfig(pickedCard) {
+        try {
+            const cardType = pickedCard.type;
+            
+            // Get element name
+            const elementName = cardType.startsWith('custom:')
+                ? cardType.substring(7)
+                : `hui-${cardType}-card`;
+
+            // Try to get the card class and its stub config
+            const CardClass = customElements.get(elementName);
+            
+            if (CardClass && typeof CardClass.getStubConfig === 'function') {
+                const stub = CardClass.getStubConfig();
+                lcardsLog.debug('[MSDStudio] Using card stub config from:', elementName, stub);
+                // Merge picked config with stub (picked takes precedence)
+                return { ...stub, ...pickedCard };
+            }
+        } catch (error) {
+            lcardsLog.warn('[MSDStudio] Failed to get stub config:', error);
+        }
+
+        // Fallback to picked card config
+        return pickedCard;
+    }
+
+    /**
+     * Reset card picker (clears selected card)
      * @private
      */
     _resetCardPicker() {
-        // No-op - kept for compatibility
+        this._controlFormCard = { type: '' };
+        this.requestUpdate();
+    }
+
+    /**
+     * Get card type display name
+     * @param {string} type - Card type
+     * @returns {string} Pretty card name
+     * @private
+     */
+    _getCardTypeName(type) {
+        if (!type) return 'Unknown';
+        
+        // Remove custom: prefix for display
+        const cleanType = type.replace(/^custom:/, '');
+        
+        // Convert kebab-case to Title Case
+        return cleanType
+            .split('-')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    }
+
+    /**
+     * Get card type icon
+     * @param {string} type - Card type
+     * @returns {string} MDI icon name
+     * @private
+     */
+    _getCardIcon(type) {
+        if (!type) return 'mdi:card-outline';
+        
+        // Icon mapping for common card types
+        const iconMap = {
+            'button': 'mdi:gesture-tap-button',
+            'entities': 'mdi:format-list-bulleted',
+            'entity': 'mdi:card-bulleted',
+            'glance': 'mdi:view-dashboard',
+            'light': 'mdi:lightbulb',
+            'thermostat': 'mdi:thermostat',
+            'media-control': 'mdi:play-circle',
+            'weather-forecast': 'mdi:weather-partly-cloudy',
+            'sensor': 'mdi:eye',
+            'gauge': 'mdi:gauge',
+            'history-graph': 'mdi:chart-line',
+            'markdown': 'mdi:language-markdown',
+            'picture': 'mdi:image',
+            'picture-entity': 'mdi:image-frame',
+            'picture-glance': 'mdi:view-carousel',
+            'conditional': 'mdi:eye-check',
+            'map': 'mdi:map',
+            'custom:lcards-button': 'mdi:gesture-tap-button',
+            'custom:lcards-gauge': 'mdi:gauge',
+            'custom:lcards-slider': 'mdi:tune',
+            'custom:lcards-label': 'mdi:label',
+            'custom:lcards-chart': 'mdi:chart-line'
+        };
+        
+        const cleanType = type.replace(/^custom:/, '');
+        return iconMap[type] || iconMap[cleanType] || 'mdi:puzzle';
     }
 
     /**
