@@ -38,6 +38,8 @@ import '../components/editors/lcards-color-section.js';
 import '../components/editors/lcards-position-picker.js';
 import '../components/lcards-msd-live-preview.js';
 import '../components/lcards-animation-editor.js';
+import '../components/yaml/lcards-yaml-editor.js';
+import { configToYaml, yamlToConfig } from '../utils/yaml-utils.js';
 
 // Phase 1 Modularization: Extracted utilities
 import { getPreviewCoordinatesFromMouseEvent, snapToGrid } from './msd-studio/msd-coordinate-utils.js';
@@ -59,7 +61,8 @@ const TABS = {
     ANCHORS: 'anchors',
     CONTROLS: 'controls',
     LINES: 'lines',
-    ROUTING: 'routing'
+    ROUTING: 'routing',
+    YAML: 'yaml'
 };
 
 export class LCARdSMSDStudioDialog extends LitElement {
@@ -870,7 +873,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
             { id: TABS.ANCHORS, label: 'Anchors', icon: 'mdi:map-marker' },
             { id: TABS.CONTROLS, label: 'Controls', icon: 'mdi:widgets' },
             { id: TABS.LINES, label: 'Lines', icon: 'mdi:vector-line' },
-            { id: TABS.ROUTING, label: 'Routing', icon: 'mdi:routes' }
+            { id: TABS.ROUTING, label: 'Routing', icon: 'mdi:routes' },
+            { id: TABS.YAML, label: 'YAML', icon: 'mdi:code-braces' }
         ];
 
         return html`
@@ -902,6 +906,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 return this._renderLinesTab();
             case TABS.ROUTING:
                 return this._renderRoutingTab();
+            case TABS.YAML:
+                return this._renderYamlTab();
             default:
                 return html`<div>Unknown tab</div>`;
         }
@@ -1369,6 +1375,82 @@ export class LCARdSMSDStudioDialog extends LitElement {
         } catch (error) {
             lcardsLog.error('[MSDStudio] Error listing SVG assets:', error);
             return [{ value: '', label: 'Error loading SVG assets' }];
+        }
+    }
+
+    /**
+     * Render YAML tab
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderYamlTab() {
+        // Convert working config to YAML
+        const yamlValue = configToYaml(this._workingConfig);
+
+        return html`
+            <div style="padding: 8px; display: flex; flex-direction: column; gap: 16px;">
+                <lcards-message type="info">
+                    <strong>Advanced YAML Editor</strong>
+                    <p style="margin: 8px 0 0 0; font-size: 13px;">
+                        Edit the complete MSD configuration in YAML format with schema-based autocomplete and validation.
+                        Changes made here will be applied when you save the dialog.
+                    </p>
+                </lcards-message>
+
+                <lcards-yaml-editor
+                    .value=${yamlValue}
+                    .schema=${this._getMsdSchema()}
+                    .hass=${this.hass}
+                    @value-changed=${this._handleYamlChange}
+                    style="flex: 1;">
+                </lcards-yaml-editor>
+            </div>
+        `;
+    }
+
+    /**
+     * Handle YAML editor changes
+     * @param {CustomEvent} ev - value-changed event from YAML editor
+     * @private
+     */
+    _handleYamlChange(ev) {
+        try {
+            const newConfig = yamlToConfig(ev.detail.value);
+            this._workingConfig = newConfig;
+            this.requestUpdate();
+            lcardsLog.debug('[MSDStudio] YAML updated, config refreshed');
+        } catch (error) {
+            lcardsLog.warn('[MSDStudio] Invalid YAML, config not updated:', error.message);
+        }
+    }
+
+    /**
+     * Get MSD schema for YAML validation
+     * @returns {Object|null} JSON Schema for MSD configuration or null
+     * @private
+     */
+    _getMsdSchema() {
+        try {
+            // Access schema through core config manager's schema registry
+            const configManager = window.lcards?.core?.configManager;
+            if (!configManager) {
+                lcardsLog.warn('[MSDStudio] CoreConfigManager not available');
+                return null;
+            }
+
+            // Get the registered MSD schema
+            const schema = configManager.getCardSchema('msd');
+
+            if (!schema) {
+                lcardsLog.warn('[MSDStudio] MSD schema not found in registry');
+                return null;
+            }
+
+            lcardsLog.debug('[MSDStudio] Retrieved MSD schema for YAML editor autocomplete');
+            return schema;
+        } catch (error) {
+            lcardsLog.error('[MSDStudio] Error getting MSD schema:', error);
+            return null;
         }
     }
 
