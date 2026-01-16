@@ -347,7 +347,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         // Check HA component availability
         this._haComponentsAvailable = !!customElements.get('hui-card-element-editor');
 
-        lcardsLog.info('[MSDStudio] Component availability:', {
+        lcardsLog.debug('[MSDStudio] Component availability:', {
             editor: !!customElements.get('hui-card-element-editor'),
             picker: !!customElements.get('hui-card-picker')
         });
@@ -1263,7 +1263,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         if (extracted && this._viewBoxMode === 'auto') {
             // Temporarily set viewBox for preview, but don't persist to config
             // The card will extract it during render
-            lcardsLog.debug('[MSDStudio] Auto-extracted viewBox for preview:', extracted);
+            lcardsLog.trace('[MSDStudio] Auto-extracted viewBox for preview:', extracted);
         }
     }
 
@@ -1281,7 +1281,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             const svgContent = getSvgContent(source);
             if (svgContent) {
                 const viewBox = getSvgViewBox(svgContent);
-                lcardsLog.debug('[MSDStudio] Extracted viewBox from SVG:', viewBox);
+                lcardsLog.trace('[MSDStudio] Extracted viewBox from SVG:', viewBox);
                 return viewBox;
             }
         } catch (error) {
@@ -1954,7 +1954,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _highlightAnchorInPreview(name) {
-        lcardsLog.debug('[MSDStudio] Highlight anchor in preview:', name);
+        lcardsLog.trace('[MSDStudio] Highlight anchor in preview:', name);
 
         // Set highlighted anchor (triggers re-render with highlight overlay)
         this._highlightedAnchor = name;
@@ -2098,7 +2098,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             return;
         }
 
-        lcardsLog.debug('[MSDStudio] Place anchor at:', coords);
+        lcardsLog.trace('[MSDStudio] Place anchor at:', coords);
 
         // Coordinates are already snapped to grid if enabled in _getPreviewCoordinates
         const { x, y } = coords;
@@ -2129,7 +2129,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             return;
         }
 
-        lcardsLog.debug('[MSDStudio] Place control at:', coords);
+        lcardsLog.trace('[MSDStudio] Place control at:', coords);
 
         // Generate control ID
         const overlays = this._workingConfig.msd?.overlays || [];
@@ -2271,7 +2271,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         if (!this._dragState.active && !this._resizeState.active && !this._anchorDragState.active && !this._channelResizeState.active) return;
 
         if (this._dragState.active) {
-            lcardsLog.info('[MSDStudio] Drag end:', this._dragState.controlId);
+            lcardsLog.debug('[MSDStudio] Drag end:', this._dragState.controlId);
 
             // Remove dragging class from preview panel
             const previewPanel = this.shadowRoot.querySelector('.preview-panel');
@@ -2291,7 +2291,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         }
 
         if (this._resizeState.active) {
-            lcardsLog.info('[MSDStudio] Resize end:', this._resizeState.controlId);
+            lcardsLog.debug('[MSDStudio] Resize end:', this._resizeState.controlId);
 
             // Clear resize state
             this._resizeState = {
@@ -2305,7 +2305,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         }
 
         if (this._anchorDragState.active) {
-            lcardsLog.info('[MSDStudio] Anchor drag end:', this._anchorDragState.anchorName);
+            lcardsLog.debug('[MSDStudio] Anchor drag end:', this._anchorDragState.anchorName);
 
             // Clear anchor drag state
             this._anchorDragState = {
@@ -2317,7 +2317,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         }
 
         if (this._channelResizeState.active) {
-            lcardsLog.info('[MSDStudio] Channel resize end:', this._channelResizeState.channelId);
+            lcardsLog.debug('[MSDStudio] Channel resize end:', this._channelResizeState.channelId);
 
             // Clear channel resize state
             this._channelResizeState = {
@@ -2869,7 +2869,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const [mouseX, mouseY] = coords;
         const threshold = 30; // ViewBox units
 
-        lcardsLog.debug('[MSDStudio] Checking snap at:', mouseX, mouseY);
+        lcardsLog.trace('[MSDStudio] Checking snap at:', mouseX, mouseY);
 
         // Check controls first (9-point attachment)
         const overlays = this._workingConfig.msd?.overlays || [];
@@ -2899,7 +2899,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             for (const [side, [px, py]] of Object.entries(points)) {
                 const dist = Math.sqrt(Math.pow(mouseX - px, 2) + Math.pow(mouseY - py, 2));
                 if (dist < threshold) {
-                    lcardsLog.debug('[MSDStudio] Snap found on control:', control.id, 'side:', side, 'dist:', dist);
+                    lcardsLog.trace('[MSDStudio] Snap found on control:', control.id, 'side:', side, 'dist:', dist);
                     return { type: 'control', id: control.id, side: side === 'center' ? null : side };
                 }
             }
@@ -2992,7 +2992,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         document.addEventListener('mousemove', handleMouseMove);
         document.addEventListener('mouseup', handleMouseUp);
 
-        lcardsLog.debug('[MSDStudio] Line endpoint drag listeners added');
+        lcardsLog.trace('[MSDStudio] Line endpoint drag listeners added');
         this.requestUpdate();
     }
 
@@ -3022,7 +3022,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
         const target = this._getAttachmentTargetAt(currentPos);
         if (!target) {
-            lcardsLog.info('[MSDStudio] No valid target found - canceling drag');
+            lcardsLog.debug('[MSDStudio] No valid target found - canceling drag');
             // No valid target, cancel the drag (don't modify line config)
             return;
         }
@@ -3043,7 +3043,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 delete line.anchor_side;
             }
 
-            lcardsLog.info('[MSDStudio] Updated line start to:', target.id, 'side:', target.side);
+            lcardsLog.debug('[MSDStudio] Updated line start to:', target.id, 'side:', target.side);
         } else if (endpoint === 'end') {
             // Update attach_to
             if (typeof line.attach_to === 'string' || !line.attach_to) {
@@ -3064,7 +3064,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 delete line.attach_side;
             }
 
-            lcardsLog.info('[MSDStudio] Updated line end to:', target.id, 'side:', target.side);
+            lcardsLog.debug('[MSDStudio] Updated line end to:', target.id, 'side:', target.side);
         }
 
         // Force preview update to refresh routing paths
@@ -3223,7 +3223,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             coordY = Math.round(coordY / gridSpacing) * gridSpacing;
         }
 
-        lcardsLog.debug('[MSDStudio] Converted coordinates:', {
+        lcardsLog.trace('[MSDStudio] Converted coordinates:', {
             screen: { x, y },
             viewBox: { x: coordX, y: coordY },
             scale: { x: scaleX, y: scaleY },
@@ -3354,7 +3354,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             // First click: start drawing
             this._drawChannelState.startPoint = [coords.x, coords.y];
             this._drawChannelState.drawing = true;
-            lcardsLog.debug('[MSDStudio] Draw channel started at:', coords);
+            lcardsLog.trace('[MSDStudio] Draw channel started at:', coords);
         } else {
             // Second click: finish drawing
             const startX = this._drawChannelState.startPoint[0];
@@ -3368,7 +3368,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             const width = Math.abs(endX - startX);
             const height = Math.abs(endY - startY);
 
-            lcardsLog.debug('[MSDStudio] Draw channel finished:', { x, y, width, height });
+            lcardsLog.trace('[MSDStudio] Draw channel finished:', { x, y, width, height });
 
             // Reset draw state
             this._drawChannelState.startPoint = null;
@@ -4062,7 +4062,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
     _renderGridOverlay() {
         if (!this._showGrid) return '';
 
-        console.log('[MSDStudio] _renderGridOverlay called, _showGrid:', this._showGrid);
+        lcardsLog.trace('[MSDStudio] _renderGridOverlay called, _showGrid:', this._showGrid);
 
         // Get viewBox from config
         const viewBox = this._workingConfig.msd?.view_box;
@@ -4091,58 +4091,58 @@ export class LCARdSMSDStudioDialog extends LitElement {
         // Get SVG for coordinate conversion
         const livePreview = this.shadowRoot.querySelector('lcards-msd-live-preview');
         if (!livePreview) {
-            console.log('[MSDStudio] Could not find lcards-msd-live-preview');
+            lcardsLog.trace('[MSDStudio] Could not find lcards-msd-live-preview');
             return '';
         }
 
         const livePreviewShadow = livePreview.shadowRoot;
         if (!livePreviewShadow) {
-            console.log('[MSDStudio] Could not find livePreview.shadowRoot');
+            lcardsLog.trace('[MSDStudio] Could not find livePreview.shadowRoot');
             return '';
         }
 
         const cardContainer = livePreviewShadow.querySelector('.preview-card-container');
         if (!cardContainer) {
-            console.log('[MSDStudio] Could not find .preview-card-container');
+            lcardsLog.trace('[MSDStudio] Could not find .preview-card-container');
             return '';
         }
 
         const msdCard = cardContainer.querySelector('lcards-msd-card');
         if (!msdCard) {
-            console.log('[MSDStudio] Could not find lcards-msd-card');
+            lcardsLog.trace('[MSDStudio] Could not find lcards-msd-card');
             return '';
         }
 
         const shadowRoot = msdCard.shadowRoot || msdCard.renderRoot;
         if (!shadowRoot) {
-            console.log('[MSDStudio] Could not find msdCard.shadowRoot');
+            lcardsLog.trace('[MSDStudio] Could not find msdCard.shadowRoot');
             return '';
         }
 
         const svg = shadowRoot.querySelector('svg');
         if (!svg) {
-            console.log('[MSDStudio] Could not find svg');
+            lcardsLog.trace('[MSDStudio] Could not find svg');
             return '';
         }
 
-        console.log('[MSDStudio] Found SVG, calculating grid...');
-        console.log('[MSDStudio] Grid lines:', { verticalLines: verticalLines.length, horizontalLines: horizontalLines.length });
-        console.log('[MSDStudio] ViewBox:', { viewBoxX, viewBoxY, viewBoxWidth, viewBoxHeight });
+        lcardsLog.trace('[MSDStudio] Found SVG, calculating grid...');
+        lcardsLog.trace('[MSDStudio] Grid lines:', { verticalLines: verticalLines.length, horizontalLines: horizontalLines.length });
+        lcardsLog.trace('[MSDStudio] ViewBox:', { viewBoxX, viewBoxY, viewBoxWidth, viewBoxHeight });
 
         const rect = svg.getBoundingClientRect();
         const previewPanel = this.shadowRoot.querySelector('.preview-panel');
         if (!previewPanel) return '';
         const panelRect = previewPanel.getBoundingClientRect();
 
-        console.log('[MSDStudio] SVG Rect:', rect);
-        console.log('[MSDStudio] Panel rect:', panelRect);
+        lcardsLog.trace('[MSDStudio] SVG Rect:', rect);
+        lcardsLog.trace('[MSDStudio] Panel rect:', panelRect);
 
         // Calculate scale
         const scaleX = viewBoxWidth / rect.width;
         const scaleY = viewBoxHeight / rect.height;
         const scale = Math.max(scaleX, scaleY);
 
-        console.log('[MSDStudio] Scale:', { scaleX, scaleY, scale });
+        lcardsLog.trace('[MSDStudio] Scale:', { scaleX, scaleY, scale });
 
         const renderedWidth = viewBoxWidth / scale;
         const renderedHeight = viewBoxHeight / scale;
@@ -4153,7 +4153,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const panelWidth = panelRect.width;
         const panelHeight = panelRect.height;
 
-        console.log('[MSDStudio] Rendering grid with', verticalLines.length, 'vertical and', horizontalLines.length, 'horizontal lines');
+        lcardsLog.trace('[MSDStudio] Rendering grid with', verticalLines.length, 'vertical and', horizontalLines.length, 'horizontal lines');
 
         // Calculate base_svg boundary position
         const baseSvgLeft = (rect.left - panelRect.left) + offsetX;
@@ -4491,16 +4491,16 @@ export class LCARdSMSDStudioDialog extends LitElement {
     _renderRoutingPaths() {
         if (!this._showRoutingPaths) return '';
 
-        console.log('[MSDStudio] _renderRoutingPaths called, _showRoutingPaths:', this._showRoutingPaths);
+        lcardsLog.trace('[MSDStudio] _renderRoutingPaths called, _showRoutingPaths:', this._showRoutingPaths);
 
         const overlays = this._workingConfig.msd?.overlays || [];
         const lines = overlays.filter(o => o.type === 'line');
         if (lines.length === 0) {
-            console.log('[MSDStudio] No line overlays found');
+            lcardsLog.trace('[MSDStudio] No line overlays found');
             return '';
         }
 
-        console.log('[MSDStudio] Found', lines.length, 'line overlays');
+        lcardsLog.trace('[MSDStudio] Found', lines.length, 'line overlays');
 
         // Get all anchors (user + base_svg)
         const userAnchors = this._workingConfig.msd?.anchors || {};
@@ -4848,15 +4848,15 @@ export class LCARdSMSDStudioDialog extends LitElement {
     _renderChannelsOverlay() {
         if (!this._showRoutingChannels) return '';
 
-        console.log('[MSDStudio] _renderChannelsOverlay called, _showRoutingChannels:', this._showRoutingChannels);
+        lcardsLog.trace('[MSDStudio] _renderChannelsOverlay called, _showRoutingChannels:', this._showRoutingChannels);
 
         const channels = this._workingConfig.msd?.channels || {};
         if (Object.keys(channels).length === 0) {
-            console.log('[MSDStudio] No channels found');
+            lcardsLog.trace('[MSDStudio] No channels found');
             return '';
         }
 
-        console.log('[MSDStudio] Found', Object.keys(channels).length, 'channels');
+        lcardsLog.trace('[MSDStudio] Found', Object.keys(channels).length, 'channels');
 
         // Get SVG for coordinate conversion
         const livePreview = this.shadowRoot.querySelector('lcards-msd-live-preview');
@@ -5340,11 +5340,11 @@ export class LCARdSMSDStudioDialog extends LitElement {
         if (!this._connectLineState.source) {
             // First click - set source
             this._connectLineState = { ...this._connectLineState, source: connectionInfo };
-            lcardsLog.info('[MSDStudio] Connect line source set:', connectionInfo);
+            lcardsLog.debug('[MSDStudio] Connect line source set:', connectionInfo);
             this.requestUpdate();
         } else {
             // Second click - open line form with connection data
-            lcardsLog.info('[MSDStudio] Connect line target set:', connectionInfo);
+            lcardsLog.debug('[MSDStudio] Connect line target set:', connectionInfo);
             this._openLineFormWithConnection(this._connectLineState.source, connectionInfo);
             this._clearConnectLineState();
         }
@@ -6174,7 +6174,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const cardType = this._controlFormCard?.type || '';
         const lovelace = this._getLovelace();
 
-        lcardsLog.debug('[MSDStudio] Rendering Card tab with HA native components, cardType:', cardType, 'lovelace:', !!lovelace);
+        lcardsLog.trace('[MSDStudio] Rendering Card tab with HA native components, cardType:', cardType, 'lovelace:', !!lovelace);
 
         return html`
             <div style="display: flex; flex-direction: column; gap: 16px;">
@@ -6223,7 +6223,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                 .value=${this._controlFormCard}
                                 .disabled=${false}
                                 @value-changed=${(e) => {
-                                    lcardsLog.debug('[MSDStudio] Card config changed:', e.detail.value);
+                                    lcardsLog.trace('[MSDStudio] Card config changed:', e.detail.value);
                                     this._controlFormCard = e.detail.value || { type: cardType };
                                     this.requestUpdate();
                                 }}>
@@ -6246,7 +6246,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const lovelace = this._getLovelace();
         const cards = this._getAvailableCardTypes();
 
-        lcardsLog.debug('[MSDStudio] Rendering Tier 2 Card tab (dropdown mode), cardType:', cardType);
+        lcardsLog.trace('[MSDStudio] Rendering Tier 2 Card tab (dropdown mode), cardType:', cardType);
 
         return html`
             <div style="display: flex; flex-direction: column; gap: 16px;">
@@ -6353,7 +6353,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                     .value=${this._controlFormCard}
                                     .disabled=${false}
                                     @value-changed=${(e) => {
-                                        lcardsLog.debug('[MSDStudio] Card config changed:', e.detail.value);
+                                        lcardsLog.trace('[MSDStudio] Card config changed:', e.detail.value);
                                         this._controlFormCard = e.detail.value || { type: cardType };
                                         this.requestUpdate();
                                     }}>
@@ -6468,7 +6468,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
     async _createPreviewCardInTab(containerId, cardConfig) {
         const container = this.shadowRoot?.getElementById(containerId);
         if (!container) {
-            lcardsLog.debug('[MSDStudio] Preview container not found:', containerId);
+            lcardsLog.trace('[MSDStudio] Preview container not found:', containerId);
             return;
         }
 
@@ -6479,14 +6479,14 @@ export class LCARdSMSDStudioDialog extends LitElement {
             const cardType = cardConfig.type;
             const normalizedType = this._normalizeCardType(cardType);
 
-            lcardsLog.debug('[MSDStudio] Creating preview card in tab:', { cardType, normalizedType });
+            lcardsLog.trace('[MSDStudio] Creating preview card in tab:', { cardType, normalizedType });
 
             let cardElement = null;
 
             // Try to create the card element
             if (customElements.get(normalizedType)) {
                 cardElement = document.createElement(normalizedType);
-                lcardsLog.debug('[MSDStudio] Preview card created via createElement:', normalizedType);
+                lcardsLog.trace('[MSDStudio] Preview card created via createElement:', normalizedType);
             } else {
                 // Card might not be registered yet
                 container.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--secondary-text-color);">Loading card...</div>';
@@ -6513,7 +6513,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             // Set card configuration
             if (typeof cardElement.setConfig === 'function') {
                 cardElement.setConfig(cardConfig);
-                lcardsLog.debug('[MSDStudio] Preview card config set successfully');
+                lcardsLog.trace('[MSDStudio] Preview card config set successfully');
             } else {
                 lcardsLog.warn('[MSDStudio] Preview card has no setConfig method:', normalizedType);
                 container.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--warning-color);">Card does not support configuration</div>';
@@ -6527,7 +6527,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             // Mount the card
             container.innerHTML = '';
             container.appendChild(cardElement);
-            lcardsLog.debug('[MSDStudio] Preview card mounted successfully in tab');
+            lcardsLog.trace('[MSDStudio] Preview card mounted successfully in tab');
 
         } catch (error) {
             lcardsLog.error('[MSDStudio] Failed to create preview card in tab:', error);
@@ -6592,7 +6592,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _renderCardPickerLegacy() {
-        lcardsLog.debug('[MSDStudio] Rendering legacy card picker grid');
+        lcardsLog.trace('[MSDStudio] Rendering legacy card picker grid');
 
         const cards = this._getAvailableCardTypes();
 
@@ -6914,7 +6914,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     async _forceLoadViaGridCard() {
-        lcardsLog.info('[MSDStudio] Strategy 2: Force-load via grid-card editor...');
+        lcardsLog.debug('[MSDStudio] Strategy 2: Force-load via grid-card editor...');
 
         try {
             // Check if already loaded
@@ -6989,7 +6989,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             const editorNow = customElements.get('hui-card-element-editor');
 
             if (pickerNow && editorNow) {
-                lcardsLog.info('[MSDStudio] ✅ Successfully force-loaded HA components');
+                lcardsLog.debug('[MSDStudio] ✅ Successfully force-loaded HA components');
                 return true;
             } else {
                 lcardsLog.warn('[MSDStudio] Force-load partially succeeded:', {
@@ -8433,10 +8433,10 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const existingIndex = this._workingConfig.msd.overlays.findIndex(o => o.id === this._lineFormData.id);
         if (existingIndex >= 0) {
             this._workingConfig.msd.overlays[existingIndex] = lineOverlay;
-            lcardsLog.info('[MSDStudio] Updated line:', this._lineFormData.id);
+            lcardsLog.debug('[MSDStudio] Updated line:', this._lineFormData.id);
         } else {
             this._workingConfig.msd.overlays.push(lineOverlay);
-            lcardsLog.info('[MSDStudio] Added line:', this._lineFormData.id);
+            lcardsLog.debug('[MSDStudio] Added line:', this._lineFormData.id);
         }
 
         this._closeLineForm();
@@ -8481,7 +8481,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const index = overlays.findIndex(o => o.id === line.id);
         if (index >= 0) {
             overlays.splice(index, 1);
-            lcardsLog.info('[MSDStudio] Deleted line:', line.id);
+            lcardsLog.debug('[MSDStudio] Deleted line:', line.id);
             this.requestUpdate();
             this._schedulePreviewUpdate();
         }
@@ -8493,7 +8493,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _highlightLineInPreview(line) {
-        lcardsLog.info('[MSDStudio] Highlight line:', line.id);
+        lcardsLog.debug('[MSDStudio] Highlight line:', line.id);
 
         // Set highlighted line for overlay rendering
         this._highlightedLine = line.id;
@@ -8599,12 +8599,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
         if (!this._connectLineState.source) {
             // First click - set source
             this._connectLineState.source = connectionInfo;
-            lcardsLog.info('[MSDStudio] Connect line source set:', connectionInfo);
+            lcardsLog.debug('[MSDStudio] Connect line source set:', connectionInfo);
             // TODO: Create temp line that follows cursor
             this.requestUpdate();
         } else {
             // Second click - set target and open form
-            lcardsLog.info('[MSDStudio] Connect line target set:', connectionInfo);
+            lcardsLog.debug('[MSDStudio] Connect line target set:', connectionInfo);
             this._openLineFormWithConnection(this._connectLineState.source, connectionInfo);
             this._clearConnectLineState();
         }
@@ -9797,7 +9797,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         if (e.key === 'Delete') {
             e.preventDefault();
             // Could implement: delete currently selected anchor/control/line
-            lcardsLog.info('[MSDStudio] Delete key pressed - no item selected');
+            lcardsLog.debug('[MSDStudio] Delete key pressed - no item selected');
             return;
         }
 

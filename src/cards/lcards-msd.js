@@ -545,13 +545,13 @@ export class LCARdSMSDCard extends LCARdSCard {
 
         // Tier 3: Card picker placeholder (stub config or picker context)
         if (this._isPreviewMode === 'picker' || isStubConfig) {
-            lcardsLog.info('[LCARdSMSDCard] ✅ Rendering TIER 3: Card picker placeholder');
+            lcardsLog.debug('[LCARdSMSDCard] ✅ Rendering TIER 3: Card picker placeholder');
             return this._renderCardPickerPlaceholder();
         }
 
         // Tier 2: Editor stats display (editor dialog context)
         if (this._isPreviewMode === 'editor') {
-            lcardsLog.info('[LCARdSMSDCard] ✅ Rendering TIER 2: Editor stats display');
+            lcardsLog.debug('[LCARdSMSDCard] ✅ Rendering TIER 2: Editor stats display');
             return this._renderEditorStats();
         }
 
@@ -702,7 +702,7 @@ export class LCARdSMSDCard extends LCARdSCard {
         }
 
         try {
-            lcardsLog.info('[LCARdSMSDCard] 🚀 Initializing MSD pipeline');
+            lcardsLog.debug('[LCARdSMSDCard] 🚀 Initializing MSD pipeline');
 
             // ✅ CRITICAL FIX: Mark as initialized BEFORE pipeline init
             // This allows _renderCard() to render the SVG container
@@ -776,7 +776,7 @@ export class LCARdSMSDCard extends LCARdSCard {
             // Register overlays with core rulesManager NOW that config is fully processed
             this._registerOverlaysWithRulesEngine();
 
-            lcardsLog.info('[LCARdSMSDCard] ✅ MSD pipeline initialized successfully with SVG container mounted');
+            lcardsLog.debug('[LCARdSMSDCard] ✅ MSD pipeline initialized successfully with SVG container mounted');
 
         } catch (error) {
             lcardsLog.error('[LCARdSMSDCard] Pipeline initialization error:', error);
@@ -1495,7 +1495,7 @@ export class LCARdSMSDCard extends LCARdSCard {
             patchCount++;
         }
 
-        lcardsLog.info(`[LCARdSMSDCard] ✅ Applied ${patchCount} style patches directly to DOM (animations preserved)`);    }
+        lcardsLog.debug(`[LCARdSMSDCard] ✅ Applied ${patchCount} style patches directly to DOM (animations preserved)`);    }
 
     /**
      * Apply line style patch to SVG path element
