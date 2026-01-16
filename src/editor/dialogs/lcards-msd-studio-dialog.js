@@ -3092,7 +3092,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         }
 
         // Open control form in edit mode
-        this._openControlForm(control);
+        this._editControl(control);
     }
 
     /**
@@ -6108,7 +6108,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
                 <lcards-form-section
                     header="Attachment Point"
-                    description="How control aligns to position"
+                    description="Which point of the control snaps to the specified coordinates (e.g., 'center' means coordinates specify the control's center point)"
                     ?expanded=${false}>
                     <ha-selector
                         .hass=${this.hass}
