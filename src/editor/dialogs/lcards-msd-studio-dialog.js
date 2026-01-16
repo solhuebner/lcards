@@ -293,6 +293,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
         // HA Components Availability
         this._haComponentsAvailable = false;
 
+        // Card Config Editor Mode
+        this._cardConfigMode = 'graphical';
+
         lcardsLog.debug('[MSDStudio] Initialized');
     }
 
@@ -341,32 +344,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
         // Detect SVG source mode from config
         this._detectSvgSourceMode();
 
-        // Attempt to load HA components (with force-loading)
-        this._ensureHAComponentsLoaded().then(available => {
-            this._haComponentsAvailable = available;
-            
-            lcardsLog.info('[MSDStudio] Component availability:', {
-                available,
-                picker: !!customElements.get('hui-card-picker'),
-                editor: !!customElements.get('hui-card-element-editor')
-            });
-            
-            if (!available) {
-                const hasEditor = !!customElements.get('hui-card-element-editor');
-                if (hasEditor) {
-                    lcardsLog.info('[MSDStudio] ⚠️ Tier 2: Hybrid mode (dropdown + native editor)');
-                } else {
-                    lcardsLog.warn('[MSDStudio] ⚠️ Tier 3: Full fallback (legacy picker)');
-                }
-            } else {
-                lcardsLog.info('[MSDStudio] ✅ Tier 1: Full native (picker + editor)');
-            }
-            
-            this.requestUpdate();
-        }).catch(error => {
-            lcardsLog.error('[MSDStudio] Error loading HA components:', error);
-            this._haComponentsAvailable = false;
-            this.requestUpdate();
+        // Check HA component availability
+        this._haComponentsAvailable = !!customElements.get('hui-card-element-editor');
+
+        lcardsLog.info('[MSDStudio] Component availability:', {
+            editor: !!customElements.get('hui-card-element-editor'),
+            picker: !!customElements.get('hui-card-picker')
         });
 
         lcardsLog.debug('[MSDStudio] Opened with config:', this._workingConfig);
@@ -5968,10 +5951,10 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 open
                 @closed=${this._closeControlForm}
                 .heading=${title}
-                style="--mdc-dialog-min-width: 1100px; --mdc-dialog-max-width: 1400px;">
+                style="--mdc-dialog-min-width: 80vw; --mdc-dialog-max-width: 90vw;">
 
                 <!-- Two-Column Layout: Config (Left) + Preview (Right) -->
-                <div style="display: grid; grid-template-columns: 1fr 420px; gap: 24px; padding: 16px;">
+                <div style="display: grid; grid-template-columns: 1fr 35vw; gap: 24px; padding: 16px;">
 
                     <!-- LEFT COLUMN: Configuration Panel -->
                     <div class="config-panel">
@@ -5979,16 +5962,13 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         <ha-tab-group @wa-tab-show=${this._handleControlFormTabChange} style="margin-bottom: 16px;">
                             <ha-tab-group-tab value="placement" ?active=${this._controlFormActiveSubtab === 'placement'}>Placement</ha-tab-group-tab>
                             <ha-tab-group-tab value="card" ?active=${this._controlFormActiveSubtab === 'card'}>Card</ha-tab-group-tab>
-                            <ha-tab-group-tab value="preview" ?active=${this._controlFormActiveSubtab === 'preview'}>Preview</ha-tab-group-tab>
                         </ha-tab-group>
 
                         <!-- Subtab Content -->
-                        <div style="max-height: 60vh; overflow-y: auto;">
+                        <div style="max-height: 70vh; overflow-y: auto;">
                             ${this._controlFormActiveSubtab === 'placement'
                                 ? this._renderControlFormPlacement()
-                                : this._controlFormActiveSubtab === 'card'
-                                ? this._renderControlFormCard()
-                                : this._renderControlFormPreview()
+                                : this._renderControlFormCard()
                             }
                         </div>
                     </div>
@@ -6062,7 +6042,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 <ha-textfield
                     label="Control ID"
                     .value=${this._controlFormId}
-                    ?disabled=${!!this._editingControlId}
                     @input=${(e) => this._controlFormId = e.target.value}
                     required
                     helper-text="Unique identifier for this control">
@@ -6181,14 +6160,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
         // Debug HA components state when rendering card form
         this._debugHAComponents();
 
-        // Check HA component availability using stored state
-        if (!this._haComponentsAvailable) {
-            lcardsLog.warn('[MSDStudio] HA components unavailable, using legacy picker');
-            return this._renderControlFormCardLegacy();
-        }
-
-        // Use HA native components
-        return this._renderControlFormCardNative();
+        // Always use the dropdown + editor approach
+        // The _haComponentsAvailable check was causing the dropdown to not appear
+        return this._renderControlFormCardLegacy();
     }
 
     /**
@@ -6262,37 +6236,58 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
-     * Render Card subtab using legacy implementation (fallback)
+     * Render Card subtab using Tier 2 implementation (dropdown + HA editor)
+     * This is the reliable fallback when hui-card-picker is unavailable
      * @returns {TemplateResult}
      * @private
      */
     _renderControlFormCardLegacy() {
         const cardType = this._controlFormCard?.type || '';
+        const lovelace = this._getLovelace();
+        const cards = this._getAvailableCardTypes();
 
-        lcardsLog.debug('[MSDStudio] Rendering Card tab with legacy picker, cardType:', cardType);
+        lcardsLog.debug('[MSDStudio] Rendering Tier 2 Card tab (dropdown mode), cardType:', cardType);
 
         return html`
-            <lcards-message type="warning" style="margin-bottom: 16px;">
-                Using legacy card picker (HA components unavailable)
-            </lcards-message>
             <div style="display: flex; flex-direction: column; gap: 16px;">
                 ${!cardType ? html`
-                    <!-- Legacy Card Picker (Visual Grid) -->
+                    <!-- Enhanced Dropdown Card Selector -->
                     <lcards-form-section
                         header="Select Card Type"
                         description="Choose a card to display in this control overlay"
                         ?expanded=${true}>
                         <div style="padding: 16px;">
-                            ${this._renderCardPickerLegacy()}
+                            <ha-selector
+                                .hass=${this.hass}
+                                .selector=${{ select: { options: cards.map(card => ({ value: card.type, label: card.name, icon: card.icon })) }}}
+                                .value=${cardType}
+                                .label=${"Card Type"}
+                                @value-changed=${(e) => {
+                                    const selectedType = e.detail.value;
+                                    if (selectedType) {
+                                        this._selectCardType(selectedType);
+                                    }
+                                }}>
+                            </ha-selector>
+
+                            <!-- Visual Grid Alternative (collapsed by default) -->
+                            <details style="margin-top: 16px;">
+                                <summary style="cursor: pointer; font-size: 13px; color: var(--primary-color); padding: 8px 0;">
+                                    Or browse cards visually ▼
+                                </summary>
+                                <div style="margin-top: 8px;">
+                                    ${this._renderCardPickerLegacy()}
+                                </div>
+                            </details>
                         </div>
                     </lcards-form-section>
                 ` : html`
                     <!-- Selected Card Info + Change Button -->
                     <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 8px;">
                         <div style="display: flex; align-items: center; gap: 12px;">
-                            <ha-icon icon="mdi:card-outline" style="--mdc-icon-size: 24px; color: var(--primary-color);"></ha-icon>
+                            <ha-icon icon="${this._getCardIcon(cardType)}" style="--mdc-icon-size: 24px; color: var(--primary-color);"></ha-icon>
                             <div>
-                                <div style="font-weight: 600; font-size: 14px;">${cardType}</div>
+                                <div style="font-weight: 600; font-size: 14px;">${this._getCardTypeName(cardType)}</div>
                                 <div style="font-size: 12px; color: var(--secondary-text-color);">Selected card type</div>
                             </div>
                         </div>
@@ -6303,25 +6298,82 @@ export class LCARdSMSDStudioDialog extends LitElement {
                             }}
                             appearance="plain">
                             <ha-icon icon="mdi:swap-horizontal" slot="icon"></ha-icon>
-                            Change Card
+                            Change Card Type
                         </ha-button>
                     </div>
 
-                    <!-- Full Card Configuration Editor -->
+                    <!-- HA Native Card Configuration Editor (same as Tier 1) -->
                     <lcards-form-section
                         header="Card Configuration"
-                        description="Configure the card properties using generic editor"
+                        description="Configure the card using graphical editor or YAML"
                         ?expanded=${true}>
-                        <div style="padding: 16px;">
-                            <ha-selector
-                                .selector=${{ ui: {} }}
-                                .value=${this._controlFormCard}
-                                @value-changed=${(e) => {
-                                    lcardsLog.debug('[MSDStudio] Card config changed:', e.detail.value);
-                                    this._controlFormCard = e.detail.value || { type: cardType };
+
+                        <!-- Editor Mode Tabs -->
+                        <div style="padding: 0 16px 8px; display: flex; gap: 8px; border-bottom: 1px solid var(--divider-color); padding-bottom: 8px;">
+                            <ha-button
+                                @click=${() => {
+                                    this._cardConfigMode = 'graphical';
                                     this.requestUpdate();
-                                }}>
-                            </ha-selector>
+                                }}
+                                ?disabled=${this._cardConfigMode === 'graphical'}
+                                style="flex: 1;">
+                                <ha-icon icon="mdi:form-select" slot="icon"></ha-icon>
+                                Graphical
+                            </ha-button>
+                            <ha-button
+                                @click=${() => {
+                                    this._cardConfigMode = 'yaml';
+                                    this.requestUpdate();
+                                }}
+                                ?disabled=${this._cardConfigMode === 'yaml'}
+                                style="flex: 1;">
+                                <ha-icon icon="mdi:code-braces" slot="icon"></ha-icon>
+                                YAML
+                            </ha-button>
+                        </div>
+
+                        <div class="card-editor-container" style="padding: 16px;">
+                            ${this._cardConfigMode === 'yaml' ? html`
+                                <!-- YAML Editor -->
+                                <ha-yaml-editor
+                                    .hass=${this.hass}
+                                    .defaultValue=${this._controlFormCard}
+                                    @value-changed=${(e) => {
+                                        if (e.detail.isValid) {
+                                            this._controlFormCard = e.detail.value;
+                                            this.requestUpdate();
+                                        }
+                                    }}>
+                                </ha-yaml-editor>
+                            ` : lovelace && customElements.get('hui-card-element-editor') ? html`
+                                <!-- Graphical Editor (HA Native) -->
+                                <hui-card-element-editor
+                                    .hass=${this.hass}
+                                    .lovelace=${lovelace}
+                                    .value=${this._controlFormCard}
+                                    .disabled=${false}
+                                    @value-changed=${(e) => {
+                                        lcardsLog.debug('[MSDStudio] Card config changed:', e.detail.value);
+                                        this._controlFormCard = e.detail.value || { type: cardType };
+                                        this.requestUpdate();
+                                    }}>
+                                </hui-card-element-editor>
+                            ` : html`
+                                <!-- Fallback: Basic UI Editor -->
+                                <lcards-message type="warning">
+                                    Graphical editor unavailable. Using YAML mode.
+                                </lcards-message>
+                                <ha-yaml-editor
+                                    .hass=${this.hass}
+                                    .defaultValue=${this._controlFormCard}
+                                    @value-changed=${(e) => {
+                                        if (e.detail.isValid) {
+                                            this._controlFormCard = e.detail.value;
+                                            this.requestUpdate();
+                                        }
+                                    }}>
+                                </ha-yaml-editor>
+                            `}
                         </div>
                     </lcards-form-section>
                 `}
@@ -6336,7 +6388,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
      */
     _renderControlFormPreview() {
         const card = this._controlFormCard || {};
-        
+
         if (!card.type) {
             return html`
                 <div class="control-preview-panel" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center;">
@@ -6354,7 +6406,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         try {
             // Create preview container
             const previewId = `card-preview-${Date.now()}`;
-            
+
             // Defer card creation until after render
             setTimeout(() => this._createPreviewCardInTab(previewId, card), 0);
 
@@ -6438,10 +6490,10 @@ export class LCARdSMSDStudioDialog extends LitElement {
             } else {
                 // Card might not be registered yet
                 container.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--secondary-text-color);">Loading card...</div>';
-                
+
                 // Wait for registration
                 await new Promise(resolve => setTimeout(resolve, 500));
-                
+
                 if (customElements.get(normalizedType)) {
                     cardElement = document.createElement(normalizedType);
                 } else {
@@ -6628,15 +6680,13 @@ export class LCARdSMSDStudioDialog extends LitElement {
             const CardClass = window.customElements?.get(elementName);
 
             if (CardClass && typeof CardClass.getStubConfig === 'function') {
-                lcardsLog.debug('[MSDStudio] Using card stub config from:', elementName);
                 return CardClass.getStubConfig();
             }
         } catch (error) {
-            lcardsLog.warn('[MSDStudio] Failed to get stub config for:', cardType, error);
+            // Suppress - many cards don't have stub configs
         }
 
         // Fallback: just return type
-        lcardsLog.debug('[MSDStudio] No stub config available, using type only:', cardType);
         return { type: cardType };
     }
 
@@ -6661,7 +6711,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
     _handleCardPicked(e) {
         lcardsLog.debug('[MSDStudio] Card picked:', e.detail);
         const pickedCard = e.detail.config;
-        
+
         if (!pickedCard || !pickedCard.type) {
             lcardsLog.warn('[MSDStudio] Invalid card picked:', pickedCard);
             return;
@@ -6670,7 +6720,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         // Try to get enhanced stub config from the card class
         const stubConfig = this._getEnhancedStubConfig(pickedCard);
         this._controlFormCard = stubConfig;
-        
+
         lcardsLog.debug('[MSDStudio] Card set to:', this._controlFormCard);
         this.requestUpdate();
     }
@@ -6684,7 +6734,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
     _getEnhancedStubConfig(pickedCard) {
         try {
             const cardType = pickedCard.type;
-            
+
             // Get element name
             const elementName = cardType.startsWith('custom:')
                 ? cardType.substring(7)
@@ -6692,7 +6742,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
             // Try to get the card class and its stub config
             const CardClass = customElements.get(elementName);
-            
+
             if (CardClass && typeof CardClass.getStubConfig === 'function') {
                 const stub = CardClass.getStubConfig();
                 lcardsLog.debug('[MSDStudio] Using card stub config from:', elementName, stub);
@@ -6724,10 +6774,10 @@ export class LCARdSMSDStudioDialog extends LitElement {
      */
     _getCardTypeName(type) {
         if (!type) return 'Unknown';
-        
+
         // Remove custom: prefix for display
         const cleanType = type.replace(/^custom:/, '');
-        
+
         // Convert kebab-case to Title Case
         return cleanType
             .split('-')
@@ -6743,7 +6793,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
      */
     _getCardIcon(type) {
         if (!type) return 'mdi:card-outline';
-        
+
         // Icon mapping for common card types
         const iconMap = {
             'button': 'mdi:gesture-tap-button',
@@ -6769,7 +6819,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             'custom:lcards-label': 'mdi:label',
             'custom:lcards-chart': 'mdi:chart-line'
         };
-        
+
         const cleanType = type.replace(/^custom:/, '');
         return iconMap[type] || iconMap[cleanType] || 'mdi:puzzle';
     }
@@ -6837,14 +6887,34 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
-     * Force-load HA card picker components by creating temporary editor
-     * HA lazy-loads hui-card-picker only when opening edit dialogs
-     * We create a hidden dialog briefly to trigger component registration
-     * @returns {Promise<boolean>} True if components loaded successfully
+     * DEPRECATED: Force-loading attempts
+     *
+     * This method attempted multiple strategies to force-load hui-card-picker:
+     * 1. horizontal-stack.getConfigElement() - didn't trigger picker load
+     * 2. Direct import from hardcoded paths - paths don't exist in HA's webpack build
+     * 3. show-dialog event with hui-dialog-edit-card - wrong dialog type
+     * 4. show-dialog event with hui-dialog-create-card - dialogImport contract unclear
+     * 5. Direct createElement('hui-dialog-create-card') - element not pre-registered
+     *
+     * CONCLUSION: hui-card-picker is ONLY loaded when user clicks "Add Card" in HA's UI.
+     * We cannot programmatically trigger HA's lazy-load without the actual webpack chunk path.
+     *
+     * The Tier 2 experience (dropdown + graphical editor) is the reliable fallback.
+     * @returns {Promise<boolean>} Always returns false
      * @private
      */
     async _forceLoadHAComponents() {
-        lcardsLog.info('[MSDStudio] Attempting to force-load HA components...');
+        lcardsLog.debug('[MSDStudio] Force-loading disabled - using Tier 2 mode');
+        return false;
+    }
+
+    /**
+     * Alternative: Force-load by creating temporary grid card editor
+     * @returns {Promise<boolean>}
+     * @private
+     */
+    async _forceLoadViaGridCard() {
+        lcardsLog.info('[MSDStudio] Strategy 2: Force-load via grid-card editor...');
 
         try {
             // Check if already loaded
@@ -6867,17 +6937,17 @@ export class LCARdSMSDStudioDialog extends LitElement {
             tempDialog.style.visibility = 'hidden';
             tempDialog.style.position = 'fixed';
             tempDialog.style.top = '-9999px';
-            
+
             // Append to body (required for HA to initialize it)
             document.body.appendChild(tempDialog);
 
             // Set minimal config to trigger internal component loading
             tempDialog.hass = this.hass;
             tempDialog.lovelaceConfig = this._getLovelace()?.config || {};
-            
+
             // Create stub card config to pass to dialog
             const stubCardConfig = { type: 'button' };
-            
+
             // Call dialog's internal methods to trigger component loading
             // Note: This may trigger errors in console, but that's OK - we just need registration
             try {
@@ -6936,127 +7006,13 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
-     * Alternative force-load by creating temporary grid card in edit mode
+     * Alternative: Force-load by creating temporary grid card editor
      * @returns {Promise<boolean>}
      * @private
      */
     async _forceLoadViaGridCard() {
-        lcardsLog.info('[MSDStudio] Attempting force-load via temporary grid card...');
-
-        try {
-            // Check if grid card exists
-            const HuiGridCard = customElements.get('hui-grid-card');
-            if (!HuiGridCard) {
-                lcardsLog.warn('[MSDStudio] hui-grid-card not available');
-                return false;
-            }
-
-            // Create temporary hidden container
-            const tempContainer = document.createElement('div');
-            tempContainer.style.cssText = 'position: fixed; top: -9999px; visibility: hidden;';
-            document.body.appendChild(tempContainer);
-
-            // Create grid card
-            const gridCard = document.createElement('hui-grid-card');
-            gridCard.hass = this.hass;
-            gridCard.setConfig({
-                type: 'grid',
-                cards: []
-            });
-            tempContainer.appendChild(gridCard);
-
-            // Try to trigger edit mode (which loads hui-card-picker)
-            // Grid cards have an internal _setEditMode method
-            if (gridCard._setEditMode) {
-                try {
-                    gridCard._setEditMode(true);
-                } catch (e) {
-                    lcardsLog.debug('[MSDStudio] Edit mode trigger failed (expected):', e.message);
-                }
-            }
-
-            // Wait for registration
-            await new Promise(resolve => setTimeout(resolve, 200));
-
-            // Clean up
-            document.body.removeChild(tempContainer);
-
-            // Check if successful
-            const picker = customElements.get('hui-card-picker');
-            if (picker) {
-                lcardsLog.info('[MSDStudio] ✅ Force-loaded via grid card');
-                return true;
-            }
-
-            return false;
-
-        } catch (error) {
-            lcardsLog.error('[MSDStudio] Force-load via grid card failed:', error);
-            return false;
-        }
-    }
-
-    /**
-     * Ensure HA card picker components are loaded
-     * Tries multiple strategies to force component registration
-     * @returns {Promise<Object>} { picker: boolean, editor: boolean }
-     * @private
-     */
-    async _ensureHAComponentsLoaded() {
-        lcardsLog.info('[MSDStudio] Checking HA component availability...');
-
-        // Check current state
-        const initialState = {
-            picker: !!customElements.get('hui-card-picker'),
-            editor: !!customElements.get('hui-card-element-editor')
-        };
-
-        lcardsLog.debug('[MSDStudio] Initial state:', initialState);
-
-        // If both available, we're done
-        if (initialState.picker && initialState.editor) {
-            lcardsLog.info('[MSDStudio] ✅ All components already available');
-            return true;
-        }
-
-        // Strategy 1: Try force-loading with temporary editor dialog
-        if (!initialState.picker) {
-            lcardsLog.info('[MSDStudio] Strategy 1: Trying hui-dialog-edit-card...');
-            const success = await this._forceLoadHAComponents();
-            if (success) {
-                return true;
-            }
-        }
-
-        // Strategy 2: Try force-loading via temporary grid card
-        if (!initialState.picker) {
-            lcardsLog.info('[MSDStudio] Strategy 2: Trying temporary grid card...');
-            const success = await this._forceLoadViaGridCard();
-            if (success) {
-                return true;
-            }
-        }
-
-        // Strategy 3: Passive wait - check if editor component is available for hybrid mode
-        lcardsLog.info('[MSDStudio] Strategy 3: Passive mode (editor-only available)');
-        
-        // If we have the editor component, we can use hybrid mode (Tier 2)
-        if (initialState.editor) {
-            lcardsLog.info('[MSDStudio] ⚠️ Tier 2: Hybrid mode (dropdown + native editor)');
-            // Return false to indicate full native mode not available, but hybrid mode works
-            return false;
-        }
-
-        // Return final state
-        const finalState = {
-            picker: !!customElements.get('hui-card-picker'),
-            editor: !!customElements.get('hui-card-element-editor')
-        };
-
-        lcardsLog.info('[MSDStudio] Final component state:', finalState);
-        
-        // Return true only if both components are available (Tier 1)
-        return finalState.picker && finalState.editor;
+        // Deprecated - direct import strategy in _ensureHAComponentsLoaded handles this now
+        return false;
     }
 
     /**
@@ -7079,7 +7035,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             const panel = homeAssistant.shadowRoot
                 ?.querySelector('home-assistant-main')
                 ?.shadowRoot?.querySelector('ha-panel-lovelace');
-            
+
             if (panel?.lovelace) {
                 lcardsLog.debug('[MSDStudio] Got Lovelace from ha-panel-lovelace');
                 return panel.lovelace;
@@ -7212,11 +7168,18 @@ export class LCARdSMSDStudioDialog extends LitElement {
             return html`<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--secondary-text-color); font-size: 12px;">No card type selected</div>`;
         }
 
-        // Create a unique ID for this preview instance
-        const previewId = `control-card-preview-${Date.now()}`;
+        // Use a stable ID
+        const previewId = 'control-card-preview-container';
 
-        // Use afterNextRender to create the card element after the container is mounted
-        setTimeout(() => this._createPreviewCard(previewId, cardConfig), 0);
+        // Schedule card creation/update after render
+        // Use a unique key based on config to force recreation when config changes
+        const configKey = JSON.stringify(cardConfig);
+        if (this._lastPreviewConfigKey !== configKey) {
+            this._lastPreviewConfigKey = configKey;
+            requestAnimationFrame(() => {
+                this._createPreviewCard(previewId, cardConfig);
+            });
+        }
 
         return html`
             <div id="${previewId}" style="width: 100%; height: 100%;"></div>
