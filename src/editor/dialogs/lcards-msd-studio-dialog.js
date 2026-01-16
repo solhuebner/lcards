@@ -341,12 +341,27 @@ export class LCARdSMSDStudioDialog extends LitElement {
         // Detect SVG source mode from config
         this._detectSvgSourceMode();
 
-        // Attempt to load HA components (async, don't block initialization)
+        // Attempt to load HA components (with force-loading)
         this._ensureHAComponentsLoaded().then(available => {
             this._haComponentsAvailable = available;
+            
+            lcardsLog.info('[MSDStudio] Component availability:', {
+                available,
+                picker: !!customElements.get('hui-card-picker'),
+                editor: !!customElements.get('hui-card-element-editor')
+            });
+            
             if (!available) {
-                lcardsLog.warn('[MSDStudio] HA components unavailable, will use legacy card picker');
+                const hasEditor = !!customElements.get('hui-card-element-editor');
+                if (hasEditor) {
+                    lcardsLog.info('[MSDStudio] ⚠️ Tier 2: Hybrid mode (dropdown + native editor)');
+                } else {
+                    lcardsLog.warn('[MSDStudio] ⚠️ Tier 3: Full fallback (legacy picker)');
+                }
+            } else {
+                lcardsLog.info('[MSDStudio] ✅ Tier 1: Full native (picker + editor)');
             }
+            
             this.requestUpdate();
         }).catch(error => {
             lcardsLog.error('[MSDStudio] Error loading HA components:', error);
@@ -6822,74 +6837,226 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
-     * Ensure HA card picker components are loaded
-     * HA lazy-loads these components - we need to trigger loading
+     * Force-load HA card picker components by creating temporary editor
+     * HA lazy-loads hui-card-picker only when opening edit dialogs
+     * We create a hidden dialog briefly to trigger component registration
      * @returns {Promise<boolean>} True if components loaded successfully
      * @private
      */
-    async _ensureHAComponentsLoaded() {
-        // Check if already loaded
-        const HuiCardPicker = customElements.get('hui-card-picker');
-        const HuiCardElementEditor = customElements.get('hui-card-element-editor');
-        
-        if (HuiCardPicker && HuiCardElementEditor) {
-            lcardsLog.debug('[MSDStudio] HA components already loaded');
-            return true;
-        }
-
-        lcardsLog.info('[MSDStudio] HA components not loaded, triggering load...');
+    async _forceLoadHAComponents() {
+        lcardsLog.info('[MSDStudio] Attempting to force-load HA components...');
 
         try {
-            // Try to trigger component loading by accessing HA's card editor infrastructure
-            // Method 1: Try to get the card helper which may load components
-            const homeAssistant = document.querySelector('home-assistant');
-            if (homeAssistant?.hass) {
-                // Try to access card helper from hass
-                const cardHelper = homeAssistant.hass.connection?.subscribeMessage;
-                if (cardHelper) {
-                    lcardsLog.debug('[MSDStudio] Found card helper infrastructure');
+            // Check if already loaded
+            const HuiCardPicker = customElements.get('hui-card-picker');
+            if (HuiCardPicker) {
+                lcardsLog.debug('[MSDStudio] hui-card-picker already available');
+                return true;
+            }
+
+            // Check if hui-dialog-edit-card is available
+            const HuiDialogEditCard = customElements.get('hui-dialog-edit-card');
+            if (!HuiDialogEditCard) {
+                lcardsLog.warn('[MSDStudio] hui-dialog-edit-card not available, cannot force-load');
+                return false;
+            }
+
+            // Create temporary hidden dialog
+            const tempDialog = document.createElement('hui-dialog-edit-card');
+            tempDialog.style.display = 'none';
+            tempDialog.style.visibility = 'hidden';
+            tempDialog.style.position = 'fixed';
+            tempDialog.style.top = '-9999px';
+            
+            // Append to body (required for HA to initialize it)
+            document.body.appendChild(tempDialog);
+
+            // Set minimal config to trigger internal component loading
+            tempDialog.hass = this.hass;
+            tempDialog.lovelaceConfig = this._getLovelace()?.config || {};
+            
+            // Create stub card config to pass to dialog
+            const stubCardConfig = { type: 'button' };
+            
+            // Call dialog's internal methods to trigger component loading
+            // Note: This may trigger errors in console, but that's OK - we just need registration
+            try {
+                if (tempDialog.showDialog) {
+                    tempDialog.showDialog({ cardConfig: stubCardConfig });
+                }
+            } catch (e) {
+                // Expected to fail - we don't have proper params
+                // But it should have triggered component loading
+                lcardsLog.debug('[MSDStudio] Dialog open failed (expected):', e.message);
+            }
+
+            // Wait a tick for component registration to complete
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            // Clean up - remove dialog
+            if (tempDialog.closeDialog) {
+                try {
+                    tempDialog.closeDialog();
+                } catch (e) {
+                    // Ignore cleanup errors
+                }
+            }
+            document.body.removeChild(tempDialog);
+
+            // Wait for component definition
+            try {
+                await Promise.race([
+                    customElements.whenDefined('hui-card-picker'),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+                ]);
+            } catch (e) {
+                lcardsLog.warn('[MSDStudio] hui-card-picker not defined after force-load attempt');
+                return false;
+            }
+
+            // Verify components are now available
+            const pickerNow = customElements.get('hui-card-picker');
+            const editorNow = customElements.get('hui-card-element-editor');
+
+            if (pickerNow && editorNow) {
+                lcardsLog.info('[MSDStudio] ✅ Successfully force-loaded HA components');
+                return true;
+            } else {
+                lcardsLog.warn('[MSDStudio] Force-load partially succeeded:', {
+                    picker: !!pickerNow,
+                    editor: !!editorNow
+                });
+                return false;
+            }
+
+        } catch (error) {
+            lcardsLog.error('[MSDStudio] Force-load failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Alternative force-load by creating temporary grid card in edit mode
+     * @returns {Promise<boolean>}
+     * @private
+     */
+    async _forceLoadViaGridCard() {
+        lcardsLog.info('[MSDStudio] Attempting force-load via temporary grid card...');
+
+        try {
+            // Check if grid card exists
+            const HuiGridCard = customElements.get('hui-grid-card');
+            if (!HuiGridCard) {
+                lcardsLog.warn('[MSDStudio] hui-grid-card not available');
+                return false;
+            }
+
+            // Create temporary hidden container
+            const tempContainer = document.createElement('div');
+            tempContainer.style.cssText = 'position: fixed; top: -9999px; visibility: hidden;';
+            document.body.appendChild(tempContainer);
+
+            // Create grid card
+            const gridCard = document.createElement('hui-grid-card');
+            gridCard.hass = this.hass;
+            gridCard.setConfig({
+                type: 'grid',
+                cards: []
+            });
+            tempContainer.appendChild(gridCard);
+
+            // Try to trigger edit mode (which loads hui-card-picker)
+            // Grid cards have an internal _setEditMode method
+            if (gridCard._setEditMode) {
+                try {
+                    gridCard._setEditMode(true);
+                } catch (e) {
+                    lcardsLog.debug('[MSDStudio] Edit mode trigger failed (expected):', e.message);
                 }
             }
 
-            // Method 2: Create temporary instances to force loading
-            // This triggers HA's lazy loading mechanism
-            const tempContainer = document.createElement('div');
-            tempContainer.style.display = 'none';
-            document.body.appendChild(tempContainer);
+            // Wait for registration
+            await new Promise(resolve => setTimeout(resolve, 200));
 
-            try {
-                const tempPicker = document.createElement('hui-card-picker');
-                tempContainer.appendChild(tempPicker);
-                
-                // Wait a moment for lazy loading to trigger
-                await new Promise(resolve => setTimeout(resolve, 100));
-                
-                // Check if components are now defined
-                await Promise.race([
-                    Promise.all([
-                        customElements.whenDefined('hui-card-picker').catch(() => {}),
-                        customElements.whenDefined('hui-card-element-editor').catch(() => {})
-                    ]),
-                    new Promise(resolve => setTimeout(resolve, 2000)) // 2 second timeout
-                ]);
-            } finally {
-                // Clean up temporary container
-                document.body.removeChild(tempContainer);
-            }
+            // Clean up
+            document.body.removeChild(tempContainer);
 
-            // Final check
-            const finalCheck = customElements.get('hui-card-picker') && customElements.get('hui-card-element-editor');
-            if (finalCheck) {
-                lcardsLog.info('[MSDStudio] HA components loaded successfully');
+            // Check if successful
+            const picker = customElements.get('hui-card-picker');
+            if (picker) {
+                lcardsLog.info('[MSDStudio] ✅ Force-loaded via grid card');
                 return true;
-            } else {
-                lcardsLog.warn('[MSDStudio] HA components still not available after loading attempt');
-                return false;
             }
+
+            return false;
+
         } catch (error) {
-            lcardsLog.warn('[MSDStudio] Failed to load HA components:', error);
+            lcardsLog.error('[MSDStudio] Force-load via grid card failed:', error);
             return false;
         }
+    }
+
+    /**
+     * Ensure HA card picker components are loaded
+     * Tries multiple strategies to force component registration
+     * @returns {Promise<Object>} { picker: boolean, editor: boolean }
+     * @private
+     */
+    async _ensureHAComponentsLoaded() {
+        lcardsLog.info('[MSDStudio] Checking HA component availability...');
+
+        // Check current state
+        const initialState = {
+            picker: !!customElements.get('hui-card-picker'),
+            editor: !!customElements.get('hui-card-element-editor')
+        };
+
+        lcardsLog.debug('[MSDStudio] Initial state:', initialState);
+
+        // If both available, we're done
+        if (initialState.picker && initialState.editor) {
+            lcardsLog.info('[MSDStudio] ✅ All components already available');
+            return true;
+        }
+
+        // Strategy 1: Try force-loading with temporary editor dialog
+        if (!initialState.picker) {
+            lcardsLog.info('[MSDStudio] Strategy 1: Trying hui-dialog-edit-card...');
+            const success = await this._forceLoadHAComponents();
+            if (success) {
+                return true;
+            }
+        }
+
+        // Strategy 2: Try force-loading via temporary grid card
+        if (!initialState.picker) {
+            lcardsLog.info('[MSDStudio] Strategy 2: Trying temporary grid card...');
+            const success = await this._forceLoadViaGridCard();
+            if (success) {
+                return true;
+            }
+        }
+
+        // Strategy 3: Passive wait - check if editor component is available for hybrid mode
+        lcardsLog.info('[MSDStudio] Strategy 3: Passive mode (editor-only available)');
+        
+        // If we have the editor component, we can use hybrid mode (Tier 2)
+        if (initialState.editor) {
+            lcardsLog.info('[MSDStudio] ⚠️ Tier 2: Hybrid mode (dropdown + native editor)');
+            // Return false to indicate full native mode not available, but hybrid mode works
+            return false;
+        }
+
+        // Return final state
+        const finalState = {
+            picker: !!customElements.get('hui-card-picker'),
+            editor: !!customElements.get('hui-card-element-editor')
+        };
+
+        lcardsLog.info('[MSDStudio] Final component state:', finalState);
+        
+        // Return true only if both components are available (Tier 1)
+        return finalState.picker && finalState.editor;
     }
 
     /**
