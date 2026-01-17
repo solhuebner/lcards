@@ -295,6 +295,25 @@ export class LineOverlay extends OverlayBase {
   }
 
   /**
+   * Get default animation target for line overlays
+   * Lines should animate the <path> element, not the <g> wrapper
+   * @returns {Element|null} The path element with data-animatable="true"
+   */
+  getDefaultAnimationTarget() {
+    if (!this.element) return null;
+
+    // Find the path element with data-animatable attribute
+    const pathElement = this.element.querySelector('path[data-animatable="true"]');
+
+    if (pathElement) {
+      return pathElement;
+    }
+
+    // Fallback to any path in the group
+    return this.element.querySelector('path');
+  }
+
+  /**
    * Destroy line overlay
    * Cleanup cached definitions and resources
    */

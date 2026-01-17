@@ -120,8 +120,9 @@ export class AnimationManager extends BaseService {
    * @param {string} overlayId - Overlay identifier
    * @param {Element} element - Rendered DOM element
    * @param {Object} overlayConfig - Full overlay configuration
+   * @param {Object} systemsManager - Optional MSD coordinator/systems manager for accessing overlay instances
    */
-  async onOverlayRendered(overlayId, element, overlayConfig = {}) {
+  async onOverlayRendered(overlayId, element, overlayConfig = {}, systemsManager = null) {
     if (!element) {
       lcardsLog.warn(`[AnimationManager] Cannot initialize animations for ${overlayId} - no element provided`);
       return;
@@ -145,7 +146,9 @@ export class AnimationManager extends BaseService {
         triggerManager: triggerManager,
         // Track running animation instances by trigger type for stopAnimations()
         // Structure: Map<trigger, Array<animeInstance>>
-        runningInstances: new Map()
+        runningInstances: new Map(),
+        // Store systemsManager reference for accessing overlay instances
+        systemsManager: systemsManager
       });
 
       // Get registered animations for this overlay
@@ -511,15 +514,17 @@ export class AnimationManager extends BaseService {
       const finalAnimDef = { ...animDef, ...resolvedParams };
 
       // Get overlay instance from AdvancedRenderer for target resolution
-      // SystemsManager stores AdvancedRenderer as this.renderer
-      const overlayInstance = this.systemsManager?.renderer?.overlayRenderers?.get(overlayId);
+      // Try scope-specific systemsManager first (MSD cards), then fall back to global (simple cards)
+      const systemsManager = scopeData.systemsManager || this.systemsManager;
+      const overlayInstance = systemsManager?.renderer?.overlayRenderers?.get(overlayId);
 
       lcardsLog.debug(`[AnimationManager] Target resolution for ${overlayId}:`, {
-        hasRenderer: !!this.systemsManager?.renderer,
-        hasOverlayRenderers: !!this.systemsManager?.renderer?.overlayRenderers,
+        hasRenderer: !!systemsManager?.renderer,
+        hasOverlayRenderers: !!systemsManager?.renderer?.overlayRenderers,
         hasOverlayInstance: !!overlayInstance,
         overlayInstanceType: overlayInstance?.constructor?.name,
         hasGetAnimationTarget: typeof overlayInstance?.getAnimationTarget === 'function',
+        hasScopeSystemsManager: !!scopeData.systemsManager,
         target: finalAnimDef.target,
         targets: finalAnimDef.targets
       });
@@ -581,10 +586,23 @@ export class AnimationManager extends BaseService {
           // Pass the overlay element to the instance for querying
           overlayInstance.element = overlayElement;
           el = overlayInstance.getDefaultAnimationTarget();
+
+          lcardsLog.debug(`[AnimationManager] getDefaultAnimationTarget() called for ${overlayId}:`, {
+            returnedElement: el?.tagName,
+            elementId: el?.id,
+            hasStrokeDasharray: el?.getAttribute('stroke-dasharray')
+          });
+        } else {
+          lcardsLog.debug(`[AnimationManager] No getDefaultAnimationTarget for ${overlayId}:`, {
+            hasInstance: !!overlayInstance,
+            instanceType: overlayInstance?.constructor?.name,
+            hasMethod: typeof overlayInstance?.getDefaultAnimationTarget
+          });
         }
 
         // Fallback to overlay element
         if (!el) {
+          lcardsLog.debug(`[AnimationManager] Using overlay element fallback for ${overlayId}`);
           el = overlayElement;
         }
 

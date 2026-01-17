@@ -266,7 +266,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
             const element = mountEl.querySelector(`[data-overlay-id="${overlay.id}"]`);
             if (element) {
               try {
-                await coordinator.animationManager.onOverlayRendered(overlay.id, element, overlay);
+                await coordinator.animationManager.onOverlayRendered(overlay.id, element, overlay, coordinator);
                 lcardsLog.debug(`[PipelineCore] ✅ Initialized animations for overlay: ${overlay.id}`);
 
                 // Track text overlays for re-initialization after font stabilization
@@ -294,7 +294,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
               const element = mountEl.querySelector(`[data-overlay-id="${id}"]`);
               if (element) {
                 try {
-                  await coordinator.animationManager.onOverlayRendered(id, element, overlay);
+                  await coordinator.animationManager.onOverlayRendered(id, element, overlay, coordinator);
                   lcardsLog.debug(`[PipelineCore] ✅ Re-initialized animations for text overlay: ${id}`);
                 } catch (animError) {
                   lcardsLog.error(`[PipelineCore] ❌ Failed to re-initialize animations for ${id}:`, animError);

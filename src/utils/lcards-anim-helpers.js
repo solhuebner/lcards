@@ -179,6 +179,11 @@ export async function animateElement(scope, options, hass = null, onInstanceCrea
                 Object.assign(params, presetResult.anime);
               }
 
+              // Call setup function if provided (for CSS keyframe injection, etc.)
+              if (presetResult.setup && typeof presetResult.setup === 'function') {
+                presetResult.setup(element);
+              }
+
               // Apply CSS styles to target element
               if (presetResult.styles && element) {
                 Object.assign(element.style, presetResult.styles);

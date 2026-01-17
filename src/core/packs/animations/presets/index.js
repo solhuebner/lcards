@@ -201,22 +201,41 @@ registerAnimationPreset('draw', (def) => {
  * More performant than anime.js for continuous animations
  *
  * Parameters:
- * - dash_length (default: 10)
- * - gap_length (default: 5)
- * - speed (default: 2) - seconds per cycle
- * - direction (default: 'forward')
+ * - dash_length (optional) - Length of each dash (auto-detected from element's stroke-dasharray if not provided)
+ * - gap_length (optional) - Length of each gap (auto-detected from element's stroke-dasharray if not provided)
+ * - speed (default: 2) - seconds per cycle (takes precedence)
+ * - duration (default: 2000) - milliseconds per cycle (used if speed not provided)
+ * - direction (default: 'forward') - 'forward' or 'reverse'
+ * - loop (default: true) - true = infinite, false = 1, number = specific count
+ *
+ * Note: The setup function will auto-detect dash values from the element's stroke-dasharray attribute
  */
 registerAnimationPreset('march', (def) => {
   const p = def.params || def;
-  const dashLength = p.dash_length || 10;
-  const gapLength = p.gap_length || 5;
-  const speed = p.speed || 2;
+
+  // Support both 'speed' (in seconds) and 'duration' (in ms) params
+  let speed;
+  if (p.speed !== undefined) {
+    speed = p.speed; // seconds
+  } else if (p.duration !== undefined) {
+    speed = p.duration / 1000; // convert ms to seconds
+  } else {
+    speed = 2; // default 2 seconds
+  }
+
   const direction = p.direction || 'forward';
 
-  const totalLength = dashLength + gapLength;
-  const animationName = direction === 'reverse' ? 'march-reverse' : 'march';
+  // Handle loop parameter (like anime.js)
+  let loopValue = p.loop ?? true;
+  const iterationCount = loopValue === true ? 'infinite' :
+                        (loopValue === false || loopValue === 0) ? '1' :
+                        typeof loopValue === 'number' ? Math.max(1, loopValue) : 'infinite';
 
-  // Return CSS animation config (handled specially by animateElement)
+  // Generate unique animation name (will be used in setup)
+  const animId = `march_${Math.random().toString(36).substring(2, 9)}`;
+  const animationName = `march_${animId}`;
+
+  // Return CSS animation config with setup function
   return {
     anime: {
       // Special marker for CSS animation
@@ -225,9 +244,98 @@ registerAnimationPreset('march', (def) => {
       duration: speed * 1000
     },
     styles: {
-      'stroke-dasharray': `${dashLength} ${gapLength}`,
-      'stroke-dashoffset': direction === 'reverse' ? totalLength : 0,
-      animation: `${animationName} ${speed}s linear infinite`
+      // Note: stroke-dasharray will be preserved from element if already set
+      // Animation property will be set in setup after detecting dash values
+    },
+    // Setup function to inject keyframes into the DOM
+    setup: (element) => {
+      if (!element) return;
+
+      // Auto-detect dash values from element's stroke-dasharray attribute if not explicitly provided
+      let dashLength = p.dash_length;
+      let gapLength = p.gap_length;
+
+      if (!dashLength || !gapLength) {
+        // Try getAttribute first (SVG attribute)
+        let existingDashArray = element.getAttribute('stroke-dasharray');
+
+        // If not found, try computed style
+        if (!existingDashArray) {
+          const computedStyle = window.getComputedStyle(element);
+          existingDashArray = computedStyle.strokeDasharray;
+        }
+
+        if (existingDashArray && existingDashArray !== 'none') {
+          const parts = existingDashArray.split(/[,\s]+/).map(v => parseFloat(v)).filter(v => !isNaN(v));
+          if (parts.length >= 2) {
+            dashLength = dashLength || parts[0];
+            gapLength = gapLength || parts[1];
+          }
+        }
+      }
+
+      // Fallback to defaults if still not set
+      dashLength = dashLength || 10;
+      gapLength = gapLength || 5;
+
+      const totalLength = dashLength + gapLength;
+
+      // For seamless infinite loop, animate the full pattern length
+      // Start at totalLength and animate to 0 (forward) or start at 0 and animate to totalLength (reverse)
+      const keyframesStr = direction === 'reverse'
+        ? `@keyframes ${animationName} { from { stroke-dashoffset: 0; } to { stroke-dashoffset: ${totalLength}; } }`
+        : `@keyframes ${animationName} { from { stroke-dashoffset: ${totalLength}; } to { stroke-dashoffset: 0; } }`;
+
+      // Set the stroke-dasharray if not already set
+      if (!element.getAttribute('stroke-dasharray')) {
+        element.style.strokeDasharray = `${dashLength} ${gapLength}`;
+      }
+
+      // Apply the animation (starting offset will be set by keyframe 'from')
+      element.style.animation = `${animationName} ${speed}s linear ${iterationCount}`;
+
+      // Find the appropriate document to inject styles into
+      const targetDoc = element.getRootNode();
+      const isInShadowDOM = targetDoc !== document;
+
+      // Inject keyframes
+      if (isInShadowDOM && targetDoc.adoptedStyleSheets) {
+        // Modern Shadow DOM with Constructable Stylesheets
+        try {
+          let styleSheet = Array.from(targetDoc.adoptedStyleSheets)
+            .find(sheet => sheet.marchAnimations);
+
+          if (!styleSheet) {
+            styleSheet = new CSSStyleSheet();
+            styleSheet.marchAnimations = true;
+            targetDoc.adoptedStyleSheets = [...targetDoc.adoptedStyleSheets, styleSheet];
+          }
+
+          styleSheet.insertRule(keyframesStr, styleSheet.cssRules.length);
+        } catch (e) {
+          console.error('[march preset] Failed to add CSS animation to Shadow DOM:', e);
+          fallbackStyleInjection();
+        }
+      } else {
+        // Fallback: add <style> element to document/shadowRoot
+        fallbackStyleInjection();
+      }
+
+      function fallbackStyleInjection() {
+        const styleId = 'march-animations';
+        let styleEl = targetDoc.getElementById ? targetDoc.getElementById(styleId) : null;
+
+        if (!styleEl) {
+          styleEl = document.createElement('style');
+          styleEl.id = styleId;
+          const target = isInShadowDOM ? targetDoc : document.head;
+          target.appendChild(styleEl);
+        }
+
+        if (!styleEl.textContent.includes(animationName)) {
+          styleEl.textContent += keyframesStr;
+        }
+      }
     }
   };
 });
