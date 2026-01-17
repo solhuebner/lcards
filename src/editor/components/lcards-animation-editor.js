@@ -1,13 +1,14 @@
 /**
  * lcards-animation-editor.js
- * Reusable animation configuration editor component
+ * Advanced animation configuration editor component
  *
  * Features:
- * - Add/remove/edit animations
- * - Preset selection with parameter editing
- * - Custom anime.js configuration
- * - Trigger management (on_load, on_hover, on_tap, etc.)
- * - Validation and help text
+ * - Comprehensive preset parameter editing (all documented options)
+ * - Dynamic form generation based on selected preset
+ * - Custom anime.js configuration support
+ * - Trigger management (on_load, on_hover, on_tap, on_datasource_change)
+ * - Modern UI with collapsible sections
+ * - Full parameter coverage from preset documentation
  *
  * Usage:
  * ```html
@@ -22,6 +23,7 @@
 import { LitElement, html, css } from 'lit';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import './shared/lcards-color-picker.js';
+import './shared/lcards-form-section.js';
 
 export class LCARdSAnimationEditor extends LitElement {
   static get properties() {
@@ -42,15 +44,21 @@ export class LCARdSAnimationEditor extends LitElement {
       .animations-container {
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 16px;
       }
 
       .animation-item {
-        border: 1px solid var(--divider-color);
-        border-radius: 4px;
+        border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.2));
+        border-radius: var(--card-border-radius, 12px);
         padding: 0;
-        background: var(--card-background-color);
+        background: var(--card-background-color, #fff);
         overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transition: box-shadow 0.2s ease;
+      }
+
+      .animation-item:hover {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
       }
 
       .animation-header {
@@ -59,13 +67,14 @@ export class LCARdSAnimationEditor extends LitElement {
         justify-content: space-between;
         cursor: pointer;
         user-select: none;
-        padding: 12px;
-        background: var(--secondary-background-color);
-        transition: background 0.2s;
+        padding: 16px;
+        background: var(--secondary-background-color, #fafafa);
+        border-bottom: 1px solid var(--divider-color, rgba(127, 127, 127, 0.2));
+        transition: background 0.2s ease;
       }
 
       .animation-header:hover {
-        background: var(--divider-color);
+        background: var(--divider-color, rgba(127, 127, 127, 0.1));
       }
 
       .animation-header-left {
@@ -73,41 +82,64 @@ export class LCARdSAnimationEditor extends LitElement {
         align-items: center;
         gap: 12px;
         flex: 1;
+        min-width: 0;
       }
 
       .animation-header-right {
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 8px;
+      }
+
+      .expand-icon {
+        transition: transform 0.2s ease;
+        color: var(--primary-text-color);
+      }
+
+      .expand-icon.expanded {
+        transform: rotate(90deg);
       }
 
       .trigger-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 6px 12px;
-        border-radius: 16px;
-        background: var(--primary-color);
-        color: var(--text-primary-color);
-        font-size: 13px;
-        font-weight: 500;
+        --mdc-theme-primary: var(--primary-color);
+        --mdc-theme-on-primary: var(--text-primary-color, #fff);
+        pointer-events: none;
       }
 
       .preset-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 6px 12px;
-        border-radius: 16px;
-        background: var(--accent-color, var(--primary-color));
-        color: var(--text-primary-color);
-        font-size: 13px;
-        font-weight: 500;
+        --mdc-theme-primary: var(--accent-color, #0288d1);
+        --mdc-theme-on-primary: var(--text-primary-color, #fff);
+        pointer-events: none;
+      }
+
+      .add-button {
+        margin-bottom: 16px;
+        align-self: flex-start;
       }
 
       .animation-content {
-        padding: 16px;
-        background: var(--card-background-color);
+        padding: 20px;
+        background: var(--card-background-color, #fff);
+      }
+
+      .section {
+        margin-bottom: 24px;
+      }
+
+      .section:last-child {
+        margin-bottom: 0;
+      }
+
+      .section-header {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--primary-text-color);
+        margin-bottom: 16px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid var(--primary-color);
+        display: flex;
+        align-items: center;
+        gap: 8px;
       }
 
       .form-row {
@@ -118,72 +150,86 @@ export class LCARdSAnimationEditor extends LitElement {
         margin-bottom: 0;
       }
 
-      .add-button {
-        width: 100%;
-        margin-top: 12px;
-      }
-
-      .empty-state {
-        text-align: center;
-        padding: 24px;
-        color: var(--secondary-text-color);
-        font-size: 14px;
-      }
-
-      .help-text {
-        font-size: 12px;
-        color: var(--secondary-text-color);
-        margin-top: 4px;
-        font-style: italic;
-      }
-
-      ha-icon-button {
-        --mdc-icon-button-size: 32px;
-        --mdc-icon-size: 20px;
-      }
-
-      .custom-code {
-        font-family: monospace;
-        font-size: 13px;
-        width: 100%;
-        min-height: 120px;
-        padding: 8px;
-        border: 1px solid var(--divider-color);
-        border-radius: 4px;
-        background: var(--code-editor-background-color, #1e1e1e);
-        color: var(--code-editor-text-color, #d4d4d4);
-        resize: vertical;
-      }
-
-      .toggle-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 12px;
-      }
-
-      .preset-params {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-        margin-top: 16px;
-      }
-
-      .param-row {
+      .param-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 12px;
+        gap: 16px;
+        margin-top: 12px;
       }
 
       .param-full {
         grid-column: 1 / -1;
       }
 
-      .color-field {
-        margin-bottom: 0;
+      .add-button {
+        width: 100%;
+        margin-top: 8px;
+        --mdc-theme-primary: var(--primary-color);
       }
 
-      .color-field label {
+      .empty-state {
+        text-align: center;
+        padding: 48px 24px;
+        color: var(--secondary-text-color);
+        background: var(--secondary-background-color, #fafafa);
+        border-radius: 8px;
+        border: 2px dashed var(--divider-color, rgba(127, 127, 127, 0.3));
+      }
+
+      .empty-state ha-icon {
+        font-size: 64px;
+        opacity: 0.3;
+        margin-bottom: 16px;
+      }
+
+      .empty-state-title {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      .empty-state-subtitle {
+        font-size: 14px;
+        opacity: 0.7;
+      }
+
+      .help-text {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        margin-top: 6px;
+        line-height: 1.4;
+      }
+
+      .help-icon {
+        font-size: 16px;
+        color: var(--secondary-text-color);
+        cursor: help;
+      }
+
+      ha-icon-button {
+        --mdc-icon-button-size: 36px;
+        --mdc-icon-size: 20px;
+      }
+
+      .toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px;
+        background: var(--secondary-background-color, #fafafa);
+        border-radius: 6px;
+        margin-bottom: 16px;
+      }
+
+      .toggle-label {
+        font-weight: 500;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .field-label {
         display: block;
         margin-bottom: 8px;
         font-weight: 500;
@@ -191,9 +237,35 @@ export class LCARdSAnimationEditor extends LitElement {
         color: var(--primary-text-color);
       }
 
+      .warning-banner {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px 16px;
+        background: var(--warning-color, #ff9800);
+        color: #fff;
+        border-radius: 6px;
+        margin-bottom: 16px;
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      .warning-banner ha-icon {
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+
       @media (max-width: 600px) {
-        .param-row {
+        .param-grid {
           grid-template-columns: 1fr;
+        }
+
+        .animation-header {
+          padding: 12px;
+        }
+
+        .animation-content {
+          padding: 16px;
         }
       }
     `;
@@ -208,12 +280,12 @@ export class LCARdSAnimationEditor extends LitElement {
   render() {
     return html`
       <div class="animations-container">
-        ${this.animations.length === 0 ? this._renderEmptyState() : ''}
-        ${this.animations.map((anim, index) => this._renderAnimationItem(anim, index))}
         <ha-button @click=${this._addAnimation} class="add-button">
           <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
           Add Animation
         </ha-button>
+        ${this.animations.length === 0 ? this._renderEmptyState() : ''}
+        ${this.animations.map((anim, index) => this._renderAnimationItem(anim, index))}
       </div>
     `;
   }
@@ -221,9 +293,9 @@ export class LCARdSAnimationEditor extends LitElement {
   _renderEmptyState() {
     return html`
       <div class="empty-state">
-        <ha-icon icon="mdi:animation" style="font-size: 48px; opacity: 0.3;"></ha-icon>
-        <div style="margin-top: 8px;">No animations configured</div>
-        <div style="font-size: 12px; margin-top: 4px;">Click "Add Animation" to get started</div>
+        <ha-icon icon="mdi:animation-outline"></ha-icon>
+        <div class="empty-state-title">No animations configured</div>
+        <div class="empty-state-subtitle">Add an animation to bring your card to life</div>
       </div>
     `;
   }
@@ -238,14 +310,38 @@ export class LCARdSAnimationEditor extends LitElement {
       <div class="animation-item">
         <div class="animation-header" @click=${() => this._toggleExpanded(index)}>
           <div class="animation-header-left">
-            <ha-icon icon=${isExpanded ? 'mdi:chevron-down' : 'mdi:chevron-right'}></ha-icon>
-            <span class="trigger-badge">${this._formatTrigger(trigger)}</span>
+            <ha-icon
+              class="expand-icon ${isExpanded ? 'expanded' : ''}"
+              icon="mdi:chevron-right">
+            </ha-icon>
+            <ha-button
+              raised
+              class="trigger-badge">
+              <ha-icon icon=${this._getTriggerIcon(trigger)} slot="icon"></ha-icon>
+              ${this._formatTrigger(trigger)}
+            </ha-button>
             ${isCustom
-              ? html`<span class="preset-badge">Custom</span>`
-              : html`<span class="preset-badge">${preset}</span>`
+              ? html`<ha-button
+                  raised
+                  class="preset-badge">
+                  <ha-icon icon="mdi:code-braces" slot="icon"></ha-icon>
+                  Custom
+                </ha-button>`
+              : html`<ha-button
+                  raised
+                  class="preset-badge">
+                  <ha-icon icon="mdi:animation" slot="icon"></ha-icon>
+                  ${this._formatPresetName(preset)}
+                </ha-button>`
             }
           </div>
           <div class="animation-header-right">
+            <ha-icon-button
+              @click=${(e) => this._duplicateAnimation(e, index)}
+              label="Duplicate"
+            >
+              <ha-icon icon="mdi:content-copy"></ha-icon>
+            </ha-icon-button>
             <ha-icon-button
               @click=${(e) => this._deleteAnimation(e, index)}
               label="Delete"
@@ -266,32 +362,42 @@ export class LCARdSAnimationEditor extends LitElement {
 
   _renderAnimationForm(anim, index) {
     const isCustom = anim.type === 'custom';
+    const preset = anim.preset || 'pulse';
+    const isPlaceholder = this._isPlaceholderPreset(preset);
 
     return html`
-      <!-- Trigger Selector -->
-      <div class="form-row">
+      <!-- Trigger Section -->
+      <lcards-form-section
+        header="Trigger"
+        icon="mdi:lightning-bolt"
+        ?expanded=${true}>
         <ha-selector
           .hass=${this.hass}
           .selector=${{
             select: {
+              mode: 'dropdown',
               options: [
                 { value: 'on_load', label: 'On Load' },
                 { value: 'on_hover', label: 'On Hover' },
+                { value: 'on_leave', label: 'On Leave (Exit Hover)' },
                 { value: 'on_tap', label: 'On Tap' },
                 { value: 'on_datasource_change', label: 'On Data Change' }
               ]
             }
           }}
           .value=${anim.trigger || 'on_load'}
-          .label=${'Trigger'}
+          .label=${'When to trigger animation'}
           @value-changed=${(e) => this._updateAnimation(index, 'trigger', e.detail.value)}
         ></ha-selector>
-        <div class="help-text">When should this animation execute?</div>
-      </div>
+        <div class="help-text">${this._getTriggerHelp(anim.trigger || 'on_load')}</div>
+      </lcards-form-section>
 
       <!-- Custom Toggle -->
       <div class="toggle-row">
-        <span>Custom anime.js</span>
+        <span class="toggle-label">
+          <ha-icon icon="mdi:code-braces"></ha-icon>
+          Use Custom anime.js Code
+        </span>
         <ha-switch
           ?checked=${isCustom}
           @change=${(e) => this._toggleCustomMode(index, e.target.checked)}
@@ -299,136 +405,72 @@ export class LCARdSAnimationEditor extends LitElement {
         </ha-switch>
       </div>
 
-      ${isCustom ? this._renderCustomForm(anim, index) : this._renderPresetForm(anim, index)}
+      ${isCustom ? this._renderCustomForm(anim, index) : html`
+        ${isPlaceholder ? this._renderPlaceholderWarning(preset) : ''}
+        ${this._renderPresetForm(anim, index)}
+      `}
     `;
   }
 
   _renderPresetForm(anim, index) {
-    const presetOptions = [
-      { value: 'pulse', label: 'Pulse (Scale)' },
-      { value: 'fade', label: 'Fade In/Out' },
-      { value: 'glow', label: 'Glow (Shadow)' },
-      { value: 'draw', label: 'Draw (Stroke)' },
-      { value: 'march', label: 'Marching Ants' },
-      { value: 'blink', label: 'Blink' },
-      { value: 'shimmer', label: 'Shimmer' },
-      { value: 'strobe', label: 'Strobe' },
-      { value: 'flicker', label: 'Flicker' },
-      { value: 'cascade', label: 'Cascade' },
-      { value: 'cascade-color', label: 'Cascade Color' },
-      { value: 'ripple', label: 'Ripple' },
-      { value: 'scale', label: 'Scale' },
-      { value: 'scale-reset', label: 'Scale Reset' }
-    ];
-
     const params = anim.params || {};
     const preset = anim.preset || 'pulse';
 
     return html`
-      <!-- Preset Selector -->
-      <div class="form-row">
+      <!-- Preset Selection Section -->
+      <lcards-form-section
+        header="Animation Preset"
+        icon="mdi:animation"
+        ?expanded=${true}>
         <ha-selector
           .hass=${this.hass}
           .selector=${{
             select: {
-              options: presetOptions
+              mode: 'dropdown',
+              options: this._getPresetOptions()
             }
           }}
           .value=${preset}
-          .label=${'Animation Preset'}
+          .label=${'Select animation type'}
           @value-changed=${(e) => this._updateAnimation(index, 'preset', e.detail.value)}
         ></ha-selector>
         <div class="help-text">${this._getPresetHelp(preset)}</div>
-      </div>
+      </lcards-form-section>
 
-      <!-- Preset Parameters -->
-      <div class="preset-params">
+      <!-- Preset Parameters Section -->
+      <lcards-form-section
+        header="Animation Parameters"
+        icon="mdi:tune"
+        ?expanded=${true}>
         ${this._renderPresetParams(preset, params, index)}
-      </div>
+      </lcards-form-section>
     `;
   }
 
   _renderPresetParams(preset, params, index) {
-    // Common parameters - always shown
-    const commonParams = html`
-      <div class="param-row">
-        <ha-textfield
-          type="number"
-          label="Duration (ms)"
-          .value=${params.duration || 1000}
-          @input=${(e) => this._updateParam(index, 'duration', Number(e.target.value))}
-          helper-text="Animation length">
-        </ha-textfield>
-
-        <ha-selector
-          .hass=${this.hass}
-          .selector=${{
-            select: {
-              options: [
-                { value: 'linear', label: 'Linear' },
-                { value: 'easeInOutQuad', label: 'Ease In/Out' },
-                { value: 'easeInOutCubic', label: 'Cubic' },
-                { value: 'easeInOutSine', label: 'Sine' },
-                { value: 'spring', label: 'Spring' }
-              ]
-            }
-          }}
-          .value=${params.easing || 'easeInOutQuad'}
-          .label=${'Easing'}
-          @value-changed=${(e) => this._updateParam(index, 'easing', e.detail.value)}>
-        </ha-selector>
-      </div>
-    `;
+    // Common timing parameters shown for all presets
+    const commonParams = this._renderCommonParams(params, index);
 
     // Preset-specific parameters
     let specificParams = '';
 
     switch (preset) {
       case 'pulse':
-      case 'scale':
         specificParams = html`
-          <div class="param-row">
+          <div class="param-grid">
             <ha-selector
               .hass=${this.hass}
-              .selector=${{
-                number: {
-                  min: 0.5,
-                  max: 2,
-                  step: 0.05,
-                  mode: 'slider'
-                }
-              }}
-              .value=${params.max_scale || 1.1}
+              .selector=${{ number: { min: 0.5, max: 3, step: 0.05, mode: 'slider' } }}
+              .value=${params.max_scale ?? params.scale ?? 1.15}
               .label=${'Max Scale'}
               @value-changed=${(e) => this._updateParam(index, 'max_scale', e.detail.value)}>
             </ha-selector>
-          </div>
-        `;
-        break;
-
-      case 'glow':
-        specificParams = html`
-          <div class="param-full color-field">
-            <label>Glow Color</label>
-            <lcards-color-picker
-              .value=${params.color || '#93e1ff'}
-              @value-changed=${(e) => this._updateParam(index, 'color', e.detail.value)}>
-            </lcards-color-picker>
-          </div>
-          <div class="param-row">
             <ha-selector
               .hass=${this.hass}
-              .selector=${{
-                number: {
-                  min: 0,
-                  max: 1,
-                  step: 0.05,
-                  mode: 'slider'
-                }
-              }}
-              .value=${params.intensity || 0.8}
-              .label=${'Intensity'}
-              @value-changed=${(e) => this._updateParam(index, 'intensity', e.detail.value)}>
+              .selector=${{ number: { min: 1, max: 3, step: 0.1, mode: 'slider' } }}
+              .value=${params.max_brightness ?? 1.4}
+              .label=${'Max Brightness'}
+              @value-changed=${(e) => this._updateParam(index, 'max_brightness', e.detail.value)}>
             </ha-selector>
           </div>
         `;
@@ -436,58 +478,454 @@ export class LCARdSAnimationEditor extends LitElement {
 
       case 'fade':
         specificParams = html`
-          <div class="param-row">
+          <div class="param-grid">
             <ha-selector
               .hass=${this.hass}
-              .selector=${{
-                number: {
-                  min: 0,
-                  max: 1,
-                  step: 0.05,
-                  mode: 'slider'
-                }
-              }}
-              .value=${params.from_opacity ?? 0}
+              .selector=${{ number: { min: 0, max: 1, step: 0.05, mode: 'slider' } }}
+              .value=${params.from ?? 1}
               .label=${'From Opacity'}
-              @value-changed=${(e) => this._updateParam(index, 'from_opacity', e.detail.value)}>
+              @value-changed=${(e) => this._updateParam(index, 'from', e.detail.value)}>
             </ha-selector>
             <ha-selector
               .hass=${this.hass}
+              .selector=${{ number: { min: 0, max: 1, step: 0.05, mode: 'slider' } }}
+              .value=${params.to ?? 0.3}
+              .label=${'To Opacity'}
+              @value-changed=${(e) => this._updateParam(index, 'to', e.detail.value)}>
+            </ha-selector>
+          </div>
+        `;
+        break;
+
+      case 'glow':
+        specificParams = html`
+          <div class="param-full">
+            <label class="field-label">Glow Color</label>
+            <lcards-color-picker
+              .value=${params.color ?? params.glow_color ?? '#66ccff'}
+              @value-changed=${(e) => this._updateParam(index, 'color', e.detail.value)}>
+            </lcards-color-picker>
+          </div>
+          <div class="param-grid">
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ number: { min: 0, max: 50, step: 1, mode: 'slider' } }}
+              .value=${params.blur_min ?? 0}
+              .label=${'Min Blur (px)'}
+              @value-changed=${(e) => this._updateParam(index, 'blur_min', e.detail.value)}>
+            </ha-selector>
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ number: { min: 0, max: 50, step: 1, mode: 'slider' } }}
+              .value=${params.blur_max ?? 10}
+              .label=${'Max Blur (px)'}
+              @value-changed=${(e) => this._updateParam(index, 'blur_max', e.detail.value)}>
+            </ha-selector>
+          </div>
+        `;
+        break;
+
+      case 'draw':
+        specificParams = html`
+          <div class="param-grid">
+            <div class="param-full">
+              <div class="toggle-row" style="margin-bottom: 0;">
+                <span class="toggle-label">Reverse Direction</span>
+                <ha-switch
+                  ?checked=${params.reverse ?? false}
+                  @change=${(e) => this._updateParam(index, 'reverse', e.target.checked)}
+                  style="--mdc-theme-secondary: var(--primary-color);">
+                </ha-switch>
+              </div>
+              <div class="help-text">Draw from end to start instead of start to end</div>
+            </div>
+          </div>
+        `;
+        break;
+
+      case 'march':
+        specificParams = html`
+          <div class="param-grid">
+            <ha-textfield
+              type="number"
+              label="Dash Length (px)"
+              .value=${params.dash_length ?? ''}
+              placeholder="Auto-detect"
+              @input=${(e) => this._updateParam(index, 'dash_length', e.target.value ? Number(e.target.value) : undefined)}>
+            </ha-textfield>
+            <ha-textfield
+              type="number"
+              label="Gap Length (px)"
+              .value=${params.gap_length ?? ''}
+              placeholder="Auto-detect"
+              @input=${(e) => this._updateParam(index, 'gap_length', e.target.value ? Number(e.target.value) : undefined)}>
+            </ha-textfield>
+            <ha-selector
+              .hass=${this.hass}
               .selector=${{
-                number: {
-                  min: 0,
-                  max: 1,
-                  step: 0.05,
-                  mode: 'slider'
+                select: {
+                  mode: 'dropdown',
+                  options: [
+                    { value: 'forward', label: 'Forward' },
+                    { value: 'reverse', label: 'Reverse' }
+                  ]
                 }
               }}
-              .value=${params.to_opacity ?? 1}
-              .label=${'To Opacity'}
-              @value-changed=${(e) => this._updateParam(index, 'to_opacity', e.detail.value)}>
+              .value=${params.direction ?? 'forward'}
+              .label=${'Direction'}
+              @value-changed=${(e) => this._updateParam(index, 'direction', e.detail.value)}>
             </ha-selector>
+            <ha-textfield
+              type="number"
+              label="Speed (seconds)"
+              .value=${params.speed ?? 2}
+              step="0.1"
+              @input=${(e) => this._updateParam(index, 'speed', Number(e.target.value))}>
+            </ha-textfield>
+          </div>
+          <div class="help-text">Leave dash/gap empty to auto-detect from element</div>
+        `;
+        break;
+
+      case 'blink':
+        specificParams = html`
+          <div class="param-grid">
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ number: { min: 0, max: 1, step: 0.05, mode: 'slider' } }}
+              .value=${params.max_opacity ?? 1}
+              .label=${'Max Opacity'}
+              @value-changed=${(e) => this._updateParam(index, 'max_opacity', e.detail.value)}>
+            </ha-selector>
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ number: { min: 0, max: 1, step: 0.05, mode: 'slider' } }}
+              .value=${params.min_opacity ?? 0.3}
+              .label=${'Min Opacity'}
+              @value-changed=${(e) => this._updateParam(index, 'min_opacity', e.detail.value)}>
+            </ha-selector>
+          </div>
+        `;
+        break;
+
+      case 'shimmer':
+        specificParams = html`
+          <div class="param-grid">
+            <div class="param-full">
+              <label class="field-label">Color From</label>
+              <lcards-color-picker
+                .value=${params.color_from ?? ''}
+                .allowEmpty=${true}
+                placeholder="Optional"
+                @value-changed=${(e) => this._updateParam(index, 'color_from', e.detail.value)}>
+              </lcards-color-picker>
+              <div class="help-text">Leave empty for opacity-only shimmer</div>
+            </div>
+            <div class="param-full">
+              <label class="field-label">Color To</label>
+              <lcards-color-picker
+                .value=${params.color_to ?? params.shimmer_color ?? ''}
+                .allowEmpty=${true}
+                placeholder="Optional"
+                @value-changed=${(e) => this._updateParam(index, 'color_to', e.detail.value)}>
+              </lcards-color-picker>
+            </div>
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ number: { min: 0, max: 1, step: 0.05, mode: 'slider' } }}
+              .value=${params.opacity_from ?? 1}
+              .label=${'Opacity From'}
+              @value-changed=${(e) => this._updateParam(index, 'opacity_from', e.detail.value)}>
+            </ha-selector>
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ number: { min: 0, max: 1, step: 0.05, mode: 'slider' } }}
+              .value=${params.opacity_to ?? 0.5}
+              .label=${'Opacity To'}
+              @value-changed=${(e) => this._updateParam(index, 'opacity_to', e.detail.value)}>
+            </ha-selector>
+          </div>
+        `;
+        break;
+
+      case 'strobe':
+        specificParams = html`
+          <div class="param-grid">
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ number: { min: 0, max: 1, step: 0.05, mode: 'slider' } }}
+              .value=${params.max_opacity ?? 1}
+              .label=${'Max Opacity'}
+              @value-changed=${(e) => this._updateParam(index, 'max_opacity', e.detail.value)}>
+            </ha-selector>
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ number: { min: 0, max: 1, step: 0.05, mode: 'slider' } }}
+              .value=${params.min_opacity ?? 0}
+              .label=${'Min Opacity'}
+              @value-changed=${(e) => this._updateParam(index, 'min_opacity', e.detail.value)}>
+            </ha-selector>
+          </div>
+        `;
+        break;
+
+      case 'flicker':
+        specificParams = html`
+          <div class="param-grid">
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ number: { min: 0, max: 1, step: 0.05, mode: 'slider' } }}
+              .value=${params.max_opacity ?? 1}
+              .label=${'Max Opacity'}
+              @value-changed=${(e) => this._updateParam(index, 'max_opacity', e.detail.value)}>
+            </ha-selector>
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ number: { min: 0, max: 1, step: 0.05, mode: 'slider' } }}
+              .value=${params.min_opacity ?? 0.3}
+              .label=${'Min Opacity'}
+              @value-changed=${(e) => this._updateParam(index, 'min_opacity', e.detail.value)}>
+            </ha-selector>
+          </div>
+        `;
+        break;
+
+      case 'cascade':
+        specificParams = html`
+          <div class="param-grid">
+            <ha-textfield
+              type="number"
+              label="Stagger Delay (ms)"
+              .value=${params.stagger ?? 100}
+              @input=${(e) => this._updateParam(index, 'stagger', Number(e.target.value))}>
+            </ha-textfield>
+            <ha-textfield
+              label="CSS Property"
+              .value=${params.property ?? 'opacity'}
+              @input=${(e) => this._updateParam(index, 'property', e.target.value)}>
+            </ha-textfield>
+            <ha-textfield
+              type="number"
+              label="From Value"
+              .value=${params.from ?? 0}
+              step="0.1"
+              @input=${(e) => this._updateParam(index, 'from', Number(e.target.value))}>
+            </ha-textfield>
+            <ha-textfield
+              type="number"
+              label="To Value"
+              .value=${params.to ?? 1}
+              step="0.1"
+              @input=${(e) => this._updateParam(index, 'to', Number(e.target.value))}>
+            </ha-textfield>
+          </div>
+        `;
+        break;
+
+      case 'cascade-color':
+        const colors = params.colors ?? ['#0783FF', '#0439A3', '#E7F3F7'];
+        specificParams = html`
+          <div class="param-grid">
+            <div class="param-full">
+              <label class="field-label">Start Color</label>
+              <lcards-color-picker
+                .value=${colors[0]}
+                @value-changed=${(e) => {
+                  const newColors = [...colors];
+                  newColors[0] = e.detail.value;
+                  this._updateParam(index, 'colors', newColors);
+                }}>
+              </lcards-color-picker>
+            </div>
+            <div class="param-full">
+              <label class="field-label">Text Color (Flash)</label>
+              <lcards-color-picker
+                .value=${colors[1]}
+                @value-changed=${(e) => {
+                  const newColors = [...colors];
+                  newColors[1] = e.detail.value;
+                  this._updateParam(index, 'colors', newColors);
+                }}>
+              </lcards-color-picker>
+            </div>
+            <div class="param-full">
+              <label class="field-label">End Color</label>
+              <lcards-color-picker
+                .value=${colors[2]}
+                @value-changed=${(e) => {
+                  const newColors = [...colors];
+                  newColors[2] = e.detail.value;
+                  this._updateParam(index, 'colors', newColors);
+                }}>
+              </lcards-color-picker>
+              <div class="help-text">Three colors for cascade effect: start → text (flash) → end</div>
+            </div>
+            <ha-textfield
+              label="CSS Property"
+              .value=${params.property ?? 'color'}
+              @input=${(e) => this._updateParam(index, 'property', e.target.value)}
+              helper="Property to animate (color, fill, stroke, etc.)">
+            </ha-textfield>
+            <ha-textfield
+              type="number"
+              label="Row Delay (ms)"
+              .value=${params.delay ?? 0}
+              @input=${(e) => this._updateParam(index, 'delay', Number(e.target.value))}
+              helper="Delay before animation starts">
+            </ha-textfield>
+          </div>
+        `;
+        break;
+
+      case 'ripple':
+        specificParams = html`
+          <div class="param-grid">
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ number: { min: 1, max: 5, step: 0.1, mode: 'slider' } }}
+              .value=${params.scale_max ?? 1.5}
+              .label=${'Max Scale'}
+              @value-changed=${(e) => this._updateParam(index, 'scale_max', e.detail.value)}>
+            </ha-selector>
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ number: { min: 0, max: 1, step: 0.05, mode: 'slider' } }}
+              .value=${params.opacity_min ?? 0}
+              .label=${'Min Opacity'}
+              @value-changed=${(e) => this._updateParam(index, 'opacity_min', e.detail.value)}>
+            </ha-selector>
+          </div>
+        `;
+        break;
+
+      case 'scale':
+        specificParams = html`
+          <div class="param-grid">
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ number: { min: 0.1, max: 3, step: 0.05, mode: 'slider' } }}
+              .value=${params.from ?? 1}
+              .label=${'From Scale'}
+              @value-changed=${(e) => this._updateParam(index, 'from', e.detail.value)}>
+            </ha-selector>
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ number: { min: 0.1, max: 3, step: 0.05, mode: 'slider' } }}
+              .value=${params.scale ?? 1.1}
+              .label=${'To Scale'}
+              @value-changed=${(e) => this._updateParam(index, 'scale', e.detail.value)}>
+            </ha-selector>
+          </div>
+        `;
+        break;
+
+      case 'scale-reset':
+        // No specific params for scale-reset
+        break;
+
+      case 'set':
+        specificParams = html`
+          <div class="param-full">
+            <ha-textfield
+              label="Properties (JSON)"
+              .value=${JSON.stringify(params.properties ?? {})}
+              @input=${(e) => {
+                try {
+                  this._updateParam(index, 'properties', JSON.parse(e.target.value));
+                } catch (err) {
+                  // Invalid JSON, don't update
+                }
+              }}
+              helper="CSS properties to set immediately">
+            </ha-textfield>
+          </div>
+        `;
+        break;
+
+      // Placeholder presets (not yet implemented)
+      case 'slide':
+      case 'rotate':
+      case 'shake':
+      case 'bounce':
+      case 'color-shift':
+      case 'border-pulse':
+      case 'skew':
+      case 'scan-line':
+      case 'glitch':
+      case 'motionpath':
+        specificParams = html`
+          <div class="help-text" style="font-style: normal; color: var(--secondary-text-color);">
+            This preset is awaiting implementation. Parameters will be available soon.
           </div>
         `;
         break;
     }
 
-    // Loop toggle
-    const loopToggle = html`
-      <div class="param-full">
-        <div class="toggle-row" style="margin-bottom: 0;">
-          <span style="font-weight: 500;">Loop Animation</span>
-          <ha-switch
-            ?checked=${params.loop ?? false}
-            @change=${(e) => this._updateParam(index, 'loop', e.target.checked)}
-            style="--mdc-theme-secondary: var(--primary-color);">
-          </ha-switch>
+    return html`
+      ${specificParams}
+      ${commonParams}
+    `;
+  }
+
+  _renderCommonParams(params, index) {
+    return html`
+      <div class="param-grid">
+        <ha-textfield
+          type="number"
+          label="Duration (ms)"
+          .value=${params.duration ?? 1000}
+          min="0"
+          step="100"
+          @input=${(e) => this._updateParam(index, 'duration', Number(e.target.value))}>
+        </ha-textfield>
+
+        <ha-selector
+          .hass=${this.hass}
+          .selector=${{
+            select: {
+              mode: 'dropdown',
+              options: [
+                { value: 'linear', label: 'Linear' },
+                { value: 'easeInOutQuad', label: 'Ease In/Out (Quad)' },
+                { value: 'easeOutQuad', label: 'Ease Out (Quad)' },
+                { value: 'easeInQuad', label: 'Ease In (Quad)' },
+                { value: 'easeInOutCubic', label: 'Ease In/Out (Cubic)' },
+                { value: 'easeInOutSine', label: 'Ease In/Out (Sine)' },
+                { value: 'easeOutExpo', label: 'Ease Out (Expo)' },
+                { value: 'easeInOutElastic', label: 'Elastic' },
+                { value: 'spring', label: 'Spring' }
+              ]
+            }
+          }}
+          .value=${params.easing ?? 'easeInOutQuad'}
+          .label=${'Easing Function'}
+          @value-changed=${(e) => this._updateParam(index, 'easing', e.detail.value)}>
+        </ha-selector>
+
+        <div class="param-full">
+          <div class="toggle-row" style="margin-bottom: 0;">
+            <span class="toggle-label">Loop Animation</span>
+            <ha-switch
+              ?checked=${params.loop ?? false}
+              @change=${(e) => this._updateParam(index, 'loop', e.target.checked)}
+              style="--mdc-theme-secondary: var(--primary-color);">
+            </ha-switch>
+          </div>
+          <div class="help-text">Repeat animation continuously</div>
+        </div>
+
+        <div class="param-full">
+          <div class="toggle-row" style="margin-bottom: 0;">
+            <span class="toggle-label">Alternate Direction</span>
+            <ha-switch
+              ?checked=${params.alternate ?? false}
+              @change=${(e) => this._updateParam(index, 'alternate', e.target.checked)}
+              style="--mdc-theme-secondary: var(--primary-color);">
+            </ha-switch>
+          </div>
+          <div class="help-text">Reverse animation direction on each loop</div>
         </div>
       </div>
-    `;
-
-    return html`
-      ${commonParams}
-      ${specificParams}
-      ${loopToggle}
     `;
   }
 
@@ -496,22 +934,31 @@ export class LCARdSAnimationEditor extends LitElement {
     const configString = JSON.stringify(animeConfig, null, 2);
 
     return html`
-      <div class="form-row">
-        <label>anime.js Configuration</label>
-        <textarea
-          class="custom-code"
+      <lcards-form-section
+        header="Custom anime.js Configuration"
+        icon="mdi:code-braces"
+        ?expanded=${true}>
+        <ha-yaml-editor
           .value=${configString}
-          @input=${(e) => this._updateCustomConfig(index, e.target.value)}
-          placeholder="{
-  &quot;targets&quot;: &quot;#overlay-id&quot;,
-  &quot;scale&quot;: [1, 1.2, 1],
-  &quot;duration&quot;: 1000,
-  &quot;loop&quot;: true
-}"
-        ></textarea>
+          @value-changed=${(e) => this._updateCustomConfig(index, e.detail.value)}>
+        </ha-yaml-editor>
         <div class="help-text">
-          Valid anime.js v4 configuration object.
-          <a href="https://animejs.com/documentation/" target="_blank">Documentation</a>
+          Enter a valid JSON object for anime.js v4 configuration.
+          <a href="https://animejs.com/documentation/" target="_blank" rel="noopener noreferrer">
+            View Documentation →
+          </a>
+        </div>
+      </lcards-form-section>
+    `;
+  }
+
+  _renderPlaceholderWarning(preset) {
+    return html`
+      <div class="warning-banner">
+        <ha-icon icon="mdi:alert-circle"></ha-icon>
+        <div>
+          <strong>Placeholder Preset:</strong> "${this._formatPresetName(preset)}" is not yet implemented.
+          You can still configure it, but it won't animate until the preset is completed.
         </div>
       </div>
     `;
@@ -519,32 +966,142 @@ export class LCARdSAnimationEditor extends LitElement {
 
   _formatTrigger(trigger) {
     const map = {
-      'on_load': 'On Load',
-      'on_hover': 'On Hover',
-      'on_tap': 'On Tap',
-      'on_datasource_change': 'On Data Change'
+      'on_load': 'Load',
+      'on_hover': 'Hover',
+      'on_leave': 'Leave',
+      'on_tap': 'Tap',
+      'on_datasource_change': 'Data Change'
     };
     return map[trigger] || trigger;
   }
 
+  _getTriggerIcon(trigger) {
+    const icons = {
+      'on_load': 'mdi:loading',
+      'on_hover': 'mdi:cursor-default-click',
+      'on_leave': 'mdi:cursor-default-outline',
+      'on_tap': 'mdi:gesture-tap',
+      'on_datasource_change': 'mdi:database-sync'
+    };
+    return icons[trigger] || 'mdi:lightning-bolt';
+  }
+
+  _getTriggerHelp(trigger) {
+    const help = {
+      'on_load': 'Executes when the card loads or updates',
+      'on_hover': 'Executes when mouse enters the element',
+      'on_leave': 'Executes when mouse leaves the element (use for exit animations)',
+      'on_tap': 'Executes when the element is clicked/tapped',
+      'on_datasource_change': 'Executes when associated data source value changes'
+    };
+    return help[trigger] || '';
+  }
+
+  _formatPresetName(preset) {
+    const names = {
+      'pulse': 'Pulse',
+      'fade': 'Fade',
+      'glow': 'Glow',
+      'draw': 'Draw',
+      'march': 'Marching Ants',
+      'blink': 'Blink',
+      'shimmer': 'Shimmer',
+      'strobe': 'Strobe',
+      'flicker': 'Flicker',
+      'cascade': 'Cascade',
+      'cascade-color': 'Cascade Color',
+      'ripple': 'Ripple',
+      'scale': 'Scale',
+      'scale-reset': 'Scale Reset',
+      'set': 'Set Properties',
+      'motionpath': 'Motion Path',
+      'slide': 'Slide',
+      'rotate': 'Rotate',
+      'shake': 'Shake',
+      'bounce': 'Bounce',
+      'color-shift': 'Color Shift',
+      'border-pulse': 'Border Pulse',
+      'skew': 'Skew',
+      'scan-line': 'Scan Line',
+      'glitch': 'Glitch'
+    };
+    return names[preset] || preset;
+  }
+
+  _getPresetOptions() {
+    return [
+      // Core Animations
+      { value: 'pulse', label: 'Pulse - Breathing scale + brightness' },
+      { value: 'fade', label: 'Fade - Opacity transition' },
+      { value: 'glow', label: 'Glow - Drop shadow pulsing' },
+      { value: 'draw', label: 'Draw - SVG stroke drawing' },
+      { value: 'march', label: 'Marching Ants - Dashed line animation' },
+
+      // Visual Effects
+      { value: 'blink', label: 'Blink - Rapid opacity toggle' },
+      { value: 'shimmer', label: 'Shimmer - Color + opacity shimmer' },
+      { value: 'strobe', label: 'Strobe - Fast flashing' },
+      { value: 'flicker', label: 'Flicker - Random flickering' },
+      { value: 'cascade', label: 'Cascade - Staggered animation' },
+      { value: 'cascade-color', label: 'Cascade Color - Row-by-row color cycling' },
+      { value: 'ripple', label: 'Ripple - Expanding wave effect' },
+      { value: 'scale', label: 'Scale - Simple scale transform' },
+      { value: 'scale-reset', label: 'Scale Reset - Return to original' },
+
+      // Motion Effects (Placeholder)
+      { value: 'slide', label: '🚧 Slide - Translate/position animation' },
+      { value: 'rotate', label: '🚧 Rotate - Rotation animation' },
+      { value: 'shake', label: '🚧 Shake - Vibrate/shake effect' },
+      { value: 'bounce', label: '🚧 Bounce - Elastic bounce' },
+      { value: 'color-shift', label: '🚧 Color Shift - Pure color transition' },
+      { value: 'border-pulse', label: '🚧 Border Pulse - Border animation' },
+      { value: 'skew', label: '🚧 Skew - Slant transformation' },
+
+      // Special Effects (Placeholder)
+      { value: 'scan-line', label: '🚧 Scan Line - Moving gradient' },
+      { value: 'glitch', label: '🚧 Glitch - Random shifts' },
+      { value: 'motionpath', label: '🚧 Motion Path - Path following' },
+      { value: 'set', label: 'Set - Immediate property change' }
+    ];
+  }
+
   _getPresetHelp(preset) {
     const help = {
-      'pulse': 'Scales element up and down smoothly',
-      'fade': 'Fades element in or out',
-      'glow': 'Adds pulsing glow effect via drop-shadow',
-      'draw': 'Animates stroke-dashoffset (for lines)',
-      'march': 'Marching ants dash pattern',
-      'blink': 'Rapid on/off blinking',
-      'shimmer': 'Subtle shimmer effect',
-      'strobe': 'Rapid flashing',
-      'flicker': 'Random flickering',
-      'cascade': 'Sequential animation',
-      'cascade-color': 'Color cascade effect',
-      'ripple': 'Ripple wave effect',
-      'scale': 'Scale to target size',
-      'scale-reset': 'Scale and reset'
+      'pulse': 'Scales element up and down with brightness change - ideal for attention-getting',
+      'fade': 'Smoothly fades element in or out by animating opacity',
+      'glow': 'Creates pulsing glow effect using drop-shadow filter',
+      'draw': 'Animates SVG path stroke drawing from start to end (for lines and shapes)',
+      'march': 'Creates marching ants effect with animated dashed line pattern',
+      'blink': 'Rapid blinking between two opacity values',
+      'shimmer': 'Subtle shimmer effect with color and opacity changes',
+      'strobe': 'Very fast flashing effect for alerts',
+      'flicker': 'Random flickering like a faulty light',
+      'cascade': 'Staggers animation across multiple elements with delay',
+      'cascade-color': 'Row-by-row color cycling for data grids (authentic LCARS timing)',
+      'ripple': 'Expands and fades like a ripple in water',
+      'scale': 'Simple scale transform - great for hover feedback',
+      'scale-reset': 'Returns element to original scale - use with on_leave',
+      'set': 'Immediately sets CSS properties without animation',
+      'motionpath': 'Animates element along a path (placeholder)',
+      'slide': 'Slide element in/out from a direction (not yet implemented)',
+      'rotate': 'Rotate element continuously or to angle (not yet implemented)',
+      'shake': 'Horizontal shake for error states (not yet implemented)',
+      'bounce': 'Elastic bouncing scale effect (not yet implemented)',
+      'color-shift': 'Pure color animation between two colors (not yet implemented)',
+      'border-pulse': 'Animates border color and width (not yet implemented)',
+      'skew': 'Skew/slant transformation for perspective (not yet implemented)',
+      'scan-line': 'Moving gradient scan line effect (not yet implemented)',
+      'glitch': 'Random position/color shifts for malfunction (not yet implemented)'
     };
     return help[preset] || 'Animation preset';
+  }
+
+  _isPlaceholderPreset(preset) {
+    const placeholders = [
+      'slide', 'rotate', 'shake', 'bounce', 'color-shift',
+      'border-pulse', 'skew', 'scan-line', 'glitch', 'motionpath'
+    ];
+    return placeholders.includes(preset);
   }
 
   _toggleExpanded(index) {
@@ -557,13 +1114,30 @@ export class LCARdSAnimationEditor extends LitElement {
       preset: 'pulse',
       params: {
         duration: 1000,
+        easing: 'easeInOutQuad',
         loop: true,
-        max_scale: 1.1
+        alternate: true,
+        max_scale: 1.15,
+        max_brightness: 1.4
       }
     };
 
     this.animations = [...this.animations, newAnimation];
     this._expandedIndex = this.animations.length - 1;
+    this._fireChange();
+  }
+
+  _duplicateAnimation(e, index) {
+    e.stopPropagation();
+    const source = this.animations[index];
+    const duplicate = JSON.parse(JSON.stringify(source)); // Deep clone
+
+    this.animations = [
+      ...this.animations.slice(0, index + 1),
+      duplicate,
+      ...this.animations.slice(index + 1)
+    ];
+    this._expandedIndex = index + 1;
     this._fireChange();
   }
 

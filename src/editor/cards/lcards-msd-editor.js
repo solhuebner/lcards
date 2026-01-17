@@ -66,11 +66,8 @@ export class LCARdSMSDEditor extends LCARdSBaseEditor {
                     <p>
                         <strong>Full-screen visual editor</strong> with live preview
                         <br />
-                        Configure base SVG, anchors, control overlays, lines, and routing channels
-                    </p>
-                    <p style="font-size: 13px; color: var(--secondary-text-color);">
                         Build your Master Systems Display visually with instant feedback.
-                        Place controls, connect lines, and manage routing channels graphically.
+                        Configure backgroups, place controls, connect lines, add animations, and manage routing channels graphically.
                     </p>
                 </div>
                 <div class="info-card-actions">
@@ -83,25 +80,12 @@ export class LCARdSMSDEditor extends LCARdSBaseEditor {
                 </div>
             </div>
 
-            <!-- Card Metadata Summary -->
-            <lcards-form-section
-                header="Card Metadata"
-                description="Current MSD configuration overview"
-                icon="mdi:information"
-                ?expanded=${true}
-                ?outlined=${true}
-                headerLevel="4">
-
-                ${this._renderCardMetadataSummary()}
-
-            </lcards-form-section>
-
             <!-- Card Identification -->
             <lcards-form-section
                 header="Card Identification"
                 description="Unique identifier for rules engine targeting"
                 icon="mdi:tag"
-                ?expanded=${false}
+                ?expanded=${true}
                 ?outlined=${true}
                 headerLevel="4">
 
@@ -116,111 +100,6 @@ export class LCARdSMSDEditor extends LCARdSBaseEditor {
                 })}
             </lcards-form-section>
         `;
-    }
-
-    /**
-     * Render card metadata summary
-     * Shows current base SVG, anchor count, overlay counts
-     * @returns {TemplateResult}
-     * @private
-     */
-    _renderCardMetadataSummary() {
-        const baseSvgSummary = this._getBaseSvgSummary();
-        const anchorCount = this._getAnchorCount();
-        const controlCount = this._getControlCount();
-        const lineCount = this._getLineCount();
-
-        return html`
-            <div style="display: grid; gap: 12px;">
-                <!-- Base SVG -->
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <ha-icon icon="mdi:image" style="color: var(--primary-color);"></ha-icon>
-                    <div style="flex: 1;">
-                        <strong>Base SVG:</strong> ${baseSvgSummary}
-                    </div>
-                </div>
-
-                <!-- Anchors -->
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <ha-icon icon="mdi:map-marker" style="color: var(--primary-color);"></ha-icon>
-                    <div style="flex: 1;">
-                        <strong>Anchors:</strong> ${anchorCount}
-                    </div>
-                </div>
-
-                <!-- Control Overlays -->
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <ha-icon icon="mdi:widgets" style="color: var(--primary-color);"></ha-icon>
-                    <div style="flex: 1;">
-                        <strong>Control Overlays:</strong> ${controlCount}
-                    </div>
-                </div>
-
-                <!-- Line Overlays -->
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <ha-icon icon="mdi:vector-line" style="color: var(--primary-color);"></ha-icon>
-                    <div style="flex: 1;">
-                        <strong>Line Overlays:</strong> ${lineCount}
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    /**
-     * Get base SVG summary text
-     * @returns {string}
-     * @private
-     */
-    _getBaseSvgSummary() {
-        const msdConfig = this.config?.msd;
-        if (!msdConfig?.base_svg) {
-            return html`<span style="color: var(--secondary-text-color);">Not configured</span>`;
-        }
-
-        const baseSvg = msdConfig.base_svg;
-        if (baseSvg.builtin) {
-            return html`<span style="color: var(--success-color);">Builtin: ${baseSvg.builtin}</span>`;
-        } else if (baseSvg.path) {
-            return html`<span style="color: var(--info-color);">Custom: ${baseSvg.path}</span>`;
-        } else if (baseSvg.inline) {
-            return html`<span style="color: var(--info-color);">Inline SVG</span>`;
-        }
-
-        return html`<span style="color: var(--secondary-text-color);">Unknown</span>`;
-    }
-
-    /**
-     * Get anchor count
-     * @returns {number}
-     * @private
-     */
-    _getAnchorCount() {
-        const msdConfig = this.config?.msd;
-        if (!msdConfig?.anchors) return 0;
-        return Object.keys(msdConfig.anchors).length;
-    }
-
-    /**
-     * Get control overlay count
-     * @returns {number}
-     * @private
-     */
-    _getControlCount() {
-        const msdConfig = this.config?.msd;
-        if (!msdConfig?.overlays) return 0;
-        return msdConfig.overlays.filter(o => o.type === 'control').length;
-    }
-
-    /**
-     * Get line overlay count
-     * @returns {number}
-     * @private
-     */
-    _getLineCount() {
-        const msdConfig = this.config?.msd;
-        if (!msdConfig?.overlays) return 0;
-        return msdConfig.overlays.filter(o => o.type === 'line').length;
     }
 
     /**
