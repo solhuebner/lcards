@@ -1,13 +1,13 @@
 /**
  * LCARdS Font Selector Component
- * 
+ *
  * Specialized selector for font-family properties with:
  * - Categorized dropdown (Core, Standard, Alien)
  * - Custom external font support
  * - Auto-loading of selected fonts
  * - Preview text (optional)
  * - Automatic migration of legacy CB-LCARS names
- * 
+ *
  * @example
  * <lcards-font-selector
  *   .hass=${this.hass}
@@ -118,7 +118,7 @@ export class LCARdSFontSelector extends LitElement {
 
     connectedCallback() {
         super.connectedCallback();
-        
+
         // Migrate legacy font name if needed
         const migratedValue = migrateFontName(this.value);
         if (migratedValue !== this.value) {
@@ -131,7 +131,7 @@ export class LCARdSFontSelector extends LitElement {
         } else {
             this._displayValue = this.value;
         }
-        
+
         // Check if current value is custom (not in registry)
         if (this._displayValue && !isKnownFont(this._displayValue) && this._displayValue !== '__custom__') {
             this._isCustomMode = true;
@@ -140,16 +140,16 @@ export class LCARdSFontSelector extends LitElement {
 
     render() {
         const showMigrationNotice = this.value && this.value !== this._displayValue;
-        
+
         return html`
             <div class="font-selector">
                 ${this.label ? html`<div class="input-label">${this.label}</div>` : ''}
-                
+
                 <div class="selector-row">
                     <div class="selector-main">
                         ${this._isCustomMode ? this._renderCustomInput() : this._renderDropdown()}
                     </div>
-                    <button 
+                    <button
                         class="toggle-button"
                         @click=${this._toggleMode}
                         ?disabled=${this.disabled}>
@@ -214,7 +214,7 @@ export class LCARdSFontSelector extends LitElement {
      */
     _renderPreview() {
         const fontFamily = this._displayValue || 'Antonio';
-        
+
         // Ensure font is loaded for preview
         if (fontFamily) {
             ensureFontLoaded(fontFamily);
@@ -222,7 +222,7 @@ export class LCARdSFontSelector extends LitElement {
 
         return html`
             <div class="preview" style="font-family: ${fontFamily}">
-                LCARS 47 — The quick brown fox jumps over the lazy dog
+                Live Long and Prosper
             </div>
         `;
     }
@@ -236,10 +236,10 @@ export class LCARdSFontSelector extends LitElement {
         const newValue = ev.detail.value;
         this.value = newValue;
         this._displayValue = newValue;
-        
+
         // Load font if needed
         ensureFontLoaded(newValue);
-        
+
         this._emitChange();
     }
 
@@ -260,7 +260,7 @@ export class LCARdSFontSelector extends LitElement {
      */
     _toggleMode() {
         this._isCustomMode = !this._isCustomMode;
-        
+
         // Reset value if switching from custom to dropdown
         if (!this._isCustomMode && !isKnownFont(this._displayValue)) {
             this.value = 'Antonio';

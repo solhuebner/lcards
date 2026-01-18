@@ -96,6 +96,13 @@ export class LCARdSColorPicker extends LitElement {
 
             ha-select {
                 width: 100%;
+                position: relative;
+                z-index: 200;
+            }
+
+            /* Override MWC select to prevent clipping */
+            ha-select::part(menu) {
+                z-index: 1000;
             }
 
             .color-swatch {
@@ -389,6 +396,7 @@ export class LCARdSColorPicker extends LitElement {
                         <ha-select
                             .value=${this._getCurrentDropdownValue()}
                             .disabled=${this.disabled}
+                            fixedMenuPosition
                             @selected=${this._handleDropdownChange}
                             @closed=${(e) => e.stopPropagation()}>
                             ${this._renderDropdownItems()}

@@ -38,19 +38,19 @@ export class LCARdSColorSectionV2 extends LitElement {
             header: { type: String },           // Section header
             description: { type: String },      // Section description
             expanded: { type: Boolean },        // Expanded state
-            
+
             // NEW: Suggested states for quick-add
             suggestedStates: { type: Array },
-            
+
             // NEW: Allow custom state names
             allowCustomStates: { type: Boolean },
-            
+
             // NEW: Show color preview bar
             showPreview: { type: Boolean },
-            
+
             // CSS variable prefixes to scan
             variablePrefixes: { type: Array },
-            
+
             // Internal state
             _expandedStates: { type: Set, state: true },
             _customStateInput: { type: String, state: true }
@@ -70,7 +70,7 @@ export class LCARdSColorSectionV2 extends LitElement {
         this.variablePrefixes = ['--lcards-', '--lcars-', '--cblcars-'];
         this._expandedStates = new Set();
         this._customStateInput = '';
-        
+
         lcardsLog.debug('[ColorSectionV2] Initialized', {
             basePath: this.basePath,
             suggestedStates: this.suggestedStates
@@ -110,18 +110,74 @@ export class LCARdSColorSectionV2 extends LitElement {
                     border-radius: 8px;
                 }
 
+                /* Quick Add Section */
+                .quick-add-section {
+                    margin-bottom: 12px;
+                }
+
+                .field-label {
+                    font-size: 14px;
+                    font-weight: 500;
+                    color: var(--primary-text-color);
+                    margin-bottom: 8px;
+                }
+
+                .quick-add-buttons {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 8px;
+                }
+
+                .quick-add-buttons ha-button {
+                    flex: 0 1 auto;
+                }
+
+                .no-suggested-states {
+                    font-size: 13px;
+                    color: var(--secondary-text-color);
+                    font-style: italic;
+                    padding: 12px;
+                    text-align: center;
+                    background: var(--secondary-background-color);
+                    border-radius: 8px;
+                    margin-bottom: 12px;
+                }
+
                 .custom-state-input {
                     display: flex;
                     gap: 8px;
                     align-items: flex-end;
+                    padding-top: 12px;
+                    border-top: 1px solid var(--divider-color);
                 }
 
                 .custom-state-input ha-textfield {
                     flex: 1;
                 }
 
-                ha-select {
-                    width: 100%;
+                /* Action buttons - ensure visibility */
+                .editor-item-actions {
+                    display: flex;
+                    gap: 4px;
+                    flex-shrink: 0;
+                    margin-left: 8px;
+                }
+
+                .editor-item-actions ha-icon-button {
+                    --mdc-icon-button-size: 40px;
+                    --mdc-icon-size: 20px;
+                    --md-icon-button-icon-color: var(--primary-text-color);
+                    --md-icon-button-hover-icon-color: var(--error-color);
+                }
+
+                .editor-item-actions ha-icon-button:hover {
+                    --md-icon-button-icon-color: var(--error-color);
+                }
+
+                /* Expand icon spacing */
+                .expand-icon {
+                    margin-left: 4px;
+                    flex-shrink: 0;
                 }
 
                 /* Empty state */
@@ -135,6 +191,17 @@ export class LCARdSColorSectionV2 extends LitElement {
                     --mdc-icon-size: 48px;
                     color: var(--disabled-text-color);
                     margin-bottom: 12px;
+                }
+
+                /* Fix dropdown clipping from overflow:hidden */
+                .editor-item-content {
+                    position: relative;
+                    z-index: 10;
+                }
+
+                .editor-item-content lcards-color-picker {
+                    position: relative;
+                    z-index: 100;
                 }
             `
         ];
@@ -158,16 +225,16 @@ export class LCARdSColorSectionV2 extends LitElement {
                 description="${this.description}"
                 ?expanded=${this.expanded}
                 outlined>
-                
+
                 <!-- Existing States (List) -->
                 ${stateCount === 0 ? this._renderEmptyState() : html`
                     <div class="editor-list">
-                        ${Object.entries(currentStates).map(([state, color]) => 
+                        ${Object.entries(currentStates).map(([state, color]) =>
                             this._renderColorStateItem(state, color)
                         )}
                     </div>
                 `}
-                
+
                 <!-- Add State Controls -->
                 ${this._renderAddStateControls()}
             </lcards-form-section>
@@ -201,7 +268,7 @@ export class LCARdSColorSectionV2 extends LitElement {
     _renderColorStateItem(state, color) {
         const isExpanded = this._expandedStates.has(state);
         const isDefault = state === 'default';
-        
+
         return html`
             <div class="editor-item">
                 <!-- Header (Clickable to Expand) -->
@@ -210,38 +277,31 @@ export class LCARdSColorSectionV2 extends LitElement {
                     <div class="editor-item-info">
                         <div class="editor-item-title">${this._formatStateLabel(state)}</div>
                         <div class="editor-item-subtitle">${color || 'Not set'}</div>
-                        
+
                         <!-- Color Preview Bar -->
                         ${color && this.showPreview ? html`
-                            <div class="color-preview-bar" 
+                            <div class="color-preview-bar"
                                 style="background: ${color}">
                             </div>
                         ` : ''}
                     </div>
-                    
+
                     <!-- Actions -->
                     <div class="editor-item-actions">
-                        <ha-icon-button 
-                            icon="mdi:content-copy"
-                            .label=${'Duplicate'}
-                            @click=${(e) => this._duplicateState(e, state)}>
+                        <ha-icon-button
+                            .label=${'Delete'}
+                            .path=${'M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z'}
+                            @click=${(e) => this._deleteState(e, state)}>
                         </ha-icon-button>
-                        ${!isDefault ? html`
-                            <ha-icon-button 
-                                icon="mdi:delete"
-                                .label=${'Delete'}
-                                @click=${(e) => this._deleteState(e, state)}>
-                            </ha-icon-button>
-                        ` : ''}
                     </div>
-                    
+
                     <!-- Expand Icon -->
-                    <ha-icon 
+                    <ha-icon
                         class="expand-icon ${isExpanded ? 'expanded' : ''}"
                         icon="mdi:chevron-down">
                     </ha-icon>
                 </div>
-                
+
                 <!-- Content (Color Picker) -->
                 ${isExpanded ? html`
                     <div class="editor-item-content">
@@ -265,30 +325,32 @@ export class LCARdSColorSectionV2 extends LitElement {
      */
     _renderAddStateControls() {
         const currentStates = this._getCurrentStates();
-        const availableSuggested = this.suggestedStates.filter(
-            state => !(state in currentStates)
-        );
+        const existingStates = Object.keys(currentStates);
+        const availableSuggested = this.suggestedStates.filter(s => !existingStates.includes(s));
 
         return html`
             <div class="add-state-controls">
-                <!-- Suggested States Dropdown -->
+                <!-- Quick Add Buttons for Suggested States -->
                 ${availableSuggested.length > 0 ? html`
-                    <ha-select
-                        .label=${'Add Suggested State'}
-                        @selected=${this._addSuggestedState}>
-                        <mwc-list-item value="">-- Select State --</mwc-list-item>
-                        ${availableSuggested.map(state => html`
-                            <mwc-list-item value="${state}">
-                                ${this._formatStateLabel(state)}
-                            </mwc-list-item>
-                        `)}
-                    </ha-select>
+                    <div class="quick-add-section">
+                        <div class="field-label">Quick Add Suggested States</div>
+                        <div class="quick-add-buttons">
+                            ${availableSuggested.map(state => html`
+                                <ha-button
+                                    @click=${() => this._addState(state)}
+                                    outlined>
+                                    <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                                    ${this._formatStateLabel(state)}
+                                </ha-button>
+                            `)}
+                        </div>
+                    </div>
                 ` : html`
-                    <div style="font-size: 13px; color: var(--secondary-text-color); text-align: center;">
+                    <div class="no-suggested-states">
                         All suggested states have been added
                     </div>
                 `}
-                
+
                 <!-- Custom State Input (if enabled) -->
                 ${this.allowCustomStates ? html`
                     <div class="custom-state-input">
@@ -299,7 +361,10 @@ export class LCARdSColorSectionV2 extends LitElement {
                             @input=${this._handleCustomStateInput}
                             @keydown=${this._handleCustomStateKeydown}>
                         </ha-textfield>
-                        <ha-button @click=${this._addCustomState}>
+                        <ha-button
+                            variant="brand"
+                            @click=${this._addCustomState}
+                            ?disabled=${!this._customStateInput.trim()}>
                             <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
                             Add Custom
                         </ha-button>
@@ -317,14 +382,14 @@ export class LCARdSColorSectionV2 extends LitElement {
      */
     _getCurrentStates() {
         const value = this.editor._getConfigValue(this.basePath);
-        
+
         if (typeof value === 'string') {
             // Convert string to object with 'default' state
             return { default: value };
         } else if (typeof value === 'object' && value !== null) {
             return value;
         }
-        
+
         // Return empty object if no states configured
         return {};
     }
@@ -356,22 +421,7 @@ export class LCARdSColorSectionV2 extends LitElement {
         lcardsLog.debug('[ColorSectionV2] Color changed', { state, value: e.detail.value });
     }
 
-    /**
-     * Add a suggested state from dropdown
-     * @param {CustomEvent} e - selected event
-     * @private
-     */
-    _addSuggestedState(e) {
-        const state = e.target.value;
-        if (!state) return;
-        
-        this._addState(state);
-        
-        // Reset dropdown
-        e.target.value = '';
-        
-        lcardsLog.info('[ColorSectionV2] Added suggested state', { state });
-    }
+
 
     /**
      * Handle custom state input change
@@ -399,33 +449,29 @@ export class LCARdSColorSectionV2 extends LitElement {
      * @private
      */
     _addCustomState() {
-        const input = this.renderRoot.querySelector('ha-textfield');
         const stateName = (this._customStateInput || '').trim().toLowerCase();
-        
+
         if (!stateName) {
             this._showError('Please enter a state name');
             return;
         }
-        
+
         // Validate state name (alphanumeric, underscore, hyphen)
         if (!/^[a-z0-9_-]+$/.test(stateName)) {
             this._showError('State name must be alphanumeric with optional underscores/hyphens');
             return;
         }
-        
+
         if (this._hasState(stateName)) {
             this._showError(`State "${stateName}" already exists`);
             return;
         }
-        
+
         this._addState(stateName);
-        
+
         // Clear input
         this._customStateInput = '';
-        if (input) {
-            input.value = '';
-        }
-        
+
         lcardsLog.info('[ColorSectionV2] Added custom state', { state: stateName });
     }
 
@@ -436,75 +482,51 @@ export class LCARdSColorSectionV2 extends LitElement {
      */
     _addState(state) {
         const currentStates = this._getCurrentStates();
-        
+
+        if (currentStates[state] !== undefined) {
+            // State already exists, skip silently
+            lcardsLog.debug('[ColorSectionV2] State already exists:', state);
+            return;
+        }
+
         // Add new state with empty value
         const newStates = { ...currentStates, [state]: '' };
         this.editor._setConfigValue(this.basePath, newStates);
-        
+
         // Auto-expand new state for immediate editing
         this._expandedStates.add(state);
         this.requestUpdate();
+
+        lcardsLog.info('[ColorSectionV2] Added state', { state });
     }
 
     /**
-     * Delete a state (except default)
+     * Delete a state
      * @param {Event} e - Click event
      * @param {string} state - State name
      * @private
      */
-    _deleteState(e, state) {
+    async _deleteState(e, state) {
         e.stopPropagation();
-        
-        if (state === 'default') {
-            this._showError('Cannot delete default state');
-            return;
-        }
-        
-        if (!confirm(`Delete "${state}" state?`)) return;
-        
+
+        const confirmed = await this._showConfirmDialog(
+            'Delete State',
+            `Delete "${state}" state?`
+        );
+
+        if (!confirmed) return;
+
         const currentStates = this._getCurrentStates();
         delete currentStates[state];
-        
+
         this.editor._setConfigValue(this.basePath, currentStates);
         this._expandedStates.delete(state);
         this.requestUpdate();
-        
+
         lcardsLog.info('[ColorSectionV2] Deleted state', { state });
     }
 
-    /**
-     * Duplicate a state with new name
-     * @param {Event} e - Click event
-     * @param {string} sourceState - Source state name
-     * @private
-     */
-    _duplicateState(e, sourceState) {
-        e.stopPropagation();
-        
-        const currentStates = this._getCurrentStates();
-        const sourceColor = currentStates[sourceState];
-        
-        // Generate unique name
-        let newState = `${sourceState}_copy`;
-        let counter = 1;
-        while (this._hasState(newState)) {
-            newState = `${sourceState}_copy${counter}`;
-            counter++;
-        }
-        
-        // Add duplicated state
-        const newStates = { ...currentStates, [newState]: sourceColor };
-        this.editor._setConfigValue(this.basePath, newStates);
-        
-        // Auto-expand duplicated state
-        this._expandedStates.add(newState);
-        this.requestUpdate();
-        
-        lcardsLog.info('[ColorSectionV2] Duplicated state', { 
-            source: sourceState, 
-            duplicate: newState 
-        });
-    }
+
 
     /**
      * Format state name as readable label
@@ -535,19 +557,94 @@ export class LCARdSColorSectionV2 extends LitElement {
      * @param {string} message - Error message
      * @private
      */
-    _showError(message) {
-        // Use HA toast notification if available
-        if (this.editor.hass?.callService) {
-            this.editor.hass.callService('system_log', 'write', {
-                message: `[LCARdS Color Section v2] ${message}`,
-                level: 'warning'
-            });
-        }
-        
-        // Also show browser alert for immediate feedback
-        alert(message);
-        
+    async _showError(message) {
+        await this._showDialog('Error', message, 'error');
         lcardsLog.warn('[ColorSectionV2] Error', { message });
+    }
+
+    /**
+     * Show HA-style dialog
+     * @param {string} title - Dialog title
+     * @param {string} message - Dialog message (supports HTML)
+     * @param {string} type - Dialog type: 'info', 'warning', 'error'
+     * @private
+     */
+    async _showDialog(title, message, type = 'info') {
+        return new Promise((resolve) => {
+            const dialog = document.createElement('ha-dialog');
+            dialog.heading = title;
+            dialog.open = true;
+
+            const content = document.createElement('div');
+            content.innerHTML = message;
+            content.style.padding = '16px';
+            dialog.appendChild(content);
+
+            const closeButton = document.createElement('ha-button');
+            closeButton.slot = 'primaryAction';
+            closeButton.textContent = 'OK';
+            closeButton.addEventListener('click', () => {
+                dialog.close();
+                resolve();
+            });
+
+            dialog.appendChild(closeButton);
+
+            dialog.addEventListener('closed', () => {
+                dialog.remove();
+            });
+
+            document.body.appendChild(dialog);
+        });
+    }
+
+    /**
+     * Show HA-style confirmation dialog
+     * @param {string} title - Dialog title
+     * @param {string} message - Dialog message (supports HTML)
+     * @returns {Promise<boolean>} True if confirmed
+     * @private
+     */
+    async _showConfirmDialog(title, message) {
+        return new Promise((resolve) => {
+            const dialog = document.createElement('ha-dialog');
+            dialog.heading = title;
+            dialog.open = true;
+
+            const content = document.createElement('div');
+            content.innerHTML = message;
+            content.style.padding = '16px';
+            dialog.appendChild(content);
+
+            const cancelButton = document.createElement('ha-button');
+            cancelButton.slot = 'secondaryAction';
+            cancelButton.textContent = 'Cancel';
+            cancelButton.dialogAction = 'cancel';
+            cancelButton.setAttribute('appearance', 'plain');
+            cancelButton.addEventListener('click', () => {
+                dialog.close();
+                resolve(false);
+            });
+
+            const confirmButton = document.createElement('ha-button');
+            confirmButton.slot = 'primaryAction';
+            confirmButton.textContent = 'Delete';
+            confirmButton.dialogAction = 'delete';
+            confirmButton.setAttribute('variant', 'danger');
+            confirmButton.addEventListener('click', () => {
+                dialog.close();
+                resolve(true);
+            });
+
+            dialog.appendChild(cancelButton);
+            dialog.appendChild(confirmButton);
+
+            dialog.addEventListener('closed', () => {
+                dialog.remove();
+            });
+
+            document.body.appendChild(dialog);
+        });
     }
 }
 

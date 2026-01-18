@@ -103,6 +103,17 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
                     margin-top: 4px;
                     padding: 0 8px;
                 }
+
+                /* Action buttons - ensure visibility */
+                .editor-item-actions ha-icon-button {
+                    --mdc-icon-button-size: 40px;
+                    --mdc-icon-size: 20px;
+                    color: var(--primary-text-color);
+                }
+
+                .editor-item-actions ha-icon-button:hover {
+                    color: var(--error-color);
+                }
             `
         ];
     }
@@ -272,7 +283,7 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
         const textConfig = this.editor.config?.text || {};
         const fieldConfig = textConfig[fieldName] || {};
         const isExpanded = this._expandedFields[fieldName] || false;
-        
+
         // Get field content for subtitle preview
         const content = fieldConfig.content || fieldName;
         const contentPreview = content.length > 50 ? content.substring(0, 50) + '...' : content;
@@ -288,14 +299,9 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
                     </div>
                     <div class="editor-item-actions" @click=${(e) => e.stopPropagation()}>
                         <ha-icon-button
-                            icon="mdi:content-copy"
-                            @click=${(e) => this._duplicateField(e, fieldName)}
-                            title="Duplicate field">
-                        </ha-icon-button>
-                        <ha-icon-button
-                            icon="mdi:delete"
-                            @click=${(e) => this._deleteField(e, fieldName)}
-                            title="Delete field">
+                            .label=${'Delete'}
+                            .path=${'M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z'}
+                            @click=${(e) => this._deleteField(e, fieldName)}>
                         </ha-icon-button>
                     </div>
                     <ha-icon
@@ -556,7 +562,7 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
         };
 
         this.editor._setConfigValue('text', updatedText);
-        
+
         // Auto-expand the newly added field
         this._expandedFields = {
             ...this._expandedFields,
@@ -566,43 +572,7 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
         // Close dialog and reset
         this._showAddDialog = false;
         this._newFieldName = '';
-        
-        this.requestUpdate();
-    }
 
-    /**
-     * Duplicate a text field
-     * @param {Event} e - Click event
-     * @param {string} fieldName - Name of the field to duplicate
-     * @private
-     */
-    _duplicateField(e, fieldName) {
-        e.stopPropagation();
-
-        const textConfig = { ...(this.editor.config?.text || {}) };
-        const fieldConfig = textConfig[fieldName];
-
-        if (!fieldConfig) return;
-
-        // Find a unique name
-        let newName = `${fieldName}_copy`;
-        let counter = 1;
-        while (textConfig[newName]) {
-            newName = `${fieldName}_copy${counter}`;
-            counter++;
-        }
-
-        // Duplicate the field
-        textConfig[newName] = { ...fieldConfig };
-
-        this.editor._setConfigValue('text', textConfig);
-        
-        // Auto-expand the duplicated field
-        this._expandedFields = {
-            ...this._expandedFields,
-            [newName]: true
-        };
-        
         this.requestUpdate();
     }
 
