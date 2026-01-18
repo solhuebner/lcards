@@ -121,6 +121,41 @@ export const msdStudioStyles = css`
         color: white;
     }
 
+    /* Tab header icon button toggles - match canvas toolbar styling */
+    ha-icon-button {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        border: 2px solid transparent;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        margin: 0;
+        --mdc-icon-button-size: 40px;
+        --mdc-icon-size: 20px;
+    }
+
+    ha-icon-button:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: var(--primary-color);
+    }
+
+    ha-icon-button.active {
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+    }
+
+    ha-icon-button ha-icon {
+        --mdc-icon-size: 20px;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
     /* Zoom Controls (Floating) */
     .zoom-controls {
         position: absolute;

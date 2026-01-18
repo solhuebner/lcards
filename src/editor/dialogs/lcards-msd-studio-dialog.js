@@ -1546,8 +1546,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
         return html`
             <div style="padding: 8px;">
-                <!-- Anchor Actions -->
-                <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                <!-- Anchor Actions & Visualization Helpers -->
+                <div style="display: flex; gap: 8px; margin-bottom: 16px; align-items: center;">
                     <ha-button @click=${this._openAnchorForm}>
                         <ha-icon icon="mdi:map-marker-plus" slot="icon"></ha-icon>
                         Add Anchor
@@ -1557,6 +1557,15 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         <ha-icon icon="mdi:cursor-default-click" slot="icon"></ha-icon>
                         Place on Canvas
                     </ha-button>
+
+                    <!-- Right-aligned visualization helpers -->
+                    <div style="flex: 1;"></div>
+                    <ha-icon-button
+                        class="${this._showAnchorMarkers ? 'active' : ''}"
+                        @click=${() => { this._showAnchorMarkers = !this._showAnchorMarkers; this.requestUpdate(); }}
+                        .label=${'Anchor Markers'}>
+                        <ha-icon icon="mdi:map-marker"></ha-icon>
+                    </ha-icon-button>
                 </div>
 
                 <!-- Base SVG Anchors (Read-Only) -->
@@ -5419,8 +5428,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
         return html`
             <div style="padding: 8px;">
-                <!-- Control Actions -->
-                <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                <!-- Control Actions & Visualization Helpers -->
+                <div style="display: flex; gap: 8px; margin-bottom: 16px; align-items: center;">
                     <ha-button @click=${this._openControlForm}>
                         <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
                         Add Control
@@ -5430,35 +5439,22 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         <ha-icon icon="mdi:cursor-default-click" slot="icon"></ha-icon>
                         Place on Canvas
                     </ha-button>
-                </div>
 
-                <!-- Visualization Helpers -->
-                <lcards-form-section
-                    header="Visualization Helpers"
-                    description="Visual aids for control placement"
-                    ?expanded=${false}
-                    style="margin-bottom: 16px;">
-                    <div style="display: flex; flex-direction: column; gap: 12px;">
-                        <ha-formfield label="Show Bounding Boxes">
-                            <ha-switch
-                                ?checked=${this._showBoundingBoxes}
-                                @change=${(e) => {
-                                    this._showBoundingBoxes = e.target.checked;
-                                    this.requestUpdate();
-                                }}>
-                            </ha-switch>
-                        </ha-formfield>
-                        <ha-formfield label="Show Attachment Points">
-                            <ha-switch
-                                ?checked=${this._showAttachmentPoints}
-                                @change=${(e) => {
-                                    this._showAttachmentPoints = e.target.checked;
-                                    this.requestUpdate();
-                                }}>
-                            </ha-switch>
-                        </ha-formfield>
-                    </div>
-                </lcards-form-section>
+                    <!-- Right-aligned visualization helpers -->
+                    <div style="flex: 1;"></div>
+                    <ha-icon-button
+                        class="${this._showBoundingBoxes ? 'active' : ''}"
+                        @click=${() => { this._showBoundingBoxes = !this._showBoundingBoxes; this.requestUpdate(); }}
+                        .label=${'Bounding Boxes'}>
+                        <ha-icon icon="mdi:border-outside"></ha-icon>
+                    </ha-icon-button>
+                    <ha-icon-button
+                        class="${this._showAttachmentPoints ? 'active' : ''}"
+                        @click=${() => { this._showAttachmentPoints = !this._showAttachmentPoints; this.requestUpdate(); }}
+                        .label=${'Attachment Points'}>
+                        <ha-icon icon="mdi:target-variant"></ha-icon>
+                    </ha-icon-button>
+                </div>
 
                 <!-- Controls Management -->
                 <lcards-form-section
@@ -7260,8 +7256,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
         return html`
             <div style="padding: 8px;">
-                <!-- Line Actions -->
-                <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                <!-- Line Actions & Visualization Helpers -->
+                <div style="display: flex; gap: 8px; margin-bottom: 16px; align-items: center;">
                     <ha-button @click=${this._openLineForm}>
                         <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
                         Add Line
@@ -7271,35 +7267,22 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         <ha-icon icon="mdi:vector-line" slot="icon"></ha-icon>
                         Enter Connect Mode
                     </ha-button>
-                </div>
 
-                <!-- Visualization Helpers -->
-                <lcards-form-section
-                    header="Visualization Helpers"
-                    description="Visual aids for line editing"
-                    ?expanded=${false}
-                    style="margin-bottom: 16px;">
-                    <div style="display: flex; flex-direction: column; gap: 12px;">
-                        <ha-formfield label="Show Routing Paths">
-                            <ha-switch
-                                ?checked=${this._showRoutingPaths}
-                                @change=${(e) => {
-                                    this._showRoutingPaths = e.target.checked;
-                                    this.requestUpdate();
-                                }}>
-                            </ha-switch>
-                        </ha-formfield>
-                        <ha-formfield label="Show Routing Channels">
-                            <ha-switch
-                                ?checked=${this._showRoutingChannels}
-                                @change=${(e) => {
-                                    this._showRoutingChannels = e.target.checked;
-                                    this.requestUpdate();
-                                }}>
-                            </ha-switch>
-                        </ha-formfield>
-                    </div>
-                </lcards-form-section>
+                    <!-- Right-aligned visualization helpers -->
+                    <div style="flex: 1;"></div>
+                    <ha-icon-button
+                        class="${this._showRoutingPaths ? 'active' : ''}"
+                        @click=${() => { this._showRoutingPaths = !this._showRoutingPaths; this.requestUpdate(); }}
+                        .label=${'Routing Paths'}>
+                        <ha-icon icon="mdi:vector-line"></ha-icon>
+                    </ha-icon-button>
+                    <ha-icon-button
+                        class="${this._showRoutingChannels ? 'active' : ''}"
+                        @click=${() => { this._showRoutingChannels = !this._showRoutingChannels; this.requestUpdate(); }}
+                        .label=${'Routing Channels'}>
+                        <ha-icon icon="mdi:chart-timeline-variant"></ha-icon>
+                    </ha-icon-button>
+                </div>
 
                 <!-- Lines Management -->
                 <lcards-form-section
@@ -7469,36 +7452,34 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
         return html`
             <div style="padding: 8px;">
+                <!-- Channel Actions & Visualization Helpers -->
+                <div style="display: flex; gap: 8px; margin-bottom: 16px; align-items: center;">
+                    <ha-button @click=${this._openChannelForm}>
+                        <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                        Add Channel
+                    </ha-button>
+                    <ha-button @click=${() => this._setMode('draw_channel')}
+                               ?disabled=${this._activeMode === MODES.DRAW_CHANNEL}>
+                        <ha-icon icon="mdi:vector-rectangle" slot="icon"></ha-icon>
+                        Draw on Canvas
+                    </ha-button>
+
+                    <!-- Right-aligned visualization helpers -->
+                    <div style="flex: 1;"></div>
+                    <ha-icon-button
+                        class="${this._showRoutingChannels ? 'active' : ''}"
+                        @click=${() => { this._showRoutingChannels = !this._showRoutingChannels; this.requestUpdate(); }}
+                        .label=${'Routing Channels'}>
+                        <ha-icon icon="mdi:chart-timeline-variant"></ha-icon>
+                    </ha-icon-button>
+                </div>
+
                 <!-- Routing Channels -->
                 <lcards-form-section
                     header="Routing Channels"
                     description="Define regions that influence line routing behavior"
                     ?expanded=${true}
                     style="margin-bottom: 16px;">
-
-                    <!-- Channel Actions -->
-                    <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                        <ha-button @click=${this._openChannelForm}>
-                            <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
-                            Add Channel
-                        </ha-button>
-                        <ha-button @click=${() => this._setMode('draw_channel')}
-                                   ?disabled=${this._activeMode === MODES.DRAW_CHANNEL}>
-                            <ha-icon icon="mdi:vector-rectangle" slot="icon"></ha-icon>
-                            Draw on Canvas
-                        </ha-button>
-                    </div>
-
-                    <!-- Visualization Helper -->
-                    <ha-formfield label="Show Routing Channels" style="margin-bottom: 16px;">
-                        <ha-switch
-                            ?checked=${this._showRoutingChannels}
-                            @change=${(e) => {
-                                this._showRoutingChannels = e.target.checked;
-                                this.requestUpdate();
-                            }}>
-                        </ha-switch>
-                    </ha-formfield>
 
                     <!-- Channels List -->
                     ${channelCount === 0 ? html`
