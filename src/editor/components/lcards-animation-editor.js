@@ -48,68 +48,65 @@ export class LCARdSAnimationEditor extends LitElement {
       }
 
       .animation-item {
-        border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.2));
-        border-radius: var(--card-border-radius, 12px);
-        padding: 0;
-        background: var(--card-background-color, #fff);
+        background: var(--card-background-color);
+        border: 1px solid var(--divider-color);
+        border-radius: var(--ha-card-border-radius, 12px);
         overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        transition: box-shadow 0.2s ease;
-      }
-
-      .animation-item:hover {
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
       }
 
       .animation-header {
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        gap: 12px;
+        padding: 12px;
         cursor: pointer;
         user-select: none;
-        padding: 16px;
-        background: var(--secondary-background-color, #fafafa);
-        border-bottom: 1px solid var(--divider-color, rgba(127, 127, 127, 0.2));
-        transition: background 0.2s ease;
+        background: var(--secondary-background-color);
       }
 
       .animation-header:hover {
-        background: var(--divider-color, rgba(127, 127, 127, 0.1));
+        background: var(--primary-background-color);
       }
 
-      .animation-header-left {
-        display: flex;
-        align-items: center;
-        gap: 12px;
+      .animation-icon {
+        color: var(--primary-color);
+        --mdc-icon-size: 24px;
+      }
+
+      .animation-info {
         flex: 1;
         min-width: 0;
       }
 
-      .animation-header-right {
+      .animation-type-row {
         display: flex;
         align-items: center;
         gap: 8px;
+        margin-bottom: 4px;
+      }
+
+      .animation-type {
+        font-weight: 600;
+        font-size: 18px;
+      }
+
+      .animation-details {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        font-family: monospace;
+      }
+
+      .animation-actions {
+        display: flex;
+        gap: 4px;
       }
 
       .expand-icon {
-        transition: transform 0.2s ease;
-        color: var(--primary-text-color);
+        transition: transform 0.2s;
       }
 
       .expand-icon.expanded {
-        transform: rotate(90deg);
-      }
-
-      .trigger-badge {
-        --mdc-theme-primary: var(--primary-color);
-        --mdc-theme-on-primary: var(--text-primary-color, #fff);
-        pointer-events: none;
-      }
-
-      .preset-badge {
-        --mdc-theme-primary: var(--accent-color, #0288d1);
-        --mdc-theme-on-primary: var(--text-primary-color, #fff);
-        pointer-events: none;
+        transform: rotate(180deg);
       }
 
       .add-button {
@@ -152,9 +149,15 @@ export class LCARdSAnimationEditor extends LitElement {
 
       .param-grid {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
         gap: 16px;
         margin-top: 12px;
+      }
+
+      /* Constrain slider widths */
+      ha-selector {
+        max-width: 100%;
+        width: 100%;
       }
 
       .param-full {
@@ -169,11 +172,8 @@ export class LCARdSAnimationEditor extends LitElement {
 
       .empty-state {
         text-align: center;
-        padding: 48px 24px;
+        padding: 32px 16px;
         color: var(--secondary-text-color);
-        background: var(--secondary-background-color, #fafafa);
-        border-radius: 8px;
-        border: 2px dashed var(--divider-color, rgba(127, 127, 127, 0.3));
       }
 
       .empty-state ha-icon {
@@ -256,10 +256,6 @@ export class LCARdSAnimationEditor extends LitElement {
       }
 
       @media (max-width: 600px) {
-        .param-grid {
-          grid-template-columns: 1fr;
-        }
-
         .animation-header {
           padding: 12px;
         }
@@ -309,46 +305,42 @@ export class LCARdSAnimationEditor extends LitElement {
     return html`
       <div class="animation-item">
         <div class="animation-header" @click=${() => this._toggleExpanded(index)}>
-          <div class="animation-header-left">
-            <ha-icon
-              class="expand-icon ${isExpanded ? 'expanded' : ''}"
-              icon="mdi:chevron-right">
-            </ha-icon>
-            <ha-button
-              raised
-              class="trigger-badge">
-              <ha-icon icon=${this._getTriggerIcon(trigger)} slot="icon"></ha-icon>
-              ${this._formatTrigger(trigger)}
-            </ha-button>
-            ${isCustom
-              ? html`<ha-button
-                  raised
-                  class="preset-badge">
-                  <ha-icon icon="mdi:code-braces" slot="icon"></ha-icon>
-                  Custom
-                </ha-button>`
-              : html`<ha-button
-                  raised
-                  class="preset-badge">
-                  <ha-icon icon="mdi:animation" slot="icon"></ha-icon>
-                  ${this._formatPresetName(preset)}
-                </ha-button>`
-            }
+          <ha-icon
+            class="animation-icon"
+            icon=${isCustom ? 'mdi:code-braces' : 'mdi:animation'}>
+          </ha-icon>
+
+          <div class="animation-info">
+            <div class="animation-type-row">
+              <span class="animation-type">${isCustom ? 'Custom' : this._formatPresetName(preset)}</span>
+              <ha-button
+                size="small"
+                appearance="filled"
+                variant="success"
+                .label=${this._formatTrigger(trigger)}>
+                ${this._formatTrigger(trigger)}
+              </ha-button>
+            </div>
+            <div class="animation-details">${this._getAnimationDetails(anim)}</div>
           </div>
-          <div class="animation-header-right">
+
+          <div class="animation-actions">
             <ha-icon-button
               @click=${(e) => this._duplicateAnimation(e, index)}
-              label="Duplicate"
-            >
-              <ha-icon icon="mdi:content-copy"></ha-icon>
+              .label=${'Duplicate'}
+              .path=${'M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z'}>
             </ha-icon-button>
             <ha-icon-button
               @click=${(e) => this._deleteAnimation(e, index)}
-              label="Delete"
-            >
-              <ha-icon icon="mdi:delete"></ha-icon>
+              .label=${'Delete'}
+              .path=${'M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z'}>
             </ha-icon-button>
           </div>
+
+          <ha-icon
+            class="expand-icon ${isExpanded ? 'expanded' : ''}"
+            icon="mdi:chevron-down">
+          </ha-icon>
         </div>
 
         ${isExpanded ? html`
@@ -387,23 +379,20 @@ export class LCARdSAnimationEditor extends LitElement {
           }}
           .value=${anim.trigger || 'on_load'}
           .label=${'When to trigger animation'}
+          .helper=${this._getTriggerHelp(anim.trigger || 'on_load')}
           @value-changed=${(e) => this._updateAnimation(index, 'trigger', e.detail.value)}
         ></ha-selector>
-        <div class="help-text">${this._getTriggerHelp(anim.trigger || 'on_load')}</div>
       </lcards-form-section>
 
       <!-- Custom Toggle -->
-      <div class="toggle-row">
-        <span class="toggle-label">
-          <ha-icon icon="mdi:code-braces"></ha-icon>
-          Use Custom anime.js Code
-        </span>
-        <ha-switch
-          ?checked=${isCustom}
-          @change=${(e) => this._toggleCustomMode(index, e.target.checked)}
-          style="--mdc-theme-secondary: var(--primary-color);">
-        </ha-switch>
-      </div>
+      <ha-selector
+        .hass=${this.hass}
+        .selector=${{ boolean: {} }}
+        .value=${isCustom}
+        .label=${'Use Custom anime.js Code'}
+        .helper=${'Switch to custom anime.js v4 configuration instead of preset'}
+        @value-changed=${(e) => this._toggleCustomMode(index, e.detail.value)}
+      ></ha-selector>
 
       ${isCustom ? this._renderCustomForm(anim, index) : html`
         ${isPlaceholder ? this._renderPlaceholderWarning(preset) : ''}
@@ -434,10 +423,12 @@ export class LCARdSAnimationEditor extends LitElement {
           .label=${'Select animation type'}
           @value-changed=${(e) => this._updateAnimation(index, 'preset', e.detail.value)}
         ></ha-selector>
-        <div class="help-text">${this._getPresetHelp(preset)}</div>
+
+        ${this._getPresetHelp(preset) ? html`
+          <lcards-message type="info" .message=${this._getPresetHelp(preset)}></lcards-message>
+        ` : ''}
       </lcards-form-section>
 
-      <!-- Preset Parameters Section -->
       <lcards-form-section
         header="Animation Parameters"
         icon="mdi:tune"
@@ -528,17 +519,14 @@ export class LCARdSAnimationEditor extends LitElement {
       case 'draw':
         specificParams = html`
           <div class="param-grid">
-            <div class="param-full">
-              <div class="toggle-row" style="margin-bottom: 0;">
-                <span class="toggle-label">Reverse Direction</span>
-                <ha-switch
-                  ?checked=${params.reverse ?? false}
-                  @change=${(e) => this._updateParam(index, 'reverse', e.target.checked)}
-                  style="--mdc-theme-secondary: var(--primary-color);">
-                </ha-switch>
-              </div>
-              <div class="help-text">Draw from end to start instead of start to end</div>
-            </div>
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ boolean: {} }}
+              .value=${params.reverse ?? false}
+              .label=${'Reverse Direction'}
+              .helper=${'Draw from end to start instead of start to end'}
+              @value-changed=${(e) => this._updateParam(index, 'reverse', e.detail.value)}>
+            </ha-selector>
           </div>
         `;
         break;
@@ -583,7 +571,7 @@ export class LCARdSAnimationEditor extends LitElement {
               @input=${(e) => this._updateParam(index, 'speed', Number(e.target.value))}>
             </ha-textfield>
           </div>
-          <div class="help-text">Leave dash/gap empty to auto-detect from element</div>
+          <lcards-message type="info" .message=${'Leave dash/gap empty to auto-detect from element'}></lcards-message>
         `;
         break;
 
@@ -619,8 +607,8 @@ export class LCARdSAnimationEditor extends LitElement {
                 placeholder="Optional"
                 @value-changed=${(e) => this._updateParam(index, 'color_from', e.detail.value)}>
               </lcards-color-picker>
-              <div class="help-text">Leave empty for opacity-only shimmer</div>
             </div>
+            <lcards-message type="info" .message=${'Leave empty for opacity-only shimmer'}></lcards-message>
             <div class="param-full">
               <label class="field-label">Color To</label>
               <lcards-color-picker
@@ -758,20 +746,20 @@ export class LCARdSAnimationEditor extends LitElement {
                   this._updateParam(index, 'colors', newColors);
                 }}>
               </lcards-color-picker>
-              <div class="help-text">Three colors for cascade effect: start → text (flash) → end</div>
             </div>
+            <lcards-message type="info" .message=${'Three colors for cascade effect: start → text (flash) → end'}></lcards-message>
             <ha-textfield
               label="CSS Property"
               .value=${params.property ?? 'color'}
-              @input=${(e) => this._updateParam(index, 'property', e.target.value)}
-              helper="Property to animate (color, fill, stroke, etc.)">
+              .helper=${'Property to animate (color, fill, stroke, etc.)'}
+              @input=${(e) => this._updateParam(index, 'property', e.target.value)}>
             </ha-textfield>
             <ha-textfield
               type="number"
               label="Row Delay (ms)"
               .value=${params.delay ?? 0}
-              @input=${(e) => this._updateParam(index, 'delay', Number(e.target.value))}
-              helper="Delay before animation starts">
+              .helper=${'Delay before animation starts'}
+              @input=${(e) => this._updateParam(index, 'delay', Number(e.target.value))}>
             </ha-textfield>
           </div>
         `;
@@ -854,9 +842,7 @@ export class LCARdSAnimationEditor extends LitElement {
       case 'glitch':
       case 'motionpath':
         specificParams = html`
-          <div class="help-text" style="font-style: normal; color: var(--secondary-text-color);">
-            This preset is awaiting implementation. Parameters will be available soon.
-          </div>
+          <lcards-message type="warning" .message=${"This preset is awaiting implementation. Parameters will be available soon."}></lcards-message>
         `;
         break;
     }
@@ -902,29 +888,31 @@ export class LCARdSAnimationEditor extends LitElement {
           @value-changed=${(e) => this._updateParam(index, 'easing', e.detail.value)}>
         </ha-selector>
 
-        <div class="param-full">
-          <div class="toggle-row" style="margin-bottom: 0;">
-            <span class="toggle-label">Loop Animation</span>
-            <ha-switch
-              ?checked=${params.loop ?? false}
-              @change=${(e) => this._updateParam(index, 'loop', e.target.checked)}
-              style="--mdc-theme-secondary: var(--primary-color);">
-            </ha-switch>
-          </div>
-          <div class="help-text">Repeat animation continuously</div>
-        </div>
+        <ha-selector
+          .hass=${this.hass}
+          .selector=${{ boolean: {} }}
+          .value=${typeof params.loop === 'boolean' ? params.loop : (params.loop ? true : false)}
+          .label=${'Loop Animation (Infinite)'}
+          .helper=${'Toggle for infinite loop, or use Loop Count below for specific iterations'}
+          @value-changed=${(e) => this._updateParam(index, 'loop', e.detail.value)}>
+        </ha-selector>
 
-        <div class="param-full">
-          <div class="toggle-row" style="margin-bottom: 0;">
-            <span class="toggle-label">Alternate Direction</span>
-            <ha-switch
-              ?checked=${params.alternate ?? false}
-              @change=${(e) => this._updateParam(index, 'alternate', e.target.checked)}
-              style="--mdc-theme-secondary: var(--primary-color);">
-            </ha-switch>
-          </div>
-          <div class="help-text">Reverse animation direction on each loop</div>
-        </div>
+        <ha-selector
+          .hass=${this.hass}
+          .selector=${{ number: { min: 0, max: 100, step: 1, mode: 'box' } }}
+          .value=${typeof params.loop === 'number' ? params.loop : ''}
+          .label=${'Loop Count (0 = off, leave empty for infinite)'}
+          @value-changed=${(e) => this._updateParam(index, 'loop', e.detail.value || false)}>
+        </ha-selector>
+
+        <ha-selector
+          .hass=${this.hass}
+          .selector=${{ boolean: {} }}
+          .value=${params.alternate ?? false}
+          .label=${'Alternate Direction'}
+          .helper=${'Reverse animation direction on each loop'}
+          @value-changed=${(e) => this._updateParam(index, 'alternate', e.detail.value)}>
+        </ha-selector>
       </div>
     `;
   }
@@ -942,12 +930,12 @@ export class LCARdSAnimationEditor extends LitElement {
           .value=${configString}
           @value-changed=${(e) => this._updateCustomConfig(index, e.detail.value)}>
         </ha-yaml-editor>
-        <div class="help-text">
+        <lcards-message type="info">
           Enter a valid JSON object for anime.js v4 configuration.
           <a href="https://animejs.com/documentation/" target="_blank" rel="noopener noreferrer">
             View Documentation →
           </a>
-        </div>
+        </lcards-message>
       </lcards-form-section>
     `;
   }
@@ -1026,6 +1014,35 @@ export class LCARdSAnimationEditor extends LitElement {
       'glitch': 'Glitch'
     };
     return names[preset] || preset;
+  }
+
+  _getAnimationDetails(anim) {
+    const params = anim.params || {};
+    const parts = [];
+
+    // Show duration if set
+    if (params.duration) parts.push(`${params.duration}ms`);
+
+    // Show easing if set
+    if (params.easing && params.easing !== 'easeInOutQuad') parts.push(params.easing);
+
+    // Show loop info
+    if (params.loop === true) parts.push('loop: ∞');
+    else if (typeof params.loop === 'number' && params.loop > 0) parts.push(`loop: ${params.loop}×`);
+
+    // Show delay if set
+    if (params.delay) parts.push(`delay: ${params.delay}ms`);
+
+    // Show alternate if set
+    if (params.alternate) parts.push('alternate');
+
+    // Show key preset-specific params
+    const preset = anim.preset || 'pulse';
+    if (preset === 'pulse' && params.max_scale) parts.push(`scale: ${params.max_scale}`);
+    if (preset === 'fade' && params.to !== undefined) parts.push(`opacity: ${params.to}`);
+    if (preset === 'scale' && params.scale) parts.push(`scale: ${params.scale}`);
+
+    return parts.length > 0 ? parts.join(' • ') : 'Default settings';
   }
 
   _getPresetOptions() {

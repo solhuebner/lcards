@@ -543,6 +543,17 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
     _renderEffectsTab() {
         return html`
             <div style="display: flex; flex-direction: column; gap: 16px; padding: 16px;">
+                <!-- Info Message -->
+                <lcards-message type="info">
+                    <strong>Combining Effects:</strong>
+                    <p style="margin: 8px 0 0 0; font-size: 13px; line-height: 1.4;">
+                        Animations and filters work together. For example:
+                        <br/>• Add a <strong>glow filter</strong> with a <strong>pulse animation</strong> for breathing light effects
+                        <br/>• Use <strong>blur + brightness filters</strong> with <strong>hover animations</strong> for depth effects
+                        <br/>• Apply <strong>SVG filters</strong> for advanced effects like displacement maps or morphology
+                    </p>
+                </lcards-message>
+
                 <!-- Animations Section -->
                 <lcards-form-section
                     header="Animations"
@@ -575,16 +586,6 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                     </lcards-filter-editor>
                 </lcards-form-section>
 
-                <!-- Info Message -->
-                <lcards-message type="info">
-                    <strong>Combining Effects:</strong>
-                    <p style="margin: 8px 0 0 0; font-size: 13px; line-height: 1.4;">
-                        Animations and filters work together. For example:
-                        <br/>• Add a <strong>glow filter</strong> with a <strong>pulse animation</strong> for breathing light effects
-                        <br/>• Use <strong>blur + brightness filters</strong> with <strong>hover animations</strong> for depth effects
-                        <br/>• Apply <strong>SVG filters</strong> for advanced effects like displacement maps or morphology
-                    </p>
-                </lcards-message>
             </div>
         `;
     }

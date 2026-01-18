@@ -38,6 +38,7 @@ import { LitElement, html, css } from 'lit';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import './shared/lcards-form-section.js';
 import './shared/lcards-color-picker.js';
+import './shared/lcards-message.js';
 
 export class LCARdSFilterEditor extends LitElement {
 
@@ -70,7 +71,7 @@ export class LCARdSFilterEditor extends LitElement {
             }
 
             .add-button {
-                align-self: flex-start;
+                width: 100%;
             }
 
             .filter-list {
@@ -199,32 +200,10 @@ export class LCARdSFilterEditor extends LitElement {
                 --mdc-theme-primary: var(--primary-color);
             }
 
-            .filter-help {
-                background: var(--info-color, #2196F3);
-                color: white;
-                padding: 8px 12px;
-                border-radius: 4px;
-                font-size: 12px;
-                margin-top: 8px;
-                display: flex;
-                align-items: flex-start;
-                gap: 8px;
-            }
-
-            .filter-help ha-icon {
-                --mdc-icon-size: 18px;
-                flex-shrink: 0;
-                margin-top: 2px;
-            }
-
-            .filter-help div {
-                flex: 1;
-            }
-
             .filter-chain-info {
                 background: var(--primary-background-color);
                 border: 1px solid var(--divider-color);
-                border-radius: 8px;
+                border-radius: var(--ha-card-border-radius, 12px);
                 padding: 12px;
                 margin-bottom: 12px;
                 font-size: 13px;
@@ -242,9 +221,6 @@ export class LCARdSFilterEditor extends LitElement {
 
         return html`
             <div class="filter-editor">
-                <!-- Filter Chain Info -->
-                ${hasSvgFilters ? this._renderFilterChainInfo() : ''}
-
                 <!-- Add Filter Button -->
                 <ha-button
                     class="add-button"
@@ -252,6 +228,9 @@ export class LCARdSFilterEditor extends LitElement {
                     <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
                     Add Filter
                 </ha-button>
+
+                <!-- Filter Chain Info -->
+                ${hasSvgFilters ? this._renderFilterChainInfo() : ''}
 
                 <!-- Filter List -->
                 ${filterCount === 0 ? this._renderEmptyState() : html`
@@ -414,9 +393,7 @@ export class LCARdSFilterEditor extends LitElement {
                 </ha-selector>
 
                 ${description ? html`
-                    <ha-alert alert-type="info" style="margin-top: 12px;">
-                        ${description}
-                    </ha-alert>
+                    <lcards-message type="info" .message=${description}></lcards-message>
                 ` : ''}
             </lcards-form-section>
 
@@ -526,9 +503,7 @@ export class LCARdSFilterEditor extends LitElement {
                 .label=${'Brightness'}
                 @value-changed=${(e) => this._updateFilter(index, 'value', e.detail.value)}>
             </ha-selector>
-            <div style="font-size: 12px; color: var(--secondary-text-color); margin-top: 8px;">
-                0 = black, 1 = normal, 2+ = brighter
-            </div>
+            <lcards-message type="info" .message=${'0 = black, 1 = normal, 2+ = brighter'}></lcards-message>
         `;
     }
 
@@ -545,9 +520,7 @@ export class LCARdSFilterEditor extends LitElement {
                 .label=${'Contrast'}
                 @value-changed=${(e) => this._updateFilter(index, 'value', e.detail.value)}>
             </ha-selector>
-            <div style="font-size: 12px; color: var(--secondary-text-color); margin-top: 8px;">
-                0 = gray, 1 = normal, 2+ = higher contrast
-            </div>
+            <lcards-message type="info" .message=${'0 = gray, 1 = normal, 2+ = higher contrast'}></lcards-message>
         `;
     }
 
@@ -564,9 +537,7 @@ export class LCARdSFilterEditor extends LitElement {
                 .label=${'Saturation'}
                 @value-changed=${(e) => this._updateFilter(index, 'value', e.detail.value)}>
             </ha-selector>
-            <div style="font-size: 12px; color: var(--secondary-text-color); margin-top: 8px;">
-                0 = grayscale, 1 = normal, 2+ = oversaturated
-            </div>
+            <lcards-message type="info" .message=${'0 = grayscale, 1 = normal, 2+ = oversaturated'}></lcards-message>
         `;
     }
 
@@ -583,9 +554,7 @@ export class LCARdSFilterEditor extends LitElement {
                 .label=${'Hue Rotation (degrees)'}
                 @value-changed=${(e) => this._updateFilter(index, 'value', `${e.detail.value}deg`)}>
             </ha-selector>
-            <div style="font-size: 12px; color: var(--secondary-text-color); margin-top: 8px;">
-                Rotates colors around the color wheel (0-360°)
-            </div>
+            <lcards-message type="info" .message=${'Rotates colors around the color wheel (0-360°)'}></lcards-message>
         `;
     }
 
@@ -602,9 +571,7 @@ export class LCARdSFilterEditor extends LitElement {
                 .label=${'Grayscale Amount'}
                 @value-changed=${(e) => this._updateFilter(index, 'value', e.detail.value)}>
             </ha-selector>
-            <div style="font-size: 12px; color: var(--secondary-text-color); margin-top: 8px;">
-                0 = color, 1 = fully grayscale
-            </div>
+            <lcards-message type="info" .message=${'0 = color, 1 = fully grayscale'}></lcards-message>
         `;
     }
 
@@ -621,9 +588,7 @@ export class LCARdSFilterEditor extends LitElement {
                 .label=${'Sepia Amount'}
                 @value-changed=${(e) => this._updateFilter(index, 'value', e.detail.value)}>
             </ha-selector>
-            <div style="font-size: 12px; color: var(--secondary-text-color); margin-top: 8px;">
-                0 = normal, 1 = full sepia tone (vintage effect)
-            </div>
+            <lcards-message type="info" .message=${'0 = normal, 1 = full sepia tone (vintage effect)'}></lcards-message>
         `;
     }
 
@@ -640,9 +605,7 @@ export class LCARdSFilterEditor extends LitElement {
                 .label=${'Invert Amount'}
                 @value-changed=${(e) => this._updateFilter(index, 'value', e.detail.value)}>
             </ha-selector>
-            <div style="font-size: 12px; color: var(--secondary-text-color); margin-top: 8px;">
-                0 = normal, 1 = fully inverted (negative)
-            </div>
+            <lcards-message type="info" .message=${'0 = normal, 1 = fully inverted (negative)'}></lcards-message>
         `;
     }
 
@@ -659,9 +622,7 @@ export class LCARdSFilterEditor extends LitElement {
                 .label=${'Opacity'}
                 @value-changed=${(e) => this._updateFilter(index, 'value', e.detail.value)}>
             </ha-selector>
-            <div style="font-size: 12px; color: var(--secondary-text-color); margin-top: 8px;">
-                0 = transparent, 1 = fully opaque
-            </div>
+            <lcards-message type="info" .message=${'0 = transparent, 1 = fully opaque'}></lcards-message>
         `;
     }
 
@@ -737,9 +698,7 @@ export class LCARdSFilterEditor extends LitElement {
                 .label=${'Standard Deviation'}
                 @value-changed=${(e) => this._updateSvgFilterParam(index, 'stdDeviation', e.detail.value)}>
             </ha-selector>
-            <div style="font-size: 12px; color: var(--secondary-text-color); margin-top: 8px;">
-                Amount of blur (0 = no blur, higher = more blur)
-            </div>
+            <lcards-message type="info" .message=${'Amount of blur (0 = no blur, higher = more blur)'}></lcards-message>
         `;
     }
 
@@ -777,9 +736,7 @@ export class LCARdSFilterEditor extends LitElement {
                     @value-changed=${(e) => this._updateSvgFilterParam(index, 'values', e.detail.value)}
                     style="margin-top: 12px;">
                 </ha-selector>
-                <div style="font-size: 12px; color: var(--secondary-text-color); margin-top: 8px;">
-                    0 = grayscale, 1 = normal, >1 = oversaturated
-                </div>
+                <lcards-message type="info" .message=${'0 = grayscale, 1 = normal, >1 = oversaturated'}></lcards-message>
             ` : ''}
 
             ${value.type === 'hueRotate' ? html`
@@ -804,13 +761,7 @@ export class LCARdSFilterEditor extends LitElement {
                 </ha-textfield>
             ` : ''}
 
-            <div class="filter-help">
-                <ha-icon icon="mdi:information"></ha-icon>
-                <div>
-                    <strong>Combines two inputs:</strong> Uses previous filter + SourceGraphic.
-                    Advanced compositing for complex layering effects.
-                </div>
-            </div>
+            <lcards-message type="info" .message=${'Combines two inputs: Uses previous filter + SourceGraphic. Advanced compositing for complex layering effects.'}></lcards-message>
         `;
     }
 
@@ -838,9 +789,7 @@ export class LCARdSFilterEditor extends LitElement {
                     @input=${(e) => this._updateSvgFilterParam(index, 'dy', e.target.value)}>
                 </ha-textfield>
             </div>
-            <div style="font-size: 12px; color: var(--secondary-text-color); margin-top: 8px;">
-                Offset in pixels (positive = right/down, negative = left/up)
-            </div>
+            <lcards-message type="info" .message=${'Offset in pixels (positive = right/down, negative = left/up)'}></lcards-message>
         `;
     }
 
@@ -880,13 +829,7 @@ export class LCARdSFilterEditor extends LitElement {
                 .label=${'Blend Mode'}
                 @value-changed=${(e) => this._updateSvgFilterParam(index, 'mode', e.detail.value)}>
             </ha-selector>
-            <div class="filter-help">
-                <ha-icon icon="mdi:information"></ha-icon>
-                <div>
-                    <strong>Blends with previous filter:</strong> Uses output from the filter above.
-                    Try after <strong>Blur</strong> for glow effects (screen/lighten mode).
-                </div>
-            </div>
+            <lcards-message type="info" .message=${'Blends with previous filter: Uses output from the filter above. Try after Blur for glow effects (screen/lighten mode).'}></lcards-message>
         `;
     }
 
@@ -932,13 +875,7 @@ export class LCARdSFilterEditor extends LitElement {
                 </div>
             ` : ''}
 
-            <div class="filter-help">
-                <ha-icon icon="mdi:information"></ha-icon>
-                <div>
-                    <strong>Combines two inputs:</strong> Uses previous filter + SourceGraphic.
-                    Advanced compositing for complex layering effects.
-                </div>
-            </div>
+            <lcards-message type="info" .message=${'Combines two inputs: Uses previous filter + SourceGraphic. Advanced compositing for complex layering effects.'}></lcards-message>
         `;
     }
 
@@ -973,9 +910,7 @@ export class LCARdSFilterEditor extends LitElement {
                 @value-changed=${(e) => this._updateSvgFilterParam(index, 'radius', e.detail.value)}
                 style="margin-top: 12px;">
             </ha-selector>
-            <div style="font-size: 12px; color: var(--secondary-text-color); margin-top: 8px;">
-                Erode makes shapes thinner, dilate makes them fatter
-            </div>
+            <lcards-message type="info" .message=${'Erode makes shapes thinner, dilate makes them fatter'}></lcards-message>
         `;
     }
 
@@ -1028,9 +963,7 @@ export class LCARdSFilterEditor extends LitElement {
                 style="margin-top: 12px;">
             </ha-textfield>
 
-            <div style="font-size: 12px; color: var(--secondary-text-color); margin-top: 8px;">
-                Generates Perlin noise patterns for organic textures
-            </div>
+            <lcards-message type="info" .message=${'Generates Perlin noise patterns for organic textures'}></lcards-message>
         `;
     }
 
@@ -1086,13 +1019,7 @@ export class LCARdSFilterEditor extends LitElement {
                 </ha-selector>
             </div>
 
-            <div class="filter-help">
-                <ha-icon icon="mdi:lightbulb-on"></ha-icon>
-                <div>
-                    <strong>Perfect combo:</strong> Add <strong>Turbulence</strong> filter right before this!
-                    Turbulence generates the displacement map for distortion effects.
-                </div>
-            </div>
+            <lcards-message type="info" icon="mdi:lightbulb-on" .message=${'Perfect combo: Add Turbulence filter right before this! Turbulence generates the displacement map for distortion effects.'}></lcards-message>
         `;
     }
 
