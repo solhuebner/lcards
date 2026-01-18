@@ -85,6 +85,28 @@ export class LCARdSColorSectionV2 extends LitElement {
                     display: block;
                 }
 
+                /* State mapping info box */
+                .state-mapping-info {
+                    background: var(--primary-background-color);
+                    border: 1px solid var(--divider-color);
+                    border-radius: var(--ha-card-border-radius, 12px);
+                    padding: 12px;
+                    margin-bottom: 12px;
+                    font-size: 13px;
+                }
+
+                .state-mapping-info strong {
+                    color: var(--primary-color);
+                }
+
+                .state-mapping-info code {
+                    background: rgba(0, 0, 0, 0.1);
+                    padding: 2px 6px;
+                    border-radius: 3px;
+                    font-family: monospace;
+                    font-size: 12px;
+                }
+
                 /* Color preview bar */
                 .color-preview-bar {
                     height: 6px;
@@ -234,6 +256,17 @@ export class LCARdSColorSectionV2 extends LitElement {
                         )}
                     </div>
                 `}
+
+                <!-- State Mapping Info -->
+                <div class="state-mapping-info">
+                    <ha-icon icon="mdi:information" style="float: left; margin-right: 8px;"></ha-icon>
+                    <strong>State Mapping Guide:</strong><br>
+                    Use custom state names (e.g., <code>heat</code>, <code>cool</code>, <code>playing</code>) for exact entity states, or use mapped states:<br>
+                    • <strong>active</strong> → on, locked, open, home, playing, heating, cooling, etc.<br>
+                    • <strong>inactive</strong> → off, paused, idle, stopped, unlocked, closed, etc.<br>
+                    • <strong>unavailable</strong> → unavailable, unknown<br>
+                    • <strong>default</strong> → fallback for all other states
+                </div>
 
                 <!-- Add State Controls -->
                 ${this._renderAddStateControls()}

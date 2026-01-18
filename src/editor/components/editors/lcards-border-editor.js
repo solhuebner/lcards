@@ -16,7 +16,7 @@
 
 import { LitElement, html, css, svg } from 'lit';
 import '../shared/lcards-form-section.js';
-import './lcards-color-section.js';
+import './lcards-color-section-v2.js';
 
 export class LCARdSBorderEditor extends LitElement {
 
@@ -343,13 +343,14 @@ export class LCARdSBorderEditor extends LitElement {
      */
     _renderColorControls() {
         return html`
-            <lcards-color-section
+            <lcards-color-section-v2
                 .editor=${this.editor}
                 basePath="${this.path}.color"
                 header="Border Colors"
-                .states=${['default', 'active', 'inactive', 'unavailable']}
+                .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                ?allowCustomStates=${true}
                 ?expanded=${false}>
-            </lcards-color-section>
+            </lcards-color-section-v2>
         `;
     }
 

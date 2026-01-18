@@ -19,7 +19,7 @@ import { LitElement, html, css } from 'lit';
 import { editorWidgetStyles } from './editor-widget-styles.js';
 import '../shared/lcards-form-section.js';
 import { LCARdSFormFieldHelper as FormField } from '../shared/lcards-form-field.js';
-import './lcards-color-section.js';
+import './lcards-color-section-v2.js';
 import './lcards-padding-editor.js';
 
 export class LCARdSMultiTextEditorV2 extends LitElement {
@@ -243,33 +243,17 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
                 </lcards-padding-editor>
             </lcards-form-section>
 
-            <!-- Colors Section -->
-            <lcards-form-section
-                header="Colours"
+            <!-- Text Colors -->
+            <lcards-color-section-v2
+                .editor=${this.editor}
+                .config=${this.editor.config}
+                basePath="text.default.color"
+                header="Text Colors"
                 description="Default text colors for different states"
-                icon="mdi:select-color"
-                ?expanded=${false}
-                ?outlined=${true}
-                headerLevel="5">
-
-                <lcards-color-section
-                    .editor=${this.editor}
-                    .config=${this.editor.config}
-                    basePath="text.default.color"
-                    header="Default Colors (no entity/state)"
-                    .states=${['default']}
-                    ?expanded=${false}>
-                </lcards-color-section>
-
-                <lcards-color-section
-                    .editor=${this.editor}
-                    .config=${this.editor.config}
-                    basePath="text.default.color"
-                    header="State Colors"
-                    .states=${['active', 'inactive', 'unavailable']}
-                    ?expanded=${false}>
-                </lcards-color-section>
-            </lcards-form-section>
+                .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                ?allowCustomStates=${true}
+                ?expanded=${false}>
+            </lcards-color-section-v2>
         `;
     }
 
@@ -418,25 +402,17 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
                 </lcards-padding-editor>
             </lcards-form-section>
 
-            <!-- Colors Section -->
-            <lcards-form-section
-                header="Colours"
+            <!-- Field Colors -->
+            <lcards-color-section-v2
+                .editor=${this.editor}
+                .config=${this.editor.config}
+                basePath="text.${fieldName}.color"
+                header="Field Colors"
                 description="Override default color settings"
-                icon="mdi:select-color"
-                ?expanded=${false}
-                ?outlined=${true}
-                headerLevel="6"
-                ?compact=${true}>
-
-                <lcards-color-section
-                    .editor=${this.editor}
-                    .config=${this.editor.config}
-                    basePath="text.${fieldName}.color"
-                    header="Field Colors (overrides defaults)"
-                    .states=${['default', 'active', 'inactive', 'unavailable']}
-                    ?expanded=${false}>
-                </lcards-color-section>
-            </lcards-form-section>
+                .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                ?allowCustomStates=${true}
+                ?expanded=${false}>
+            </lcards-color-section-v2>
         `;
     }
 

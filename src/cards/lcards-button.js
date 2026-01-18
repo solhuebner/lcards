@@ -53,6 +53,7 @@ import { html, css } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { LCARdSCard } from '../base/LCARdSCard.js';
 import { lcardsLog } from '../utils/lcards-logging.js';
+import { resolveStateColor } from '../utils/state-color-resolver.js';
 import { ColorUtils } from '../core/themes/ColorUtils.js';
 import { deepMerge } from '../utils/deepMerge.js';
 import { resolveThemeTokensRecursive } from '../utils/lcards-theme.js';
@@ -1808,12 +1809,15 @@ export class LCARdSButton extends LCARdSCard {
             lcardsLog.trace(`[LCARdSButton] Config styles merged`);
         }
 
-        // 3. Get current button state
+        // 3. Get current button state and actual entity state
         const buttonState = this._getButtonState();
+        const actualEntityState = this._entity?.state;
 
         // 4. Apply state-based theme defaults (only if not explicitly set in config)
         // Use CB-LCARS nested schema: card.color.background.{state}
-        if (!this._hasNestedValue(style, 'card.color.background', buttonState)) {
+        // Try actual entity state first (e.g., "heat"), then fall back to classified state (e.g., "inactive")
+        if (!this._hasNestedValue(style, 'card.color.background', actualEntityState) &&
+            !this._hasNestedValue(style, 'card.color.background', buttonState)) {
 
             let bgToken = `components.button.background.${buttonState}`;
             let backgroundColor = this.getThemeToken(bgToken);
@@ -2046,52 +2050,45 @@ export class LCARdSButton extends LCARdSCard {
 
             lcardsLog.trace('[LCARdSButton] Resolving icon color for state:', buttonState);
 
+            const actualEntityState = this._entity?.state;
+
             // 1. Check explicit iconStyle color
             if (iconStyle.color) {
-                // Check if it's state-based (object with active/inactive keys)
-                if (typeof iconStyle.color === 'object') {
-                    iconColor = iconStyle.color[buttonState] ||
-                               iconStyle.color.default ||
-                               iconStyle.color.active;
-                } else {
-                    iconColor = iconStyle.color;
-                }
+                iconColor = resolveStateColor({
+                    actualState: actualEntityState,
+                    classifiedState: buttonState,
+                    colorConfig: iconStyle.color,
+                    fallback: iconStyle.color.active  // Legacy fallback
+                });
                 lcardsLog.trace('[LCARdSButton] Icon color from config:', iconColor);
             }
             // 2. Check preset/resolvedStyle color
             else if (resolvedStyle.icon?.color) {
-                // Check if it's state-based
-                if (typeof resolvedStyle.icon.color === 'object') {
-                    iconColor = resolvedStyle.icon.color[buttonState] ||
-                               resolvedStyle.icon.color.default ||
-                               resolvedStyle.icon.color.active;
-                } else {
-                    iconColor = resolvedStyle.icon.color;
-                }
+                iconColor = resolveStateColor({
+                    actualState: actualEntityState,
+                    classifiedState: buttonState,
+                    colorConfig: resolvedStyle.icon.color,
+                    fallback: resolvedStyle.icon.color.active  // Legacy fallback
+                });
                 lcardsLog.trace('[LCARdSButton] Icon color from preset:', iconColor);
             }
             // 3. Check theme token (can be state-based)
             else if (iconTokens.color) {
-                if (typeof iconTokens.color === 'object') {
-                    iconColor = iconTokens.color[buttonState] ||
-                               iconTokens.color.default ||
-                               iconTokens.color.active;
-                    lcardsLog.trace('[LCARdSButton] Icon color from theme token (state-based):', iconColor);
-                } else {
-                    iconColor = iconTokens.color;
-                    lcardsLog.trace('[LCARdSButton] Icon color from theme token:', iconColor);
-                }
+                iconColor = resolveStateColor({
+                    actualState: actualEntityState,
+                    classifiedState: buttonState,
+                    colorConfig: iconTokens.color,
+                    fallback: iconTokens.color.active  // Legacy fallback
+                });
+                lcardsLog.trace('[LCARdSButton] Icon color from theme token:', iconColor);
             }
             // 4. Fall back to text color (also state-based)
             else if (this._buttonStyle?.text?.default?.color) {
-                const textColor = this._buttonStyle.text.default.color;
-                if (typeof textColor === 'object') {
-                    iconColor = textColor[buttonState] ||
-                               textColor.default ||
-                               textColor.active;
-                } else {
-                    iconColor = textColor;
-                }
+                iconColor = resolveStateColor({
+                    actualState: actualEntityState,
+                    classifiedState: buttonState,
+                    colorConfig: this._buttonStyle.text.default.color
+                });
                 lcardsLog.trace('[LCARdSButton] Icon color from text color:', iconColor);
             }
             // 5. Final hardcoded fallback
@@ -2196,23 +2193,19 @@ export class LCARdSButton extends LCARdSCard {
             // Priority: config.icon_area_background > preset.icon_area_background > null
             let iconAreaBackground = null;
             if (this.config.icon_area_background) {
-                if (typeof this.config.icon_area_background === 'object') {
-                    iconAreaBackground = this.config.icon_area_background[buttonState] ||
-                                        this.config.icon_area_background.default ||
-                                        this.config.icon_area_background.active ||
-                                        null;
-                } else {
-                    iconAreaBackground = this.config.icon_area_background;
-                }
+                iconAreaBackground = resolveStateColor({
+                    actualState: actualEntityState,
+                    classifiedState: buttonState,
+                    colorConfig: this.config.icon_area_background,
+                    fallback: this.config.icon_area_background.active || null  // Legacy fallback
+                });
             } else if (resolvedStyle.icon_area_background) {
-                if (typeof resolvedStyle.icon_area_background === 'object') {
-                    iconAreaBackground = resolvedStyle.icon_area_background[buttonState] ||
-                                        resolvedStyle.icon_area_background.default ||
-                                        resolvedStyle.icon_area_background.active ||
-                                        null;
-                } else {
-                    iconAreaBackground = resolvedStyle.icon_area_background;
-                }
+                iconAreaBackground = resolveStateColor({
+                    actualState: actualEntityState,
+                    classifiedState: buttonState,
+                    colorConfig: resolvedStyle.icon_area_background,
+                    fallback: resolvedStyle.icon_area_background.active || null  // Legacy fallback
+                });
             }
 
             this._processedIcon = {
@@ -3109,22 +3102,32 @@ export class LCARdSButton extends LCARdSCard {
         // Read styling from _buttonStyle (resolved from preset/tokens)
         // Use CB-LCARS nested schema (v1.14.18+)
         const buttonState = this._buttonStyle?._currentState || this._getButtonState();
+        const actualEntityState = this._entity?.state;
 
         // Background color: card.color.background.{state}
-        const backgroundColor = this._buttonStyle?.card?.color?.background?.[buttonState] ||
-                               this._buttonStyle?.card?.color?.background?.default ||
-                               'var(--lcars-orange, #FF9900)';
+        // Try actual entity state first (e.g., "heat"), then fall back to classified state (e.g., "inactive")
+        const backgroundColor = resolveStateColor({
+            actualState: actualEntityState,
+            classifiedState: buttonState,
+            colorConfig: this._buttonStyle?.card?.color?.background,
+            fallback: 'var(--lcars-orange, #FF9900)'
+        });
 
         // Text color: text.default.color.{state}
-        const textColor = this._buttonStyle?.text?.default?.color?.[buttonState] ||
-                         this._buttonStyle?.text?.default?.color?.default ||
-                         'var(--lcars-color-text, #FFFFFF)';
+        const textColor = resolveStateColor({
+            actualState: actualEntityState,
+            classifiedState: buttonState,
+            colorConfig: this._buttonStyle?.text?.default?.color,
+            fallback: 'var(--lcars-color-text, #FFFFFF)'
+        });
 
         // Border color: border.color.{state} or border.color (plain string)
-        const borderColor = this._buttonStyle?.border?.color?.[buttonState] ||
-                           this._buttonStyle?.border?.color?.default ||
-                           this._buttonStyle?.border?.color ||
-                           'var(--lcars-color-secondary, #000000)';
+        const borderColor = resolveStateColor({
+            actualState: actualEntityState,
+            classifiedState: buttonState,
+            colorConfig: this._buttonStyle?.border?.color,
+            fallback: 'var(--lcars-color-secondary, #000000)'
+        });
 
         // Font properties: text.default.font_*
         const fontSize = this._buttonStyle?.text?.default?.font_size || '14px';
@@ -3371,16 +3374,13 @@ export class LCARdSButton extends LCARdSCard {
         );
 
         // Color: border.color.{state} or border.color (plain string)
-        const nestedColor = this._buttonStyle?.border?.color;
-        let globalColor = 'var(--lcars-color-secondary, #000000)';
-        if (nestedColor !== undefined) {
-            if (typeof nestedColor === 'object') {
-                // Try state, then 'default', then 'active', then hardcoded fallback
-                globalColor = nestedColor[state] || nestedColor.default || nestedColor.active || globalColor;
-            } else {
-                globalColor = nestedColor;
-            }
-        }
+        const actualEntityState = this._entity?.state;
+        const globalColor = resolveStateColor({
+            actualState: actualEntityState,
+            classifiedState: state,
+            colorConfig: this._buttonStyle?.border?.color,
+            fallback: 'var(--lcars-color-secondary, #000000)'
+        });
 
         // Radius: border.radius (can be object for per-corner or single value)
         let globalRadius = 20;
@@ -3869,38 +3869,27 @@ export class LCARdSButton extends LCARdSCard {
                 }
             }
 
-            // Resolve color based on state
+            // Resolve color based on state (check actual entity state first, then classified state)
+            const actualEntityState = this._entity?.state;
             let resolvedColor;
+
             if (field.color) {
-                if (typeof field.color === 'string') {
-                    resolvedColor = field.color;
-                } else if (typeof field.color === 'object') {
-                    // State-based color
-                    if (entityState === 'unavailable') {
-                        resolvedColor = field.color.unavailable || field.color.inactive || 'gray';
-                    } else if (entityState === 'on' || entityState === 'active') {
-                        resolvedColor = field.color.active || 'white';
-                    } else {
-                        resolvedColor = field.color.inactive || 'gray';
-                    }
-                }
+                resolvedColor = resolveStateColor({
+                    actualState: actualEntityState,
+                    classifiedState: entityState,
+                    colorConfig: field.color,
+                    fallback: null
+                });
             }
+
             // Use default text color if no field color specified
             if (!resolvedColor) {
-                const textColor = this._buttonStyle?.text?.default?.color;
-                if (typeof textColor === 'string') {
-                    resolvedColor = textColor;
-                } else if (typeof textColor === 'object') {
-                    if (entityState === 'unavailable') {
-                        resolvedColor = textColor.unavailable || textColor.inactive || 'gray';
-                    } else if (entityState === 'on' || entityState === 'active') {
-                        resolvedColor = textColor.active || 'white';
-                    } else {
-                        resolvedColor = textColor.inactive || 'gray';
-                    }
-                } else {
-                    resolvedColor = 'white'; // Final fallback
-                }
+                resolvedColor = resolveStateColor({
+                    actualState: actualEntityState,
+                    classifiedState: entityState,
+                    colorConfig: this._buttonStyle?.text?.default?.color,
+                    fallback: 'white'
+                });
             }
 
             processedFields.push({

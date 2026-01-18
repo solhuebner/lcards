@@ -421,7 +421,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                     basePath="elbow.segment.color"
                     header="Segment Colors"
                     description="Elbow segment color for each state - supports custom states"
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>

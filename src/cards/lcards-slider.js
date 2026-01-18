@@ -88,6 +88,7 @@ import { html, css } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { LCARdSButton } from './lcards-button.js';
 import { lcardsLog } from '../utils/lcards-logging.js';
+import { resolveStateColor } from '../utils/state-color-resolver.js';
 import { deepMerge } from '../utils/deepMerge.js';
 import { resolveThemeTokensRecursive } from '../utils/lcards-theme.js';
 import { ColorUtils } from '../core/themes/ColorUtils.js';
@@ -606,7 +607,7 @@ export class LCARdSSlider extends LCARdSButton {
             if (component) {
                 // Component found in registry - use metadata
                 svgContent = component.svg;
-                
+
                 // NEW: Store metadata for later use
                 this._componentMetadata = component.metadata;
 
@@ -806,12 +807,16 @@ export class LCARdSSlider extends LCARdSButton {
 
         // State-based color resolution (matches button pattern)
         const sliderState = this._getButtonState(); // Inherited from LCARdSButton
-        lcardsLog.debug(`[LCARdSSlider] Resolving border color for state '${sliderState}':`, colorConfig);
+        const actualEntityState = this._entity?.state;
+        lcardsLog.debug(`[LCARdSSlider] Resolving border color for state '${sliderState}' (actual: '${actualEntityState}'):`, colorConfig);
 
-        const resolvedColor = colorConfig[sliderState] ||
-                             colorConfig.default ||
-                             colorConfig ||
-                             'var(--lcars-color-secondary, #000000)';
+        // Try actual entity state first (e.g., "heat"), then fall back to classified state (e.g., "inactive")
+        const resolvedColor = resolveStateColor({
+            actualState: actualEntityState,
+            classifiedState: sliderState,
+            colorConfig: colorConfig,
+            fallback: 'var(--lcars-color-secondary, #000000)'
+        });
 
         lcardsLog.debug(`[LCARdSSlider] Resolved border color:`, resolvedColor);
         return resolvedColor;
@@ -920,12 +925,12 @@ export class LCARdSSlider extends LCARdSButton {
      * Inject range backgrounds with optional inset borders (Picard mode)
      * Creates outer border rects (black) and inner colored rects for each range.
      * Ranges are positioned based on display min/max and stack bottom-to-top in vertical mode.
-     * 
+     *
      * Requires:
      * - Component with 'range' zone defined
      * - style.ranges array configured
      * - Component metadata with insetBorder config (optional, defaults to 4px border, 5px gap)
-     * 
+     *
      * @private
      * @example
      * // Picard component with inset ranges
@@ -961,7 +966,7 @@ export class LCARdSSlider extends LCARdSButton {
 
         // Get inset config from component metadata or style
         const componentMetadata = this._componentMetadata;
-        const insetConfig = this._sliderStyle?.gauge?.range?.inset || 
+        const insetConfig = this._sliderStyle?.gauge?.range?.inset ||
                            componentMetadata?.insetBorder || {};
         const borderSize = insetConfig?.border?.size || insetConfig?.size || 4;
         const borderColor = insetConfig?.border?.color || insetConfig?.color || 'black';

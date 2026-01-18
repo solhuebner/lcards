@@ -16,7 +16,7 @@
 import { LitElement, html, css } from 'lit';
 import '../shared/lcards-form-section.js';
 import { LCARdSFormFieldHelper as FormField } from '../shared/lcards-form-field.js';
-import './lcards-color-section.js';
+import './lcards-color-section-v2.js';
 import '../shared/lcards-color-picker.js';
 import './lcards-icon-area-picker.js';
 import './lcards-padding-editor.js';
@@ -87,15 +87,16 @@ export class LCARdSIconEditor extends LitElement {
                         helper: 'Override calculated area size (width for left/right, height for top/bottom)'
                     })}
 
-                    <lcards-color-section
+                    <lcards-color-section-v2
                         .editor=${this.editor}
                         .config=${this.editor.config}
                         basePath="icon_area_background"
                         header="Area Background"
                         description="Background color for entire icon area (matches legacy cards)"
-                        .states=${['default', 'active', 'inactive', 'unavailable']}
+                        .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                        ?allowCustomStates=${true}
                         ?expanded=${false}>
-                    </lcards-color-section>
+                    </lcards-color-section-v2>
 
                     <!-- Divider Configuration -->
                     <lcards-form-section
@@ -159,32 +160,16 @@ export class LCARdSIconEditor extends LitElement {
                     </lcards-form-section>
 
                     <!-- Icon Colors -->
-                    <lcards-form-section
+                    <lcards-color-section-v2
+                        .editor=${this.editor}
+                        .config=${this.editor.config}
+                        basePath="icon_style.color"
                         header="Icon Color"
                         description="Foreground icon color"
-                        icon="mdi:palette"
-                        ?expanded=${false}
-                        ?outlined=${true}
-                        headerLevel="5">
-
-                        <lcards-color-section
-                            .editor=${this.editor}
-                            .config=${this.editor.config}
-                            basePath="icon_style.color"
-                            header="Default Colour (no entity/state)"
-                            .states=${['default']}
-                            ?expanded=${false}>
-                        </lcards-color-section>
-
-                        <lcards-color-section
-                            .editor=${this.editor}
-                            .config=${this.editor.config}
-                            basePath="icon_style.color"
-                            header="State Colours"
-                            .states=${['active', 'inactive', 'unavailable']}
-                            ?expanded=${false}>
-                        </lcards-color-section>
-                    </lcards-form-section>
+                        .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                        ?allowCustomStates=${true}
+                        ?expanded=${false}>
+                    </lcards-color-section-v2>
                 </lcards-form-section>
             ` : ''}
         `;

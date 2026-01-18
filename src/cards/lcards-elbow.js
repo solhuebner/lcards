@@ -65,6 +65,7 @@ import { html, css } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { LCARdSButton } from './lcards-button.js';
 import { lcardsLog } from '../utils/lcards-logging.js';
+import { resolveStateColor } from '../utils/state-color-resolver.js';
 import { getElbowSchema } from './schemas/elbow-schema.js';
 
 // Import editor component for getConfigElement()
@@ -744,43 +745,74 @@ export class LCARdSElbow extends LCARdSButton {
         if (segmentType && segmentConfig?.entity_id) {
             const entity = this.hass.states[segmentConfig.entity_id];
             if (entity) {
-                const entityState = this._getEntityState(entity);
+                const actualEntityState = entity.state;
+                const classifiedState = this._getEntityState(entity);
                 const backgroundColors = this._buttonStyle?.card?.color?.background;
 
                 // Try state-specific color first
-                const stateColor = backgroundColors?.[entityState] || backgroundColors?.default;
+                const stateColor = resolveStateColor({
+                    actualState: actualEntityState,
+                    classifiedState: classifiedState,
+                    colorConfig: backgroundColors
+                });
                 if (stateColor) {
-                    return this._resolveColorValue(stateColor, entityState);
+                    return this._resolveColorValue(stateColor, classifiedState);
                 }
             }
         }
 
         // For segmented mode with static/state-based color in segment config
         if (segmentType && segmentConfig?.color) {
-            const resolved = this._resolveColorValue(segmentConfig.color, state);
-            if (resolved) return resolved;
+            const actualEntityState = this._entity?.state;
+            const resolvedColor = resolveStateColor({
+                actualState: actualEntityState,
+                classifiedState: state,
+                colorConfig: segmentConfig.color
+            });
+            if (resolvedColor) {
+                const resolved = this._resolveColorValue(resolvedColor, state);
+                if (resolved) return resolved;
+            }
         }
 
         // Priority 1: Simple elbow - check segment.color from elbow config
         if (this._elbowConfig?.segment?.color) {
-            const resolved = this._resolveColorValue(this._elbowConfig.segment.color, state);
-            if (resolved) return resolved;
+            const actualEntityState = this._entity?.state;
+            const resolvedColor = resolveStateColor({
+                actualState: actualEntityState,
+                classifiedState: state,
+                colorConfig: this._elbowConfig.segment.color
+            });
+            if (resolvedColor) {
+                const resolved = this._resolveColorValue(resolvedColor, state);
+                if (resolved) return resolved;
+            }
         }
 
         // Priority 2: Explicit color override in elbow.colors.background (legacy support)
         if (this._elbowConfig?.colors?.background) {
-            const resolved = this._resolveColorValue(this._elbowConfig.colors.background, state);
-            if (resolved) return resolved;
+            const actualEntityState = this._entity?.state;
+            const resolvedColor = resolveStateColor({
+                actualState: actualEntityState,
+                classifiedState: state,
+                colorConfig: this._elbowConfig.colors.background
+            });
+            if (resolvedColor) {
+                const resolved = this._resolveColorValue(resolvedColor, state);
+                if (resolved) return resolved;
+            }
         }
 
         // Priority 3: Use button state color from _buttonStyle (includes rule patches and config.style)
-        const backgroundColors = this._buttonStyle?.card?.color?.background;
-        if (backgroundColors) {
-            const stateColor = backgroundColors[state] || backgroundColors.default;
-            if (stateColor) {
-                const resolved = this._resolveColorValue(stateColor, state);
-                if (resolved) return resolved;
-            }
+        const actualEntityState = this._entity?.state;
+        const stateColor = resolveStateColor({
+            actualState: actualEntityState,
+            classifiedState: state,
+            colorConfig: this._buttonStyle?.card?.color?.background
+        });
+        if (stateColor) {
+            const resolved = this._resolveColorValue(stateColor, state);
+            if (resolved) return resolved;
         }
 
         // Priority 4: Theme token fallback
@@ -1050,11 +1082,16 @@ export class LCARdSElbow extends LCARdSButton {
 
         // Get button state for text color
         const buttonState = this._buttonStyle?._currentState || this._getButtonState();
+        const actualEntityState = this._entity?.state;
 
         // Text color: text.default.color.{state}
-        const textColor = this._buttonStyle?.text?.default?.color?.[buttonState] ||
-                         this._buttonStyle?.text?.default?.color?.default ||
-                         'var(--lcars-color-text, #000000)';
+        // Try actual entity state first (e.g., "heat"), then fall back to classified state (e.g., "inactive")
+        const textColor = resolveStateColor({
+            actualState: actualEntityState,
+            classifiedState: buttonState,
+            colorConfig: this._buttonStyle?.text?.default?.color,
+            fallback: 'var(--lcars-color-text, #000000)'
+        });
 
         // Font properties
         const fontSize = this._buttonStyle?.text?.default?.font_size || '14px';
@@ -1358,6 +1395,7 @@ export class LCARdSElbow extends LCARdSButton {
     _processTextField(field, width, height, iconConfig) {
         // Get state for color resolution
         const state = this._getButtonState();
+        const actualEntityState = this._entity?.state;
 
         // Default text styling from button style
         const defaultStyle = this._buttonStyle?.text?.default || {};
@@ -1367,14 +1405,20 @@ export class LCARdSElbow extends LCARdSButton {
 
         // Resolve color (state-aware)
         let color;
-        if (field.color && typeof field.color === 'object') {
-            color = field.color[state] || field.color.default || '#000000';
+        if (field.color) {
+            color = resolveStateColor({
+                actualState: actualEntityState,
+                classifiedState: state,
+                colorConfig: field.color,
+                fallback: '#000000'
+            });
         } else {
-            color = field.color || (
-                defaultStyle.color && typeof defaultStyle.color === 'object'
-                    ? defaultStyle.color[state] || defaultStyle.color.default
-                    : defaultStyle.color
-            ) || '#000000';
+            color = resolveStateColor({
+                actualState: actualEntityState,
+                classifiedState: state,
+                colorConfig: defaultStyle.color,
+                fallback: '#000000'
+            });
         }
 
         return {

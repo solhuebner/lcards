@@ -17,7 +17,7 @@
 import { LitElement, html, css } from 'lit';
 import '../shared/lcards-form-section.js';
 import { LCARdSFormFieldHelper as FormField } from '../shared/lcards-form-field.js';
-import './lcards-color-section.js';
+import './lcards-color-section-v2.js';
 import './lcards-padding-editor.js';
 
 export class LCARdSMultiTextEditor extends LitElement {
@@ -246,23 +246,15 @@ export class LCARdSMultiTextEditor extends LitElement {
                 ?outlined=${true}
                 headerLevel="5">
 
-                <lcards-color-section
+                <lcards-color-section-v2
                     .editor=${this.editor}
                     .config=${this.editor.config}
                     basePath="text.default.color"
-                    header="Default Colors (no entity/state)"
-                    .states=${['default']}
+                    header="Text Colors"
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                    ?allowCustomStates=${true}
                     ?expanded=${false}>
-                </lcards-color-section>
-
-                <lcards-color-section
-                    .editor=${this.editor}
-                    .config=${this.editor.config}
-                    basePath="text.default.color"
-                    header="State Colors"
-                    .states=${['active', 'inactive', 'unavailable']}
-                    ?expanded=${false}>
-                </lcards-color-section>
+                </lcards-color-section-v2>
             </lcards-form-section>
         `;
     }
@@ -379,14 +371,15 @@ export class LCARdSMultiTextEditor extends LitElement {
                     ?outlined=${true}
                     headerLevel="6">
 
-                    <lcards-color-section
+                    <lcards-color-section-v2
                         .editor=${this.editor}
                     .config=${this.editor.config}
                         basePath="text.${fieldName}.color"
                         header="Field Colors (overrides defaults)"
-                        .states=${['default', 'active', 'inactive', 'unavailable']}
+                        .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                        ?allowCustomStates=${true}
                         ?expanded=${false}>
-                    </lcards-color-section>
+                    </lcards-color-section-v2>
                 </lcards-form-section>
 
                 <!-- Remove Button -->
