@@ -980,6 +980,12 @@ export class LCARdSButton extends LCARdSCard {
             return {};
         }
 
+        // Get entity object for actual state lookup
+        const entity = entityState && this.config.entity ?
+            this.hass.states[this.config.entity] : null;
+        const actualState = entity?.state;
+        const classifiedState = this._mapEntityStateToStyleState(actualState || entityState);
+
         // Check if this is a state-first format (state → properties) or property-first format (property → states)
         const firstKey = Object.keys(style)[0];
         const firstValue = style[firstKey];
@@ -997,17 +1003,16 @@ export class LCARdSButton extends LCARdSCard {
                 return style[interactionState];
             }
 
-            // Priority 2: Entity state (direct or mapped)
+            // Priority 2: Entity state using resolveStateColor pattern
             if (entityState) {
-                // Try direct match first
-                if (style[entityState]) {
-                    return style[entityState];
+                // Try actual entity state first
+                if (actualState && style[actualState]) {
+                    return style[actualState];
                 }
 
-                // Try mapped state (on → active, off → inactive, etc.)
-                const mappedState = this._mapEntityStateToStyleState(entityState);
-                if (mappedState && style[mappedState]) {
-                    return style[mappedState];
+                // Try classified state (on → active, off → inactive, etc.)
+                if (classifiedState && style[classifiedState]) {
+                    return style[classifiedState];
                 }
             }
 
@@ -1027,7 +1032,7 @@ export class LCARdSButton extends LCARdSCard {
 
             Object.entries(style).forEach(([property, value]) => {
                 if (value && typeof value === 'object' && !Array.isArray(value)) {
-                    // State-based value - use priority resolution
+                    // State-based value - use resolveStateColor for consistency
 
                     // Priority 1: Interaction state (hover, pressed)
                     if (interactionState && interactionState in value) {
@@ -1035,9 +1040,14 @@ export class LCARdSButton extends LCARdSCard {
                         return;
                     }
 
-                    // Priority 2: Entity state (direct or mapped)
+                    // Priority 2: Entity state using resolveStateColor
                     if (entityState) {
-                        const resolved = this._resolveStyleForState(value, entityState, 'default');
+                        const resolved = resolveStateColor({
+                            actualState,
+                            classifiedState,
+                            colorConfig: value,
+                            fallback: value.default || value.inactive
+                        });
                         if (resolved !== undefined) {
                             resolvedStyle[property] = resolved;
                             return;

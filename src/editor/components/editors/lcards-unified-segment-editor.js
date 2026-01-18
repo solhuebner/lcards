@@ -19,7 +19,7 @@ import { LitElement, html, css } from 'lit';
 import '../shared/lcards-form-section.js';
 import '../shared/lcards-form-field.js';
 import './lcards-multi-action-editor.js';
-import './lcards-color-section.js';
+import './lcards-color-section-v2.js';
 
 export class LCARdSUnifiedSegmentEditor extends LitElement {
     static get properties() {
@@ -250,25 +250,27 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
                     icon="mdi:palette-outline"
                     ?expanded=${false}>
 
-                    <lcards-color-section
+                    <lcards-color-section-v2
                         .editor=${this.editor}
                         .config=${this.editor.config}
                         basePath="${basePath}.style.fill"
                         header="Fill"
-                        description="SVG fill color states"
-                        .states=${['default', 'active', 'inactive', 'unavailable']}
+                        description="SVG fill color states - supports custom states like 'heat', 'cool', 'playing', etc."
+                        .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                        ?allowCustomStates=${true}
                         ?expanded=${false}>
-                    </lcards-color-section>
+                    </lcards-color-section-v2>
 
-                    <lcards-color-section
+                    <lcards-color-section-v2
                         .editor=${this.editor}
                         .config=${this.editor.config}
                         basePath="${basePath}.style.stroke"
                         header="Stroke"
-                        description="SVG stroke color states"
-                        .states=${['default', 'active', 'inactive', 'unavailable']}
+                        description="SVG stroke color states - supports custom states like 'heat', 'cool', 'playing', etc."
+                        .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                        ?allowCustomStates=${true}
                         ?expanded=${false}>
-                    </lcards-color-section>
+                    </lcards-color-section-v2>
 
                     <ha-selector
                         .hass=${this.hass}
@@ -469,25 +471,27 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
                 icon="mdi:palette-outline"
                 ?expanded=${false}>
 
-                <lcards-color-section
+                <lcards-color-section-v2
                     .editor=${this.editor}
                     .config=${this.editor.config}
                     basePath="${basePath}.style.fill"
                     header="Fill"
-                    description="SVG fill color states"
-                    .states=${['default', 'active', 'inactive', 'unavailable']}
+                    description="SVG fill color states - supports custom states like 'heat', 'cool', 'playing', etc."
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                    ?allowCustomStates=${true}
                     ?expanded=${false}>
-                </lcards-color-section>
+                </lcards-color-section-v2>
 
-                <lcards-color-section
+                <lcards-color-section-v2
                     .editor=${this.editor}
                     .config=${this.editor.config}
                     basePath="${basePath}.style.stroke"
                     header="Stroke"
-                    description="SVG stroke color states"
-                    .states=${['default', 'active', 'inactive', 'unavailable']}
+                    description="SVG stroke color states - supports custom states like 'heat', 'cool', 'playing', etc."
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                    ?allowCustomStates=${true}
                     ?expanded=${false}>
-                </lcards-color-section>
+                </lcards-color-section-v2>
 
                 <ha-selector
                     .hass=${this.hass}
