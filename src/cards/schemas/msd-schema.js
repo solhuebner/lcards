@@ -58,59 +58,40 @@ export function getMsdSchema(options = {}) {
           },
 
           filters: {
-            type: 'object',
+            type: 'array',
             optional: true,
-            description: 'Custom filter values (overrides preset)',
-            properties: {
-              opacity: {
-                type: 'number',
-                min: 0,
-                max: 1,
-                optional: true
-              },
-              blur: {
-                type: 'string',
-                optional: true,
-                description: 'CSS length (e.g., "3px")'
-              },
-              brightness: {
-                type: 'number',
-                min: 0,
-                optional: true
-              },
-              contrast: {
-                type: 'number',
-                min: 0,
-                optional: true
-              },
-              grayscale: {
-                type: 'number',
-                min: 0,
-                max: 1,
-                optional: true
-              },
-              hue_rotate: {
-                type: 'string',
-                optional: true,
-                description: 'CSS angle (e.g., "90deg")'
-              },
-              invert: {
-                type: 'number',
-                min: 0,
-                max: 1,
-                optional: true
-              },
-              saturate: {
-                type: 'number',
-                min: 0,
-                optional: true
-              },
-              sepia: {
-                type: 'number',
-                min: 0,
-                max: 1,
-                optional: true
+            description: 'Stackable CSS/SVG filters applied in sequence',
+            items: {
+              type: 'object',
+              required: ['type'],
+              properties: {
+                mode: {
+                  type: 'string',
+                  enum: ['css', 'svg'],
+                  default: 'css',
+                  description: 'Filter mode: css (CSS filters) or svg (SVG filter primitives)'
+                },
+                type: {
+                  type: 'string',
+                  description: 'Filter type/function name (blur, brightness, saturate, hue-rotate, etc.)'
+                },
+                value: {
+                  oneOf: [
+                    { type: 'string', description: 'String value (e.g., "5px", "45deg")' },
+                    { type: 'number', description: 'Numeric value (e.g., 1.2, 0.8)' },
+                    {
+                      type: 'object',
+                      description: 'Complex value (e.g., drop-shadow parameters)',
+                      additionalProperties: true
+                    }
+                  ],
+                  description: 'Filter value - type depends on filter'
+                }
               }
+            },
+            'x-ui': {
+              control: 'filter-editor',
+              label: 'Filters'
             }
           }
         }

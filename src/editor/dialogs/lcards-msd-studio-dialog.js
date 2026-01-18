@@ -38,6 +38,7 @@ import '../components/editors/lcards-color-section.js';
 import '../components/editors/lcards-position-picker.js';
 import '../components/lcards-msd-live-preview.js';
 import '../components/lcards-animation-editor.js';
+import '../components/lcards-filter-editor.js';
 import '../components/yaml/lcards-yaml-editor.js';
 import { configToYaml, yamlToConfig } from '../utils/yaml-utils.js';
 
@@ -913,30 +914,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
         }
     }
 
-    /**
-     * Render placeholder tab content
-     * @param {string} title - Tab title
-     * @param {string} description - Tab description
-     * @param {string} phase - Implementation phase
-     * @param {string} icon - Icon name
-     * @returns {TemplateResult}
-     * @private
-     */
-    _renderPlaceholder(title, description, phase, icon) {
-        return html`
-            <div class="placeholder-content">
-                <ha-icon icon=${icon}></ha-icon>
-                <h2 class="placeholder-title">${title}</h2>
-                <p class="placeholder-description">
-                    ${description}
-                </p>
-                <p class="placeholder-description" style="margin-top: 16px; font-weight: 600;">
-                    Coming in ${phase}
-                </p>
-            </div>
-        `;
-    }
-
     // ============================
     // Base SVG Tab Helper Methods
     // ============================
@@ -1161,56 +1138,13 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
-     * Render custom filters sliders
-     * @returns {TemplateResult}
+     * Handle filters changed from filter editor
+     * @param {CustomEvent} e - filters-changed event
      * @private
      */
-    _renderCustomFilters() {
-        const filters = this._workingConfig.msd?.base_svg?.filters || {};
-
-        return html`
-            <div style="display: flex; flex-direction: column; gap: 12px; padding: 12px; background: var(--secondary-background-color); border-radius: 8px;">
-                <ha-selector
-                    .hass=${this.hass}
-                    .selector=${{ number: { min: 0, max: 1, step: 0.1, mode: 'slider' } }}
-                    .value=${filters.opacity ?? 1}
-                    .label=${'Opacity'}
-                    @value-changed=${(e) => this._setNestedValue('msd.base_svg.filters.opacity', e.detail.value)}>
-                </ha-selector>
-
-                <ha-textfield
-                    type="text"
-                    label="Blur (px)"
-                    .value=${filters.blur || '0px'}
-                    @input=${(e) => this._setNestedValue('msd.base_svg.filters.blur', e.target.value)}
-                    helper-text="e.g., 0px, 2px, 5px">
-                </ha-textfield>
-
-                <ha-selector
-                    .hass=${this.hass}
-                    .selector=${{ number: { min: 0, max: 2, step: 0.1, mode: 'slider' } }}
-                    .value=${filters.brightness ?? 1}
-                    .label=${'Brightness'}
-                    @value-changed=${(e) => this._setNestedValue('msd.base_svg.filters.brightness', e.detail.value)}>
-                </ha-selector>
-
-                <ha-selector
-                    .hass=${this.hass}
-                    .selector=${{ number: { min: 0, max: 2, step: 0.1, mode: 'slider' } }}
-                    .value=${filters.contrast ?? 1}
-                    .label=${'Contrast'}
-                    @value-changed=${(e) => this._setNestedValue('msd.base_svg.filters.contrast', e.detail.value)}>
-                </ha-selector>
-
-                <ha-selector
-                    .hass=${this.hass}
-                    .selector=${{ number: { min: 0, max: 1, step: 0.1, mode: 'slider' } }}
-                    .value=${filters.grayscale ?? 0}
-                    .label=${'Grayscale'}
-                    @value-changed=${(e) => this._setNestedValue('msd.base_svg.filters.grayscale', e.detail.value)}>
-                </ha-selector>
-            </div>
-        `;
+    _handleFiltersChanged(e) {
+        lcardsLog.debug('[MSDStudio] Filters changed:', e.detail.filters);
+        this._setNestedValue('msd.base_svg.filters', e.detail.filters);
     }
 
     /**
@@ -1306,18 +1240,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const viewBox = [...(this._workingConfig.msd?.view_box || [0, 0, 400, 200])];
         viewBox[index] = parseFloat(value) || 0;
         this._setNestedValue('msd.view_box', viewBox);
-    }
-
-    /**
-     * Disable custom filters
-     * @private
-     */
-    _disableCustomFilters() {
-        if (this._workingConfig.msd?.base_svg?.filters) {
-            delete this._workingConfig.msd.base_svg.filters;
-            this._schedulePreviewUpdate();
-            this.requestUpdate();
-        }
     }
 
     /**
@@ -1587,49 +1509,15 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 <!-- Filters Section -->
                 <lcards-form-section
                     header="Filters"
-                    description="Apply visual filters to the base SVG"
+                    description="Apply stackable visual filters to the base SVG"
                     ?expanded=${true}>
-                    <div style="display: flex; flex-direction: column; gap: 12px;">
-                        <ha-selector
-                            .hass=${this.hass}
-                            .selector=${{
-                                select: {
-                                    options: [
-                                        { value: '', label: 'None' },
-                                        { value: 'dimmed', label: 'Dimmed' },
-                                        { value: 'subtle', label: 'Subtle' },
-                                        { value: 'backdrop', label: 'Backdrop' },
-                                        { value: 'faded', label: 'Faded' },
-                                        { value: 'red-alert', label: 'Red Alert' },
-                                        { value: 'monochrome', label: 'Monochrome' }
-                                    ]
-                                }
-                            }}
-                            .value=${baseSvg.filter_preset || ''}
-                            .label=${'Filter Preset'}
-                            @value-changed=${(e) => {
-                                this._setNestedValue('msd.base_svg.filter_preset', e.detail.value);
-                                if (!e.detail.value) {
-                                    // Clear preset when None selected
-                                    this._setNestedValue('msd.base_svg.filter_preset', undefined);
-                                }
-                            }}>
-                        </ha-selector>
 
-                        <ha-formfield label="Enable Custom Filters">
-                            <ha-switch
-                                ?checked=${this._customFiltersEnabled}
-                                @change=${(e) => {
-                                    this._customFiltersEnabled = e.target.checked;
-                                    if (!e.target.checked) {
-                                        this._disableCustomFilters();
-                                    }
-                                }}>
-                            </ha-switch>
-                        </ha-formfield>
+                    <lcards-filter-editor
+                        .hass=${this.hass}
+                        .filters=${baseSvg.filters || []}
+                        @filters-changed=${this._handleFiltersChanged}>
+                    </lcards-filter-editor>
 
-                        ${this._customFiltersEnabled ? this._renderCustomFilters() : ''}
-                    </div>
                 </lcards-form-section>
             </div>
         `;
@@ -10231,6 +10119,10 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 </div>
 
                 <div slot="secondaryAction">
+                    <ha-button @click=${() => window.open('https://github.com/snootched/LCARdS/tree/main/doc', '_blank')} appearance="plain">
+                        <ha-icon icon="mdi:book-open-variant" slot="icon"></ha-icon>
+                        Documentation
+                    </ha-button>
                     <ha-button @click=${this._handleReset} appearance="plain" variant="warning">
                         <ha-icon icon="mdi:restore" slot="icon"></ha-icon>
                         Reset
@@ -10242,26 +10134,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 </div>
 
                 <div class="dialog-content">
-                    <!-- Help Banner -->
-                    <div style="
-                        padding: 8px 24px;
-                        background: var(--info-color, #2196F3);
-                        color: white;
-                        display: flex;
-                        align-items: center;
-                        justify-content: space-between;
-                        font-size: 13px;
-                    ">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <ha-icon icon="mdi:information" style="--mdc-icon-size: 18px;"></ha-icon>
-                            <span><strong>MSD Configuration Studio</strong> - Full-featured editor for Master Systems Display cards</span>
-                        </div>
-                        <ha-button @click=${() => window.open('https://github.com/snootched/LCARdS/tree/main/doc', '_blank')}>
-                            <ha-icon icon="mdi:book-open-variant" slot="icon"></ha-icon>
-                            Documentation
-                        </ha-button>
-                    </div>
-
                     <!-- Split Panel Layout -->
                     <div class="studio-layout">
                         <!-- Configuration Panel (60%) -->

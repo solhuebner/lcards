@@ -12,7 +12,7 @@ export async function buildCardModel(mergedConfig) {
 
     // Handle base_svg in multiple formats:
     // Format 1: base_svg: "builtin:template-name"
-    // Format 2: base_svg: { source: "builtin:template-name", filters?: {...}, filter_preset?: "..." }
+    // Format 2: base_svg: { source: "builtin:template-name", filters?: [...], filter_preset?: "..." }
     let baseSvgSource = null;
     let baseSvgFilters = null;
     let baseSvgFilterPreset = null;
@@ -43,10 +43,17 @@ export async function buildCardModel(mergedConfig) {
         }
       }
 
-      // Merge explicit filters (they override preset values)
+      // Merge explicit filters
       if (baseSvgFilters) {
-        resolvedFilters = resolvedFilters ? { ...resolvedFilters, ...baseSvgFilters } : { ...baseSvgFilters };
-        lcardsLog.debug('[CardModel] Applied explicit filters:', resolvedFilters);
+        // If filters is an array (new format), use it directly
+        if (Array.isArray(baseSvgFilters)) {
+          resolvedFilters = baseSvgFilters;
+          lcardsLog.debug('[CardModel] Using array-based filters:', resolvedFilters);
+        } else {
+          // Legacy object format - merge with preset
+          resolvedFilters = resolvedFilters ? { ...resolvedFilters, ...baseSvgFilters } : { ...baseSvgFilters };
+          lcardsLog.debug('[CardModel] Applied explicit filters (object format):', resolvedFilters);
+        }
       }
     }
 

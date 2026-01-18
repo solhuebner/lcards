@@ -783,14 +783,24 @@ export class MsdCardCoordinator extends BaseService {
         }
       }
 
-      // Merge explicit filters (they override preset values)
+      // Merge explicit filters
       if (baseSvgConfig.filters) {
-        filters = filters ? { ...filters, ...baseSvgConfig.filters } : { ...baseSvgConfig.filters };
+        // If filters is an array (new format), use it directly
+        if (Array.isArray(baseSvgConfig.filters)) {
+          filters = baseSvgConfig.filters;
+          lcardsLog.debug('[MsdCardCoordinator] Using array-based filters:', filters);
+        } else {
+          // Legacy object format - merge with preset
+          filters = filters ? { ...filters, ...baseSvgConfig.filters } : { ...baseSvgConfig.filters };
+        }
       }
 
-      // Check if this is a clear/remove operation (preset: "none" or empty filters object)
+      // Check if this is a clear/remove operation (preset: "none" or empty filters)
       const isClearOperation = baseSvgConfig.filter_preset === 'none' ||
-                               (filters && Object.keys(filters).length === 0);
+                               (filters && (
+                                 (Array.isArray(filters) && filters.length === 0) ||
+                                 (!Array.isArray(filters) && Object.keys(filters).length === 0)
+                               ));
 
       const transition = baseSvgConfig.transition || 1000; // Default 1s transition
 
