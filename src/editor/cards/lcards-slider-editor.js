@@ -302,18 +302,50 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
 
                 <lcards-grid-layout columns="3">
                     ${FormField.renderField(this, 'control.min', {
-                        label: 'Min',
-                        helper: 'Minimum value'
+                        label: 'Control Min',
+                        helper: 'Minimum settable value'
                     })}
 
                     ${FormField.renderField(this, 'control.max', {
-                        label: 'Max',
-                        helper: 'Maximum value'
+                        label: 'Control Max',
+                        helper: 'Maximum settable value'
                     })}
 
                     ${FormField.renderField(this, 'control.step', {
                         label: 'Step',
                         helper: 'Increment size'
+                    })}
+                </lcards-grid-layout>
+            </lcards-form-section>
+
+            <!-- Display Range Configuration -->
+            <lcards-form-section
+                header="Display Range"
+                description="Visual scale range (defaults to control range). Use for 'child lock' or extended visual context."
+                icon="mdi:monitor-eye"
+                ?expanded=${false}
+                ?outlined=${true}
+                headerLevel="4">
+
+                <lcards-message
+                    type="info"
+                    message="Display range controls what's shown visually. Leave empty to match control range. Example: control 20-25°C, display 10-30°C.">
+                </lcards-message>
+
+                <lcards-grid-layout columns="3">
+                    ${FormField.renderField(this, 'style.track.display.min', {
+                        label: 'Display Min',
+                        helper: 'Minimum shown on visual scale (default: control.min)'
+                    })}
+
+                    ${FormField.renderField(this, 'style.track.display.max', {
+                        label: 'Display Max',
+                        helper: 'Maximum shown on visual scale (default: control.max)'
+                    })}
+
+                    ${FormField.renderField(this, 'style.track.display.unit', {
+                        label: 'Display Unit',
+                        helper: 'Unit for labels (default: entity unit)'
                     })}
                 </lcards-grid-layout>
             </lcards-form-section>
@@ -339,17 +371,6 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     columns="2">
                 </lcards-object-editor>
             </lcards-form-section>
-
-            <!-- Track Background -->
-            <lcards-color-section
-                .editor=${this}
-                basePath="style.track.background"
-                header="Track Background"
-                description="Background color behind track content"
-                ?singleColor=${true}
-                ?expanded=${false}
-                ?useColorPicker=${true}>
-            </lcards-color-section>
 
             <!-- Color-Coded Ranges -->
             ${this._renderRangesConfiguration()}

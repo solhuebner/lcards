@@ -467,7 +467,6 @@ export function getSliderSchema(options = {}) {
                                     }
                                 ]
                             },
-                            background: stateColorSchema,
                             margin: {
                                 oneOf: [
                                     {

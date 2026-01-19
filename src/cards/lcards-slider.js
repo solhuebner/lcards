@@ -722,7 +722,6 @@ export class LCARdSSlider extends LCARdSButton {
             '{{BORDER_COLOR_INACTIVE}}': this._sliderStyle?.border?.color?.inactive || 'var(--lcars-gray, var(--lcards-gray-medium, #666688))',
             '{{GRADIENT_START}}': this._sliderStyle?.track?.segments?.gradient?.start || 'var(--error-color, var(--lcards-orange-dark, #cc2200))',
             '{{GRADIENT_END}}': this._sliderStyle?.track?.segments?.gradient?.end || 'var(--success-color, var(--lcards-green-medium, #33cc99))',
-            '{{TRACK_BG}}': this._sliderStyle?.track?.background || 'rgba(0,0,0,0.3)',
             '{{TEXT_COLOR}}': this._sliderStyle?.text?.value?.color || 'var(--lcars-white, var(--lcards-moonlight, #ffffff))'
         };
 
