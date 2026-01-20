@@ -1,13 +1,13 @@
 /**
  * Editor Widget Styles
- * 
+ *
  * Patterns for list-based editors (animation, filter, multi-text).
  * Collapsible items with drag-and-drop support.
- * 
+ *
  * Usage:
  * ```javascript
  * import { editorWidgetStyles } from './editor-widget-styles.js';
- * 
+ *
  * static get styles() {
  *     return [editorWidgetStyles];
  * }
@@ -21,6 +21,7 @@ export const editorWidgetStyles = css`
         display: flex;
         flex-direction: column;
         gap: 8px;
+        margin-top: 12px;
     }
 
     /* List Item */

@@ -28,8 +28,7 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
 
     static get properties() {
         return {
-            editor: { type: Object },         // Parent editor reference (for child components)
-            text: { type: Object },           // Text configuration object (our managed state)
+            text: { type: Object },           // Text configuration object
             hass: { type: Object },           // Home Assistant instance
             _expandedFields: { type: Object, state: true }, // Track which fields are expanded
             _showAddDialog: { type: Boolean, state: true },
@@ -39,26 +38,11 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
 
     constructor() {
         super();
-        this.editor = null;
         this.text = {};
         this.hass = null;
         this._expandedFields = {};
         this._showAddDialog = false;
         this._newFieldName = '';
-    }
-
-    /**
-     * Lifecycle: called when properties change
-     * Sync internal state when .text property is updated externally
-     */
-    updated(changedProps) {
-        super.updated(changedProps);
-
-        // If .text property changed externally (from parent editor updates via FormField/padding/color components)
-        // we need to re-render to show the updated values
-        if (changedProps.has('text')) {
-            this.requestUpdate();
-        }
     }
 
     static get styles() {
@@ -338,21 +322,28 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
 
         return html`
             <!-- Show Toggle -->
-            ${FormField.renderField(this.editor, `text.${fieldName}.show`, {
-                label: `Show ${fieldName.charAt(0).toUpperCase() + fieldName.slice(1)}`
-            })}
+            <ha-formfield .label=${`Show ${fieldName.charAt(0).toUpperCase() + fieldName.slice(1)}`}>
+                <ha-checkbox
+                    .checked=${fieldConfig.show !== false}
+                    @change=${(e) => this._updateField(fieldName, 'show', e.target.checked)}>
+                </ha-checkbox>
+            </ha-formfield>
 
             <!-- Content -->
-            ${FormField.renderField(this.editor, `text.${fieldName}.content`, {
-                label: 'Content',
-                helper: 'Text content - supports templates like {{entity.state}}'
-            })}
+            <ha-textfield
+                label="Content"
+                .value=${fieldConfig.content || ''}
+                @input=${(e) => this._updateField(fieldName, 'content', e.target.value)}
+                helper="Text content - supports templates like {{entity.state}}">
+            </ha-textfield>
 
             <!-- Position -->
-            ${FormField.renderField(this.editor, `text.${fieldName}.position`, {
-                label: 'Position',
-                helper: 'Where to display this text on the card'
-            })}
+            <ha-textfield
+                label="Position"
+                .value=${fieldConfig.position || ''}
+                @input=${(e) => this._updateField(fieldName, 'position', e.target.value)}
+                helper="Where to display this text on the card">
+            </ha-textfield>
 
             <!-- Font Section -->
             <lcards-form-section
@@ -445,7 +436,8 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
      * @private
      */
     _renderAddDialog() {
-        const existingFields = Object.keys(this.text).filter(k => k !== 'default');
+        const textConfig = this.editor.config?.text || {};
+        const existingFields = Object.keys(textConfig).filter(k => k !== 'default');
         const commonFields = ['name', 'label', 'state'];
         const availableCommonFields = commonFields.filter(f => !existingFields.includes(f));
 
@@ -580,8 +572,6 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
         e.stopPropagation();
         e.preventDefault();
 
-        lcardsLog.debug(`[MultiTextEditorV2] Deleting field: ${fieldName}`);
-
         // Clone config and remove field
         const textConfig = { ...this.text };
         delete textConfig[fieldName];
@@ -612,20 +602,13 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
      * @private
      */
     _emitChange(text) {
-        lcardsLog.info('[MultiTextEditorV2] _emitChange called');
-        lcardsLog.debug('[MultiTextEditorV2] New text value:', text);
-        lcardsLog.debug('[MultiTextEditorV2] Event will bubble:', true, 'composed:', true);
-
+        lcardsLog.debug('[MultiTextEditorV2] Text changed:', text);
         this.text = text;
-
-        const event = new CustomEvent('text-changed', {
+        this.dispatchEvent(new CustomEvent('text-changed', {
             detail: { value: text },
             bubbles: true,
             composed: true
-        });
-
-        lcardsLog.info('[MultiTextEditorV2] Dispatching text-changed event');
-        this.dispatchEvent(event);
+        }));
         this.requestUpdate();
     }
 }

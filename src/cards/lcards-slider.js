@@ -2416,12 +2416,21 @@ export class LCARdSSlider extends LCARdSButton {
         // Get available components
         const availableComponents = getSliderComponentNames();
 
+        // Position options with proper labels
+        const positionEnum = [
+            'top-left', 'top-center', 'top-right',
+            'left-center', 'center', 'right-center',
+            'bottom-left', 'bottom-center', 'bottom-right',
+            'top', 'bottom', 'left', 'right'
+        ];
+
         lcardsLog.debug('[LCARdSSlider] Registering schema with presets:', availablePresets);
 
         // Register schema
         const sliderSchema = getSliderSchema({
             availablePresets,
-            availableComponents
+            availableComponents,
+            positionEnum
         });
         configManager.registerCardSchema('slider', sliderSchema, { version: '1.22.0' });
 

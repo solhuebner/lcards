@@ -13,12 +13,14 @@
  * @param {Object} options - Schema options
  * @param {Array<string>} options.availablePresets - Available preset names
  * @param {Array<string>} options.availableComponents - Available component names
+ * @param {Array<string>} options.positionEnum - Available position values for text fields
  * @returns {Object} Complete slider schema
  */
 export function getSliderSchema(options = {}) {
     const {
         availablePresets = [],
-        availableComponents = []
+        availableComponents = [],
+        positionEnum = []
     } = options;
 
     // Reusable inline definitions
@@ -75,6 +77,48 @@ export function getSliderSchema(options = {}) {
                 }
             }
         ]
+    };
+
+    const paddingSchema = {
+        oneOf: [
+            {
+                type: 'number',
+                title: 'Uniform Padding',
+                minimum: 0,
+                maximum: 200,
+                description: 'Same padding on all sides (in pixels)',
+                examples: [8, 16, 24]
+            },
+            {
+                type: 'object',
+                title: 'Per-Side Padding',
+                description: 'Different padding for each side',
+                examples: [{
+                    top: 8,
+                    right: 16,
+                    bottom: 8,
+                    left: 16
+                }],
+                properties: {
+                    top: { type: 'number', minimum: 0, maximum: 200, description: 'Top padding in pixels' },
+                    right: { type: 'number', minimum: 0, maximum: 200, description: 'Right padding in pixels' },
+                    bottom: { type: 'number', minimum: 0, maximum: 200, description: 'Bottom padding in pixels' },
+                    left: { type: 'number', minimum: 0, maximum: 200, description: 'Left padding in pixels' }
+                }
+            }
+        ],
+        'x-ui-hints': {
+            label: 'Padding',
+            helper: 'Use number for uniform padding, or object for per-side control',
+            defaultOneOfBranch: 0,
+            selector: {
+                number: {
+                    mode: 'slider',
+                    step: 1,
+                    unit_of_measurement: 'px'
+                }
+            }
+        }
     };
 
     return {
@@ -270,39 +314,180 @@ export function getSliderSchema(options = {}) {
                 $comment: 'Text fields use arbitrary keys. "default" provides styling inherited by all other text fields. All other keys create actual rendered text elements.',
                 examples: [
                     {
-                        value: {
+                        label1: {
+                            content: 'Temperature',
+                            position: 'top-left',
+                            font_size: 18,
+                            color: '#FF9900'
+                        },
+                        status: {
                             content: '{{entity.state}}',
                             position: 'center',
-                            font_size: 18,
-                            color: '#FFFFFF'
-                        },
-                        label: {
-                            content: 'Temperature',
-                            position: 'top',
-                            font_size: 14,
-                            color: '#FF9900'
+                            template: true
                         }
                     }
                 ],
+                properties: {
+                    default: {
+                        type: 'object',
+                        description: 'Default styling inherited by all text fields (does not render)',
+                        $comment: 'This is NOT rendered as a text element - it only provides default styles',
+                        properties: {
+                            position: {
+                                type: 'string',
+                                enum: positionEnum,
+                                description: 'Default text position (e.g., "top-left", "center")'
+                            },
+                            rotation: {
+                                type: 'number',
+                                minimum: -360,
+                                maximum: 360,
+                                default: 0,
+                                description: 'Text rotation in degrees (-360 to 360)'
+                            },
+                            padding: paddingSchema,
+                            font_size: {
+                                oneOf: [
+                                    {
+                                        type: 'number',
+                                        minimum: 1,
+                                        maximum: 200,
+                                        default: 14,
+                                        description: 'Font size in pixels (1-200)'
+                                    },
+                                    {
+                                        type: 'string',
+                                        pattern: '^(\\d+px|\\d+\\.?\\d*rem|\\d+\\.?\\d*em|var\\(--[a-z-]+\\))$',
+                                        description: 'CSS value or theme token',
+                                        examples: ['14px', '1.2rem', 'var(--lcars-text-size)']
+                                    }
+                                ]
+                            },
+                            color: stateColorSchema,
+                            font_weight: {
+                                type: 'string',
+                                enum: ['normal', 'bold', '100', '200', '300', '400', '500', '600', '700', '800', '900'],
+                                default: 'normal',
+                                description: 'Font weight (normal=400, bold=700)',
+                                enumDescriptions: [
+                                    'Normal weight (400)',
+                                    'Bold weight (700)',
+                                    'Thin (100)',
+                                    'Extra Light (200)',
+                                    'Light (300)',
+                                    'Normal (400)',
+                                    'Medium (500)',
+                                    'Semi Bold (600)',
+                                    'Bold (700)',
+                                    'Extra Bold (800)',
+                                    'Black (900)'
+                                ]
+                            },
+                            font_family: {
+                                type: 'string',
+                                format: 'font-family',
+                                pattern: '^[a-zA-Z0-9_ -]+(,\\s*[a-zA-Z0-9_ "-]+)*$',
+                                description: 'CSS font-family (single font or comma-separated stack)',
+                                examples: ['Arial', 'lcards_title', 'Antonio, sans-serif', '"Roboto Mono", monospace']
+                            },
+                            text_transform: {
+                                type: 'string',
+                                enum: ['none', 'uppercase', 'lowercase', 'capitalize'],
+                                default: 'none',
+                                description: 'Text transformation',
+                                enumDescriptions: [
+                                    'No transformation (original case)',
+                                    'ALL UPPERCASE',
+                                    'all lowercase',
+                                    'Capitalize First Letter'
+                                ]
+                            },
+                            anchor: {
+                                type: 'string',
+                                enum: ['start', 'middle', 'end'],
+                                default: 'middle',
+                                description: 'Horizontal text alignment',
+                                enumDescriptions: [
+                                    'Left-aligned',
+                                    'Center-aligned',
+                                    'Right-aligned'
+                                ]
+                            },
+                            baseline: {
+                                type: 'string',
+                                enum: ['hanging', 'middle', 'central', 'alphabetic'],
+                                default: 'middle',
+                                description: 'Vertical text alignment',
+                                enumDescriptions: [
+                                    'Top of text box',
+                                    'Center of text box',
+                                    'Mathematical center',
+                                    'Bottom of text (baseline)'
+                                ]
+                            }
+                        }
+                    }
+                },
+                // Additional text fields with arbitrary names
                 additionalProperties: {
                     type: 'object',
-                    description: 'Named text field configuration (arbitrary key names)',
+                    description: 'Text field configuration (key becomes field name)',
+                    $comment: 'Each key creates a separate SVG text element. Use descriptive names like "label1", "status", "title"',
                     properties: {
                         content: {
                             type: 'string',
-                            description: 'Text content (can be template)',
+                            description: 'Text content (supports templates if template:true)',
                             examples: ['Temperature', '{{entity.state}}', '{entity.attributes.brightness}']
                         },
-                        template: {
+                        show: {
                             type: 'boolean',
-                            default: false,
-                            description: 'Whether content is a template expression'
+                            default: true,
+                            description: 'Whether to show this text field'
                         },
                         position: {
                             type: 'string',
-                            description: 'Text position within slider bounds',
-                            examples: ['center', 'top-left', 'bottom-right', 'top', 'bottom']
+                            enum: positionEnum,
+                            description: 'Text position (overrides default)'
                         },
+                        x: {
+                            type: 'number',
+                            description: 'Absolute X coordinate in pixels'
+                        },
+                        y: {
+                            type: 'number',
+                            description: 'Absolute Y coordinate in pixels'
+                        },
+                        x_percent: {
+                            type: 'number',
+                            minimum: 0,
+                            maximum: 100,
+                            description: 'X position as percentage of card width (0-100)'
+                        },
+                        y_percent: {
+                            type: 'number',
+                            minimum: 0,
+                            maximum: 100,
+                            description: 'Y position as percentage of card height (0-100)'
+                        },
+                        rotation: {
+                            type: 'number',
+                            minimum: -360,
+                            maximum: 360,
+                            default: 0,
+                            description: 'Text rotation in degrees (-360 to 360)',
+                            'x-ui-hints': {
+                                label: 'Rotation',
+                                helper: 'Rotate text in degrees (negative = counter-clockwise)',
+                                selector: {
+                                    number: {
+                                        mode: 'slider',
+                                        step: 1,
+                                        unit_of_measurement: '°'
+                                    }
+                                }
+                            }
+                        },
+                        padding: paddingSchema,
                         font_size: {
                             oneOf: [
                                 {
@@ -317,20 +502,86 @@ export function getSliderSchema(options = {}) {
                                     description: 'CSS value or theme token',
                                     examples: ['14px', '1.2rem', 'var(--lcars-text-size)']
                                 }
-                            ]
+                            ],
+                            'x-ui-hints': {
+                                label: 'Font Size',
+                                helper: 'Size in pixels (recommended) or CSS units',
+                                defaultOneOfBranch: 0,
+                                selector: {
+                                    number: {
+                                        mode: 'slider',
+                                        step: 1,
+                                        unit_of_measurement: 'px'
+                                    }
+                                }
+                            }
                         },
                         color: stateColorSchema,
                         font_weight: {
                             type: 'string',
                             enum: ['normal', 'bold', '100', '200', '300', '400', '500', '600', '700', '800', '900'],
                             default: 'normal',
-                            description: 'Font weight (normal=400, bold=700)'
+                            description: 'Font weight (normal=400, bold=700)',
+                            enumDescriptions: [
+                                'Normal weight (400)',
+                                'Bold weight (700)',
+                                'Thin (100)',
+                                'Extra Light (200)',
+                                'Light (300)',
+                                'Normal (400)',
+                                'Medium (500)',
+                                'Semi Bold (600)',
+                                'Bold (700)',
+                                'Extra Bold (800)',
+                                'Black (900)'
+                            ]
                         },
                         font_family: {
                             type: 'string',
                             format: 'font-family',
-                            description: 'Font family (LCARS uses Swiss 911 Ultra Compressed by default)',
-                            examples: ['Swiss 911 Ultra Compressed', 'Antonio', 'Roboto', 'monospace']
+                            pattern: '^[a-zA-Z0-9_ -]+(,\\s*[a-zA-Z0-9_ "-]+)*$',
+                            description: 'CSS font-family (single font or comma-separated stack)',
+                            examples: ['Arial', 'lcards_title', 'Antonio, sans-serif', '"Roboto Mono", monospace']
+                        },
+                        text_transform: {
+                            type: 'string',
+                            enum: ['none', 'uppercase', 'lowercase', 'capitalize'],
+                            default: 'none',
+                            description: 'Text transformation',
+                            enumDescriptions: [
+                                'No transformation (original case)',
+                                'ALL UPPERCASE',
+                                'all lowercase',
+                                'Capitalize First Letter'
+                            ]
+                        },
+                        anchor: {
+                            type: 'string',
+                            enum: ['start', 'middle', 'end'],
+                            default: 'middle',
+                            description: 'Horizontal text alignment',
+                            enumDescriptions: [
+                                'Left-aligned',
+                                'Center-aligned',
+                                'Right-aligned'
+                            ]
+                        },
+                        baseline: {
+                            type: 'string',
+                            enum: ['hanging', 'middle', 'central', 'alphabetic'],
+                            default: 'middle',
+                            description: 'Vertical text alignment',
+                            enumDescriptions: [
+                                'Top of text box',
+                                'Center of text box',
+                                'Mathematical center',
+                                'Bottom of text (baseline)'
+                            ]
+                        },
+                        template: {
+                            type: 'boolean',
+                            default: false,
+                            description: 'Enable template string evaluation (e.g., {{entity.state}})'
                         }
                     }
                 }
@@ -736,6 +987,54 @@ export function getSliderSchema(options = {}) {
                                             color: stateColorSchema,
                                             font_size: { type: 'number' },
                                             padding: { type: 'number' }
+                                        }
+                                    }
+                                }
+                            },
+                            indicator: {
+                                type: 'object',
+                                description: 'Current value indicator configuration',
+                                properties: {
+                                    enabled: {
+                                        type: 'boolean',
+                                        description: 'Show/hide current value indicator'
+                                    },
+                                    type: {
+                                        type: 'string',
+                                        enum: ['triangle', 'arrow', 'line', 'dot'],
+                                        description: 'Indicator shape type'
+                                    },
+                                    size: {
+                                        type: 'object',
+                                        description: 'Indicator dimensions',
+                                        properties: {
+                                            width: {
+                                                type: 'number',
+                                                minimum: 0,
+                                                description: 'Indicator width in pixels'
+                                            },
+                                            height: {
+                                                type: 'number',
+                                                minimum: 0,
+                                                description: 'Indicator height in pixels'
+                                            }
+                                        }
+                                    },
+                                    color: stateColorSchema,
+                                    border: {
+                                        type: 'object',
+                                        description: 'Indicator border configuration',
+                                        properties: {
+                                            enabled: {
+                                                type: 'boolean',
+                                                description: 'Enable indicator border'
+                                            },
+                                            width: {
+                                                type: 'number',
+                                                minimum: 0,
+                                                description: 'Border width in pixels'
+                                            },
+                                            color: stateColorSchema
                                         }
                                     }
                                 }

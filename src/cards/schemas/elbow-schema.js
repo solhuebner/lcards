@@ -896,7 +896,20 @@ export function getElbowSchema(options = {}) {
                                 type: 'string',
                                 enum: ['normal', 'bold', '100', '200', '300', '400', '500', '600', '700', '800', '900'],
                                 default: 'normal',
-                                description: 'Font weight (normal=400, bold=700)'
+                                description: 'Font weight (normal=400, bold=700)',
+                                enumDescriptions: [
+                                    'Normal weight (400)',
+                                    'Bold weight (700)',
+                                    'Thin (100)',
+                                    'Extra Light (200)',
+                                    'Light (300)',
+                                    'Normal (400)',
+                                    'Medium (500)',
+                                    'Semi Bold (600)',
+                                    'Bold (700)',
+                                    'Extra Bold (800)',
+                                    'Black (900)'
+                                ]
                             },
                             font_family: {
                                 type: 'string',
@@ -909,19 +922,30 @@ export function getElbowSchema(options = {}) {
                                 type: 'string',
                                 enum: ['none', 'uppercase', 'lowercase', 'capitalize'],
                                 default: 'none',
-                                description: 'Text transformation'
-                            },
-                            anchor: {
-                                type: 'string',
-                                enum: ['start', 'middle', 'end'],
-                                default: 'middle',
-                                description: 'Horizontal text alignment'
+                                description: 'Text transformation',
+                                enumDescriptions: [
+                                    'No transformation (original case)',
+                                    'ALL UPPERCASE',
+                                    'all lowercase',
+                                    'Capitalize First Letter'
+                                ],
+                                enumDescriptions: [
+                                    'Left-aligned',
+                                    'Center-aligned',
+                                    'Right-aligned'
+                                ]
                             },
                             baseline: {
                                 type: 'string',
                                 enum: ['hanging', 'middle', 'central', 'alphabetic'],
                                 default: 'middle',
-                                description: 'Vertical text alignment'
+                                description: 'Vertical text alignment',
+                                enumDescriptions: [
+                                    'Top of text box',
+                                    'Center of text box',
+                                    'Mathematical center',
+                                    'Bottom of text (baseline)'
+                                ]
                             }
                         }
                     }
@@ -978,7 +1002,18 @@ export function getElbowSchema(options = {}) {
                             minimum: -360,
                             maximum: 360,
                             default: 0,
-                            description: 'Text rotation in degrees (-360 to 360)'
+                            description: 'Text rotation in degrees (-360 to 360)',
+                            'x-ui-hints': {
+                                label: 'Rotation',
+                                helper: 'Rotate text in degrees (negative = counter-clockwise)',
+                                selector: {
+                                    number: {
+                                        mode: 'slider',
+                                        step: 1,
+                                        unit_of_measurement: '°'
+                                    }
+                                }
+                            }
                         },
                         padding: {
                             oneOf: [
@@ -1014,14 +1049,39 @@ export function getElbowSchema(options = {}) {
                                     description: 'CSS value or theme token',
                                     examples: ['14px', '1.2rem', 'var(--lcars-text-size)']
                                 }
-                            ]
+                            ],
+                            'x-ui-hints': {
+                                label: 'Font Size',
+                                helper: 'Size in pixels (recommended) or CSS units',
+                                defaultOneOfBranch: 0,
+                                selector: {
+                                    number: {
+                                        mode: 'slider',
+                                        step: 1,
+                                        unit_of_measurement: 'px'
+                                    }
+                                }
+                            }
                         },
                         color: stateColorSchema,
                         font_weight: {
                             type: 'string',
                             enum: ['normal', 'bold', '100', '200', '300', '400', '500', '600', '700', '800', '900'],
                             default: 'normal',
-                            description: 'Font weight (normal=400, bold=700)'
+                            description: 'Font weight (normal=400, bold=700)',
+                            enumDescriptions: [
+                                'Normal weight (400)',
+                                'Bold weight (700)',
+                                'Thin (100)',
+                                'Extra Light (200)',
+                                'Light (300)',
+                                'Normal (400)',
+                                'Medium (500)',
+                                'Semi Bold (600)',
+                                'Bold (700)',
+                                'Extra Bold (800)',
+                                'Black (900)'
+                            ]
                         },
                         font_family: {
                             type: 'string',
@@ -1034,19 +1094,36 @@ export function getElbowSchema(options = {}) {
                             type: 'string',
                             enum: ['none', 'uppercase', 'lowercase', 'capitalize'],
                             default: 'none',
-                            description: 'Text transformation'
+                            description: 'Text transformation',
+                            enumDescriptions: [
+                                'No transformation (original case)',
+                                'ALL UPPERCASE',
+                                'all lowercase',
+                                'Capitalize First Letter'
+                            ]
                         },
                         anchor: {
                             type: 'string',
                             enum: ['start', 'middle', 'end'],
                             default: 'middle',
-                            description: 'Horizontal text alignment'
+                            description: 'Horizontal text alignment',
+                            enumDescriptions: [
+                                'Left-aligned',
+                                'Center-aligned',
+                                'Right-aligned'
+                            ]
                         },
                         baseline: {
                             type: 'string',
                             enum: ['hanging', 'middle', 'central', 'alphabetic'],
                             default: 'middle',
-                            description: 'Vertical text alignment'
+                            description: 'Vertical text alignment',
+                            enumDescriptions: [
+                                'Top of text box',
+                                'Center of text box',
+                                'Mathematical center',
+                                'Bottom of text (baseline)'
+                            ]
                         },
                         template: {
                             type: 'boolean',

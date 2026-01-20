@@ -268,7 +268,6 @@ export class LCARdSBaseEditor extends LitElement {
         }, 50); // 50ms debounce
 
         // Trigger Lit reactivity for config property
-        this.requestUpdate('config', oldConfig);
     }
 
     /**

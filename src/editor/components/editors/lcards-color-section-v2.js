@@ -92,6 +92,7 @@ export class LCARdSColorSectionV2 extends LitElement {
                     border-radius: var(--ha-card-border-radius, 12px);
                     padding: 12px;
                     margin-bottom: 12px;
+                    margin-top: 12px;
                     font-size: 13px;
                 }
 
@@ -129,7 +130,7 @@ export class LCARdSColorSectionV2 extends LitElement {
                     margin-top: 12px;
                     padding: 12px;
                     background: var(--secondary-background-color);
-                    border-radius: 8px;
+                    border-radius: var(--ha-card-border-radius, 12px);
                 }
 
                 /* Quick Add Section */

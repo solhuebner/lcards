@@ -235,10 +235,18 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
      * Text tab - uses enhanced component
      */
     _renderTextTab() {
+        // CRITICAL: Use this.config?.text to ensure Lit reactivity when config changes
+        const textConfig = this.config?.text || {};
         return html`
             <lcards-multi-text-editor-v2
                 .editor=${this}
-                .hass=${this.hass}>
+                .text=${textConfig}
+                .hass=${this.hass}
+                @text-changed=${(e) => {
+                    // CRITICAL: Replace entire text object, don't merge (deepMerge won't delete fields)
+                    this.config = { ...this.config, text: e.detail.value };
+                    this._updateConfig(this.config, 'visual');
+                }}>
             </lcards-multi-text-editor-v2>
         `;
     }

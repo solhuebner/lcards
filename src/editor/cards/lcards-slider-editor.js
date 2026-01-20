@@ -879,11 +879,18 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
      * @private
      */
     _renderTextTab() {
+        // CRITICAL: Use this.config?.text to ensure Lit reactivity when config changes
+        const textConfig = this.config?.text || {};
         return html`
             <lcards-multi-text-editor-v2
                 .editor=${this}
-                .config=${this.config}
-                .hass=${this.hass}>
+                .text=${textConfig}
+                .hass=${this.hass}
+                @text-changed=${(e) => {
+                    // CRITICAL: Replace entire text object, don't merge (deepMerge won't delete fields)
+                    this.config = { ...this.config, text: e.detail.value };
+                    this._updateConfig(this.config, 'visual');
+                }}>
             </lcards-multi-text-editor-v2>
         `;
     }
@@ -926,7 +933,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     basePath="style.border.left.color"
                     header="Left Border Colors"
                     description="State-based colors for left border - supports custom states"
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>
@@ -958,7 +965,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     basePath="style.border.top.color"
                     header="Top Border Colors"
                     description="State-based colors for top border - supports custom states"
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>
@@ -990,7 +997,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     basePath="style.border.right.color"
                     header="Right Border Colors"
                     description="State-based colors for right border - supports custom states"
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>
@@ -1022,7 +1029,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     basePath="style.border.bottom.color"
                     header="Bottom Border Colors"
                     description="State-based colors for bottom border - supports custom states"
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>
