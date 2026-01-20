@@ -53,7 +53,7 @@ export class LCARdSFormSection extends LitElement {
         return css`
             :host {
                 display: block;
-                margin-bottom: 12px; /* Reduced from 16px for consistency */
+                margin-bottom: var(--lcards-section-spacing, 16px);
             }
 
             ha-expansion-panel {

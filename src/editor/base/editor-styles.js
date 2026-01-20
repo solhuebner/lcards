@@ -9,7 +9,7 @@ import { css } from 'lit';
 export const editorStyles = css`
     :host {
         display: block;
-        padding: 16px;
+        padding: 0;
         background: var(--card-background-color, #fff);
     }
 
@@ -27,6 +27,44 @@ export const editorStyles = css`
     .tab-content {
         padding: 8px 0;
         min-height: 400px;
+    }
+
+    /* HA tab group styling */
+    ha-tab-group {
+        display: block;
+        margin-bottom: 0;
+        padding: 12px 16px 0 16px;
+    }
+
+    ha-tab-panel {
+        padding: 16px;
+        min-height: 400px;
+    }
+
+    /* Expansion panel styling */
+    ha-expansion-panel {
+        margin-bottom: var(--lcards-section-spacing, 16px);
+        border-radius: var(--ha-card-border-radius, 12px);
+    }
+
+    ha-expansion-panel[outlined] {
+        border: 2px solid var(--divider-color);
+    }
+
+    ha-expansion-panel[expanded] {
+        background-color: var(--secondary-background-color);
+    }
+
+    /* Form field spacing */
+    .form-field {
+        margin-bottom: var(--lcards-section-spacing, 16px);
+    }
+
+    /* Common tab content container (used in Effects tabs, etc.) */
+    .tab-content-container {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
     }
 
     /* Section spacing with CSS variables for density control */
@@ -132,6 +170,7 @@ export const editorStyles = css`
         border: 1px solid var(--divider-color);
         border-radius: 16px;
         padding: 24px;
+        margin-bottom: var(--lcards-section-spacing, 16px);
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
@@ -236,7 +275,7 @@ export const editorStyles = css`
     }
 
     /* Density Variants */
-    
+
     /* Nested Section Spacing - tighter spacing for nested sections */
     lcards-form-section lcards-form-section {
         margin-bottom: 8px;

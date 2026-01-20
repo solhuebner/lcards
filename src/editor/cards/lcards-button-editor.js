@@ -555,7 +555,7 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
      */
     _renderEffectsTab() {
         return html`
-            <div style="display: flex; flex-direction: column; gap: 16px; padding: 16px;">
+            <div class="tab-content-container">
                 <!-- Info Message -->
                 <lcards-message type="info">
                     <strong>Combining Effects:</strong>

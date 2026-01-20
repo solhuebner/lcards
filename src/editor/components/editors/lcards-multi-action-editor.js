@@ -38,7 +38,7 @@ export class LCARdSMultiActionEditor extends LitElement {
             }
 
             .action-section {
-                margin-bottom: 12px;
+                margin-bottom: var(--lcards-section-spacing, 16px);
             }
         `;
     }

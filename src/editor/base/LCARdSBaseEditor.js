@@ -44,54 +44,7 @@ export class LCARdSBaseEditor extends LitElement {
     }
 
     static get styles() {
-        return [
-            editorStyles,
-            css`
-                /* HA native tab group styling (Issue #82) */
-                ha-tab-group {
-                    display: block;
-                    margin-bottom: 12px;
-                }
-
-                ha-tab-panel {
-                    padding: 8px 0;
-                    min-height: 400px;
-                }
-
-                /* Section styles */
-                ha-expansion-panel {
-                    margin-bottom: 12px;
-                    border-radius: var(--ha-card-border-radius, 12px);
-                }
-
-                ha-expansion-panel[outlined] {
-                    border: 2px solid var(--divider-color);
-                }
-
-                ha-expansion-panel[expanded] {
-                    background-color: var(--secondary-background-color);
-                }
-
-                /* Form field spacing */
-                .form-field {
-                    margin-bottom: var(--lcards-section-spacing, 16px);
-                }
-
-                /* Two-column grid */
-                .form-row-group {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 12px;
-                    margin-bottom: var(--lcards-section-spacing, 16px);
-                }
-
-                @media (max-width: 768px) {
-                    .form-row-group {
-                        grid-template-columns: 1fr;
-                    }
-                }
-            `
-        ];
+        return [editorStyles];
     }
 
     /**
