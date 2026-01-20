@@ -514,7 +514,7 @@ This card supports [number] template types for dynamic content:
 [property]: "{{states('sensor.temperature')}}"
 ```
 
-**[See template documentation →](../../../architecture/subsystems/templates.md)**
+**[See template documentation →](../../../architecture/subsystems/rules-template-syntax.md)**
 
 ---
 
@@ -536,7 +536,7 @@ rules:
         background: "{theme:palette.alert-red}"
 ```
 
-**[See rules documentation →](../../configuration/rules.md)**
+**[See rules documentation →](../rules.md)**
 
 ---
 
@@ -709,14 +709,13 @@ window.lcards.core.themeManager.getCurrentTheme()
 - [LCARdS [Related Card]](./[related-card].md) - [Brief description]
 
 ### Related Features
-- [Rules Engine](../../configuration/rules.md) - Conditional styling across cards
-- [Data Sources](../../configuration/data-sources.md) - Entity subscriptions and transformations
-- [Animations](../../configuration/animations.md) - Motion and animation presets
-- [Template System](../../../architecture/subsystems/templates.md) - Dynamic content evaluation
+- [Rules Engine](../rules.md) - Conditional styling across cards
+- [Data Sources](../datasources.md) - Entity subscriptions and transformations
+- [Template System](../../../architecture/subsystems/rules-template-syntax.md) - Dynamic content evaluation
 
 ### Architecture Documentation
 - [LCARdS Card Foundation](../../../architecture/cards/lcards-card-foundation.md)
-- [[Relevant Subsystem]](../../../architecture/subsystems/[subsystem].md)
+- [Subsystems Overview](../../../architecture/subsystems/README.md)
 
 ---
 
