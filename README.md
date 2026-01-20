@@ -1,5 +1,5 @@
 # LCARdS
-
+*A STAR TREK FAN PRODUCTION*
 ![LCARdS Banner](docs/assets/lcards-banner.gif)
 <!-- 
 IMAGE PLACEHOLDER: Hero banner
@@ -7,22 +7,24 @@ Suggested: Animated MSD showing cards, lines, animations, and effects
 File: docs/assets/lcards-banner.gif
 -->
 
-**A unified card ecosystem for Home Assistant inspired by Star Trek LCARS**
+**A unified card ecosystem for Home Assistant inspired by the iconic LCARS interface from Star Trek.
+<br>Build your own LCARS-style dashboards and Master Systems Display (MSD) with realistic controls and animations.**
 
-[![GitHub release](https://img.shields.io/github/v/release/snootched/LCARdS?display_name=release)](https://github.com/snootched/LCARdS/releases)
-[![License](https://img.shields.io/github/license/snootched/LCARdS)](LICENSE)
-[![Last commit](https://img.shields.io/github/last-commit/snootched/LCARdS)](https://github.com/snootched/LCARdS/commits/main)
+[![GitHub release](https://img.shields.io/github/v/release/snootched/LCARdS?display_name=release&logo=startrek&color=37a6d1")](https://github.com/snootched/LCARdS/releases)
+[![License](https://img.shields.io/github/license/snootched/LCARdS?logo=opensourceinitiative&logoColor=white)](LICENSE)
+[![Last commit](https://img.shields.io/github/last-commit/snootched/LCARdS?style=default&logo=git&logoColor=white&color=37a6d1)](https://github.com/snootched/LCARdS/commits/main)
 
 <br>
 
 ## What is LCARdS?
 
-LCARdS isn't just another custom card—it's a **complete LCARS dashboard platform** for Home Assistant.
+LCARdS is the next evolution of dedicated LCARS-inspired cards, originating from [CB-LCARS](https://github.com/snootched/cb-lcars) project.
+<br>Although deployed and used as custom cards - it's built upon a set of common core platform services that work to provide a **more complete and cohesive LCARS-like dashboard experience.**
 
-Build immersive, interactive Star Trek dashboards with:
+You can build immersive, interactive dashboards with:
 - **Unified architecture** - Every card shares powerful reactivity, cross-card rules, and unified actions
-- **Studio editors** - Immersive, wizard-driven interfaces with live preview and provenance tracking
-- **Extensible design** - Community can create and share UI packs, themes, and animations
+- **Studio editors** - Immersive card editing interfaces with live previews - augmented with schema-backed yaml editors.
+- **Extensible design** - Content can be enhanced and distrbuted via packs - adding more button types, sliders, animaiton definitions, and more.
 - **No backend required** - Data transformations run in your browser for real-time dashboards
 
 > [!TIP]
@@ -563,14 +565,28 @@ graph LR
 
 <br>
 
-## Acknowledgements
+## Acknowledgements & Thanks
 
-LCARdS stands on the shoulders of giants:
+A very sincere thanks to these projects and their authors, contributors and communities for doing what they do, and making it available.  It really does make this a fun hobby to tinker with.
 
-- [**HA-LCARS theme**](https://github.com/th3jesta/ha-lcars) - The foundation for LCARS visual authenticity
-- [**custom-button-card**](https://github.com/custom-cards/button-card) - Inspiration for flexible card design
-- [**my-cards**](https://github.com/AnthonMS/my-cards) - Slider implementation reference
-- [**lovelace-card-mod**](https://github.com/thomasloven/lovelace-card-mod) - Advanced styling capabilities
+[**ha-lcars theme**](https://github.com/th3jesta/ha-lcars) (the definitive LCARS theme for HA!)
+
+[**lovelace-layout-card**](https://github.com/thomasloven/lovelace-layout-card)
+
+[**lovelace-card-mod**](https://github.com/thomasloven/lovelace-card-mod)
+
+<br>
+As well, some shout-outs and attributions to these great projects:
+<br><br>
+
+[LCARSlad London](https://twitter.com/lcarslad) for excellent LCARS images and diagrams for reference.
+
+[meWho Titan.DS](https://www.mewho.com/titan) for such a cool interactive design demo and colour reference.
+
+[TheLCARS.com]( https://www.thelcars.com) a great LCARS design reference, and the original base reference for Data Cascade and Pulsewave animations.
+
+[lcars](https://github.com/joernweissenborn/lcars) for the SVG used inline in the dpad control.
+
 - **All Star Trek & LCARS fans** - Your passion drives this project 🖖
 
 <br>
@@ -579,9 +595,18 @@ LCARdS stands on the shoulders of giants:
 
 <br>
 
-## License
+## License & Disclaimer
 
-MIT License — See [LICENSE](LICENSE)
+This project uses the MIT License. For more details see [LICENSE](LICENSE)
+
+---
+A STAR TREK FAN PRODUCTION
+
+This project is a non-commercial fan production. Star Trek and all related marks, logos, and characters are solely owned by CBS Studios Inc.
+This fan production is not endorsed by, sponsored by, nor affiliated with CBS, Paramount Pictures, or any other Star Trek franchise.
+
+No commercial exhibition or distribution is permitted. No alleged independent rights will be asserted against CBS or Paramount Pictures.
+This work is intended for personal and recreational use only.
 
 ---
 
