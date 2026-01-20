@@ -8,6 +8,14 @@
  * @module cards/schemas/msd-schema
  */
 
+import {
+    filterSchema,
+    cardIdSchema,
+    tagsSchema,
+    dataSourcesSchema,
+    rulesSchema
+} from './common-schemas.js';
+
 /**
  * Get complete MSD card schema
  * @param {Object} options - Schema options
@@ -61,34 +69,7 @@ export function getMsdSchema(options = {}) {
             type: 'array',
             optional: true,
             description: 'Stackable CSS/SVG filters applied in sequence',
-            items: {
-              type: 'object',
-              required: ['type'],
-              properties: {
-                mode: {
-                  type: 'string',
-                  enum: ['css', 'svg'],
-                  default: 'css',
-                  description: 'Filter mode: css (CSS filters) or svg (SVG filter primitives)'
-                },
-                type: {
-                  type: 'string',
-                  description: 'Filter type/function name (blur, brightness, saturate, hue-rotate, etc.)'
-                },
-                value: {
-                  oneOf: [
-                    { type: 'string', description: 'String value (e.g., "5px", "45deg")' },
-                    { type: 'number', description: 'Numeric value (e.g., 1.2, 0.8)' },
-                    {
-                      type: 'object',
-                      description: 'Complex value (e.g., drop-shadow parameters)',
-                      additionalProperties: true
-                    }
-                  ],
-                  description: 'Filter value - type depends on filter'
-                }
-              }
-            },
+            items: filterSchema,
             'x-ui': {
               control: 'filter-editor',
               label: 'Filters'
@@ -495,7 +476,7 @@ export function getMsdSchema(options = {}) {
       // ============================================================================
 
       id: {
-        type: 'string',
+        ...cardIdSchema,
         description: 'Custom card ID for rule targeting (optional - auto-generated if omitted)',
         'x-ui-hints': {
           label: 'Card ID',
@@ -509,9 +490,7 @@ export function getMsdSchema(options = {}) {
       },
 
       tags: {
-        type: 'array',
-        items: { type: 'string' },
-        description: 'Tags for bulk rule targeting',
+        ...tagsSchema,
         'x-ui-hints': {
           label: 'Tags',
           helper: 'Tags for grouping and targeting multiple cards with rules',
@@ -528,38 +507,8 @@ export function getMsdSchema(options = {}) {
       msd: msdConfigSchema,
 
       // Root-level properties (shared across cards)
-      data_sources: {
-        type: 'object',
-        optional: true,
-        description: 'Named data source definitions (can be defined at root for sharing)',
-        additionalProperties: {
-          type: 'object',
-          properties: {
-            entity: {
-              type: 'string',
-              format: 'entity',
-              description: 'Entity ID to fetch data from'
-            },
-            windowSeconds: {
-              type: 'number',
-              minimum: 1,
-              optional: true,
-              description: 'Time window in seconds for historical data'
-            }
-          },
-          required: ['entity']
-        }
-      },
-
-      rules: {
-        type: 'array',
-        optional: true,
-        description: 'Dynamic styling rules (can be defined at root for sharing)',
-        'x-ui': {
-          control: 'array',
-          label: 'Rules'
-        }
-      }
+      data_sources: dataSourcesSchema,
+      rules: rulesSchema
     },
 
     validators: [

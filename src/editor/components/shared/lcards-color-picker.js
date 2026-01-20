@@ -140,21 +140,14 @@ export class LCARdSColorPicker extends LitElement {
                 transition: all 0.2s ease;
             }
 
-            .preview-label {
-                font-size: 11px;
-                font-weight: 500;
-                opacity: 0.8;
-            }
-
             .preview-value {
                 font-size: 12px;
                 font-family: monospace;
             }
 
             .preview-computed {
-                font-size: 10px;
+                font-size: 12px;
                 opacity: 0.7;
-                font-style: italic;
             }
         `;
     }
@@ -533,11 +526,10 @@ export class LCARdSColorPicker extends LitElement {
             <div
                 class="preview"
                 style="background-color: ${bgColor}; color: ${textColor};">
-                <div class="preview-label">Preview</div>
                 <div class="preview-value">${this.value}</div>
                 ${this._computedColor && this._computedColor !== this.value ? html`
                     <div class="preview-computed">
-                        ${hexColor ? html`Hex: ${hexColor}<br>` : ''}
+                        ${hexColor ? html`Hex: ${hexColor} • ` : ''}
                         RGB: ${this._computedColor}
                     </div>
                 ` : ''}

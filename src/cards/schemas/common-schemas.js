@@ -12,73 +12,163 @@
 
 export const dataSourcesSchema = {
     type: 'object',
-    description: 'Named data source definitions (shared across all lcards)',
-    $comment: 'Data sources enable historical data queries and transformations',
+    description: 'Historical data sources for charts and analytics. Each key defines a named data source that can be referenced in templates and configurations.',
+    $comment: 'Data sources enable real-time subscriptions, historical data queries, transformations, and aggregations',
     examples: [
         {
             temp_history: {
-                entity_id: 'sensor.temperature',
-                update_interval: 5,
-                history_size: 100,
+                entity: 'sensor.temperature',
+                windowSeconds: 3600,
+                history: {
+                    enabled: true,
+                    hours: 6
+                },
                 transformations: [
                     {
                         type: 'moving_average',
-                        window: 10
+                        window: 10,
+                        key: 'smoothed'
                     }
                 ]
             },
             power_usage: {
-                entity_id: 'sensor.power',
-                update_interval: 30
+                entity: 'sensor.power',
+                attribute: 'current',
+                minEmitMs: 1000,
+                coalesceMs: 200
             }
         }
     ],
     additionalProperties: {
         type: 'object',
         properties: {
-            entity_id: {
+            entity: {
                 type: 'string',
                 format: 'entity',
                 pattern: '^[a-z_]+\\.[a-z0-9_]+$',
-                description: 'Entity ID to fetch data from (format: domain.object_id)',
+                description: 'Entity ID to track (format: domain.object_id)',
                 examples: ['sensor.temperature', 'light.living_room']
             },
-            update_interval: {
-                type: 'number',
-                minimum: 1,
-                maximum: 3600,
-                description: 'Update interval in seconds (1-3600)',
-                examples: [5, 30, 60]
+            attribute: {
+                type: 'string',
+                description: 'Entity attribute to track instead of state',
+                examples: ['temperature', 'brightness', 'current']
             },
-            history_size: {
+            windowSeconds: {
                 type: 'number',
                 minimum: 1,
+                maximum: 86400,
+                description: 'Rolling window size in seconds (1-86400, default: 60)',
+                examples: [60, 3600, 86400]
+            },
+            minEmitMs: {
+                type: 'number',
+                minimum: 0,
                 maximum: 10000,
-                description: 'Number of historical data points to retain',
-                examples: [50, 100, 500]
+                description: 'Minimum time between updates in milliseconds (throttling, default: 100)',
+                examples: [100, 1000, 5000]
+            },
+            coalesceMs: {
+                type: 'number',
+                minimum: 0,
+                maximum: 5000,
+                description: 'Coalesce rapid changes within window in milliseconds (default: auto)',
+                examples: [50, 100, 200]
+            },
+            maxDelayMs: {
+                type: 'number',
+                minimum: 0,
+                maximum: 10000,
+                description: 'Maximum delay before forced emission in milliseconds (default: auto)',
+                examples: [500, 1000, 2000]
+            },
+            emitOnSameValue: {
+                type: 'boolean',
+                description: 'Emit updates even if value unchanged (default: true)'
+            },
+            history: {
+                type: 'object',
+                description: 'Historical data preload configuration',
+                properties: {
+                    enabled: {
+                        type: 'boolean',
+                        description: 'Enable historical data preload (default: true)'
+                    },
+                    hours: {
+                        type: 'number',
+                        minimum: 1,
+                        maximum: 168,
+                        description: 'Hours of history to preload (1-168, default: 6)'
+                    },
+                    days: {
+                        type: 'number',
+                        minimum: 1,
+                        maximum: 7,
+                        description: 'Days of history to preload (1-7)'
+                    }
+                }
             },
             transformations: {
                 type: 'array',
-                description: 'Data transformations to apply',
+                description: 'Data transformations to apply in sequence',
                 items: {
                     type: 'object',
                     properties: {
                         type: {
                             type: 'string',
-                            enum: ['moving_average', 'sum', 'min', 'max'],
-                            description: 'Transformation type'
+                            description: 'Transformation type',
+                            examples: ['moving_average', 'unit_conversion', 'smooth', 'expression', 'sum', 'min', 'max']
+                        },
+                        key: {
+                            type: 'string',
+                            description: 'Key for accessing transformation result in templates',
+                            examples: ['smoothed', 'celsius', 'hourly_avg']
                         },
                         window: {
                             type: 'number',
                             minimum: 1,
-                            description: 'Window size for transformation'
+                            description: 'Window size for transformation (number of data points)'
+                        },
+                        method: {
+                            type: 'string',
+                            description: 'Transformation method/algorithm',
+                            examples: ['moving_average', 'exponential']
+                        },
+                        expression: {
+                            type: 'string',
+                            description: 'JavaScript expression for custom transformations'
+                        }
+                    },
+                    required: ['type']
+                }
+            },
+            aggregations: {
+                type: 'array',
+                description: 'Statistical aggregations over time windows',
+                items: {
+                    type: 'object',
+                    properties: {
+                        type: {
+                            type: 'string',
+                            description: 'Aggregation type',
+                            examples: ['moving_average', 'min', 'max', 'sum', 'count', 'rate']
+                        },
+                        key: {
+                            type: 'string',
+                            description: 'Key for accessing aggregation result',
+                            examples: ['avg_15m', 'hourly_max', 'daily_sum']
+                        },
+                        window: {
+                            type: ['number', 'string'],
+                            description: 'Time window for aggregation (number in seconds or string like "15m", "1h", "24h")',
+                            examples: [900, '15m', '1h', '24h']
                         }
                     },
                     required: ['type']
                 }
             }
         },
-        required: ['entity_id']
+        required: ['entity']
     }
 };
 
@@ -474,6 +564,128 @@ export const gridOptionsSchema = {
             maximum: 100,
             description: 'Number of rows this card spans (1-100)'
         }
+    }
+};
+
+/**
+ * Rules Schema - Dynamic styling rules for conditional overlay/card styling
+ * Used by MSD and other cards supporting rules-based behavior
+ */
+export const rulesSchema = {
+    type: 'array',
+    optional: true,
+    description: 'Dynamic styling rules evaluated by RulesEngine singleton. Rules can target overlays across all cards using IDs, tags, types, or patterns.',
+    items: {
+        type: 'object',
+        required: ['id', 'when', 'apply'],
+        properties: {
+            id: {
+                type: 'string',
+                description: 'Unique rule identifier used for debugging and tracing',
+                examples: ['temp_alert', 'high_cpu_warning', 'offline_status']
+            },
+            when: {
+                type: 'object',
+                description: 'Condition(s) that must be met for rule to apply. Supports 20+ condition types including entity state, time, performance, DataSources, and logical composition (all/any/not).',
+                additionalProperties: true,
+                examples: [
+                    { entity: 'sensor.temperature', above: 25 },
+                    { all: [{ entity: 'light.bedroom', state: 'on' }, { time: { after: '22:00' } }] },
+                    { datasource: 'cpu_usage', above: 80 }
+                ]
+            },
+            apply: {
+                type: 'object',
+                description: 'Style changes, profile activations, and animations to apply when conditions are met',
+                properties: {
+                    overlays: {
+                        type: 'object',
+                        description: 'Overlay style changes using direct IDs or selectors (all, type:, tag:, pattern:, exclude:)',
+                        additionalProperties: true,
+                        examples: [
+                            { temp_display: { style: { color: 'var(--lcars-red)' } } },
+                            { 'tag:critical': { style: { color: 'var(--lcars-alert-red)', border_width: '3px' } } },
+                            { all: { style: { opacity: 0.5 } }, exclude: ['main_display'] }
+                        ]
+                    },
+                    base_svg: {
+                        type: 'object',
+                        description: 'Base SVG filter updates (MSD cards only)',
+                        properties: {
+                            filters: {
+                                type: 'object',
+                                description: 'SVG filter properties to update'
+                            },
+                            filter_preset: {
+                                type: 'string',
+                                description: 'Named filter preset to apply',
+                                examples: ['dimmed', 'bright', 'red-alert']
+                            },
+                            transition: {
+                                type: 'number',
+                                minimum: 0,
+                                description: 'Transition duration in milliseconds',
+                                default: 300
+                            }
+                        }
+                    },
+                    profiles: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description: 'Profile IDs to activate when rule matches',
+                        examples: [['night_mode'], ['alert_profile', 'dim_displays']]
+                    },
+                    animations: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description: 'Animation IDs to trigger when rule matches',
+                        examples: [['pulse_alert'], ['fade_in', 'glow']]
+                    }
+                },
+                examples: [
+                    { overlays: { temp_display: { style: { color: 'var(--lcars-red)' } } } },
+                    { overlays: { 'tag:warning': { style: { opacity: 1 } } }, animations: ['pulse'] },
+                    { base_svg: { filter_preset: 'red-alert', transition: 500 }, profiles: ['alert_mode'] }
+                ]
+            },
+            stop: {
+                type: 'boolean',
+                default: false,
+                description: 'Stop evaluation after this rule if it matches (rule priority control)'
+            },
+            priority: {
+                type: 'number',
+                description: 'Rule evaluation priority (higher values evaluated first, default: 0)',
+                default: 0
+            },
+            enabled: {
+                type: 'boolean',
+                default: true,
+                description: 'Enable or disable rule evaluation'
+            }
+        },
+        examples: [
+            {
+                id: 'temp_alert',
+                when: { entity: 'sensor.temperature', above: 25 },
+                apply: { overlays: { temp_display: { style: { color: 'var(--lcars-red)' } } } }
+            },
+            {
+                id: 'high_priority_alert',
+                when: { entity: 'binary_sensor.critical', state: 'on' },
+                apply: {
+                    overlays: { 'tag:critical': { style: { color: 'var(--lcars-alert-red)' } } },
+                    animations: ['pulse_alert']
+                },
+                priority: 100,
+                stop: true
+            }
+        ]
+    },
+    'x-ui': {
+        control: 'array',
+        label: 'Rules',
+        helper: 'Conditional styling rules evaluated by RulesEngine singleton'
     }
 };
 

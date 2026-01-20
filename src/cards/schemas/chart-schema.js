@@ -13,6 +13,8 @@
  * @see doc/user/configuration/cards/chart.md
  */
 
+import { simpleColorSchema, cardIdSchema, tagsSchema, dataSourcesSchema } from './common-schemas.js';
+
 /**
  * Get complete chart card schema with nested structure
  * @param {Object} options - Schema options
@@ -34,17 +36,6 @@ export function getChartSchema(options = {}) {
     // ============================================================================
     // REUSABLE DEFINITIONS
     // ============================================================================
-
-    // Color pattern for validation
-    const colorPattern = '^(#[0-9A-Fa-f]{6}|#[0-9A-Fa-f]{8}|transparent|theme:|rgb\\(|rgba\\(|hsl\\(|var\\(--)';
-
-    // Simple color schema (single color value)
-    const simpleColorSchema = {
-        type: 'string',
-        pattern: colorPattern,
-        description: 'Color value (hex, rgb, rgba, theme token, or CSS variable)',
-        examples: ['#FF9900', 'rgba(255, 153, 0, 0.7)', 'theme:colors.primary.orange', 'var(--lcars-orange)']
-    };
 
     // Color array schema
     const colorArraySchema = {
@@ -104,7 +95,7 @@ export function getChartSchema(options = {}) {
             // ====================================================================
 
             id: {
-                type: 'string',
+                ...cardIdSchema,
                 description: 'Custom card ID for rule targeting (optional - auto-generated if omitted)',
                 'x-ui-hints': {
                     label: 'Card ID',
@@ -118,9 +109,7 @@ export function getChartSchema(options = {}) {
             },
 
             tags: {
-                type: 'array',
-                items: { type: 'string' },
-                description: 'Tags for bulk rule targeting',
+                ...tagsSchema,
                 'x-ui-hints': {
                     label: 'Tags',
                     helper: 'Tags for grouping and targeting multiple cards with rules',
@@ -205,181 +194,7 @@ export function getChartSchema(options = {}) {
             },
 
             // Level 3: Advanced DataSource configuration
-            data_sources: {
-                type: 'object',
-                description: 'Advanced DataSource configurations with inline settings',
-                additionalProperties: {
-                    type: 'object',
-                    properties: {
-                        entity: {
-                            type: 'string',
-                            description: 'Entity ID to track',
-                            'x-ui-hints': {
-                                label: 'Entity',
-                                selector: {
-                                    entity: {}
-                                }
-                            }
-                        },
-                        attribute: {
-                            type: 'string',
-                            description: 'Entity attribute to track',
-                            'x-ui-hints': {
-                                label: 'Attribute',
-                                selector: {
-                                    text: {}
-                                }
-                            }
-                        },
-                        window_seconds: {
-                            type: 'number',
-                            minimum: 60,
-                            maximum: 86400,
-                            default: 3600,
-                            description: 'Rolling window size in seconds',
-                            'x-ui-hints': {
-                                label: 'Window (seconds)',
-                                helper: 'How much historical data to keep in memory',
-                                selector: {
-                                    number: {
-                                        mode: 'slider',
-                                        min: 60,
-                                        max: 86400,
-                                        step: 60,
-                                        unit_of_measurement: 's'
-                                    }
-                                }
-                            }
-                        },
-                        minEmitMs: {
-                            type: 'number',
-                            minimum: 0,
-                            maximum: 10000,
-                            default: 0,
-                            description: 'Minimum time between updates in milliseconds (throttling)',
-                            'x-ui-hints': {
-                                label: 'Min Emit (ms)',
-                                helper: 'Throttle: minimum time between data updates',
-                                selector: {
-                                    number: {
-                                        min: 0,
-                                        max: 10000,
-                                        step: 50,
-                                        unit_of_measurement: 'ms'
-                                    }
-                                }
-                            }
-                        },
-                        coalesceMs: {
-                            type: 'number',
-                            minimum: 0,
-                            maximum: 5000,
-                            default: 0,
-                            description: 'Coalesce rapid changes within window (milliseconds)',
-                            'x-ui-hints': {
-                                label: 'Coalesce (ms)',
-                                helper: 'Group rapid changes within this time window',
-                                selector: {
-                                    number: {
-                                        min: 0,
-                                        max: 5000,
-                                        step: 50,
-                                        unit_of_measurement: 'ms'
-                                    }
-                                }
-                            }
-                        },
-                        maxDelayMs: {
-                            type: 'number',
-                            minimum: 0,
-                            maximum: 10000,
-                            default: 0,
-                            description: 'Maximum delay before forced emission (milliseconds)',
-                            'x-ui-hints': {
-                                label: 'Max Delay (ms)',
-                                helper: 'Force emission after this delay even if coalescing',
-                                selector: {
-                                    number: {
-                                        min: 0,
-                                        max: 10000,
-                                        step: 100,
-                                        unit_of_measurement: 'ms'
-                                    }
-                                }
-                            }
-                        },
-                        history: {
-                            type: 'object',
-                            description: 'History preload configuration',
-                            properties: {
-                                preload: {
-                                    type: 'boolean',
-                                    default: false,
-                                    description: 'Preload historical data on initialization',
-                                    'x-ui-hints': {
-                                        label: 'Preload History',
-                                        helper: 'Load historical data when chart initializes',
-                                        selector: {
-                                            boolean: {}
-                                        }
-                                    }
-                                },
-                                hours: {
-                                    type: 'number',
-                                    minimum: 0,
-                                    maximum: 168,
-                                    default: 0,
-                                    description: 'Hours of history to preload',
-                                    'x-ui-hints': {
-                                        label: 'Hours',
-                                        helper: 'Number of hours of historical data to load',
-                                        selector: {
-                                            number: {
-                                                min: 0,
-                                                max: 168,
-                                                step: 1,
-                                                unit_of_measurement: 'h'
-                                            }
-                                        }
-                                    }
-                                },
-                                days: {
-                                    type: 'number',
-                                    minimum: 0,
-                                    maximum: 30,
-                                    default: 0,
-                                    description: 'Days of history to preload',
-                                    'x-ui-hints': {
-                                        label: 'Days',
-                                        helper: 'Number of days of historical data to load',
-                                        selector: {
-                                            number: {
-                                                min: 0,
-                                                max: 30,
-                                                step: 1,
-                                                unit_of_measurement: 'd'
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    required: ['entity']
-                },
-                'x-ui-hints': {
-                    label: 'Advanced Data Sources',
-                    helper: 'Define advanced DataSource configurations with fine-grained control',
-                    examples: [{
-                        temperature: {
-                            entity: 'sensor.temperature',
-                            window_seconds: 7200,
-                            minEmitMs: 500,
-                            history: { preload: true, hours: 2 }
-                        }
-                    }]
-                }
-            },
+            data_sources: dataSourcesSchema,
 
             // ====================================================================
             // CHART CONFIGURATION
