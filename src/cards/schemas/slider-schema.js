@@ -2,11 +2,13 @@
  * Slider Card Schema - Unified
  *
  * Complete schema for slider card validation.
- * All definitions inlined for simplicity - no $ref resolution needed.
+ * Uses shared schema components from common-schemas.js for consistency.
  *
  * This schema is ONLY for validation, not UI generation.
  * Editor UI is defined separately in lcards-slider-editor.js config.
  */
+
+import { dataSourcesSchema, simpleColorSchema, stateColorSchema, paddingSchema, getTextSchema, gridOptionsSchema, entitySchema, cardIdSchema, tagsSchema } from './common-schemas.js';
 
 /**
  * Get complete slider card schema
@@ -22,104 +24,6 @@ export function getSliderSchema(options = {}) {
         availableComponents = [],
         positionEnum = []
     } = options;
-
-    // Reusable inline definitions
-    const simpleColorSchema = {
-        type: 'string',
-        pattern: '^(#[0-9A-Fa-f]{6}|#[0-9A-Fa-f]{8}|transparent|theme:|rgb\\(|rgba\\(|hsl\\(|var\\(--)',
-        description: 'Color value (hex, rgb, theme token, or CSS variable)',
-        examples: ['#FF9900', 'transparent', 'theme:palette.moonlight', 'rgb(255, 153, 0)', 'var(--lcars-orange)']
-    };
-
-    const stateColorSchema = {
-        oneOf: [
-            {
-                type: 'string',
-                title: 'Simple Color',
-                pattern: '^(#[0-9A-Fa-f]{6}|#[0-9A-Fa-f]{8}|transparent|theme:|rgb\\(|rgba\\(|hsl\\(|var\\(--)',
-                description: 'Single color value for all states (hex, rgb, theme token, or CSS variable)',
-                examples: ['#FF9900', 'transparent', 'theme:color.ui.active', 'rgb(255, 153, 0)', 'var(--lcars-orange)']
-            },
-            {
-                type: 'object',
-                title: 'State-Dependent Colors',
-                description: 'Different colors for different entity states',
-                examples: [{
-                    default: '#888888',
-                    active: '#FF9900',
-                    inactive: '#444444'
-                }],
-                properties: {
-                    default: {
-                        type: 'string',
-                        pattern: '^(#[0-9A-Fa-f]{6}|#[0-9A-Fa-f]{8}|transparent|theme:|rgb\\(|rgba\\(|hsl\\(|var\\(--)',
-                        description: 'Default color (fallback)',
-                        examples: ['#888888', 'theme:color.ui.default']
-                    },
-                    active: {
-                        type: 'string',
-                        pattern: '^(#[0-9A-Fa-f]{6}|#[0-9A-Fa-f]{8}|transparent|theme:|rgb\\(|rgba\\(|hsl\\(|var\\(--)',
-                        description: 'Color when entity is on/active',
-                        examples: ['#FF9900', 'theme:color.ui.active']
-                    },
-                    inactive: {
-                        type: 'string',
-                        pattern: '^(#[0-9A-Fa-f]{6}|#[0-9A-Fa-f]{8}|transparent|theme:|rgb\\(|rgba\\(|hsl\\(|var\\(--)',
-                        description: 'Color when entity is off/inactive',
-                        examples: ['#444444', 'theme:color.ui.inactive']
-                    },
-                    unavailable: {
-                        type: 'string',
-                        pattern: '^(#[0-9A-Fa-f]{6}|#[0-9A-Fa-f]{8}|transparent|theme:|rgb\\(|rgba\\(|hsl\\(|var\\(--)',
-                        description: 'Color when entity is unavailable',
-                        examples: ['#666666', 'theme:color.ui.unavailable']
-                    }
-                }
-            }
-        ]
-    };
-
-    const paddingSchema = {
-        oneOf: [
-            {
-                type: 'number',
-                title: 'Uniform Padding',
-                minimum: 0,
-                maximum: 200,
-                description: 'Same padding on all sides (in pixels)',
-                examples: [8, 16, 24]
-            },
-            {
-                type: 'object',
-                title: 'Per-Side Padding',
-                description: 'Different padding for each side',
-                examples: [{
-                    top: 8,
-                    right: 16,
-                    bottom: 8,
-                    left: 16
-                }],
-                properties: {
-                    top: { type: 'number', minimum: 0, maximum: 200, description: 'Top padding in pixels' },
-                    right: { type: 'number', minimum: 0, maximum: 200, description: 'Right padding in pixels' },
-                    bottom: { type: 'number', minimum: 0, maximum: 200, description: 'Bottom padding in pixels' },
-                    left: { type: 'number', minimum: 0, maximum: 200, description: 'Left padding in pixels' }
-                }
-            }
-        ],
-        'x-ui-hints': {
-            label: 'Padding',
-            helper: 'Use number for uniform padding, or object for per-side control',
-            defaultOneOfBranch: 0,
-            selector: {
-                number: {
-                    mode: 'slider',
-                    step: 1,
-                    unit_of_measurement: 'px'
-                }
-            }
-        }
-    };
 
     return {
         $schema: 'http://json-schema.org/draft-07/schema#',
@@ -142,77 +46,17 @@ export function getSliderSchema(options = {}) {
             // SHARED LCARDS PROPERTIES
             // ============================================================================
 
-            data_sources: {
-                type: 'object',
-                description: 'Named data source definitions (shared across all lcards)',
-                $comment: 'Data sources enable historical data queries and transformations',
-                examples: [
-                    {
-                        temp_history: {
-                            entity: 'sensor.temperature',
-                            windowSeconds: 3600
-                        }
-                    }
-                ],
-                additionalProperties: {
-                    type: 'object',
-                    properties: {
-                        entity: {
-                            type: 'string',
-                            format: 'entity',
-                            pattern: '^[a-z_]+\\.[a-z0-9_]+$',
-                            description: 'Entity ID to fetch data from (format: domain.object_id)',
-                            examples: ['sensor.temperature', 'light.living_room']
-                        },
-                        windowSeconds: {
-                            type: 'number',
-                            minimum: 1,
-                            maximum: 31536000,
-                            description: 'Time window in seconds for historical data (1 second to 1 year)',
-                            examples: [3600, 86400, 604800]
-                        }
-                    },
-                    required: ['entity']
-                }
-            },
+            data_sources: dataSourcesSchema,
 
             // ============================================================================
             // CORE PROPERTIES
             // ============================================================================
 
-            entity: {
-                type: 'string',
-                format: 'entity',
-                pattern: '^[a-z_]+\\.[a-z0-9_]+$',
-                description: 'Primary entity ID to control (format: domain.object_id)',
-                examples: ['light.bedroom', 'cover.garage', 'sensor.temperature'],
-                'x-ui-hints': {
-                    label: 'Entity',
-                    helper: 'Select the entity this slider controls or displays',
-                    selector: {
-                        entity: {
-                            // Domain filtering can be added if needed
-                        }
-                    }
-                }
-            },
+            entity: entitySchema,
 
-            id: {
-                type: 'string',
-                pattern: '^[a-zA-Z0-9_-]+$',
-                description: 'Custom overlay ID for rule targeting (alphanumeric, underscore, hyphen)',
-                examples: ['main-slider', 'brightness_control', 'temp-gauge']
-            },
+            id: cardIdSchema,
 
-            tags: {
-                type: 'array',
-                items: {
-                    type: 'string',
-                    pattern: '^[a-zA-Z0-9_-]+$'
-                },
-                description: 'Tags for bulk rule targeting (alphanumeric, underscore, hyphen)',
-                examples: [['control', 'light'], ['display', 'sensor']]
-            },
+            tags: tagsSchema,
 
             // ============================================================================
             // MODE: PRESET OR COMPONENT
@@ -308,284 +152,7 @@ export function getSliderSchema(options = {}) {
             // TEXT CONFIGURATION
             // ============================================================================
 
-            text: {
-                type: 'object',
-                description: 'Multi-text label system',
-                $comment: 'Text fields use arbitrary keys. "default" provides styling inherited by all other text fields. All other keys create actual rendered text elements.',
-                examples: [
-                    {
-                        label1: {
-                            content: 'Temperature',
-                            position: 'top-left',
-                            font_size: 18,
-                            color: '#FF9900'
-                        },
-                        status: {
-                            content: '{{entity.state}}',
-                            position: 'center',
-                            template: true
-                        }
-                    }
-                ],
-                properties: {
-                    default: {
-                        type: 'object',
-                        description: 'Default styling inherited by all text fields (does not render)',
-                        $comment: 'This is NOT rendered as a text element - it only provides default styles',
-                        properties: {
-                            position: {
-                                type: 'string',
-                                enum: positionEnum,
-                                description: 'Default text position (e.g., "top-left", "center")'
-                            },
-                            rotation: {
-                                type: 'number',
-                                minimum: -360,
-                                maximum: 360,
-                                default: 0,
-                                description: 'Text rotation in degrees (-360 to 360)'
-                            },
-                            padding: paddingSchema,
-                            font_size: {
-                                oneOf: [
-                                    {
-                                        type: 'number',
-                                        minimum: 1,
-                                        maximum: 200,
-                                        default: 14,
-                                        description: 'Font size in pixels (1-200)'
-                                    },
-                                    {
-                                        type: 'string',
-                                        pattern: '^(\\d+px|\\d+\\.?\\d*rem|\\d+\\.?\\d*em|var\\(--[a-z-]+\\))$',
-                                        description: 'CSS value or theme token',
-                                        examples: ['14px', '1.2rem', 'var(--lcars-text-size)']
-                                    }
-                                ]
-                            },
-                            color: stateColorSchema,
-                            font_weight: {
-                                type: 'string',
-                                enum: ['normal', 'bold', '100', '200', '300', '400', '500', '600', '700', '800', '900'],
-                                default: 'normal',
-                                description: 'Font weight (normal=400, bold=700)',
-                                enumDescriptions: [
-                                    'Normal weight (400)',
-                                    'Bold weight (700)',
-                                    'Thin (100)',
-                                    'Extra Light (200)',
-                                    'Light (300)',
-                                    'Normal (400)',
-                                    'Medium (500)',
-                                    'Semi Bold (600)',
-                                    'Bold (700)',
-                                    'Extra Bold (800)',
-                                    'Black (900)'
-                                ]
-                            },
-                            font_family: {
-                                type: 'string',
-                                format: 'font-family',
-                                pattern: '^[a-zA-Z0-9_ -]+(,\\s*[a-zA-Z0-9_ "-]+)*$',
-                                description: 'CSS font-family (single font or comma-separated stack)',
-                                examples: ['Arial', 'lcards_title', 'Antonio, sans-serif', '"Roboto Mono", monospace']
-                            },
-                            text_transform: {
-                                type: 'string',
-                                enum: ['none', 'uppercase', 'lowercase', 'capitalize'],
-                                default: 'none',
-                                description: 'Text transformation',
-                                enumDescriptions: [
-                                    'No transformation (original case)',
-                                    'ALL UPPERCASE',
-                                    'all lowercase',
-                                    'Capitalize First Letter'
-                                ]
-                            },
-                            anchor: {
-                                type: 'string',
-                                enum: ['start', 'middle', 'end'],
-                                default: 'middle',
-                                description: 'Horizontal text alignment',
-                                enumDescriptions: [
-                                    'Left-aligned',
-                                    'Center-aligned',
-                                    'Right-aligned'
-                                ]
-                            },
-                            baseline: {
-                                type: 'string',
-                                enum: ['hanging', 'middle', 'central', 'alphabetic'],
-                                default: 'middle',
-                                description: 'Vertical text alignment',
-                                enumDescriptions: [
-                                    'Top of text box',
-                                    'Center of text box',
-                                    'Mathematical center',
-                                    'Bottom of text (baseline)'
-                                ]
-                            }
-                        }
-                    }
-                },
-                // Additional text fields with arbitrary names
-                additionalProperties: {
-                    type: 'object',
-                    description: 'Text field configuration (key becomes field name)',
-                    $comment: 'Each key creates a separate SVG text element. Use descriptive names like "label1", "status", "title"',
-                    properties: {
-                        content: {
-                            type: 'string',
-                            description: 'Text content (supports templates if template:true)',
-                            examples: ['Temperature', '{{entity.state}}', '{entity.attributes.brightness}']
-                        },
-                        show: {
-                            type: 'boolean',
-                            default: true,
-                            description: 'Whether to show this text field'
-                        },
-                        position: {
-                            type: 'string',
-                            enum: positionEnum,
-                            description: 'Text position (overrides default)'
-                        },
-                        x: {
-                            type: 'number',
-                            description: 'Absolute X coordinate in pixels'
-                        },
-                        y: {
-                            type: 'number',
-                            description: 'Absolute Y coordinate in pixels'
-                        },
-                        x_percent: {
-                            type: 'number',
-                            minimum: 0,
-                            maximum: 100,
-                            description: 'X position as percentage of card width (0-100)'
-                        },
-                        y_percent: {
-                            type: 'number',
-                            minimum: 0,
-                            maximum: 100,
-                            description: 'Y position as percentage of card height (0-100)'
-                        },
-                        rotation: {
-                            type: 'number',
-                            minimum: -360,
-                            maximum: 360,
-                            default: 0,
-                            description: 'Text rotation in degrees (-360 to 360)',
-                            'x-ui-hints': {
-                                label: 'Rotation',
-                                helper: 'Rotate text in degrees (negative = counter-clockwise)',
-                                selector: {
-                                    number: {
-                                        mode: 'slider',
-                                        step: 1,
-                                        unit_of_measurement: '°'
-                                    }
-                                }
-                            }
-                        },
-                        padding: paddingSchema,
-                        font_size: {
-                            oneOf: [
-                                {
-                                    type: 'number',
-                                    minimum: 1,
-                                    maximum: 200,
-                                    description: 'Font size in pixels (1-200)'
-                                },
-                                {
-                                    type: 'string',
-                                    pattern: '^(\\d+px|\\d+\\.?\\d*rem|\\d+\\.?\\d*em|var\\(--[a-z-]+\\))$',
-                                    description: 'CSS value or theme token',
-                                    examples: ['14px', '1.2rem', 'var(--lcars-text-size)']
-                                }
-                            ],
-                            'x-ui-hints': {
-                                label: 'Font Size',
-                                helper: 'Size in pixels (recommended) or CSS units',
-                                defaultOneOfBranch: 0,
-                                selector: {
-                                    number: {
-                                        mode: 'slider',
-                                        step: 1,
-                                        unit_of_measurement: 'px'
-                                    }
-                                }
-                            }
-                        },
-                        color: stateColorSchema,
-                        font_weight: {
-                            type: 'string',
-                            enum: ['normal', 'bold', '100', '200', '300', '400', '500', '600', '700', '800', '900'],
-                            default: 'normal',
-                            description: 'Font weight (normal=400, bold=700)',
-                            enumDescriptions: [
-                                'Normal weight (400)',
-                                'Bold weight (700)',
-                                'Thin (100)',
-                                'Extra Light (200)',
-                                'Light (300)',
-                                'Normal (400)',
-                                'Medium (500)',
-                                'Semi Bold (600)',
-                                'Bold (700)',
-                                'Extra Bold (800)',
-                                'Black (900)'
-                            ]
-                        },
-                        font_family: {
-                            type: 'string',
-                            format: 'font-family',
-                            pattern: '^[a-zA-Z0-9_ -]+(,\\s*[a-zA-Z0-9_ "-]+)*$',
-                            description: 'CSS font-family (single font or comma-separated stack)',
-                            examples: ['Arial', 'lcards_title', 'Antonio, sans-serif', '"Roboto Mono", monospace']
-                        },
-                        text_transform: {
-                            type: 'string',
-                            enum: ['none', 'uppercase', 'lowercase', 'capitalize'],
-                            default: 'none',
-                            description: 'Text transformation',
-                            enumDescriptions: [
-                                'No transformation (original case)',
-                                'ALL UPPERCASE',
-                                'all lowercase',
-                                'Capitalize First Letter'
-                            ]
-                        },
-                        anchor: {
-                            type: 'string',
-                            enum: ['start', 'middle', 'end'],
-                            default: 'middle',
-                            description: 'Horizontal text alignment',
-                            enumDescriptions: [
-                                'Left-aligned',
-                                'Center-aligned',
-                                'Right-aligned'
-                            ]
-                        },
-                        baseline: {
-                            type: 'string',
-                            enum: ['hanging', 'middle', 'central', 'alphabetic'],
-                            default: 'middle',
-                            description: 'Vertical text alignment',
-                            enumDescriptions: [
-                                'Top of text box',
-                                'Center of text box',
-                                'Mathematical center',
-                                'Bottom of text (baseline)'
-                            ]
-                        },
-                        template: {
-                            type: 'boolean',
-                            default: false,
-                            description: 'Enable template string evaluation (e.g., {{entity.state}})'
-                        }
-                    }
-                }
-            },
+            text: getTextSchema({ positionEnum }),
 
             // ============================================================================
             // ACTIONS CONFIGURATION
@@ -1212,24 +779,7 @@ export function getSliderSchema(options = {}) {
                 default: 2,
                 description: 'Card height in grid rows (1-100, default: 2)'
             },
-            grid_options: {
-                type: 'object',
-                description: 'Advanced grid layout options',
-                properties: {
-                    columns: {
-                        type: 'number',
-                        minimum: 1,
-                        maximum: 24,
-                        description: 'Number of columns this card spans (1-24)'
-                    },
-                    rows: {
-                        type: 'number',
-                        minimum: 1,
-                        maximum: 100,
-                        description: 'Number of rows this card spans (1-100)'
-                    }
-                }
-            }
+            grid_options: gridOptionsSchema
         }
     };
 }
