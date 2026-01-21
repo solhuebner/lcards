@@ -289,7 +289,12 @@ export function getSliderSchema(options = {}) {
                                         description: 'CSS value or theme token',
                                         examples: ['40px', '2rem', 'theme:components.slider.track.height']
                                     }
-                                ]
+                                ],
+                                'x-ui-hints': {
+                                    selector: { number: { min: 10, max: 200, mode: 'box', unit_of_measurement: 'px' } },
+                                    label: 'Height',
+                                    helper: 'Track height in pixels (use YAML for theme tokens)'
+                                }
                             },
                             margin: {
                                 oneOf: [
@@ -383,34 +388,10 @@ export function getSliderSchema(options = {}) {
                                                 description: 'CSS value or theme token'
                                             }
                                         ],
-                                        "x-ui-hints": {
-                                            "label": "Segment Gap",
-                                            "helper": "Space between pill segments (pixels or theme token)",
-                                            "selector": {
-                                                "choose": {
-                                                    "choices": {
-                                                        "pixels": {
-                                                            "selector": {
-                                                                "number": {
-                                                                    "mode": "slider",
-                                                                    "min": 0,
-                                                                    "max": 50,
-                                                                    "step": 1,
-                                                                    "slider_ticks": false,
-                                                                    "unit_of_measurement": "px"
-                                                                }
-                                                            }
-                                                        },
-                                                        "theme": {
-                                                            "selector": {
-                                                                "text": {
-                                                                    "placeholder": "{theme:spacing.sm}"
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
+                                        'x-ui-hints': {
+                                            selector: { number: { min: 0, max: 50, mode: 'box', unit_of_measurement: 'px' } },
+                                            label: 'Gap Size',
+                                            helper: 'Space between segments in pixels (use YAML for theme tokens)'
                                         }
                                     },
                                     shape: {
@@ -430,7 +411,12 @@ export function getSliderSchema(options = {}) {
                                                         pattern: '^(\\d+px|theme:)',
                                                         description: 'CSS value or theme token'
                                                     }
-                                                ]
+                                                ],
+                                                'x-ui-hints': {
+                                                    selector: { number: { min: 0, max: 50, mode: 'box', unit_of_measurement: 'px' } },
+                                                    label: 'Border Radius',
+                                                    helper: 'Corner roundness in pixels (use YAML for theme tokens)'
+                                                }
                                             }
                                         }
                                     },
@@ -507,9 +493,14 @@ export function getSliderSchema(options = {}) {
                                     color: stateColorSchema,
                                     height: {
                                         oneOf: [
-                                            { type: 'number' },
+                                            { type: 'number', minimum: 1, maximum: 100 },
                                             { type: 'string' }
-                                        ]
+                                        ],
+                                        'x-ui-hints': {
+                                            selector: { number: { min: 1, max: 100, mode: 'box', unit_of_measurement: 'px' } },
+                                            label: 'Height',
+                                            helper: 'Progress bar height in pixels (use YAML for theme tokens)'
+                                        }
                                     },
                                     radius: {
                                         type: 'number',
