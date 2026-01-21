@@ -509,13 +509,17 @@ export class LCARdSSlider extends LCARdSButton {
         const controllableDomains = ['light', 'cover', 'fan', 'input_number', 'number'];
         const isControllable = controllableDomains.includes(this._domain);
 
+        // Value inversion (explicit only, no auto-detection)
+        const invertValue = config.control?.invert_value ?? false;
+
         // CONTROL CONFIG: What user can set via slider input
         this._controlConfig = {
             min: config.control?.min ?? entity?.attributes?.min ?? 0,
             max: config.control?.max ?? entity?.attributes?.max ?? 100,
             step: config.control?.step ?? entity?.attributes?.step ?? 1,
             attribute: config.control?.attribute ?? this._getDefaultAttribute(),
-            locked: config.control?.locked ?? !isControllable
+            locked: config.control?.locked ?? !isControllable,
+            invertValue: !!invertValue  // NEW: Store inversion flag
         };
 
         // DISPLAY CONFIG: What visual scale shows (from style.track.display)
@@ -528,7 +532,8 @@ export class LCARdSSlider extends LCARdSButton {
 
         lcardsLog.debug('[LCARdSSlider] Config resolved:', {
             control: this._controlConfig,
-            display: this._displayConfig
+            display: this._displayConfig,
+            invertValue: this._controlConfig.invertValue
         });
     }
 
@@ -555,7 +560,13 @@ export class LCARdSSlider extends LCARdSButton {
         if (this._domain === 'light' && attribute === 'brightness') {
             // Convert brightness (0-255) to percentage (0-100)
             // The slider operates in percentage space, regardless of control min/max
-            return (rawValue / 255) * 100;
+            rawValue = (rawValue / 255) * 100;
+        }
+
+        // Apply value inversion if configured
+        if (this._controlConfig.invertValue) {
+            const { min, max } = this._controlConfig;
+            rawValue = max - rawValue + min;
         }
 
         // For other domains, return raw value (already in correct range)
@@ -579,6 +590,10 @@ export class LCARdSSlider extends LCARdSButton {
 
         // Apply rule patches (dynamic, happens at render time)
         style = this._getMergedStyleWithRules(style);
+
+        // NEW: Extract fill inversion setting
+        const invertFill = style.track?.invert_fill ?? false;
+        this._invertFill = !!invertFill;
 
         this._sliderStyle = style;
     }
@@ -1731,9 +1746,17 @@ export class LCARdSSlider extends LCARdSButton {
             }
 
             // Draw progress bar (at bottom of minor ticks, extends based on value)
-            const progressWidth = valuePercent * trackWidth;
+            // Apply fill inversion if configured
+            let progressWidth = valuePercent * trackWidth;
+            let progressX = 0;
+            
+            if (this._invertFill) {
+                // Fill from right
+                progressX = trackWidth - progressWidth;
+            }
+            
             svg += `
-                <rect x="0" y="${progressY}"
+                <rect x="${progressX}" y="${progressY}"
                       width="${progressWidth}" height="${progressHeight}"
                       fill="${progressColor}"
                       rx="${progressRadius}" ry="${progressRadius}" />
@@ -1755,8 +1778,11 @@ export class LCARdSSlider extends LCARdSButton {
                 const borderColor = this._resolveCssVariable(indicatorConfig.border?.color || 'var(--lcars-black, #000000)');
                 const borderWidth = indicatorConfig.border?.width || 1;
 
-                // Calculate indicator position
-                const indicatorX = valuePercent * trackWidth;
+                // Calculate indicator position (apply inversion)
+                let indicatorX = valuePercent * trackWidth;
+                if (this._invertFill) {
+                    indicatorX = trackWidth - indicatorX;
+                }
 
                 if (indicatorType === 'thumb') {
                     // Circular thumb indicator
@@ -1876,7 +1902,13 @@ export class LCARdSSlider extends LCARdSButton {
             // Position at left side after minor ticks
             const progressX = minorHeight;
             const progressBarHeight = valuePercent * trackHeight;
-            const progressY = trackHeight - progressBarHeight; // Start from bottom
+            let progressY = trackHeight - progressBarHeight; // Start from bottom
+            
+            // Apply fill inversion if configured
+            if (this._invertFill) {
+                // Fill from top
+                progressY = 0;
+            }
 
             svg += `
                 <rect x="${progressX}" y="${progressY}"
@@ -1901,8 +1933,11 @@ export class LCARdSSlider extends LCARdSButton {
                 const borderColor = this._resolveCssVariable(indicatorConfig.border?.color || 'var(--lcars-black, #000000)');
                 const borderWidth = indicatorConfig.border?.width || 1;
 
-                // Calculate indicator position (inverted Y)
-                const indicatorY = trackHeight - (valuePercent * trackHeight);
+                // Calculate indicator position (inverted Y, with fill inversion support)
+                let indicatorY = trackHeight - (valuePercent * trackHeight);
+                if (this._invertFill) {
+                    indicatorY = valuePercent * trackHeight;
+                }
 
                 if (indicatorType === 'thumb') {
                     // Circular thumb indicator
@@ -2005,11 +2040,24 @@ export class LCARdSSlider extends LCARdSButton {
 
         pills.forEach((pill, index) => {
             let opacity;
-            if (index < Math.floor(fillCount)) {
+            
+            // Determine if this pill should be filled
+            let isFilled;
+            
+            if (this._invertFill) {
+                // Fill from opposite end (right/top)
+                const pillPercent = (index + 1) / pills.length;
+                isFilled = pillPercent >= (1 - fillRatio);
+            } else {
+                // Fill from start (left/bottom)
+                isFilled = index < Math.floor(fillCount);
+            }
+            
+            if (isFilled) {
                 // Fully filled
                 opacity = filledOpacity;
-            } else if (index === Math.floor(fillCount) && fillCount % 1 !== 0) {
-                // Partially filled (smooth transition)
+            } else if (!this._invertFill && index === Math.floor(fillCount) && fillCount % 1 !== 0) {
+                // Partially filled (smooth transition) - only for normal direction
                 opacity = unfilledOpacity + ((fillCount % 1) * (filledOpacity - unfilledOpacity));
             } else {
                 // Unfilled
@@ -2102,12 +2150,19 @@ export class LCARdSSlider extends LCARdSButton {
         const entityId = this.config.entity;
         const attribute = this._controlConfig.attribute;
 
+        // Reverse value inversion before sending to entity
+        let entityValue = value;
+        if (this._controlConfig.invertValue) {
+            const { min, max } = this._controlConfig;
+            entityValue = max - value + min;
+        }
+
         try {
             if (domain === 'light') {
                 // Convert value to 0-255 brightness range
                 // The slider value represents a percentage (e.g., min=10, max=50 means 10%-50% brightness)
                 // Convert the percentage directly to 0-255 range
-                const brightness = Math.round((value / 100) * 255);
+                const brightness = Math.round((entityValue / 100) * 255);
 
                 await this.hass.callService('light', 'turn_on', {
                     entity_id: entityId,
@@ -2116,23 +2171,23 @@ export class LCARdSSlider extends LCARdSButton {
             } else if (domain === 'cover') {
                 await this.hass.callService('cover', 'set_cover_position', {
                     entity_id: entityId,
-                    position: value
+                    position: entityValue
                 });
             } else if (domain === 'fan') {
                 await this.hass.callService('fan', 'set_percentage', {
                     entity_id: entityId,
-                    percentage: value
+                    percentage: entityValue
                 });
             } else if (domain === 'input_number' || domain === 'number') {
                 await this.hass.callService(domain, 'set_value', {
                     entity_id: entityId,
-                    value: value
+                    value: entityValue
                 });
             } else {
                 lcardsLog.warn(`[LCARdSSlider] Unsupported domain for value setting: ${domain}`);
             }
 
-            lcardsLog.debug(`[LCARdSSlider] Set ${entityId} to ${value}`);
+            lcardsLog.debug(`[LCARdSSlider] Set ${entityId} to ${entityValue} (slider: ${value}, inverted: ${this._controlConfig.invertValue})`);
 
         } catch (error) {
             lcardsLog.error(`[LCARdSSlider] Service call failed:`, error);

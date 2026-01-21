@@ -144,6 +144,12 @@ export function getSliderSchema(options = {}) {
                         type: 'boolean',
                         description: 'Whether slider is read-only (auto-determined by domain)',
                         examples: [true, false]
+                    },
+                    invert_value: {
+                        type: 'boolean',
+                        default: false,
+                        description: 'Invert value mapping (flip min↔max). When true, slider at min position sends max value to entity.',
+                        examples: [false, true]
                     }
                 }
             },
@@ -339,6 +345,12 @@ export function getSliderSchema(options = {}) {
                                     'Horizontal slider (left to right)',
                                     'Vertical slider (bottom to top)'
                                 ]
+                            },
+                            invert_fill: {
+                                type: 'boolean',
+                                default: false,
+                                description: 'Invert visual fill direction. When true, fills from opposite end (right/top instead of left/bottom).',
+                                examples: [false, true]
                             },
                             segments: {
                                 type: 'object',

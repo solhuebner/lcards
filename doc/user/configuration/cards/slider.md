@@ -301,6 +301,107 @@ control:
   locked: true  # Prevent user interaction
 ```
 
+### Invert Slider Direction
+
+Control slider value mapping and visual fill direction independently:
+
+```yaml
+control:
+  invert_value: true | false   # Flip value range (min ↔ max)
+
+style:
+  track:
+    invert_fill: true | false  # Flip visual fill direction
+```
+
+#### Value Inversion (`control.invert_value`)
+
+Controls how slider position maps to entity value:
+
+- `false` (default): Normal mapping
+  - Slider at min position → entity receives min value
+  - Slider at max position → entity receives max value
+  
+- `true`: Inverted mapping
+  - Slider at min position → entity receives max value
+  - Slider at max position → entity receives min value
+
+#### Visual Fill Inversion (`style.track.invert_fill`)
+
+Controls which end of the track fills:
+
+- `false` (default): Fill from start
+  - Horizontal: Left → Right
+  - Vertical: Bottom → Top
+  
+- `true`: Fill from end
+  - Horizontal: Right → Left
+  - Vertical: Top → Bottom
+
+### Common Cover Configurations
+
+#### "Pull Down to Close" (Vertical Blinds)
+
+User pulls slider down to close, visual fill grows from top:
+
+```yaml
+entity: cover.bedroom_blinds
+component: vertical
+control:
+  invert_value: true   # Slide up = open (increase position)
+style:
+  track:
+    invert_fill: true  # Fill from top (closed = full)
+```
+
+**Behavior:**
+- Closed (position=0): Full fill from top
+- User slides UP: Fill shrinks from top, cover opens
+- Open (position=100): Empty fill
+
+#### "Pull Up to Open" (Traditional Roller Shades)
+
+User pulls slider up to open, visual fill grows from bottom:
+
+```yaml
+entity: cover.roller_shade
+component: vertical
+control:
+  invert_value: false  # Normal: slide up = open
+style:
+  track:
+    invert_fill: false  # Fill from bottom (open = full)
+```
+
+**Behavior:**
+- Closed (position=0): Empty fill
+- User slides UP: Fill grows from bottom, cover opens
+- Open (position=100): Full fill from bottom
+
+#### Garage Door (Horizontal, Left = Closed)
+
+```yaml
+entity: cover.garage_door
+component: horizontal
+control:
+  invert_value: false
+style:
+  track:
+    invert_fill: true  # Fill from right (closed = full on left side)
+```
+
+#### Light with Reversed Direction
+
+```yaml
+entity: light.bedroom
+component: horizontal
+control:
+  invert_value: true   # Right = off, Left = on
+style:
+  track:
+    invert_fill: false # Fill from left (normal visual)
+```
+
 ---
 
 ## Pills Style (Segmented Bar)
@@ -913,6 +1014,32 @@ control:
 - Locked: `false`
 - Attribute: `current_position`
 - Range: 0-100
+- **Value inversion: `false` (can be configured)**
+- **Fill inversion: `false` (can be configured)**
+
+**Cover Direction Options:**
+
+Covers support flexible direction configuration to match user mental models:
+
+1. **Traditional**: Slide up = open, fill from bottom
+   ```yaml
+   control:
+     invert_value: false
+   style:
+     track:
+       invert_fill: false
+   ```
+
+2. **Pull-down blinds**: Slide up = open, fill from top when closed
+   ```yaml
+   control:
+     invert_value: true
+   style:
+     track:
+       invert_fill: true
+   ```
+
+See "Invert Slider Direction" section for more examples.
 
 ### Fans (`fan.*`)
 
