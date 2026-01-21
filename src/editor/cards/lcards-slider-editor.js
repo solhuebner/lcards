@@ -288,7 +288,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     helper: 'Entity to control/display (light, cover, fan, sensor, etc.)'
                 })}
 
-                <lcards-grid-layout>
+                <lcards-grid-layout columns="3">
                     ${FormField.renderField(this, 'control.attribute', {
                         label: 'Attribute',
                         helper: 'Entity attribute to control (e.g., brightness)'
@@ -297,6 +297,11 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     ${FormField.renderField(this, 'control.locked', {
                         label: 'Display Only',
                         helper: 'Disable interaction (auto-locked for sensors)'
+                    })}
+
+                    ${FormField.renderField(this, 'control.invert_value', {
+                        label: 'Invert Value',
+                        helper: 'Flip min↔max mapping (slider min sends entity max)'
                     })}
                 </lcards-grid-layout>
 
@@ -348,6 +353,31 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                         helper: 'Unit for labels (default: entity unit)'
                     })}
                 </lcards-grid-layout>
+            </lcards-form-section>
+
+            <!-- Track Direction Configuration -->
+            <lcards-form-section
+                header="Track Direction"
+                description="Control visual fill direction for the slider track"
+                icon="mdi:swap-horizontal"
+                ?expanded=${false}
+                ?outlined=${true}
+                headerLevel="4">
+
+                <lcards-message
+                    type="info"
+                    message="Invert fill direction for covers ('pull down to close'), right-to-left layouts, or custom visual preferences.">
+                </lcards-message>
+
+                ${FormField.renderField(this, 'style.track.invert_fill', {
+                    label: 'Invert Fill Direction',
+                    helper: `Fill from opposite end (${state.orientation === 'horizontal' ? 'right instead of left' : 'top instead of bottom'})`
+                })}
+
+                <lcards-message
+                    type="tip"
+                    message="Common patterns: (1) For 'pull down to close' vertical covers, enable both 'Invert Value' and 'Invert Fill'. (2) For horizontal right-to-left sliders (right=0%, left=100%), enable 'Invert Fill' only.">
+                </lcards-message>
             </lcards-form-section>
 
             <!-- Dynamic: Pills or Gauge Configuration with INLINE COLORS -->

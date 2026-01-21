@@ -1749,12 +1749,12 @@ export class LCARdSSlider extends LCARdSButton {
             // Apply fill inversion if configured
             let progressWidth = valuePercent * trackWidth;
             let progressX = 0;
-            
+
             if (this._invertFill) {
                 // Fill from right
                 progressX = trackWidth - progressWidth;
             }
-            
+
             svg += `
                 <rect x="${progressX}" y="${progressY}"
                       width="${progressWidth}" height="${progressHeight}"
@@ -1903,7 +1903,7 @@ export class LCARdSSlider extends LCARdSButton {
             const progressX = minorHeight;
             const progressBarHeight = valuePercent * trackHeight;
             let progressY = trackHeight - progressBarHeight; // Start from bottom
-            
+
             // Apply fill inversion if configured
             if (this._invertFill) {
                 // Fill from top
@@ -2040,10 +2040,10 @@ export class LCARdSSlider extends LCARdSButton {
 
         pills.forEach((pill, index) => {
             let opacity;
-            
+
             // Determine if this pill should be filled
             let isFilled;
-            
+
             if (this._invertFill) {
                 // Fill from opposite end (right/top)
                 const pillPercent = (index + 1) / pills.length;
@@ -2052,7 +2052,7 @@ export class LCARdSSlider extends LCARdSButton {
                 // Fill from start (left/bottom)
                 isFilled = index < Math.floor(fillCount);
             }
-            
+
             if (isFilled) {
                 // Fully filled
                 opacity = filledOpacity;
@@ -2391,6 +2391,12 @@ export class LCARdSSlider extends LCARdSButton {
             scaledBounds.y = (controlBounds.y * scaleY) + (trackHeight * (1 - controlEndPercent));
         }
 
+        // Apply CSS transform to flip slider input when fill is inverted
+        // This ensures the physical thumb position matches the visual fill direction
+        const inputTransform = this._invertFill
+            ? (isVertical ? 'scaleY(-1)' : 'scaleX(-1)')
+            : '';
+
         return html`
             <div class="slider-container">
                 ${unsafeHTML(svgContent)}
@@ -2412,6 +2418,7 @@ export class LCARdSSlider extends LCARdSButton {
                             width: ${scaledBounds.width}px;
                             height: ${scaledBounds.height}px;
                             ${isVertical ? '-webkit-appearance: slider-vertical; writing-mode: bt-lr;' : ''}
+                            ${inputTransform ? `transform: ${inputTransform};` : ''}
                         "
                     />
                 ` : ''}
