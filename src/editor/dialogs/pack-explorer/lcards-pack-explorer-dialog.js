@@ -17,13 +17,12 @@
  */
 
 import { LitElement, html, css } from 'lit';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { lcardsLog } from '../../../utils/lcards-logging.js';
-import '../../components/shared/lcards-dialog.js';
-import { 
-  renderThemePreview, 
-  renderPresetPreview, 
-  renderAnimationPreview,
-  rendererStyles 
+import { components } from '../../../core/packs/components/index.js';
+import {
+  renderThemePreview,
+  rendererStyles
 } from './renderers/asset-renderers.js';
 
 export class LCARdSPackExplorerDialog extends LitElement {
@@ -34,7 +33,9 @@ export class LCARdSPackExplorerDialog extends LitElement {
       _selectedNode: { type: Object, state: true },
       _expandedNodes: { state: true, attribute: false },
       _treeData: { type: Array, state: true },
-      _searchQuery: { type: String, state: true }
+      _searchQuery: { type: String, state: true },
+      _loadingSvg: { type: Boolean, state: true },
+      _svgContent: { type: String, state: true }
     };
   }
 
@@ -45,6 +46,8 @@ export class LCARdSPackExplorerDialog extends LitElement {
     this._expandedNodes = new Set();
     this._treeData = [];
     this._searchQuery = '';
+    this._loadingSvg = false;
+    this._svgContent = null;
   }
 
   static get styles() {
@@ -52,37 +55,87 @@ export class LCARdSPackExplorerDialog extends LitElement {
       rendererStyles,
       css`
       :host {
-        display: contents;
+        display: block;
       }
 
-      .explorer-container {
+      /* Dialog styles matching DataSource Browser */
+      ha-dialog {
+        --mdc-dialog-min-width: 90vw;
+        --mdc-dialog-max-width: 90vw;
+        --mdc-dialog-min-height: 600px;
+      }
+
+      .dialog-content {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        height: 75vh;
+        max-height: 75vh;
+        overflow: hidden;
+      }
+
+      .dialog-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-bottom: 12px;
+        border-bottom: 2px solid var(--divider-color);
+        flex-shrink: 0;
+      }
+
+      .dialog-header h2 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--primary-text-color);
+      }
+
+      /* Split pane layout */
+      .split-pane-container {
         display: grid;
-        grid-template-columns: 300px 1fr;
-        gap: 16px;
-        height: 600px;
-        max-height: 80vh;
-        padding: 16px;
+        grid-template-columns: 35% 65%;
+        grid-template-rows: minmax(0, 1fr);
+        gap: 12px;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
       }
 
-      .tree-panel {
+      /* Tree pane */
+      .tree-pane {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
         border-right: 1px solid var(--divider-color);
-        overflow-y: auto;
-        padding-right: 16px;
+        min-height: 0;
       }
 
-      .detail-panel {
-        overflow-y: auto;
-        padding-left: 16px;
+      .tree-pane-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--divider-color);
+        background: var(--secondary-background-color);
+        flex-shrink: 0;
+      }
+
+      .tree-pane-header span {
+        font-weight: 500;
+        font-size: 14px;
+        color: var(--primary-text-color);
       }
 
       .search-box {
-        margin-bottom: 16px;
-        width: 100%;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--divider-color);
+        background: var(--secondary-background-color);
+        flex-shrink: 0;
       }
 
       .search-box input {
         width: 100%;
-        padding: 8px;
+        padding: 8px 12px;
         border: 1px solid var(--divider-color);
         border-radius: 4px;
         background: var(--card-background-color);
@@ -91,99 +144,159 @@ export class LCARdSPackExplorerDialog extends LitElement {
         font-size: 14px;
       }
 
+      .tree-container {
+        flex: 1;
+        overflow-y: auto;
+        padding: 12px;
+        background: var(--code-background-color, #1e1e1e);
+        border-radius: 8px;
+      }
+
+      /* Tree nodes - matching DataSource Browser */
       .tree-node {
-        padding: 6px 8px;
-        cursor: pointer;
-        border-radius: 4px;
-        margin: 2px 0;
+        margin-left: calc(var(--node-level, 0) * 16px);
+        margin-bottom: 4px;
+      }
+
+      .tree-node-content {
         display: flex;
         align-items: center;
         gap: 8px;
-        font-size: 14px;
+        padding: 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.15s;
+        user-select: none;
       }
 
-      .tree-node:hover {
+      .tree-node-content:hover {
         background: var(--secondary-background-color);
       }
 
-      .tree-node.selected {
+      .tree-node-content.selected {
         background: var(--primary-color);
-        color: var(--text-primary-color);
+        color: var(--text-primary-color, white);
       }
 
-      .tree-node.expandable {
-        font-weight: 500;
-      }
-
-      .tree-node .icon {
-        width: 20px;
-        text-align: center;
-      }
-
-      .tree-children {
-        margin-left: 20px;
-        border-left: 1px solid var(--divider-color);
-        padding-left: 8px;
-      }
-
-      .tree-node .expand-icon {
+      .tree-expander {
         width: 16px;
-        height: 16px;
-        display: inline-block;
+        text-align: center;
+        font-size: 12px;
         transition: transform 0.2s;
       }
 
-      .tree-node.expanded .expand-icon {
-        transform: rotate(90deg);
+      .tree-expander.leaf {
+        opacity: 0;
       }
 
-      .detail-card {
-        background: var(--card-background-color);
-        border: 1px solid var(--divider-color);
-        border-radius: 8px;
-        padding: 16px;
-        margin-bottom: 16px;
+      .tree-expander.expanded {
+        transform: rotate(0deg);
+      }
+
+      .node-label {
+        flex: 1;
+        font-size: 14px;
+      }
+
+      /* Detail pane */
+      .detail-pane {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-height: 0;
+      }
+
+      .detail-pane-content {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-left: 8px;
+      }
+
+      .detail-panel-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: var(--secondary-text-color);
+        gap: 12px;
+      }
+
+      .detail-panel-empty ha-icon {
+        --mdc-icon-size: 64px;
+        opacity: 0.3;
+      }
+
+      .detail-panel {
+        height: 100%;
       }
 
       .detail-header {
-        font-size: 18px;
-        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        background: var(--secondary-background-color);
+        border-radius: 8px;
         margin-bottom: 12px;
-        color: var(--primary-text-color);
+      }
+
+      .detail-header h3 {
+        margin: 0;
+        flex: 1;
+        font-size: 18px;
+      }
+
+      .detail-type {
+        padding: 4px 12px;
+        background: var(--primary-color);
+        color: var(--text-primary-color, white);
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+        text-transform: uppercase;
+      }
+
+      .detail-content {
+        padding: 0 16px;
       }
 
       .detail-section {
-        margin-bottom: 16px;
+        margin-bottom: 8px;
       }
 
-      .detail-section-title {
+      .detail-section h4 {
+        margin: 0 0 8px 0;
         font-size: 14px;
+        font-weight: 600;
+        color: var(--primary-text-color);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .detail-grid {
+        display: grid;
+        gap: 6px;
+      }
+
+      .detail-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 4px 10px;
+        background: var(--secondary-background-color);
+        border-radius: 4px;
+      }
+
+      .detail-label {
         font-weight: 500;
-        margin-bottom: 8px;
         color: var(--secondary-text-color);
       }
 
       .detail-value {
         font-family: 'Courier New', monospace;
-        background: var(--secondary-background-color);
-        padding: 8px;
-        border-radius: 4px;
-        font-size: 13px;
-      }
-
-      .copy-button {
-        margin-top: 8px;
-        padding: 8px 16px;
-        background: var(--primary-color);
-        color: var(--text-primary-color);
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
-      }
-
-      .copy-button:hover {
-        opacity: 0.9;
+        color: var(--primary-text-color);
       }
 
       .empty-state {
@@ -218,23 +331,128 @@ export class LCARdSPackExplorerDialog extends LitElement {
         margin-top: 4px;
       }
 
+      .svg-preview-container {
+        background: var(--code-background-color, #1e1e1e);
+        border-radius: 8px;
+        padding: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 200px;
+        max-height: 600px;
+        overflow: auto;
+      }
+
+      .svg-preview-container svg {
+        max-width: 100%;
+        max-height: 550px;
+        height: auto;
+      }
+
+      .preview-loading {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 32px;
+        gap: 12px;
+      }
+
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid var(--divider-color);
+        border-top-color: var(--primary-color);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      .preview-placeholder {
+        background: var(--secondary-background-color);
+        border: 2px dashed var(--divider-color);
+        border-radius: 8px;
+        padding: 24px;
+        text-align: center;
+      }
+
+      .preview-note {
+        font-size: 13px;
+        color: var(--secondary-text-color);
+        margin-top: 8px;
+      }
+
+      .load-preview-button {
+        padding: 10px 20px;
+        background: var(--primary-color);
+        color: var(--text-primary-color, white);
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: opacity 0.2s;
+      }
+
+      .load-preview-button:hover {
+        opacity: 0.9;
+      }
+
+      .font-preview-container {
+        background: var(--card-background-color);
+        border: 1px solid var(--divider-color);
+        border-radius: 8px;
+        padding: 24px;
+      }
+
+      .font-sample {
+        font-size: 16px;
+        line-height: 1.8;
+        color: var(--primary-text-color);
+        margin: 0;
+      }
+
+      .audio-preview-container {
+        background: var(--secondary-background-color);
+        border-radius: 8px;
+        padding: 16px;
+        display: flex;
+        justify-content: center;
+      }
+
+      .audio-preview-container audio {
+        width: 100%;
+        max-width: 400px;
+      }
+
+      .preset-preview-container {
+        background: var(--card-background-color);
+        border: 1px solid var(--divider-color);
+        border-radius: 8px;
+        padding: 24px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100px;
+      }
+
       @media (max-width: 768px) {
-        .explorer-container {
+        .split-pane-container {
           grid-template-columns: 1fr;
           height: auto;
         }
 
-        .tree-panel {
+        .tree-pane {
           border-right: none;
           border-bottom: 1px solid var(--divider-color);
-          padding-right: 0;
-          padding-bottom: 16px;
           max-height: 300px;
         }
 
-        .detail-panel {
+        .detail-pane {
           padding-left: 0;
-          padding-top: 16px;
         }
       }
     `
@@ -344,6 +562,132 @@ export class LCARdSPackExplorerDialog extends LitElement {
         packNode.children.push(presetsNode);
       }
 
+      // Add components category (from global registry)
+      const componentsForPack = this._getComponentsForPack(pack.id);
+      if (componentsForPack.length > 0) {
+        const componentsNode = {
+          id: `${packNode.id}_components`,
+          type: 'category',
+          label: `🧩 Components (${componentsForPack.length})`,
+          icon: '🧩',
+          data: { category: 'components', packId: pack.id },
+          children: []
+        };
+
+        componentsForPack.forEach(comp => {
+          componentsNode.children.push({
+            id: `component_${comp.name}`,
+            type: 'component',
+            label: comp.name,
+            icon: '🧩',
+            data: comp
+          });
+        });
+
+        packNode.children.push(componentsNode);
+      }
+
+      // Add animations category (from AnimationRegistry)
+      const animations = core.animationRegistry?.getAnimationsWithMetadata() || [];
+      const animsForPack = animations.filter(a => a.pack === pack.id);
+      if (animsForPack.length > 0) {
+        const animationsNode = {
+          id: `${packNode.id}_animations`,
+          type: 'category',
+          label: `🎬 Animations (${animsForPack.length})`,
+          icon: '🎬',
+          data: { category: 'animations', packId: pack.id },
+          children: []
+        };
+
+        animsForPack.forEach(anim => {
+          animationsNode.children.push({
+            id: `animation_${anim.id}`,
+            type: 'animation',
+            label: anim.name,
+            icon: '🎬',
+            data: anim
+          });
+        });
+
+        packNode.children.push(animationsNode);
+      }
+
+      // Add SVG assets category
+      const svgAssets = this._getAssetsForPack('svg', pack.id);
+      if (svgAssets.length > 0) {
+        const svgNode = {
+          id: `${packNode.id}_svg_assets`,
+          type: 'category',
+          label: `🖼️ SVG Assets (${svgAssets.length})`,
+          icon: '🖼️',
+          data: { category: 'svg_assets', packId: pack.id },
+          children: []
+        };
+
+        svgAssets.forEach(asset => {
+          svgNode.children.push({
+            id: `svg_${asset.key}`,
+            type: 'svg_asset',
+            label: asset.key,
+            icon: '🖼️',
+            data: asset
+          });
+        });
+
+        packNode.children.push(svgNode);
+      }
+
+      // Add font assets category
+      const fontAssets = this._getAssetsForPack('font', pack.id);
+      if (fontAssets.length > 0) {
+        const fontNode = {
+          id: `${packNode.id}_font_assets`,
+          type: 'category',
+          label: `🔤 Font Assets (${fontAssets.length})`,
+          icon: '🔤',
+          data: { category: 'font_assets', packId: pack.id },
+          children: []
+        };
+
+        fontAssets.forEach(asset => {
+          fontNode.children.push({
+            id: `font_${asset.key}`,
+            type: 'font_asset',
+            label: asset.key,
+            icon: '🔤',
+            data: asset
+          });
+        });
+
+        packNode.children.push(fontNode);
+      }
+
+      // Add audio assets category
+      const audioAssets = this._getAssetsForPack('audio', pack.id);
+      if (audioAssets.length > 0) {
+        const audioNode = {
+          id: `${packNode.id}_audio_assets`,
+          type: 'category',
+          label: `🔊 Audio Assets (${audioAssets.length})`,
+          icon: '🔊',
+          data: { category: 'audio_assets', packId: pack.id },
+          children: []
+        };
+
+        audioAssets.forEach(asset => {
+          audioNode.children.push({
+            id: `audio_${asset.key}`,
+            type: 'audio_asset',
+            label: asset.key,
+            icon: '🔊',
+            data: asset
+          });
+        });
+
+        packNode.children.push(audioNode);
+      }
+
       tree.push(packNode);
     });
 
@@ -352,11 +696,85 @@ export class LCARdSPackExplorerDialog extends LitElement {
   }
 
   /**
+   * Get total asset count for a pack (SVG + font + audio)
+   * @private
+   */
+  _getAssetCountForPack(packId) {
+    const svgCount = this._getAssetsForPack('svg', packId).length;
+    const fontCount = this._getAssetsForPack('font', packId).length;
+    const audioCount = this._getAssetsForPack('audio', packId).length;
+    return svgCount + fontCount + audioCount;
+  }
+
+  /**
+   * Get components associated with a pack
+   * @private
+   */
+  _getComponentsForPack(packId) {
+    // Components from lcards_buttons pack: dpad
+    // Components from lcards_sliders pack: basic, picard, picard-vertical
+    const componentsByPack = {
+      'lcards_buttons': ['dpad'],
+      'lcards_sliders': ['basic', 'picard', 'picard-vertical']
+    };
+
+    const componentNames = componentsByPack[packId] || [];
+    return componentNames.map(name => ({
+      name,
+      definition: components[name],
+      pack: packId
+    })).filter(c => c.definition);
+  }
+
+  /**
+   * Get assets for a specific pack from AssetManager
+   * @private
+   */
+  _getAssetsForPack(assetType, packId) {
+    const core = window.lcards?.core;
+    if (!core?.assetManager) {
+      lcardsLog.debug(`[PackExplorer] AssetManager not available`);
+      return [];
+    }
+
+    try {
+      const registry = core.assetManager.getRegistry(assetType);
+      const assets = [];
+
+      registry.assets.forEach((asset, key) => {
+        // Check both asset.metadata.pack and asset.pack for compatibility
+        const assetPack = asset.metadata?.pack || asset.pack;
+
+        lcardsLog.debug(`[PackExplorer] Checking ${assetType}:${key} - pack: ${assetPack}, looking for: ${packId}`);
+
+        if (assetPack === packId) {
+          assets.push({
+            key,
+            ...asset.metadata,
+            hasContent: !!asset.content,
+            url: asset.url
+          });
+        }
+      });
+
+      lcardsLog.debug(`[PackExplorer] Found ${assets.length} ${assetType} assets for pack ${packId}`);
+      return assets;
+    } catch (error) {
+      lcardsLog.warn(`[PackExplorer] Failed to get ${assetType} assets for pack ${packId}:`, error);
+      return [];
+    }
+  }
+
+  /**
    * Handle node selection
    * @private
    */
   _handleNodeClick(node) {
     this._selectedNode = node;
+
+    // Reset SVG preview state when changing nodes
+    this._svgContent = null;
+    this._loadingSvg = false;
 
     // Toggle expansion for expandable nodes
     if (node.children && node.children.length > 0) {
@@ -370,7 +788,7 @@ export class LCARdSPackExplorerDialog extends LitElement {
   }
 
   /**
-   * Render tree node recursively
+   * Render tree node recursively - matching DataSource Browser pattern
    * @private
    */
   _renderTreeNode(node, level = 0) {
@@ -379,21 +797,28 @@ export class LCARdSPackExplorerDialog extends LitElement {
     const hasChildren = node.children && node.children.length > 0;
 
     return html`
-      <div
-        class="tree-node ${hasChildren ? 'expandable' : ''} ${isSelected ? 'selected' : ''} ${isExpanded ? 'expanded' : ''}"
-        @click=${() => this._handleNodeClick(node)}
-        style="padding-left: ${level * 12 + 8}px">
-        ${hasChildren ? html`<span class="expand-icon">▶</span>` : html`<span class="icon">${node.icon || ''}</span>`}
-        <span>${node.label}</span>
+      <div class="tree-node" style="--node-level: ${level}">
+        <div
+          class="tree-node-content ${isSelected ? 'selected' : ''}"
+          @click=${() => this._handleNodeClick(node)}>
+          <span class="tree-expander ${hasChildren ? (isExpanded ? 'expanded' : '') : 'leaf'}">
+            ${hasChildren ? '▶' : ''}
+          </span>
+          <span class="node-label">${node.label}</span>
+        </div>
       </div>
       ${hasChildren && isExpanded
-        ? html`
-            <div class="tree-children">
-              ${node.children.map(child => this._renderTreeNode(child, level + 1))}
-            </div>
-          `
+        ? node.children.map(child => this._renderTreeNode(child, level + 1))
         : ''}
     `;
+  }
+
+  /**
+   * Render all tree nodes
+   * @private
+   */
+  _renderTreeNodes(nodes) {
+    return nodes.map(node => this._renderTreeNode(node));
   }
 
   /**
@@ -403,7 +828,8 @@ export class LCARdSPackExplorerDialog extends LitElement {
   _renderDetailPanel() {
     if (!this._selectedNode) {
       return html`
-        <div class="empty-state">
+        <div class="detail-panel-empty">
+          <ha-icon icon="mdi:package-variant"></ha-icon>
           <p>Select an item from the tree to view details</p>
         </div>
       `;
@@ -411,6 +837,24 @@ export class LCARdSPackExplorerDialog extends LitElement {
 
     const node = this._selectedNode;
 
+    return html`
+      <div class="detail-panel">
+        <div class="detail-header">
+          <h3>${node.label}</h3>
+          <span class="detail-type">${node.type}</span>
+        </div>
+        <div class="detail-content">
+          ${this._renderDetailContent(node)}
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Render detail content based on node type
+   * @private
+   */
+  _renderDetailContent(node) {
     switch (node.type) {
       case 'pack':
         return this._renderPackDetail(node.data);
@@ -418,17 +862,54 @@ export class LCARdSPackExplorerDialog extends LitElement {
         return this._renderThemeDetail(node.data);
       case 'preset':
         return this._renderPresetDetail(node.data);
+      case 'component':
+        return this._renderComponentDetail(node.data);
+      case 'animation':
+        return this._renderAnimationDetail(node.data);
+      case 'svg_asset':
+        return this._renderSvgAssetDetail(node.data);
+      case 'font_asset':
+        return this._renderFontAssetDetail(node.data);
+      case 'audio_asset':
+        return this._renderAudioAssetDetail(node.data);
+      case 'category':
+        return this._renderCategoryDetail(node);
       default:
         return html`
-          <div class="detail-card">
-            <div class="detail-header">${node.label}</div>
-            <div class="detail-section">
-              <div class="detail-section-title">Type</div>
-              <div class="detail-value">${node.type}</div>
+          <div class="detail-section">
+            <h4>Information</h4>
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span class="detail-label">Type:</span>
+                <span class="detail-value">${node.type}</span>
+              </div>
             </div>
           </div>
         `;
     }
+  }
+
+  /**
+   * Render category details
+   * @private
+   */
+  _renderCategoryDetail(node) {
+    const childCount = node.children?.length || 0;
+    return html`
+      <div class="detail-section">
+        <h4>Category Information</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">Category:</span>
+            <span class="detail-value">${node.data?.category || 'Unknown'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Items:</span>
+            <span class="detail-value">${childCount}</span>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   /**
@@ -437,19 +918,26 @@ export class LCARdSPackExplorerDialog extends LitElement {
    */
   _renderPackDetail(pack) {
     return html`
-      <div class="detail-card">
-        <div class="detail-header">${pack.id}</div>
-        
-        <div class="detail-section">
-          <div class="detail-section-title">Description</div>
-          <div class="detail-value">${pack.description || 'No description available'}</div>
+      <div class="detail-section">
+        <h4>Pack Information</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">ID:</span>
+            <span class="detail-value">${pack.id}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Description:</span>
+            <span class="detail-value">${pack.description || 'No description available'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Version:</span>
+            <span class="detail-value">${pack.version || 'Unknown'}</span>
+          </div>
         </div>
+      </div>
 
-        <div class="detail-section">
-          <div class="detail-section-title">Version</div>
-          <div class="detail-value">${pack.version || 'Unknown'}</div>
-        </div>
-
+      <div class="detail-section">
+        <h4>Statistics</h4>
         <div class="stats-grid">
           <div class="stat-card">
             <div class="stat-value">${pack.themeCount || 0}</div>
@@ -464,7 +952,7 @@ export class LCARdSPackExplorerDialog extends LitElement {
             <div class="stat-label">Rules</div>
           </div>
           <div class="stat-card">
-            <div class="stat-value">${pack.assetCount || 0}</div>
+            <div class="stat-value">${this._getAssetCountForPack(pack.id)}</div>
             <div class="stat-label">Assets</div>
           </div>
         </div>
@@ -478,38 +966,39 @@ export class LCARdSPackExplorerDialog extends LitElement {
    */
   _renderThemeDetail(theme) {
     return html`
-      <div class="detail-card">
-        <div class="detail-header">${theme.name || theme.id}</div>
-        
-        <div class="detail-section">
-          <div class="detail-section-title">Description</div>
-          <div class="detail-value">${theme.description || 'No description available'}</div>
+      <div class="detail-section">
+        <h4>Theme Information</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">ID:</span>
+            <span class="detail-value">${theme.id}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Name:</span>
+            <span class="detail-value">${theme.name || theme.id}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Description:</span>
+            <span class="detail-value">${theme.description || 'No description available'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Pack:</span>
+            <span class="detail-value">${theme.pack || 'unknown'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Version:</span>
+            <span class="detail-value">${theme.version || 'Unknown'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Token Count:</span>
+            <span class="detail-value">${theme.tokenCount || 0}</span>
+          </div>
         </div>
+      </div>
 
-        <div class="detail-section">
-          <div class="detail-section-title">Pack</div>
-          <div class="detail-value">${theme.pack || 'unknown'}</div>
-        </div>
-
-        <div class="detail-section">
-          <div class="detail-section-title">Version</div>
-          <div class="detail-value">${theme.version || 'Unknown'}</div>
-        </div>
-
-        <div class="detail-section">
-          <div class="detail-section-title">Token Count</div>
-          <div class="detail-value">${theme.tokenCount || 0} tokens</div>
-        </div>
-
+      <div class="detail-section">
+        <h4>Preview</h4>
         ${renderThemePreview(theme)}
-
-        <div class="detail-section">
-          <div class="detail-section-title">Config Reference</div>
-          <div class="detail-value">theme: "${theme.id}"</div>
-          <button class="copy-button" @click=${() => this._copyToClipboard(`theme: "${theme.id}"`)}>
-            Copy to Clipboard
-          </button>
-        </div>
       </div>
     `;
   }
@@ -519,66 +1008,509 @@ export class LCARdSPackExplorerDialog extends LitElement {
    * @private
    */
   _renderPresetDetail(preset) {
-    const yamlRef = `preset: "${preset.id}"`;
-    
     return html`
-      <div class="detail-card">
-        <div class="detail-header">${preset.id}</div>
-        
-        <div class="detail-section">
-          <div class="detail-section-title">Description</div>
-          <div class="detail-value">${preset.description || 'No description available'}</div>
-        </div>
-
-        <div class="detail-section">
-          <div class="detail-section-title">Type</div>
-          <div class="detail-value">${preset.presetType || preset.type}</div>
-        </div>
-
-        <div class="detail-section">
-          <div class="detail-section-title">Pack</div>
-          <div class="detail-value">${preset.pack || 'unknown'}</div>
-        </div>
-
-        ${preset.extends ? html`
-          <div class="detail-section">
-            <div class="detail-section-title">Extends</div>
-            <div class="detail-value">${preset.extends}</div>
+      <div class="detail-section">
+        <h4>Preset Information</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">ID:</span>
+            <span class="detail-value">${preset.id}</span>
           </div>
-        ` : ''}
-
-        ${renderPresetPreview(preset)}
-
-        <div class="detail-section">
-          <div class="detail-section-title">Config Reference</div>
-          <div class="detail-value">${yamlRef}</div>
-          <button class="copy-button" @click=${() => this._copyToClipboard(yamlRef)}>
-            Copy to Clipboard
-          </button>
+          <div class="detail-item">
+            <span class="detail-label">Description:</span>
+            <span class="detail-value">${preset.description || 'No description available'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Type:</span>
+            <span class="detail-value">${preset.presetType || preset.type}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Pack:</span>
+            <span class="detail-value">${preset.pack || 'unknown'}</span>
+          </div>
+          ${preset.extends ? html`
+            <div class="detail-item">
+              <span class="detail-label">Extends:</span>
+              <span class="detail-value">${preset.extends}</span>
+            </div>
+          ` : ''}
         </div>
+      </div>
+
+      <div class="detail-section">
+        <h4>Live Preview</h4>
+        ${this._renderPresetLivePreview(preset)}
       </div>
     `;
   }
 
   /**
-   * Copy text to clipboard
+   * Render live preset preview by creating actual card instance
    * @private
    */
-  async _copyToClipboard(text) {
-    try {
-      await navigator.clipboard.writeText(text);
-      lcardsLog.info('[PackExplorer] Copied to clipboard:', text);
-      
-      // Show a brief success message (could be enhanced with toast notification)
-      const button = event.target;
-      const originalText = button.textContent;
-      button.textContent = '✓ Copied!';
-      setTimeout(() => {
-        button.textContent = originalText;
-      }, 2000);
-    } catch (error) {
-      lcardsLog.error('[PackExplorer] Failed to copy to clipboard:', error);
+  _renderPresetLivePreview(preset) {
+    const presetType = preset.presetType || preset.type;
+
+    // Determine card type from preset type
+    let cardType, defaultEntity;
+    if (presetType === 'button' || presetType?.includes('button')) {
+      cardType = 'lcards-button';
+      defaultEntity = 'light.demo';
+    } else if (presetType === 'slider' || presetType?.includes('slider')) {
+      cardType = 'lcards-slider';
+      defaultEntity = 'sensor.demo';
+    } else {
+      return html`<div class="preview-placeholder">Preview not available for this preset type</div>`;
     }
+
+    // Create minimal config with preset applied
+    const config = {
+      type: `custom:${cardType}`,
+      entity: defaultEntity,
+      preset: preset.id,  // Use preset, not style_preset
+      label: { content: 'Preview' },
+      show_icon: true,
+      icon: defaultEntity === 'light.demo' ? 'mdi:lightbulb' : 'mdi:thermometer',
+    };
+
+    // Create card element
+    const cardElement = document.createElement(cardType);
+    cardElement.hass = this._createMockHass();
+
+    // Important: Set config AFTER hass to ensure proper initialization
+    try {
+      cardElement.setConfig(config);
+    } catch (err) {
+      lcardsLog.error('[PackExplorer] Failed to set config on preview card:', err);
+      return html`<div class="preview-placeholder">Error creating preview: ${err.message}</div>`;
+    }
+
+    return html`
+      <div class="preset-preview-container">
+        ${cardElement}
+      </div>
+    `;
+  }
+
+  /**
+   * Create minimal mock HASS object for card preview
+   * @private
+   */
+  _createMockHass() {
+    return {
+      states: {
+        'sensor.demo': {
+          entity_id: 'sensor.demo',
+          state: '42',
+          attributes: {
+            friendly_name: 'Demo Sensor',
+            unit_of_measurement: '°C'
+          },
+          last_changed: new Date().toISOString()
+        },
+        'light.demo': {
+          entity_id: 'light.demo',
+          state: 'on',
+          attributes: {
+            friendly_name: 'Demo Light',
+            brightness: 128
+          },
+          last_changed: new Date().toISOString()
+        }
+      },
+      config: { unit_system: { temperature: '°C' } },
+      language: 'en',
+      themes: { default_theme: 'default' },
+      selectedTheme: null,
+      user: { name: 'Demo User' },
+      callService: () => Promise.resolve(),
+      callWS: () => Promise.resolve()
+    };
+  }
+
+  /**
+   * Render component details
+   * @private
+   */
+  _renderComponentDetail(component) {
+    const definition = component.definition || {};
+    const svgLength = definition.svg?.length || 0;
+    const hasFeatures = definition.features && definition.features.length > 0;
+
+    return html`
+      <div class="detail-section">
+        <h4>Component Information</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">Name:</span>
+            <span class="detail-value">${component.name}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Pack:</span>
+            <span class="detail-value">${component.pack || 'unknown'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Orientation:</span>
+            <span class="detail-value">${definition.orientation || 'auto'}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">SVG Size:</span>
+            <span class="detail-value">${svgLength} characters</span>
+          </div>
+          ${hasFeatures ? html`
+            <div class="detail-item">
+              <span class="detail-label">Features:</span>
+              <span class="detail-value">${definition.features.join(', ')}</span>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+
+      ${definition.svg ? html`
+        <div class="detail-section">
+          <h4>SVG Preview</h4>
+          <div class="svg-preview-container">
+            ${unsafeHTML(definition.svg)}
+          </div>
+        </div>
+      ` : ''}
+    `;
+  }
+
+  /**
+   * Render animation details
+   * @private
+   */
+  _renderAnimationDetail(animation) {
+    return html`
+      <div class="detail-section">
+        <h4>Animation Information</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">Name:</span>
+            <span class="detail-value">${animation.name}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">ID:</span>
+            <span class="detail-value">${animation.id}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Pack:</span>
+            <span class="detail-value">${animation.pack || 'core'}</span>
+          </div>
+          ${animation.preset ? html`
+            <div class="detail-item">
+              <span class="detail-label">Preset:</span>
+              <span class="detail-value">${animation.preset}</span>
+            </div>
+          ` : ''}
+          ${animation.duration ? html`
+            <div class="detail-item">
+              <span class="detail-label">Duration:</span>
+              <span class="detail-value">${animation.duration}ms</span>
+            </div>
+          ` : ''}
+          ${animation.easing ? html`
+            <div class="detail-item">
+              <span class="detail-label">Easing:</span>
+              <span class="detail-value">${animation.easing}</span>
+            </div>
+          ` : ''}
+          ${animation.loop !== undefined ? html`
+            <div class="detail-item">
+              <span class="detail-label">Loop:</span>
+              <span class="detail-value">${animation.loop ? 'Yes' : 'No'}</span>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+
+      ${animation.description ? html`
+        <div class="detail-section">
+          <h4>Description</h4>
+          <p>${animation.description}</p>
+        </div>
+      ` : ''}
+    `;
+  }
+
+  /**
+   * Render SVG asset details
+   * @private
+   */
+  _renderSvgAssetDetail(asset) {
+    return html`
+      <div class="detail-section">
+        <h4>SVG Asset Information</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">Key:</span>
+            <span class="detail-value">${asset.key}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Loaded:</span>
+            <span class="detail-value">${asset.hasContent ? 'Yes' : 'Not yet'}</span>
+          </div>
+          ${asset.url ? html`
+            <div class="detail-item">
+              <span class="detail-label">URL:</span>
+              <span class="detail-value">${asset.url}</span>
+            </div>
+          ` : ''}
+          ${asset.ship ? html`
+            <div class="detail-item">
+              <span class="detail-label">Ship:</span>
+              <span class="detail-value">${asset.ship}</span>
+            </div>
+          ` : ''}
+          ${asset.registry ? html`
+            <div class="detail-item">
+              <span class="detail-label">Registry:</span>
+              <span class="detail-value">${asset.registry}</span>
+            </div>
+          ` : ''}
+          ${asset.class ? html`
+            <div class="detail-item">
+              <span class="detail-label">Class:</span>
+              <span class="detail-value">${asset.class}</span>
+            </div>
+          ` : ''}
+          ${asset.era ? html`
+            <div class="detail-item">
+              <span class="detail-label">Era:</span>
+              <span class="detail-value">${asset.era}</span>
+            </div>
+          ` : ''}
+          ${asset.approximate_size ? html`
+            <div class="detail-item">
+              <span class="detail-label">Size:</span>
+              <span class="detail-value">${asset.approximate_size}</span>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+
+      ${asset.description ? html`
+        <div class="detail-section">
+          <h4>Description</h4>
+          <p>${asset.description}</p>
+        </div>
+      ` : ''}
+
+      <div class="detail-section">
+        <h4>Preview</h4>
+        ${this._renderSvgPreview(asset)}
+      </div>
+
+      ${asset.author || asset.license ? html`
+        <div class="detail-section">
+          <h4>Attribution</h4>
+          <div class="detail-grid">
+            ${asset.author ? html`
+              <div class="detail-item">
+                <span class="detail-label">Author:</span>
+                <span class="detail-value">${asset.author}</span>
+              </div>
+            ` : ''}
+            ${asset.license ? html`
+              <div class="detail-item">
+                <span class="detail-label">License:</span>
+                <span class="detail-value">${asset.license}</span>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      ` : ''}
+    `;
+  }
+
+  /**
+   * Render SVG preview with async loading
+   * @private
+   */
+  _renderSvgPreview(asset) {
+    // Check if SVG is already loaded
+    if (asset.hasContent) {
+      // Try to get content from AssetManager
+      const core = window.lcards?.core;
+      if (core?.assetManager) {
+        // Trigger async load if not already loaded
+        core.assetManager.get('svg', asset.key).then(content => {
+          if (content && content !== this._svgContent) {
+            this._svgContent = content;
+            this._loadingSvg = false;
+            this.requestUpdate();
+          }
+        }).catch(err => {
+          lcardsLog.error('[PackExplorer] Failed to load SVG:', err);
+          this._loadingSvg = false;
+          this.requestUpdate();
+        });
+      }
+    }
+
+    if (this._loadingSvg) {
+      return html`
+        <div class="preview-loading">
+          <div class="loading-spinner"></div>
+          <p>Loading SVG preview...</p>
+        </div>
+      `;
+    }
+
+    if (this._svgContent) {
+      return html`
+        <div class="svg-preview-container">
+          ${unsafeHTML(this._svgContent)}
+        </div>
+      `;
+    }
+
+    if (asset.url) {
+      return html`
+        <div class="preview-placeholder">
+          <button class="load-preview-button" @click=${() => this._loadSvgPreview(asset)}>
+            Load Preview
+          </button>
+          <p class="preview-note">Click to load ${asset.approximate_size || 'SVG'}</p>
+        </div>
+      `;
+    }
+
+    return html`
+      <div class="preview-placeholder">
+        <p>No preview available</p>
+      </div>
+    `;
+  }
+
+  /**
+   * Load SVG preview on demand
+   * @private
+   */
+  async _loadSvgPreview(asset) {
+    const core = window.lcards?.core;
+    if (!core?.assetManager) return;
+
+    this._loadingSvg = true;
+    this._svgContent = null;
+    this.requestUpdate();
+
+    try {
+      const content = await core.assetManager.get('svg', asset.key);
+      this._svgContent = content;
+      this._loadingSvg = false;
+      this.requestUpdate();
+    } catch (error) {
+      lcardsLog.error('[PackExplorer] Failed to load SVG preview:', error);
+      this._loadingSvg = false;
+      this.requestUpdate();
+    }
+  }
+
+  /**
+   * Render font asset details
+   * @private
+   */
+  _renderFontAssetDetail(asset) {
+    return html`
+      <div class="detail-section">
+        <h4>Font Asset Information</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">Key:</span>
+            <span class="detail-value">${asset.key}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Loaded:</span>
+            <span class="detail-value">${asset.hasContent ? 'Yes' : 'Not yet'}</span>
+          </div>
+          ${asset.url ? html`
+            <div class="detail-item">
+              <span class="detail-label">URL:</span>
+              <span class="detail-value">${asset.url}</span>
+            </div>
+          ` : ''}
+          ${asset.family ? html`
+            <div class="detail-item">
+              <span class="detail-label">Family:</span>
+              <span class="detail-value">${asset.family}</span>
+            </div>
+          ` : ''}
+          ${asset.weight ? html`
+            <div class="detail-item">
+              <span class="detail-label">Weight:</span>
+              <span class="detail-value">${asset.weight}</span>
+            </div>
+          ` : ''}
+          ${asset.style ? html`
+            <div class="detail-item">
+              <span class="detail-label">Style:</span>
+              <span class="detail-value">${asset.style}</span>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+
+      ${asset.family ? html`
+        <div class="detail-section">
+          <h4>Preview</h4>
+          <div class="font-preview-container">
+            <p class="font-sample" style="font-family: '${asset.family}', sans-serif;">
+              ABCDEFGHIJKLMNOPQRSTUVWXYZ<br>
+              abcdefghijklmnopqrstuvwxyz<br>
+              0123456789
+            </p>
+          </div>
+        </div>
+      ` : ''}
+    `;
+  }
+
+  /**
+   * Render audio asset details
+   * @private
+   */
+  _renderAudioAssetDetail(asset) {
+    return html`
+      <div class="detail-section">
+        <h4>Audio Asset Information</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">Key:</span>
+            <span class="detail-value">${asset.key}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Loaded:</span>
+            <span class="detail-value">${asset.hasContent ? 'Yes' : 'Not yet'}</span>
+          </div>
+          ${asset.url ? html`
+            <div class="detail-item">
+              <span class="detail-label">URL:</span>
+              <span class="detail-value">${asset.url}</span>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+
+      ${asset.description ? html`
+        <div class="detail-section">
+          <h4>Description</h4>
+          <p>${asset.description}</p>
+        </div>
+      ` : ''}
+
+      ${asset.url ? html`
+        <div class="detail-section">
+          <h4>Preview</h4>
+          <div class="audio-preview-container">
+            <audio controls src="${asset.url}">
+              Your browser does not support the audio element.
+            </audio>
+          </div>
+        </div>
+      ` : ''}
+    `;
   }
 
   /**
@@ -590,30 +1522,59 @@ export class LCARdSPackExplorerDialog extends LitElement {
   }
 
   render() {
+    if (!this.open) {
+      return html``;
+    }
+
     return html`
-      <lcards-dialog
-        .open=${this.open}
-        .heading=${'Pack Explorer'}
-        @closed=${this._handleClose}>
-        <div class="explorer-container">
-          <div class="tree-panel">
-            <div class="search-box">
-              <input
-                type="text"
-                placeholder="Search packs, themes, presets..."
-                .value=${this._searchQuery}
-                @input=${(e) => { this._searchQuery = e.target.value; }}
-              />
-            </div>
-            ${this._treeData.length === 0
-              ? html`<div class="empty-state">No packs loaded</div>`
-              : this._treeData.map(node => this._renderTreeNode(node))}
+      <ha-dialog
+        open
+        @closed=${this._handleClose}
+        .heading=${'Pack Explorer'}>
+        <div class="dialog-content">
+          <div class="dialog-header">
+            <h2>📦 Pack Explorer</h2>
           </div>
-          <div class="detail-panel">
-            ${this._renderDetailPanel()}
+
+          <div class="split-pane-container">
+            <!-- Left Pane: Tree View -->
+            <div class="tree-pane">
+              <div class="search-box">
+                <input
+                  type="text"
+                  placeholder="Search packs, themes, presets..."
+                  .value=${this._searchQuery}
+                  @input=${(e) => { this._searchQuery = e.target.value; }}
+                />
+              </div>
+              <div class="tree-pane-header">
+                <span>Packs (${this._treeData.length})</span>
+              </div>
+              <div class="tree-container">
+                ${this._treeData.length === 0
+                  ? html`<p class="empty-state">No packs loaded</p>`
+                  : this._renderTreeNodes(this._treeData)}
+              </div>
+            </div>
+
+            <!-- Right Pane: Detail View -->
+            <div class="detail-pane">
+              <div class="detail-pane-content">
+                ${this._renderDetailPanel()}
+              </div>
+            </div>
           </div>
         </div>
-      </lcards-dialog>
+
+        <ha-button
+          slot="primaryAction"
+          variant="brand"
+          appearance="accent"
+          @click=${this._handleClose}
+          dialogAction="close">
+          Close
+        </ha-button>
+      </ha-dialog>
     `;
   }
 }

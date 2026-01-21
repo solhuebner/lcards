@@ -300,7 +300,7 @@ export class AssetManager extends BaseService {
    * @returns {Promise<void>}
    */
   async preloadFromPack(packDef) {
-    const packName = packDef.name || 'unknown';
+    const packName = packDef.id || packDef.name || 'unknown';
     const promises = [];
 
     lcardsLog.debug(`[AssetManager] Preloading assets from pack: ${packName}`);

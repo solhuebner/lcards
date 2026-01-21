@@ -204,6 +204,7 @@ export const editorStyles = css`
         justify-content: flex-end;
         padding-top: 8px;
         border-top: 1px solid var(--divider-color);
+        gap: 8px;
     }
 
     ha-textfield,
