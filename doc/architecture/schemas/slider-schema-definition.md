@@ -75,6 +75,7 @@ control:
   step: <number>                 # Step increment (default: 1 or entity step)
   attribute: <string>            # Entity attribute to control (auto-detected by domain)
   locked: <boolean>              # Disable interaction (default: auto-set by domain)
+  invert_value: <boolean>        # Invert value mapping (default: false)
 
 # Style Configuration
 style:
@@ -83,6 +84,7 @@ style:
     type: pills | gauge          # Visual style (auto-detected by domain)
     orientation: horizontal | vertical  # Auto-detected from component
     margin: <number> | object    # Margin around track zone (px)
+    invert_fill: <boolean>       # Invert visual fill direction (default: false)
     # OR per-side:
     margin:
       top: <number>
@@ -310,6 +312,60 @@ control:
 - Sensors: Automatically locked (read-only)
 - Controllable domains (light, cover, fan): Unlocked by default
 - Override with explicit `locked: true/false`
+
+### Value Inversion
+
+`invert_value` controls how slider position maps to entity value:
+
+```yaml
+control:
+  invert_value: <boolean>    # Invert value mapping (default: false)
+```
+
+- `false` (default): Slider min → entity min, slider max → entity max
+- `true`: Slider min → entity max, slider max → entity min
+
+**Use cases:**
+- Covers with "pull down to close" behavior
+- Right-to-left UI layouts
+- Custom user preferences
+
+**Example:**
+```yaml
+entity: cover.bedroom_blinds
+control:
+  invert_value: true    # Slider at top = closed (0), slider at bottom = open (100)
+```
+
+---
+
+## Track Style Configuration
+
+### Fill Inversion
+
+`invert_fill` controls which end of the track fills as value increases:
+
+```yaml
+style:
+  track:
+    invert_fill: <boolean>    # Invert visual fill direction (default: false)
+```
+
+- `false` (default): Fill from start (left for horizontal, bottom for vertical)
+- `true`: Fill from end (right for horizontal, top for vertical)
+
+**Use cases:**
+- Covers showing "closed" state with full fill
+- Custom visual metaphors
+- Matching physical control aesthetics
+
+**Example:**
+```yaml
+entity: cover.bedroom_blinds
+style:
+  track:
+    invert_fill: true    # Full fill = closed, empty = open
+```
 
 ---
 
