@@ -1,5 +1,10 @@
 # Bar Label Presets Reference
 
+> **Horizontal bar designs with positioned text for LCARS-style headers**
+> Seven preset layouts for section headers, status labels, and entity displays
+
+## Overview
+
 Bar label presets provide horizontal bar designs with positioned text for LCARS-style section headers, status labels, and entity names. These presets replace legacy CB-LCARS label templates with a cleaner, more flexible implementation.
 
 ## Visual Pattern
@@ -472,6 +477,10 @@ Text positioning accounts for border widths automatically via the `_calculateTex
 
 ## See Also
 
-- [LCARdS Button Quick Reference](../configuration/cards/button.md) - Complete button card documentation
+- [LCARdS Button Card](../../cards/button.md) - Complete button card documentation
 - [Component Presets Reference](./component-presets.md) - Interactive SVG component presets
 - [Animation Presets Reference](./animation-presets.md) - Animation presets and triggers
+
+---
+
+[← Back to Reference](../README.md) | [User Guide →](../../README.md)

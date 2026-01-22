@@ -1,6 +1,7 @@
 # Animation Presets Reference
 
-Complete reference for all built-in animation presets in LCARdS.
+> **Built-in animation presets for LCARS-style interfaces**
+> Complete catalog of 15 animation presets with parameters, examples, and usage patterns
 
 ## Overview
 
@@ -579,6 +580,10 @@ animations:
 
 ## See Also
 
-- [Animation System Guide](../guides/animations.md) - Complete guide to animation system
-- [Segment Animation Guide](../../../segment-animation-guide.md) - Using animations with SVG segments
+- [Animation System Guide](../../guides/animations.md) - Complete guide to animation system
+- [Segment Animation Guide](./segment-animation-guide.md) - Using animations with SVG segments
 - [Anime.js Documentation](https://animejs.com/documentation/) - Full anime.js reference
+
+---
+
+[← Back to Reference](../README.md) | [User Guide →](../../README.md)

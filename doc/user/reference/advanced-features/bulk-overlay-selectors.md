@@ -1,4 +1,7 @@
-# Bulk Overlay Selectors - User Guide
+# Bulk Overlay Selectors Reference
+
+> **Target multiple overlays with selector keywords**
+> Efficient bulk updates for alert systems and global state changes
 
 ## Overview
 
@@ -709,10 +712,6 @@ rules:
 - [Overlay Configuration Guide](./overlays/README.md)
 - [Design Tokens](./design-tokens.md)
 - [Test Configuration (Overlay Tags)](../../src/test-bulk-selectors-red-alert.yaml)
-- [Test Configuration (Cell Tags)](../../src/test-status-grid-cell-tags.yaml)
-
----
-
 ## Summary
 
 The Bulk Overlay Selector System provides:
@@ -724,3 +723,14 @@ The Bulk Overlay Selector System provides:
 ✅ **Compatible** - Works with existing configs
 
 **Perfect for:** Alert systems, theme switches, department dashboards, responsive layouts, and any scenario requiring bulk overlay updates.
+
+---
+
+## See Also
+
+
+- [Rules System](../../guides/rules.md) - Rules engine guide
+
+---
+
+[← Back to Reference](../README.md) | [User Guide →](../../README.md)

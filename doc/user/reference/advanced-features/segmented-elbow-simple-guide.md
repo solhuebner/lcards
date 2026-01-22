@@ -1,6 +1,9 @@
-# Segmented Elbow - Simple Guide
+# Segmented Elbow Configuration Guide
 
-## The Basics
+> **Simple guide to configuring segmented elbows**
+> Auto-sizing, custom segments, and configuration modes
+
+## Overview
 
 A **segmented elbow** has two concentric L-shaped segments with a gap between them:
 
@@ -330,14 +333,7 @@ radius:
 segments:
   outer:
     horizontal: 30
-  inner:
-    horizontal: 60
-    radius: 55        # ✅ Optional fine-tune
-```
-
----
-
-## Summary
+  ## Summary
 
 ✅ **Default is simple:** Just set `radius.outer` and `segments.gap`
 ✅ **Custom sizes optional:** Add `segments.outer` / `segments.inner`
@@ -345,3 +341,14 @@ segments:
 ✅ **Concentricity maintained** unless explicitly overridden
 
 **Recommendation:** Start with Mode 1, add complexity only if needed.
+
+---
+
+## See Also
+
+- [Segmented Elbow Anatomy](./segmented-elbow-anatomy.md) - Technical details on radii calculations
+
+
+---
+
+[← Back to Reference](../README.md) | [User Guide →](../../README.md)
