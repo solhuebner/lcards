@@ -1,11 +1,9 @@
 # Installation Guide
 
-> **Complete installation instructions for LCARdS**
+> **Installation instructions for LCARdS**
 > Choose between HACS (recommended) or manual installation.
 
----
-
-## 📋 Overview
+## Overview
 
 ```mermaid
 graph TD
@@ -298,7 +296,7 @@ frontend:
 - 300-400: Normal text
 - 500-700: Bold headers and labels
 
-> 💡 **Note:** LCARdS includes Microgramma and Jeffries fonts automatically.
+> **Note:** LCARdS includes Microgramma and Jeffries fonts automatically.
 
 ### 2. Install LCARdS Color Scheme
 
@@ -600,7 +598,7 @@ graph LR
 
 ## Next Steps
 
-**Installation complete!** 🎉
+**Installation complete!**
 
 Now that LCARdS is installed:
 
@@ -611,8 +609,4 @@ Now that LCARdS is installed:
 
 ---
 
-**Navigation:**
-- 🏠 [Documentation Home](../../README.md)
-- 🚀 [Quick Start](quickstart.md)
-- 📖 [First Card Tutorial](first-card.md)
-- 🎨 [Example Gallery](../examples/)
+[← Back to User Guide](../README.md) | [Next: Quick Start →](./quickstart.md)
