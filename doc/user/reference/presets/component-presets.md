@@ -1,6 +1,7 @@
 # Component Presets Reference
 
-Component presets provide ready-made interactive SVG shapes with pre-configured segments for common control patterns.
+> **Ready-made interactive SVG components for common control patterns**
+> Battle-tested components with automatic segment configuration and theme-aware styling
 
 ## Overview
 
@@ -640,7 +641,10 @@ dpad:
 
 ## See Also
 
-- [LCARdS Button Quick Reference](../configuration/cards/button.md) - Complete button card documentation
+- [LCARdS Button Card](../../cards/button.md) - Complete button card documentation
 - [Animation Presets Reference](./animation-presets.md) - All animation presets
-- [Segment Animation Guide](../../../segment-animation-guide.md) - Detailed animation examples
-- [Actions Reference](../configuration/actions.md) - All available actions
+- [Segment Animation Guide](./segment-animation-guide.md) - Detailed animation examples
+
+---
+
+[← Back to Reference](../README.md) | [User Guide →](../../README.md)

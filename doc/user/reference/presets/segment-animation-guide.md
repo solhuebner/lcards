@@ -1,6 +1,10 @@
 # Segment Animation Guide
 
+> **Common animation patterns for segmented SVG buttons**
+> Solutions for scale reset, loop counts, and entity change triggers
+
 ## Overview
+
 This guide addresses common questions about segment animations in LCARdS button cards.
 
 ## Issues Addressed
@@ -275,3 +279,15 @@ dpad:
 - Verify entity exists and is accessible in HASS
 - Check that entity state is actually changing
 - Look for debug logs: `[LCARdSButton] Entity states changed`
+
+---
+
+## See Also
+
+- [Animation Presets Reference](./animation-presets.md) - All available animation presets
+- [Component Presets Reference](./component-presets.md) - D-pad and other components
+- [LCARdS Button Card](../../cards/button.md) - Button card documentation
+
+---
+
+[← Back to Reference](../README.md) | [User Guide →](../../README.md)

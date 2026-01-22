@@ -1,4 +1,9 @@
-# Segment Entity States - Quick Reference
+# Segment Entity States Reference
+
+> **Entity state awareness for segmented SVG buttons**
+> Quick reference for state mappings, priorities, and common patterns
+
+## Overview
 
 Quick guide for configuring entity state awareness in segmented SVG buttons.
 
@@ -230,7 +235,14 @@ style:
 - **v1.20.09** - Target parameter support
 - **v1.20.10** - Entity state awareness (current)
 
+---
+
 ## See Also
 
-- [Segment Animation Guide](segment-animation-guide.md)
-- [Button Quick Reference](../configuration/cards/button.md)
+- [Segment Animation Guide](./segment-animation-guide.md) - Animation patterns for segments
+- [Component Presets Reference](./component-presets.md) - D-pad and other components
+- [LCARdS Button Card](../../cards/button.md) - Complete button card documentation
+
+---
+
+[← Back to Reference](../README.md) | [User Guide →](../../README.md)
