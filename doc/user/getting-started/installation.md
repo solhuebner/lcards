@@ -296,7 +296,7 @@ frontend:
 - 300-400: Normal text
 - 500-700: Bold headers and labels
 
-> 💡 **Note:** LCARdS includes Microgramma and Jeffries fonts automatically.
+> **Note:** LCARdS includes Microgramma and Jeffries fonts automatically.
 
 ### 2. Install LCARdS Color Scheme
 
@@ -609,4 +609,4 @@ Now that LCARdS is installed:
 
 ---
 
-[← Back to Getting Started](../README.md) | [Next: Quick Start →](./quickstart.md)
+[← Back to User Guide](../README.md) | [Next: Quick Start →](./quickstart.md)

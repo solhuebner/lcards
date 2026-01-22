@@ -282,4 +282,4 @@ graph LR
 
 ---
 
-[← Back to Getting Started](../README.md) | [Next: First Card Tutorial →](first-card.md)
+[← Back to User Guide](../README.md) | [Next: First Card →](first-card.md)
