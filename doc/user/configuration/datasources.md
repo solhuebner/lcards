@@ -1399,7 +1399,7 @@ overlays:
   - content: "Smooth: {complex_sensor.transformations.smoothed}%"
 ```
 
-**See:** [Transformation Reference](datasource-transformations.md) for complete transformation documentation.
+**See:** [Transformation Reference](../reference/datasources/transformations.md) for complete transformation documentation.
 
 ---
 
@@ -1484,7 +1484,7 @@ overlays:
   - content: "Trend: {temperature_analysis.aggregates.trend.direction}"
 ```
 
-**See:** [Aggregation Reference](datasource-aggregations.md) for complete aggregation documentation.
+**See:** [Aggregation Reference](../reference/datasources/aggregations.md) for complete aggregation documentation.
 
 ---
 
@@ -1565,7 +1565,7 @@ data_sources:
       temp: temperature
 ```
 
-**See:** [Computed Sources Guide](computed-sources.md) for detailed examples.
+**See:** [Computed Sources Guide](../reference/datasources/computed-sources.md) for detailed examples.
 
 ---
 
@@ -1805,9 +1805,9 @@ expression: "temp > 0 ? (other / temp) : 0"
 - [Data Flow](../../architecture/overview.md#data-flow-pipeline)
 
 ### Configuration References
-- [Transformation Reference](datasource-transformations.md) - Complete transformation documentation
-- [Aggregation Reference](datasource-aggregations.md) - Complete aggregation documentation (includes rolling statistics)
-- [Computed Sources Guide](computed-sources.md) - Detailed computed source examples
+- [Transformation Reference](../reference/datasources/transformations.md) - Complete transformation documentation
+- [Aggregation Reference](../reference/datasources/aggregations.md) - Complete aggregation documentation (includes rolling statistics)
+- [Computed Sources Guide](../reference/datasources/computed-sources.md) - Detailed computed source examples
 
 ### Examples
 - [DataSource Examples](../guides/datasource-examples.md) - Comprehensive examples

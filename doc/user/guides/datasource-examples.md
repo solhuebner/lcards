@@ -2060,9 +2060,9 @@ rules:
 ## Related Documentation
 
 - [DataSources Configuration Guide](../configuration/datasources.md)
-- [Transformation Reference](../configuration/datasource-transformations.md)
-- [Aggregation Reference](../configuration/datasource-aggregations.md)
-- [Computed Sources Guide](../configuration/computed-sources.md)
+- [Transformation Reference](../reference/datasources/transformations.md)
+- [Aggregation Reference](../reference/datasources/aggregations.md)
+- [Computed Sources Guide](../reference/datasources/computed-sources.md)
 
 ---
 
