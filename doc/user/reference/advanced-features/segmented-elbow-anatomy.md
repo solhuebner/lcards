@@ -1,8 +1,11 @@
-# Segmented Elbow - Visual Anatomy Guide
+# Segmented Elbow Anatomy
 
-## The Four Radii Explained
+> **Technical guide to segmented elbow geometry**
+> Understanding the four radii and automatic calculations
 
-Each segmented elbow has **FOUR different radii**:
+## Overview
+
+Each segmented elbow has **FOUR different radii** that control its appearance. This guide explains how they work together.
 
 ```
                     ← border.horizontal (200px) →
@@ -238,13 +241,15 @@ Non-parallel curves, variable gap
 🤖 **System calculates 2 of 4 radii:**
 - Each segment's inner edge curve (LCARS formula: outer/2)
 
-📐 **LCARS Formula:**
+## LCARS Formula
+
+**LCARS Formula:**
 ```
 For each segment:
   innerCurve = outerCurve / 2
 ```
 
-💡 **Concentricity:**
+**Concentricity:**
 ```
 If segments.inner.radius omitted:
   innerSegmentCurve = (outerSegmentInnerCurve) - gap
@@ -252,3 +257,14 @@ If segments.inner.radius omitted:
 If segments.inner.radius specified:
   innerSegmentCurve = your value (may break concentricity)
 ```
+
+---
+
+## See Also
+
+- [Segmented Elbow Simple Guide](./segmented-elbow-simple-guide.md) - Beginner-friendly configuration guide
+- [MSD Card](../../cards/msd.md) - Multi-Screen Display card documentation
+
+---
+
+[← Back to Reference](../README.md) | [User Guide →](../../README.md)

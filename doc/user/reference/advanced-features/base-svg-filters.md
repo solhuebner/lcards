@@ -1,4 +1,9 @@
-# Base SVG Filters
+# Base SVG Filters Reference
+
+> **Visual filters for base SVG layer**
+> Apply opacity, blur, brightness, and other effects to make overlays more prominent
+
+## Overview
 
 Apply visual filters to the base SVG layer to make overlays more prominent while keeping overlays crisp and clear.
 
@@ -793,5 +798,8 @@ base_svg:
 ## See Also
 
 - [Theme Creation Tutorial](../advanced/theme_creation_tutorial.md) - Creating custom filter presets
-- [MSD Schema](../../architecture/MSD_SCHEMA_V1_Ratified.yaml) - Complete base_svg configuration
-- [BASE_SVG_ENHANCEMENTS Implementation](../../proposals/done/BASE_SVG_ENHANCEMENTS_IMPLEMENTATION.md) - Technical details
+- [MSD Card](../../cards/msd.md) - Multi-Screen Display card documentation
+
+---
+
+[← Back to Reference](../README.md) | [User Guide →](../../README.md)
