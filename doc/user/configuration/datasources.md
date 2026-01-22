@@ -3,9 +3,7 @@
 > **Real-time data processing from Home Assistant to your overlays**
 > DataSources transform entity states into processed, aggregated values that power dynamic dashboards.
 
----
-
-## 🎯 Quick Start
+## Quick Start
 
 ### Simple Entity Source
 
@@ -26,9 +24,7 @@ overlays:
 
 That's it! The datasource subscribes to the entity and provides real-time updates.
 
----
-
-## 📋 Table of Contents
+## Table of Contents
 
 1. [Overview](#overview)
 2. [DataSource Types](#datasource-types)
@@ -44,7 +40,7 @@ That's it! The datasource subscribes to the entity and provides real-time update
 
 ---
 
-## 🌟 Overview
+## Overview
 
 **DataSources are the heart of LCARdS.** They connect Home Assistant entities to your overlays with powerful processing capabilities:
 
@@ -260,7 +256,7 @@ data_sources:
 
 ---
 
-## ⚙️ Basic Configuration
+## Basic Configuration
 
 ### Minimal Configuration
 
@@ -366,7 +362,7 @@ graph TD
 
 ---
 
-## 🔍 Nested Attribute Paths ⭐ **NEW**
+## Nested Attribute Paths ⭐ **NEW**
 
 **Access nested data within entity attributes using dot notation and array indices.** Many Home Assistant entities have complex attribute structures—weather forecasts, multi-zone systems, array data—and LCARdS can navigate deep into these structures to extract exactly the data you need.
 
@@ -1296,7 +1292,7 @@ console.log('Entity:', source.cfg.entity);
 
 ---
 
-## �🔄 Transformations
+## Transformations
 
 Transformations process data as it flows through the datasource. They can be chained for complex processing.
 
@@ -1403,11 +1399,11 @@ overlays:
   - content: "Smooth: {complex_sensor.transformations.smoothed}%"
 ```
 
-**See:** [Transformation Reference](datasource-transformations.md) for complete transformation documentation.
+**See:** [Transformation Reference](../reference/datasources/transformations.md) for complete transformation documentation.
 
 ---
 
-## 📊 Aggregations
+## Aggregations
 
 Aggregations calculate statistics over time-windowed data.
 
@@ -1488,7 +1484,7 @@ overlays:
   - content: "Trend: {temperature_analysis.aggregates.trend.direction}"
 ```
 
-**See:** [Aggregation Reference](datasource-aggregations.md) for complete aggregation documentation.
+**See:** [Aggregation Reference](../reference/datasources/aggregations.md) for complete aggregation documentation.
 
 ---
 
@@ -1569,7 +1565,7 @@ data_sources:
       temp: temperature
 ```
 
-**See:** [Computed Sources Guide](computed-sources.md) for detailed examples.
+**See:** [Computed Sources Guide](../reference/datasources/computed-sources.md) for detailed examples.
 
 ---
 
@@ -1802,19 +1798,19 @@ expression: "temp > 0 ? (other / temp) : 0"
 
 ---
 
-## 📚 Related Documentation
+## Related Documentation
 
 ### Architecture
 - [DataSource System Architecture](../../architecture/subsystems/datasource-system.md)
 - [Data Flow](../../architecture/overview.md#data-flow-pipeline)
 
 ### Configuration References
-- [Transformation Reference](datasource-transformations.md) - Complete transformation documentation
-- [Aggregation Reference](datasource-aggregations.md) - Complete aggregation documentation (includes rolling statistics)
-- [Computed Sources Guide](computed-sources.md) - Detailed computed source examples
+- [Transformation Reference](../reference/datasources/transformations.md) - Complete transformation documentation
+- [Aggregation Reference](../reference/datasources/aggregations.md) - Complete aggregation documentation (includes rolling statistics)
+- [Computed Sources Guide](../reference/datasources/computed-sources.md) - Detailed computed source examples
 
 ### Examples
-- [DataSource Examples](../examples/datasource-examples.md) - Comprehensive examples
+- [DataSource Examples](../guides/datasource-examples.md) - Comprehensive examples
 - [ApexCharts Integration](../examples/apexcharts-examples.md) - Chart examples with rolling statistics
 
 ### New Features
@@ -1824,5 +1820,4 @@ expression: "temp > 0 ? (other / temp) : 0"
 
 ---
 
-**Last Updated:** October 31, 2025
-**Version:** 2025.10.1-fuk.42-69
+[← Back to Configuration](./README.md) | [User Guide →](../README.md)
