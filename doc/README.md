@@ -30,7 +30,8 @@ Internal architecture and developer documentation:
 - 🚀 [Quick Start Guide](./user/getting-started/quickstart.md)
 - 📖 [Button Card Reference](./user/configuration/cards/button.md)
 - 🎨 [Rules Engine Guide](./user/configuration/rules.md)
-- 🔍 [Console Help](./user/advanced/console-help-quick-ref.md)
+- �️ [Manual Routing Guide](./user/manual-routing-guide.md)
+- �🔍 [Console Help](./user/advanced/console-help-quick-ref.md)
 
 ### For Developers
 - 🏛️ [Architecture Overview](./architecture/overview.md)

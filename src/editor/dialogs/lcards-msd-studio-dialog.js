@@ -53,7 +53,8 @@ const MODES = {
     PLACE_ANCHOR: 'place_anchor',
     PLACE_CONTROL: 'place_control',
     CONNECT_LINE: 'connect_line',
-    DRAW_CHANNEL: 'draw_channel'
+    DRAW_CHANNEL: 'draw_channel',
+    ADD_WAYPOINT: 'add_waypoint'
 };
 
 // Tab constants
@@ -133,6 +134,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
             _channelResizeState: { type: Object, state: true },
             // Line Endpoint Drag State (TEST - for debugging)
             _lineEndpointDragState: { type: Object, state: true },
+            // Waypoint Editing State
+            _selectedLineId: { type: String, state: true },  // Which line is selected on canvas
+            _waypointEditingLineId: { type: String, state: true },  // Which line is being edited
+            _waypointDragState: { type: Object, state: true },  // { lineId, waypointIndex, startPos }
+            _showWaypointMarkers: { type: Boolean, state: true },  // Show waypoint markers for all manual lines
+            _clickTimeout: { type: Number, state: true },  // Timeout for distinguishing click from double-click
             // Preview Zoom
             _previewZoom: { type: Number, state: true },
             // HA Components Availability
@@ -216,6 +223,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
         // Lines Tab State (Phase 4)
         this._showLineForm = false;
         this._editingLineId = null;
+        this._waypointEditingLineId = null;
+        this._waypointDragState = null;
+        this._showWaypointMarkers = true;  // Show waypoints by default for manual lines
         this._lineFormData = {
             id: '',
             anchor: '',              // Source: anchor name or control ID
@@ -406,6 +416,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
         }
         if (this._activeMode !== MODES.CONNECT_LINE) {
             this._connectLineState = { source: null, tempLineElement: null };
+        }
+
+        // Exit waypoint mode if switching away from ADD_WAYPOINT
+        if (this._activeMode !== MODES.ADD_WAYPOINT && this._showWaypointMarkers) {
+            this._exitWaypointMode();
+            return; // _exitWaypointMode calls requestUpdate()
         }
 
         lcardsLog.debug('[MSDStudio] Mode changed:', this._activeMode);
@@ -692,7 +708,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
             { mode: MODES.PLACE_ANCHOR, icon: 'mdi:map-marker-plus', tooltip: 'Place Anchor' },
             { mode: MODES.PLACE_CONTROL, icon: 'mdi:widgets', tooltip: 'Place Control' },
             { mode: MODES.CONNECT_LINE, icon: 'mdi:vector-line', tooltip: 'Connect Line' },
-            { mode: MODES.DRAW_CHANNEL, icon: 'mdi:chart-timeline-variant', tooltip: 'Draw Channel' }
+            { mode: MODES.DRAW_CHANNEL, icon: 'mdi:chart-timeline-variant', tooltip: 'Draw Channel' },
+            { mode: MODES.ADD_WAYPOINT, icon: 'mdi:map-marker-path', tooltip: 'Add Waypoint (Select line first)' }
         ];
 
         const debugToggles = [
@@ -1980,6 +1997,60 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     // ============================
+    /**
+     * Handle preview double-click - open edit dialog for line
+     * @param {MouseEvent} event - Double-click event
+     * @private
+     */
+    _handlePreviewDoubleClick(event) {
+        const composedPath = event.composedPath();
+        const clickedElement = composedPath[0];
+
+        // Cancel pending single-click timer
+        if (this._lineClickTimer) {
+            clearTimeout(this._lineClickTimer);
+            this._lineClickTimer = null;
+        }
+
+        // Check if double-clicked on a line path element or hit area
+        if ((clickedElement.tagName === 'path' && clickedElement.classList.contains('line-path')) ||
+            (clickedElement.tagName === 'path' && clickedElement.classList.contains('line-hit-area'))) {
+
+            // Get line ID
+            let lineId;
+            if (clickedElement.classList.contains('line-hit-area')) {
+                const visiblePath = clickedElement.nextElementSibling;
+                lineId = visiblePath?.getAttribute('data-line-id');
+            } else {
+                lineId = clickedElement.getAttribute('data-line-id');
+            }
+
+            if (lineId) {
+                lcardsLog.debug('[MSDStudioDialog] Double-click on line:', lineId);
+
+                // Exit waypoint mode if active
+                if (this._activeMode === MODES.ADD_WAYPOINT) {
+                    this._exitWaypointMode();
+                }
+
+                // Find the line overlay object
+                const overlays = this._workingConfig.msd?.overlays || [];
+                const lineOverlay = overlays.find(o => o.id === lineId && o.type === 'line');
+
+                if (lineOverlay) {
+                    // Open edit dialog for this line
+                    this._editLine(lineOverlay);
+                } else {
+                    lcardsLog.warn('[MSDStudioDialog] Line not found:', lineId);
+                }
+
+                event.stopPropagation();
+                event.preventDefault();
+                return;
+            }
+        }
+    }
+
     // Place Anchor Mode Methods
     // ============================
 
@@ -1989,6 +2060,97 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _handlePreviewClick(event) {
+        // Get the actual clicked element through shadow DOM boundaries
+        const composedPath = event.composedPath();
+        const clickedElement = composedPath[0];
+
+        lcardsLog.debug('[MSDStudioDialog] Preview click:', {
+            mode: this._activeMode,
+            tagName: clickedElement.tagName,
+            classList: clickedElement.classList ? Array.from(clickedElement.classList) : [],
+            dataset: clickedElement.dataset || {},
+            hasAnchorName: clickedElement.hasAttribute?.('data-anchor-name')
+        });
+
+        // Check for line clicks in VIEW mode or ADD_WAYPOINT mode (for selection)
+        if (this._activeMode === MODES.VIEW || this._activeMode === MODES.ADD_WAYPOINT) {
+            // Check if clicked on a line path element or hit area
+            if ((clickedElement.tagName === 'path' && clickedElement.classList.contains('line-path')) ||
+                (clickedElement.tagName === 'path' && clickedElement.classList.contains('line-hit-area'))) {
+                // For hit area, find the corresponding visible path to get line-id
+                let lineId;
+                if (clickedElement.classList.contains('line-hit-area')) {
+                    // Hit area doesn't have data-line-id, so find the next sibling (visible path)
+                    const visiblePath = clickedElement.nextElementSibling;
+                    lineId = visiblePath?.getAttribute('data-line-id');
+                } else {
+                    lineId = clickedElement.getAttribute('data-line-id');
+                }
+                if (lineId) {
+                    // Use a delay to distinguish single-click from double-click
+                    if (this._lineClickTimer) {
+                        clearTimeout(this._lineClickTimer);
+                        this._lineClickTimer = null;
+                    }
+
+                    this._lineClickTimer = setTimeout(() => {
+                        this._selectLine(lineId);
+                        this._lineClickTimer = null;
+                    }, 250); // 250ms delay to detect double-click
+
+                    event.stopPropagation();
+                    return;
+                }
+            }
+            // If in VIEW mode and clicked background, deselect
+            if (this._activeMode === MODES.VIEW) {
+                this._selectedLineId = null;
+                this.requestUpdate();
+                return;
+            }
+        }
+
+        // Handle waypoint mode
+        if (this._activeMode === MODES.ADD_WAYPOINT) {
+            // Check if clicked on anchor marker (for named waypoint)
+            const isAnchorMarker = clickedElement.classList?.contains('anchor-marker') ||
+                                   clickedElement.classList?.contains('interactive-anchor') ||
+                                   clickedElement.hasAttribute?.('data-anchor-name');
+
+            if (isAnchorMarker) {
+                const anchorName = clickedElement.getAttribute('data-anchor-name');
+                if (anchorName && this._selectedLineId) {
+                    this._addNamedWaypoint(anchorName);
+                    event.stopPropagation();
+                    return;
+                }
+            }
+
+            // Check if clicked on waypoint marker (don't add new waypoint)
+            if (clickedElement.classList?.contains('waypoint-marker')) {
+                event.stopPropagation();
+                return;
+            }
+
+            // Check if clicked on empty canvas area (exit waypoint mode)
+            const isEmptyArea = clickedElement.tagName === 'DIV' &&
+                               (clickedElement.classList.contains('preview-scroll-container') ||
+                                clickedElement.classList.contains('preview-container'));
+
+            if (isEmptyArea && !this._waypointDragInProgress) {
+                // Exit waypoint mode (but not if we just finished dragging)
+                this._exitWaypointMode();
+                event.stopPropagation();
+                return;
+            }
+
+            // Otherwise, place coordinate waypoint if line is selected
+            if (this._selectedLineId) {
+                this._handleAddWaypointClick(event);
+                return;
+            }
+        }
+
         // Only handle clicks in specific modes
         if (this._activeMode === MODES.PLACE_ANCHOR) {
             this._handlePlaceAnchorClick(event);
@@ -2252,6 +2414,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _handleDragEnd(event) {
+        // Clear mousedown tracking
+        this._mouseDownPos = null;
+
         if (!this._dragState.active && !this._resizeState.active && !this._anchorDragState.active && !this._channelResizeState.active) return;
 
         if (this._dragState.active) {
@@ -2894,7 +3059,19 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const baseSvgAnchors = this._getBaseSvgAnchors();
         const allAnchors = { ...userAnchors, ...baseSvgAnchors };
 
+        // Validate allAnchors is an object
+        if (!allAnchors || typeof allAnchors !== 'object' || Array.isArray(allAnchors)) {
+            lcardsLog.warn('[MSDStudio] Invalid anchors data:', allAnchors);
+            return null;
+        }
+
         for (const [name, pos] of Object.entries(allAnchors)) {
+            // Validate position is an array
+            if (!Array.isArray(pos) || pos.length < 2) {
+                lcardsLog.trace('[MSDStudio] Invalid anchor position for', name, ':', pos);
+                continue;
+            }
+
             const [x, y] = pos;
 
             // Anchors are just points - no side attachments
@@ -2917,6 +3094,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
     _handleLineEndpointDragStart(event, lineId, endpoint) {
         event.stopPropagation();
         event.preventDefault();
+
+        // Disable endpoint dragging when in waypoint mode
+        if (this._activeMode === MODES.ADD_WAYPOINT) {
+            lcardsLog.debug('[MSDStudio] Endpoint dragging disabled in waypoint mode');
+            return;
+        }
 
         lcardsLog.debug('[MSDStudio] Line endpoint drag start:', lineId, endpoint);
 
@@ -3378,6 +3561,288 @@ export class LCARdSMSDStudioDialog extends LitElement {
             this._activeMode = MODES.VIEW;
             this.requestUpdate();
         }
+    }
+
+    /**
+     * Inject line highlighting styles into MSD card shadow DOM
+     * @private
+     */
+    _injectLineHighlightStyles() {
+        const livePreview = this.shadowRoot?.querySelector('lcards-msd-live-preview');
+        if (!livePreview) return;
+
+        const lpShadow = livePreview.shadowRoot;
+        if (!lpShadow) return;
+
+        const cardContainer = lpShadow.querySelector('.preview-card-container');
+        if (!cardContainer) return;
+
+        const msdCard = cardContainer.querySelector('lcards-msd-card');
+        if (!msdCard) return;
+
+        const msdShadow = msdCard.shadowRoot || msdCard.renderRoot;
+        if (!msdShadow) return;
+
+        // Check if styles already injected
+        if (msdShadow.querySelector('#msd-studio-highlight-styles')) {
+            return;
+        }
+
+        // Inject styles
+        const styleEl = document.createElement('style');
+        styleEl.id = 'msd-studio-highlight-styles';
+        styleEl.textContent = `
+            .line-path {
+                pointer-events: auto !important;
+            }
+            .line-path.line-selected {
+                filter: drop-shadow(0 0 8px #66B0FF) drop-shadow(0 0 4px #66B0FF) !important;
+                stroke-width: 4 !important;
+            }
+            .line-path:hover {
+                filter: drop-shadow(0 0 4px #66B0FF) !important;
+                stroke-width: 3 !important;
+                cursor: pointer;
+            }
+            .line-path.line-selected:hover {
+                filter: drop-shadow(0 0 8px #66B0FF) drop-shadow(0 0 4px #66B0FF) !important;
+                stroke-width: 4 !important;
+            }
+        `;
+        msdShadow.appendChild(styleEl);
+        lcardsLog.debug('[MSDStudioDialog] Injected line highlight styles');
+    }
+
+    /**
+     * Inject line highlighting styles into MSD card shadow DOM
+     * @private
+     */
+    _injectLineHighlightStyles() {
+        const livePreview = this.shadowRoot?.querySelector('lcards-msd-live-preview');
+        if (!livePreview) return;
+
+        const lpShadow = livePreview.shadowRoot;
+        if (!lpShadow) return;
+
+        const cardContainer = lpShadow.querySelector('.preview-card-container');
+        if (!cardContainer) return;
+
+        const msdCard = cardContainer.querySelector('lcards-msd-card');
+        if (!msdCard) return;
+
+        const msdShadow = msdCard.shadowRoot || msdCard.renderRoot;
+        if (!msdShadow) return;
+
+        // Inject styles
+        const styleEl = document.createElement('style');
+        styleEl.id = 'msd-studio-highlight-styles';
+        styleEl.textContent = `
+            .line-path {
+                pointer-events: none !important;
+                transition: none !important;
+            }
+            .line-hit-area {
+                pointer-events: stroke !important;
+                cursor: pointer !important;
+            }
+            /* Hover on hit area highlights the next sibling (visible path) */
+            .line-hit-area:hover + .line-selection-indicator + .line-path,
+            .line-hit-area:hover + .line-path {
+                filter: drop-shadow(0 0 12px #66B0FF) drop-shadow(0 0 6px #66B0FF) !important;
+                transition: none !important;
+            }
+        `;
+        msdShadow.appendChild(styleEl);
+        lcardsLog.debug('[MSDStudioDialog] Injected line highlight styles (hover only)');
+        lcardsLog.debug('[MSDStudioDialog] Injected line highlight styles');
+    }
+
+    /**
+     * Select a line on canvas (for waypoint editing)
+     * @param {string} lineId
+     * @private
+     */
+    _selectLine(lineId) {
+        lcardsLog.debug(`[MSDStudioDialog] Selecting line: ${lineId}`);
+
+        // Clear previous selection
+        if (this._selectedLineId && this._workingConfig.msd?.overlays) {
+            const prevLine = this._workingConfig.msd.overlays.find(o => o.id === this._selectedLineId);
+            if (prevLine) delete prevLine._editorSelected;
+        }
+
+        // Update selected line ID and mark overlay
+        this._selectedLineId = lineId;
+        this._showWaypointMarkers = true;
+
+        // Mark the overlay as selected (for rendering)
+        if (this._workingConfig.msd?.overlays) {
+            const lineOverlay = this._workingConfig.msd.overlays.find(o => o.id === lineId);
+            if (lineOverlay) {
+                lineOverlay._editorSelected = true;
+            }
+        }
+
+        // Switch to ADD_WAYPOINT mode automatically
+        this._activeMode = MODES.ADD_WAYPOINT;
+
+        lcardsLog.info(`[MSDStudio] Selected line: ${lineId} (waypoint markers enabled, static indicator added)`);
+
+        this.requestUpdate();
+    }
+
+    /**
+     * Add a named anchor as a waypoint
+     * @param {string} anchorName - Anchor name to add
+     * @private
+     */
+    _addNamedWaypoint(anchorName) {
+        if (!this._selectedLineId) return;
+
+        const overlays = this._workingConfig.msd?.overlays || [];
+        const lineIndex = overlays.findIndex(o => o.id === this._selectedLineId && o.type === 'line');
+
+        if (lineIndex === -1) {
+            lcardsLog.warn(`[MSDStudio] Cannot find line overlay: ${this._selectedLineId}`);
+            return;
+        }
+
+        const line = overlays[lineIndex];
+
+        // Auto-convert to manual mode if not already
+        if (line.route !== 'manual') {
+            lcardsLog.info(`[MSDStudio] Auto-converting line ${line.id} to manual mode`);
+            line.route = 'manual';
+            line.waypoints = [];
+        }
+
+        // Initialize waypoints array if needed
+        if (!line.waypoints) {
+            line.waypoints = [];
+        }
+
+        // Add anchor name as waypoint
+        line.waypoints.push(anchorName);
+
+        // Update line form data if this line is being edited
+        if (this._lineFormData?.id === line.id) {
+            this._lineFormData.route = 'manual';
+            this._lineFormData.waypoints = [...line.waypoints];
+        }
+
+        lcardsLog.info(`[MSDStudio] Added named waypoint "${anchorName}" to line ${line.id} (total: ${line.waypoints.length})`);
+
+        // Trigger re-render
+        this.requestUpdate();
+    }
+
+    /**
+     * Exit waypoint mode and return to VIEW mode
+     * @private
+     */
+    _exitWaypointMode() {
+        lcardsLog.debug('[MSDStudioDialog] Exiting waypoint mode');
+
+        // Clear selection marker from overlay
+        if (this._selectedLineId && this._workingConfig.msd?.overlays) {
+            const lineOverlay = this._workingConfig.msd.overlays.find(o => o.id === this._selectedLineId);
+            if (lineOverlay) {
+                delete lineOverlay._editorSelected;
+            }
+        }
+
+        // Clear selection
+        this._selectedLineId = null;
+        this._showWaypointMarkers = false;
+        this._activeMode = MODES.VIEW;
+
+        this.requestUpdate();
+    }
+
+    /**
+     * Handle add waypoint click
+     * Uses a delay to distinguish single click from double-click
+     * @param {MouseEvent} event - Click event
+     * @private
+     */
+    _handleAddWaypointClick(event) {
+        if (!this._selectedLineId) {
+            lcardsLog.warn('[MSDStudio] No line selected - click a line first');
+            return;
+        }
+
+        // Ignore click if it was part of a drag operation
+        if (this._waypointDragInProgress) {
+            lcardsLog.debug('[MSDStudio] Click ignored - waypoint drag in progress');
+            return;
+        }
+
+        // Clear any pending click timeout
+        if (this._clickTimeout) {
+            clearTimeout(this._clickTimeout);
+            this._clickTimeout = null;
+        }
+
+        // Store click coordinates
+        const coords = this._getPreviewCoordinates(event);
+        if (!coords) {
+            lcardsLog.warn('[MSDStudio] Could not get preview coordinates');
+            return;
+        }
+
+        // Delay waypoint creation to allow double-click to cancel
+        this._clickTimeout = setTimeout(() => {
+            this._addWaypointAtPosition(coords.x, coords.y);
+            this._clickTimeout = null;
+        }, 250); // 250ms delay
+    }
+
+    /**
+     * Actually add the waypoint (called after delay)
+     * @param {number} x
+     * @param {number} y
+     * @private
+     */
+    _addWaypointAtPosition(x, y) {
+        // Find the selected line
+        const overlays = this._workingConfig.msd?.overlays || [];
+        const lineIndex = overlays.findIndex(o => o.id === this._selectedLineId);
+
+        if (lineIndex === -1) {
+            lcardsLog.warn('[MSDStudio] Selected line not found');
+            return;
+        }
+
+        const line = overlays[lineIndex];
+
+        // Auto-convert to manual mode if not already
+        if (line.route !== 'manual') {
+            lcardsLog.info(`[MSDStudio] Auto-converting line ${line.id} to manual mode`);
+            line.route = 'manual';
+            line.waypoints = [];
+        }
+
+        // Initialize waypoints array if needed
+        if (!line.waypoints) {
+            line.waypoints = [];
+        }
+
+        // Add waypoint at clicked position (rounded to avoid floating point issues)
+        const roundedX = Math.round(x);
+        const roundedY = Math.round(y);
+        line.waypoints.push([roundedX, roundedY]);
+
+        // Update line form data if this line is being edited
+        if (this._lineFormData?.id === line.id) {
+            this._lineFormData.route = 'manual';
+            this._lineFormData.waypoints = [...line.waypoints];
+        }
+
+        lcardsLog.info(`[MSDStudio] Added waypoint to ${line.id} at [${roundedX}, ${roundedY}] (total: ${line.waypoints.length})`);
+
+        // Save and update preview
+        this._schedulePreviewUpdate();
+        this.requestUpdate();
     }
 
     /**
@@ -4286,27 +4751,32 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     const isBaseSvg = !userAnchors[name];
                     const color = isBaseSvg ? '#888888' : '#FFFF00';
                     const isDragging = this._anchorDragState.active && this._anchorDragState.anchorName === name;
+                    const isWaypointMode = this._activeMode === MODES.ADD_WAYPOINT;
 
                     return html`
                         <!-- Anchor marker -->
                         <div
-                            class="${!isBaseSvg ? 'interactive-anchor' : ''} ${isDragging ? 'anchor-dragging' : ''}"
+                            class="${!isBaseSvg ? 'interactive-anchor' : ''} ${isDragging ? 'anchor-dragging' : ''} anchor-marker"
                             data-anchor-name="${name}"
+                            data-is-base-svg="${isBaseSvg}"
                             style="
                                 position: absolute;
                                 left: ${pixelX}px;
                                 top: ${pixelY}px;
                                 transform: translate(-50%, -50%);
-                                width: 12px;
-                                height: 12px;
+                                width: ${isWaypointMode ? '16px' : '12px'};
+                                height: ${isWaypointMode ? '16px' : '12px'};
                                 background: ${color};
-                                border: 2px solid white;
+                                border: 2px solid ${isWaypointMode ? '#00FFFF' : 'white'};
                                 border-radius: 50%;
-                                box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
-                                pointer-events: ${!isBaseSvg ? 'auto' : 'none'};
+                                box-shadow: 0 0 ${isWaypointMode ? '8px' : '4px'} rgba(0, 0, 0, 0.5);
+                                pointer-events: ${!isBaseSvg || isWaypointMode ? 'auto' : 'none'};
+                                cursor: ${isWaypointMode ? 'pointer' : 'default'};
+                                transition: all 0.2s ease;
+                                z-index: ${isWaypointMode ? '1001' : '997'};
                             "
-                            @mousedown=${!isBaseSvg ? (e) => this._handleAnchorDragStart(e, name) : null}
-                            @dblclick=${!isBaseSvg ? (e) => this._handleAnchorDoubleClick(e, name) : null}>
+                            @mousedown=${!isBaseSvg && this._activeMode !== MODES.ADD_WAYPOINT ? (e) => this._handleAnchorDragStart(e, name) : null}
+                            @dblclick=${!isBaseSvg && this._activeMode !== MODES.ADD_WAYPOINT ? (e) => this._handleAnchorDoubleClick(e, name) : null}>
                         </div>
                         <!-- Anchor label -->
                         <div style="
@@ -4756,6 +5226,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         dragPixelY = (dragY - viewBoxY) / scale + offsetY + (rect.top - panelRect.top);
                     }
 
+                    // Hide endpoint markers when in waypoint mode for the selected line
+                    const isInWaypointMode = this._activeMode === MODES.ADD_WAYPOINT && this._selectedLineId === line.id;
+                    if (isInWaypointMode) {
+                        return ''; // Don't render endpoint markers for line in waypoint mode
+                    }
+
                     return html`
                         <div class="line-endpoint-marker start"
                              data-line-id="${line.id}"
@@ -4992,6 +5468,400 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
+     * Render waypoint markers for manual lines
+     * Shows draggable circles at each waypoint position
+     * Only shows markers for the selected line
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderWaypointMarkers() {
+        if (!this._showWaypointMarkers || !this._selectedLineId) return '';
+
+        const overlays = this._workingConfig.msd?.overlays || [];
+        const selectedLine = overlays.find(o => o.id === this._selectedLineId);
+
+        // Show markers only for selected line if it has waypoints
+        if (!selectedLine || !selectedLine.waypoints || selectedLine.waypoints.length === 0) return '';
+
+        // Get coordinate conversion context
+        const livePreview = this.shadowRoot.querySelector('lcards-msd-live-preview');
+        if (!livePreview) return '';
+
+        const livePreviewShadow = livePreview.shadowRoot;
+        if (!livePreviewShadow) return '';
+
+        const cardContainer = livePreviewShadow.querySelector('.preview-card-container');
+        if (!cardContainer) return '';
+
+        const msdCard = cardContainer.querySelector('lcards-msd-card');
+        if (!msdCard) return '';
+
+        const shadowRoot = msdCard.shadowRoot || msdCard.renderRoot;
+        if (!shadowRoot) return '';
+
+        const svg = shadowRoot.querySelector('svg');
+        if (!svg) return '';
+
+        const viewBox = svg.getAttribute('viewBox')?.split(' ').map(Number);
+        if (!viewBox || viewBox.length !== 4) return '';
+
+        const [viewBoxX, viewBoxY, viewBoxWidth, viewBoxHeight] = viewBox;
+        const rect = svg.getBoundingClientRect();
+        const panelRect = this.shadowRoot.querySelector('.preview-panel')?.getBoundingClientRect();
+        if (!panelRect) return '';
+
+        const scale = Math.max(viewBoxWidth / rect.width, viewBoxHeight / rect.height);
+        const renderedWidth = viewBoxWidth / scale;
+        const renderedHeight = viewBoxHeight / scale;
+        const offsetX = (rect.width - renderedWidth) / 2;
+        const offsetY = (rect.height - renderedHeight) / 2;
+
+        // Helper to convert viewBox to pixel coordinates
+        const vbToPixel = (vbX, vbY) => {
+            const pixelX = (vbX - viewBoxX) / scale + offsetX + (rect.left - panelRect.left);
+            const pixelY = (vbY - viewBoxY) / scale + offsetY + (rect.top - panelRect.top);
+            return [pixelX, pixelY];
+        };
+
+        // Get all anchors to resolve named waypoints
+        const userAnchors = this._workingConfig.msd?.anchors || {};
+        const baseSvgAnchors = this._getBaseSvgAnchors();
+        const allAnchors = { ...baseSvgAnchors, ...userAnchors };
+
+        return html`
+            <div style="
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+                z-index: 1000;
+            ">
+                ${selectedLine.waypoints.map((wp, wpIndex) => {
+                    // Handle both coordinate arrays [x, y] and named anchors "anchor_name"
+                    let wpX, wpY, isNamedAnchor = false, anchorName = '';
+
+                    if (Array.isArray(wp) && wp.length >= 2) {
+                        // Coordinate waypoint
+                        [wpX, wpY] = wp;
+                    } else if (typeof wp === 'string' && allAnchors[wp]) {
+                        // Named anchor waypoint - resolve to coordinates
+                        isNamedAnchor = true;
+                        anchorName = wp;
+                        [wpX, wpY] = allAnchors[wp];
+                    } else {
+                        // Invalid waypoint
+                        return '';
+                    }
+
+                    const [pixelX, pixelY] = vbToPixel(wpX, wpY);
+
+                    const isDragging = this._waypointDragState?.lineId === selectedLine.id &&
+                                     this._waypointDragState?.waypointIndex === wpIndex;
+
+                    // Always show as editable since we're on the selected line
+                    return html`
+                        <div
+                            class="waypoint-marker editing ${isDragging ? 'dragging' : ''} ${isNamedAnchor ? 'named-anchor' : ''}"
+                            style="
+                                position: absolute;
+                                left: ${pixelX}px;
+                                top: ${pixelY}px;
+                                transform: translate(-50%, -50%);
+                                width: 24px;
+                                height: 24px;
+                                border-radius: 50%;
+                                background: ${isDragging ? '#FFAA00' : (isNamedAnchor ? '#FFFF00' : '#00FF88')};
+                                border: 2px solid ${isNamedAnchor ? '#FF9900' : '#FFF'};
+                                cursor: move;
+                                pointer-events: auto;
+                                box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                                transition: all 0.2s ease;
+                                z-index: ${isDragging ? '1002' : '1001'};
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                font-family: 'Antonio', sans-serif;
+                                font-size: 12px;
+                                font-weight: 700;
+                                color: #000;
+                            "
+                            @mousedown=${(e) => this._handleWaypointMouseDown(e, selectedLine.id, wpIndex)}
+                            @dblclick=${(e) => this._handleWaypointDoubleClick(e, selectedLine.id, wpIndex)}
+                            title="${isNamedAnchor ? `Named waypoint: ${anchorName}` : `Waypoint ${wpIndex + 1}`} (Drag to move, Double-click to delete)">
+                            ${wpIndex + 1}
+                        </div>
+                    `;
+                })}
+            </div>
+        `;
+    }
+
+    /**
+     * Handle mouse down on waypoint marker - start drag
+     * @param {MouseEvent} e
+     * @param {string} lineId
+     * @param {number} waypointIndex
+     * @private
+     */
+    _handleWaypointMouseDown(e, lineId, waypointIndex) {
+        e.stopPropagation();
+        e.preventDefault();
+
+        // Enable editing for this line if not already
+        if (this._waypointEditingLineId !== lineId) {
+            this._waypointEditingLineId = lineId;
+        }
+
+        // Set flag to prevent click event from firing
+        this._waypointDragInProgress = true;
+
+        // Start drag state
+        this._waypointDragState = {
+            lineId,
+            waypointIndex,
+            startX: e.clientX,
+            startY: e.clientY
+        };
+
+        // Add global mouse handlers
+        this._boundWaypointMouseMove = this._handleWaypointMouseMove.bind(this);
+        this._boundWaypointMouseUp = this._handleWaypointMouseUp.bind(this);
+        document.addEventListener('mousemove', this._boundWaypointMouseMove);
+        document.addEventListener('mouseup', this._boundWaypointMouseUp);
+
+        this.requestUpdate();
+    }
+
+    /**
+     * Handle waypoint drag
+     * @param {MouseEvent} e
+     * @private
+     */
+    _handleWaypointMouseMove(e) {
+        if (!this._waypointDragState) return;
+
+        e.preventDefault();
+
+        const { lineId, waypointIndex } = this._waypointDragState;
+
+        // Get coordinate conversion context - use wrapper method
+        const coords = this._getPreviewCoordinatesFromMouseEvent(e);
+
+        if (!coords) return;
+
+        let { x, y } = coords;
+
+        // Apply grid snapping if enabled
+        if (this._enableSnapping && this._gridSpacing > 0) {
+            const snapped = snapToGrid(x, y, this._gridSpacing, true);
+            x = snapped[0];
+            y = snapped[1];
+        }
+
+        // Check if near an anchor (snap to anchor if within threshold)
+        let waypointValue = [x, y];
+        const anchorThreshold = 30; // ViewBox units
+        const userAnchors = this._workingConfig.msd?.anchors || {};
+        const baseSvgAnchors = this._getBaseSvgAnchors();
+        const allAnchors = { ...userAnchors, ...baseSvgAnchors };
+
+        if (allAnchors && typeof allAnchors === 'object' && !Array.isArray(allAnchors)) {
+            for (const [anchorName, anchorPos] of Object.entries(allAnchors)) {
+                if (Array.isArray(anchorPos) && anchorPos.length >= 2) {
+                    const [ax, ay] = anchorPos;
+                    const dist = Math.sqrt(Math.pow(x - ax, 2) + Math.pow(y - ay, 2));
+                    if (dist < anchorThreshold) {
+                        // Convert to named anchor waypoint
+                        waypointValue = anchorName;
+                        lcardsLog.debug(`[MSDStudio] Waypoint ${waypointIndex} snapped to anchor: ${anchorName}`);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Update waypoint position in _workingConfig
+        const overlays = this._workingConfig.msd?.overlays || [];
+        const lineIndex = overlays.findIndex(o => o.id === lineId);
+
+        if (lineIndex !== -1) {
+            const line = overlays[lineIndex];
+            if (line.waypoints && line.waypoints[waypointIndex] !== undefined) {
+                line.waypoints[waypointIndex] = waypointValue;
+
+                // Also update _lineFormData if this is the currently edited line
+                if (this._lineFormData?.id === lineId && this._lineFormData.waypoints) {
+                    this._lineFormData.waypoints[waypointIndex] = waypointValue;
+                }
+
+                // Save changes
+                this._saveLine();
+
+                // Trigger preview update
+                this._schedulePreviewUpdate();
+                this.requestUpdate();
+            }
+        }
+    }
+
+    /**
+     * Handle waypoint drag end
+     * @param {MouseEvent} e
+     * @private
+     */
+    _handleWaypointMouseUp(e) {
+        if (!this._waypointDragState) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Clean up drag state
+        this._waypointDragState = null;
+
+        // Remove global handlers
+        if (this._boundWaypointMouseMove) {
+            document.removeEventListener('mousemove', this._boundWaypointMouseMove);
+            this._boundWaypointMouseMove = null;
+        }
+        if (this._boundWaypointMouseUp) {
+            document.removeEventListener('mouseup', this._boundWaypointMouseUp);
+            this._boundWaypointMouseUp = null;
+        }
+
+        // Clear drag flag after a longer delay to prevent click event from exiting waypoint mode
+        setTimeout(() => {
+            this._waypointDragInProgress = false;
+        }, 150);
+
+        this.requestUpdate();
+    }
+
+    /**
+     * Handle double-click on waypoint - delete it
+     * @param {MouseEvent} e
+     * @param {string} lineId
+     * @param {number} waypointIndex
+     * @private
+     */
+    _handleWaypointDoubleClick(e, lineId, waypointIndex) {
+        e.stopPropagation();
+        e.preventDefault();
+
+        // Cancel any pending single-click waypoint creation
+        if (this._clickTimeout) {
+            clearTimeout(this._clickTimeout);
+            this._clickTimeout = null;
+        }
+
+        const overlays = this._workingConfig.msd?.overlays || [];
+        const lineIndex = overlays.findIndex(o => o.id === lineId);
+
+        if (lineIndex !== -1) {
+            const line = overlays[lineIndex];
+            if (line.waypoints && line.waypoints.length > 0) {
+                // Remove waypoint
+                line.waypoints.splice(waypointIndex, 1);
+
+                // Also update _lineFormData if this is the currently edited line
+                if (this._lineFormData?.id === lineId && this._lineFormData.waypoints) {
+                    this._lineFormData.waypoints.splice(waypointIndex, 1);
+                }
+
+                // If no waypoints left, could optionally switch back to auto mode
+                if (line.waypoints.length === 0) {
+                    // Keep manual mode but with no waypoints (direct path)
+                }
+
+                lcardsLog.debug(`[MSDStudio] Deleted waypoint ${waypointIndex} from line ${lineId}`);
+
+                // Update preview
+                this._schedulePreviewUpdate();
+                this.requestUpdate();
+            }
+        }
+    }
+
+    /**
+     * Convert auto/direct routed line to manual mode with current path as waypoints
+     * @param {string} lineId
+     * @private
+     */
+    _convertLineToManual(lineId) {
+        // Find the line in the rendered SVG to get its current path
+        const livePreview = this.shadowRoot.querySelector('lcards-msd-live-preview');
+        if (!livePreview) {
+            lcardsLog.warn('[MSDStudio] Cannot convert to manual: preview not found');
+            return;
+        }
+
+        const livePreviewShadow = livePreview.shadowRoot;
+        if (!livePreviewShadow) return;
+
+        const cardContainer = livePreviewShadow.querySelector('.preview-card-container');
+        if (!cardContainer) return;
+
+        const msdCard = cardContainer.querySelector('lcards-msd-card');
+        if (!msdCard) return;
+
+        const shadowRoot = msdCard.shadowRoot || msdCard.renderRoot;
+        if (!shadowRoot) return;
+
+        const svg = shadowRoot.querySelector('svg');
+        if (!svg) return;
+
+        // Find the line's path element
+        const linePath = svg.querySelector(`path[data-overlay-id="${lineId}"]`);
+        if (!linePath) {
+            lcardsLog.warn('[MSDStudio] Cannot convert to manual: line path not found in SVG');
+            return;
+        }
+
+        // Get the path data and parse it into waypoints
+        const pathData = linePath.getAttribute('d');
+        if (!pathData) return;
+
+        // Parse SVG path commands (simplified - handles M and L commands)
+        const waypoints = [];
+        const commands = pathData.match(/[ML]\s*[\d.]+,[\d.]+/g) || [];
+
+        commands.forEach((cmd, index) => {
+            // Skip first M (start point) and last point (end point) as they're already defined
+            if (index === 0 || index === commands.length - 1) return;
+
+            const coords = cmd.replace(/[ML]\s*/, '').split(',').map(Number);
+            if (coords.length === 2) {
+                waypoints.push([coords[0], coords[1]]);
+            }
+        });
+
+        // Update the line config
+        const overlays = this._workingConfig.msd?.overlays || [];
+        const lineIndex = overlays.findIndex(o => o.id === lineId);
+
+        if (lineIndex !== -1) {
+            const line = overlays[lineIndex];
+            line.route = 'manual';
+            line.waypoints = waypoints;
+
+            // Update form data if this is the currently edited line
+            if (this._editingLineId === lineId) {
+                this._lineFormData.route = 'manual';
+                this._lineFormData.waypoints = waypoints;
+                this._waypointEditingLineId = lineId;
+                this._showWaypointMarkers = true;
+            }
+
+            lcardsLog.info(`[MSDStudio] Converted line ${lineId} to manual mode with ${waypoints.length} waypoints`);
+
+            // Update preview
+            this._schedulePreviewUpdate();
+            this.requestUpdate();
+        }
+    }
+
+    /**
      * Render channel highlight overlay
      * Shows pulsing highlight around selected channel
      * @returns {TemplateResult}
@@ -5127,6 +5997,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _renderAttachmentPointsOverlay() {
+        // Don't show attachment points in waypoint mode to avoid conflicts with anchor selection
+        if (this._activeMode === MODES.ADD_WAYPOINT) return '';
+
         // Show attachment points when in connect line mode OR when toggle is on
         if (this._activeMode !== MODES.CONNECT_LINE && !this._showAttachmentPoints) return '';
 
@@ -8363,7 +9236,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     overlay.route_channel_mode = mode;
 
                     // Auto-configure smart routing (will be auto-upgraded by RouterCore)
-                    // Don't set route_mode_full explicitly - let auto-upgrade handle it
+                    // Use schema-defined 'route' field - let auto-upgrade handle mode selection
 
                     // Set optimal channel shaping parameters only if not already configured
                     if (!overlay.channel_shaping_max_attempts) {
@@ -8502,6 +9375,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             clearance: line.clearance,
             route_hint: line.route_hint,
             route_hint_last: line.route_hint_last,
+            waypoints: line.waypoints || [],
             corner_style: line.corner_style || 'miter',
             corner_radius: line.corner_radius || 12,
             smoothing_mode: line.smoothing_mode || 'none',
@@ -8583,6 +9457,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
         if (this._lineFormData.route_hint_last) {
             lineOverlay.route_hint_last = this._lineFormData.route_hint_last;
         }
+        if (this._lineFormData.waypoints && this._lineFormData.waypoints.length > 0) {
+            lineOverlay.waypoints = this._lineFormData.waypoints;
+        }
         if (this._lineFormData.corner_style && this._lineFormData.corner_style !== 'miter') {
             lineOverlay.corner_style = this._lineFormData.corner_style;
         }
@@ -8648,9 +9525,13 @@ export class LCARdSMSDStudioDialog extends LitElement {
             this._workingConfig.msd.overlays = [];
         }
 
-        // Update or add
+        // Preserve _editorSelected flag if it exists
         const existingIndex = this._workingConfig.msd.overlays.findIndex(o => o.id === this._lineFormData.id);
         if (existingIndex >= 0) {
+            const existingOverlay = this._workingConfig.msd.overlays[existingIndex];
+            if (existingOverlay._editorSelected) {
+                lineOverlay._editorSelected = true;
+            }
             this._workingConfig.msd.overlays[existingIndex] = lineOverlay;
             lcardsLog.debug('[MSDStudio] Updated line:', this._lineFormData.id);
         } else {
@@ -9077,9 +9958,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
      */
     _renderLineFormRouting() {
         const routeMode = this._lineFormData.route || 'auto';
-        const routeInfo = routeMode === 'direct'
-            ? { icon: 'mdi:vector-line', title: 'Direct', description: 'Straight line from source to target' }
-            : { icon: 'mdi:routes', title: 'Auto', description: 'Intelligent pathfinding with obstacle avoidance' };
+        const routeInfoMap = {
+            'direct': { icon: 'mdi:vector-line', title: 'Direct', description: 'Straight line from source to target' },
+            'manual': { icon: 'mdi:map-marker-path', title: 'Manual', description: 'Draw custom path through explicit waypoints' },
+            'auto': { icon: 'mdi:routes', title: 'Auto', description: 'Intelligent pathfinding with obstacle avoidance' }
+        };
+        const routeInfo = routeInfoMap[routeMode] || routeInfoMap['auto'];
 
         return html`
             <div style="display: flex; flex-direction: column; gap: 16px;">
@@ -9096,7 +9980,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
                             select: {
                                 options: [
                                     { value: 'auto', label: 'Auto (Recommended - Smart routing)' },
-                                    { value: 'direct', label: 'Direct (Straight line)' }
+                                    { value: 'direct', label: 'Direct (Straight line)' },
+                                    { value: 'manual', label: 'Manual (Custom waypoints)' }
                                 ]
                             }
                         }}
@@ -9111,9 +9996,22 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     <!-- Info Panel -->
                     <div style="margin-top: 12px; padding: 12px; background: var(--secondary-background-color); border-radius: 8px; display: flex; gap: 12px; align-items: start;">
                         <ha-icon icon="${routeInfo.icon}" style="--mdc-icon-size: 24px; color: var(--primary-color); margin-top: 2px;"></ha-icon>
-                        <div>
+                        <div style="flex: 1;">
                             <div style="font-weight: 600; margin-bottom: 4px;">${routeInfo.title}</div>
                             <div style="font-size: 13px; color: var(--secondary-text-color);">${routeInfo.description}</div>
+
+                            ${routeMode === 'auto' || routeMode === 'direct' ? html`
+                                <ha-button
+                                    @click=${() => this._convertLineToManual(this._lineFormData.id)}
+                                    size="small"
+                                    style="margin-top: 12px;">
+                                    <ha-icon icon="mdi:content-save-edit" slot="icon"></ha-icon>
+                                    Freeze to Manual Mode
+                                </ha-button>
+                                <div style="font-size: 11px; color: var(--secondary-text-color); margin-top: 4px;">
+                                    Convert current auto-routed path to manual waypoints
+                                </div>
+                            ` : ''}
                         </div>
                     </div>
                 </lcards-form-section>
@@ -9177,32 +10075,176 @@ export class LCARdSMSDStudioDialog extends LitElement {
                             style="margin-top: 12px;">
                         </ha-selector>
                     </lcards-form-section>
-
-                    <!-- Advanced Routing Options -->
-                    <lcards-form-section
-                        header="Advanced Options"
-                        description="Fine-tune routing behavior"
-                        icon="mdi:cog"
-                        ?expanded=${false}>
-
-                        <ha-textfield
-                            type="number"
-                            label="Clearance (pixels)"
-                            .value=${String(this._lineFormData.clearance || '')}
-                            @input=${(e) => {
-                                const val = e.target.value;
-                                if (val === '') {
-                                    delete this._lineFormData.clearance;
-                                } else {
-                                    this._lineFormData.clearance = Number(val);
-                                }
-                                this.requestUpdate();
-                            }}
-                            helper-text="Minimum pixels from obstacles (leave empty for default: 8)"
-                            style="width: 100%;">
-                        </ha-textfield>
-                    </lcards-form-section>
                 ` : ''}
+
+                <!-- Manual Waypoints -->
+                ${this._lineFormData.route === 'manual' ? html`
+                        <lcards-form-section
+                            header="Waypoints"
+                            description="Define explicit path coordinates"
+                            icon="mdi:map-marker-path"
+                            ?expanded=${true}>
+
+                            <!-- Visual Editing Controls -->
+                            <div style="margin-bottom: 16px; padding: 12px; background: var(--card-background-color); border-radius: 8px; border: 1px solid var(--divider-color);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <div style="font-weight: 500; color: var(--primary-text-color);">
+                                        <ha-icon icon="mdi:cursor-move" style="--mdc-icon-size: 20px; vertical-align: middle; margin-right: 4px;"></ha-icon>
+                                        Visual Editing
+                                    </div>
+                                    <ha-button
+                                        @click=${() => {
+                                            this._waypointEditingLineId = this._waypointEditingLineId === this._lineFormData.id ? null : this._lineFormData.id;
+                                            this._showWaypointMarkers = true;
+                                            this.requestUpdate();
+                                        }}
+                                        .outlined=${this._waypointEditingLineId !== this._lineFormData.id}
+                                        size="small">
+                                        <ha-icon icon="${this._waypointEditingLineId === this._lineFormData.id ? 'mdi:eye-off' : 'mdi:eye'}" slot="icon"></ha-icon>
+                                        ${this._waypointEditingLineId === this._lineFormData.id ? 'Hide' : 'Show'} Markers
+                                    </ha-button>
+                                </div>
+                                <div style="color: var(--secondary-text-color); font-size: 0.875rem; line-height: 1.4;">
+                                    ${this._waypointEditingLineId === this._lineFormData.id ? html`
+                                        ✓ Visual editing enabled<br>
+                                        • <strong>Drag</strong> waypoint markers to reposition<br>
+                                        • <strong>Double-click</strong> marker to delete waypoint<br>
+                                        • <strong>Click</strong> line path to add waypoint (coming soon)
+                                    ` : html`
+                                        Click "Show Markers" to enable interactive waypoint editing on the preview
+                                    `}
+                                </div>
+                            </div>
+
+                            <!-- Waypoint List -->
+                            <div style="margin-bottom: 12px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <span style="font-weight: 500;">Waypoints (${(this._lineFormData.waypoints || []).length})</span>
+                                    <ha-button
+                                        @click=${() => {
+                                            if (!this._lineFormData.waypoints) {
+                                                this._lineFormData.waypoints = [];
+                                            }
+                                            // Add waypoint at approximate center of viewBox
+                                            const viewBox = this._workingConfig.msd?.view_box || [0, 0, 1920, 1080];
+                                            const centerX = viewBox[0] + viewBox[2] / 2;
+                                            const centerY = viewBox[1] + viewBox[3] / 2;
+                                            this._lineFormData.waypoints.push([centerX, centerY]);
+                                            this._waypointEditingLineId = this._lineFormData.id;
+                                            this._showWaypointMarkers = true;
+                                            this.requestUpdate();
+                                        }}
+                                        size="small">
+                                        <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                                        Add Waypoint
+                                    </ha-button>
+                                </div>
+
+                                ${(this._lineFormData.waypoints || []).length > 0 ? html`
+                                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                                        ${(this._lineFormData.waypoints || []).map((wp, index) => html`
+                                            <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--card-background-color); border-radius: 4px; border: 1px solid var(--divider-color);">
+                                                <div style="min-width: 24px; text-align: center; font-weight: 500; color: var(--primary-color);">${index + 1}</div>
+                                                <ha-textfield
+                                                    type="number"
+                                                    label="X"
+                                                    .value=${String(wp[0] || 0)}
+                                                    @input=${(e) => {
+                                                        this._lineFormData.waypoints[index][0] = Number(e.target.value);
+                                                        this._saveLine();
+                                                        this._schedulePreviewUpdate();
+                                                        this.requestUpdate();
+                                                    }}
+                                                    style="flex: 1;">
+                                                </ha-textfield>
+                                                <ha-textfield
+                                                    type="number"
+                                                    label="Y"
+                                                    .value=${String(wp[1] || 0)}
+                                                    @input=${(e) => {
+                                                        this._lineFormData.waypoints[index][1] = Number(e.target.value);
+                                                        this._saveLine();
+                                                        this._schedulePreviewUpdate();
+                                                        this.requestUpdate();
+                                                    }}
+                                                    style="flex: 1;">
+                                                </ha-textfield>
+                                                <ha-icon-button
+                                                    @click=${() => {
+                                                        this._lineFormData.waypoints.splice(index, 1);
+                                                        this._saveLine();
+                                                        this._schedulePreviewUpdate();
+                                                        this.requestUpdate();
+                                                    }}
+                                                    title="Delete waypoint">
+                                                    <ha-icon icon="mdi:delete"></ha-icon>
+                                                </ha-icon-button>
+                                            </div>
+                                        `)}
+                                    </div>
+                                ` : html`
+                                    <div style="padding: 16px; text-align: center; color: var(--secondary-text-color); font-size: 0.875rem; border: 1px dashed var(--divider-color); border-radius: 4px;">
+                                        No waypoints defined. Click "Add Waypoint" or use visual editing.
+                                    </div>
+                                `}
+                            </div>
+
+                            <!-- Raw YAML Editor (Advanced) -->
+                            <details style="margin-top: 12px;">
+                                <summary style="cursor: pointer; padding: 8px; background: var(--card-background-color); border-radius: 4px; user-select: none;">
+                                    <ha-icon icon="mdi:code-json" style="--mdc-icon-size: 16px; vertical-align: middle;"></ha-icon>
+                                    Advanced: Edit Raw JSON
+                                </summary>
+                                <div style="margin-top: 8px;">
+                                    <ha-yaml-editor
+                                        .value=${JSON.stringify(this._lineFormData.waypoints || [], null, 2)}
+                                        @value-changed=${(e) => {
+                                            try {
+                                                const parsed = JSON.parse(e.detail.value);
+                                                if (Array.isArray(parsed)) {
+                                                    this._lineFormData.waypoints = parsed;
+                                                    this._saveLine();
+                                                    this._schedulePreviewUpdate();
+                                                }
+                                            } catch (err) {
+                                                // Invalid JSON - ignore
+                                            }
+                                            this.requestUpdate();
+                                        }}
+                                        style="display: block;">
+                                    </ha-yaml-editor>
+                                </div>
+                            </details>
+
+                        </lcards-form-section>
+                    ` : ''}
+
+                    <!-- Auto Routing: Clearance -->
+                    ${routeMode === 'auto' ? html`
+                        <lcards-form-section
+                            header="Advanced Options"
+                            description="Fine-tune pathfinding behavior"
+                            icon="mdi:cog"
+                            ?expanded=${false}>
+
+                            <ha-textfield
+                                type="number"
+                                label="Clearance (pixels)"
+                                .value=${String(this._lineFormData.clearance || '')}
+                                @input=${(e) => {
+                                    const val = e.target.value;
+                                    if (val === '') {
+                                        delete this._lineFormData.clearance;
+                                    } else {
+                                        this._lineFormData.clearance = Number(val);
+                                    }
+                                    this.requestUpdate();
+                                }}
+                                helper-text="Minimum pixels from obstacles (leave empty for default: 8)"
+                                style="width: 100%;">
+                            </ha-textfield>
+                        </lcards-form-section>
+                    ` : ''}
 
                 <!-- Channel Routing -->
                 ${this._renderChannelRoutingOptions()}
@@ -10416,6 +11458,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * Render component
      */
     render() {
+        // Inject line highlight styles (hover only - selection uses static SVG)
+        setTimeout(() => this._injectLineHighlightStyles(), 100);
+
         return html`
             <ha-dialog
                 open
@@ -10461,8 +11506,10 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         <div class="preview-panel mode-${this._activeMode}">
 
                             <!-- Scrollable content container -->
-                            <div class="preview-scroll-container"
+                            <div class="preview-scroll-container preview-container"
+                                 data-mode="${this._activeMode}"
                                  @click=${this._handlePreviewClick}
+                                 @dblclick=${this._handlePreviewDoubleClick}
                                  @mousemove=${this._handlePreviewMouseMove}
                                  @mouseleave=${this._handlePreviewMouseLeave}>
 
@@ -10487,6 +11534,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                             ${this._renderBoundingBoxes()}
                             ${this._renderRoutingPaths()}
                             ${this._renderLineEndpointMarkers()}
+                            ${this._renderWaypointMarkers()}
                             ${this._renderDragAttachPoints()}
                             ${this._renderChannelsOverlay()}
 

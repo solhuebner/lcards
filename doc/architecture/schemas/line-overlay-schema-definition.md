@@ -114,7 +114,7 @@ overlays:
       #   - smart: Optimized routing with cost analysis
       #   - direct: Straight line (no routing)
 
-    route_mode: <mode>
+    route_hint: <mode>
       # Description: Explicit routing mode (overrides 'route' if present)
       # Used for fine-grained control over routing behavior
 

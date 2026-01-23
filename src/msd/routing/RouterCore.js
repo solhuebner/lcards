@@ -142,9 +142,9 @@ export class RouterCore {
 
   /**
    * Build a route request object with both entry and exit direction hints.
-   * If route_mode_last is not specified and the destination is an overlay with attach_side,
-   * auto-set route_mode_last based on attach_side (left/right → xy; top/bottom → yx).
-   * If only route_mode_last is set, use it for the last segment, first segment is auto.
+   * If route_hint_last is not specified and the destination is an overlay with attach_side,
+   * auto-set route_hint_last based on attach_side (left/right → xy; top/bottom → yx).
+   * If only route_hint_last is set, use it for the last segment, first segment is auto.
    * If neither is set, fallback to geometry-based auto.
    * @param {object} overlay - The overlay config object
    * @param {number[]} a1 - Start anchor [x, y]
@@ -172,11 +172,11 @@ export class RouterCore {
     }
 
     // Parse both first and last segment hints
-    // Expected values: 'xy' (horizontal first: X then Y) or 'yx' (vertical first: Y then X)
-    let modeHint = (raw.route_hint || raw.route_mode || '').toLowerCase().trim();
-    let modeHintLast = (raw.route_hint_last || raw.route_mode_last || '').toLowerCase().trim();
-    let hintSourceFirst = (raw.route_hint || raw.route_mode) ? 'explicit' : 'auto';
-    let hintSourceLast = (raw.route_hint_last || raw.route_mode_last) ? 'explicit' : null;
+    // Expected values: 'xy' (horizontal first) or 'yx' (vertical first)
+    let modeHint = (raw.route_hint || '').toLowerCase().trim();
+    let modeHintLast = (raw.route_hint_last || '').toLowerCase().trim();
+    let hintSourceFirst = raw.route_hint ? 'explicit' : 'auto';
+    let hintSourceLast = raw.route_hint_last ? 'explicit' : null;
 
     // DEBUG: Log parsed route hints
     if (modeHint || modeHintLast) {
@@ -243,8 +243,8 @@ export class RouterCore {
     );
 
     // === Intelligent Routing Mode Selection ===
-    // Priority: explicit route_mode_full > global default_mode > auto-detection > manhattan fallback
-    let modeFull = (raw.route_mode_full || raw.route_mode || '').toLowerCase().trim();
+    // Priority: explicit 'route' field > global default_mode > auto-detection > manhattan fallback
+    let modeFull = (raw.route || '').toLowerCase().trim();
     let modeAutoUpgraded = false;
     let autoUpgradeReason = null;
 
@@ -317,6 +317,7 @@ export class RouterCore {
         minImprovement: Number(this.config.smart_min_improvement || 4),
         maxDetoursPerElbow: Number(this.config.smart_max_detours_per_elbow || 4)
       },
+      waypoints: Array.isArray(raw.waypoints) ? raw.waypoints : [],
       _rev: this._rev
     };
   }
@@ -347,7 +348,11 @@ export class RouterCore {
 
         lcardsLog.debug(`[RouterCore] Route '${req.id}': mode=${mode}, channels=${req.channels?.join(',') || 'none'}, hasForce=${hasForceChannels}`);
 
-        if (hasForceChannels && (mode === 'smart' || mode === 'grid')) {
+        if (mode === 'manual') {
+          lcardsLog.debug(`[RouterCore] Using manual routing for '${req.id}' with ${req.waypoints?.length || 0} waypoints`);
+          result = this._computeManual(req);
+          perfCount('routing.strategy.manual', 1);
+        } else if (hasForceChannels && (mode === 'smart' || mode === 'grid')) {
           lcardsLog.debug(`[RouterCore] Using forced routing for '${req.id}'`);
           result = this._computeWaypoint(req);
           perfCount('routing.strategy.forced', 1);
@@ -370,7 +375,7 @@ export class RouterCore {
       }
 
       if (result && req.cornerStyle === 'round' && req.cornerRadius > 0) {
-        const arcApplied = this._applyCornerRounding(result, req.cornerRadius);
+        const arcApplied = this._applyCornerRounding(result, req.cornerRadius, req.id);
         if (arcApplied) result = arcApplied;
       }
       // NEW (M5.6) apply smoothing AFTER arcs (arcs preserved, path rebuilt as polyline if smoothing >0)
@@ -387,6 +392,63 @@ export class RouterCore {
       }
       return { ...result, meta: { ...result.meta, cache_hit: false } };
     });
+  }
+
+  /**
+   * Manual routing through explicit waypoints
+   * Creates a polyline path through user-specified coordinates
+   * @param {object} req - Route request with waypoints array
+   * @returns {object} Route result with manual path
+   * @private
+   */
+  _computeManual(req) {
+    const [x1, y1] = req.a;
+    const [x2, y2] = req.b;
+    const waypoints = req.waypoints || [];
+
+    // Build path: start → waypoints → end
+    const pts = [[x1, y1]];
+
+    // Add all waypoints (support both coordinate arrays and named anchors)
+    for (const wp of waypoints) {
+      if (Array.isArray(wp) && wp.length >= 2) {
+        // Coordinate waypoint: [x, y]
+        pts.push([Number(wp[0]), Number(wp[1])]);
+      } else if (typeof wp === 'string' && this.anchors[wp]) {
+        // Named anchor waypoint: "anchor_name"
+        const anchorPos = this.anchors[wp];
+        if (Array.isArray(anchorPos) && anchorPos.length >= 2) {
+          pts.push([Number(anchorPos[0]), Number(anchorPos[1])]);
+        }
+      }
+    }
+
+    // Add endpoint
+    pts.push([x2, y2]);
+
+    // Remove duplicate consecutive points
+    const cleaned = [pts[0]];
+    for (let i = 1; i < pts.length; i++) {
+      const last = cleaned[cleaned.length - 1];
+      if (pts[i][0] !== last[0] || pts[i][1] !== last[1]) {
+        cleaned.push(pts[i]);
+      }
+    }
+
+    const d = this._polylineToPath(cleaned);
+
+    return {
+      d,
+      pts: cleaned,
+      meta: {
+        strategy: 'manual',
+        cost: this._costSimple(cleaned),
+        segments: cleaned.length - 1,
+        bends: Math.max(0, cleaned.length - 2),
+        waypoints: waypoints.length,
+        editable: true
+      }
+    };
   }
 
   _computeGrid(req, flags={}) {
@@ -1511,7 +1573,7 @@ export class RouterCore {
     };
   }
 
-  _applyCornerRounding(routeResult, radiusGlobal) {
+  _applyCornerRounding(routeResult, radiusGlobal, routeId = null) {
     const pts = routeResult.pts;
     if (!Array.isArray(pts) || pts.length < 3) {
       perfCount('routing.arc.none', 1);
@@ -1523,24 +1585,128 @@ export class RouterCore {
     const parts = [];
     let lastOut = pts[0].slice();
     parts.push(`M${lastOut[0]},${lastOut[1]}`);
+
+    // Pre-calculate radii for all corners to detect conflicts
+    const cornerRadii = [];
     for (let i = 1; i < pts.length - 1; i++) {
       const pPrev = pts[i - 1];
       const p = pts[i];
       const pNext = pts[i + 1];
       const vIn = [p[0] - pPrev[0], p[1] - pPrev[1]];
       const vOut = [pNext[0] - p[0], pNext[1] - p[1]];
-      const isOrth = (vIn[0] === 0 || vIn[1] === 0) && (vOut[0] === 0 || vOut[1] === 0) && !(vIn[0] === 0 && vIn[1] === 0) && !(vOut[0] === 0 && vOut[1] === 0) && !(Math.sign(vIn[0]) === Math.sign(vOut[0]) && vIn[0] !== 0) && !(Math.sign(vIn[1]) === Math.sign(vOut[1]) && vIn[1] !== 0);
-      if (!isOrth) {
-        // Just connect full corner
-        if (p[0] !== lastOut[0] || p[1] !== lastOut[1]) {
-          parts.push(`L${p[0]},${p[1]}`);
-          lastOut = p.slice();
+      const lenIn = Math.sqrt(vIn[0] * vIn[0] + vIn[1] * vIn[1]);
+      const lenOut = Math.sqrt(vOut[0] * vOut[0] + vOut[1] * vOut[1]);
+      let r = Math.min(radiusGlobal, lenIn / 2, lenOut / 2);
+      cornerRadii.push({ index: i, radius: r, lenIn, lenOut });
+    }
+
+    // Adjust radii if consecutive corners have overlapping trims
+    for (let i = 0; i < cornerRadii.length - 1; i++) {
+      const curr = cornerRadii[i];
+      const next = cornerRadii[i + 1];
+
+      // Check if these corners share a segment (consecutive in point array)
+      if (next.index === curr.index + 1) {
+        const segmentLength = curr.lenOut; // Same as next.lenIn
+        const totalTrim = curr.radius + next.radius;
+
+        // Check if trim points overlap or leave insufficient space
+        // Trigger when combined trims exceed 70% of segment (leaving less than 30% for the line)
+        if (totalTrim >= segmentLength * 0.70) {
+          // Reduce both radii proportionally to use 65% of segment (leave 35% gap)
+          const scale = (segmentLength * 0.65) / totalTrim;
+          curr.radius *= scale;
+          next.radius *= scale;
         }
+      }
+    }
+
+    for (let i = 1; i < pts.length - 1; i++) {
+      const pPrev = pts[i - 1];
+      const p = pts[i];
+      const pNext = pts[i + 1];
+      const vIn = [p[0] - pPrev[0], p[1] - pPrev[1]];
+      const vOut = [pNext[0] - p[0], pNext[1] - p[1]];
+
+      // Get pre-calculated (possibly adjusted) radius for this corner
+      const cornerData = cornerRadii[i - 1];
+      let r = cornerData.radius;
+      const lenInNorm = cornerData.lenIn;
+      const lenOutNorm = cornerData.lenOut;
+
+      // Check if orthogonal (for special handling)
+      const isOrth = (vIn[0] === 0 || vIn[1] === 0) && (vOut[0] === 0 || vOut[1] === 0) && !(vIn[0] === 0 && vIn[1] === 0) && !(vOut[0] === 0 && vOut[1] === 0) && !(Math.sign(vIn[0]) === Math.sign(vOut[0]) && vIn[0] !== 0) && !(Math.sign(vIn[1]) === Math.sign(vOut[1]) && vIn[1] !== 0);
+
+      // Handle non-orthogonal corners with general angle rounding
+      if (!isOrth) {
+        if (lenInNorm < 0.01 || lenOutNorm < 0.01) {
+          // Degenerate case - just draw to corner
+          if (p[0] !== lastOut[0] || p[1] !== lastOut[1]) {
+            parts.push(`L${p[0]},${p[1]}`);
+            lastOut = p.slice();
+          }
+          continue;
+        }
+
+        const uIn = [vIn[0] / lenInNorm, vIn[1] / lenInNorm];
+        const uOut = [vOut[0] / lenOutNorm, vOut[1] / lenOutNorm];
+
+        if (r < arcMin) {
+          if (p[0] !== lastOut[0] || p[1] !== lastOut[1]) {
+            parts.push(`L${p[0]},${p[1]}`);
+            lastOut = p.slice();
+          }
+          continue;
+        }
+
+        // Calculate angle between directions (incoming reversed to forward direction)
+        const dot = (-uIn[0]) * uOut[0] + (-uIn[1]) * uOut[1];
+        const angleRad = Math.acos(Math.max(-1, Math.min(1, dot)));
+        const halfAngle = angleRad / 2;
+
+        // Distance from corner to tangent points along each line
+        const tangentDist = r / Math.tan(halfAngle);
+
+        // Clamp tangent distance to available segment length
+        const maxTrimIn = Math.min(tangentDist, lenInNorm - 1);
+        const maxTrimOut = Math.min(tangentDist, lenOutNorm - 1);
+        const actualTrim = Math.min(maxTrimIn, maxTrimOut);
+
+        // If trim is too small, skip arc
+        if (actualTrim < arcMin) {
+          if (p[0] !== lastOut[0] || p[1] !== lastOut[1]) {
+            parts.push(`L${p[0]},${p[1]}`);
+            lastOut = p.slice();
+          }
+          continue;
+        }
+
+        // Calculate actual arc radius that fits
+        const actualRadius = actualTrim * Math.tan(halfAngle);
+
+        // Tangent points
+        const pInTrim = [p[0] - uIn[0] * actualTrim, p[1] - uIn[1] * actualTrim];
+        const pOutTrim = [p[0] + uOut[0] * actualTrim, p[1] + uOut[1] * actualTrim];
+
+        // Line to trimmed incoming point
+        if (pInTrim[0] !== lastOut[0] || pInTrim[1] !== lastOut[1]) {
+          parts.push(`L${pInTrim[0]},${pInTrim[1]}`);
+        }
+
+        // Determine sweep direction using cross product
+        const cross = vIn[0] * vOut[1] - vIn[1] * vOut[0];
+        const sweep = cross > 0 ? 1 : 0;
+
+        const largeArc = 0; // Corner rounding always uses small arc
+
+        // Arc to trimmed outgoing point
+        parts.push(`A${actualRadius},${actualRadius} 0 ${largeArc} ${sweep} ${pOutTrim[0]},${pOutTrim[1]}`);
+        totalTrim += 2 * actualTrim;
+        arcCount++;
+        lastOut = pOutTrim;
         continue;
       }
-      const lenIn = Math.abs(vIn[0]) + Math.abs(vIn[1]);
-      const lenOut = Math.abs(vOut[0]) + Math.abs(vOut[1]);
-      let r = Math.min(radiusGlobal, lenIn / 2, lenOut / 2);
+      // For orthogonal segments - use pre-calculated radius
       if (r < arcMin) {
         if (p[0] !== lastOut[0] || p[1] !== lastOut[1]) {
           parts.push(`L${p[0]},${p[1]}`);

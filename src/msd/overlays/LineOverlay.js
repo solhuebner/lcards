@@ -224,10 +224,13 @@ export class LineOverlay extends OverlayBase {
 
       const animationAttributes = this._prepareAnimationAttributes(overlay, overlay.style || {});
 
+      // Check if this line is selected (for editor highlighting)
+      const isSelected = overlay._editorSelected === true;
+
       // Build SVG group with all features
       const svgParts = [
         this._buildDefinitions(lineStyle, overlay.id),
-        this._buildMainPath(pathResult.d, lineStyle, overlay.id, animationAttributes),
+        this._buildMainPath(pathResult.d, lineStyle, overlay.id, animationAttributes, isSelected),
         this._buildMarkers(pathResult, lineStyle, overlay.id)
       ].filter(Boolean);
 
@@ -700,7 +703,7 @@ export class LineOverlay extends OverlayBase {
    *
    * @private
    */
-  _buildMainPath(pathD, lineStyle, overlayId, animationAttributes) {
+  _buildMainPath(pathD, lineStyle, overlayId, animationAttributes, isSelected = false) {
     const stroke = lineStyle.gradient ? `url(#gradient-${overlayId})` :
                    lineStyle.pattern ? `url(#pattern-${overlayId})` :
                    lineStyle.color;
@@ -709,7 +712,34 @@ export class LineOverlay extends OverlayBase {
     const markerMid = lineStyle.markerMid ? `url(#marker-mid-${overlayId})` : '';
     const markerEnd = lineStyle.markerEnd ? `url(#marker-end-${overlayId})` : '';
 
-    return `<path
+    // Add selection indicator if this line is selected (thicker blue glow behind)
+    const selectionIndicator = isSelected ? `<path
+      class="line-selection-indicator"
+      d="${pathD}"
+      stroke="#66B0FF"
+      stroke-width="${lineStyle.width + 10}"
+      stroke-opacity="0.7"
+      stroke-linecap="${lineStyle.lineCap}"
+      stroke-linejoin="${lineStyle.lineJoin}"
+      fill="none"
+      pointer-events="none"
+      style="filter: blur(4px);"
+    />` : '';
+
+    // Add invisible wider path for proximity click detection (12px hit area)
+    const hitAreaPath = `<path
+      class="line-hit-area"
+      d="${pathD}"
+      stroke="transparent"
+      stroke-width="12"
+      fill="none"
+      pointer-events="stroke"
+      style="cursor: pointer;"
+    />`;
+
+    const visiblePath = `<path
+      class="line-path"
+      data-line-id="${overlayId}"
       d="${pathD}"
       stroke="${stroke}"
       stroke-width="${lineStyle.width}"
@@ -725,7 +755,11 @@ export class LineOverlay extends OverlayBase {
       ${markerMid ? `marker-mid="${markerMid}"` : ''}
       ${markerEnd ? `marker-end="${markerEnd}"` : ''}
       data-animatable="${animationAttributes.animatable}"
+      pointer-events="none"
+      style="cursor: pointer;"
     />`;
+
+    return selectionIndicator + hitAreaPath + visiblePath;
   }
 
   /**

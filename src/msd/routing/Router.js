@@ -23,7 +23,7 @@ export class Router {
 
   computePath(overlay, a1, a2) {
     const raw = overlay._raw || overlay.raw || {};
-    const modeFull = raw.route_mode_full || raw.route_mode || raw.route || 'auto';
+    const modeFull = raw.route || 'auto';
     const avoid = raw.avoid || [];
     const channels = raw.route_channels || [];
     const channelMode = raw.route_channel_mode || raw.channel_mode;

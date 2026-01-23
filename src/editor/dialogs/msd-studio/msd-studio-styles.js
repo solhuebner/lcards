@@ -290,6 +290,10 @@ export const msdStudioStyles = css`
         cursor: crosshair;
     }
 
+    .preview-panel.mode-add_waypoint {
+        cursor: crosshair;
+    }
+
     /* Tab Navigation with HA Tab Group */
     ha-tab-group {
         display: block;
@@ -703,5 +707,70 @@ export const msdStudioStyles = css`
         margin-top: 8px;
         font-size: 11px;
         color: var(--disabled-text-color);
+    }
+
+    /* Waypoint Markers (Visual Editing) */
+    .waypoint-marker {
+        cursor: grab;
+        transition: all 0.15s ease;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+    }
+
+    .waypoint-marker:hover {
+        filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.6));
+    }
+
+    .waypoint-marker.editing {
+        cursor: grab;
+    }
+
+    .waypoint-marker.dragging {
+        cursor: grabbing;
+        filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.8));
+    }
+
+    .waypoint-marker circle {
+        stroke-width: 2;
+    }
+
+    .waypoint-marker:hover circle {
+        stroke-width: 3;
+    }
+
+    .waypoint-marker.dragging circle {
+        stroke-width: 4;
+    }
+
+    /* Line paths should capture pointer events for hover/click */
+    .line-path {
+        pointer-events: auto !important;
+    }
+
+    /* Selected line highlighting for waypoint editing */
+    .line-path.line-selected {
+        filter: drop-shadow(0 0 8px var(--lcars-blue)) drop-shadow(0 0 4px var(--lcars-blue)) !important;
+        stroke-width: 4 !important;
+    }
+
+    /* Hover effect for lines - same intensity as selection for visibility */
+    .line-path:hover {
+        filter: drop-shadow(0 0 8px var(--lcars-blue)) drop-shadow(0 0 4px var(--lcars-blue)) !important;
+        stroke-width: 4 !important;
+        cursor: pointer;
+    }
+
+    /* Don't apply hover when already selected */
+    .line-path.line-selected:hover {
+        filter: drop-shadow(0 0 8px var(--lcars-blue)) drop-shadow(0 0 4px var(--lcars-blue)) !important;
+        stroke-width: 4 !important;
+    }
+
+    /* Crosshair cursor when in ADD_WAYPOINT mode */
+    .preview-container[data-mode="add-waypoint"] {
+        cursor: crosshair !important;
+    }
+
+    .preview-container[data-mode="add-waypoint"] * {
+        cursor: crosshair !important;
     }
 `;

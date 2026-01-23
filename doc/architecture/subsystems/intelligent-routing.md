@@ -8,7 +8,7 @@
 
 ## Overview
 
-LCARdS now includes intelligent automatic routing mode selection that upgrades lines from simple Manhattan routing (L-shaped, single bend) to smart multi-bend routing when complexity is detected. This eliminates the need for manual `route_mode_full: smart` configuration in most cases, making channel-based routing more intuitive and accessible.
+LCARdS now includes intelligent automatic routing mode selection that upgrades lines from simple Manhattan routing (L-shaped, single bend) to smart multi-bend routing when complexity is detected. This eliminates the need for manual `route: smart` configuration in most cases, making channel-based routing more intuitive and accessible.
 
 ### Key Benefits
 
@@ -26,7 +26,7 @@ LCARdS now includes intelligent automatic routing mode selection that upgrades l
 ### Auto-Upgrade Priority Chain
 
 ```
-1. Explicit route_mode_full in line config
+1. Explicit `route` field in line config
    ↓ (if not set)
 2. Global routing.default_mode setting
    ↓ (if not set or 'auto')
@@ -83,30 +83,30 @@ msd:
 
 - **Default**: `true`
 - **Purpose**: Automatically upgrade manhattan → smart when channels or obstacles detected
-- **Set to `false`**: Require explicit `route_mode_full: smart` on each line
+- **Set to `false`**: Require explicit `route: smart` on each line
 
 ### Line Overlay Property Reference
 
 These properties can be set on individual line overlays to control routing behavior:
 
-| Property | Type | Default | Description | Backward Compat |
-|----------|------|---------|-------------|-----------------|
-| `route_mode_full` | string | `'manhattan'` | Explicit routing mode: `manhattan`, `smart`, `grid` | Also reads `route_mode` |
-| `route_channels` | array | `[]` | Channel IDs to route through/around | Also reads `routeChannels` |
-| `route_channel_mode` | string | `'prefer'` | How to use channels: `prefer`, `avoid`, `force` | Also reads `routeChannelMode`, `channel_mode` |
-| `route_mode` | string | `'xy'` | First segment direction: `xy` (horiz first) or `yx` (vert first) | Manhattan routing only |
-| `route_mode_last` | string | — | Last segment direction: `xy` or `yx` | Manhattan routing only |
+| Property | Type | Default | Description | Notes |
+|----------|------|---------|-------------|-------|
+| `route` | string | `'auto'` | Routing mode: `auto`, `manhattan`, `smart`, `grid`, `manual` | Schema-defined field |
+| `route_hint` | string | `''` | First segment direction: `xy` (horiz first) or `yx` (vert first) | Direction control |
+| `route_hint_last` | string | `''` | Last segment direction: `xy` or `yx` | Direction control |
+| `route_channels` | array | `[]` | Channel IDs to route through | Prefer/avoid/force |
+| `waypoints` | array | `[]` | Manual waypoints: `[[x1,y1], [x2,y2]]` | Used with `route: manual` |
 | `clearance` | number | `0` | Obstacle clearance (pixels) | — |
-| `corner_style` | string | `'miter'` | Corner style: `miter`, `round`, `bevel` | Also reads `cornerStyle` |
-| `corner_radius` | number | `0` | Corner rounding radius (pixels) for `round` style | Also reads `cornerRadius` |
-| `smoothing_mode` | string | `'none'` | Path smoothing: `none`, `chaikin` | Also reads `corner_smoothing_mode` |
-| `smoothing_iterations` | number | `0` | Number of smoothing passes (1-5) | Also reads `corner_smoothing_iterations` |
-| `avoid` | array | `[]` | Overlay IDs to avoid as obstacles | — |
+| `corner_style` | string | `'miter'` | Corner style: `miter`, `round`, `bevel` | Visual styling |
+| `corner_radius` | number | `0` | Corner rounding radius (pixels) for `round` style | Visual styling |
+| `smoothing_mode` | string | `'none'` | Path smoothing: `none`, `chaikin` | Post-processing |
+| `smoothing_iterations` | number | `0` | Number of smoothing passes (1-5) | Post-processing |
+| `avoid` | array | `[]` | Overlay IDs to avoid as obstacles | Pathfinding |
 
-**⚠️ Invalid Properties** (common mistakes):
-- `route: auto` ❌ Use `route_mode_full: auto` instead
-- `channel_mode` ❌ Use `route_channel_mode` (backward compat supported but deprecated)
-- `routeChannels` ❌ Use `route_channels` (backward compat supported but deprecated)
+**⚠️ Deprecated Properties** (use schema-correct names):
+- `route_mode_full` ❌ Use `route` instead
+- `route_mode` ❌ Use `route_hint` instead (conflated mode with hint)
+- `route_mode_last` ❌ Use `route_hint_last` instead
 
 ---
 
@@ -122,7 +122,7 @@ overlays:
     anchor: reactor
     attach_to: bridge
     route_channels: [main_corridor]
-    route_mode_full: smart  # ❌ Had to configure manually
+    route: smart  # ❌ Had to configure manually
     channel_shaping_max_attempts: 20
 ```
 
@@ -157,7 +157,7 @@ msd:
       type: line
       anchor: a3
       attach_to: a4
-      route_mode_full: manhattan  # Override: use manhattan explicitly
+      route: manhattan  # Override: use manhattan explicitly
 ```
 
 ### Example 3: Waypoint Channels
@@ -223,7 +223,7 @@ msd:
       type: line
       route_channels: [corridor]
       # No auto-upgrade - stays manhattan
-      # Must explicitly set route_mode_full: smart if wanted
+      # Must explicitly set route: smart if wanted
 ```
 
 ---
@@ -299,7 +299,7 @@ When drawing a channel in MSD Studio:
    - `route_channel_mode: prefer` or `force`
    - `channel_shaping_max_attempts: 20`
    - `channel_shaping_span: 64`
-   - `route_mode_full: smart` (auto-upgraded by RouterCore)
+   - `route: smart` (auto-upgraded by RouterCore)
 
 ### Intersection Detection
 
@@ -402,7 +402,7 @@ Look for log messages like:
 ```yaml
 overlays:
   - id: line1
-    route_mode_full: manhattan
+    route: manhattan
     route_channels: [corridor]
     # Manhattan mode is honored, no auto-upgrade
 ```
@@ -424,7 +424,7 @@ overlays:
   - id: line3
     route_channels: [corridor]
     # No auto-upgrade
-    route_mode_full: smart  # Must specify explicitly
+    route: smart  # Must specify explicitly
 ```
 
 ### Migrating from Manual Configuration
@@ -434,7 +434,7 @@ overlays:
 overlays:
   - id: line1
     route_channels: [ch1]
-    route_mode_full: smart
+    route: smart
     channel_shaping_max_attempts: 20
     channel_shaping_span: 64
 ```
@@ -565,7 +565,7 @@ overlays:
     type: line
     anchor: pn_1_label
     attach_to: scr_nw
-    route_mode_full: smart
+    route: smart
     route_channels: [channel_1]
 ```
 

@@ -140,16 +140,21 @@ export function getMsdSchema(options = {}) {
             // Line overlay routing properties
             route: {
               type: 'string',
-              enum: ['auto', 'direct', 'manhattan', 'smart', 'grid'],
+              enum: ['auto', 'direct', 'manhattan', 'smart', 'grid', 'manual'],
               optional: true,
               default: 'auto',
-              description: 'Routing algorithm: auto (recommended), direct (straight line), manhattan (L-shaped), smart (intelligent pathfinding), grid (A* on grid)'
+              description: 'Routing algorithm: auto (recommended), direct (straight line), manhattan (L-shaped), smart (intelligent pathfinding), grid (A* on grid), manual (explicit waypoints)'
+            },
+            waypoints: {
+              type: 'array',
+              optional: true,
+              description: 'Array of waypoints for manual routing. Each waypoint can be a coordinate pair [x, y] or an anchor name string. Line will pass through waypoints in order.'
             },
             route_hint: {
               type: 'string',
               enum: ['', 'xy', 'yx'],
               optional: true,
-              description: 'Initial segment direction hint: empty/auto (geometry-based), xy = vertical first (X then Y), yx = horizontal first (Y then X)'
+              description: 'Initial segment direction hint: empty/auto (geometry-based), xy = horizontal first, yx = vertical first'
             },
             route_hint_last: {
               type: 'string',
