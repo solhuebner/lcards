@@ -126,6 +126,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
             _channelFormData: { type: Object, state: true },
             // Drag State (for interactive control dragging)
             _dragState: { type: Object, state: true },
+            // Waypoint drag state (for waypoint reordering)
+            _draggedWaypointIndex: { type: Number, state: true },
             // Resize State (for interactive control resizing)
             _resizeState: { type: Object, state: true },
             // Anchor Drag State (for interactive anchor dragging)
@@ -9454,7 +9456,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * Save line form
      * @private
      */
-    _saveLine() {
+    _saveLine(keepOpen = false) {
         if (!this._lineFormData.id) {
             lcardsLog.warn('[MSDStudio] Cannot save line without ID');
             return;
@@ -9577,7 +9579,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
             lcardsLog.debug('[MSDStudio] Added line:', this._lineFormData.id);
         }
 
-        this._closeLineForm();
+        if (!keepOpen) {
+            this._closeLineForm();
+        }
         this._schedulePreviewUpdate();
     }
 
@@ -9586,8 +9590,85 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _closeLineForm() {
+        console.log('[MSDStudio] _closeLineForm called', new Error().stack);
         this._showLineForm = false;
         this._editingLineId = null;
+        this.requestUpdate();
+    }
+
+    /**
+     * Handle waypoint drag start
+     * @param {DragEvent} e - Drag event
+     * @param {number} index - Waypoint index
+     * @private
+     */
+    _handleWaypointDragStart(e, index) {
+        console.log('[MSDStudio] Waypoint drag start:', index);
+        this._draggedWaypointIndex = index;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', index);
+        this.requestUpdate();
+    }
+
+    /**
+     * Handle waypoint drag end
+     * @param {DragEvent} e - Drag event
+     * @private
+     */
+    _handleWaypointDragEnd(e) {
+        console.log('[MSDStudio] Waypoint drag end');
+        this._draggedWaypointIndex = null;
+        this.requestUpdate();
+    }
+
+    /**
+     * Handle waypoint drag over
+     * @param {DragEvent} e - Drag event
+     * @param {number} index - Drop target index
+     * @private
+     */
+    _handleWaypointDragOver(e, index) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+
+        if (this._draggedWaypointIndex === null || this._draggedWaypointIndex === index) {
+            return;
+        }
+        console.log('[MSDStudio] Waypoint drag over:', index);
+    }
+
+    /**
+     * Handle waypoint drop
+     * @param {DragEvent} e - Drag event
+     * @param {number} dropIndex - Drop target index
+     * @private
+     */
+    _handleWaypointDrop(e, dropIndex) {
+        console.log('[MSDStudio] Waypoint drop at:', dropIndex);
+        e.preventDefault();
+        e.stopPropagation();
+
+        const dragIndex = this._draggedWaypointIndex;
+        if (dragIndex === null || dragIndex === dropIndex) {
+            console.log('[MSDStudio] Drop ignored - same position');
+            return;
+        }
+
+        // Reorder waypoints
+        const waypoints = [...this._lineFormData.waypoints];
+        const [draggedItem] = waypoints.splice(dragIndex, 1);
+        waypoints.splice(dropIndex, 0, draggedItem);
+
+        this._lineFormData = {
+            ...this._lineFormData,
+            waypoints
+        };
+        this._draggedWaypointIndex = null;
+
+        console.log('[MSDStudio] Waypoints reordered');
+
+        // Just update preview (don't save to config yet)
+        this._schedulePreviewUpdate();
         this.requestUpdate();
     }
 
@@ -9770,29 +9851,39 @@ export class LCARdSMSDStudioDialog extends LitElement {
             <ha-dialog
                 open
                 @closed=${this._closeLineForm}
-                .heading=${title}>
+                .heading=${title}
+                .scrimClickAction=${''}
+                style="--mdc-dialog-max-width: 90vw; --mdc-dialog-min-width: 90vw; --mdc-dialog-min-height: 80vh; --mdc-dialog-max-height: 80vh;">
 
-                <!-- Sticky Line Preview -->
-                <div style="position: sticky; top: 0; background: var(--card-background-color); padding: 16px 24px; border-bottom: 1px solid var(--divider-color);">
-                    ${this._renderLineStylePreview()}
-                </div>
+                <!-- Split Layout: Content Left, Preview Right -->
+                <div style="display: grid; grid-template-columns: 70% 30%; height: 70vh; overflow: hidden;">
 
-                <!-- Subtabs -->
-                <ha-tab-group @wa-tab-show=${this._handleLineFormTabChange} style="padding: 0 24px;">
-                    <ha-tab-group-tab value="basic" ?active=${this._lineFormActiveSubtab === 'basic'}>Basic</ha-tab-group-tab>
-                    <ha-tab-group-tab value="style" ?active=${this._lineFormActiveSubtab === 'style'}>Style</ha-tab-group-tab>
-                    <ha-tab-group-tab value="markers" ?active=${this._lineFormActiveSubtab === 'markers'}>Markers</ha-tab-group-tab>
-                    <ha-tab-group-tab value="animation" ?active=${this._lineFormActiveSubtab === 'animation'}>Animation</ha-tab-group-tab>
-                    <ha-tab-group-tab value="routing" ?active=${this._lineFormActiveSubtab === 'routing'}>Routing</ha-tab-group-tab>
-                </ha-tab-group>
+                    <!-- Left Panel: Tabs and Content -->
+                    <div style="display: flex; flex-direction: column; overflow: hidden; border-right: 2px solid var(--divider-color);">
+                        <!-- Subtabs -->
+                        <ha-tab-group @wa-tab-show=${this._handleLineFormTabChange} style="padding: 0 16px; flex-shrink: 0;">
+                            <ha-tab-group-tab value="basic" ?active=${this._lineFormActiveSubtab === 'basic'}>Basic</ha-tab-group-tab>
+                            <ha-tab-group-tab value="style" ?active=${this._lineFormActiveSubtab === 'style'}>Style</ha-tab-group-tab>
+                            <ha-tab-group-tab value="markers" ?active=${this._lineFormActiveSubtab === 'markers'}>Markers</ha-tab-group-tab>
+                            <ha-tab-group-tab value="animation" ?active=${this._lineFormActiveSubtab === 'animation'}>Animation</ha-tab-group-tab>
+                            <ha-tab-group-tab value="routing" ?active=${this._lineFormActiveSubtab === 'routing'}>Routing</ha-tab-group-tab>
+                        </ha-tab-group>
 
-                <!-- Subtab Content -->
-                <div style="padding: 16px; max-height: 60vh; overflow-y: auto;">
-                    ${this._renderLineFormTabContent()}
+                        <!-- Scrollable Content -->
+                        <div style="padding: 16px; overflow-y: auto; flex: 1;">
+                            ${this._renderLineFormTabContent()}
+                        </div>
+                    </div>
+
+                    <!-- Right Panel: Vertical Line Preview -->
+                    <div style="display: flex; flex-direction: column; padding: 16px; background: var(--secondary-background-color); overflow: hidden;">
+                        <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--primary-text-color);">Live Preview</div>
+                        ${this._renderLineStylePreviewVertical()}
+                    </div>
                 </div>
 
                 <div slot="primaryAction">
-                    <ha-button @click=${this._saveLine}>
+                    <ha-button @click=${() => this._saveLine()}>
                         <ha-icon icon="mdi:content-save" slot="icon"></ha-icon>
                         Save
                     </ha-button>
@@ -9871,7 +9962,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 <ha-textfield
                     label="Line ID"
                     .value=${this._lineFormData.id}
-                    ?disabled=${!!this._editingLineId}
                     @input=${(e) => {
                         this._lineFormData.id = e.target.value;
                         this.requestUpdate();
@@ -10123,37 +10213,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
                             icon="mdi:map-marker-path"
                             ?expanded=${true}>
 
-                            <!-- Visual Editing Controls -->
-                            <div style="margin-bottom: 16px; padding: 12px; background: var(--card-background-color); border-radius: 8px; border: 1px solid var(--divider-color);">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                    <div style="font-weight: 500; color: var(--primary-text-color);">
-                                        <ha-icon icon="mdi:cursor-move" style="--mdc-icon-size: 20px; vertical-align: middle; margin-right: 4px;"></ha-icon>
-                                        Visual Editing
-                                    </div>
-                                    <ha-button
-                                        @click=${() => {
-                                            this._waypointEditingLineId = this._waypointEditingLineId === this._lineFormData.id ? null : this._lineFormData.id;
-                                            this._showWaypointMarkers = true;
-                                            this.requestUpdate();
-                                        }}
-                                        .outlined=${this._waypointEditingLineId !== this._lineFormData.id}
-                                        size="small">
-                                        <ha-icon icon="${this._waypointEditingLineId === this._lineFormData.id ? 'mdi:eye-off' : 'mdi:eye'}" slot="icon"></ha-icon>
-                                        ${this._waypointEditingLineId === this._lineFormData.id ? 'Hide' : 'Show'} Markers
-                                    </ha-button>
-                                </div>
-                                <div style="color: var(--secondary-text-color); font-size: 0.875rem; line-height: 1.4;">
-                                    ${this._waypointEditingLineId === this._lineFormData.id ? html`
-                                        ✓ Visual editing enabled<br>
-                                        • <strong>Drag</strong> waypoint markers to reposition<br>
-                                        • <strong>Double-click</strong> marker to delete waypoint<br>
-                                        • <strong>Click</strong> line path to add waypoint (coming soon)
-                                    ` : html`
-                                        Click "Show Markers" to enable interactive waypoint editing on the preview
-                                    `}
-                                </div>
-                            </div>
-
                             <!-- Waypoint List -->
                             <div style="margin-bottom: 12px;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -10181,78 +10240,130 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                 ${(this._lineFormData.waypoints || []).length > 0 ? html`
                                     <div style="display: flex; flex-direction: column; gap: 8px;">
                                         ${(this._lineFormData.waypoints || []).map((wp, index) => html`
-                                            <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--card-background-color); border-radius: 4px; border: 1px solid var(--divider-color);">
-                                                <div style="min-width: 24px; text-align: center; font-weight: 500; color: var(--primary-color);">${index + 1}</div>
-                                                <ha-textfield
-                                                    type="number"
-                                                    label="X"
-                                                    .value=${String(wp[0] || 0)}
-                                                    @input=${(e) => {
-                                                        this._lineFormData.waypoints[index][0] = Number(e.target.value);
-                                                        this._saveLine();
+                                            <div style="
+                                                display: flex;
+                                                align-items: center;
+                                                gap: 12px;
+                                                padding: 12px;
+                                                background: var(--card-background-color);
+                                                border-radius: 42px;
+                                                border: 1px solid ${this._draggedWaypointIndex === index ? 'var(--primary-color)' : 'var(--divider-color)'};
+                                                opacity: ${this._draggedWaypointIndex === index ? '0.5' : '1'};
+                                                transition: opacity 0.2s, border-color 0.2s;
+                                                cursor: ${this._draggedWaypointIndex === index ? 'grabbing' : 'grab'};
+                                            "
+                                            draggable="true"
+                                            @dragstart=${(e) => this._handleWaypointDragStart(e, index)}
+                                            @dragend=${(e) => this._handleWaypointDragEnd(e)}
+                                            @dragover=${(e) => this._handleWaypointDragOver(e, index)}
+                                            @drop=${(e) => this._handleWaypointDrop(e, index)}>
+                                                <!-- Drag Handle -->
+                                                <ha-icon
+                                                    icon="mdi:drag-vertical"
+                                                    style="
+                                                        --mdc-icon-size: 20px;
+                                                        color: var(--secondary-text-color);
+                                                        flex-shrink: 0;
+                                                    "
+                                                    title="Drag to reorder">
+                                                </ha-icon>
+
+                                                <!-- Index Badge -->
+                                                <div style="
+                                                    min-width: 28px;
+                                                    height: 28px;
+                                                    display: flex;
+                                                    align-items: center;
+                                                    justify-content: center;
+                                                    font-weight: 600;
+                                                    font-size: 13px;
+                                                    color: white;
+                                                    background: var(--primary-color);
+                                                    border-radius: 50%;
+                                                    flex-shrink: 0;
+                                                ">${index + 1}</div>
+
+                                                <!-- Waypoint Content (Coordinates or Named Anchor) -->
+                                                ${typeof wp === 'string' ? html`
+                                                    <!-- Named Anchor -->
+                                                    <ha-textfield
+                                                        label="Anchor"
+                                                        .value=${wp}
+                                                        @input=${(e) => {
+                                                            this._lineFormData.waypoints[index] = e.target.value;
+                                                            this._schedulePreviewUpdate();
+                                                            this.requestUpdate();
+                                                        }}
+                                                        style="flex: 1; min-width: 120px;">
+                                                    </ha-textfield>
+                                                ` : html`
+                                                    <!-- Coordinates -->
+                                                    <div style="flex: 1; display: flex; gap: 8px; min-width: 0;">
+                                                        <ha-textfield
+                                                            type="number"
+                                                            label="X"
+                                                            .value=${String(wp[0] || 0)}
+                                                            @input=${(e) => {
+                                                                this._lineFormData.waypoints[index][0] = Number(e.target.value);
+                                                                this._schedulePreviewUpdate();
+                                                                this.requestUpdate();
+                                                            }}
+                                                            style="flex: 1; min-width: 80px;">
+                                                        </ha-textfield>
+                                                        <ha-textfield
+                                                            type="number"
+                                                            label="Y"
+                                                            .value=${String(wp[1] || 0)}
+                                                            @input=${(e) => {
+                                                                this._lineFormData.waypoints[index][1] = Number(e.target.value);
+                                                                this._schedulePreviewUpdate();
+                                                                this.requestUpdate();
+                                                            }}
+                                                            style="flex: 1; min-width: 80px;">
+                                                        </ha-textfield>
+                                                    </div>
+                                                `}
+
+                                                <!-- Toggle Type Button -->
+                                                <ha-icon-button
+                                                    @click=${() => {
+                                                        // Toggle between coordinate and anchor format
+                                                        if (typeof wp === 'string') {
+                                                            // Convert anchor to coordinates (center of viewBox)
+                                                            const viewBox = this._workingConfig.msd?.view_box || [0, 0, 1920, 1080];
+                                                            this._lineFormData.waypoints[index] = [viewBox[0] + viewBox[2] / 2, viewBox[1] + viewBox[3] / 2];
+                                                        } else {
+                                                            // Convert coordinates to anchor
+                                                            this._lineFormData.waypoints[index] = '';
+                                                        }
                                                         this._schedulePreviewUpdate();
                                                         this.requestUpdate();
                                                     }}
-                                                    style="flex: 1;">
-                                                </ha-textfield>
-                                                <ha-textfield
-                                                    type="number"
-                                                    label="Y"
-                                                    .value=${String(wp[1] || 0)}
-                                                    @input=${(e) => {
-                                                        this._lineFormData.waypoints[index][1] = Number(e.target.value);
-                                                        this._saveLine();
-                                                        this._schedulePreviewUpdate();
-                                                        this.requestUpdate();
-                                                    }}
-                                                    style="flex: 1;">
-                                                </ha-textfield>
+                                                    .label=${typeof wp === 'string' ? 'Switch to coordinates' : 'Switch to anchor'}
+                                                    style="flex-shrink: 0;">
+                                                    <ha-icon icon="${typeof wp === 'string' ? 'mdi:map-marker-outline' : 'mdi:crosshairs-gps'}"></ha-icon>
+                                                </ha-icon-button>
+
+                                                <!-- Delete Button -->
                                                 <ha-icon-button
                                                     @click=${() => {
                                                         this._lineFormData.waypoints.splice(index, 1);
-                                                        this._saveLine();
                                                         this._schedulePreviewUpdate();
                                                         this.requestUpdate();
                                                     }}
-                                                    title="Delete waypoint">
+                                                    .label=${'Delete waypoint'}
+                                                    style="flex-shrink: 0;">
                                                     <ha-icon icon="mdi:delete"></ha-icon>
                                                 </ha-icon-button>
                                             </div>
                                         `)}
                                     </div>
                                 ` : html`
-                                    <div style="padding: 16px; text-align: center; color: var(--secondary-text-color); font-size: 0.875rem; border: 1px dashed var(--divider-color); border-radius: 4px;">
-                                        No waypoints defined. Click "Add Waypoint" or use visual editing.
+                                    <div style="padding: 16px; text-align: center; color: var(--secondary-text-color); font-size: 0.875rem; border: 1px dashed var(--divider-color); border-radius: 12px;">
+                                        No waypoints defined. Click "Add Waypoint" to begin.
                                     </div>
                                 `}
                             </div>
-
-                            <!-- Raw YAML Editor (Advanced) -->
-                            <details style="margin-top: 12px;">
-                                <summary style="cursor: pointer; padding: 8px; background: var(--card-background-color); border-radius: 4px; user-select: none;">
-                                    <ha-icon icon="mdi:code-json" style="--mdc-icon-size: 16px; vertical-align: middle;"></ha-icon>
-                                    Advanced: Edit Raw JSON
-                                </summary>
-                                <div style="margin-top: 8px;">
-                                    <ha-yaml-editor
-                                        .value=${JSON.stringify(this._lineFormData.waypoints || [], null, 2)}
-                                        @value-changed=${(e) => {
-                                            try {
-                                                const parsed = JSON.parse(e.detail.value);
-                                                if (Array.isArray(parsed)) {
-                                                    this._lineFormData.waypoints = parsed;
-                                                    this._saveLine();
-                                                    this._schedulePreviewUpdate();
-                                                }
-                                            } catch (err) {
-                                                // Invalid JSON - ignore
-                                            }
-                                            this.requestUpdate();
-                                        }}
-                                        style="display: block;">
-                                    </ha-yaml-editor>
-                                </div>
-                            </details>
 
                         </lcards-form-section>
                     ` : ''}
@@ -10284,8 +10395,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         </lcards-form-section>
                     ` : ''}
 
-                <!-- Channel Routing -->
-                ${this._renderChannelRoutingOptions()}
+                <!-- Channel Routing (only for auto/direct modes) -->
+                ${routeMode !== 'manual' ? this._renderChannelRoutingOptions() : ''}
             </div>
         `;
     }
@@ -11111,6 +11222,106 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         fill="none"
                         marker-start="${markerStart?.type && markerStart.type !== 'none' ? 'url(#start-preview)' : ''}"
                         marker-end="${markerEnd?.type && markerEnd.type !== 'none' ? 'url(#end-preview)' : ''}"
+                    />
+                </svg>
+            </div>
+        `;
+    }
+
+    /**
+     * Render vertical line style preview for split-view dialog
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderLineStylePreviewVertical() {
+        const color = this._lineFormData.style?.color || 'var(--lcars-orange)';
+        const width = this._lineFormData.style?.width || 2;
+        const opacity = this._lineFormData.style?.opacity ?? 1;
+        const dashArray = this._lineFormData.style?.dash_array || '';
+        const markerStart = this._lineFormData.style?.marker_start;
+        const markerEnd = this._lineFormData.style?.marker_end;
+        const cornerStyle = this._lineFormData.corner_style || 'miter';
+        const cornerRadius = this._lineFormData.corner_radius || 12;
+        const linecap = this._lineFormData.style?.line_cap || 'butt';
+        const linejoin = this._lineFormData.style?.line_join || cornerStyle;
+
+        // Helper function to create marker definition
+        const createMarker = (marker, id) => {
+            if (!marker?.type || marker.type === 'none') return '';
+
+            const size = marker.size ?? 10;
+            const half = size / 2;
+            const fillColor = marker.fill || color;
+            const strokeColor = marker.stroke || 'none';
+            const strokeWidth = marker.stroke_width || 0;
+
+            let shape = '';
+            switch (marker.type) {
+                case 'arrow':
+                    shape = `<path d="M 0 0 L ${size} ${half} L 0 ${size} z" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
+                    break;
+                case 'dot':
+                    shape = `<circle cx="${half}" cy="${half}" r="${half * 0.6}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
+                    break;
+                case 'diamond':
+                    shape = `<path d="M ${half} 0 L ${size} ${half} L ${half} ${size} L 0 ${half} z" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
+                    break;
+                case 'square':
+                    const offset = size * 0.15;
+                    const sqSize = size * 0.7;
+                    shape = `<rect x="${offset}" y="${offset}" width="${sqSize}" height="${sqSize}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
+                    break;
+                case 'triangle':
+                    shape = `<path d="M ${half} 0 L ${size} ${size} L 0 ${size} z" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
+                    break;
+                case 'line':
+                    const lineLength = size * 0.8;
+                    const lineOffset = (size - lineLength) / 2;
+                    shape = `<line x1="${half}" y1="${lineOffset}" x2="${half}" y2="${size - lineOffset}" stroke="${fillColor}" stroke-width="${Math.max(strokeWidth || 2, 2)}" stroke-linecap="round" opacity="${opacity}" />`;
+                    break;
+                case 'rect':
+                    const rectSize = size * 0.7;
+                    const rectOffset = (size - rectSize) / 2;
+                    shape = `<rect x="${rectOffset}" y="${rectOffset}" width="${rectSize}" height="${rectSize}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
+                    break;
+            }
+
+            return `
+                <marker id="${id}" viewBox="0 0 ${size} ${size}"
+                    markerWidth="${size}" markerHeight="${size}"
+                    refX="${half}" refY="${half}" orient="auto">
+                    ${shape}
+                </marker>
+            `;
+        };
+
+        // Create vertical path with corners - larger spacing for better arc visibility
+        let pathD = 'M 35,30 L 35,90 L 65,90 L 65,190 L 35,190 L 35,250';
+
+        // Apply corner rounding if round style is selected
+        if (cornerStyle === 'round' && cornerRadius > 0) {
+            const r = Math.min(cornerRadius, 20); // Allow larger radius in preview
+            pathD = `M 35,30 L 35,${90-r} Q 35,90 ${35+r},90 L ${65-r},90 Q 65,90 65,${90+r} L 65,${190-r} Q 65,190 ${65-r},190 L ${35+r},190 Q 35,190 35,${190+r} L 35,250`;
+        }
+
+        return html`
+            <div style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; background: #0a0a0a; border-radius: 8px; border: 1px solid #333;">
+                <svg viewBox="0 0 100 280" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: 100%; max-height: 500px;">
+                    <defs>
+                        ${unsafeHTML(createMarker(markerStart, 'start-preview-v'))}
+                        ${unsafeHTML(createMarker(markerEnd, 'end-preview-v'))}
+                    </defs>
+                    <path
+                        d="${pathD}"
+                        stroke="${color}"
+                        stroke-width="${width}"
+                        stroke-opacity="${opacity}"
+                        stroke-dasharray="${dashArray}"
+                        stroke-linecap="${linecap}"
+                        stroke-linejoin="${linejoin}"
+                        fill="none"
+                        marker-start="${markerStart?.type && markerStart.type !== 'none' ? 'url(#start-preview-v)' : ''}"
+                        marker-end="${markerEnd?.type && markerEnd.type !== 'none' ? 'url(#end-preview-v)' : ''}"
                     />
                 </svg>
             </div>
