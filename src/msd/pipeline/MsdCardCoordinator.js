@@ -176,7 +176,12 @@ export class MsdCardCoordinator extends BaseService {
     // MSD card registers overlays via _registerOverlayForRules() and receives callbacks
 
     // Initialize rendering systems
-    this.router = new RouterCore(mergedConfig.routing, cardModel.anchors, cardModel.viewBox);
+    // Pass channels from msd.channels into routing config for RouterCore
+    const routingConfig = {
+      ...mergedConfig.routing,
+      channels: mergedConfig.channels  // Add channels from msd root level
+    };
+    this.router = new RouterCore(routingConfig, cardModel.anchors, cardModel.viewBox);
     this.renderer = new AdvancedRenderer(mountEl, this.router, this); // Pass 'this' as systemsManager
     this.controlsRenderer = new MsdControlsRenderer(this.renderer);
 

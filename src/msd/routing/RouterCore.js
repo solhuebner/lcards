@@ -1,5 +1,6 @@
 import { perfCount, perfTime } from '../../utils/performance.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
+import { getValidChannelTypes, WAYPOINT_CONFIG } from './routing-constants.js';
 
 /**
  * M5.1 RouterCore
@@ -20,7 +21,17 @@ export class RouterCore {
     this._obstacles = [];
     this._obsVersion = 0;
     this._gridCache = new Map(); // resolution|obsVersion -> occupancy grid
-    this._channels = this._normalizeChannels(this.config.channels || []);
+    this._channels = this._normalizeChannels(this.config.channels || {});
+    this._channelLineCount = new Map(); // channelId -> count of lines routed through
+
+    // Debug logging for channel detection
+    if (this._channels.length > 0) {
+      lcardsLog.debug(`[RouterCore] Loaded ${this._channels.length} channels:`,
+        this._channels.map(c => `${c.id}(${c.mode})`).join(', '));
+    } else {
+      lcardsLog.debug('[RouterCore] No channels loaded. Config.channels:', this.config.channels);
+    }
+
     this._channelForcePenalty = Number(this.config.channel_force_penalty || 800);
     this._channelAvoidMultiplier = Number(this.config.channel_avoid_multiplier || 1.0);
     // NEW (M5.4 shaping config)
@@ -90,6 +101,18 @@ export class RouterCore {
   }
 
   /**
+   * Extract channel array from overlay config
+   * Consolidates access to route_channels vs routeChannels property
+   * @param {object} raw - Raw overlay config
+   * @returns {Array<string>} Array of channel IDs
+   * @private
+   */
+  _getChannelArray(raw) {
+    const channels = raw.route_channels || raw.routeChannels || [];
+    return Array.isArray(channels) ? channels : [];
+  }
+
+  /**
    * Debug introspection: get route info for an overlay ID
    * @param {string} overlayId - The overlay identifier
    * @returns {object|null} Route info with pts, d, meta, or null if not found
@@ -131,11 +154,9 @@ export class RouterCore {
   buildRouteRequest(overlay, a1, a2) {
     const raw = overlay._raw || overlay.raw || {};
     const fs = overlay.finalStyle || {};
-    let channelMode = (raw.route_channel_mode || raw.routeChannelMode || raw.channel_mode || 'prefer').toLowerCase();
-    if (!['prefer','avoid','force'].includes(channelMode)) {
-      perfCount('routing.channel.mode.invalid', 1);
-      channelMode = 'prefer';
-    }
+
+    // Removed route_channel_mode - channels now define their own mode (prefer/avoid/force)
+
     let smoothingMode = (
       raw.smoothing_mode ||
       raw.corner_smoothing_mode ||
@@ -151,10 +172,16 @@ export class RouterCore {
     }
 
     // Parse both first and last segment hints
-    let modeHint = (raw.route_mode || '').toLowerCase();
-    let modeHintLast = (raw.route_mode_last || '').toLowerCase();
-    let hintSourceFirst = modeHint ? 'explicit' : 'auto';
-    let hintSourceLast = modeHintLast ? 'explicit' : null;
+    // Expected values: 'xy' (horizontal first: X then Y) or 'yx' (vertical first: Y then X)
+    let modeHint = (raw.route_hint || raw.route_mode || '').toLowerCase().trim();
+    let modeHintLast = (raw.route_hint_last || raw.route_mode_last || '').toLowerCase().trim();
+    let hintSourceFirst = (raw.route_hint || raw.route_mode) ? 'explicit' : 'auto';
+    let hintSourceLast = (raw.route_hint_last || raw.route_mode_last) ? 'explicit' : null;
+
+    // DEBUG: Log parsed route hints
+    if (modeHint || modeHintLast) {
+      lcardsLog.debug(`[RouterCore] Line '${raw.id}': Parsed route_hint='${modeHint}' (source: ${hintSourceFirst}), route_hint_last='${modeHintLast}' (source: ${hintSourceLast || 'none'})`);
+    }
 
     // Improved destination overlay detection:
     // 1. If attach_side is present we treat destination as an overlay (even if anchor not yet resolved)
@@ -214,18 +241,69 @@ export class RouterCore {
       (this.config.smoothing && this.config.smoothing.max_points) ||
       160
     );
+
+    // === Intelligent Routing Mode Selection ===
+    // Priority: explicit route_mode_full > global default_mode > auto-detection > manhattan fallback
+    let modeFull = (raw.route_mode_full || raw.route_mode || '').toLowerCase().trim();
+    let modeAutoUpgraded = false;
+    let autoUpgradeReason = null;
+
+    // Step 1: If no explicit mode, check global default
+    if (!modeFull || modeFull === 'auto') {
+      const globalDefault = (this.config.default_mode || '').toLowerCase().trim();
+      if (globalDefault && globalDefault !== 'auto') {
+        modeFull = globalDefault;
+        perfCount('routing.mode.from_global_default', 1);
+      }
+    }
+
+    // Step 2: Auto-upgrade if still no mode or manhattan + complexity detected
+    if (!modeFull || modeFull === 'auto' || modeFull === 'manhattan') {
+      const channels = this._getChannelArray(raw);
+      const hasChannels = channels.length > 0;
+      const hasObstacles = this._obstacles && this._obstacles.length > 0;
+
+      // Check if auto-upgrade is enabled (default: true)
+      const autoUpgradeEnabled = this.config.auto_upgrade_simple_lines !== false;
+
+      if (autoUpgradeEnabled && (!modeFull || modeFull === 'auto' || modeFull === 'manhattan')) {
+        // Upgrade to smart if channels are present
+        if (hasChannels) {
+          modeFull = 'smart';
+          modeAutoUpgraded = true;
+          autoUpgradeReason = 'channels_present';
+          perfCount('routing.mode.auto_upgrade.channels', 1);
+          lcardsLog.debug(`[RouterCore] Auto-upgraded route '${overlay.id}' to smart mode (${channels.length} channel(s) configured)`);
+        }
+        // Upgrade to smart if obstacles exist
+        else if (hasObstacles) {
+          modeFull = 'smart';
+          modeAutoUpgraded = true;
+          autoUpgradeReason = 'obstacles_present';
+          perfCount('routing.mode.auto_upgrade.obstacles', 1);
+          lcardsLog.debug(`[RouterCore] Auto-upgraded route '${overlay.id}' to smart mode (${this._obstacles.length} obstacle(s) detected)`);
+        }
+      }
+
+      // Step 3: Fallback to manhattan if no upgrade conditions met
+      if (!modeFull || modeFull === 'auto') {
+        modeFull = 'manhattan';
+      }
+    }
+
     return {
       id: overlay.id,
       a: a1,
       b: a2,
-      modeFull: (raw.route_mode_full || raw.route_mode || 'manhattan').toLowerCase(),
+      modeFull,
       modeHint,
       modeHintLast,
       _hintSourceFirst: hintSourceFirst,
       _hintSourceLast: hintSourceLast,
+      _modeAutoUpgraded: modeAutoUpgraded,
+      _autoUpgradeReason: autoUpgradeReason,
       avoidIds: Array.isArray(raw.avoid) ? raw.avoid.slice() : [],
-      channels: (raw.route_channels || raw.routeChannels || []),
-      channelMode,
+      channels: this._getChannelArray(raw),
       cornerRadius: Number(raw.corner_radius || raw.cornerRadius || fs.corner_radius || 0),
       cornerStyle: (raw.corner_style || raw.cornerStyle || fs.corner_style || 'miter').toLowerCase(),
       smoothingMode,
@@ -248,7 +326,7 @@ export class RouterCore {
     const [x2,y2] = req.b;
     const avoidKey = req.avoidIds.sort().join(',');
     const chanKey = req.channels.sort().join(',');
-    return `${req.id}@${x1},${y1}-${x2},${y2}|${req.modeFull}|${req.modeHint}|A:${avoidKey}|C:${chanKey}|${req.channelMode}|R:${req._rev}|O:${this._obsVersion}|P:${req.proximity}|CR:${req.cornerRadius}|CS:${req.cornerStyle}|SM:${req.smoothingMode}|SI:${req.smoothingIterations}`;
+    return `${req.id}@${x1},${y1}-${x2},${y2}|${req.modeFull}|${req.modeHint}|A:${avoidKey}|C:${chanKey}|R:${req._rev}|O:${this._obsVersion}|P:${req.proximity}|CR:${req.cornerRadius}|CS:${req.cornerStyle}|SM:${req.smoothingMode}|SI:${req.smoothingIterations}`;
   }
 
   computePath(req) {
@@ -263,7 +341,17 @@ export class RouterCore {
       let result;
       const mode = req.modeFull;
       try {
-        if (mode === 'grid') {
+        // Special handling for force channels - use forced routing instead of grid
+        const hasForceChannels = req.channels?.length > 0 &&
+          this._channels.some(c => req.channels.includes(c.id) && c.mode === 'force');
+
+        lcardsLog.debug(`[RouterCore] Route '${req.id}': mode=${mode}, channels=${req.channels?.join(',') || 'none'}, hasForce=${hasForceChannels}`);
+
+        if (hasForceChannels && (mode === 'smart' || mode === 'grid')) {
+          lcardsLog.debug(`[RouterCore] Using forced routing for '${req.id}'`);
+          result = this._computeWaypoint(req);
+          perfCount('routing.strategy.forced', 1);
+        } else if (mode === 'grid') {
           result = this._computeGrid(req);
         } else if (mode === 'smart') {
           perfCount('routing.strategy.smart', 1);
@@ -398,8 +486,59 @@ export class RouterCore {
       }
     }
     // Ensure final destination snapping
+    const origStart = pts[0].slice();
+    const origEnd = pts[pts.length-1].slice();
     pts[0] = [req.a[0], req.a[1]];
     pts[pts.length-1] = [req.b[0], req.b[1]];
+
+    // NEW: If snapping created diagonals, insert proper Manhattan elbows
+    // Check first segment
+    if (pts.length >= 2 && pts[0][0] !== origStart[0] && pts[0][1] !== origStart[1]) {
+      // First point was diagonal-snapped, check if it created diagonal with second point
+      if (pts[0][0] !== pts[1][0] && pts[0][1] !== pts[1][1]) {
+        // Diagonal exists - insert elbow maintaining grid's original direction
+        if (origStart[0] === pts[1][0]) {
+          // Was vertical from grid, keep that
+          pts.splice(1, 0, [pts[1][0], pts[0][1]]);
+        } else if (origStart[1] === pts[1][1]) {
+          // Was horizontal from grid, keep that
+          pts.splice(1, 0, [pts[0][0], pts[1][1]]);
+        } else {
+          // Grid had elbow, respect the direction toward grid point
+          const dx = Math.abs(origStart[0] - pts[0][0]);
+          const dy = Math.abs(origStart[1] - pts[0][1]);
+          if (dx > dy) {
+            pts.splice(1, 0, [origStart[0], pts[0][1]]);
+          } else {
+            pts.splice(1, 0, [pts[0][0], origStart[1]]);
+          }
+        }
+      }
+    }
+    // Check last segment
+    const lastIdx = pts.length - 1;
+    if (lastIdx >= 1 && pts[lastIdx][0] !== origEnd[0] && pts[lastIdx][1] !== origEnd[1]) {
+      // Last point was diagonal-snapped, check if it created diagonal with second-to-last
+      if (pts[lastIdx-1][0] !== pts[lastIdx][0] && pts[lastIdx-1][1] !== pts[lastIdx][1]) {
+        // Diagonal exists - insert elbow maintaining grid's original direction
+        if (origEnd[0] === pts[lastIdx-1][0]) {
+          // Was vertical from grid, keep that
+          pts.splice(lastIdx, 0, [pts[lastIdx-1][0], pts[lastIdx][1]]);
+        } else if (origEnd[1] === pts[lastIdx-1][1]) {
+          // Was horizontal from grid, keep that
+          pts.splice(lastIdx, 0, [pts[lastIdx][0], pts[lastIdx-1][1]]);
+        } else {
+          // Grid had elbow, respect the direction toward grid point
+          const dx = Math.abs(origEnd[0] - pts[lastIdx][0]);
+          const dy = Math.abs(origEnd[1] - pts[lastIdx][1]);
+          if (dx > dy) {
+            pts.splice(lastIdx, 0, [origEnd[0], pts[lastIdx][1]]);
+          } else {
+            pts.splice(lastIdx, 0, [pts[lastIdx][0], origEnd[1]]);
+          }
+        }
+      }
+    }
 
     // NEW (M5.2 fix): If compression produced a single diagonal segment, insert a Manhattan elbow.
     if (pts.length === 2) {
@@ -420,8 +559,14 @@ export class RouterCore {
     const { penalty: proxPenalty } = this._segmentProximityPenalty(pts, req.clearance, req.proximity, proxW);
     let channelInfo = this._channelDelta(pts, req);
     let shapingMeta = null;
-    if (req.channels?.length && (req.channelMode === 'prefer' || req.channelMode === 'force')) {
-      const desired = (req.channelMode === 'force') ? 1.0 : this._channelTargetCoverage;
+
+    // Check if any of the line's referenced channels have prefer or force mode
+    const referencedChannels = req.channels?.length ? this._channels.filter(c => req.channels.includes(c.id)) : [];
+    const hasPreferOrForce = referencedChannels.some(c => c.mode === 'prefer' || c.mode === 'force');
+    const hasForce = referencedChannels.some(c => c.mode === 'force');
+
+    if (hasPreferOrForce) {
+      const desired = hasForce ? 1.0 : this._channelTargetCoverage;
       if (channelInfo.coverage < desired) {
         const shapeRes = this._shapeForChannels(req, pts, channelInfo, desired);
         if (shapeRes && shapeRes.accepted) {
@@ -445,6 +590,10 @@ export class RouterCore {
         segments: pts.length - 1,
         bends: Math.max(0, pts.length - 2),
         grid: { resolution: res, iterations },
+        ...(req._modeAutoUpgraded ? {
+          modeAutoUpgraded: true,
+          autoUpgradeReason: req._autoUpgradeReason
+        } : {}),
         ...(req.channels?.length ? {
           channel: {
             mode: channelInfo.mode,
@@ -484,6 +633,333 @@ export class RouterCore {
   }
 
   /**
+   * Get bundling offset for a line in a channel
+   * Distributes lines evenly with spacing to avoid overlap
+   * @param {string} channelId - Channel identifier
+   * @param {string} lineId - Line identifier
+   * @param {number} spacing - Gap between lines in pixels
+   * @returns {number} Offset in pixels (positive or negative)
+   * @private
+   */
+  _getChannelLineOffset(channelId, lineId, spacing) {
+    if (!spacing || spacing === 0) return 0;
+
+    // Get or initialize line count for this channel
+    if (!this._channelLineCount.has(channelId)) {
+      this._channelLineCount.set(channelId, 0);
+    }
+
+    const lineIndex = this._channelLineCount.get(channelId);
+    this._channelLineCount.set(channelId, lineIndex + 1);
+
+    // Center the bundle: offset both positively and negatively
+    // Line 0: -spacing, Line 1: 0, Line 2: +spacing, Line 3: +2*spacing, etc.
+    const offset = (lineIndex * spacing) - (spacing / 2);
+
+    lcardsLog.debug(`[RouterCore] Channel '${channelId}': Line ${lineIndex} offset = ${offset} viewBox units (spacing: ${spacing})`);
+    return offset;
+  }
+
+  /**
+   * Simple waypoint routing for waypoint-type channels
+   * Creates Manhattan-style paths that go through waypoint channel centers
+   * Only forces detour if simple Manhattan doesn't already pass through
+   * Respects channel direction (horizontal vs vertical flow)
+   * Now includes line bundling with configurable spacing
+   * @param {object} req - Route request with waypoint channels
+   * @returns {object} Route result with path through waypoints
+   * @private
+   */
+  _computeWaypoint(req) {
+    const [x1, y1] = req.a;
+    const [x2, y2] = req.b;
+
+    // Get force channels
+    const chanSet = new Set(req.channels);
+    const waypoints = this._channels
+      .filter(c => chanSet.has(c.id) && c.mode === 'force')
+      .map(c => ({
+        id: c.id,
+        cx: (c.x1 + c.x2) / 2,
+        cy: (c.y1 + c.y2) / 2,
+        x1: c.x1,
+        x2: c.x2,
+        y1: c.y1,
+        y2: c.y2,
+        direction: c.direction  // 'horizontal' or 'vertical'
+      }));
+
+    if (waypoints.length === 0) {
+      // No waypoints, fall back to manhattan
+      return this._computeManhattan(req);
+    }
+
+    // For simplicity, use first waypoint (TODO: support multiple waypoints with ordering)
+    const wp = waypoints[0];
+
+    // Determine which Manhattan orientation to try
+    // Priority: 1) User's explicit route_hint, 2) Channel direction, 3) Geometry
+    let preferredMode;
+    if (req.modeHint === 'xy' || req.modeHint === 'yx') {
+      // User explicitly specified a hint - use it
+      preferredMode = req.modeHint;
+      lcardsLog.debug(`[RouterCore] Using explicit route_hint: ${preferredMode} for waypoint '${wp.id}'`);
+    } else {
+      // Fall back to channel direction matching
+      // Horizontal channel → prefer xy mode (horizontal segment through channel)
+      // Vertical channel → prefer yx mode (vertical segment through channel)
+      preferredMode = wp.direction === 'horizontal' ? 'xy' : 'yx';
+    }
+    const alternateMode = preferredMode === 'xy' ? 'yx' : 'xy';
+
+    // Check if simple Manhattan routing already passes through the waypoint
+    const tryManhattan = (mode) => {
+      if (x1 === x2 || y1 === y2) {
+        return [[x1, y1], [x2, y2]]; // Direct line
+      }
+      if (mode === 'xy') {
+        // Horizontal first: [start] → [x2, y1] → [x2, y2]
+        return [[x1, y1], [x2, y1], [x2, y2]];
+      } else {
+        // Vertical first: [start] → [x1, y2] → [x2, y2]
+        return [[x1, y1], [x1, y2], [x2, y2]];
+      }
+    };
+
+    // Check if a Manhattan path intersects the waypoint WITH CORRECT DIRECTION
+    const pathIntersectsWaypointCorrectly = (pts, requiredDirection) => {
+      for (let i = 1; i < pts.length; i++) {
+        const [px1, py1] = pts[i-1];
+        const [px2, py2] = pts[i];
+
+        // Determine segment orientation
+        const isHorizontal = py1 === py2 && px1 !== px2;
+        const isVertical = px1 === px2 && py1 !== py2;
+
+        // Check if this segment passes through waypoint bounds
+        const segMinX = Math.min(px1, px2);
+        const segMaxX = Math.max(px1, px2);
+        const segMinY = Math.min(py1, py2);
+        const segMaxY = Math.max(py1, py2);
+
+        // Check overlap with waypoint rectangle
+        if (segMaxX >= wp.x1 && segMinX <= wp.x2 &&
+            segMaxY >= wp.y1 && segMinY <= wp.y2) {
+          // Found intersection - now check if direction matches
+          if (requiredDirection === 'horizontal' && isHorizontal) {
+            return true;  // Horizontal segment through horizontal channel ✓
+          }
+          if (requiredDirection === 'vertical' && isVertical) {
+            return true;  // Vertical segment through vertical channel ✓
+          }
+          // Wrong direction through channel
+          return false;
+        }
+      }
+      return false;
+    };
+
+    // Try preferred direction first (matches channel flow direction)
+    const preferredPath = tryManhattan(preferredMode);
+    if (pathIntersectsWaypointCorrectly(preferredPath, wp.direction)) {
+      lcardsLog.debug(`[RouterCore] Waypoint '${wp.id}': Simple Manhattan (${preferredMode}) matches ${wp.direction} channel direction`);
+      const d = this._polylineToPath(preferredPath);
+      const channelInfo = this._channelDelta(preferredPath, req);
+
+      return {
+        d,
+        pts: preferredPath,
+        meta: {
+          strategy: 'waypoint-manhattan',
+          cost: this._costSimple(preferredPath),
+          segments: preferredPath.length - 1,
+          bends: Math.max(0, preferredPath.length - 2),
+          waypoint: {
+            id: wp.id,
+            direction: wp.direction,
+            natural: true  // Path naturally passes through in correct direction
+          },
+          ...(req._modeAutoUpgraded ? {
+            modeAutoUpgraded: true,
+            autoUpgradeReason: req._autoUpgradeReason
+          } : {}),
+          ...(req.channels?.length ? {
+            channel: {
+              mode: channelInfo.mode,
+              insidePx: channelInfo.inside,
+              outsidePx: channelInfo.outside,
+              coveragePct: Number((channelInfo.coverage*100).toFixed(1)),
+              deltaCost: channelInfo.delta,
+              forcedOutside: channelInfo.forcedOutside
+            }
+          } : {})
+        }
+      };
+    }
+
+    // Alternate direction won't work - it would pass through in wrong direction
+    lcardsLog.debug(`[RouterCore] Waypoint '${wp.id}': Simple Manhattan doesn't pass through in ${wp.direction} direction - forcing detour`);
+
+    // Force route through waypoint with correct direction
+    // Priority: 1) User's explicit route_hint, 2) Channel direction
+    let detourDirection = wp.direction; // Default to channel direction
+    if (req.modeHint === 'xy' || req.modeHint === 'yx') {
+      // User explicitly specified a hint - respect it for detour routing
+      // CRITICAL: The channel direction determines HOW the line flows THROUGH the channel
+      // - If we want to go HORIZONTAL first (xy), the channel must flow VERTICALLY (so we approach horizontally)
+      // - If we want to go VERTICAL first (yx), the channel must flow HORIZONTALLY (so we approach vertically)
+      // This is INVERTED from what you might expect!
+      detourDirection = (req.modeHint === 'xy') ? 'vertical' : 'horizontal';
+      lcardsLog.debug(`[RouterCore] Waypoint '${wp.id}': route_hint=${req.modeHint} → detour flows ${detourDirection} (approach is ${req.modeHint === 'xy' ? 'horizontal' : 'vertical'})`);
+    } else {
+      lcardsLog.debug(`[RouterCore] Waypoint '${wp.id}': Using channel direction (${wp.direction}) for detour`);
+    }
+
+    lcardsLog.debug(`[RouterCore] Waypoint '${wp.id}': Forcing ${detourDirection} detour through center (${wp.cx}, ${wp.cy})`);
+
+    // Calculate bundling offset for this line
+    const channel = this._channels.find(c => c.id === wp.id);
+    const lineOffset = this._getChannelLineOffset(wp.id, req.id, channel?.line_spacing || 0);
+
+    const pts = [];
+    pts.push([x1, y1]);
+
+    if (detourDirection === 'horizontal') {
+      // Horizontal flow through channel
+      // Determine optimal Y position within channel based on where we're coming from/going to
+      const entryY = Math.max(wp.y1, Math.min(wp.y2, y1));  // Clamp to channel bounds
+      const exitY = Math.max(wp.y1, Math.min(wp.y2, y2));
+      let throughY = (entryY + exitY) / 2;  // Midpoint between entry and exit
+
+      // Apply bundling offset (perpendicular to flow direction)
+      throughY += lineOffset;
+      throughY = Math.max(wp.y1, Math.min(wp.y2, throughY));  // Keep within bounds
+
+      // Move to channel entry
+      if (y1 !== throughY) {
+        pts.push([x1, throughY]);
+      }
+
+      // Horizontal segment through channel (enter at left edge, exit at right edge)
+      const enterX = Math.max(wp.x1, Math.min(wp.x2, x1));
+      const exitX = Math.max(wp.x1, Math.min(wp.x2, x2));
+
+      if (x1 < wp.x1) {
+        // Entering from left - route to left edge, across, to right edge
+        if (throughY !== pts[pts.length - 1][1]) pts.push([x1, throughY]);
+        pts.push([wp.x1, throughY]);  // Left edge
+        pts.push([exitX, throughY]);  // Exit point
+      } else if (x1 > wp.x2) {
+        // Entering from right - route to right edge, across, to left edge
+        if (throughY !== pts[pts.length - 1][1]) pts.push([x1, throughY]);
+        pts.push([wp.x2, throughY]);  // Right edge
+        pts.push([exitX, throughY]);  // Exit point
+      } else {
+        // Already inside channel horizontally
+        pts.push([exitX, throughY]);
+      }
+
+      // Exit to destination
+      if (throughY !== y2) {
+        pts.push([exitX, y2]);
+      }
+      if (exitX !== x2) {
+        pts.push([x2, y2]);
+      }
+    } else {
+      // Vertical flow through channel
+      // Determine optimal X position within channel
+      const entryX = Math.max(wp.x1, Math.min(wp.x2, x1));
+      const exitX = Math.max(wp.x1, Math.min(wp.x2, x2));
+      let throughX = (entryX + exitX) / 2;
+
+      // Apply bundling offset (perpendicular to flow direction)
+      throughX += lineOffset;
+      throughX = Math.max(wp.x1, Math.min(wp.x2, throughX));  // Keep within bounds
+
+      // Move to channel entry
+      if (x1 !== throughX) {
+        pts.push([throughX, y1]);
+      }
+
+      // Vertical segment through channel
+      const enterY = Math.max(wp.y1, Math.min(wp.y2, y1));
+      const exitY = Math.max(wp.y1, Math.min(wp.y2, y2));
+
+      if (y1 < wp.y1) {
+        // Entering from top
+        if (throughX !== pts[pts.length - 1][0]) pts.push([throughX, y1]);
+        pts.push([throughX, wp.y1]);  // Top edge
+        pts.push([throughX, exitY]);  // Exit point
+      } else if (y1 > wp.y2) {
+        // Entering from bottom
+        if (throughX !== pts[pts.length - 1][0]) pts.push([throughX, y1]);
+        pts.push([throughX, wp.y2]);  // Bottom edge
+        pts.push([throughX, exitY]);  // Exit point
+      } else {
+        // Already inside channel vertically
+        pts.push([throughX, exitY]);
+      }
+
+      // Exit to destination
+      if (throughX !== x2) {
+        pts.push([x2, exitY]);
+      }
+      if (exitY !== y2) {
+        pts.push([x2, y2]);
+      }
+    }
+
+    // Ensure we end at destination
+    if (pts[pts.length - 1][0] !== x2 || pts[pts.length - 1][1] !== y2) {
+      pts.push([x2, y2]);
+    }
+
+    // Remove duplicate points
+    const cleaned = [pts[0]];
+    for (let i = 1; i < pts.length; i++) {
+      const last = cleaned[cleaned.length - 1];
+      if (pts[i][0] !== last[0] || pts[i][1] !== last[1]) {
+        cleaned.push(pts[i]);
+      }
+    }
+
+    const d = this._polylineToPath(cleaned);
+    const channelInfo = this._channelDelta(cleaned, req);
+
+    return {
+      d,
+      pts: cleaned,
+      meta: {
+        strategy: 'waypoint-detour',
+        cost: this._costSimple(cleaned),
+        segments: cleaned.length - 1,
+        bends: Math.max(0, cleaned.length - 2),
+        waypoint: {
+          id: wp.id,
+          direction: detourDirection, // Use actual detour direction, not channel direction
+          center: [wp.cx, wp.cy],
+          natural: false  // Had to force detour to maintain direction
+        },
+        ...(req._modeAutoUpgraded ? {
+          modeAutoUpgraded: true,
+          autoUpgradeReason: req._autoUpgradeReason
+        } : {}),
+        ...(req.channels?.length ? {
+          channel: {
+            mode: channelInfo.mode,
+            insidePx: channelInfo.inside,
+            outsidePx: channelInfo.outside,
+            coveragePct: Number((channelInfo.coverage*100).toFixed(1)),
+            deltaCost: channelInfo.delta,
+            forcedOutside: channelInfo.forcedOutside
+          }
+        } : {})
+      }
+    };
+  }
+
+  /**
    * Manhattan routing supporting independent first and last segment hints.
    * @param {object} req - Route request with modeHint and modeHintLast
    */
@@ -518,6 +994,10 @@ export class RouterCore {
         cost: this._costSimple(pts),
         segments: pts.length - 1,
         bends: Math.max(0, pts.length - 2),
+        ...(req._modeAutoUpgraded ? {
+          modeAutoUpgraded: true,
+          autoUpgradeReason: req._autoUpgradeReason
+        } : {}),
         hint: {
           first: req.modeHint,
             last: req.modeHintLast,
@@ -605,22 +1085,102 @@ export class RouterCore {
     return worst;
   }
 
-  _normalizeChannels(list) {
-    if (!Array.isArray(list)) return [];
+  /**
+   * Normalize channel configurations
+   * Supports three channel types: bundling (default), avoiding, waypoint
+   * @param {Array} list - Array of channel config objects
+   * @returns {Array} Normalized channel objects with validated types
+   * @private
+   */
+  /**
+   * Normalize channel configurations from object or array format
+   * New model: mode (prefer|avoid|force) replaces type (bundling|avoiding|waypoint)
+   * @param {Object|Array} channelsInput - Channels as object {id: config} or array
+   * @returns {Array} Normalized channel objects with mode field
+   * @private
+   */
+  _normalizeChannels(channelsInput) {
+    // Handle both object format {channel_id: {bounds, mode}} and legacy array format
+    let list = [];
+
+    if (!channelsInput) return [];
+
+    if (Array.isArray(channelsInput)) {
+      // Legacy array format: [{id, rect, type}]
+      list = channelsInput;
+    } else if (typeof channelsInput === 'object') {
+      // New object format: {channel_id: {bounds, mode, direction}}
+      list = Object.entries(channelsInput).map(([id, config]) => ({
+        id,
+        rect: config.bounds || config.rect,  // Support both 'bounds' and 'rect'
+        mode: config.mode,  // 'prefer', 'avoid', or 'force'
+        type: config.type,  // Legacy: 'bundling', 'avoiding', 'waypoint'
+        direction: config.direction,  // 'horizontal', 'vertical', or 'auto'
+        weight: config.weight,
+        w: config.w
+      }));
+    }
+
     return list
       .filter(c => c && Array.isArray(c.rect) && c.rect.length === 4)
       .map(c => {
         const [x,y,w,h] = c.rect;
+
+        // Normalize mode: new 'mode' field takes precedence, fallback to legacy 'type'
+        let mode = c.mode;
+        if (!mode && c.type) {
+          // Backwards compatibility: map old type to new mode
+          const typeToMode = {
+            'bundling': 'prefer',
+            'avoiding': 'avoid',
+            'waypoint': 'force'
+          };
+          mode = typeToMode[c.type.toLowerCase()] || 'prefer';
+        }
+        mode = (mode || 'prefer').toLowerCase();
+
+        // Validate mode
+        if (!['prefer', 'avoid', 'force'].includes(mode)) {
+          lcardsLog.warn(`[RouterCore] Invalid channel mode '${c.mode}' for channel '${c.id}', defaulting to 'prefer'`);
+          perfCount('routing.channel.invalid_mode', 1);
+          mode = 'prefer';
+        }
+
+        // Determine direction: explicit or auto-detect from shape
+        let direction = (c.direction || 'auto').toLowerCase();
+        if (!['horizontal', 'vertical', 'auto'].includes(direction)) {
+          direction = 'auto';
+        }
+
+        if (direction === 'auto') {
+          // Auto-detect: wide = horizontal, tall = vertical
+          direction = w >= h ? 'horizontal' : 'vertical';
+        }
+
         return {
           id: c.id || `chan_${x}_${y}`,
           x1: x, y1: y, x2: x + w, y2: y + h,
-          weight: Number(c.weight || c.w || 0.5)
+          weight: Number(c.weight || c.w || 0.5),
+          mode,  // 'prefer', 'avoid', or 'force'
+          direction,  // 'horizontal' or 'vertical'
+          line_spacing: Number(c.line_spacing ?? 8)  // Gap between bundled lines
         };
       });
   }
 
+  /**
+   * Calculate channel influence on route cost
+   * Supports bundling (prefer), avoiding, force, and waypoint channel types
+   * @param {Array} pts - Route points
+   * @param {object} req - Route request
+   * @returns {object} Channel delta with coverage stats and waypoint tracking
+   * @private
+   */
   _channelDelta(pts, req) {
-    if (!this._channels.length || !req.channels || !req.channels.length) return { delta: 0, inside: 0, outside: 0, coverage: 0, forcedOutside: false, mode: req.channelMode };
+    if (!this._channels.length || !req.channels || !req.channels.length) {
+      return { delta: 0, inside: 0, outside: 0, coverage: 0, forcedOutside: false };
+    }
+
     // Filter to requested channel IDs (ignore unknown)
     const chanSet = new Set(req.channels);
     const chans = this._channels.filter(c => chanSet.has(c.id));
@@ -628,41 +1188,67 @@ export class RouterCore {
 
     let inside = 0;
     let outside = 0;
-    // Forcing: a point is "inside preferred set" if midpoint is inside ANY requested channel rect.
-    for (let i=1;i<pts.length;i++) {
+
+    // Measure coverage for each segment
+    for (let i = 1; i < pts.length; i++) {
       const a = pts[i-1], b = pts[i];
       const segLen = Math.abs(a[0]-b[0]) + Math.abs(a[1]-b[1]);
       if (segLen === 0) continue;
-      // Midpoint (orthogonal so pick center)
+
+      // Midpoint (orthogonal segments, so use center)
       const mx = (a[0] + b[0]) / 2;
       const my = (a[1] + b[1]) / 2;
+
+      // Check if segment is inside any requested channel
       const inChan = chans.some(c => mx >= c.x1 && mx <= c.x2 && my >= c.y1 && my <= c.y2);
       if (inChan) inside += segLen;
       else outside += segLen;
     }
+
     const coverage = inside / (inside + outside || 1);
     let delta = 0;
-    const mode = (req.channelMode || 'prefer').toLowerCase();
     let forcedOutside = false;
-    if (mode === 'prefer') {
-      // Reward inside (subtract)
-      const weightAvg = chans.reduce((s,c)=>s+c.weight,0)/chans.length;
-      delta -= inside * weightAvg;
-    } else if (mode === 'avoid') {
-      const weightAvg = chans.reduce((s,c)=>s+c.weight,0)/chans.length;
-      delta += inside * weightAvg * this._channelAvoidMultiplier;
-    } else if (mode === 'force') {
-      if (outside > 0) {
-        forcedOutside = true;
-        delta += this._channelForcePenalty;
-      } else {
-        const weightAvg = chans.reduce((s,c)=>s+c.weight,0)/chans.length;
-        delta -= inside * weightAvg; // full reward when fully inside
+
+    // Apply channel influence based on each channel's mode
+    for (const chan of chans) {
+      const chanInside = pts.slice(1).reduce((sum, pt, i) => {
+        const prev = pts[i];
+        const segLen = Math.abs(pt[0] - prev[0]) + Math.abs(pt[1] - prev[1]);
+        const mx = (prev[0] + pt[0]) / 2;
+        const my = (prev[1] + pt[1]) / 2;
+        return sum + (mx >= chan.x1 && mx <= chan.x2 && my >= chan.y1 && my <= chan.y2 ? segLen : 0);
+      }, 0);
+
+      if (chan.mode === 'prefer') {
+        // Reward routing through channel (subtract cost)
+        delta -= chanInside * chan.weight;
+      } else if (chan.mode === 'avoid') {
+        // Penalize routing through channel
+        delta += chanInside * chan.weight * this._channelAvoidMultiplier;
+      } else if (chan.mode === 'force') {
+        // High penalty if channel is missed
+        if (chanInside === 0) {
+          delta += this._channelForcePenalty;
+          forcedOutside = true;
+          perfCount('routing.channel.force.missed', 1);
+          lcardsLog.debug(`[RouterCore] Route '${req.id}' missed forced channel '${chan.id}'`);
+        } else {
+          // Reward for passing through
+          delta -= chanInside * chan.weight;
+        }
       }
     }
+
     if (delta !== 0) perfCount('routing.channel.applied', 1);
     if (forcedOutside) perfCount('routing.channel.force.penalty', 1);
-    return { delta, inside, outside, coverage, forcedOutside, mode: req.channelMode };
+
+    return {
+      delta,
+      inside,
+      outside,
+      coverage,
+      forcedOutside
+    };
   }
 
   _refineSmart(req, gridBase) {
@@ -728,8 +1314,14 @@ export class RouterCore {
     const channelInfo = this._channelDelta(bestPts, req);
     // Channel shaping (only prefer/force & if coverage below target)
     let shapingMeta = null;
-    if (req.channels?.length && (req.channelMode === 'prefer' || req.channelMode === 'force')) {
-      const desired = (req.channelMode === 'force') ? 1.0 : this._channelTargetCoverage;
+
+    // Check if any of the line's referenced channels have prefer or force mode
+    const referencedChannels = req.channels?.length ? this._channels.filter(c => req.channels.includes(c.id)) : [];
+    const hasPreferOrForce = referencedChannels.some(c => c.mode === 'prefer' || c.mode === 'force');
+    const hasForce = referencedChannels.some(c => c.mode === 'force');
+
+    if (hasPreferOrForce) {
+      const desired = hasForce ? 1.0 : this._channelTargetCoverage;
       if (channelInfo.coverage < desired) {
         const shapeRes = this._shapeForChannels(req, bestPts, channelInfo, desired);
         if (shapeRes && shapeRes.accepted) {
@@ -813,7 +1405,8 @@ export class RouterCore {
     let accepted = false;
     let attempts = 0;
     let coverageHistory = [Number(coverage0.toFixed(4))];
-    const forceMode = (req.channelMode === 'force');
+    const referencedChannels = req.channels?.length ? this._channels.filter(c => req.channels.includes(c.id)) : [];
+    const forceMode = referencedChannels.some(c => c.mode === 'force');
 
     function midpoint(a,b){ return [(a[0]+b[0])/2,(a[1]+b[1])/2]; }
     const inAny = (x,y)=>chans.some(c=> x>=c.x1 && x<=c.x2 && y>=c.y1 && y<=c.y2);

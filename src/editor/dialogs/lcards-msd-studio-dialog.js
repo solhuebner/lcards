@@ -198,6 +198,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         this._showAnchorMarkers = false;
         this._showBoundingBoxes = false;
         this._showRoutingPaths = false;
+        this._showRoutingChannels = false;  // Hidden by default, use Routing Channels toggle
 
         // Preview Zoom State
         this._previewZoom = 1.0;
@@ -3357,6 +3358,10 @@ export class LCARdSMSDStudioDialog extends LitElement {
             this._drawChannelState.startPoint = null;
             this._drawChannelState.drawing = false;
 
+            // Detect lines that may intersect this channel
+            const channelBounds = { x, y, width, height };
+            const intersectingLines = this._findLinesIntersectingChannel(channelBounds);
+
             // Open channel form with pre-filled bounds
             this._editingChannelId = '';
             this._channelFormData = {
@@ -3364,7 +3369,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 type: 'bundling',
                 bounds: [x, y, width, height],
                 priority: 10,
-                color: '#00FF00'
+                color: '#00FF00',
+                // Add suggested lines if any were found
+                suggestedLines: intersectingLines.length > 0 ? intersectingLines.map(line => line.id) : null
             };
 
             // Exit draw mode
@@ -4907,6 +4914,20 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     const color = channel.color || '#00FFAA';
                     const isResizing = this._channelResizeState.active && this._channelResizeState.channelId === channelId;
 
+                    // Determine direction: explicit or auto-detect from shape
+                    let direction = (channel.direction || 'auto').toLowerCase();
+                    if (direction === 'auto') {
+                        direction = width >= height ? 'horizontal' : 'vertical';
+                    }
+
+                    // Arrow indicator for flow direction (relative to SVG origin)
+                    const arrowSize = Math.min(pixelWidth, pixelHeight) * 0.3;
+                    const arrowCenterX = pixelWidth / 2;  // Center of SVG, not absolute
+                    const arrowCenterY = pixelHeight / 2;
+                    const arrowPath = direction === 'horizontal'
+                        ? `M ${arrowCenterX - arrowSize} ${arrowCenterY} L ${arrowCenterX + arrowSize} ${arrowCenterY} M ${arrowCenterX + arrowSize - 6} ${arrowCenterY - 4} L ${arrowCenterX + arrowSize} ${arrowCenterY} L ${arrowCenterX + arrowSize - 6} ${arrowCenterY + 4}`
+                        : `M ${arrowCenterX} ${arrowCenterY - arrowSize} L ${arrowCenterX} ${arrowCenterY + arrowSize} M ${arrowCenterX - 4} ${arrowCenterY + arrowSize - 6} L ${arrowCenterX} ${arrowCenterY + arrowSize} L ${arrowCenterX + 4} ${arrowCenterY + arrowSize - 6}`;
+
                     return html`
                         <!-- Channel rectangle (interactive) -->
                         <div
@@ -4946,6 +4967,24 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         ">
                             ${channelId}
                         </div>
+                        <!-- Direction arrow indicator -->
+                        <svg style="
+                            position: absolute;
+                            left: ${pixelX}px;
+                            top: ${pixelY}px;
+                            width: ${pixelWidth}px;
+                            height: ${pixelHeight}px;
+                            pointer-events: none;
+                            overflow: visible;
+                        ">
+                            <path
+                                d="${arrowPath}"
+                                stroke="${color}"
+                                stroke-width="2"
+                                fill="none"
+                                opacity="0.8"
+                            />
+                        </svg>
                     `;
                 })}
             </div>
@@ -5620,21 +5659,26 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
         if (channelOptions.length === 0) {
             return html`
-                <div style="margin-top: 16px; padding: 12px; background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 4px; font-size: 13px; color: var(--secondary-text-color);">
-                    <ha-icon icon="mdi:information" style="vertical-align: middle; --mdc-icon-size: 18px;"></ha-icon>
-                    No routing channels defined. Define channels in the Routing tab to enable channel-based routing.
-                </div>
+                <lcards-form-section
+                    header="Channel Routing"
+                    description="Route through specific channels (none defined)"
+                    icon="mdi:vector-polyline"
+                    ?expanded=${false}>
+
+                    <div style="padding: 12px; background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 4px; font-size: 13px; color: var(--secondary-text-color);">
+                        <ha-icon icon="mdi:information" style="vertical-align: middle; --mdc-icon-size: 18px;"></ha-icon>
+                        No routing channels defined. Create channels in the Channels tab to enable channel-based routing.
+                    </div>
+                </lcards-form-section>
             `;
         }
 
         return html`
-            <div style="margin-top: 16px;">
-                <div style="font-weight: 600; font-size: 13px; color: var(--primary-text-color); margin-bottom: 8px;">
-                    Channel Routing
-                </div>
-                <div style="font-size: 12px; color: var(--secondary-text-color); margin-bottom: 12px;">
-                    Select which routing channels this line should use. Channels are rectangular regions defined in the Routing tab.
-                </div>
+            <lcards-form-section
+                header="Channel Routing"
+                description="Route through specific channels for bundling/organizing lines"
+                icon="mdi:vector-polyline"
+                ?expanded=${false}>
 
                 <ha-selector
                     .hass=${this.hass}
@@ -5647,6 +5691,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     }}
                     .value=${this._lineFormData.route_channels || []}
                     .label=${'Select Channels'}
+                    helper-text="Lines will route through selected channels based on channel behavior (prefer/avoid/force)"
                     @value-changed=${(e) => {
                         this._lineFormData.route_channels = e.detail.value || [];
                         this.requestUpdate();
@@ -5654,27 +5699,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 </ha-selector>
 
                 ${(this._lineFormData.route_channels && this._lineFormData.route_channels.length > 0) ? html`
-                    <ha-selector
-                        .hass=${this.hass}
-                        .selector=${{
-                            select: {
-                                options: [
-                                    { value: 'prefer', label: 'Prefer (Use when beneficial)' },
-                                    { value: 'avoid', label: 'Avoid (Stay away from)' },
-                                    { value: 'force', label: 'Force (Must use)' }
-                                ]
-                            }
-                        }}
-                        .value=${this._lineFormData.channel_mode || 'prefer'}
-                        .label=${'Channel Mode'}
-                        @value-changed=${(e) => {
-                            this._lineFormData.channel_mode = e.detail.value;
-                            this.requestUpdate();
-                        }}
-                        style="margin-top: 12px;">
-                    </ha-selector>
+                    <div style="margin-top: 12px; padding: 8px; background: var(--secondary-background-color); border-radius: 4px; font-size: 12px; color: var(--secondary-text-color);">
+                        <ha-icon icon="mdi:information-outline" style="vertical-align: middle; --mdc-icon-size: 16px;"></ha-icon>
+                        Channel behavior (mode: prefer/avoid/force) and line spacing are configured on the channel, not per-line.
+                    </div>
                 ` : ''}
-            </div>
+            </lcards-form-section>
         `;
     }
 
@@ -7909,23 +7939,44 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         ` : ''}
                     </div>
 
-                    <!-- Channel Type -->
+                    <!-- Channel Mode -->
                     <div class="form-field" style="margin-top: 12px;">
-                        <label class="form-label">Channel Type</label>
+                        <label class="form-label">Channel Mode</label>
                         <ha-selector
                             .hass=${this.hass}
                             .selector=${{
                                 select: {
                                     options: [
-                                        { value: 'bundling', label: 'Bundling (lines prefer)' },
-                                        { value: 'avoiding', label: 'Avoiding (lines avoid)' },
-                                        { value: 'waypoint', label: 'Waypoint (lines must pass through)' }
+                                        { value: 'prefer', label: 'Prefer (bundled routing through area)' },
+                                        { value: 'avoid', label: 'Avoid (repel lines from area)' },
+                                        { value: 'force', label: 'Force (mandatory routing through)' }
                                     ]
                                 }
                             }}
-                            .value=${data.type}
-                            @value-changed=${(e) => this._updateChannelFormField('type', e.detail.value)}>
+                            .value=${data.mode}
+                            @value-changed=${(e) => this._updateChannelFormField('mode', e.detail.value)}>
                         </ha-selector>
+                        <div class="form-helper">Prefer: attracts+bundles lines | Avoid: repels | Force: mandatory</div>
+                    </div>
+
+                    <!-- Channel Direction -->
+                    <div class="form-field" style="margin-top: 12px;">
+                        <label class="form-label">Channel Direction</label>
+                        <ha-selector
+                            .hass=${this.hass}
+                            .selector=${{
+                                select: {
+                                    options: [
+                                        { value: 'auto', label: 'Auto-detect from shape' },
+                                        { value: 'horizontal', label: 'Horizontal flow →' },
+                                        { value: 'vertical', label: 'Vertical flow ↓' }
+                                    ]
+                                }
+                            }}
+                            .value=${data.direction || 'auto'}
+                            @value-changed=${(e) => this._updateChannelFormField('direction', e.detail.value)}>
+                        </ha-selector>
+                        <div class="form-helper">Auto: wide=horizontal, tall=vertical</div>
                     </div>
 
                     <!-- Bounds Configuration -->
@@ -7972,29 +8023,63 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         <div class="form-helper">Rectangle in ViewBox coordinates [x, y, width, height]</div>
                     </div>
 
-                    <!-- Priority -->
+                    <!-- Weight -->
                     <div class="form-field" style="margin-top: 12px;">
-                        <label class="form-label">Priority (1-100)</label>
+                        <label class="form-label">Channel Weight (0-1)</label>
                         <ha-selector
                             .hass=${this.hass}
-                            .selector=${{ number: { min: 1, max: 100, mode: 'slider' } }}
-                            .value=${data.priority || 10}
-                            @value-changed=${(e) => this._updateChannelFormField('priority', e.detail.value)}>
+                            .selector=${{ number: { min: 0, max: 1, step: 0.1, mode: 'slider' } }}
+                            .value=${data.weight || 0.5}
+                            @value-changed=${(e) => this._updateChannelFormField('weight', e.detail.value)}>
                         </ha-selector>
-                        <div class="form-helper">Higher priority = stronger influence on routing</div>
+                        <div class="form-helper">Influence strength on routing (higher = stronger)</div>
                     </div>
 
-                    <!-- Visualization Color -->
+                    <!-- Line Spacing -->
                     <div class="form-field" style="margin-top: 12px;">
-                        <label class="form-label">Visualization Color</label>
-                        <ha-textfield
-                            type="color"
-                            .value=${data.color}
-                            @input=${(e) => this._updateChannelFormField('color', e.target.value)}
-                            style="width: 100%;">
-                        </ha-textfield>
-                        <div class="form-helper">Color for debug visualization in editor</div>
+                        <label class="form-label">Line Spacing (viewBox units)</label>
+                        <ha-selector
+                            .hass=${this.hass}
+                            .selector=${{ number: { min: 0, max: 100, step: 1, mode: 'slider' } }}
+                            .value=${data.line_spacing ?? 8}
+                            @value-changed=${(e) => this._updateChannelFormField('line_spacing', e.detail.value)}>
+                        </ha-selector>
+                        <div class="form-helper">Gap between bundled lines in viewBox coordinates (0 = overlap). Typical: 5-20 for 1920px wide viewBox.</div>
                     </div>
+
+                    <!-- Smart Routing Suggestions -->
+                    ${data.suggestedLines && data.suggestedLines.length > 0 ? html`
+                        <div class="channel-suggestion-panel">
+                            <div class="channel-suggestion-header">
+                                <ha-icon icon="mdi:auto-fix"></ha-icon>
+                                <label class="channel-suggestion-title">Smart Routing Detected</label>
+                            </div>
+                            <div class="channel-suggestion-description">
+                                ${data.suggestedLines.length} line(s) pass through this channel area.
+                                Auto-configure them to route through this channel?
+                            </div>
+                            <div class="channel-suggestion-actions">
+                                <ha-button
+                                    primary
+                                    @click=${() => this._applyChannelToLines(data.id, data.suggestedLines, 'prefer')}>
+                                    <ha-icon icon="mdi:check-circle" slot="icon"></ha-icon>
+                                    Route Through (Prefer)
+                                </ha-button>
+                                <ha-button
+                                    @click=${() => this._applyChannelToLines(data.id, data.suggestedLines, 'force')}>
+                                    <ha-icon icon="mdi:lock" slot="icon"></ha-icon>
+                                    Force Through
+                                </ha-button>
+                                <ha-button
+                                    @click=${() => this._dismissChannelSuggestions()}>
+                                    Skip
+                                </ha-button>
+                            </div>
+                            <div class="channel-suggestion-affected-lines">
+                                Affected lines: ${data.suggestedLines.join(', ')}
+                            </div>
+                        </div>
+                    ` : ''}
                 </div>
 
                 <!-- Dialog Actions -->
@@ -8024,10 +8109,11 @@ export class LCARdSMSDStudioDialog extends LitElement {
         this._editingChannelId = '';
         this._channelFormData = {
             id: '',
-            type: 'bundling',
+            mode: 'prefer',
+            direction: 'auto',
             bounds: [0, 0, 100, 50],
-            priority: 10,
-            color: '#00FF00'
+            weight: 0.5,
+            line_spacing: 8
         };
         this.requestUpdate();
     }
@@ -8040,12 +8126,19 @@ export class LCARdSMSDStudioDialog extends LitElement {
      */
     _editChannel(id, channel) {
         this._editingChannelId = id;
+        // Support both new mode and legacy type fields for backwards compatibility
+        let mode = channel.mode;
+        if (!mode && channel.type) {
+            const typeToMode = { 'bundling': 'prefer', 'avoiding': 'avoid', 'waypoint': 'force' };
+            mode = typeToMode[channel.type] || 'prefer';
+        }
         this._channelFormData = {
             id,
-            type: channel.type || 'bundling',
+            mode: mode || 'prefer',
+            direction: channel.direction || 'auto',
             bounds: [...(channel.bounds || [0, 0, 100, 50])],
-            priority: channel.priority || 10,
-            color: channel.color || '#00FF00'
+            weight: channel.weight || 0.5,
+            line_spacing: channel.line_spacing ?? 8
         };
         this.requestUpdate();
     }
@@ -8100,12 +8193,13 @@ export class LCARdSMSDStudioDialog extends LitElement {
             this._workingConfig.msd.channels = {};
         }
 
-        // Save channel
+        // Save channel with new schema
         this._workingConfig.msd.channels[id] = {
-            type: this._channelFormData.type,
+            mode: this._channelFormData.mode || 'prefer',
+            direction: this._channelFormData.direction || 'auto',
             bounds: this._channelFormData.bounds,
-            priority: this._channelFormData.priority,
-            color: this._channelFormData.color
+            weight: this._channelFormData.weight || 0.5,
+            line_spacing: this._channelFormData.line_spacing ?? 8
         };
 
         this._setNestedValue('msd.channels', this._workingConfig.msd.channels);
@@ -8159,6 +8253,161 @@ export class LCARdSMSDStudioDialog extends LitElement {
             id = `channel_${num}`;
         }
         return id;
+    }
+
+    /**
+     * Find lines that pass through or near a channel region
+     * Uses bounding box intersection for performance
+     * @param {Object} channelBounds - Channel bounds {x, y, width, height}
+     * @returns {Array<Object>} List of line overlays that intersect the channel
+     * @private
+     *
+     * NOTE: This implementation uses simplified bounding box intersection.
+     * It checks if line endpoint bounding boxes overlap with the channel rectangle.
+     * This may produce false positives for lines whose endpoints create a bounding
+     * box that overlaps the channel but whose actual routed path doesn't cross it.
+     *
+     * This is an acceptable trade-off:
+     * - Better to suggest a line that doesn't need channel routing than miss one that does
+     * - Users can skip suggestions they don't want
+     * - Keeps computation fast and simple
+     *
+     * Future enhancement: Implement precise line-rectangle intersection testing
+     * using the actual routed path coordinates instead of endpoint bounding boxes.
+     */
+    _findLinesIntersectingChannel(channelBounds) {
+        const overlays = this._workingConfig.msd?.overlays || [];
+        const anchors = this._workingConfig.msd?.anchors || {};
+        const { x: cx, y: cy, width: cw, height: ch } = channelBounds;
+        const cx2 = cx + cw;
+        const cy2 = cy + ch;
+
+        const intersectingLines = [];
+
+        for (const overlay of overlays) {
+            if (overlay.type !== 'line') continue;
+
+            // Get line endpoints from anchors
+            const anchor1 = overlay.anchor ? anchors[overlay.anchor] : null;
+            const anchor2 = overlay.attach_to ? anchors[overlay.attach_to] : null;
+
+            if (!anchor1 || !anchor2) continue;
+
+            const [x1, y1] = anchor1;
+            const [x2, y2] = anchor2;
+
+            // Step 1: Check if line segment bounding box overlaps channel rectangle
+            const lineMinX = Math.min(x1, x2);
+            const lineMaxX = Math.max(x1, x2);
+            const lineMinY = Math.min(y1, y2);
+            const lineMaxY = Math.max(y1, y2);
+
+            // Check for overlap using separating axis theorem (simplified)
+            const overlapsX = lineMaxX >= cx && lineMinX <= cx2;
+            const overlapsY = lineMaxY >= cy && lineMinY <= cy2;
+
+            if (overlapsX && overlapsY) {
+                // Step 2: More specific check - does line actually cross through channel?
+                // Check if either endpoint is inside, or if line fully spans channel
+                const point1Inside = x1 >= cx && x1 <= cx2 && y1 >= cy && y1 <= cy2;
+                const point2Inside = x2 >= cx && x2 <= cx2 && y2 >= cy && y2 <= cy2;
+                const spansChannelHorizontally = lineMinX < cx && lineMaxX > cx2;
+                const spansChannelVertically = lineMinY < cy && lineMaxY > cy2;
+
+                const likelyCrosses = point1Inside || point2Inside ||
+                                     spansChannelHorizontally || spansChannelVertically;
+
+                if (likelyCrosses) {
+                    intersectingLines.push(overlay);
+                }
+            }
+        }
+
+        lcardsLog.debug(
+            `[MSDStudio] Found ${intersectingLines.length} line(s) intersecting channel bounds:`,
+            intersectingLines.map(l => l.id).join(', ')
+        );
+
+        return intersectingLines;
+    }
+
+    /**
+     * Apply channel to suggested lines with auto-configuration
+     * Configures all necessary routing parameters for optimal channel usage
+     * @param {string} channelId - Channel ID to apply
+     * @param {Array<string>} lineIds - Array of line overlay IDs
+     * @param {string} mode - Channel mode ('prefer' or 'force')
+     * @private
+     */
+    _applyChannelToLines(channelId, lineIds, mode = 'prefer') {
+        lcardsLog.debug(`[MSDStudio] Applying channel '${channelId}' to ${lineIds.length} line(s) with mode: ${mode}`);
+
+        const overlays = this._workingConfig.msd?.overlays || [];
+        let updatedCount = 0;
+
+        // Import shared constants
+        import('./../../msd/routing/routing-constants.js').then(module => {
+            const { CHANNEL_SHAPING_DEFAULTS } = module;
+
+            for (const overlay of overlays) {
+                if (overlay.type === 'line' && lineIds.includes(overlay.id)) {
+                    // Add channel to route_channels array
+                    if (!overlay.route_channels) {
+                        overlay.route_channels = [];
+                    }
+                    if (!overlay.route_channels.includes(channelId)) {
+                        overlay.route_channels.push(channelId);
+                    }
+
+                    // Set channel mode
+                    overlay.route_channel_mode = mode;
+
+                    // Auto-configure smart routing (will be auto-upgraded by RouterCore)
+                    // Don't set route_mode_full explicitly - let auto-upgrade handle it
+
+                    // Set optimal channel shaping parameters only if not already configured
+                    if (!overlay.channel_shaping_max_attempts) {
+                        overlay.channel_shaping_max_attempts = CHANNEL_SHAPING_DEFAULTS.MAX_ATTEMPTS;
+                    }
+                    if (!overlay.channel_shaping_span) {
+                        overlay.channel_shaping_span = CHANNEL_SHAPING_DEFAULTS.SPAN;
+                    }
+
+                    updatedCount++;
+                    lcardsLog.debug(`[MSDStudio] Updated line '${overlay.id}' with channel routing`);
+                }
+            }
+
+            // Update the config
+            this._setNestedValue('msd.overlays', overlays);
+
+            // Clear the suggestions from the form
+            if (this._channelFormData) {
+                this._channelFormData.suggestedLines = null;
+            }
+
+            // Show success message
+            this._showDialog(
+                'Lines Configured',
+                `Successfully configured ${updatedCount} line(s) to route through channel "${channelId}" with ${mode} mode.`,
+                'success'
+            );
+
+            this._schedulePreviewUpdate();
+            this.requestUpdate();
+        });
+    }
+
+    /**
+     * Dismiss channel suggestions without applying
+     * @private
+     */
+    _dismissChannelSuggestions() {
+        lcardsLog.debug('[MSDStudio] Dismissing channel suggestions');
+        if (this._channelFormData) {
+            this._channelFormData.suggestedLines = null;
+        }
+        this.requestUpdate();
     }
 
     /**
@@ -8251,13 +8500,14 @@ export class LCARdSMSDStudioDialog extends LitElement {
             route: line.route || 'auto',
             // Advanced routing parameters
             clearance: line.clearance,
+            route_hint: line.route_hint,
+            route_hint_last: line.route_hint_last,
             corner_style: line.corner_style || 'miter',
             corner_radius: line.corner_radius || 12,
             smoothing_mode: line.smoothing_mode || 'none',
             smoothing_iterations: line.smoothing_iterations || 0,
             // Channel routing
             route_channels: line.route_channels || [],
-            channel_mode: line.channel_mode || 'prefer',
             // Animations
             animations: line.animations || [],
             // Style (load with backward compatibility for old property names)
@@ -8327,6 +8577,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
         if (this._lineFormData.clearance != null) {
             lineOverlay.clearance = this._lineFormData.clearance;
         }
+        if (this._lineFormData.route_hint) {
+            lineOverlay.route_hint = this._lineFormData.route_hint;
+        }
+        if (this._lineFormData.route_hint_last) {
+            lineOverlay.route_hint_last = this._lineFormData.route_hint_last;
+        }
         if (this._lineFormData.corner_style && this._lineFormData.corner_style !== 'miter') {
             lineOverlay.corner_style = this._lineFormData.corner_style;
         }
@@ -8344,8 +8600,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
         if (this._lineFormData.route_channels && this._lineFormData.route_channels.length > 0) {
             lineOverlay.route_channels = this._lineFormData.route_channels;
         }
-        if (this._lineFormData.channel_mode && this._lineFormData.channel_mode !== 'prefer') {
-            lineOverlay.channel_mode = this._lineFormData.channel_mode;
+        if (this._lineFormData.route_channel_mode && this._lineFormData.route_channel_mode !== 'prefer') {
+            lineOverlay.route_channel_mode = this._lineFormData.route_channel_mode;
         }
 
         // Add style if present (using canonical property names)
@@ -8820,81 +9076,136 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _renderLineFormRouting() {
-        // Get routing mode info
-        const routingInfo = this._getRoutingModeInfo(this._lineFormData.route || 'auto');
+        const routeMode = this._lineFormData.route || 'auto';
+        const routeInfo = routeMode === 'direct'
+            ? { icon: 'mdi:vector-line', title: 'Direct', description: 'Straight line from source to target' }
+            : { icon: 'mdi:routes', title: 'Auto', description: 'Intelligent pathfinding with obstacle avoidance' };
 
         return html`
             <div style="display: flex; flex-direction: column; gap: 16px;">
-                <!-- Routing Configuration - 2 Column Layout -->
+                <!-- Routing Mode -->
                 <lcards-form-section
-                    header="Routing Configuration"
+                    header="Routing Mode"
                     description="How the line is drawn between points"
                     icon="mdi:routes"
                     ?expanded=${true}>
 
-                    <div class="routing-columns">
-                        <!-- Left Column: Mode Selection + Info Panel -->
-                        <div class="routing-mode-column">
-                            <ha-selector
-                                .hass=${this.hass}
-                                .selector=${{
-                                    select: {
-                                        options: [
-                                            { value: 'auto', label: 'Auto (Smart Pathfinding)' },
-                                            { value: 'direct', label: 'Direct (Straight Line)' },
-                                            { value: 'manhattan', label: 'Manhattan (90° Angles)' },
-                                            { value: 'grid', label: 'Grid (A* Pathfinding)' },
-                                            { value: 'smart', label: 'Smart (Cost-Optimized)' }
-                                        ]
-                                    }
-                                }}
-                                .value=${this._lineFormData.route || 'auto'}
-                                .label=${'Route'}
-                                @value-changed=${(e) => {
-                                    this._lineFormData.route = e.detail.value;
-                                    this.requestUpdate();
-                                }}>
-                            </ha-selector>
+                    <ha-selector
+                        .hass=${this.hass}
+                        .selector=${{
+                            select: {
+                                options: [
+                                    { value: 'auto', label: 'Auto (Recommended - Smart routing)' },
+                                    { value: 'direct', label: 'Direct (Straight line)' }
+                                ]
+                            }
+                        }}
+                        .value=${routeMode}
+                        .label=${'Route'}
+                        @value-changed=${(e) => {
+                            this._lineFormData.route = e.detail.value;
+                            this.requestUpdate();
+                        }}>
+                    </ha-selector>
 
-                            <!-- Routing Mode Information Panel -->
-                            <div class="routing-info-panel">
-                                <div class="routing-info-header">
-                                    <ha-icon icon="${routingInfo.icon}"></ha-icon>
-                                    <span>${routingInfo.title}</span>
-                                </div>
-                                <div class="routing-info-description">
-                                    ${routingInfo.description}
-                                </div>
-                                <div class="routing-info-diagram">
-                                    ${routingInfo.diagram}
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Right Column: Advanced Options + Channels -->
-                        <div class="routing-advanced-column">
-                            <div style="font-weight: 600; font-size: 13px; color: var(--primary-text-color); margin-bottom: 8px;">
-                                Advanced Options
-                            </div>
-
-                            <ha-textfield
-                                type="number"
-                                label="Clearance (pixels)"
-                                .value=${String(this._lineFormData.clearance || '')}
-                                @input=${(e) => {
-                                    const val = e.target.value;
-                                    this._lineFormData.clearance = val ? Number(val) : undefined;
-                                    this.requestUpdate();
-                                }}
-                                helper-text="Minimum pixels from obstacles (default: 8)"
-                                style="margin-top: 12px; width: 100%;">
-                            </ha-textfield>
-
-                            <!-- Channel Routing -->
-                            ${this._renderChannelRoutingOptions()}
+                    <!-- Info Panel -->
+                    <div style="margin-top: 12px; padding: 12px; background: var(--secondary-background-color); border-radius: 8px; display: flex; gap: 12px; align-items: start;">
+                        <ha-icon icon="${routeInfo.icon}" style="--mdc-icon-size: 24px; color: var(--primary-color); margin-top: 2px;"></ha-icon>
+                        <div>
+                            <div style="font-weight: 600; margin-bottom: 4px;">${routeInfo.title}</div>
+                            <div style="font-size: 13px; color: var(--secondary-text-color);">${routeInfo.description}</div>
                         </div>
                     </div>
                 </lcards-form-section>
+
+                ${routeMode === 'auto' ? html`
+                    <!-- Routing Hints (only for Auto mode) -->
+                    <lcards-form-section
+                        header="Flow Direction Preferences"
+                        description="Hint the router to prefer horizontal or vertical segments"
+                        icon="mdi:arrow-decision"
+                        ?expanded=${false}>
+
+                        <ha-selector
+                            .hass=${this.hass}
+                            .selector=${{
+                                select: {
+                                    options: [
+                                        { value: '', label: 'Auto (No preference)' },
+                                        { value: 'xy', label: 'Horizontal First (xy)' },
+                                        { value: 'yx', label: 'Vertical First (yx)' }
+                                    ]
+                                }
+                            }}
+                            .value=${this._lineFormData.route_hint || ''}
+                            .label=${'Initial Direction'}
+                            helper-text="xy = horizontal then vertical, yx = vertical then horizontal"
+                            @value-changed=${(e) => {
+                                const val = e.detail.value;
+                                if (val === '') {
+                                    delete this._lineFormData.route_hint;
+                                } else {
+                                    this._lineFormData.route_hint = val;
+                                }
+                                this.requestUpdate();
+                            }}>
+                        </ha-selector>
+
+                        <ha-selector
+                            .hass=${this.hass}
+                            .selector=${{
+                                select: {
+                                    options: [
+                                        { value: '', label: 'Auto (No preference)' },
+                                        { value: 'xy', label: 'Horizontal Last (xy)' },
+                                        { value: 'yx', label: 'Vertical Last (yx)' }
+                                    ]
+                                }
+                            }}
+                            .value=${this._lineFormData.route_hint_last || ''}
+                            .label=${'Final Direction'}
+                            helper-text="xy = horizontal then vertical, yx = vertical then horizontal"
+                            @value-changed=${(e) => {
+                                const val = e.detail.value;
+                                if (val === '') {
+                                    delete this._lineFormData.route_hint_last;
+                                } else {
+                                    this._lineFormData.route_hint_last = val;
+                                }
+                                this.requestUpdate();
+                            }}
+                            style="margin-top: 12px;">
+                        </ha-selector>
+                    </lcards-form-section>
+
+                    <!-- Advanced Routing Options -->
+                    <lcards-form-section
+                        header="Advanced Options"
+                        description="Fine-tune routing behavior"
+                        icon="mdi:cog"
+                        ?expanded=${false}>
+
+                        <ha-textfield
+                            type="number"
+                            label="Clearance (pixels)"
+                            .value=${String(this._lineFormData.clearance || '')}
+                            @input=${(e) => {
+                                const val = e.target.value;
+                                if (val === '') {
+                                    delete this._lineFormData.clearance;
+                                } else {
+                                    this._lineFormData.clearance = Number(val);
+                                }
+                                this.requestUpdate();
+                            }}
+                            helper-text="Minimum pixels from obstacles (leave empty for default: 8)"
+                            style="width: 100%;">
+                        </ha-textfield>
+                    </lcards-form-section>
+                ` : ''}
+
+                <!-- Channel Routing -->
+                ${this._renderChannelRoutingOptions()}
             </div>
         `;
     }

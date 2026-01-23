@@ -654,4 +654,54 @@ export const msdStudioStyles = css`
         color: var(--secondary-text-color);
         text-align: center;
     }
+
+    /* Channel Suggestion Panel */
+    .channel-suggestion-panel {
+        margin-top: 16px;
+        padding: 12px;
+        background: rgba(0, 255, 170, 0.1);
+        border: 1px solid rgba(0, 255, 170, 0.3);
+        border-radius: 4px;
+    }
+
+    .channel-suggestion-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+
+    .channel-suggestion-header ha-icon {
+        color: #00FFAA;
+        margin-right: 8px;
+        --mdc-icon-size: 20px;
+    }
+
+    .channel-suggestion-title {
+        margin: 0;
+        color: #00FFAA;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .channel-suggestion-description {
+        margin-bottom: 12px;
+        font-size: 13px;
+        color: var(--secondary-text-color);
+    }
+
+    .channel-suggestion-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .channel-suggestion-actions ha-button[primary] {
+        --primary-color: #00FFAA;
+    }
+
+    .channel-suggestion-affected-lines {
+        margin-top: 8px;
+        font-size: 11px;
+        color: var(--disabled-text-color);
+    }
 `;

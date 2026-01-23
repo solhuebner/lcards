@@ -136,6 +136,67 @@ export function getMsdSchema(options = {}) {
               type: 'string',
               enum: ['line', 'control'],
               errorMessage: 'Only "line" and "control" overlay types supported. Use LCARdS cards for buttons/charts.'
+            },
+            // Line overlay routing properties
+            route: {
+              type: 'string',
+              enum: ['auto', 'direct', 'manhattan', 'smart', 'grid'],
+              optional: true,
+              default: 'auto',
+              description: 'Routing algorithm: auto (recommended), direct (straight line), manhattan (L-shaped), smart (intelligent pathfinding), grid (A* on grid)'
+            },
+            route_hint: {
+              type: 'string',
+              enum: ['', 'xy', 'yx'],
+              optional: true,
+              description: 'Initial segment direction hint: empty/auto (geometry-based), xy = vertical first (X then Y), yx = horizontal first (Y then X)'
+            },
+            route_hint_last: {
+              type: 'string',
+              enum: ['', 'xy', 'yx'],
+              optional: true,
+              description: 'Final segment direction hint: empty/auto (same as route_hint), xy = vertical last, yx = horizontal last'
+            },
+            route_channels: {
+              type: 'array',
+              items: { type: 'string' },
+              optional: true,
+              description: 'Array of channel IDs this line should route through'
+            },
+            clearance: {
+              type: 'number',
+              min: 0,
+              optional: true,
+              description: 'Minimum clearance around obstacles in pixels (overrides global default)'
+            },
+            corner_style: {
+              type: 'string',
+              enum: ['miter', 'round', 'bevel'],
+              optional: true,
+              default: 'miter',
+              description: 'How line corners are rendered'
+            },
+            corner_radius: {
+              type: 'number',
+              min: 0,
+              optional: true,
+              default: 0,
+              description: 'Corner rounding radius in pixels (for round corners)'
+            },
+            smoothing_mode: {
+              type: 'string',
+              enum: ['none', 'chaikin'],
+              optional: true,
+              default: 'none',
+              description: 'Path smoothing algorithm'
+            },
+            smoothing_iterations: {
+              type: 'number',
+              min: 0,
+              max: 5,
+              optional: true,
+              default: 0,
+              description: 'Number of smoothing iterations to apply'
             }
           }
         },
@@ -151,6 +212,31 @@ export function getMsdSchema(options = {}) {
         optional: true,
         description: 'Global line routing configuration (lines can override with per-line properties)',
         properties: {
+          // Routing intelligence
+          default_mode: {
+            type: 'string',
+            enum: ['manhattan', 'smart', 'grid', 'auto'],
+            optional: true,
+            default: 'manhattan',
+            description: 'Default routing mode for all lines (manhattan: simple L-shaped, smart: multi-bend intelligent, grid: A* pathfinding, auto: let system decide)',
+            'x-ui': {
+              control: 'select',
+              label: 'Default Routing Mode',
+              helper: 'Global routing strategy applied to all lines unless overridden per-line'
+            }
+          },
+          auto_upgrade_simple_lines: {
+            type: 'boolean',
+            optional: true,
+            default: true,
+            description: 'Automatically upgrade manhattan to smart routing when channels or obstacles are detected',
+            'x-ui': {
+              control: 'checkbox',
+              label: 'Auto-Upgrade to Smart Routing',
+              helper: 'Automatically use smart routing when line complexity requires it'
+            }
+          },
+
           // Basic routing
           clearance: {
             type: 'number',
@@ -331,11 +417,11 @@ export function getMsdSchema(options = {}) {
       channels: {
         type: 'object',
         optional: true,
-        description: 'Named routing channels that influence line behavior',
+        description: 'Named routing channels for bundling/separating lines with optional forced routing',
         patternProperties: {
           '^[a-zA-Z0-9_-]+$': {
             type: 'object',
-            required: ['bounds', 'type'],
+            required: ['bounds'],
             properties: {
               bounds: {
                 type: 'array',
@@ -344,17 +430,42 @@ export function getMsdSchema(options = {}) {
                 items: { type: 'number' },
                 description: 'Channel rectangle [x, y, width, height]'
               },
-              type: {
+              mode: {
                 type: 'string',
-                enum: ['bundling', 'avoiding', 'waypoint'],
-                description: 'Channel behavior type'
+                enum: ['prefer', 'avoid', 'force'],
+                optional: true,
+                default: 'prefer',
+                description: 'Channel behavior: prefer=encourage bundling, avoid=stay away, force=must route through'
+              },
+              direction: {
+                type: 'string',
+                enum: ['horizontal', 'vertical', 'auto'],
+                optional: true,
+                default: 'auto',
+                description: 'Flow direction through channel (auto = infer from shape: wide=horizontal, tall=vertical)'
               },
               weight: {
                 type: 'number',
                 min: 0,
+                max: 1,
                 optional: true,
                 default: 0.5,
-                description: 'Channel influence weight (0-1)'
+                description: 'Channel influence strength (0-1, higher = stronger pull/push)'
+              },
+              line_spacing: {
+                type: 'number',
+                min: 0,
+                max: 100,
+                optional: true,
+                default: 8,
+                description: 'Gap between bundled lines in viewBox units (for prefer/force modes)'
+              },
+              type: {
+                type: 'string',
+                enum: ['bundling', 'avoiding', 'waypoint'],
+                optional: true,
+                deprecated: true,
+                description: 'DEPRECATED: Use mode instead (bundling→prefer, avoiding→avoid, waypoint→force)'
               }
             }
           }
@@ -362,7 +473,7 @@ export function getMsdSchema(options = {}) {
         'x-ui': {
           control: 'yaml',
           label: 'Routing Channels',
-          helper: 'Define channels: channel_id: { bounds: [x,y,w,h], type: bundling|avoiding|waypoint, weight: 0.5 }'
+          helper: 'Define channels: channel_id: { bounds: [x,y,w,h], mode: prefer|avoid|force, direction: auto|horizontal|vertical }'
         }
       },
 
