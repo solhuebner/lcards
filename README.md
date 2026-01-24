@@ -52,15 +52,15 @@ Legend:  ✅ Present | ❌ Not present | ⚠️ Partial
 
 | Feature | CB-LCARS | LCARdS | Notes |
 |---|:---:|:---:|---|
-| Button Card | ✅ cb-lcars-button-card | ✅ lcards-button | Builtin `preset` collection provides all the standard LCARS buttons. |
-| D-PAD Card | ✅ cb-lcars-dpad-card | ✅ lcards-button | Uses new  `component` feature of `lcards-button` card - complex SVGs can be turned into advanced multi-touch controls with use of `segements` concept. |
-| Label Card | ✅ cb-lcars-label-card | ✅ lcards-button | Label functionality can by used with `lcards-button`.  Addional presets available for text labels with or without decoration. |
-| Elbow Card | ✅ cb-lcars-elbow-card | ✅ lcards-elbow | Equivalent in LCARdS. |
-| Double Elbow Card | ✅ cb-lcars-double-elbow-card | ✅ lcards-elbow | Double Elbow now consolidated into a single unified `lcards-elbow` card. |
-| Slider Card | ✅ cb-lcars-multimeter-card | ⚠️ lcards-slider | Picard slider missing |
+| Button Card | ✅ <br>cb-lcars-button-card | ✅ <br>lcards-button | Builtin `preset` collection provides all the standard LCARS buttons. |
+| D-PAD Card | ✅ <br>cb-lcars-dpad-card | ✅ <br>lcards-button | Uses new  `component` feature of `lcards-button` card - complex SVGs can be turned into advanced multi-touch controls with use of `segements` concept. |
+| Label Card | ✅ <br>cb-lcars-label-card | ✅ <br>lcards-button | Label functionality can by used with `lcards-button`.  Addional presets available for text labels with or without decoration. |
+| Elbow Card | ✅ <br>cb-lcars-elbow-card | ✅ <br>lcards-elbow | Equivalent in LCARdS. |
+| Double Elbow Card | ✅ <br>cb-lcars-double-elbow-card | ✅ <br>lcards-elbow | Double Elbow now consolidated into a single unified `lcards-elbow` card. |
+| Slider Card | ✅ <br>cb-lcars-multimeter-card | ⚠️ <br>lcards-slider | Picard slider missing |
 | Cascade Data Grid | ⚠️ | ✅ lcards-data-grid | CB-LCARS provided decorative only version as background animation.  <br><br>In LCARdS, `lcards-data-grid` is full featured tabular/cell-based grid that can show real entity data - but also supports decorative mode equivalent to CB-LCARS version if desired.  |
-| Chart / Graph Card | ❌ | ✅ lcards-chart | Embedded ApexCharts library providing access to a variety of charts/graphs types to plot entity/data against. |
-| MSD (Master Systems Display) Card | ❌ | ✅ lcards-msd | Full MSD system in a card.  Embed controls (other HA cards), connect and route lines, add animations to reflect statuses, etc. |
+| Chart / Graph Card | ❌ | ✅ <br>lcards-chart | Embedded ApexCharts library providing access to a variety of charts/graphs types to plot entity/data against. |
+| MSD (Master Systems Display) Card | ❌ | ✅ <br>lcards-msd | Full MSD system in a card.  Embed controls (other HA cards), connect and route lines, add animations to reflect statuses, etc. |
 | Background Animations | ✅ <br>GRID, ALERT, GEO Array, Pulsewave| ❌ | Not yet implmented. |
 | Element Animations | ❌ | ✅ | Embedded Anime.js v4 library enabling capability to animate any SVG element (cards, lines/stroke, text, etc.) |
 | Symbiont (embedded cards) | ✅ | ❌ | Not yet implmented. |
