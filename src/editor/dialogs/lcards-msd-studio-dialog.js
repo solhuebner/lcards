@@ -1839,11 +1839,15 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
         // Save anchor
         const path = `msd.anchors.${this._anchorFormName}`;
-        this._setNestedValue(path, [...this._anchorFormPosition]);
+        const roundedPosition = [
+            this._roundToPrecision(this._anchorFormPosition[0]),
+            this._roundToPrecision(this._anchorFormPosition[1])
+        ];
+        this._setNestedValue(path, roundedPosition);
 
         // Close dialog
         this._closeAnchorForm();
-        lcardsLog.debug('[MSDStudio] Anchor saved:', this._anchorFormName, this._anchorFormPosition);
+        lcardsLog.debug('[MSDStudio] Anchor saved:', this._anchorFormName, roundedPosition);
     }
 
     /**
@@ -1966,7 +1970,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
      */
     _updateAnchorFormPosition(index, value) {
         this._anchorFormPosition = [...this._anchorFormPosition];
-        this._anchorFormPosition[index] = parseFloat(value) || 0;
+        this._anchorFormPosition[index] = this._roundToPrecision(parseFloat(value) || 0);
         this.requestUpdate();
     }
 
@@ -2317,14 +2321,29 @@ export class LCARdSMSDStudioDialog extends LitElement {
         }
 
         // Get current position
-        const anchors = this._workingConfig.msd?.anchors || {};
+        // Get complete merged anchors from card's resolved model
+        const livePreview = this.shadowRoot.querySelector('lcards-msd-live-preview');
+        const livePreviewShadow = livePreview?.shadowRoot;
+        const cardContainer = livePreviewShadow?.querySelector('.preview-card-container');
+        const msdCard = cardContainer?.querySelector('lcards-msd-card');
+        const anchors = msdCard?._msdPipeline?.getResolvedModel()?.anchors || {};
+
         let currentPosition;
         if (control.position && Array.isArray(control.position)) {
             currentPosition = [...control.position];
+        } else if (typeof control.position === 'string') {
+            // Position is an anchor reference (string)
+            currentPosition = OverlayUtils.resolvePosition(control.position, anchors);
+            if (!currentPosition) {
+                lcardsLog.warn('[MSDStudio] Could not resolve anchor position for drag:', control.position);
+                return;
+            }
+            currentPosition = [...currentPosition];
         } else if (control.anchor) {
+            // Legacy: anchor property
             currentPosition = OverlayUtils.resolvePosition(control.anchor, anchors);
             if (!currentPosition) {
-                lcardsLog.warn('[MSDStudio] Could not resolve anchor position for drag');
+                lcardsLog.warn('[MSDStudio] Could not resolve legacy anchor position for drag');
                 return;
             }
             currentPosition = [...currentPosition];
@@ -2364,6 +2383,18 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
+     * Round a number to specified decimal places (default 2 for coordinates/sizes)
+     * @param {number} value - Value to round
+     * @param {number} decimals - Number of decimal places
+     * @returns {number} - Rounded value
+     * @private
+     */
+    _roundToPrecision(value, decimals = 2) {
+        const multiplier = Math.pow(10, decimals);
+        return Math.round(value * multiplier) / multiplier;
+    }
+
+    /**
      * Handle drag move
      * @param {MouseEvent} event - Mouse move event
      * @private
@@ -2389,12 +2420,15 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const control = this._findControl(this._dragState.controlId);
         if (!control) return;
 
-        // Update position (convert anchor to explicit position if needed)
-        if (control.anchor) {
-            // Convert anchored control to explicitly positioned
+        // Update position (convert anchor reference to explicit position if needed)
+        if (typeof control.position === 'string') {
+            // Convert anchor-based position to coordinate-based
+            // (position property holds anchor name as string)
+        } else if (control.anchor) {
+            // Legacy: Convert old anchor property to position
             delete control.anchor;
         }
-        control.position = [newX, newY];
+        control.position = [this._roundToPrecision(newX), this._roundToPrecision(newY)];
 
         this.requestUpdate();
     }
@@ -2525,14 +2559,29 @@ export class LCARdSMSDStudioDialog extends LitElement {
         }
 
         // Get current position and size
-        const anchors = this._workingConfig.msd?.anchors || {};
+        // Get complete merged anchors from card's resolved model
+        const livePreview = this.shadowRoot.querySelector('lcards-msd-live-preview');
+        const livePreviewShadow = livePreview?.shadowRoot;
+        const cardContainer = livePreviewShadow?.querySelector('.preview-card-container');
+        const msdCard = cardContainer?.querySelector('lcards-msd-card');
+        const anchors = msdCard?._msdPipeline?.getResolvedModel()?.anchors || {};
+
         let currentPosition;
         if (control.position && Array.isArray(control.position)) {
             currentPosition = [...control.position];
+        } else if (typeof control.position === 'string') {
+            // Position is an anchor reference (string)
+            currentPosition = OverlayUtils.resolvePosition(control.position, anchors);
+            if (!currentPosition) {
+                lcardsLog.warn('[MSDStudio] Could not resolve anchor position for resize:', control.position);
+                return;
+            }
+            currentPosition = [...currentPosition];
         } else if (control.anchor) {
+            // Legacy: anchor property
             currentPosition = OverlayUtils.resolvePosition(control.anchor, anchors);
             if (!currentPosition) {
-                lcardsLog.warn('[MSDStudio] Could not resolve anchor position for resize');
+                lcardsLog.warn('[MSDStudio] Could not resolve legacy anchor position for resize');
                 return;
             }
             currentPosition = [...currentPosition];
@@ -2583,8 +2632,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const control = this._findControl(this._resizeState.controlId);
         if (!control) return;
 
-        // Convert anchor to explicit position if needed
-        if (control.anchor) {
+        // Convert anchor reference to explicit position if needed
+        if (typeof control.position === 'string') {
+            // Convert anchor-based position to coordinate-based
+            // (position property holds anchor name as string)
+        } else if (control.anchor) {
+            // Legacy: Convert old anchor property
             delete control.anchor;
         }
 
@@ -2666,8 +2719,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
         }
 
         // Update control
-        control.size = [newWidth, newHeight];
-        control.position = [newX, newY];
+        control.size = [this._roundToPrecision(newWidth), this._roundToPrecision(newHeight)];
+        control.position = [this._roundToPrecision(newX), this._roundToPrecision(newY)];
 
         this.requestUpdate();
     }
@@ -2738,7 +2791,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         // Update anchor position
         const anchors = this._workingConfig.msd?.anchors || {};
         if (anchors[this._anchorDragState.anchorName]) {
-            anchors[this._anchorDragState.anchorName] = [newX, newY];
+            anchors[this._anchorDragState.anchorName] = [this._roundToPrecision(newX), this._roundToPrecision(newY)];
             this.requestUpdate();
         }
     }
@@ -2935,7 +2988,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
         }
 
         // Update channel bounds
-        channel.bounds = [newX, newY, newWidth, newHeight];
+        channel.bounds = [
+            this._roundToPrecision(newX),
+            this._roundToPrecision(newY),
+            this._roundToPrecision(newWidth),
+            this._roundToPrecision(newHeight)
+        ];
 
         this.requestUpdate();
     }
@@ -4878,7 +4936,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 width: 100%;
                 height: 100%;
                 pointer-events: none;
-                z-index: 997;
+                z-index: 1000;
             ">
                 ${controls.map(control => {
                     // Resolve position for both anchored and explicitly positioned controls
@@ -5705,7 +5763,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         }
 
         // Check if near an anchor (snap to anchor if within threshold)
-        let waypointValue = [x, y];
+        let waypointValue = [this._roundToPrecision(x), this._roundToPrecision(y)];
         const anchorThreshold = 30; // ViewBox units
         const userAnchors = this._workingConfig.msd?.anchors || {};
         const baseSvgAnchors = this._getBaseSvgAnchors();
@@ -6962,7 +7020,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                 label="X Position"
                                 .value=${String(this._controlFormPosition[0] || 0)}
                                 @input=${(e) => {
-                                    this._controlFormPosition = [Number(e.target.value), this._controlFormPosition[1]];
+                                    this._controlFormPosition = [this._roundToPrecision(Number(e.target.value)), this._controlFormPosition[1]];
                                     this.requestUpdate();
                                 }}>
                             </ha-textfield>
@@ -6971,7 +7029,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                 label="Y Position"
                                 .value=${String(this._controlFormPosition[1] || 0)}
                                 @input=${(e) => {
-                                    this._controlFormPosition = [this._controlFormPosition[0], Number(e.target.value)];
+                                    this._controlFormPosition = [this._controlFormPosition[0], this._roundToPrecision(Number(e.target.value))];
                                     this.requestUpdate();
                                 }}>
                             </ha-textfield>
@@ -6990,7 +7048,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                             label="Width"
                             .value=${String(this._controlFormSize[0] || 100)}
                             @input=${(e) => {
-                                this._controlFormSize = [Number(e.target.value), this._controlFormSize[1]];
+                                this._controlFormSize = [this._roundToPrecision(Number(e.target.value)), this._controlFormSize[1]];
                                 this.requestUpdate();
                             }}>
                         </ha-textfield>
@@ -6999,7 +7057,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                             label="Height"
                             .value=${String(this._controlFormSize[1] || 100)}
                             @input=${(e) => {
-                                this._controlFormSize = [this._controlFormSize[0], Number(e.target.value)];
+                                this._controlFormSize = [this._controlFormSize[0], this._roundToPrecision(Number(e.target.value))];
                                 this.requestUpdate();
                             }}>
                         </ha-textfield>
@@ -10442,7 +10500,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                                             label="X"
                                                             .value=${String(wp[0] || 0)}
                                                             @input=${(e) => {
-                                                                this._lineFormData.waypoints[index][0] = Number(e.target.value);
+                                                                this._lineFormData.waypoints[index][0] = this._roundToPrecision(Number(e.target.value));
                                                                 this._schedulePreviewUpdate();
                                                                 this.requestUpdate();
                                                             }}
@@ -10453,7 +10511,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                                             label="Y"
                                                             .value=${String(wp[1] || 0)}
                                                             @input=${(e) => {
-                                                                this._lineFormData.waypoints[index][1] = Number(e.target.value);
+                                                                this._lineFormData.waypoints[index][1] = this._roundToPrecision(Number(e.target.value));
                                                                 this._schedulePreviewUpdate();
                                                                 this.requestUpdate();
                                                             }}
