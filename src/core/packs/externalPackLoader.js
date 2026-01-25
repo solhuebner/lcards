@@ -19,19 +19,19 @@ export async function loadExternalPack(url, fetchImpl = fetch) {
     const res = await fetchImpl(url, { cache: 'no-cache' });
     const blob = await res.blob();
     if (blob.size > MAX_BYTES) {
-      lcardsLog.warn('[MSD v1] ⚠️ external pack too large', url, blob.size);
+      lcardsLog.warn('[externalPackLoader] ⚠️ external pack too large', url, blob.size);
       return null;
     }
     txt = await blob.text();
   } catch (e) {
-    lcardsLog.warn('[MSD v1] ⚠️ external pack fetch failed', url, e);
+    lcardsLog.warn('[externalPackLoader] ⚠️ external pack fetch failed', url, e);
     return null;
   }
   let parsed;
   try {
     parsed = yamlLib.load(txt);
   } catch (e) {
-    lcardsLog.warn('[MSD v1] ⚠️ external pack parse failed', url, e);
+    lcardsLog.warn('[externalPackLoader] ⚠️ external pack parse failed', url, e);
     return null;
   }
   _cache.set(url, { parsed, ts: Date.now() });

@@ -13,7 +13,7 @@ export { initMsdPipelineCore as initMsdPipeline, processMsdConfig };
 /**
  * MSD Production Namespace & Debug Interface Setup
  * 
- * ARCHITECTURE CHANGE (v1.17.0+):
+ * ARCHITECTURE CHANGE:
  * - Production APIs: window.lcards.cards.msd.*
  * - Debug tools: window.lcards.debug.msd.*
  * 
