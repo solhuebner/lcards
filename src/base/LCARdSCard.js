@@ -1072,7 +1072,7 @@ export class LCARdSCard extends LCARdSNativeCard {
 
         // Register callback with RulesEngine (SINGLE callback per card)
         // Callback evaluates rules and applies relevant patches
-        this._rulesCallbackIndex = this._singletons.rulesEngine.setReEvaluationCallback(async () => {
+        const callback = async () => {
             lcardsLog.trace(`[LCARdSCard] Rules re-evaluation callback triggered for ${this._overlayId}`);
 
             try {
@@ -1093,13 +1093,15 @@ export class LCARdSCard extends LCARdSNativeCard {
             } catch (error) {
                 lcardsLog.error(`[LCARdSCard] Error in rules callback for ${this._overlayId}:`, error);
             }
-        });
+        };
+
+        this._singletons.rulesEngine.setReEvaluationCallback(callback);
+        this._rulesCallback = callback; // Store function reference for cleanup
 
         this._overlayRegistered = true;
 
         lcardsLog.debug(`[LCARdSCard] Registered overlay for rules: ${this._overlayId}`, {
             tags: this._overlayTags,
-            callbackIndex: this._rulesCallbackIndex,
             cardGuid: this._cardGuid
         });
 
@@ -1109,11 +1111,8 @@ export class LCARdSCard extends LCARdSNativeCard {
             lcardsLog.trace(`[LCARdSCard] HASS available, triggering initial rule evaluation for ${this._overlayId}`);
             this._singletons.rulesEngine.markAllDirty();
             // Trigger the callback we just registered
-            if (this._rulesCallbackIndex >= 0) {
-                const callbacks = this._singletons.rulesEngine._reEvaluationCallbacks || [];
-                if (callbacks[this._rulesCallbackIndex]) {
-                    callbacks[this._rulesCallbackIndex]();
-                }
+            if (this._rulesCallback) {
+                this._rulesCallback();
             }
         }
     }
@@ -1128,9 +1127,9 @@ export class LCARdSCard extends LCARdSNativeCard {
         }
 
         // Remove callback from RulesEngine
-        if (this._rulesCallbackIndex !== null && this._singletons?.rulesEngine) {
-            this._singletons.rulesEngine.removeReEvaluationCallback(this._rulesCallbackIndex);
-            this._rulesCallbackIndex = null;
+        if (this._rulesCallback && this._singletons?.rulesEngine) {
+            this._singletons.rulesEngine.removeReEvaluationCallback(this._rulesCallback);
+            this._rulesCallback = null;
             lcardsLog.debug(`[LCARdSCard] Removed rules callback for ${this._overlayId}`);
         }
 
@@ -2754,19 +2753,19 @@ export class LCARdSCard extends LCARdSNativeCard {
 
     /**
      * Load component and extract zones/segments
-     * 
+     *
      * This is the main entry point for component loading. It:
      * 1. Stores the component SVG
      * 2. Extracts zones (data-zone attributes) for content injection
      * 3. Extracts segment IDs for interactivity setup
-     * 
+     *
      * Subclasses should call this in their initialization to get access
      * to zones and segments without reimplementing the extraction logic.
-     * 
+     *
      * @param {Object} componentDef - Component definition with svg, segments, etc.
      * @returns {Promise<void>}
      * @protected
-     * 
+     *
      * @example
      * async _initialize() {
      *     const componentDef = getComponent(this.config.component);
@@ -2802,17 +2801,17 @@ export class LCARdSCard extends LCARdSNativeCard {
 
     /**
      * Extract zones from rendered SVG component
-     * 
+     *
      * Parses data-zone attributes from the component SVG to identify
      * injection points for dynamic content. Zones must have:
      * - data-zone="name" attribute
      * - data-bounds="x,y,width,height" attribute (optional, will use defaults)
-     * 
+     *
      * This should be called after the SVG is rendered into the DOM.
-     * 
+     *
      * @param {Element} [svgElement] - Optional SVG element to parse (defaults to this._componentSvg)
      * @protected
-     * 
+     *
      * @example
      * firstUpdated() {
      *     super.firstUpdated();
@@ -2822,7 +2821,7 @@ export class LCARdSCard extends LCARdSNativeCard {
      */
     _extractZones(svgElement = null) {
         const svg = svgElement || this._componentSvg;
-        
+
         if (!svg) {
             if (this._zones) {
                 this._zones.clear();
@@ -2869,13 +2868,13 @@ export class LCARdSCard extends LCARdSNativeCard {
 
     /**
      * Get zone by name
-     * 
+     *
      * Returns zone metadata including the DOM element and bounding box.
-     * 
+     *
      * @param {string} zoneName - Name of the zone (e.g., 'track', 'text')
      * @returns {Object|undefined} Zone object with element and bounds, or undefined
      * @protected
-     * 
+     *
      * @example
      * const trackZone = this._getZone('track');
      * if (trackZone) {
@@ -2888,14 +2887,14 @@ export class LCARdSCard extends LCARdSNativeCard {
 
     /**
      * Inject content into a zone
-     * 
+     *
      * Clears the zone's existing content and injects new SVG markup.
      * The content should be valid SVG elements (paths, rects, groups, etc.).
-     * 
+     *
      * @param {string} zoneName - Name of the zone to inject into
      * @param {string} content - SVG markup to inject
      * @protected
-     * 
+     *
      * @example
      * const trackContent = `<rect x="0" y="0" width="100" height="20" fill="blue"/>`;
      * this._injectIntoZone('track', trackContent);
@@ -2919,14 +2918,14 @@ export class LCARdSCard extends LCARdSNativeCard {
 
     /**
      * Extract segment IDs from SVG content
-     * 
+     *
      * Auto-discovers all elements with ID attributes in the SVG.
      * These IDs map to segment configurations for styling and interactivity.
-     * 
+     *
      * @param {string} svgContent - SVG markup to parse
      * @returns {Array<string>} Array of discovered segment IDs
      * @protected
-     * 
+     *
      * @example
      * const ids = this._extractSegmentIds(svgContent);
      * // Returns: ['up', 'down', 'left', 'right', 'center']
@@ -2960,18 +2959,18 @@ export class LCARdSCard extends LCARdSNativeCard {
 
     /**
      * Process segment configuration
-     * 
+     *
      * Converts object-based segment config (from component definition or user config)
      * to internal array format used for rendering and interactivity.
-     * 
+     *
      * Merges default segment config with per-segment overrides and validates
      * that configured segments exist in the SVG.
-     * 
+     *
      * @param {Object} segmentsObject - Segment configuration (keyed by ID)
      * @param {Array<string>} availableIds - Segment IDs discovered from SVG
      * @returns {Array<Object>} Processed segment configuration array
      * @protected
-     * 
+     *
      * @example
      * const segments = this._processSegmentConfig(
      *     { up: { style: { fill: 'red' } }, down: { style: { fill: 'blue' } } },
@@ -3031,7 +3030,7 @@ export class LCARdSCard extends LCARdSNativeCard {
 
     /**
      * Check if a segment should be skipped (no config and no defaults)
-     * 
+     *
      * @param {Object} userConfig - User-provided segment configuration
      * @param {Object} defaultConfig - Default configuration
      * @returns {boolean} True if segment should be skipped
@@ -3057,21 +3056,21 @@ export class LCARdSCard extends LCARdSNativeCard {
 
     /**
      * Setup segment interactivity
-     * 
+     *
      * Applies styles and attaches event listeners to segments in the rendered SVG.
      * This handles:
      * - Initial styling based on entity state
      * - Click/hold/double-click action handlers
      * - Hover effects
      * - State-based style updates
-     * 
+     *
      * Should be called after the SVG is rendered and segments are processed.
      * Subclasses may need to override this to customize interaction behavior.
-     * 
+     *
      * @param {Array<Object>} segments - Processed segment configuration array
      * @param {Element} svgContainer - SVG container element
      * @protected
-     * 
+     *
      * @example
      * firstUpdated() {
      *     super.firstUpdated();
@@ -3128,7 +3127,7 @@ export class LCARdSCard extends LCARdSNativeCard {
 
     /**
      * Apply style to a segment element
-     * 
+     *
      * @param {Element} element - SVG element
      * @param {Object} style - Style properties to apply
      * @protected
@@ -3148,7 +3147,7 @@ export class LCARdSCard extends LCARdSNativeCard {
 
     /**
      * Attach action handlers to a segment element
-     * 
+     *
      * @param {Element} element - SVG element
      * @param {Object} segment - Segment configuration with actions
      * @returns {Function} Cleanup function to remove listeners

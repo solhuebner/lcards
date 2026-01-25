@@ -1281,15 +1281,13 @@ export class RulesEngine extends BaseService {
   setReEvaluationCallback(callback) {
     if (typeof callback !== 'function') {
       lcardsLog.warn('[RulesEngine] Re-evaluation callback must be a function');
-      return -1;
+      return;
     }
 
-    // CHANGED: Add callback to array instead of overwriting single callback
+    // Add callback to array - callers should store function reference for cleanup
     this._reEvaluationCallbacks.push(callback);
-    const callbackIndex = this._reEvaluationCallbacks.length - 1;
 
-    lcardsLog.debug(`[RulesEngine] Re-evaluation callback added (index: ${callbackIndex}, total: ${this._reEvaluationCallbacks.length})`);
-    return callbackIndex;
+    lcardsLog.debug(`[RulesEngine] Re-evaluation callback added (total: ${this._reEvaluationCallbacks.length})`);
   }
 
   /**
