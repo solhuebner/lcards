@@ -195,6 +195,22 @@ export const lcarsClassicTokens = {
     // ELBOW COMPONENT
     // ------------------------------------------------------------------------
     elbow: {
+      header: {
+        background: {
+          default: 'colors.card.topColor',
+          active: 'lighten(colors.card.topColor, 0.1)',
+          inactive: 'darken(colors.card.topColor, 0.2)',
+          unavailable: 'darken(colors.card.topColor, 0.4)'
+        }
+      },
+      footer: {
+        background: {
+          default: 'colors.card.bottomColor',
+          active: 'lighten(colors.card.bottomColor, 0.1)',
+          inactive: 'darken(colors.card.bottomColor, 0.2)',
+          unavailable: 'darken(colors.card.bottomColor, 0.4)'
+        }
+      },
       stroke: {
         width: 'borders.width.thick',
         color: {

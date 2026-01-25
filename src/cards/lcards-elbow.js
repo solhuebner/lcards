@@ -159,6 +159,93 @@ export class LCARdSElbow extends LCARdSButton {
 
         // Adjust text positioning based on elbow type
         this._adjustTextForElbow();
+
+        // Initialize position-aware default colors
+        this._initializeElbowDefaultColors();
+    }
+
+    /**
+     * Initialize position-aware default state-based colors for elbows
+     * Sets card.color.background defaults based on elbow position (header vs footer)
+     * MUST override any button preset colors
+     * @private
+     */
+    _initializeElbowDefaultColors() {
+        if (!this._elbowConfig) {
+            lcardsLog.debug('[LCARdSElbow] _initializeElbowDefaultColors: No elbow config, skipping');
+            return;
+        }
+
+        // Get component layout to determine position
+        const component = getElbowComponent(this._elbowConfig.type);
+        const position = component?.layout?.position || 'header';
+
+        lcardsLog.debug(`[LCARdSElbow] Initializing elbow colors for position: ${position}`);
+
+        // Use position-specific theme token paths (header vs footer)
+        const tokenPath = position === 'footer'
+            ? 'theme:components.elbow.footer.background'
+            : 'theme:components.elbow.header.background';
+
+        // ALWAYS set elbow colors - override button preset defaults
+        // Initialize nested structure if needed
+        if (!this.config.style) this.config.style = {};
+        if (!this.config.style.card) this.config.style.card = {};
+        if (!this.config.style.card.color) this.config.style.card.color = {};
+
+        // Set position-aware state-based colors using theme tokens
+        this.config.style.card.color.background = {
+            default: `${tokenPath}.default`,
+            active: `${tokenPath}.active`,
+            inactive: `${tokenPath}.inactive`,
+            unavailable: `${tokenPath}.unavailable`
+        };
+
+        lcardsLog.debug(`[LCARdSElbow] Force-set elbow background colors:`, this.config.style.card.color.background);
+    }
+
+    /**
+     * Override button style resolution to inject elbow-specific colors
+     * @protected
+     */
+    _resolveButtonStyleSync() {
+        // Call parent to do normal button style resolution
+        super._resolveButtonStyleSync();
+
+        // Now inject elbow colors AFTER parent resolution
+        // This ensures elbow colors aren't overwritten by button presets
+        this._injectElbowColors();
+    }
+
+    /**
+     * Inject elbow-specific colors into the resolved button style
+     * Called after button style resolution to ensure colors aren't overwritten
+     * @private
+     */
+    _injectElbowColors() {
+        if (!this._elbowConfig || !this._buttonStyle) return;
+
+        // Get component layout to determine position
+        const component = getElbowComponent(this._elbowConfig.type);
+        const position = component?.layout?.position || 'header';
+
+        // Use position-specific theme token paths
+        const tokenPath = position === 'footer'
+            ? 'theme:components.elbow.footer.background'
+            : 'theme:components.elbow.header.background';
+
+        // Inject elbow colors into resolved button style
+        if (!this._buttonStyle.card) this._buttonStyle.card = {};
+        if (!this._buttonStyle.card.color) this._buttonStyle.card.color = {};
+
+        this._buttonStyle.card.color.background = {
+            default: `${tokenPath}.default`,
+            active: `${tokenPath}.active`,
+            inactive: `${tokenPath}.inactive`,
+            unavailable: `${tokenPath}.unavailable`
+        };
+
+        lcardsLog.debug(`[LCARdSElbow] Injected elbow colors into _buttonStyle:`, this._buttonStyle.card.color.background);
     }
 
     /**
@@ -832,21 +919,30 @@ export class LCARdSElbow extends LCARdSButton {
             }
         }
 
-        // Priority 3: Use button state color from _buttonStyle (includes rule patches and config.style)
-        const actualEntityState = this._entity?.state;
-        const stateColor = resolveStateColor({
-            actualState: actualEntityState,
-            classifiedState: state,
-            colorConfig: this._buttonStyle?.card?.color?.background
-        });
-        if (stateColor) {
-            const resolved = this._resolveColorValue(stateColor, state);
-            if (resolved) return resolved;
+        // Priority 3: Button style state-based colors (includes presets, config.style, rules)
+        // Position-aware defaults are set in _initializeElbowDefaultColors()
+        if (this._buttonStyle?.card?.color?.background) {
+            const actualEntityState = this._entity?.state;
+            const stateColor = resolveStateColor({
+                actualState: actualEntityState,
+                classifiedState: state,
+                colorConfig: this._buttonStyle.card.color.background
+            });
+
+            lcardsLog.debug(`[LCARdSElbow] _getElbowColor - state: ${state}, actualState: ${actualEntityState}`);
+            lcardsLog.debug(`[LCARdSElbow] _getElbowColor - colorConfig:`, this._buttonStyle.card.color.background);
+            lcardsLog.debug(`[LCARdSElbow] _getElbowColor - resolvedStateColor:`, stateColor);
+
+            if (stateColor) {
+                const resolved = this._resolveColorValue(stateColor, state);
+                lcardsLog.debug(`[LCARdSElbow] _getElbowColor - final resolved:`, resolved);
+                if (resolved) return resolved;
+            }
         }
 
-        // Priority 4: Theme token fallback
-        const themeColor = this.getThemeToken('colors.accent.primary', 'var(--lcars-orange, #FF9900)');
-        return themeColor;
+        // Priority 4: Final fallback
+        lcardsLog.warn('[LCARdSElbow] _getElbowColor - using final fallback color');
+        return 'var(--lcars-orange, #FF9900)';
     }
 
     /**
