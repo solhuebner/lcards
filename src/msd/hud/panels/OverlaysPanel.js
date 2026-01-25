@@ -95,12 +95,12 @@ export class OverlaysPanel {
       ] : [];
 
       roots.forEach(root => {
-        lcardsLog.debug(`[OverlaysPanel] 🔍 Searching in root:`, root);
+        lcardsLog.trace(`[OverlaysPanel] Searching in root:`, root);
 
         // Try standard selectors first
         const exactMatches = root.querySelectorAll(selectorExact);
         const byIdMatch = root.querySelector(selectorId);
-        lcardsLog.debug(`[OverlaysPanel] 🎯 Standard selectors for "${id}":`, {
+        lcardsLog.trace(`[OverlaysPanel] Standard selectors for "${id}":`, {
           selectorExact: selectorExact,
           exactMatches: exactMatches.length,
           selectorId: selectorId,
@@ -112,12 +112,12 @@ export class OverlaysPanel {
 
         // ADDED: Search for controls-specific elements
         if (isControlsType) {
-          lcardsLog.debug(`[OverlaysPanel] 🎮 Searching for controls overlay: ${id}`);
-          lcardsLog.debug(`[OverlaysPanel] 🎯 Controls selectors:`, controlsSelectors);
+          lcardsLog.trace(`[OverlaysPanel] Searching for controls overlay: ${id}`);
+          lcardsLog.trace(`[OverlaysPanel] Controls selectors:`, controlsSelectors);
           controlsSelectors.forEach(selector => {
             try {
               const found = root.querySelectorAll(selector);
-              lcardsLog.debug(`[OverlaysPanel] 📋 Selector "${selector}" found ${found.length} elements:`, found);
+              lcardsLog.trace(`[OverlaysPanel] Selector "${selector}" found ${found.length} elements:`, found);
               found.forEach(el => {
                 if (!matches.includes(el)) matches.push(el);
               });
@@ -126,7 +126,7 @@ export class OverlaysPanel {
             }
           });
         } else {
-          lcardsLog.debug(`[OverlaysPanel] 🚫 Not a controls type overlay, skipping controls selectors`);
+          lcardsLog.trace(`[OverlaysPanel] Not a controls type overlay, skipping controls selectors`);
         }
       });
 
@@ -346,7 +346,7 @@ export class OverlaysPanel {
         console.log('Style Sources (detailed):', overlay._styleSources);
         // ADDED: Log each source individually for debugging
         overlay._styleSources.forEach((source, i) => {
-          lcardsLog.debug(`[OverlaysPanel] 📋 Source ${i}:`, source);
+          lcardsLog.trace(`[OverlaysPanel] Source ${i}:`, source);
         });
       }
       if (overlay._patches) {
@@ -408,8 +408,8 @@ export class OverlaysPanel {
 
       try {
         const finalStyleProps = overlay.finalStyle ? Object.keys(overlay.finalStyle) : [];
-        lcardsLog.debug('[OverlaysPanel] 🎨 Final style properties:', finalStyleProps);
-        lcardsLog.debug('[OverlaysPanel] 🔢 Number of sources:', overlay._styleSources.length);
+        lcardsLog.trace('[OverlaysPanel] Final style properties:', finalStyleProps);
+        lcardsLog.trace('[OverlaysPanel] Number of sources:', overlay._styleSources.length);
 
         // FIXED: Show each property individually with its source
         const propertyMappings = [];
@@ -421,7 +421,7 @@ export class OverlaysPanel {
           if (index < finalStyleProps.length) {
             const property = finalStyleProps[index];
             propertyMappings.push(`${property} <span style="color:#ffaa00;font-weight:bold;font-size:${Math.round(controlsFontSize * 1.3)}px;"> ◀ </span> ${sourceLabel}`);
-            lcardsLog.debug(`[OverlaysPanel] 🔗 Source ${index} (${sourceLabel}) → ${property}`);
+            lcardsLog.trace(`[OverlaysPanel] Source ${index} (${sourceLabel}) → ${property}`);
           }
         });
 

@@ -85,7 +85,7 @@ export class CoreConfigManager {
     this._registerBuiltinCardTypes();
 
     this.initialized = true;
-    lcardsLog.info('[CoreConfigManager] ✅ Initialized');
+    lcardsLog.debug('[CoreConfigManager] Initialized');
   }
 
   /**

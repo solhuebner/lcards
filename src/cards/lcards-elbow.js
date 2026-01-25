@@ -1504,4 +1504,4 @@ export class LCARdSElbow extends LCARdSButton {
 // NOTE: Card registration moved to src/lcards.js initializeCustomCard().then()
 // This ensures all core singletons are initialized before cards can be instantiated.
 
-lcardsLog.info('[LCARdSElbow] Card module loaded');
+lcardsLog.debug('[LCARdSElbow] Card module loaded');

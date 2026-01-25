@@ -1200,4 +1200,4 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
 // Register custom element
 customElements.define('lcards-slider-editor', LCARdSSliderEditor);
 
-lcardsLog.info('[LCARdSSliderEditor] Standalone editor module loaded');
+lcardsLog.debug('[LCARdSSliderEditor] Standalone editor module loaded');

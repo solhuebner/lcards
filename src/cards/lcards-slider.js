@@ -2560,5 +2560,5 @@ export class LCARdSSlider extends LCARdSButton {
 
 // NOTE: Card registration handled in src/lcards.js initializeCustomCard().then()
 
-lcardsLog.info('[LCARdSSlider] Card module loaded');
+lcardsLog.debug('[LCARdSSlider] Card module loaded');
 

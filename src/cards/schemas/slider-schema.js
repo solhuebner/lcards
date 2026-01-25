@@ -186,7 +186,7 @@ export function getSliderSchema(options = {}) {
                     properties: {
                         action: {
                             type: 'string',
-                            enum: ['toggle', 'call-service', 'navigate', 'url', 'more-info', 'none'],
+                            enum: ['toggle', 'call-service', 'perform-action', 'navigate', 'url', 'more-info', 'assist', 'none'],
                             description: 'Action type to perform',
                             enumDescriptions: [
                                 'Toggle entity on/off',

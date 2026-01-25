@@ -58,7 +58,7 @@ export class AnimationManager extends BaseService {
    * @param {Object} options.suppressMountWarning - Suppress mount element warning (for core singleton init)
    */
   async initialize(overlays = [], options = {}) {
-    lcardsLog.info('[AnimationManager] 🎬 Initializing animation system');
+    lcardsLog.debug('[AnimationManager] Initializing animation system');
 
     try {
       // Store mount element for reliable DOM queries (only if not already set)
@@ -101,7 +101,7 @@ export class AnimationManager extends BaseService {
         window.lcards.animationManager = this;
       }
 
-      lcardsLog.info('[AnimationManager] ✅ Animation system initialized', {
+      lcardsLog.debug('[AnimationManager] Animation system initialized', {
         overlaysWithAnimations: this.registeredAnimations.size,
         customPresets: this.customPresets.size,
         timelines: Object.keys(options.timelines || {}).length

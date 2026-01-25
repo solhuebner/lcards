@@ -75,7 +75,7 @@ export class CoreSystemsManager {
       lcardsLog.debug(`[CoreSystemsManager] ✅ Initialized with ${this._entityStates.size} entity states`);
     }
 
-    lcardsLog.info('[CoreSystemsManager] ✅ Core systems initialized');
+    lcardsLog.debug('[CoreSystemsManager] Core Systems Manager initialized');
   }
 
   /**

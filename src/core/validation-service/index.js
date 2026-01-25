@@ -66,13 +66,18 @@ class CoreSchemaRegistry {
       properties: {
         action: {
           type: 'string',
-          enum: ['more-info', 'toggle', 'call-service', 'navigate', 'url', 'assist'],
+          enum: ['more-info', 'toggle', 'call-service', 'perform-action', 'navigate', 'url', 'assist', 'none'],
           required: true
         },
         service: { type: 'string' },
+        perform_action: { type: 'string' },
         service_data: { type: 'object' },
+        data: { type: 'object' },
+        target: { type: 'object' },
         navigation_path: { type: 'string' },
         url_path: { type: 'string' },
+        pipeline_id: { type: 'string' },
+        start_listening: { type: 'boolean' },
         confirmation: { type: 'object' }
       }
     });

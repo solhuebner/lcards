@@ -523,7 +523,7 @@ export class LineOverlay extends OverlayBase {
         if (sourcePoint) {
           const anchorGap = overlay.anchor_gap || 0;
           const result = this._applyGapToAttachmentPoint(sourcePoint, anchorSide, anchorGap, sourceAttachmentPoints.bbox);
-          lcardsLog.debug(`[LineOverlay] ✅ Resolved from overlayAttachmentPoints (gap applied on-the-fly):`, result);
+          lcardsLog.trace(`[LineOverlay] Resolved from overlayAttachmentPoints (gap applied on-the-fly):`, result);
           return result;
         }
       }
@@ -531,7 +531,7 @@ export class LineOverlay extends OverlayBase {
 
     // PRIORITY 3: Standard anchor resolution (final fallback)
     const fallback = OverlayUtils.resolvePosition(overlay.anchor, anchors);
-    lcardsLog.debug(`[LineOverlay] 🔄 Using fallback resolution:`, fallback);
+    lcardsLog.trace(`[LineOverlay] Using fallback resolution:`, fallback);
     return fallback;
   }
 
@@ -581,7 +581,7 @@ export class LineOverlay extends OverlayBase {
         if (targetPoint) {
           const attachGap = overlay.attach_gap || 0;
           const result = this._applyGapToAttachmentPoint(targetPoint, attachSide, attachGap, targetAttachmentPoints.bbox);
-          lcardsLog.debug(`[LineOverlay] ✅ Resolved from overlayAttachmentPoints (gap applied on-the-fly):`, result);
+          lcardsLog.trace(`[LineOverlay] Resolved from overlayAttachmentPoints (gap applied on-the-fly):`, result);
           return result;
         }
       }
@@ -589,7 +589,7 @@ export class LineOverlay extends OverlayBase {
 
     // PRIORITY 3: Standard attach_to resolution (final fallback)
     const fallback = OverlayUtils.resolvePosition(overlay.attach_to, anchors);
-    lcardsLog.debug(`[LineOverlay] 🔄 Using fallback resolution:`, fallback);
+    lcardsLog.trace(`[LineOverlay] Using fallback resolution:`, fallback);
     return fallback;
   }
 

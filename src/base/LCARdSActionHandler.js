@@ -461,6 +461,7 @@ export class LCARdSActionHandler {
                 this._handleMoreInfo(hass, entityId, element);
                 break;
             case 'call-service':
+            case 'perform-action':  // New HA alias for call-service
                 this._handleCallService(hass, actionConfig);
                 break;
             case 'navigate':
@@ -468,6 +469,9 @@ export class LCARdSActionHandler {
                 break;
             case 'url':
                 this._handleUrl(actionConfig);
+                break;
+            case 'assist':
+                this._handleAssist(hass, actionConfig, element);
                 break;
             case 'none':
                 // Do nothing
@@ -533,7 +537,7 @@ export class LCARdSActionHandler {
         // Check if we support this action type
         const supportedActions = [
             'toggle', 'turn_on', 'turn_off', 'more-info',
-            'call-service', 'navigate', 'url'
+            'call-service', 'perform-action', 'navigate', 'url', 'assist'
         ];
 
         return supportedActions.includes(action);
@@ -604,13 +608,18 @@ export class LCARdSActionHandler {
         // Validate specific action types
         switch (actionConfig.action) {
             case 'call-service':
-                return !!actionConfig.service;
+            case 'perform-action':
+                return !!actionConfig.service || !!actionConfig.perform_action;
 
             case 'navigate':
                 return !!actionConfig.navigation_path;
 
             case 'url':
                 return !!actionConfig.url_path;
+
+            case 'assist':
+                // Optional pipeline_id and start_listening
+                return true;
 
             case 'toggle':
             case 'more-info':
@@ -623,6 +632,35 @@ export class LCARdSActionHandler {
             default:
                 // Allow other action types
                 return true;
+        }
+    }
+
+    /**
+     * Handle assist action
+     * @private
+     */
+    _handleAssist(hass, actionConfig, element) {
+        lcardsLog.debug(`[LCARdSActionHandler] Opening Assist dialog`);
+
+        // Dispatch assist event - HA will handle loading the dialog
+        const event = new CustomEvent('show-dialog', {
+            detail: {
+                dialogTag: 'ha-voice-command-dialog',
+                dialogParams: {
+                    pipeline_id: actionConfig.pipeline_id || 'preferred',
+                    start_listening: actionConfig.start_listening ?? true
+                }
+            },
+            bubbles: true,
+            composed: true
+        });
+
+        // Dispatch from the element to ensure proper bubbling through shadow DOM
+        if (element) {
+            element.dispatchEvent(event);
+        } else {
+            // Fallback to document if element not available
+            document.dispatchEvent(event);
         }
     }
 
@@ -669,21 +707,27 @@ export class LCARdSActionHandler {
     }
 
     /**
-     * Handle call-service action
+     * Handle call-service / perform-action
      * @private
      */
     _handleCallService(hass, actionConfig) {
-        const service = actionConfig.service;
+        // Support both 'service' (legacy) and 'perform_action' (new HA naming)
+        const service = actionConfig.service || actionConfig.perform_action;
         if (!service) {
-            lcardsLog.warn(`[LCARdSActionHandler] Call service action requires service`);
+            lcardsLog.warn(`[LCARdSActionHandler] Call service action requires service or perform_action`);
             return;
         }
 
         const [domain, serviceAction] = service.split('.');
-        const serviceData = actionConfig.service_data || {};
+        // Support both service_data and data
+        const serviceData = actionConfig.service_data || actionConfig.data || {};
+        const target = actionConfig.target || {};
 
-        lcardsLog.debug(`[LCARdSActionHandler] Calling service ${service} with data:`, serviceData);
-        hass.callService(domain, serviceAction, serviceData);
+        // Merge target into serviceData if provided
+        const finalData = { ...serviceData, ...target };
+
+        lcardsLog.debug(`[LCARdSActionHandler] Calling service ${service} with data:`, finalData);
+        hass.callService(domain, serviceAction, finalData);
     }
 
     /**

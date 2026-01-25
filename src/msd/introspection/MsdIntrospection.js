@@ -68,7 +68,7 @@ export class MsdIntrospection {
     if (el && typeof el.getBBox === 'function') {
       try {
         const gbb = el.getBBox();
-        lcardsLog.debug(`[MsdIntrospection] 📏 getBBox() result:`, gbb);
+        lcardsLog.trace(`[MsdIntrospection] getBBox() result:`, gbb);
         if (gbb && Number.isFinite(gbb.width) && Number.isFinite(gbb.height)) {
           let x = gbb.x;
           let y = gbb.y;
@@ -83,7 +83,7 @@ export class MsdIntrospection {
               if (Number.isFinite(tx) && Number.isFinite(ty)) {
                 x += tx;
                 y += ty;
-                lcardsLog.debug(`[MsdIntrospection] 🔄 Applied transform translate(${tx}, ${ty})`);
+                lcardsLog.trace(`[MsdIntrospection] Applied transform translate(${tx}, ${ty})`);
               }
             }
           }
@@ -139,9 +139,9 @@ export class MsdIntrospection {
       return;
     }
 
-    lcardsLog.debug(`[MsdIntrospection] 🎯 Highlighting overlays:`, idList);
-    lcardsLog.debug(`[MsdIntrospection] 📍 Root:`, root);
-    lcardsLog.debug(`[MsdIntrospection] 🎨 SVG:`, svg);
+    lcardsLog.trace(`[MsdIntrospection] Highlighting overlays:`, idList);
+    lcardsLog.trace(`[MsdIntrospection] Root:`, root);
+    lcardsLog.trace(`[MsdIntrospection] SVG:`, svg);
 
     const viewBox = this.getViewBox(root, svg) || [0, 0, 400, 200];
     const color = opts.color || '#ffcc00';
@@ -164,7 +164,7 @@ export class MsdIntrospection {
       highlightLayer.setAttribute('id', 'lcards-highlight-layer');
       highlightLayer.style.pointerEvents = 'none';
       svg.appendChild(highlightLayer);
-      lcardsLog.debug(`[MsdIntrospection] ✨ Created highlight layer`);
+      lcardsLog.trace(`[MsdIntrospection] Created highlight layer`);
     }
 
     // Clear existing highlights
@@ -174,7 +174,7 @@ export class MsdIntrospection {
     let highlightCount = 0;
     for (const id of idList) {
       const bbox = this.getOverlayBBox(id, root);
-      lcardsLog.debug(`[MsdIntrospection] 📏 BBox for ${id}:`, bbox);
+      lcardsLog.trace(`[MsdIntrospection] BBox for ${id}:`, bbox);
 
       if (bbox) {
         const rect = doc.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -190,7 +190,7 @@ export class MsdIntrospection {
 
         highlightLayer.appendChild(rect);
         highlightCount++;
-        lcardsLog.debug(`[MsdIntrospection] ✅ Created highlight rect for ${id}:`, { x: bbox.x, y: bbox.y, w: bbox.w, h: bbox.h });
+        lcardsLog.trace(`[MsdIntrospection] Created highlight rect for ${id}:`, { x: bbox.x, y: bbox.y, w: bbox.w, h: bbox.h });
       } else {
         lcardsLog.warn(`[MsdIntrospection] ⚠️ No bbox found for overlay: ${id}`);
       }
@@ -202,7 +202,7 @@ export class MsdIntrospection {
     setTimeout(() => {
       if (highlightLayer && highlightLayer.parentNode) {
         highlightLayer.innerHTML = '';
-        lcardsLog.debug(`[MsdIntrospection] 🧹 Cleared highlights`);
+        lcardsLog.trace(`[MsdIntrospection] Cleared highlights`);
       }
     }, duration);
   }

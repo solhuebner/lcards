@@ -1815,6 +1815,6 @@ export class LCARdSDataGrid extends LCARdSCard {
     // Register JSON schema with x-ui-hints for visual editor
     configManager.registerCardSchema('data-grid', dataGridSchema);
 
-    lcardsLog.info('[LCARdSDataGrid] Schema registered with CoreConfigManager');
+    lcardsLog.debug('[LCARdSDataGrid] Schema registered with CoreConfigManager');
   }
 }

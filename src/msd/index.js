@@ -12,11 +12,11 @@ export { initMsdPipelineCore as initMsdPipeline, processMsdConfig };
 
 /**
  * MSD Production Namespace & Debug Interface Setup
- * 
+ *
  * ARCHITECTURE CHANGE:
  * - Production APIs: window.lcards.cards.msd.*
  * - Debug tools: window.lcards.debug.msd.*
- * 
+ *
  * This matches the core architecture pattern where production
  * systems live under window.lcards.core.* and MSD is a card
  * system under window.lcards.cards.*
@@ -27,7 +27,7 @@ export { initMsdPipelineCore as initMsdPipeline, processMsdConfig };
   // ============================================================================
   // PRODUCTION NAMESPACE: window.lcards.cards.msd.*
   // ============================================================================
-  
+
   window.lcards = window.lcards || {};
   window.lcards.cards = window.lcards.cards || {};
   window.lcards.cards.msd = {
@@ -43,7 +43,7 @@ export { initMsdPipelineCore as initMsdPipeline, processMsdConfig };
         lcardsLog.warn('[MSD Production] ⚠️ SystemsManager not available, using fallback');
         return Array.from(document.querySelectorAll('lcards-msd'));
       }
-      
+
       const cards = [];
       core.systemsManager._registeredCards.forEach((cardData) => {
         if (cardData.card?.tagName === 'LCARDS-MSD-CARD') {
@@ -66,7 +66,7 @@ export { initMsdPipelineCore as initMsdPipeline, processMsdConfig };
         lcardsLog.warn('[MSD Production] ⚠️ SystemsManager not available, using fallback');
         return document.querySelector(`lcards-msd[id="${id}"]`);
       }
-      
+
       let found = null;
       core.systemsManager._registeredCards.forEach((cardData) => {
         if (cardData.card?.tagName === 'LCARDS-MSD-CARD' && cardData.config?.id === id) {
@@ -77,21 +77,21 @@ export { initMsdPipelineCore as initMsdPipeline, processMsdConfig };
     }
   };
 
-  lcardsLog.info('[MSD index.js] ✅ Production namespace initialized: window.lcards.cards.msd');
+  lcardsLog.debug('[MSD index.js] Production namespace initialized: window.lcards.cards.msd');
 
   // ============================================================================
   // DEBUG NAMESPACE: window.lcards.debug.msd.*
   // ============================================================================
-  
+
   /**
    * MSD Debug Namespace
-   * 
+   *
    * Instantiate MsdDebugAPI for comprehensive debugging tools.
    * Also preserve legacy utilities for backwards compatibility.
    */
-  
+
   window.lcards.debug = window.lcards.debug || {};
-  
+
   // Create and assign MsdDebugAPI instance
   const msdDebugAPI = MsdDebugAPI.create();
   window.lcards.debug.msd = msdDebugAPI;
@@ -120,7 +120,7 @@ export { initMsdPipelineCore as initMsdPipeline, processMsdConfig };
     card.debugProvenance();
   };
 
-  lcardsLog.info('[MSD index.js] ✅ Debug namespace initialized with MsdDebugAPI');
+  lcardsLog.debug('[MSD index.js] Debug namespace initialized with MsdDebugAPI');
 
   // ============================================================================
   // GLOBAL DEBUG HELPERS
@@ -148,5 +148,5 @@ export { initMsdPipelineCore as initMsdPipeline, processMsdConfig };
     };
   }
 
-  lcardsLog.info('[MSD index.js] ✅ Global debug helpers initialized');
+  lcardsLog.debug('[MSD index.js] Global debug helpers initialized');
 })();

@@ -113,7 +113,7 @@ async function initializeCustomCard() {
     // Add singleton reference to debug tier for unified API consistency
     window.lcards.debug.singletons = lcardsCore;
 
-    lcardsLog.info('[lcards.js] ✅ LCARdSCore singleton attached to window.lcards.core');
+    lcardsLog.debug('[lcards.js] LCARdSCore singleton attached to window.lcards.core');
     lcardsLog.debug('[lcards.js] ✅ Singleton reference added to debug.singletons');
 
     // === SINGLETON INITIALIZATION ===
@@ -130,7 +130,7 @@ async function initializeCustomCard() {
         };
 
         await lcardsCore.initialize(stubHass);
-        lcardsLog.info('[lcards.js] 🌐 Core singletons initialized on module load');
+        lcardsLog.debug('[lcards.js] Core singletons initialized on module load');
 
         // Expose ThemeManager at expected location for MSD renderers
         window.lcards.theme = lcardsCore.getThemeManager();
@@ -160,7 +160,7 @@ initializeCustomCard()
         customElements.define('lcards-data-grid', LCARdSDataGrid);
         customElements.define('lcards-msd-card', LCARdSMSDCard);
 
-        lcardsLog.info('[lcards.js] ✅ All custom elements registered after core initialization');
+        lcardsLog.debug('[lcards.js] All custom elements registered after core initialization');
 
         // Register card schemas (must be after core initialization)
         if (window.lcards?.core?.configManager) {
@@ -172,7 +172,7 @@ initializeCustomCard()
             if (LCARdSDataGrid.registerSchema) LCARdSDataGrid.registerSchema();
             if (LCARdSMSDCard.registerSchema) LCARdSMSDCard.registerSchema();
 
-            lcardsLog.info('[lcards.js] ✅ Card schemas registered');
+            lcardsLog.debug('[lcards.js] Card schemas registered');
         } else {
             lcardsLog.error('[lcards.js] ❌ CoreConfigManager not available for schema registration');
         }
@@ -344,4 +344,4 @@ window.lcards.alertConfig = {
   }
 };
 
-lcardsLog.info('[lcards.js] ✅ Alert mode console API attached');
+lcardsLog.debug('[lcards.js] Alert mode console API attached');

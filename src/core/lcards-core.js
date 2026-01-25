@@ -121,7 +121,7 @@ class LCARdSCore {
      * @private
      */
     async _performInitialization(hass) {
-        lcardsLog.info('[LCARdSCore] 🚀 Initializing core systems...');
+        lcardsLog.debug('[LCARdSCore] Initializing core systems...');
 
         try {
             // Store HASS reference
@@ -200,12 +200,12 @@ class LCARdSCore {
             // PackManager is the ONLY place that loads builtin packs
             this.packManager = new PackManager(this);
             await this.packManager.loadBuiltinPacks(['core', 'lcards_buttons', 'lcards_sliders', 'lcars_fx', 'builtin_themes']);
-            lcardsLog.info('[LCARdSCore] ✅ PackManager loaded all packs and registered to managers');
+            lcardsLog.debug('[LCARdSCore] PackManager loaded all packs and registered to managers');
 
             // Activate default theme after packs are loaded
             try {
                 await this.themeManager.activateTheme('lcards-default');
-                lcardsLog.info('[LCARdSCore] ✅ Default theme activated');
+                lcardsLog.debug('[LCARdSCore] Default theme activated');
             } catch (error) {
                 lcardsLog.error('[LCARdSCore] ❌ Theme activation failed:', error);
             }

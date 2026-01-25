@@ -910,4 +910,4 @@ export class LCARdSSliderRangeVisualizer extends LitElement {
 
 customElements.define('lcards-slider-range-visualizer', LCARdSSliderRangeVisualizer);
 
-lcardsLog.info('[LCARdSSliderRangeVisualizer] Component registered');
+lcardsLog.debug('[LCARdSSliderRangeVisualizer] Component registered');

@@ -2,15 +2,15 @@ import { lcardsLog } from '../../utils/lcards-logging.js';
 
 /**
  * HudEventBus - Event communication system for HUD components
- * 
+ *
  * Provides pub/sub event system for coordinating HUD panels and cards.
- * 
+ *
  * @module core/hud/HudEventBus
  */
 export class HudEventBus {
   constructor() {
     this._listeners = new Map(); // event -> Set<fn>
-    lcardsLog.debug('[HudEventBus] 🚀 Event bus initialized');
+    lcardsLog.trace('[HudEventBus] Event bus initialized');
   }
 
   /**
@@ -24,7 +24,7 @@ export class HudEventBus {
       this._listeners.set(event, new Set());
     }
     this._listeners.get(event).add(fn);
-    lcardsLog.debug(`[HudEventBus] 🔗 Registered listener for event: ${event}`);
+    lcardsLog.trace(`[HudEventBus] Registered listener for event: ${event}`);
     return () => this.off(event, fn);
   }
 
@@ -34,9 +34,9 @@ export class HudEventBus {
    * @param {Function} fn - Callback function
    */
   once(event, fn) {
-    const off = this.on(event, (p) => { 
-      off(); 
-      fn(p); 
+    const off = this.on(event, (p) => {
+      off();
+      fn(p);
     });
   }
 
@@ -48,7 +48,7 @@ export class HudEventBus {
   off(event, fn) {
     const removed = this._listeners.get(event)?.delete(fn);
     if (removed) {
-      lcardsLog.debug(`[HudEventBus] 🚫 Removed listener for event: ${event}`);
+      lcardsLog.trace(`[HudEventBus] Removed listener for event: ${event}`);
     }
   }
 
@@ -60,10 +60,10 @@ export class HudEventBus {
   emit(event, payload) {
     const list = this._listeners.get(event);
     if (list) {
-      lcardsLog.debug(`[HudEventBus] 📡 Emitting event '${event}' to ${list.size} listeners`);
+      lcardsLog.trace(`[HudEventBus] Emitting event '${event}' to ${list.size} listeners`);
       list.forEach(fn => {
-        try { 
-          fn(payload); 
+        try {
+          fn(payload);
         } catch (e) {
           lcardsLog.warn(`[HudEventBus] ⚠️ Error in event listener for '${event}':`, e);
         }
@@ -74,8 +74,8 @@ export class HudEventBus {
     const any = this._listeners.get('*');
     if (any) {
       any.forEach(fn => {
-        try { 
-          fn({ event, payload }); 
+        try {
+          fn({ event, payload });
         } catch (e) {
           lcardsLog.warn(`[HudEventBus] ⚠️ Error in wildcard listener for '${event}':`, e);
         }
@@ -90,13 +90,13 @@ export class HudEventBus {
     const totalListeners = Array.from(this._listeners.values())
       .reduce((sum, set) => sum + set.size, 0);
     this._listeners.clear();
-    lcardsLog.debug(`[HudEventBus] 🧹 Cleared all event listeners (${totalListeners} total)`);
+    lcardsLog.trace(`[HudEventBus] Cleared all event listeners (${totalListeners} total)`);
   }
 }
 
 /**
  * SelectionManager - Manages current HUD selection state
- * 
+ *
  * Tracks which card/overlay/element is currently selected in the HUD
  * and broadcasts selection changes via event bus.
  */
@@ -114,18 +114,18 @@ export class SelectionManager {
    */
   set(type, id, meta = {}) {
     if (!type || !id) {
-      lcardsLog.debug('[SelectionManager] 🚫 Selection ignored - missing type or id');
+      lcardsLog.trace('[SelectionManager] Selection ignored - missing type or id');
       return;
     }
-    
+
     this.current = {
       type,
       id,
       meta,
       ts: Date.now()
     };
-    
-    lcardsLog.debug(`[SelectionManager] 🎯 Selection changed: ${type}:${id}`);
+
+    lcardsLog.trace(`[SelectionManager] Selection changed: ${type}:${id}`);
     this.bus?.emit('select:changed', this.current);
   }
 
@@ -134,7 +134,7 @@ export class SelectionManager {
    */
   clear() {
     this.current = null;
-    lcardsLog.debug('[SelectionManager] 🧹 Selection cleared');
+    lcardsLog.trace('[SelectionManager] Selection cleared');
     this.bus?.emit('select:changed', null);
   }
 

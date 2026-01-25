@@ -210,7 +210,7 @@ export class RulesEngine extends BaseService {
 
           // Check if this is actually a DataSource by consulting the DataSourceManager
           if (this.dataSourceManager && this.dataSourceManager.getSource(sourceName)) {
-            lcardsLog.debug(`[RulesEngine] Skipping DataSource reference in rule monitoring: ${condition.entity}`);
+            lcardsLog.trace(`[RulesEngine] Skipping DataSource reference in rule monitoring: ${condition.entity}`);
             // Don't add DataSource references to HASS entity monitoring
             // The DataSourceManager already handles these entities via its own subscriptions
             return;
@@ -220,13 +220,13 @@ export class RulesEngine extends BaseService {
             const entityId = condition.entity.split('.')[0] + '.' + condition.entity.split('.')[1];
             if (entityId.includes('.') && entityId.split('.').length === 2) {
               entities.add(entityId);
-              lcardsLog.debug(`[RulesEngine] Added entity with attribute to monitoring: ${entityId} (from ${condition.entity})`);
+              lcardsLog.trace(`[RulesEngine] Added entity with attribute to monitoring: ${entityId} (from ${condition.entity})`);
             }
           }
         } else {
           // Regular Home Assistant entity (no dots)
           entities.add(condition.entity);
-          lcardsLog.debug(`[RulesEngine] Added regular entity to monitoring: ${condition.entity}`);
+          lcardsLog.trace(`[RulesEngine] Added regular entity to monitoring: ${condition.entity}`);
         }
       }
 
@@ -384,7 +384,7 @@ export class RulesEngine extends BaseService {
           if (originalGetEntity) {
             const entity = originalGetEntity(entityId);
             if (entity) {
-              lcardsLog.debug(`[RulesEngine] Using fallback getEntity for ${entityId} - state may be converted: ${entity.state}`);
+              lcardsLog.trace(`[RulesEngine] Using fallback getEntity for ${entityId} - state may be converted: ${entity.state}`);
               return entity;
             }
           }
@@ -393,7 +393,7 @@ export class RulesEngine extends BaseService {
           if (this.dataSourceManager && this.dataSourceManager.getEntity) {
             const entity = this.dataSourceManager.getEntity(entityId);
             if (entity) {
-              lcardsLog.debug(`[RulesEngine] Using DataSourceManager getEntity for ${entityId} - state may be converted: ${entity.state}`);
+              lcardsLog.trace(`[RulesEngine] Using DataSourceManager getEntity for ${entityId} - state may be converted: ${entity.state}`);
               return entity;
             }
           }
@@ -453,7 +453,7 @@ export class RulesEngine extends BaseService {
       const aggregatedResult = this.aggregateResults(results);
 
       // DEBUG: Log what we're returning from evaluateDirty
-      lcardsLog.debug(`[RulesEngine] 📤 evaluateDirty returning:`, {
+      lcardsLog.trace(`[RulesEngine] evaluateDirty returning:`, {
         overlayPatchesCount: aggregatedResult.overlayPatches?.length || 0,
         profilesAddCount: aggregatedResult.profilesAdd?.length || 0,
         hasResult: !!aggregatedResult,
@@ -608,7 +608,7 @@ export class RulesEngine extends BaseService {
         }
 
         // DEBUG: Log the patches we got back
-        lcardsLog.debug(`[RulesEngine] ✨ _resolveOverlaySelectors returned:`, {
+        lcardsLog.trace(`[RulesEngine] _resolveOverlaySelectors returned:`, {
           ruleId: rule.id,
           patchesCount: result.overlayPatches?.length || 0,
           patches: result.overlayPatches,
@@ -622,7 +622,7 @@ export class RulesEngine extends BaseService {
         result.stopAfter = rule.stop === true;
 
         // DEBUG: Log what we found
-        lcardsLog.debug(`[RulesEngine] 🎨 Rule ${rule.id} matched - apply block:`, {
+        lcardsLog.trace(`[RulesEngine] Rule ${rule.id} matched - apply block:`, {
           hasBaseSvg: !!rule.apply.base_svg,
           baseSvgValue: rule.apply.base_svg,
           hasOverlays: !!rule.apply.overlays,
@@ -727,7 +727,7 @@ export class RulesEngine extends BaseService {
       || this.systemsManager?.getResolvedModel?.()?.overlays
       || [];
 
-    lcardsLog.debug('[RulesEngine] _resolveOverlaySelectors called', {
+    lcardsLog.trace('[RulesEngine] _resolveOverlaySelectors called', {
       hasContextOverlays: !!contextOverlays,
       hasSystemsManager: !!this.systemsManager,
       allOverlaysCount: allOverlays.length,
@@ -799,7 +799,7 @@ export class RulesEngine extends BaseService {
       // Direct overlay ID (backwards compatible)
       else {
         const overlay = allOverlays.find(o => o.id === selector);
-        lcardsLog.debug(`[RulesEngine] Direct ID selector '${selector}'`, {
+        lcardsLog.trace(`[RulesEngine] Direct ID selector '${selector}'`, {
           found: !!overlay,
           availableIds: allOverlays.map(o => o.id),
           searching: selector
@@ -834,7 +834,7 @@ export class RulesEngine extends BaseService {
 
       // Debug logging (if enabled)
       if (window.lcards?.debug?.rules) {
-        lcardsLog.debug(`[RulesEngine] Selector '${selector}' matched ${matchedOverlays.length} overlay(s)`);
+        lcardsLog.trace(`[RulesEngine] Selector '${selector}' matched ${matchedOverlays.length} overlay(s)`);
       }
     }
 
@@ -849,7 +849,7 @@ export class RulesEngine extends BaseService {
     perfCount('rules.selector.resolutions', 1);
     perfCount('rules.selector.patches', evaluatedPatches.length);
 
-    lcardsLog.debug('[RulesEngine] Selector resolution complete:', {
+    lcardsLog.trace('[RulesEngine] Selector resolution complete:', {
       selectors: Object.keys(ruleApply.overlays).filter(k => k !== 'exclude').length,
       excluded: excludeIds.size,
       patchesGenerated: evaluatedPatches.length,
@@ -879,7 +879,7 @@ export class RulesEngine extends BaseService {
     if (freshHass) {
       this._templateEvaluator.hass = freshHass;
       this._templateEvaluator.context.hass = freshHass;
-      lcardsLog.debug('[RulesEngine] Updated template evaluator with fresh hass', {
+      lcardsLog.trace('[RulesEngine] Updated template evaluator with fresh hass', {
         hasConnection: !!freshHass.connection,
         connectionType: freshHass.connection?.constructor?.name
       });
@@ -904,7 +904,7 @@ export class RulesEngine extends BaseService {
 
               // Log if value changed (template was evaluated)
               if (evaluated !== value) {
-                lcardsLog.debug(`[RulesEngine] Evaluated template in patch ${patch.id}.style.${key}:`, {
+                lcardsLog.trace(`[RulesEngine] Evaluated template in patch ${patch.id}.style.${key}:`, {
                   original: value,
                   evaluated: evaluated
                 });
@@ -931,7 +931,7 @@ export class RulesEngine extends BaseService {
             evaluatedPatch[key] = evaluated;
 
             if (evaluated !== value) {
-              lcardsLog.debug(`[RulesEngine] Evaluated template in patch ${patch.id}.${key}:`, {
+              lcardsLog.trace(`[RulesEngine] Evaluated template in patch ${patch.id}.${key}:`, {
                 original: value,
                 evaluated: evaluated
               });
@@ -1009,7 +1009,7 @@ export class RulesEngine extends BaseService {
 
   aggregateResults(ruleResults) {
     // DEBUG: Log what we're aggregating
-    lcardsLog.debug(`[RulesEngine] 🔄 aggregateResults called:`, {
+    lcardsLog.trace(`[RulesEngine] aggregateResults called:`, {
       resultsCount: ruleResults.length,
       resultsWithPatches: ruleResults.filter(r => r.overlayPatches && r.overlayPatches.length > 0).length,
       allResults: ruleResults.map(r => ({
@@ -1070,7 +1070,7 @@ export class RulesEngine extends BaseService {
       });
 
     // DEBUG: Log what we're returning
-    lcardsLog.debug(`[RulesEngine] 🔄 aggregateResults returning:`, {
+    lcardsLog.trace(`[RulesEngine] aggregateResults returning:`, {
       overlayPatchesCount: aggregated.overlayPatches.length,
       profilesAddCount: aggregated.profilesAdd.length,
       profilesRemoveCount: aggregated.profilesRemove.length,
@@ -1169,7 +1169,7 @@ export class RulesEngine extends BaseService {
     try {
       // Extract all HASS entities referenced in rules (exclude DataSource references)
       const allEntityReferences = Array.from(this.dependencyIndex?.entityToRules.keys() || []);
-      lcardsLog.debug('[RulesEngine] 🔍 All entity references from dependency index:', allEntityReferences);
+      lcardsLog.trace('[RulesEngine] All entity references from dependency index:', allEntityReferences);
 
       // Filter out DataSource references
       const ruleEntities = allEntityReferences.filter(entityId => {
@@ -1177,15 +1177,15 @@ export class RulesEngine extends BaseService {
         if (entityId.includes('.')) {
           const sourceName = entityId.split('.')[0];
           if (this.dataSourceManager?.getSource(sourceName)) {
-            lcardsLog.debug(`[RulesEngine] 🚫 Filtered out DataSource reference: ${entityId}`);
+            lcardsLog.trace(`[RulesEngine] Filtered out DataSource reference: ${entityId}`);
             return false;
           }
         }
-        lcardsLog.debug(`[RulesEngine] ✅ Including HASS entity: ${entityId}`);
+        lcardsLog.trace(`[RulesEngine] Including HASS entity: ${entityId}`);
         return true;
       });
 
-      lcardsLog.debug(`[RulesEngine] 📊 HASS entity monitoring summary:`, {
+      lcardsLog.trace(`[RulesEngine] HASS entity monitoring summary:`, {
         totalReferences: allEntityReferences.length,
         dataSourceReferences: allEntityReferences.length - ruleEntities.length,
         hassEntities: ruleEntities.length,
@@ -1463,7 +1463,7 @@ export function applyOverlayPatches(overlays, patches) {
     return overlays;
   }
 
-  lcardsLog.debug('[RulesEngine] 🎨 Applying overlay patches:', {
+  lcardsLog.trace('[RulesEngine] Applying overlay patches:', {
     overlayCount: overlays.length,
     patchCount: patches.length,
     patches: patches.map(p => ({
@@ -1484,7 +1484,7 @@ export function applyOverlayPatches(overlays, patches) {
     if (!patch) {
       return overlay;
     }
-    lcardsLog.debug('[RulesEngine] 🎯 Applying patch to overlay:', {
+    lcardsLog.trace('[RulesEngine] Applying patch to overlay:', {
       id: overlay.id,
       type: overlay.type,
       cellTarget: patch.cell_target || patch.cellTarget,
@@ -1512,7 +1512,7 @@ export function applyOverlayPatches(overlays, patches) {
     // Mark that this is an overlay-level patch, not cell-level
     patchedOverlay._hasOverlayLevelPatch = !patch.cell_target && !patch.cellTarget;
 
-    lcardsLog.debug('[RulesEngine] ✅ Patched overlay result:', {
+    lcardsLog.trace('[RulesEngine] Patched overlay result:', {
       id: patchedOverlay.id,
       type: patchedOverlay.type,
       patchedKeys: Object.keys(patch),

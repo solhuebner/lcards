@@ -58,13 +58,13 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
     // ✅ CRITICAL FIX: Set card GUID BEFORE completeSystems() for HUD registration
     if (cardGuid) {
       coordinator.setCardGuid(cardGuid);
-      lcardsLog.debug('[PipelineCore] ✅ Card GUID set in coordinator BEFORE completeSystems:', cardGuid);
+      lcardsLog.trace('[PipelineCore] Card GUID set in coordinator BEFORE completeSystems:', cardGuid);
     } else {
       lcardsLog.warn('[PipelineCore] ⚠️ No card GUID provided - HUD registration may fail');
     }
 
     // Use Core ValidationService singleton instead of creating MSD-specific instance
-    lcardsLog.debug('[PipelineCore] ✅ Configuring Core ValidationService');
+    lcardsLog.trace('[PipelineCore] Configuring Core ValidationService');
     let validationService = null;
 
     try {
@@ -84,7 +84,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
         validationService.initializeOverlayValidation();
 
         const overlayRegistry = validationService.getOverlaySchemaRegistry();
-        lcardsLog.debug('[PipelineCore] 📋 Core ValidationService configured:', {
+        lcardsLog.trace('[PipelineCore] Core ValidationService configured:', {
           schemaCount: overlayRegistry?.getSchemaCount() || 0,
           types: overlayRegistry?.getRegisteredTypes() || []
         });
@@ -92,25 +92,25 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
         // Connect ValidationService to ThemeManager and DataSourceManager
         if (coordinator.themeManager) {
           validationService.setThemeManager(coordinator.themeManager);
-          lcardsLog.debug('[PipelineCore] 🔗 ValidationService connected to ThemeManager');
+          lcardsLog.trace('[PipelineCore] ValidationService connected to ThemeManager');
         }
 
         if (coordinator.dataSourceManager) {
           validationService.setDataSourceManager(coordinator.dataSourceManager);
-          lcardsLog.debug('[PipelineCore] 🔗 ValidationService connected to DataSourceManager');
+          lcardsLog.trace('[PipelineCore] ValidationService connected to DataSourceManager');
         }
 
         // Make ValidationService globally accessible (reference to core singleton)
         if (typeof window !== 'undefined') {
           if (!window.lcards) window.lcards = {};
           window.lcards.validationService = validationService;
-          lcardsLog.debug('[PipelineCore] ✅ ValidationService available at window.lcards.validationService');
+          lcardsLog.trace('[PipelineCore] ValidationService available at window.lcards.validationService');
         }
 
         // Store in MsdCardCoordinator (reference to core singleton)
         coordinator.validationService = validationService;
 
-        lcardsLog.debug('[PipelineCore] ✅ Core ValidationService configured for MSD');
+        lcardsLog.trace('[PipelineCore] Core ValidationService configured for MSD');
       } else {
         lcardsLog.warn('[PipelineCore] ⚠️ Core ValidationService not available - overlays will not be pre-validated');
       }
@@ -128,7 +128,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
 
   // Theme manager singleton is always initialized by Core before cards load
   // Coordinator references it directly (no validation needed)
-  lcardsLog.debug('[PipelineCore] ✅ Theme system ready');
+  lcardsLog.trace('[PipelineCore] Theme system ready');
 
   // ✅ REMOVED: Redundant overlay validation pass
   // Validation already happened in ConfigProcessor via CoreConfigManager.processConfig()
@@ -150,7 +150,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
   }
 
   // Complete systems initialization with card model
-  lcardsLog.debug('[PipelineCore] ⚙️ Completing systems initialization');
+  lcardsLog.trace('[PipelineCore] Completing systems initialization');
   try {
     await coordinator.completeSystems(mergedConfig, cardModel, mountEl, hass);
   } catch (error) {
@@ -188,7 +188,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
   }
 
   // Pipeline initialization logging
-  lcardsLog.debug('[PipelineCore] ✅ Core systems initialized:', {
+  lcardsLog.trace('[PipelineCore] Core systems initialized:', {
     hasCoordinator: !!coordinator,
     hasDataSourceManager: !!coordinator.dataSourceManager,
     hasThemeManager: !!coordinator.themeManager,
@@ -218,7 +218,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
 
     // IMPROVED: Queue renders instead of blocking them
     if (coordinator._renderInProgress) {
-      lcardsLog.debug('[PipelineCore] 🕐 Render in progress, queueing re-render');
+      lcardsLog.trace('[PipelineCore] Render in progress, queueing re-render');
       coordinator._queuedReRender = true;
       return { success: false, reason: 'render_in_progress', queued: true };
     }
@@ -231,7 +231,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
       const startTime = performance.now();
       const resolvedModel = await modelBuilder.computeResolvedModel();
 
-      lcardsLog.debug('[PipelineCore] ✅ Resolved model computed:', {
+      lcardsLog.trace('[PipelineCore] Resolved model computed:', {
         overlayCount: resolvedModel.overlays.length,
         controlOverlays: resolvedModel.overlays.filter(o => o.type === 'control').length,
         hasAnchors: !!resolvedModel.anchors,
@@ -244,7 +244,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
       let renderResult;
       try {
         renderResult = await coordinator.renderer.render(resolvedModel);
-        lcardsLog.debug('[PipelineCore] ✅ AdvancedRenderer.render() completed successfully:', renderResult);
+        lcardsLog.trace('[PipelineCore] AdvancedRenderer.render() completed successfully:', renderResult);
       } catch (renderError) {
         lcardsLog.error('[PipelineCore] ❌ AdvancedRenderer.render() FAILED:', renderError);
         lcardsLog.error('[PipelineCore] ❌ Render error stack:', renderError.stack);
@@ -253,7 +253,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
 
       // ANIMATION INTEGRATION: Notify AnimationManager about rendered overlays
       if (coordinator.animationManager) {
-        lcardsLog.debug('[PipelineCore] 🎬 Notifying AnimationManager about rendered overlays...');
+        lcardsLog.trace('[PipelineCore] Notifying AnimationManager about rendered overlays...');
 
         // Track text overlays for re-initialization after font stabilization
         const textOverlays = [];
@@ -267,7 +267,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
             if (element) {
               try {
                 await coordinator.animationManager.onOverlayRendered(overlay.id, element, overlay, coordinator);
-                lcardsLog.debug(`[PipelineCore] ✅ Initialized animations for overlay: ${overlay.id}`);
+                lcardsLog.trace(`[PipelineCore] Initialized animations for overlay: ${overlay.id}`);
 
                 // Track text overlays for re-initialization after font stabilization
                 if (overlay.type === 'text') {
@@ -286,7 +286,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
         // Font stabilization happens async and re-renders text elements
         if (textOverlays.length > 0) {
           setTimeout(async () => {
-            lcardsLog.debug('[PipelineCore] 🔄 Re-initializing animations after font stabilization...', {
+            lcardsLog.trace('[PipelineCore] Re-initializing animations after font stabilization...', {
               overlays: textOverlays.map(t => t.id)
             });
 
@@ -295,7 +295,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
               if (element) {
                 try {
                   await coordinator.animationManager.onOverlayRendered(id, element, overlay, coordinator);
-                  lcardsLog.debug(`[PipelineCore] ✅ Re-initialized animations for text overlay: ${id}`);
+                  lcardsLog.trace(`[PipelineCore] Re-initialized animations for text overlay: ${id}`);
                 } catch (animError) {
                   lcardsLog.error(`[PipelineCore] ❌ Failed to re-initialize animations for ${id}:`, animError);
                 }
@@ -304,16 +304,16 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
           }, 1000); // Wait for font stabilization to complete (typically 3-10 passes)
         }
 
-        lcardsLog.debug('[PipelineCore] ✅ AnimationManager notified about all rendered overlays');
+        lcardsLog.trace('[PipelineCore] AnimationManager notified about all rendered overlays');
       }
 
-      lcardsLog.debug('[PipelineCore] 🎮 Starting renderDebugAndControls()...');
+      lcardsLog.trace('[PipelineCore] Starting renderDebugAndControls()...');
       // CHANGED: Make debug and controls rendering more defensive
       // NOTE: Controls are now rendered by AdvancedRenderer in Phase 2a
       // This only handles debug visualization overlays (anchors, bounding boxes, etc.)
       try {
         await coordinator.renderDebugAndControls(resolvedModel, mountEl);
-        lcardsLog.debug('[PipelineCore] ✅ renderDebugAndControls() completed successfully');
+        lcardsLog.trace('[PipelineCore] renderDebugAndControls() completed successfully');
       } catch (debugControlsError) {
         lcardsLog.error('[PipelineCore] ❌ renderDebugAndControls() FAILED:', debugControlsError);
         lcardsLog.error('[PipelineCore] ❌ Debug/Controls error stack:', debugControlsError.stack);
@@ -322,7 +322,7 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
       }
 
       const renderTime = performance.now() - startTime;
-      lcardsLog.debug(`[PipelineCore] ✅ reRender() COMPLETED in ${renderTime.toFixed(2)}ms`);
+      lcardsLog.trace(`[PipelineCore] reRender() COMPLETED in ${renderTime.toFixed(2)}ms`);
 
       return renderResult || { success: true };
 
@@ -332,11 +332,11 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
       return { success: false, error: error.message };
     } finally {
       coordinator._renderInProgress = false;
-      lcardsLog.debug('[PipelineCore] 🏁 reRender() FINALLY block - _renderInProgress reset to false');
+      lcardsLog.trace('[PipelineCore] reRender() FINALLY block - _renderInProgress reset to false');
 
       // IMPROVED: Execute queued re-render if one was requested
       if (coordinator._queuedReRender) {
-        lcardsLog.debug('[PipelineCore] 🔄 Executing queued re-render');
+        lcardsLog.trace('[PipelineCore] Executing queued re-render');
         coordinator._queuedReRender = false;
         // Use setTimeout to avoid immediate recursion and allow stack to clear
         setTimeout(() => reRender(), 50);

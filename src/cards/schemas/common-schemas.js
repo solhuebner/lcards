@@ -204,7 +204,7 @@ export const actionSchema = {
     properties: {
         action: {
             type: 'string',
-            enum: ['toggle', 'call-service', 'navigate', 'more-info', 'none'],
+            enum: ['toggle', 'call-service', 'perform-action', 'navigate', 'url', 'more-info', 'assist', 'none'],
             default: 'toggle',
             description: 'Type of action to perform',
             enumDescriptions: [

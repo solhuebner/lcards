@@ -20,7 +20,7 @@ export function configToYaml(config) {
             sortKeys: false // Preserve property order
         });
     } catch (error) {
-        lcardsLog.error('❌ [yaml-utils] Failed to convert config to YAML:', error);
+        lcardsLog.error('[yaml-utils] Failed to convert config to YAML:', error);
         return '';
     }
 }
@@ -37,7 +37,7 @@ export function yamlToConfig(yamlStr) {
             json: true // Use JSON-compatible parsing
         }) || {};
     } catch (error) {
-        lcardsLog.error('❌ [yaml-utils] Failed to parse YAML:', error);
+        lcardsLog.error('[yaml-utils] Failed to parse YAML:', error);
         throw error; // Re-throw for error handling in editor
     }
 }
@@ -52,8 +52,8 @@ export function validateYaml(yamlStr) {
         yaml.load(yamlStr);
         return { valid: true, error: null };
     } catch (error) {
-        return { 
-            valid: false, 
+        return {
+            valid: false,
             error: error.message,
             lineNumber: error.mark?.line
         };
