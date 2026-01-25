@@ -4262,7 +4262,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             const anchors = msdCard._msdPipeline?.getResolvedModel()?.anchors || {};
             resolvedPosition = anchors[control.position];
             if (!resolvedPosition) {
-                console.warn(`[MSD Studio] Anchor '${control.position}' not found in resolved model`);
+                lcardsLog.warn(`⚠️ [MSD Studio] Anchor '${control.position}' not found in resolved model`);
                 return '';
             }
         } else {
@@ -9956,7 +9956,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _closeLineForm() {
-        console.log('[MSDStudio] _closeLineForm called', new Error().stack);
+        lcardsLog.trace('[MSDStudio] _closeLineForm called', new Error().stack);
         this._showLineForm = false;
         this._editingLineId = null;
         this.requestUpdate();
@@ -9969,7 +9969,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _handleWaypointDragStart(e, index) {
-        console.log('[MSDStudio] Waypoint drag start:', index);
+        lcardsLog.trace('[MSDStudio] Waypoint drag start:', index);
         this._draggedWaypointIndex = index;
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', index);
@@ -9982,7 +9982,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _handleWaypointDragEnd(e) {
-        console.log('[MSDStudio] Waypoint drag end');
+        lcardsLog.trace('[MSDStudio] Waypoint drag end');
         this._draggedWaypointIndex = null;
         this.requestUpdate();
     }
@@ -10000,7 +10000,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         if (this._draggedWaypointIndex === null || this._draggedWaypointIndex === index) {
             return;
         }
-        console.log('[MSDStudio] Waypoint drag over:', index);
+        lcardsLog.trace('[MSDStudio] Waypoint drag over:', index);
     }
 
     /**
@@ -10010,13 +10010,13 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _handleWaypointDrop(e, dropIndex) {
-        console.log('[MSDStudio] Waypoint drop at:', dropIndex);
+        lcardsLog.trace('[MSDStudio] Waypoint drop at:', dropIndex);
         e.preventDefault();
         e.stopPropagation();
 
         const dragIndex = this._draggedWaypointIndex;
         if (dragIndex === null || dragIndex === dropIndex) {
-            console.log('[MSDStudio] Drop ignored - same position');
+            lcardsLog.trace('[MSDStudio] Drop ignored - same position');
             return;
         }
 
@@ -10031,7 +10031,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         };
         this._draggedWaypointIndex = null;
 
-        console.log('[MSDStudio] Waypoints reordered');
+        lcardsLog.trace('[MSDStudio] Waypoints reordered');
 
         // Just update preview (don't save to config yet)
         this._schedulePreviewUpdate();

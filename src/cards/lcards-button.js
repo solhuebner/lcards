@@ -2109,7 +2109,7 @@ export class LCARdSButton extends LCARdSCard {
 
             // Ensure iconColor is a string (not an object)
             if (typeof iconColor !== 'string') {
-                console.warn('[LCARdSButton] Icon color resolved to non-string:', iconColor);
+                lcardsLog.warn('[LCARdSButton] ⚠️ Icon color resolved to non-string:', iconColor);
                 iconColor = 'var(--lcars-color-text, #FFFFFF)';
             }
 
@@ -3110,7 +3110,7 @@ export class LCARdSButton extends LCARdSCard {
      */
     _generateButtonSVG(width, height, config) {
         // Read styling from _buttonStyle (resolved from preset/tokens)
-        // Use CB-LCARS nested schema (v1.14.18+)
+        // Use CB-LCARS nested schema
         const buttonState = this._buttonStyle?._currentState || this._getButtonState();
         const actualEntityState = this._entity?.state;
 
@@ -4720,7 +4720,7 @@ export class LCARdSButton extends LCARdSCard {
             positionEnum
         });
 
-        // Register JSON schema for validation (v1.14.18+)
+        // Register JSON schema for validation
         configManager.registerCardSchema('button', buttonSchema, { version: '1.14.18' });
 
         lcardsLog.debug('[LCARdSButton] Registered with CoreConfigManager');

@@ -13,6 +13,7 @@
  */
 
 import { LitElement, html, css } from 'lit';
+import { lcardsLog } from '../../../utils/lcards-logging.js';
 import '../shared/lcards-message.js';
 import '../shared/lcards-form-section.js';
 
@@ -351,9 +352,9 @@ export class LCARdSRulesDashboard extends LitElement {
         const rulesManager = window.lcards?.core?.rulesManager;
         if (rulesManager && typeof rulesManager.getAllRules === 'function') {
             this._rules = rulesManager.getAllRules() || [];
-            console.debug('[RulesDashboard] Loaded rules:', this._rules.length);
+            lcardsLog.debug('[RulesDashboard] Loaded rules:', this._rules.length);
         } else {
-            console.warn('[RulesDashboard] RulesManager not available or getAllRules not implemented');
+            lcardsLog.warn('⚠️ [RulesDashboard] RulesManager not available or getAllRules not implemented');
             this._rules = [];
         }
     }
@@ -595,13 +596,13 @@ export class LCARdSRulesDashboard extends LitElement {
 
             // Copy to clipboard
             navigator.clipboard.writeText(yaml).then(() => {
-                console.log('[RulesDashboard] Copied rule YAML to clipboard:', rule.id);
+                lcardsLog.info('[RulesDashboard] Copied rule YAML to clipboard:', rule.id);
                 // Could show a toast notification here if available
             }).catch(err => {
-                console.error('[RulesDashboard] Failed to copy to clipboard:', err);
+                lcardsLog.error('❌ [RulesDashboard] Failed to copy to clipboard:', err);
             });
         } catch (error) {
-            console.error('[RulesDashboard] Error copying rule YAML:', error);
+            lcardsLog.error('❌ [RulesDashboard] Error copying rule YAML:', error);
         }
     }
 
@@ -725,7 +726,7 @@ export class LCARdSRulesDashboard extends LitElement {
      * @private
      */
     _handlePreview(rule) {
-        console.log('[RulesDashboard] Preview rule:', rule.id);
+        lcardsLog.trace('[RulesDashboard] Preview rule:', rule.id);
         this._previewRule = rule;
         this._previewDialogOpen = true;
     }

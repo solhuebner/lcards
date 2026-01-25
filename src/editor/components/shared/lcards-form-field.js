@@ -35,6 +35,7 @@
  */
 
 import { html } from 'lit';
+import { lcardsLog } from '../../../utils/lcards-logging.js';
 import {
     getEffectiveLabel,
     getEffectiveHelper,
@@ -231,7 +232,7 @@ export class LCARdSFormFieldHelper {
             }
         });
         
-        console.log('[FormFieldHelper] Value prepared for choose selector:', {
+        lcardsLog.trace('[FormFieldHelper] Value prepared for choose selector:', {
             path: '(see render context)',
             rawValue: value,
             activeChoice: activeChoice,
@@ -266,7 +267,7 @@ export class LCARdSFormFieldHelper {
             const activeChoice = value.active_choice;
             const extractedValue = value[activeChoice];
             
-            console.log('[FormFieldHelper] Choose value extracted:', {
+            lcardsLog.trace('[FormFieldHelper] Choose value extracted:', {
                 path: path,
                 rawValue: value,
                 activeChoice: activeChoice,

@@ -338,7 +338,7 @@ registerAnimationPreset('march', (def) => {
 
           styleSheet.insertRule(keyframesStr, styleSheet.cssRules.length);
         } catch (e) {
-          console.error('[march preset] Failed to add CSS animation to Shadow DOM:', e);
+          lcardsLog.error('[march preset] ❌ Failed to add CSS animation to Shadow DOM:', e);
           fallbackStyleInjection();
         }
       } else {

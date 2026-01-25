@@ -3,6 +3,7 @@ import { processMsdConfig } from './pipeline/ConfigProcessor.js';
 import { buildCardModel } from './model/CardModel.js';
 import { mergePacks } from '../core/packs/mergePacks.js';
 import { MsdDebugAPI } from '../api/MsdDebugAPI.js';
+import { lcardsLog } from '../utils/lcards-logging.js';
 
 import "./hud/MsdHudUtilities.js";
 
@@ -12,7 +13,7 @@ export { initMsdPipelineCore as initMsdPipeline, processMsdConfig };
 /**
  * MSD Production Namespace & Debug Interface Setup
  * 
- * ARCHITECTURE CHANGE (v1.17.0+):
+ * ARCHITECTURE CHANGE:
  * - Production APIs: window.lcards.cards.msd.*
  * - Debug tools: window.lcards.debug.msd.*
  * 
@@ -39,7 +40,7 @@ export { initMsdPipelineCore as initMsdPipeline, processMsdConfig };
       const core = window.lcards?.core;
       if (!core?.systemsManager) {
         // Fallback to DOM query if SystemsManager not available
-        console.warn('[MSD Production] SystemsManager not available, using fallback');
+        lcardsLog.warn('[MSD Production] ⚠️ SystemsManager not available, using fallback');
         return Array.from(document.querySelectorAll('lcards-msd'));
       }
       
@@ -62,7 +63,7 @@ export { initMsdPipelineCore as initMsdPipeline, processMsdConfig };
       const core = window.lcards?.core;
       if (!core?.systemsManager) {
         // Fallback to DOM query if SystemsManager not available
-        console.warn('[MSD Production] SystemsManager not available, using fallback');
+        lcardsLog.warn('[MSD Production] ⚠️ SystemsManager not available, using fallback');
         return document.querySelector(`lcards-msd[id="${id}"]`);
       }
       
@@ -76,7 +77,7 @@ export { initMsdPipelineCore as initMsdPipeline, processMsdConfig };
     }
   };
 
-  console.log('[MSD index.js] ✅ Production namespace initialized: window.lcards.cards.msd');
+  lcardsLog.info('[MSD index.js] ✅ Production namespace initialized: window.lcards.cards.msd');
 
   // ============================================================================
   // DEBUG NAMESPACE: window.lcards.debug.msd.*
@@ -104,7 +105,7 @@ export { initMsdPipelineCore as initMsdPipeline, processMsdConfig };
   window.lcards.debug.msd.getProvenance = function(selector = 'lcards-msd') {
     const card = document.querySelector(selector);
     if (!card?.getProvenance) {
-      console.warn(`[MSD Debug] Card not found or no provenance: ${selector}`);
+      lcardsLog.warn(`[MSD Debug] ⚠️ Card not found or no provenance: ${selector}`);
       return null;
     }
     return card.getProvenance();
@@ -113,13 +114,13 @@ export { initMsdPipelineCore as initMsdPipeline, processMsdConfig };
   window.lcards.debug.msd.debugProvenance = function(selector = 'lcards-msd') {
     const card = document.querySelector(selector);
     if (!card?.debugProvenance) {
-      console.warn(`[MSD Debug] Card not found: ${selector}`);
+      lcardsLog.warn(`[MSD Debug] ⚠️ Card not found: ${selector}`);
       return;
     }
     card.debugProvenance();
   };
 
-  console.log('[MSD index.js] ✅ Debug namespace initialized with MsdDebugAPI');
+  lcardsLog.info('[MSD index.js] ✅ Debug namespace initialized with MsdDebugAPI');
 
   // ============================================================================
   // GLOBAL DEBUG HELPERS
@@ -136,6 +137,7 @@ export { initMsdPipelineCore as initMsdPipeline, processMsdConfig };
         'Timestamp': new Date().toISOString()
       };
 
+      // Keep console.table for this debug helper - it's a user-facing debug function
       console.table(status);
       console.log('💡 Get all cards: window.lcards.cards.msd.getAll()');
       console.log('💡 Get card by ID: window.lcards.cards.msd.getById("bridge")');
@@ -146,5 +148,5 @@ export { initMsdPipelineCore as initMsdPipeline, processMsdConfig };
     };
   }
 
-  console.log('[MSD index.js] ✅ Global debug helpers initialized');
+  lcardsLog.info('[MSD index.js] ✅ Global debug helpers initialized');
 })();

@@ -1,3 +1,5 @@
+import { lcardsLog } from '../../utils/lcards-logging.js';
+
 /**
  * [ViewportScaling] Viewport-aware scaling utility for real pixel calculations
  * 🎯 Ensures user-specified pixel values appear as expected on screen
@@ -101,7 +103,7 @@ export class ViewportScaling {
         }
       };
 
-      console.log('[ViewportScaling] Scaling context calculated:', {
+      lcardsLog.trace('[ViewportScaling] Scaling context calculated:', {
         realWidth,
         realHeight,
         svgWidth,
@@ -113,7 +115,7 @@ export class ViewportScaling {
       return context;
 
     } catch (error) {
-      console.warn('[ViewportScaling] Failed to calculate scaling context:', error);
+      lcardsLog.warn('[ViewportScaling] ⚠️ Failed to calculate scaling context:', error);
       return null;
     }
   }
