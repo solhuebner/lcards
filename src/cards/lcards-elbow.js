@@ -67,7 +67,7 @@ import { LCARdSButton } from './lcards-button.js';
 import { lcardsLog } from '../utils/lcards-logging.js';
 import { resolveStateColor } from '../utils/state-color-resolver.js';
 import { getElbowSchema } from './schemas/elbow-schema.js';
-import { getElbowComponent } from '../core/packs/components/elbows/index.js';
+import { getElbowComponent, getElbowTypeNames, hasElbowComponent } from '../core/packs/components/elbows/index.js';
 
 // Import editor component for getConfigElement()
 import '../editor/cards/lcards-elbow-editor.js';
@@ -331,18 +331,24 @@ export class LCARdSElbow extends LCARdSButton {
      * @private
      */
     _validateElbowConfig(elbowConfig) {
-        const validTypes = ['header-left', 'header-right', 'footer-left', 'footer-right'];
+        // Get valid types from core component registry
+        const validTypes = getElbowTypeNames();
         const type = validTypes.includes(elbowConfig.type)
             ? elbowConfig.type
             : 'header-left';
 
         if (!validTypes.includes(elbowConfig.type)) {
-            lcardsLog.warn(`[LCARdSElbow] Invalid elbow type "${elbowConfig.type}", defaulting to "header-left"`);
+            lcardsLog.warn(`[LCARdSElbow] Invalid elbow type "${elbowConfig.type}", defaulting to "header-left". Valid types: ${validTypes.join(', ')}`);
         }
 
-        // Parse style (simple or segmented)
-        const validStyles = ['simple', 'segmented'];
-        const style = validStyles.includes(elbowConfig.style) ? elbowConfig.style : 'simple';
+        // Get valid styles from the component's features
+        const component = getElbowComponent(type);
+        const validStyles = component?.features || ['simple'];
+        const style = validStyles.includes(elbowConfig.style) ? elbowConfig.style : validStyles[0];
+
+        if (elbowConfig.style && !validStyles.includes(elbowConfig.style)) {
+            lcardsLog.warn(`[LCARdSElbow] Invalid style "${elbowConfig.style}" for type "${type}". Valid styles: ${validStyles.join(', ')}. Defaulting to "${validStyles[0]}"`);
+        }
 
         // Parse segment configuration
         let segmentConfig;
@@ -852,15 +858,15 @@ export class LCARdSElbow extends LCARdSButton {
 
         // Construct elbow type from position and side
         const elbowType = `${position}-${side}`;
-        
+
         // Get component from registry
         const component = getElbowComponent(elbowType);
-        
+
         if (!component || !component.pathGenerator) {
             lcardsLog.error(`[LCARdSElbow] No path generator for type: ${elbowType}`);
             return '';
         }
-        
+
         // Pass geometry and container dimensions to generator
         const generatorConfig = {
             geometry: {
@@ -873,7 +879,7 @@ export class LCARdSElbow extends LCARdSButton {
             },
             container: { width, height }
         };
-        
+
         return component.pathGenerator(generatorConfig);
     }
 
