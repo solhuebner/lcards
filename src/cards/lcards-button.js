@@ -2109,7 +2109,7 @@ export class LCARdSButton extends LCARdSCard {
 
             // Ensure iconColor is a string (not an object)
             if (typeof iconColor !== 'string') {
-                console.warn('[LCARdSButton] Icon color resolved to non-string:', iconColor);
+                lcardsLog.warn('[LCARdSButton] ⚠️ Icon color resolved to non-string:', iconColor);
                 iconColor = 'var(--lcars-color-text, #FFFFFF)';
             }
 

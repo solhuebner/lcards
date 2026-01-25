@@ -56,7 +56,7 @@ export class LCARdSBaseEditor extends LitElement {
             throw new Error('Invalid configuration');
         }
 
-        console.debug('[LCARdSBaseEditor] setConfig called with:', config);
+        lcardsLog.debug('[LCARdSBaseEditor] setConfig called with:', config);
 
         // Deep clone config using structuredClone with fallback to JSON
         // structuredClone is more robust but requires modern browsers
@@ -74,7 +74,7 @@ export class LCARdSBaseEditor extends LitElement {
         this._yamlValue = configToYaml(this.config);
         this._validateConfig();
 
-        console.debug('[LCARdSBaseEditor] Config initialized:', { config: this.config, yaml: this._yamlValue });
+        lcardsLog.debug('[LCARdSBaseEditor] Config initialized:', { config: this.config, yaml: this._yamlValue });
 
         // Try to access singletons
         if (window.lcards?.core) {
@@ -329,7 +329,7 @@ export class LCARdSBaseEditor extends LitElement {
         const configManager = window.lcards?.core?.configManager;
 
         if (!configManager) {
-            console.warn('[LCARdSBaseEditor] CoreConfigManager not available');
+            lcardsLog.warn('⚠️ [LCARdSBaseEditor] CoreConfigManager not available');
             this._schemaMissing = true;
             return {}; // Return empty schema as fallback
         }
@@ -337,7 +337,7 @@ export class LCARdSBaseEditor extends LitElement {
         const schema = configManager.getCardSchema(this.cardType);
 
         if (!schema) {
-            console.warn(`[LCARdSBaseEditor] No schema registered for card type: ${this.cardType}`);
+            lcardsLog.warn(`⚠️ [LCARdSBaseEditor] No schema registered for card type: ${this.cardType}`);
             this._schemaMissing = true;
             return {};
         }
@@ -376,7 +376,7 @@ export class LCARdSBaseEditor extends LitElement {
      */
     _setConfigValue(path, value) {
         if (!path) {
-            console.warn('[LCARdSBaseEditor] Cannot set config value with empty path');
+            lcardsLog.warn('⚠️ [LCARdSBaseEditor] Cannot set config value with empty path');
             return;
         }
 
@@ -548,7 +548,7 @@ export class LCARdSBaseEditor extends LitElement {
                             }
                         }
                     } catch (err) {
-                        console.warn('[LCARdSBaseEditor] Invalid regex in patternProperties:', pattern, err);
+                        lcardsLog.warn('⚠️ [LCARdSBaseEditor] Invalid regex in patternProperties:', pattern, err);
                     }
                 }
 
@@ -611,7 +611,7 @@ export class LCARdSBaseEditor extends LitElement {
             const func = new Function('config', 'hass', `return ${condition};`);
             return func(this.config, this.hass);
         } catch (err) {
-            console.warn('[LCARdSBaseEditor] Condition evaluation failed:', condition, err);
+            lcardsLog.warn('⚠️ [LCARdSBaseEditor] Condition evaluation failed:', condition, err);
             return true; // Default to visible on error
         }
     }
@@ -708,7 +708,7 @@ export class LCARdSBaseEditor extends LitElement {
                 return this._renderConfigCustom(config);
 
             default:
-                console.warn('[LCARdSBaseEditor] Unknown config type:', config.type);
+                lcardsLog.warn('⚠️ [LCARdSBaseEditor] Unknown config type:', config.type);
                 return html``;
         }
     }
@@ -773,7 +773,7 @@ export class LCARdSBaseEditor extends LitElement {
         } = config;
 
         if (!path) {
-            console.warn('[LCARdSBaseEditor] Field config missing required "path":', config);
+            lcardsLog.warn('⚠️ [LCARdSBaseEditor] Field config missing required "path":', config);
             return html``;
         }
 
@@ -793,7 +793,7 @@ export class LCARdSBaseEditor extends LitElement {
         const { render } = config;
 
         if (typeof render !== 'function') {
-            console.warn('[LCARdSBaseEditor] Custom config missing "render" function:', config);
+            lcardsLog.warn('⚠️ [LCARdSBaseEditor] Custom config missing "render" function:', config);
             return html``;
         }
 

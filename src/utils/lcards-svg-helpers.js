@@ -1,4 +1,5 @@
 // --- SVG Helpers ---
+import { lcardsLog } from './lcards-logging.js';
 
 export function drawLine({ x1, y1, x2, y2, id, attrs = {}, style = {} }) {
   const attrsStr = attrsToString(attrs);
@@ -82,7 +83,7 @@ export function sanitizeSvg(svgContent, stripScripts = true) {
   // Check for parsing errors
   const parserError = doc.querySelector('parsererror');
   if (parserError) {
-    console.error('[SVGHelpers] Invalid SVG markup:', parserError.textContent);
+    lcardsLog.error('[SVGHelpers] ❌ Invalid SVG markup:', parserError.textContent);
     return '';
   }
 

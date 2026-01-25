@@ -15,6 +15,7 @@
 import { LitElement, html, css } from 'lit';
 import { createRef, ref } from 'lit/directives/ref.js';
 import { fireEvent } from 'custom-card-helpers';
+import { lcardsLog } from '../../../utils/lcards-logging.js';
 import { editorStyles } from '../../base/editor-styles.js';
 import './lcards-card-datasources-list.js';
 import './lcards-global-datasources-panel.js';
@@ -267,7 +268,7 @@ export class LCARdSDataSourceEditorTab extends LitElement {
     const sourceConfig = cardSources[sourceName];
 
     if (!sourceConfig) {
-      console.warn(`[DataSourceEditorTab] Source "${sourceName}" not found in card config`);
+      lcardsLog.warn(`⚠️ [DataSourceEditorTab] Source "${sourceName}" not found in card config`);
       return;
     }
 
@@ -298,7 +299,7 @@ export class LCARdSDataSourceEditorTab extends LitElement {
     const dsManager = window.lcards?.core?.dataSourceManager;
 
     if (!dsManager) {
-      console.warn('[LCARdS] DataSourceManager not available');
+      lcardsLog.warn('⚠️ [LCARdS] DataSourceManager not available');
       return;
     }
 
@@ -421,7 +422,7 @@ export class LCARdSDataSourceEditorTab extends LitElement {
       cancelButton.textContent = 'Cancel';
       cancelButton.setAttribute('dialogAction', 'cancel');
       cancelButton.addEventListener('click', () => {
-        console.log('[LCARdS] Delete dialog: Cancel clicked');
+        lcardsLog.trace('[LCARdS] Delete dialog: Cancel clicked');
         dialog.close();
         resolve(false);
       });
@@ -434,7 +435,7 @@ export class LCARdSDataSourceEditorTab extends LitElement {
       deleteButton.textContent = 'Delete and Break Dependencies';
       deleteButton.setAttribute('dialogAction', 'ok');
       deleteButton.addEventListener('click', () => {
-        console.log('[LCARdS] Delete dialog: Delete clicked');
+        lcardsLog.trace('[LCARdS] Delete dialog: Delete clicked');
         dialog.close();
         resolve(true);
       });

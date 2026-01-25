@@ -241,7 +241,7 @@ window.customCards.push(...LCARdSCardClasses);
  */
 window.lcards.setAlertMode = async (mode) => {
   if (!window.lcards?.core?.themeManager) {
-    console.warn('[LCARdS] ThemeManager not initialized');
+    lcardsLog.warn('⚠️ [LCARdS] ThemeManager not initialized');
     return;
   }
   await window.lcards.core.themeManager.setAlertMode(mode);

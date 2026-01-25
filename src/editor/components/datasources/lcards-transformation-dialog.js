@@ -17,6 +17,7 @@
 
 import { LitElement, html, css } from 'lit';
 import { configToYaml, yamlToConfig } from '../../utils/yaml-utils.js';
+import { lcardsLog } from '../../../utils/lcards-logging.js';
 import '../shared/lcards-dialog.js';
 
 export class LCARdSTransformationDialog extends LitElement {
@@ -790,7 +791,7 @@ parameter2: value2">
       try {
         finalConfig = yamlToConfig(this._yamlValue);
       } catch (e) {
-        console.error('[LCARdS] Failed to parse YAML:', e);
+        lcardsLog.error('❌ [LCARdS] Failed to parse YAML:', e);
         return;
       }
     } else {

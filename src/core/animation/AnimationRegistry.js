@@ -1,5 +1,6 @@
 import { perfTime, perfTimeAsync, perfCount } from '../../utils/performance.js';
 import { computeObjectHash } from '../../utils/hashing.js';
+import { lcardsLog } from '../../utils/lcards-logging.js';
 
 /**
  * Animation Registry for efficient animation reuse
@@ -175,7 +176,7 @@ export class AnimationRegistry {
         restart: () => {}
       };
     } catch (error) {
-      console.warn('[AnimationRegistry] Failed to create animation instance:', error);
+      lcardsLog.warn('[AnimationRegistry] ⚠️ Failed to create animation instance:', error);
       return null;
     }
   }
@@ -197,7 +198,7 @@ export class AnimationRegistry {
         id: `${cachedInstance.id}_reused_${Date.now()}`
       };
     } catch (error) {
-      console.warn('[AnimationRegistry] Failed to reuse animation instance:', error);
+      lcardsLog.warn('[AnimationRegistry] ⚠️ Failed to reuse animation instance:', error);
       return this.createAnimationInstance(cachedInstance.definition, newTargets);
     }
   }

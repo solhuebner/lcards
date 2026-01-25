@@ -4,6 +4,7 @@
  */
 
 import yaml from 'js-yaml';
+import { lcardsLog } from '../../utils/lcards-logging.js';
 
 /**
  * Convert config object to YAML string
@@ -19,7 +20,7 @@ export function configToYaml(config) {
             sortKeys: false // Preserve property order
         });
     } catch (error) {
-        console.error('[yaml-utils] Failed to convert config to YAML:', error);
+        lcardsLog.error('❌ [yaml-utils] Failed to convert config to YAML:', error);
         return '';
     }
 }
@@ -36,7 +37,7 @@ export function yamlToConfig(yamlStr) {
             json: true // Use JSON-compatible parsing
         }) || {};
     } catch (error) {
-        console.error('[yaml-utils] Failed to parse YAML:', error);
+        lcardsLog.error('❌ [yaml-utils] Failed to parse YAML:', error);
         throw error; // Re-throw for error handling in editor
     }
 }

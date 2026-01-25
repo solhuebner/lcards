@@ -11,6 +11,7 @@
  */
 
 import { LitElement, html, css } from 'lit';
+import { lcardsLog } from '../../../utils/lcards-logging.js';
 import '../shared/lcards-message.js';
 
 export class LCARdSGlobalDataSourcesPanel extends LitElement {
@@ -186,7 +187,7 @@ export class LCARdSGlobalDataSourcesPanel extends LitElement {
       this._stats = dsManager.getStats();
       this.requestUpdate();
     } catch (error) {
-      console.error('[GlobalDataSourcesPanel] Error fetching stats:', error);
+      lcardsLog.error('❌ [GlobalDataSourcesPanel] Error fetching stats:', error);
     }
   }
 

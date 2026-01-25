@@ -1,4 +1,5 @@
 // Extract anchor points from SVG content
+import { lcardsLog } from './lcards-logging.js';
 
 export function findSvgAnchors(svgContent) {
   const anchors = {};
@@ -73,7 +74,7 @@ export function getSvgViewBox(svgContent) {
   if (match) {
     return [parseFloat(match[1]), parseFloat(match[2]), parseFloat(match[3]), parseFloat(match[4])];
   }
-  console.warn('[getSvgViewBox] No viewBox found in SVG, using fallback [0, 0, 400, 200]');
+  lcardsLog.warn('[getSvgViewBox] ⚠️ No viewBox found in SVG, using fallback [0, 0, 400, 200]');
   return [0, 0, 400, 200];
 }
 

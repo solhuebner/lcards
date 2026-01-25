@@ -9,6 +9,7 @@ import { html } from 'lit';
 import { LCARdSBaseEditor } from '../base/LCARdSBaseEditor.js';
 import { editorComponentStyles } from '../base/editor-component-styles.js';
 import { configToYaml } from '../utils/yaml-utils.js';
+import { lcardsLog } from '../../utils/lcards-logging.js';
 import '../components/shared/lcards-message.js';
 import '../components/yaml/lcards-yaml-editor.js';
 // Import shared form components
@@ -527,7 +528,7 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
             const parseError = doc.querySelector('parsererror');
             if (parseError) {
                 this._svgParseError = parseError.textContent || 'Invalid SVG markup';
-                console.error('[LCARdS Button Editor] SVG parse error:', this._svgParseError);
+                lcardsLog.error('❌ [LCARdS Button Editor] SVG parse error:', this._svgParseError);
                 return [];
             }
 
@@ -543,7 +544,7 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
             return segmentIds;
         } catch (error) {
             this._svgParseError = error.message || 'Failed to parse SVG';
-            console.error('[LCARdS Button Editor] SVG parse exception:', error);
+            lcardsLog.error('❌ [LCARdS Button Editor] SVG parse exception:', error);
             return [];
         }
     }
