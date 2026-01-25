@@ -78,6 +78,20 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
         const elbowType = this.config.elbow?.type || 'header-left';
         const elbowStyle = this._getElbowStyle();
 
+        // Get supported styles from component features
+        const component = elbowComponents[elbowType];
+        const supportedFeatures = component?.features || ['simple'];
+        const supportsSegmented = supportedFeatures.includes('segmented');
+
+        // Build style options based on component support
+        const styleOptions = [
+            { value: 'simple', label: 'Simple (single elbow)' }
+        ];
+
+        if (supportsSegmented) {
+            styleOptions.push({ value: 'segmented', label: 'Segmented (Picard-style double)' });
+        }
+
         return this._buildConfigTab({
             infoMessage: 'Configure your LCARS elbow card. Elbows are positioned borders with rounded corners that create the iconic LCARS interface aesthetic.',
             modeSections: [
@@ -106,25 +120,25 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                                         }
                                     }}
                                     .value=${elbowType}
-                                    @value-changed=${(e) => this._setConfigValue('elbow.type', e.detail.value)}>
+                                    @value-changed=${this._handleElbowTypeChange}>
                                 </ha-selector>
 
                                 <ha-selector
                                     .hass=${this.hass}
                                     .label=${'Elbow Style'}
-                                    .helper=${elbowStyle === 'simple'
-                                        ? 'Simple: Single elbow with one curve'
-                                        : 'Segmented: Double concentric elbows with gap (TNG aesthetic)'}
+                                    .helper=${supportsSegmented
+                                        ? (elbowStyle === 'simple'
+                                            ? 'Simple: Single elbow with one curve'
+                                            : 'Segmented: Double concentric elbows with gap (TNG aesthetic)')
+                                        : 'This component only supports simple style'}
                                     .selector=${{
                                         select: {
                                             mode: 'dropdown',
-                                            options: [
-                                                { value: 'simple', label: 'Simple (single elbow)' },
-                                                { value: 'segmented', label: 'Segmented (Picard-style double)' }
-                                            ]
+                                            options: styleOptions
                                         }
                                     }}
                                     .value=${elbowStyle}
+                                    .disabled=${!supportsSegmented}
                                     @value-changed=${this._handleStyleChange}>
                                 </ha-selector>
                             `
@@ -405,6 +419,25 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                     .value=${innerCurve ?? calculatedInnerCurve}
                     @value-changed=${(e) => this._setConfigValue('elbow.segment.inner_curve', e.detail.value)}>
                 </ha-selector>
+
+                ${this._isDiagonalCapType() ? html`
+                    <ha-selector
+                        .hass=${this.hass}
+                        .label=${'Diagonal Cut Angle'}
+                        .helper=${'Angle of diagonal cuts (0° = horizontal, 45° = diagonal, 90° = vertical)'}
+                        .selector=${{
+                            number: {
+                                min: 0,
+                                max: 90,
+                                step: 5,
+                                mode: 'slider',
+                                unit_of_measurement: '°'
+                            }
+                        }}
+                        .value=${segment.diagonal_angle ?? 45}
+                        @value-changed=${(e) => this._setConfigValue('elbow.segment.diagonal_angle', e.detail.value)}>
+                    </ha-selector>
+                ` : ''}
             </lcards-form-section>
 
             <lcards-form-section
@@ -546,6 +579,25 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                     @value-changed=${(e) => this._setConfigValue('elbow.segments.outer_segment.inner_curve', e.detail.value)}>
                 </ha-selector>
 
+                ${this._isDiagonalCapType() ? html`
+                    <ha-selector
+                        .hass=${this.hass}
+                        .label=${'Diagonal Cut Angle'}
+                        .helper=${'Angle of diagonal cuts (0° = horizontal, 45° = diagonal, 90° = vertical)'}
+                        .selector=${{
+                            number: {
+                                min: 0,
+                                max: 90,
+                                step: 5,
+                                mode: 'slider',
+                                unit_of_measurement: '°'
+                            }
+                        }}
+                        .value=${outerSegment.diagonal_angle ?? 45}
+                        @value-changed=${(e) => this._setConfigValue('elbow.segments.outer_segment.diagonal_angle', e.detail.value)}>
+                    </ha-selector>
+                ` : ''}
+
                 <lcards-color-section-v2
                     .editor=${this}
                     basePath="elbow.segments.outer_segment.color"
@@ -664,6 +716,25 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                     .value=${innerSegment.inner_curve ?? (innerSegment.outer_curve ?? this._calculateInnerOuterCurveAuto()) / 2}
                     @value-changed=${(e) => this._setConfigValue('elbow.segments.inner_segment.inner_curve', e.detail.value)}>
                 </ha-selector>
+
+                ${this._isDiagonalCapType() ? html`
+                    <ha-selector
+                        .hass=${this.hass}
+                        .label=${'Diagonal Cut Angle'}
+                        .helper=${'Angle of diagonal cuts (defaults to outer segment angle)'}
+                        .selector=${{
+                            number: {
+                                min: 0,
+                                max: 90,
+                                step: 5,
+                                mode: 'slider',
+                                unit_of_measurement: '°'
+                            }
+                        }}
+                        .value=${innerSegment.diagonal_angle ?? outerSegment.diagonal_angle ?? 45}
+                        @value-changed=${(e) => this._setConfigValue('elbow.segments.inner_segment.diagonal_angle', e.detail.value)}>
+                    </ha-selector>
+                ` : ''}
             </lcards-form-section>
         `;
     }
@@ -747,6 +818,16 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
     // ==================== Helper Methods ====================
 
     /**
+     * Check if current elbow type is a diagonal-cap variant
+     * @returns {boolean}
+     * @private
+     */
+    _isDiagonalCapType() {
+        const elbowType = this.config.elbow?.type || 'header-left';
+        return elbowType.includes('diagonal-cap');
+    }
+
+    /**
      * Get current elbow style (simple or segmented)
      * @returns {string} 'simple' or 'segmented'
      * @private
@@ -773,12 +854,32 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
 
     /**
      * Handle elbow type change (header-left, header-right, etc.)
+     * Reset to simple if new type doesn't support segmented
      * @param {CustomEvent} event
      * @private
      */
     _handleElbowTypeChange(event) {
         const newType = event.detail.value;
         this._setConfigValue('elbow.type', newType);
+
+        // Check if new component supports current style
+        const component = elbowComponents[newType];
+        const supportedFeatures = component?.features || ['simple'];
+        const currentStyle = this._getElbowStyle();
+
+        // If current style is segmented but new component doesn't support it, reset to simple
+        if (currentStyle === 'segmented' && !supportedFeatures.includes('segmented')) {
+            this._setConfigValue('elbow.style', 'simple');
+            // Show a message to user
+            this.dispatchEvent(new CustomEvent('show-notification', {
+                bubbles: true,
+                composed: true,
+                detail: {
+                    message: 'Style changed to Simple - selected component does not support Segmented mode',
+                    duration: 3000
+                }
+            }));
+        }
     }
 
     /**

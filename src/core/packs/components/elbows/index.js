@@ -329,12 +329,12 @@ export const elbowComponents = {
                 `L ${horizontal} ${height}`,
                 // Line up to inner arc start (left side)
                 `L ${horizontal} ${vertical + innerRadius}`,
-                // Inner arc on left (curves inward)
-                `A ${innerRadius} ${innerRadius} 0 0 0 ${horizontal + innerRadius} ${vertical}`,
+                // Inner arc on left (curves outward to match outer arc)
+                `A ${innerRadius} ${innerRadius} 0 0 1 ${horizontal + innerRadius} ${vertical}`,
                 // Line right along horizontal bar to right inner arc start
                 `L ${width - (horizontal + innerRadius)} ${vertical}`,
-                // Inner arc on right (curves inward)
-                `A ${innerRadius} ${innerRadius} 0 0 0 ${width - horizontal} ${vertical + innerRadius}`,
+                // Inner arc on right (curves outward to match outer arc)
+                `A ${innerRadius} ${innerRadius} 0 0 1 ${width - horizontal} ${vertical + innerRadius}`,
                 // Line down to bottom of right vertical bar
                 `L ${width - horizontal} ${height}`,
                 // Line right along bottom
@@ -677,250 +677,6 @@ export const elbowComponents = {
     },
 
     // ============================================================================
-    // CORNER-INSET VARIANTS - Recessed corners with double-line effect
-    // ============================================================================
-
-    'corner-inset-left': {
-        orientation: 'corner-inset-left',
-        features: ['simple', 'segmented'],
-        layout: {
-            position: 'header',
-            side: 'left'
-        },
-
-        /**
-         * Generate corner-inset-left elbow path
-         * Recessed top-left corner with step-in depth effect
-         *
-         * @param {Object} config - Path generator configuration
-         * @param {Object} config.geometry - Elbow geometry
-         * @param {Object} config.container - Container dimensions
-         * @returns {string} SVG path string
-         */
-        pathGenerator: (config) => {
-            const { horizontal, vertical, innerRadius } = config.geometry;
-            const { width, height } = config.container;
-
-            // Create 30% inset for recess effect
-            const insetDepth = horizontal * 0.3;
-
-            const path = [
-                `M 0 0`,
-                `L ${width} 0`,
-                `L ${width} ${vertical}`,
-                `L ${horizontal + insetDepth} ${vertical}`,
-                `L ${horizontal + insetDepth} ${vertical + insetDepth}`,
-                // Inner arc for smooth transition to inset
-                `A ${innerRadius} ${innerRadius} 0 0 0 ${horizontal} ${vertical + insetDepth + innerRadius}`,
-                `L ${horizontal} ${height}`,
-                `L 0 ${height}`,
-                `Z`
-            ];
-
-            return path.join(' ');
-        },
-
-        metadata: {
-            name: 'Corner Inset Left',
-            description: 'Recessed top-left corner with step-in depth effect',
-            version: '1.0.0'
-        }
-    },
-
-    'corner-inset-right': {
-        orientation: 'corner-inset-right',
-        features: ['simple', 'segmented'],
-        layout: {
-            position: 'header',
-            side: 'right'
-        },
-
-        /**
-         * Generate corner-inset-right elbow path
-         * Recessed top-right corner with step-in depth effect
-         *
-         * @param {Object} config - Path generator configuration
-         * @param {Object} config.geometry - Elbow geometry
-         * @param {Object} config.container - Container dimensions
-         * @returns {string} SVG path string
-         */
-        pathGenerator: (config) => {
-            const { horizontal, vertical, innerRadius } = config.geometry;
-            const { width, height } = config.container;
-
-            const vBarLeft = width - horizontal;
-            const insetDepth = horizontal * 0.3;
-
-            const path = [
-                `M 0 0`,
-                `L ${width} 0`,
-                `L ${width} ${height}`,
-                `L ${vBarLeft} ${height}`,
-                `L ${vBarLeft} ${vertical + insetDepth + innerRadius}`,
-                // Inner arc for smooth transition to inset
-                `A ${innerRadius} ${innerRadius} 0 0 0 ${vBarLeft - insetDepth} ${vertical + insetDepth}`,
-                `L ${vBarLeft - insetDepth} ${vertical}`,
-                `L 0 ${vertical}`,
-                `Z`
-            ];
-
-            return path.join(' ');
-        },
-
-        metadata: {
-            name: 'Corner Inset Right',
-            description: 'Recessed top-right corner with step-in depth effect',
-            version: '1.0.0'
-        }
-    },
-
-    // ============================================================================
-    // ARC-FRAME VARIANTS - Pure curved frame, no straight vertical edge
-    // ============================================================================
-
-    'arc-frame-top': {
-        orientation: 'arc-frame-top',
-        features: ['simple'],  // No segmented mode (double arc doesn't make visual sense)
-        layout: {
-            position: 'header',
-            side: 'contained'
-        },
-
-        /**
-         * Generate arc-frame-top elbow path
-         * Pure curved frame at top (rainbow arc shape)
-         *
-         * Creates a curved band that arcs downward from the top corners.
-         * The band has thickness defined by 'vertical' (bar_height).
-         *
-         * @param {Object} config - Path generator configuration
-         * @param {Object} config.geometry - Elbow geometry
-         * @param {Object} config.container - Container dimensions
-         * @returns {string} SVG path string
-         */
-        pathGenerator: (config) => {
-            const { vertical, outerRadius } = config.geometry;
-            const { width, height } = config.container;
-
-            const innerRadius = outerRadius - vertical;
-
-            // Create a curved band at the top
-            // The arc curves downward from top-left to top-right
-            // Using the width and outerRadius to determine the curve depth
-
-            // Calculate the depth of the curve based on the radius and width
-            const halfWidth = width / 2;
-            let curveDepth = vertical; // Default curve depth
-
-            if (outerRadius >= halfWidth) {
-                // For larger radii, calculate actual curve depth
-                // Using circle geometry: depth = radius - sqrt(radius^2 - (width/2)^2)
-                curveDepth = outerRadius - Math.sqrt(outerRadius * outerRadius - halfWidth * halfWidth);
-            }
-
-            const path = [
-                // Start at top-left corner
-                `M 0 0`,
-                // Line to curve start point
-                `L ${halfWidth - outerRadius} 0`,
-                // Outer arc curving downward to the center and back up to top-right
-                // This creates a downward curve across the top
-                `A ${outerRadius} ${outerRadius} 0 0 1 ${halfWidth + outerRadius} 0`,
-                // Line to top-right corner
-                `L ${width} 0`,
-                // Line down to inner curve height
-                `L ${width} ${vertical}`,
-                // Line to inner arc start
-                `L ${halfWidth + innerRadius} ${vertical}`,
-                // Inner arc (tighter curve) back to left
-                `A ${innerRadius} ${innerRadius} 0 0 0 ${halfWidth - innerRadius} ${vertical}`,
-                // Line to left edge
-                `L 0 ${vertical}`,
-                // Close path
-                `Z`
-            ];
-
-            return path.join(' ');
-        },
-
-        metadata: {
-            name: 'Arc Frame Top',
-            description: 'Pure curved frame at top (rainbow arc shape)',
-            version: '1.0.0',
-            notes: 'Segmented mode not supported (no meaningful double arc)'
-        }
-    },
-
-    'arc-frame-bottom': {
-        orientation: 'arc-frame-bottom',
-        features: ['simple'],  // No segmented mode
-        layout: {
-            position: 'footer',
-            side: 'contained'
-        },
-
-        /**
-         * Generate arc-frame-bottom elbow path
-         * Pure curved frame at bottom (inverted arc)
-         *
-         * Creates a curved band that arcs upward from the bottom corners.
-         * The band has thickness defined by 'vertical' (bar_height).
-         *
-         * @param {Object} config - Path generator configuration
-         * @param {Object} config.geometry - Elbow geometry
-         * @param {Object} config.container - Container dimensions
-         * @returns {string} SVG path string
-         */
-        pathGenerator: (config) => {
-            const { vertical, outerRadius } = config.geometry;
-            const { width, height } = config.container;
-
-            const innerRadius = outerRadius - vertical;
-
-            // Create a curved band at the bottom
-            // The arc curves upward from bottom-left to bottom-right
-            const halfWidth = width / 2;
-            let curveDepth = vertical;
-
-            if (outerRadius >= halfWidth) {
-                curveDepth = outerRadius - Math.sqrt(outerRadius * outerRadius - halfWidth * halfWidth);
-            }
-
-            const path = [
-                // Start at bottom-left corner
-                `M 0 ${height}`,
-                // Line up to inner curve height
-                `L 0 ${height - vertical}`,
-                // Line to inner arc start
-                `L ${halfWidth - innerRadius} ${height - vertical}`,
-                // Inner arc curving upward to center and back down (tighter curve)
-                `A ${innerRadius} ${innerRadius} 0 0 1 ${halfWidth + innerRadius} ${height - vertical}`,
-                // Line to right edge at inner height
-                `L ${width} ${height - vertical}`,
-                // Line down to bottom-right corner
-                `L ${width} ${height}`,
-                // Line to outer arc start
-                `L ${halfWidth + outerRadius} ${height}`,
-                // Outer arc back to left (broader curve)
-                `A ${outerRadius} ${outerRadius} 0 0 0 ${halfWidth - outerRadius} ${height}`,
-                // Line to bottom-left
-                `L 0 ${height}`,
-                // Close path
-                `Z`
-            ];
-
-            return path.join(' ');
-        },
-
-        metadata: {
-            name: 'Arc Frame Bottom',
-            description: 'Pure curved frame at bottom (inverted arc)',
-            version: '1.0.0',
-            notes: 'Segmented mode not supported (no meaningful double arc)'
-        }
-    },
-
-    // ============================================================================
     // DIAGONAL-CAP VARIANTS - 45° angular cut
     // ============================================================================
 
@@ -934,32 +690,42 @@ export const elbowComponents = {
 
         /**
          * Generate diagonal-cap-left elbow path
-         * Top-left with 45° diagonal cut (sharp modern aesthetic)
+         * Top-left with configurable diagonal cuts on both corners
          *
          * @param {Object} config - Path generator configuration
-         * @param {Object} config.geometry - Elbow geometry
+         * @param {Object} config.geometry - Elbow geometry (includes diagonalAngle)
          * @param {Object} config.container - Container dimensions
          * @returns {string} SVG path string
          */
         pathGenerator: (config) => {
-            const { horizontal, vertical, outerRadius } = config.geometry;
+            const { horizontal, vertical, outerRadius, innerRadius, diagonalAngle = 45 } = config.geometry;
             const { width, height } = config.container;
 
-            // Use outerRadius as the diagonal cut length
-            const diagonalLength = outerRadius;
+            // Calculate diagonal offsets based on angle (0° = horizontal, 90° = vertical)
+            const angleRad = (diagonalAngle * Math.PI) / 180;
+            const outerCutH = outerRadius * Math.cos(angleRad);  // Horizontal component
+            const outerCutV = outerRadius * Math.sin(angleRad);  // Vertical component
+
+            // Inner corner cut (scaled by innerRadius)
+            const innerCutH = innerRadius * Math.cos(angleRad);
+            const innerCutV = innerRadius * Math.sin(angleRad);
 
             const path = [
-                // Start after diagonal cut
-                `M ${diagonalLength} 0`,
+                // Start after outer diagonal cut
+                `M ${outerCutH} 0`,
                 `L ${width} 0`,
                 `L ${width} ${vertical}`,
-                `L ${horizontal} ${vertical}`,
+                // Approach inner corner from right
+                `L ${horizontal + innerCutH} ${vertical}`,
+                // Inner diagonal cut
+                `L ${horizontal} ${vertical + innerCutV}`,
+                // Down to bottom
                 `L ${horizontal} ${height}`,
                 `L 0 ${height}`,
-                // Up left edge to diagonal start
-                `L 0 ${diagonalLength}`,
-                // Diagonal cut back to top
-                `L ${diagonalLength} 0`,
+                // Up left edge to outer diagonal start
+                `L 0 ${outerCutV}`,
+                // Outer diagonal cut back to start
+                `L ${outerCutH} 0`,
                 `Z`
             ];
 
@@ -983,31 +749,43 @@ export const elbowComponents = {
 
         /**
          * Generate diagonal-cap-right elbow path
-         * Top-right with 45° diagonal cut (sharp modern aesthetic)
+         * Top-right with configurable diagonal cuts on both corners
          *
          * @param {Object} config - Path generator configuration
-         * @param {Object} config.geometry - Elbow geometry
+         * @param {Object} config.geometry - Elbow geometry (includes diagonalAngle)
          * @param {Object} config.container - Container dimensions
          * @returns {string} SVG path string
          */
         pathGenerator: (config) => {
-            const { horizontal, vertical, outerRadius } = config.geometry;
+            const { horizontal, vertical, outerRadius, innerRadius, diagonalAngle = 45 } = config.geometry;
             const { width, height } = config.container;
 
             const vBarLeft = width - horizontal;
-            const diagonalLength = outerRadius;
+
+            // Calculate diagonal offsets based on angle
+            const angleRad = (diagonalAngle * Math.PI) / 180;
+            const outerCutH = outerRadius * Math.cos(angleRad);
+            const outerCutV = outerRadius * Math.sin(angleRad);
+
+            // Inner corner cut
+            const innerCutH = innerRadius * Math.cos(angleRad);
+            const innerCutV = innerRadius * Math.sin(angleRad);
 
             const path = [
                 // Start at top-left
                 `M 0 0`,
-                // Line to diagonal start
-                `L ${width - diagonalLength} 0`,
-                // Diagonal cut
-                `L ${width} ${diagonalLength}`,
+                // Line to outer diagonal start
+                `L ${width - outerCutH} 0`,
+                // Outer diagonal cut down to right edge
+                `L ${width} ${outerCutV}`,
                 // Down right edge
                 `L ${width} ${height}`,
                 `L ${vBarLeft} ${height}`,
-                `L ${vBarLeft} ${vertical}`,
+                // Up to inner corner
+                `L ${vBarLeft} ${vertical + innerCutV}`,
+                // Inner diagonal cut
+                `L ${vBarLeft - innerCutH} ${vertical}`,
+                // Back to left
                 `L 0 ${vertical}`,
                 `Z`
             ];

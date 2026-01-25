@@ -483,6 +483,7 @@ export class LCARdSElbow extends LCARdSButton {
         let bar_height = segment.bar_height;
         let outer_curve = segment.outer_curve;
         let inner_curve = segment.inner_curve;
+        let diagonal_angle = segment.diagonal_angle ?? 45; // Default 45° angle
 
         // Resolve bar_width (vertical dimension in LCARS)
         if (bar_width === 'theme') {
@@ -513,7 +514,8 @@ export class LCARdSElbow extends LCARdSButton {
             horizontal: bar_width,   // Sidebar width
             vertical: bar_height,    // Top bar height
             outerRadius: outer_curve,
-            innerRadius: inner_curve
+            innerRadius: inner_curve,
+            diagonalAngle: diagonal_angle  // Angle for diagonal cuts (0-90°)
         };
     }
 
@@ -554,6 +556,7 @@ export class LCARdSElbow extends LCARdSButton {
         const outerVertical = outer_segment.bar_height ?? outer_segment.bar_width;
         const outerSegmentOuterRadius = outer_segment.outer_curve ?? outer_segment.bar_width / 2;
         const outerSegmentInnerRadius = outer_segment.inner_curve ?? outerSegmentOuterRadius / 2;
+        const outerDiagonalAngle = outer_segment.diagonal_angle ?? 45;
 
         // === INNER SEGMENT ===
         // Apply defaults
@@ -567,6 +570,7 @@ export class LCARdSElbow extends LCARdSButton {
         // Default for inner inner_curve: LCARS formula
         const innerSegmentInnerRadius = inner_segment.inner_curve ??
             innerSegmentOuterRadius / 2;
+        const innerDiagonalAngle = inner_segment.diagonal_angle ?? outerDiagonalAngle;
 
         // Get position and side from component layout metadata
         const component = getElbowComponent(type);
@@ -607,6 +611,7 @@ export class LCARdSElbow extends LCARdSButton {
                 vertical: outerVertical,
                 outerRadius: outerSegmentOuterRadius,
                 innerRadius: outerSegmentInnerRadius,
+                diagonalAngle: outerDiagonalAngle,
                 color: outer_segment.color
             },
             inner: {
@@ -614,6 +619,7 @@ export class LCARdSElbow extends LCARdSButton {
                 vertical: innerVertical,
                 outerRadius: innerSegmentOuterRadius,
                 innerRadius: innerSegmentInnerRadius,
+                diagonalAngle: innerDiagonalAngle,
                 color: inner_segment.color
             },
             gap,
