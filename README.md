@@ -28,22 +28,16 @@ File: docs/assets/lcards-banner.gif
 ## What is LCARdS?
 
 LCARdS is the next evolution of dedicated LCARS-inspired cards for Home Assistant.
-<br>LCARdS originates from, and will supercede the  [CB-LCARS](https://github.com/snootched/cb-lcars) project.
-<br>Although deployed and used as custom cards - it's built upon a set of common core platform services that work to provide a **more complete and cohesive LCARS-like dashboard experience.**
+<br>It originates from, and supercedes the  [CB-LCARS](https://github.com/snootched/cb-lcars) project.
+<br>Although deployed and used as custom cards - it's built upon common core platform that work to provide a **more complete and cohesive LCARS-like dashboard experience.**
 
-You can build immersive, interactive dashboards with:
 - **Unified architecture** - Every card shares powerful reactivity, cross-card rules, and unified actions
-- **Studio editors** - Immersive card editing interfaces with live previews - augmented with schema-backed yaml editors.
-- **Extensible design** - Content can be enhanced and distrbuted (future) via packs - adding more button types, sliders, animaiton definitions, and more.
-
-> [!TIP]
-> LCARdS cards can work together as a **system**, not just as isolated components. Define rules once, apply across all cards. Create data sources that multiple cards can share. Build dashboards that feel alive.
-
-**Ready to build your own starship interface?** [Get started →](doc/user-guide/getting-started/)
+- **Studio editors** - Advanced card editing interfaces with live previews - augmented with schema-backed yaml editors.
+- **Extensible design** - Content can be enhanced and distrbuted (future) via content packs - adding button types, sliders styles, animaiton definitions, and more.
 
 <br>
 
-## Feature parity with CB-LCARS
+## Feature Parity with CB-LCARS
 
 If coming from CB-LCARS, use this table to quickly see what the equivalent card/feature is in LCARdS.  Not all features and functions may be available yet, but will be added over time.
 
@@ -70,76 +64,27 @@ Legend:  ✅ Present | ❌ Not present | ⚠️ Partial
 <br>
 
 
-## Why Choose LCARdS?
+## LCARdS Features and Design
 
-<table>
-<tr>
-<td width="50%">
+### 🎯 Unified Architecture & Core Systems
+- LCARdS is now based on Lit - moving away from the custom-button-card base of CB-LCARS.
+- Cards share a set of common core systems:
+  - **Systems Manager** - centralized entity subrcriptions and smart card notifications.
+  - **Rules Engine** — conditional styling and cross-card behaviors targetable by tags, types, IDs, etc.
+  - **Theme Manager** — token-based theming with live switching
+  - **Animation Framework** — anime.js v4 integration for rich effects
+  - **DataSource Manager** — entity subscriptions and browser-side transformations
+- Template support (JavaScript, tokens, Jinja2)
+- Unified action handlers and lifecycle
 
-### 🎯 Unified Card API
-Every card shares the same powerful base:
-- Cross-card rules and reactivity
-- Tag-based targeting system
-- Unified action handlers
-- Template support (JS, tokens, Jinja2)
 
-</td>
-<td width="50%">
+### 🎨 Visual Editors
+- Card editors have been upgraded with immersive configuration studios
+- Live WYSIWGY configuration.
+- Schema-backed YAML editing with inline auto-complete for card options
+- Provenance tracking for configuration layer debugging
 
-### 🎨 Immersive Studio Editors
-Edit like Starfleet engineers:
-- Visual, context-aware editors
-- Live preview with undo history
-- Provenance tracking
-- "Main Engineering" system dialogs
-
-</td>
-</tr>
-<tr>
-<td width="50%">
-
-### 🔧 Advanced Systems
-Platform-level features:
-- **Rules Engine** - Conditions, actions, cross-card behaviors
-- **Systems Manager** - Centralized notifications and overlays
-- **Theme Manager** - Token-based theming with live switching
-- **Animation Framework** - Rich, customizable effects
-
-</td>
-<td width="50%">
-
-### 🚀 Extensible & Community-Driven
-Built to grow:
-- Community can author UI packs
-- Token-based themes (extends HA-LCARS)
-- Modern web components (LitElement)
-- Open for contributions
-
-</td>
-</tr>
-<tr>
-<td width="50%">
-
-### 📊 Real-Time Data Sources
-No backend templates needed:
-- Browser-side transformations
-- Entity subscriptions and aggregations
-- Live updates without storage overhead
-- Just-in-time dashboard data
-
-</td>
-<td width="50%">
-
-### 🎮 Global Alert Modes
-Coordinated dashboard states:
-- Red Alert, Blue Alert, and more
-- Synchronized styles and sounds
-- Apply across all cards instantly
-- Perfect for immersive experiences
-
-</td>
-</tr>
-</table>
+----
 
 <br>
 
@@ -199,13 +144,9 @@ graph TB
     style Anim fill:#9999ff,stroke:#6666cc,color:#000
 ```
 
-**Cards talk to Core Systems, Core Systems talk to Home Assistant.** This unified architecture means features built once work everywhere.
-
 <br>
 
 ## Installation
-
-**Home Assistant minimum version:** 2024.1.0
 
 <details>
 <summary><b>With HACS (Recommended)</b></summary>
