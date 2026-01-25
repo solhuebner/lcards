@@ -739,8 +739,8 @@ export const elbowComponents = {
          * Generate arc-frame-top elbow path
          * Pure curved frame at top (rainbow arc shape)
          * 
-         * Creates a curved band that arcs downward from the top of the container.
-         * The arc is centered horizontally and extends from left to right edges.
+         * Creates a curved band that arcs downward from the top corners.
+         * The band has thickness defined by 'vertical' (bar_height).
          *
          * @param {Object} config - Path generator configuration
          * @param {Object} config.geometry - Elbow geometry
@@ -753,35 +753,39 @@ export const elbowComponents = {
 
             const innerRadius = outerRadius - vertical;
             
-            // For a downward-curving arc at the top:
-            // The arc center is above the top edge, creating a segment of a circle
-            // that curves downward into the viewport
-            const centerY = -outerRadius + vertical;
+            // Create a curved band at the top
+            // The arc curves downward from top-left to top-right
+            // Using the width and outerRadius to determine the curve depth
             
-            // Calculate the height at which the arc reaches the left/right edges
-            // Using the circle equation: y = centerY + sqrt(r^2 - x^2)
-            // At x=0 and x=width, we want to find the y coordinate
+            // Calculate the depth of the curve based on the radius and width
             const halfWidth = width / 2;
+            let curveDepth = vertical; // Default curve depth
             
-            // If the radius is large enough to span the width, calculate arc height
-            let arcDepth = vertical;
-            if (outerRadius > halfWidth) {
-                // Arc reaches down from top edge
-                arcDepth = outerRadius - Math.sqrt(outerRadius * outerRadius - halfWidth * halfWidth);
+            if (outerRadius >= halfWidth) {
+                // For larger radii, calculate actual curve depth
+                // Using circle geometry: depth = radius - sqrt(radius^2 - (width/2)^2)
+                curveDepth = outerRadius - Math.sqrt(outerRadius * outerRadius - halfWidth * halfWidth);
             }
             
             const path = [
-                // Start at top-left
+                // Start at top-left corner
                 `M 0 0`,
-                // Arc down and across to top-right
-                // Large-arc-flag = 0 (take the smaller arc)
-                // Sweep-flag = 1 (sweep in positive angle direction)
-                `A ${outerRadius} ${outerRadius} 0 0 1 ${width} 0`,
-                // Move to inner arc start (lower and to the right)
-                `L ${width} ${arcDepth}`,
-                // Inner arc back to left (reverse curve, tighter radius)
-                `A ${innerRadius} ${innerRadius} 0 0 0 0 ${arcDepth}`,
-                // Close back to start
+                // Line to curve start point
+                `L ${halfWidth - outerRadius} 0`,
+                // Outer arc curving downward to the center and back up to top-right
+                // This creates a downward curve across the top
+                `A ${outerRadius} ${outerRadius} 0 0 1 ${halfWidth + outerRadius} 0`,
+                // Line to top-right corner
+                `L ${width} 0`,
+                // Line down to inner curve height
+                `L ${width} ${vertical}`,
+                // Line to inner arc start
+                `L ${halfWidth + innerRadius} ${vertical}`,
+                // Inner arc (tighter curve) back to left
+                `A ${innerRadius} ${innerRadius} 0 0 0 ${halfWidth - innerRadius} ${vertical}`,
+                // Line to left edge
+                `L 0 ${vertical}`,
+                // Close path
                 `Z`
             ];
 
@@ -804,8 +808,8 @@ export const elbowComponents = {
          * Generate arc-frame-bottom elbow path
          * Pure curved frame at bottom (inverted arc)
          * 
-         * Creates a curved band that arcs upward from the bottom of the container.
-         * The arc is centered horizontally and extends from left to right edges.
+         * Creates a curved band that arcs upward from the bottom corners.
+         * The band has thickness defined by 'vertical' (bar_height).
          *
          * @param {Object} config - Path generator configuration
          * @param {Object} config.geometry - Elbow geometry
@@ -818,29 +822,35 @@ export const elbowComponents = {
 
             const innerRadius = outerRadius - vertical;
             
-            // For an upward-curving arc at the bottom:
-            // The arc center is below the bottom edge, creating a segment of a circle
-            // that curves upward into the viewport
-            const centerY = height + outerRadius - vertical;
-            
+            // Create a curved band at the bottom
+            // The arc curves upward from bottom-left to bottom-right
             const halfWidth = width / 2;
+            let curveDepth = vertical;
             
-            // Calculate how far up the arc reaches
-            let arcDepth = vertical;
-            if (outerRadius > halfWidth) {
-                arcDepth = outerRadius - Math.sqrt(outerRadius * outerRadius - halfWidth * halfWidth);
+            if (outerRadius >= halfWidth) {
+                curveDepth = outerRadius - Math.sqrt(outerRadius * outerRadius - halfWidth * halfWidth);
             }
             
             const path = [
-                // Start at bottom-left
+                // Start at bottom-left corner
                 `M 0 ${height}`,
-                // Arc up and across to bottom-right
-                `A ${outerRadius} ${outerRadius} 0 0 0 ${width} ${height}`,
-                // Move to inner arc start (higher up and to the left)
-                `L ${width} ${height - arcDepth}`,
-                // Inner arc back to left (reverse curve, tighter radius)
-                `A ${innerRadius} ${innerRadius} 0 0 1 0 ${height - arcDepth}`,
-                // Close back to start
+                // Line up to inner curve height
+                `L 0 ${height - vertical}`,
+                // Line to inner arc start
+                `L ${halfWidth - innerRadius} ${height - vertical}`,
+                // Inner arc curving upward to center and back down (tighter curve)
+                `A ${innerRadius} ${innerRadius} 0 0 1 ${halfWidth + innerRadius} ${height - vertical}`,
+                // Line to right edge at inner height
+                `L ${width} ${height - vertical}`,
+                // Line down to bottom-right corner
+                `L ${width} ${height}`,
+                // Line to outer arc start
+                `L ${halfWidth + outerRadius} ${height}`,
+                // Outer arc back to left (broader curve)
+                `A ${outerRadius} ${outerRadius} 0 0 0 ${halfWidth - outerRadius} ${height}`,
+                // Line to bottom-left
+                `L 0 ${height}`,
+                // Close path
                 `Z`
             ];
 
