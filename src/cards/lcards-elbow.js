@@ -568,6 +568,11 @@ export class LCARdSElbow extends LCARdSButton {
         const innerSegmentInnerRadius = inner_segment.inner_curve ??
             innerSegmentOuterRadius / 2;
 
+        // Get position and side from component layout metadata
+        const component = getElbowComponent(type);
+        const position = component?.layout?.position || 'header';
+        const side = component?.layout?.side || 'left';
+
         // Calculate positioning offset for inner segment
         // header-left: inner is right+down from outer
         // header-right: inner is down from outer (no x offset)

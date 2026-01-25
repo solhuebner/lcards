@@ -299,7 +299,7 @@ export const elbowComponents = {
 
     'header-contained': {
         orientation: 'header-contained',
-        features: ['simple', 'segmented'],
+        features: ['simple'],
         layout: {
             position: 'header',
             side: 'contained'
@@ -361,7 +361,7 @@ export const elbowComponents = {
 
     'footer-contained': {
         orientation: 'footer-contained',
-        features: ['simple', 'segmented'],
+        features: ['simple'],
         layout: {
             position: 'footer',
             side: 'contained'
@@ -429,7 +429,7 @@ export const elbowComponents = {
 
     'header-open': {
         orientation: 'header-open',
-        features: ['simple', 'segmented'],
+        features: ['simple'],
         layout: {
             position: 'header',
             side: 'open'
@@ -469,7 +469,7 @@ export const elbowComponents = {
 
     'footer-open': {
         orientation: 'footer-open',
-        features: ['simple', 'segmented'],
+        features: ['simple'],
         layout: {
             position: 'footer',
             side: 'open'
@@ -515,7 +515,7 @@ export const elbowComponents = {
 
     'header-callout-left': {
         orientation: 'header-callout-left',
-        features: ['simple', 'segmented'],
+        features: ['simple'],
 
         /**
          * Generate header-callout-left elbow path
@@ -553,7 +553,7 @@ export const elbowComponents = {
 
     'header-callout-right': {
         orientation: 'header-callout-right',
-        features: ['simple', 'segmented'],
+        features: ['simple'],
 
         /**
          * Generate header-callout-right elbow path
@@ -593,7 +593,7 @@ export const elbowComponents = {
 
     'footer-callout-left': {
         orientation: 'footer-callout-left',
-        features: ['simple', 'segmented'],
+        features: ['simple'],
 
         /**
          * Generate footer-callout-left elbow path
@@ -633,7 +633,7 @@ export const elbowComponents = {
 
     'footer-callout-right': {
         orientation: 'footer-callout-right',
-        features: ['simple', 'segmented'],
+        features: ['simple'],
         layout: {
             position: 'footer',
             side: 'right'
