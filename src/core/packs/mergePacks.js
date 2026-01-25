@@ -392,7 +392,7 @@ async function fetchWithValidation(url) {
   // Validate content type
   const contentType = response.headers.get('content-type') || '';
   if (!contentType.includes('application/json') && !contentType.includes('text/')) {
-    console.warn(`[MSD] External pack ${url} has unexpected content-type: ${contentType}`);
+    lcardsLog.warn(`[MSD] ⚠️ External pack ${url} has unexpected content-type: ${contentType}`);
   }
 
   // Parse JSON with size limits
@@ -439,7 +439,7 @@ function validateExternalPackStructure(data, url) {
   const hasValidField = validFields.some(field => dataFields.includes(field));
 
   if (!hasValidField) {
-    console.warn(`[MSD] External pack ${url} doesn't contain recognized MSD fields`);
+    lcardsLog.warn(`[MSD] ⚠️ External pack ${url} doesn't contain recognized MSD fields`);
   }
 
   // ✅ REMOVED: ID validation is now handled by validateMerged and ValidationService

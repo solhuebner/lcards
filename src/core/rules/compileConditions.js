@@ -1,6 +1,7 @@
 import { linearMap } from '../../utils/linearMap.js';
 import { TemplateDetector } from '../templates/TemplateDetector.js';
 import { TemplateParser } from '../templates/TemplateParser.js';
+import { lcardsLog } from '../../utils/lcards-logging.js';
 
 export function compileRule(rule, issues) {
   const raw = rule.when;
@@ -37,15 +38,15 @@ function compileNode(node, issues, ruleId) {
 
     // Debug: Log condition string to help diagnose YAML escaping issues
     if (conditionStr.includes('[[[') || conditionStr.includes('{{')) {
-      console.log('[compileConditions] Condition string:', conditionStr);
-      console.log('[compileConditions] String length:', conditionStr.length);
-      console.log('[compileConditions] Has backslashes:', conditionStr.includes('\\'));
+      lcardsLog.trace('[compileConditions] Condition string:', conditionStr);
+      lcardsLog.trace('[compileConditions] String length:', conditionStr.length);
+      lcardsLog.trace('[compileConditions] Has backslashes:', conditionStr.includes('\\'));
     }
 
     // JavaScript with [[[ ]]] syntax (like custom-button-card)
     if (conditionStr.includes('[[[') && conditionStr.includes(']]]')) {
       const code = conditionStr.slice(3, -3).trim();
-      console.log('[compileConditions] Detected JavaScript with [[[]]]. Code:', code);
+      lcardsLog.trace('[compileConditions] Detected JavaScript with [[[]]]. Code:', code);
 
       // Don't add extra 'return' - user's code should handle it
       return {
@@ -57,7 +58,7 @@ function compileNode(node, issues, ruleId) {
 
     // Jinja2 (double braces)
     if (conditionStr.includes('{{') && conditionStr.includes('}}')) {
-      console.log('[compileConditions] Detected Jinja2 template');
+      lcardsLog.trace('[compileConditions] Detected Jinja2 template');
       return {
         type: 'jinja2',
         template: conditionStr,
@@ -66,7 +67,7 @@ function compileNode(node, issues, ruleId) {
     }
 
     // If no special syntax, log a warning
-    console.warn('[compileConditions] Plain string condition not supported. Use [[[ ]]] for JavaScript or {{ }} for Jinja2');
+    lcardsLog.warn('[compileConditions] ⚠️ Plain string condition not supported. Use [[[ ]]] for JavaScript or {{ }} for Jinja2');
     issues.push({
       ruleId,
       severity: 'error',
@@ -187,7 +188,7 @@ function alwaysTrueNode() {
  */
 async function evalJinja2(tree, ctx) {
   if (!ctx.unifiedTemplateEvaluator) {
-    console.warn('[compileConditions] UnifiedTemplateEvaluator not available for Jinja2 evaluation');
+    lcardsLog.warn('[compileConditions] ⚠️ UnifiedTemplateEvaluator not available for Jinja2 evaluation');
     return false;
   }
 
@@ -195,52 +196,52 @@ async function evalJinja2(tree, ctx) {
     // Evaluate Jinja2 template - result is a string
     const result = await ctx.unifiedTemplateEvaluator.evaluateAsync(tree.template);
 
-    console.log('[evalJinja2] Template:', tree.template);
-    console.log('[evalJinja2] Raw result:', result, 'Type:', typeof result);
+    lcardsLog.trace('[evalJinja2] Template:', tree.template);
+    lcardsLog.trace('[evalJinja2] Raw result:', result, 'Type:', typeof result);
 
     // Handle direct boolean/number results
     if (typeof result === 'boolean') {
-      console.log('[evalJinja2] Direct boolean result:', result);
+      lcardsLog.trace('[evalJinja2] Direct boolean result:', result);
       return result;
     }
 
     if (typeof result === 'number') {
-      console.log('[evalJinja2] Numeric result, converting:', result !== 0);
+      lcardsLog.trace('[evalJinja2] Numeric result, converting:', result !== 0);
       return result !== 0;
     }
 
     // Convert result to boolean
     // Jinja2 may return: "True", "False", "true", "false", "1", "0", "yes", "no"
     const resultStr = String(result).trim().toLowerCase();
-    console.log('[evalJinja2] String result after normalization:', resultStr);
+    lcardsLog.trace('[evalJinja2] String result after normalization:', resultStr);
 
     const truthyValues = ['true', '1', 'yes', 'on'];
     const falsyValues = ['false', '0', 'no', 'off', '', 'none'];
 
     if (truthyValues.includes(resultStr)) {
-      console.log('[evalJinja2] Matched truthy value, returning true');
+      lcardsLog.trace('[evalJinja2] Matched truthy value, returning true');
       return true;
     }
 
     if (falsyValues.includes(resultStr)) {
-      console.log('[evalJinja2] Matched falsy value, returning false');
+      lcardsLog.trace('[evalJinja2] Matched falsy value, returning false');
       return false;
     }
 
     // Try numeric conversion as fallback
     const numValue = parseFloat(resultStr);
     if (!isNaN(numValue)) {
-      console.log('[evalJinja2] Numeric conversion:', numValue, 'Returning:', numValue !== 0);
+      lcardsLog.trace('[evalJinja2] Numeric conversion:', numValue, 'Returning:', numValue !== 0);
       return numValue !== 0;
     }
 
     // If result is non-empty string, treat as truthy
-    console.log('[evalJinja2] Non-empty string, treating as truthy:', resultStr.length > 0);
+    lcardsLog.trace('[evalJinja2] Non-empty string, treating as truthy:', resultStr.length > 0);
     return resultStr.length > 0;
 
   } catch (error) {
-    console.error('[compileConditions] Jinja2 evaluation failed:', error);
-    console.error('Template:', tree.template);
+    lcardsLog.error('[compileConditions] ❌ Jinja2 evaluation failed:', error);
+    lcardsLog.error('Template:', tree.template);
     return false;
   }
 }
@@ -347,9 +348,9 @@ function resolveTokensInCode(code, ctx) {
     const value = resolveTokenPath(parts, ctx);
 
     // Debug logging for token resolution
-    console.log(`[resolveTokensInCode] Resolving token: ${fullMatch}`);
-    console.log(`[resolveTokensInCode] Token path parts:`, parts);
-    console.log(`[resolveTokensInCode] Resolved value:`, value, `(type: ${typeof value})`);
+    lcardsLog.trace(`[resolveTokensInCode] Resolving token: ${fullMatch}`);
+    lcardsLog.trace(`[resolveTokensInCode] Token path parts:`, parts);
+    lcardsLog.trace(`[resolveTokensInCode] Resolved value:`, value, `(type: ${typeof value})`);
 
     // Check if token is already wrapped in quotes
     const beforeToken = code.substring(Math.max(0, index - 1), index);
@@ -357,7 +358,7 @@ function resolveTokensInCode(code, ctx) {
     const isAlreadyQuoted = (beforeToken === '"' || beforeToken === "'") &&
                             (afterToken === '"' || afterToken === "'");
 
-    console.log(`[resolveTokensInCode] Is already quoted: ${isAlreadyQuoted}`);
+    lcardsLog.trace(`[resolveTokensInCode] Is already quoted: ${isAlreadyQuoted}`);
 
     // Replace token with value
     let replacement;
@@ -375,13 +376,13 @@ function resolveTokensInCode(code, ctx) {
       replacement = String(value);  // Numbers, booleans - no quotes
     }
 
-    console.log(`[resolveTokensInCode] Replacement value:`, replacement);
+    lcardsLog.trace(`[resolveTokensInCode] Replacement value:`, replacement);
 
     // Replace this specific occurrence
     resolved = resolved.substring(0, index) + replacement + resolved.substring(index + fullMatch.length);
   }
 
-  console.log(`[resolveTokensInCode] Final resolved code:`, resolved);
+  lcardsLog.trace(`[resolveTokensInCode] Final resolved code:`, resolved);
   return resolved;
 }
 
@@ -417,11 +418,11 @@ function evalJavaScript(tree, ctx) {
     return !!result;
 
   } catch (error) {
-    console.error('[compileConditions] JavaScript evaluation failed:', error);
-    console.error('[compileConditions] Error message:', error.message);
-    console.error('[compileConditions] Error stack:', error.stack);
-    console.error('[compileConditions] Code:', code);
-    console.error('[compileConditions] Context keys:', Object.keys(ctx));
+    lcardsLog.error('[compileConditions] ❌ JavaScript evaluation failed:', error);
+    lcardsLog.error('[compileConditions] Error message:', error.message);
+    lcardsLog.error('[compileConditions] Error stack:', error.stack);
+    lcardsLog.error('[compileConditions] Code:', code);
+    lcardsLog.error('[compileConditions] Context keys:', Object.keys(ctx));
     return false;
   }
 }
