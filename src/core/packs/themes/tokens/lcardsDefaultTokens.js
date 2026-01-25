@@ -22,10 +22,10 @@
  * - Example: darken(colors.card.button, 0.35) → color-mix(in srgb, <resolved-color> 65%, black 35%)
  *
  * @see ThemeTokenResolver for computed token processing
- * @module core/packs/themes/tokens/lcarsClassicTokens
+ * @module core/packs/themes/tokens/lcardsDefaultTokens
  */
 
-export const lcarsClassicTokens = {
+export const lcardsDefaultTokens = {
   // ==========================================================================
   // TYPOGRAPHY
   // ==========================================================================
@@ -88,7 +88,8 @@ export const lcarsClassicTokens = {
       quaternary: 'var(--lcars-ui-quaternary, var(--lcards-gray-dark))'
     },
 
-    // Card-specific colors (button states, etc)
+    // Card-specific colors (HA-LCARS variables with CB-LCARS fallbacks)
+    // Note: HA-LCARS 25C themes + Picard provide button-off/unavailable explicitly
     card: {
       button: 'var(--lcars-card-button, var(--lcards-gray-medium-light))',
       buttonOff: 'var(--lcars-card-button-off, var(--lcards-gray-medium))',
@@ -131,7 +132,7 @@ export const lcarsClassicTokens = {
     button: {
       background: {
         default: 'colors.card.button',
-        active: 'colors.card.button',
+        active: 'lighten(colors.card.button, 0.1)',
         inactive: 'colors.card.buttonOff',
         unavailable: 'colors.card.buttonUnavailable',
         transparent: 'transparent'
@@ -141,9 +142,9 @@ export const lcarsClassicTokens = {
         radius: 'borders.radius.lg',
         color: {
           default: 'colors.card.button',
-          active: 'colors.card.button',
-          inactive: 'colors.card.buttonOff',
-          unavailable: 'colors.card.buttonUnavailable'
+          active: 'lighten(colors.card.button, 0.1)',
+          inactive: 'darken(colors.card.button, 0.25)',
+          unavailable: 'darken(colors.card.button, 0.45)'
         }
       },
       text: {
@@ -240,7 +241,7 @@ export const lcarsClassicTokens = {
         radius: 'borders.radius.lg',
         color: {
           default: 'colors.card.button',
-          active: 'colors.card.button',
+          active: 'lighten(colors.card.button, 0.1)',
           inactive: 'colors.card.buttonOff',
           unavailable: 'colors.card.buttonUnavailable'
         }

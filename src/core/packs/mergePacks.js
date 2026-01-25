@@ -161,7 +161,7 @@ async function processSinglePass(layers) {
     // ✅ NEW: Track theme from builtin_themes pack
     if (layer.pack === 'builtin_themes' && layer.data.themes) {
       themeProvenance.themes_available = Object.keys(layer.data.themes);
-      themeProvenance.default_theme = layer.data.defaultTheme || 'lcars-classic';
+      themeProvenance.default_theme = layer.data.defaultTheme || 'lcards-default';
       themeProvenance.source_pack = 'builtin_themes';
       themeProvenance.theme_pack_loaded = true;
     }
@@ -472,7 +472,7 @@ async function processLayer(merged, layer) {
   if (layer.type === 'builtin' || layer.type === 'external' || layer.type === 'user') {
     const deprecatedFields = ['palettes', 'profiles'];
     const foundDeprecated = deprecatedFields.filter(field => layer.data[field]);
-    
+
     if (foundDeprecated.length > 0) {
       lcardsLog.warn(
         `[mergePacks] Pack '${layer.pack}' contains deprecated fields: ${foundDeprecated.join(', ')}. ` +

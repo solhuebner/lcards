@@ -204,7 +204,7 @@ class LCARdSCore {
 
             // Activate default theme after packs are loaded
             try {
-                await this.themeManager.activateTheme('lcars-classic');
+                await this.themeManager.activateTheme('lcards-default');
                 lcardsLog.info('[LCARdSCore] ✅ Default theme activated');
             } catch (error) {
                 lcardsLog.error('[LCARdSCore] ❌ Theme activation failed:', error);
@@ -222,20 +222,20 @@ class LCARdSCore {
 
             // Initialize HUD Manager (Phase 3) - ✅ Global debug HUD system
             this.hudManager = new HudManager();
-            
+
             // Register core panels
             this.hudManager.registerPanel('performance', new PerformancePanel());
             this.hudManager.registerPanel('validation', new ValidationPanel());
             this.hudManager.registerPanel('debug-flags', new DebugFlagsPanel());
             this.hudManager.registerPanel('system-health', new SystemHealthPanel());
-            
+
             lcardsLog.debug('[LCARdSCore] ✅ HUD Manager initialized with 4 core panels');
 
             // Initialize HUD Service (keyboard shortcuts)
             this.hudService = new HudService(this.hudManager);
             this.hudService.initialize();
             lcardsLog.debug('[LCARdSCore] ✅ HUD Service initialized (shortcut: Alt+Shift+U)');
-            
+
             // Set default active panel
             this.hudManager.setActivePanel('performance');
 

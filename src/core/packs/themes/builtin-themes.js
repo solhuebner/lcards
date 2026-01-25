@@ -7,10 +7,7 @@
  * @module core/packs/themes/builtin-themes
  */
 
-import { lcarsClassicTokens } from './tokens/lcarsClassicTokens.js';
-import { lcarsDs9Tokens } from './tokens/lcarsDs9Tokens.js';
-import { lcarsVoyagerTokens } from './tokens/lcarsVoyagerTokens.js';
-import { lcarsHighContrastTokens } from './tokens/lcarsHighContrastTokens.js';
+import { lcardsDefaultTokens } from './tokens/lcardsDefaultTokens.js';
 
 /**
  * Builtin Themes Pack
@@ -22,41 +19,16 @@ export const BUILTIN_THEMES_PACK = {
 
   // Token-based themes
   themes: {
-    'lcars-classic': {
-      id: 'lcars-classic',
-      name: 'LCARS Classic',
-      description: 'Classic TNG-era LCARS styling',
-      tokens: lcarsClassicTokens
-      // cssFile: 'apexcharts-lcars-classic.css' // TODO: Create ApexCharts CSS overrides
-    },
-
-    'lcars-ds9': {
-      id: 'lcars-ds9',
-      name: 'LCARS DS9',
-      description: 'Deep Space Nine LCARS variant',
-      tokens: lcarsDs9Tokens
-      // cssFile: 'apexcharts-lcars-ds9.css' // TODO: Create ApexCharts CSS overrides
-    },
-
-    'lcars-voyager': {
-      id: 'lcars-voyager',
-      name: 'LCARS Voyager',
-      description: 'Voyager LCARS styling',
-      tokens: lcarsVoyagerTokens
-      // cssFile: 'apexcharts-lcars-voyager.css' // TODO: Create ApexCharts CSS overrides
-    },
-
-    'lcars-high-contrast': {
-      id: 'lcars-high-contrast',
-      name: 'LCARS High Contrast',
-      description: 'Accessibility-focused high contrast theme',
-      tokens: lcarsHighContrastTokens
-      // cssFile: 'apexcharts-lcars-high-contrast.css' // TODO: Create ApexCharts CSS overrides
+    'lcards-default': {
+      id: 'lcards-default',
+      name: 'LCARdS Default',
+      description: 'Default LCARdS theme with HA-LCARS integration',
+      tokens: lcardsDefaultTokens
     }
   },
 
   // Default theme
-  defaultTheme: 'lcars-classic',
+  defaultTheme: 'lcards-default',
 
   /**
    * Chart Animation Presets

@@ -306,7 +306,7 @@ overlays:
       # Token references
       color: 'colors.accent.primary'
       stroke_width: 3
-      
+
       # Explicit values override tokens
       marker_end: 'arrow'
 ```
@@ -480,7 +480,7 @@ const styleResolver = new StyleResolverService(themeManager, {
 
 ```yaml
 msd_config:
-  theme: lcars-classic    # Active theme
+  theme: lcards-default    # Active theme
 
   custom_theme:
     tokens:

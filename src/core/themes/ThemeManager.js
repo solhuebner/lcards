@@ -100,7 +100,7 @@ export class ThemeManager extends BaseService {
   /**
    * Register themes from a pack
    * Called by PackManager for each pack loaded
-   * 
+   *
    * @param {Object} pack - Pack object with themes field
    */
   registerThemesFromPack(pack) {
@@ -123,11 +123,11 @@ export class ThemeManager extends BaseService {
    * Initialize theme system from packs
    *
    * @param {Array<Object>} packs - Loaded pack objects
-   * @param {string} [requestedThemeId='lcars-classic'] - Theme ID to activate
+   * @param {string} [requestedThemeId='lcards-default'] - Theme ID to activate
    * @param {Element} [rootElement=null] - Root element for CSS variables
    * @returns {Promise<void>}
    */
-  async initialize(packs, requestedThemeId = 'lcars-classic', rootElement = null) {
+  async initialize(packs, requestedThemeId = 'lcards-default', rootElement = null) {
     lcardsLog.debug('[ThemeManager] 🎨 Initializing theme system');
 
     // Load all themes from packs
@@ -150,7 +150,7 @@ export class ThemeManager extends BaseService {
 
     // Find default theme from packs
     const packWithDefault = packs.find(pack => pack.defaultTheme);
-    const fallbackThemeId = packWithDefault?.defaultTheme || 'lcars-classic';
+    const fallbackThemeId = packWithDefault?.defaultTheme || 'lcards-default';
 
     // Activate requested theme (or fallback)
     const themeToActivate = requestedThemeId || fallbackThemeId;
@@ -345,7 +345,7 @@ export class ThemeManager extends BaseService {
    *
    * @example
    * const themes = themeManager.listThemes();
-   * // Returns: ['lcars-classic', 'lcars-ds9', 'lcars-voyager']
+   * // Returns: ['lcards-default', 'lcars-ds9', 'lcars-voyager']
    */
   listThemes() {
     return Array.from(this.themes.keys());
@@ -358,7 +358,7 @@ export class ThemeManager extends BaseService {
    * @returns {Object|null} Theme details or null if not found
    *
    * @example
-   * const themeInfo = themeManager.getTheme('lcars-classic');
+   * const themeInfo = themeManager.getTheme('lcards-default');
    * console.log(themeInfo.name); // "LCARS Classic"
    * console.log(themeInfo.packId); // "builtin_themes"
    */

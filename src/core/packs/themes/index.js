@@ -10,7 +10,4 @@
 export { BUILTIN_THEMES_PACK } from './builtin-themes.js';
 
 // Re-export theme tokens for convenience
-export { lcarsClassicTokens } from './tokens/lcarsClassicTokens.js';
-export { lcarsDs9Tokens } from './tokens/lcarsDs9Tokens.js';
-export { lcarsVoyagerTokens } from './tokens/lcarsVoyagerTokens.js';
-export { lcarsHighContrastTokens } from './tokens/lcarsHighContrastTokens.js';
+export { lcardsDefaultTokens } from './tokens/lcardsDefaultTokens.js';

@@ -40,7 +40,7 @@ The **Theme System** is a **singleton service** that provides unified theming ac
 
 | Theme | Description | Style |
 |-------|-------------|-------|
-| **lcars-classic** | TNG-era LCARS | Classic orange/blue |
+| **lcards-default** | TNG-era LCARS | Classic orange/blue |
 | **lcars-modern** | Contemporary LCARS | Refined palette |
 | **lcars-dark** | Dark mode variant | Muted colors |
 | **lcars-voyager** | VOY-era LCARS | Teal accents |
@@ -122,12 +122,12 @@ sequenceDiagram
 ```javascript
 const theme = {
   // Theme metadata
-  id: 'lcars-classic',
+  id: 'lcards-default',
   name: 'LCARS Classic',
   description: 'Classic TNG-era LCARS styling',
 
   // Optional: Custom ApexCharts CSS
-  cssFile: 'apexcharts-lcars-classic.css',
+  cssFile: 'apexcharts-lcards-default.css',
 
   // Theme tokens (all values)
   tokens: {
@@ -331,7 +331,7 @@ tokens: {
 
 ```yaml
 msd_config:
-  theme: lcars-classic           # Built-in theme
+  theme: lcards-default           # Built-in theme
 
   # OR use custom theme
   custom_theme:
@@ -565,7 +565,7 @@ Get list of all available themes.
 ```javascript
 const themes = themeManager.getAllThemes();
 // [
-//   { id: 'lcars-classic', name: 'LCARS Classic' },
+//   { id: 'lcards-default', name: 'LCARS Classic' },
 //   { id: 'lcars-modern', name: 'LCARS Modern' },
 //   ...
 // ]

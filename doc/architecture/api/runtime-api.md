@@ -328,7 +328,7 @@ Returns an array of theme objects with metadata (id, name, description, pack sou
 **Theme Object:**
 ```javascript
 {
-  id: string,              // Theme identifier (e.g., 'lcars-classic')
+  id: string,              // Theme identifier (e.g., 'lcards-default')
   name: string,            // Display name (e.g., 'LCARS Classic')
   description: string,     // Theme description
   packId: string,          // Source pack ID
@@ -432,7 +432,7 @@ const current = window.lcards.msd.theme.getCurrent();
 console.log('New theme:', current.name);
 
 // Switch back to classic
-window.lcards.msd.theme.apply('lcars-classic');
+window.lcards.msd.theme.apply('lcards-default');
 ```
 
 **Error Handling:**
@@ -440,7 +440,7 @@ window.lcards.msd.theme.apply('lcars-classic');
 const result = window.lcards.msd.theme.apply('nonexistent-theme');
 // Returns: false
 // Console shows: Theme not found: nonexistent-theme
-// Console shows: Available themes: ['lcars-classic', 'lcars-ds9', ...]
+// Console shows: Available themes: ['lcards-default', 'lcars-ds9', ...]
 ```
 
 ---

@@ -220,7 +220,7 @@ this.packManager = new PackManager(this);
 await this.packManager.loadBuiltinPacks(['core', 'lcards_buttons', 'lcards_sliders', 'lcars_fx', 'builtin_themes']);
 
 // 3. Activate default theme
-await this.themeManager.activateTheme('lcars-classic');
+await this.themeManager.activateTheme('lcards-default');
 ```
 
 **What Each Manager Does**:
@@ -349,15 +349,15 @@ export const BUILTIN_THEMES_PACK = {
   id: 'builtin_themes',
   version: '1.0.0',
   themes: {
-    'lcars-classic': {
-      id: 'lcars-classic',
+    'lcards-default': {
+      id: 'lcards-default',
       name: 'LCARS Classic',
       description: 'Classic TNG-era LCARS styling',
       tokens: lcarsClassicTokens  // ← Token object
     },
     // ... ds9, voyager, high-contrast themes
   },
-  defaultTheme: 'lcars-classic',
+  defaultTheme: 'lcards-default',
   chartAnimationPresets: { /* ApexCharts presets */ }
 };
 ```
@@ -607,7 +607,7 @@ sequenceDiagram
     SPM->>SPM: Store button & slider presets
 
     PM-->>CORE: All packs loaded
-    CORE->>TM: activateTheme('lcars-classic')
+    CORE->>TM: activateTheme('lcards-default')
     CORE-->>LC: Core ready
 
     Note over LC,AM: Cards can now access managers
@@ -705,7 +705,7 @@ entity: light.bedroom
 
 ```yaml
 # Dashboard-level theme selection
-theme: lcars-classic     # ← Pack provides theme
+theme: lcards-default     # ← Pack provides theme
 
 # Cards inherit theme automatically
 cards:
@@ -715,7 +715,7 @@ cards:
 ```
 
 **Available Themes**:
-- `lcars-classic` - Classic TNG-era LCARS styling (default)
+- `lcards-default` - Classic TNG-era LCARS styling (default)
 - `lcars-ds9` - Deep Space Nine variant
 - `lcars-voyager` - Voyager styling
 - `lcars-high-contrast` - Accessibility-focused high contrast

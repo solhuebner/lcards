@@ -38,7 +38,7 @@ graph TD
 **Priority Order (Highest to Lowest):**
 1. 🥇 **Your style** - Direct `style:` properties in overlay config
 2. 🥈 **Style presets** - Named presets like `lcars_button_preset: "lozenge"`
-3. 🥉 **Theme defaults** - Component defaults from active theme (e.g., `lcars-classic`)
+3. 🥉 **Theme defaults** - Component defaults from active theme (e.g., `lcards-default`)
 4. 🎨 **Built-in fallbacks** - System defaults if nothing else specified
 
 **Example:**
@@ -66,18 +66,18 @@ LCARdS uses a clear architectural pattern to separate **what to show** from **ho
 graph TD
     Config[Card Config] --> Content[Top-Level Properties<br>Content & Behavior]
     Config --> Styling[Nested style.*<br>Visual Styling]
-    
+
     Content --> Text[text.*<br>Text content & fields]
     Content --> Icon[icon.*<br>Icon config & visibility]
     Content --> Control[control.*<br>Slider/control behavior]
     Content --> Elbow[elbow.*<br>Geometric structure]
     Content --> Actions[tap_action, etc.<br>User interactions]
-    
+
     Styling --> Card[style.card.*<br>Background, borders]
     Styling --> TextStyle[style.text.*<br>Fonts, colors]
     Styling --> Track[style.track.*<br>Visual appearance]
     Styling --> Border[style.border.*<br>Border properties]
-    
+
     style Content fill:#266239,stroke:#083717,color:#f3f4f7
     style Styling fill:#f9ef97,stroke:#ac943b,color:#0c2a15
 ```
@@ -210,7 +210,7 @@ The MSD system uses a **unified theme-based approach** with clear priority order
                             │
 ┌─────────────────────────────────────────────────────────────┐
 │ 2. THEME SYSTEM (ThemeManager)                             │
-│    ┌─ Active Theme (e.g., lcars-classic) ─────────────────┐│
+│    ┌─ Active Theme (e.g., lcards-default) ─────────────────┐│
 │    │   • Component defaults from theme tokens            ││
 │    │   • text.defaultSize: 'typography.fontSize.base'    ││
 │    │   • statusGrid.textPadding: 'spacing.scale.4'       ││
@@ -242,7 +242,7 @@ The MSD system uses a **unified theme-based approach** with clear priority order
 ```yaml
 # User config specifies theme and packs
 msd:
-  theme: "lcars-classic"          # Select active theme
+  theme: "lcards-default"          # Select active theme
   use_packs:
     builtin: ['core', 'lcards_buttons']
   overlays:

@@ -8,7 +8,7 @@
  */
 
 import { initializeTokenResolver } from './ThemeTokenResolver.js';
-import { lcarsClassicTokens } from '../packs/themes/tokens/lcarsClassicTokens.js';
+import { lcardsDefaultTokens } from '../packs/themes/tokens/lcardsDefaultTokens.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 
 /**
@@ -35,7 +35,7 @@ export function initializeThemeSystem(packs, config = {}, rootElement = null) {
     }
 
     // Determine which theme to use
-    const requestedTheme = config.theme || packWithThemes.defaultTheme || 'lcars-classic';
+    const requestedTheme = config.theme || packWithThemes.defaultTheme || 'lcards-default';
     const theme = packWithThemes.themes[requestedTheme];
 
     if (!theme) {
@@ -123,15 +123,15 @@ function initializeFallbackTheme(rootElement) {
   try {
     lcardsLog.info('[ThemeSystem] Using fallback theme: LCARS Classic');
 
-    initializeTokenResolver(lcarsClassicTokens, rootElement);
+    initializeTokenResolver(lcardsDefaultTokens, rootElement);
 
     return {
       success: true,
       theme: {
-        id: 'lcars-classic',
+        id: 'lcards-default',
         name: 'LCARS Classic (Fallback)',
         description: 'Default LCARS Classic theme',
-        tokens: lcarsClassicTokens
+        tokens: lcardsDefaultTokens
       },
       error: null
     };

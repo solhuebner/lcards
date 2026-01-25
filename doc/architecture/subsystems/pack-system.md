@@ -23,7 +23,7 @@ const PACK = {
   style_presets: {},   // Named style bundles for cards
   animations: [],      // Animation definitions
   rules: [],          // Rule definitions
-  
+
   // ❌ DEPRECATED FIELDS (removed in v1.22+):
   // overlays: [],     // Use core cards instead
   // palettes: {},     // Use theme tokens instead
@@ -53,7 +53,7 @@ graph TB
     end
 
     subgraph UserConfig["Card Configuration"]
-        UC[Card Config<br/>preset: 'lozenge'<br/>theme: 'lcars-classic']
+        UC[Card Config<br/>preset: 'lozenge'<br/>theme: 'lcards-default']
     end
 
     Pack --> PM
@@ -61,7 +61,7 @@ graph TB
     PM --> SPM
     PM --> AR
     PM --> RE
-    
+
     UC --> SPM
     UC --> TM
     UC --> AR
@@ -94,21 +94,21 @@ sequenceDiagram
 
     PM->>TM: registerTheme(themeId, theme)
     TM->>TM: Store theme tokens
-    
+
     PM->>SPM: registerPreset(type, name, preset)
     SPM->>SPM: Store preset by type
-    
+
     PM->>AR: register(animId, animation)
     AR->>AR: Cache animation
-    
+
     PM->>RE: registerRule(rule)
     RE->>RE: Add rule to engine
 
     PM->>Core: All packs loaded
-    
+
     Card->>SPM: getPreset('button', 'lozenge')
     SPM-->>Card: Preset style bundle
-    
+
     Card->>TM: getToken('colors.accent.primary')
     TM-->>Card: Theme token value
 ```
@@ -121,12 +121,12 @@ sequenceDiagram
 
 ```javascript
 themes: {
-  'lcars-classic': {
-    id: 'lcars-classic',
+  'lcards-default': {
+    id: 'lcards-default',
     name: 'LCARS Classic',
     description: 'Classic TNG-era LCARS styling',
     tokens: lcarsClassicTokens,  // Token object with all theme values
-    cssFile: 'apexcharts-lcars-classic.css'  // Optional ApexCharts CSS
+    cssFile: 'apexcharts-lcards-default.css'  // Optional ApexCharts CSS
   }
 }
 ```
@@ -313,7 +313,7 @@ profiles: [{
 ```javascript
 // Themes have component defaults in tokens
 themes: {
-  'lcars-classic': {
+  'lcards-default': {
     tokens: {
       components: {
         statusGrid: {
@@ -365,7 +365,7 @@ When resolving style values, the system uses this priority order:
 ```javascript
 // builtin_themes pack provides theme
 themes: {
-  'lcars-classic': {
+  'lcards-default': {
     tokens: {
       spacing: { scale: { '4': 8 } },
       components: {
@@ -389,7 +389,7 @@ style_presets: {
 ### User Configuration
 ```yaml
 msd:
-  theme: "lcars-classic"                # Select theme
+  theme: "lcards-default"                # Select theme
   use_packs:
     builtin: ['lcards_buttons']      # Load presets
 
@@ -420,7 +420,7 @@ msd:
 ### 1. Theme Pack (builtin_themes)
 **Always loaded automatically**
 - Provides all available themes
-- Contains default theme (`lcars-classic`)
+- Contains default theme (`lcards-default`)
 - Includes chart templates and animation presets
 
 ### 2. Style Pack (lcards_buttons)
@@ -510,7 +510,7 @@ msd:
 **Supported Pack Fields:**
 - ✅ `style_presets` - Named style bundles for cards
 - ✅ `animations` - Animation definitions
-- ✅ `rules` - Rule definitions  
+- ✅ `rules` - Rule definitions
 - ✅ `themes` - Theme token definitions
 
 ### Migration Steps for Custom Packs
@@ -675,7 +675,7 @@ const stats = window.lcards.core.packManager.getPackStatistics();
 const ids = window.lcards.core.themeManager.getThemeIds();
 
 // Get theme metadata
-const meta = window.lcards.core.themeManager.getThemeMetadata('lcars-classic');
+const meta = window.lcards.core.themeManager.getThemeMetadata('lcards-default');
 // Returns: { id, name, description, version, pack, tokenCount, hasCssFile }
 
 // Get all themes with metadata
