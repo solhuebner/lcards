@@ -510,174 +510,7 @@ export const elbowComponents = {
     },
 
     // ============================================================================
-    // CALLOUT VARIANTS - Squared corners, no arcs
-    // ============================================================================
-
-    'header-callout-left': {
-        orientation: 'header-callout-left',
-        features: ['simple'],
-
-        /**
-         * Generate header-callout-left elbow path
-         * Top-left corner with 90° angles (no curves)
-         *
-         * @param {Object} config - Path generator configuration
-         * @param {Object} config.geometry - Elbow geometry
-         * @param {Object} config.container - Container dimensions
-         * @returns {string} SVG path string
-         */
-        pathGenerator: (config) => {
-            const { horizontal, vertical } = config.geometry;
-            const { width, height } = config.container;
-
-            const path = [
-                // Square corners - no arcs
-                `M 0 0`,
-                `L ${width} 0`,
-                `L ${width} ${vertical}`,
-                `L ${horizontal} ${vertical}`,
-                `L ${horizontal} ${height}`,
-                `L 0 ${height}`,
-                `Z`
-            ];
-
-            return path.join(' ');
-        },
-
-        metadata: {
-            name: 'Header Callout Left',
-            description: 'Top-left corner with 90° angles (no curves)',
-            version: '1.0.0'
-        }
-    },
-
-    'header-callout-right': {
-        orientation: 'header-callout-right',
-        features: ['simple'],
-
-        /**
-         * Generate header-callout-right elbow path
-         * Top-right corner with 90° angles (no curves)
-         *
-         * @param {Object} config - Path generator configuration
-         * @param {Object} config.geometry - Elbow geometry
-         * @param {Object} config.container - Container dimensions
-         * @returns {string} SVG path string
-         */
-        pathGenerator: (config) => {
-            const { horizontal, vertical } = config.geometry;
-            const { width, height } = config.container;
-
-            const vBarLeft = width - horizontal;
-
-            const path = [
-                // Square corners - no arcs
-                `M 0 0`,
-                `L ${width} 0`,
-                `L ${width} ${height}`,
-                `L ${vBarLeft} ${height}`,
-                `L ${vBarLeft} ${vertical}`,
-                `L 0 ${vertical}`,
-                `Z`
-            ];
-
-            return path.join(' ');
-        },
-
-        metadata: {
-            name: 'Header Callout Right',
-            description: 'Top-right corner with 90° angles (no curves)',
-            version: '1.0.0'
-        }
-    },
-
-    'footer-callout-left': {
-        orientation: 'footer-callout-left',
-        features: ['simple'],
-
-        /**
-         * Generate footer-callout-left elbow path
-         * Bottom-left corner with 90° angles (no curves)
-         *
-         * @param {Object} config - Path generator configuration
-         * @param {Object} config.geometry - Elbow geometry
-         * @param {Object} config.container - Container dimensions
-         * @returns {string} SVG path string
-         */
-        pathGenerator: (config) => {
-            const { horizontal, vertical } = config.geometry;
-            const { width, height } = config.container;
-
-            const hBarTop = height - vertical;
-
-            const path = [
-                // Square corners - no arcs
-                `M 0 0`,
-                `L ${horizontal} 0`,
-                `L ${horizontal} ${hBarTop}`,
-                `L ${width} ${hBarTop}`,
-                `L ${width} ${height}`,
-                `L 0 ${height}`,
-                `Z`
-            ];
-
-            return path.join(' ');
-        },
-
-        metadata: {
-            name: 'Footer Callout Left',
-            description: 'Bottom-left corner with 90° angles (no curves)',
-            version: '1.0.0'
-        }
-    },
-
-    'footer-callout-right': {
-        orientation: 'footer-callout-right',
-        features: ['simple'],
-        layout: {
-            position: 'footer',
-            side: 'right'
-        },
-
-        /**
-         * Generate footer-callout-right elbow path
-         * Bottom-right corner with 90° angles (no curves)
-         *
-         * @param {Object} config - Path generator configuration
-         * @param {Object} config.geometry - Elbow geometry
-         * @param {Object} config.container - Container dimensions
-         * @returns {string} SVG path string
-         */
-        pathGenerator: (config) => {
-            const { horizontal, vertical } = config.geometry;
-            const { width, height } = config.container;
-
-            const vBarLeft = width - horizontal;
-            const hBarTop = height - vertical;
-
-            const path = [
-                // Square corners - no arcs
-                `M 0 ${hBarTop}`,
-                `L ${vBarLeft} ${hBarTop}`,
-                `L ${vBarLeft} 0`,
-                `L ${width} 0`,
-                `L ${width} ${height}`,
-                `L 0 ${height}`,
-                `Z`
-            ];
-
-            return path.join(' ');
-        },
-
-        metadata: {
-            name: 'Footer Callout Right',
-            description: 'Bottom-right corner with 90° angles (no curves)',
-            version: '1.0.0'
-        }
-    },
-
-    // ============================================================================
-    // DIAGONAL-CAP VARIANTS - 45° angular cut
+    // DIAGONAL-CAP VARIANTS - Configurable angular cuts
     // ============================================================================
 
     'diagonal-cap-left': {
@@ -700,8 +533,6 @@ export const elbowComponents = {
         pathGenerator: (config) => {
             const { horizontal, vertical, outerRadius, innerRadius, diagonalAngle = 45 } = config.geometry;
             const { width, height } = config.container;
-
-            console.log('[diagonal-cap-left] diagonalAngle received:', diagonalAngle, 'config.geometry:', config.geometry);
 
             // Calculate diagonal offsets based on angle (0° = horizontal, 90° = vertical)
             const angleRad = (diagonalAngle * Math.PI) / 180;
@@ -736,7 +567,7 @@ export const elbowComponents = {
 
         metadata: {
             name: 'Diagonal Cap Left',
-            description: 'Top-left with 45° diagonal cut (sharp modern aesthetic)',
+            description: 'Top-left with configurable diagonal cut (0° = square, 45° = diagonal)',
             version: '1.0.0'
         }
     },
@@ -761,8 +592,6 @@ export const elbowComponents = {
         pathGenerator: (config) => {
             const { horizontal, vertical, outerRadius, innerRadius, diagonalAngle = 45 } = config.geometry;
             const { width, height } = config.container;
-
-            console.log('[diagonal-cap-right] diagonalAngle received:', diagonalAngle, 'config.geometry:', config.geometry);
 
             const vBarLeft = width - horizontal;
 
@@ -799,7 +628,126 @@ export const elbowComponents = {
 
         metadata: {
             name: 'Diagonal Cap Right',
-            description: 'Top-right with 45° diagonal cut (sharp modern aesthetic)',
+            description: 'Top-right with configurable diagonal cut (0° = square, 45° = diagonal)',
+            version: '1.0.0'
+        }
+    },
+
+    'diagonal-cap-footer-left': {
+        orientation: 'diagonal-cap-footer-left',
+        features: ['simple', 'segmented'],
+        layout: {
+            position: 'footer',
+            side: 'left'
+        },
+
+        /**
+         * Generate diagonal-cap-footer-left elbow path
+         * Bottom-left with configurable diagonal cuts on both corners
+         *
+         * @param {Object} config - Path generator configuration
+         * @param {Object} config.geometry - Elbow geometry (includes diagonalAngle)
+         * @param {Object} config.container - Container dimensions
+         * @returns {string} SVG path string
+         */
+        pathGenerator: (config) => {
+            const { horizontal, vertical, outerRadius, innerRadius, diagonalAngle = 45 } = config.geometry;
+            const { width, height } = config.container;
+
+            // Calculate diagonal offsets based on angle
+            const angleRad = (diagonalAngle * Math.PI) / 180;
+            const outerCutH = outerRadius * Math.cos(angleRad);
+            const outerCutV = outerRadius * Math.sin(angleRad);
+
+            const innerCutH = innerRadius * Math.cos(angleRad);
+            const innerCutV = innerRadius * Math.sin(angleRad);
+
+            const path = [
+                // Start at top-left
+                `M 0 0`,
+                `L ${horizontal} 0`,
+                // Down left edge to inner corner
+                `L ${horizontal} ${height - vertical - innerCutV}`,
+                // Inner diagonal cut
+                `L ${horizontal + innerCutH} ${height - vertical}`,
+                // Across to right edge
+                `L ${width} ${height - vertical}`,
+                `L ${width} ${height}`,
+                // Along bottom edge
+                `L ${outerCutH} ${height}`,
+                // Outer diagonal cut
+                `L 0 ${height - outerCutV}`,
+                // Up left edge
+                `L 0 0`,
+                `Z`
+            ];
+
+            return path.join(' ');
+        },
+
+        metadata: {
+            name: 'Diagonal Cap Footer Left',
+            description: 'Bottom-left with configurable diagonal cut (0° = square, 45° = diagonal)',
+            version: '1.0.0'
+        }
+    },
+
+    'diagonal-cap-footer-right': {
+        orientation: 'diagonal-cap-footer-right',
+        features: ['simple', 'segmented'],
+        layout: {
+            position: 'footer',
+            side: 'right'
+        },
+
+        /**
+         * Generate diagonal-cap-footer-right elbow path
+         * Bottom-right with configurable diagonal cuts on both corners
+         *
+         * @param {Object} config - Path generator configuration
+         * @param {Object} config.geometry - Elbow geometry (includes diagonalAngle)
+         * @param {Object} config.container - Container dimensions
+         * @returns {string} SVG path string
+         */
+        pathGenerator: (config) => {
+            const { horizontal, vertical, outerRadius, innerRadius, diagonalAngle = 45 } = config.geometry;
+            const { width, height } = config.container;
+
+            const vBarLeft = width - horizontal;
+
+            // Calculate diagonal offsets based on angle
+            const angleRad = (diagonalAngle * Math.PI) / 180;
+            const outerCutH = outerRadius * Math.cos(angleRad);
+            const outerCutV = outerRadius * Math.sin(angleRad);
+
+            const innerCutH = innerRadius * Math.cos(angleRad);
+            const innerCutV = innerRadius * Math.sin(angleRad);
+
+            const path = [
+                // Start at top-left
+                `M 0 0`,
+                `L ${width} 0`,
+                `L ${width} ${height - outerCutV}`,
+                // Outer diagonal cut
+                `L ${width - outerCutH} ${height}`,
+                // Along bottom edge
+                `L 0 ${height}`,
+                `L 0 ${height - vertical}`,
+                // Approach inner corner
+                `L ${vBarLeft - innerCutH} ${height - vertical}`,
+                // Inner diagonal cut
+                `L ${vBarLeft} ${height - vertical - innerCutV}`,
+                // Up right edge
+                `L ${vBarLeft} 0`,
+                `Z`
+            ];
+
+            return path.join(' ');
+        },
+
+        metadata: {
+            name: 'Diagonal Cap Footer Right',
+            description: 'Bottom-right with configurable diagonal cut (0° = square, 45° = diagonal)',
             version: '1.0.0'
         }
     }

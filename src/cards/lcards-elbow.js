@@ -489,18 +489,12 @@ export class LCARdSElbow extends LCARdSButton {
     _calculateSimpleElbowGeometry(config) {
         const { type, segment } = config;
 
-        console.log('[_calculateSimpleElbowGeometry] FULL config:', JSON.stringify(config, null, 2));
-        console.log('[_calculateSimpleElbowGeometry] segment:', segment);
-        console.log('[_calculateSimpleElbowGeometry] segment.diagonal_angle:', segment?.diagonal_angle);
-
         // Resolve theme values to actual dimensions
         let bar_width = segment.bar_width;
         let bar_height = segment.bar_height;
         let outer_curve = segment.outer_curve;
         let inner_curve = segment.inner_curve;
         let diagonal_angle = segment.diagonal_angle ?? 45; // Default 45° angle
-
-        console.log('[_calculateSimpleElbowGeometry] resolved diagonal_angle:', diagonal_angle);
 
         // Resolve bar_width (vertical dimension in LCARS)
         if (bar_width === 'theme') {
