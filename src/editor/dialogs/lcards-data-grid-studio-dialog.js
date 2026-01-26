@@ -23,6 +23,7 @@ import { LitElement, html, css } from 'lit';
 import { createRef, ref } from 'lit/directives/ref.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import { editorStyles } from '../base/editor-styles.js';
+import { studioDialogStyles } from './studio-dialog-styles.js';
 import { LCARdSFormFieldHelper as FormField } from '../components/shared/lcards-form-field.js';
 import { dataGridSchema } from '../../cards/schemas/data-grid-schema.js';
 import '../components/shared/lcards-form-section.js';
@@ -257,118 +258,34 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
     static get styles() {
         return [
             editorStyles,
+            studioDialogStyles,
             css`
             :host {
                 display: block;
             }
 
-            ha-dialog {
-                --mdc-dialog-min-width: 90vw;
-                --mdc-dialog-max-width: 1400px;
-                --mdc-dialog-min-height: 80vh;
-            }
-
             .dialog-content {
                 display: flex;
                 flex-direction: column;
-                min-height: 70vh;
-                max-height: 80vh;
-                gap: 16px;
-            }
-
-            /* Main Tab Navigation */
-            /* Studio Layout: Config (60%) | Preview (40%) */
-            .studio-layout {
-                display: grid;
-                grid-template-columns: 60% 40%;
-                gap: 16px;
-                height: 100%;
-                overflow: hidden;
-            }
-
-            @media (max-width: 1024px) {
-                .studio-layout {
-                    grid-template-columns: 1fr;
-                    grid-template-rows: 1fr auto;
-                }
-            }
-
-            .config-panel {
-                overflow-y: auto;
-                padding-right: 8px;
-            }
-
-            .preview-panel {
-                position: sticky;
-                top: 0;
-                height: fit-content;
-                max-height: 100%;
-                border: 2px solid var(--divider-color);
-                border-radius: 8px;
-                overflow: hidden;
-                background: var(--primary-background-color);
-            }
-
-            .preview-header {
-                padding: 12px;
-                background: var(--secondary-background-color);
-                border-bottom: 2px solid var(--divider-color);
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-            }
-
-            .preview-title {
-                font-weight: 600;
-                color: var(--primary-text-color);
                 flex: 1;
+                overflow: hidden;
             }
 
-            .preview-controls {
+            /* Tab navigation container */
+            .tab-navigation {
                 display: flex;
-                gap: 4px;
-            }
-
-            .preview-controls ha-icon-button {
-                --mdc-icon-button-size: 32px;
-                --mdc-icon-size: 20px;
-            }
-
-            .preview-mode-toggle {
-                display: flex;
-                gap: 4px;
-                background: var(--primary-background-color);
-                border-radius: 4px;
-                padding: 2px;
-            }
-
-            .preview-mode-btn {
-                padding: 6px 12px;
-                background: transparent;
-                border: none;
-                border-radius: 4px;
-                color: var(--secondary-text-color);
-                font-size: 12px;
-                cursor: pointer;
-                transition: all 0.2s ease;
-            }
-
-            .preview-mode-btn:hover {
+                gap: 0;
+                border-bottom: 2px solid var(--divider-color);
                 background: var(--secondary-background-color);
             }
 
-            .preview-mode-btn.active {
-                background: var(--primary-color);
-                color: white;
-            }
-
+            /* Preview container adjustments */
             .preview-container {
-                min-height: 400px;
-                padding: 16px;
-                position: relative;
+                flex: 1;
+                padding: 24px;
+                overflow: auto;
+                background: var(--primary-background-color);
             }
-
-            /* Gridlines are injected into card shadow DOM via _injectGridlineStyles() */
 
             /* Make grid cells visible in preview */
             .preview-container lcards-data-grid {
@@ -505,39 +422,68 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 .heading=${'Data Grid Studio'}>
 
                 <div class="dialog-content">
-                    <!-- Main Tab Navigation -->
-                    <ha-tab-group @wa-tab-show=${this._handleMainTabChange}>
-                        <ha-tab-group-tab value="mode" ?active=${this._activeTab === 'mode'}>
-                            <ha-icon icon="mdi:view-grid"></ha-icon>
-                            Mode
-                        </ha-tab-group-tab>
-                        <ha-tab-group-tab value="grid-structure" ?active=${this._activeTab === 'grid-structure'}>
-                            <ha-icon icon="mdi:table-settings"></ha-icon>
-                            Grid Structure
-                        </ha-tab-group-tab>
-                        <ha-tab-group-tab value="grid-styles" ?active=${this._activeTab === 'grid-styles'}>
-                            <ha-icon icon="mdi:palette"></ha-icon>
-                            Grid Styles
-                        </ha-tab-group-tab>
-                        <ha-tab-group-tab value="effects" ?active=${this._activeTab === 'effects'}>
-                            <ha-icon icon="mdi:auto-fix"></ha-icon>
-                            Effects
-                        </ha-tab-group-tab>
-                        <ha-tab-group-tab value="advanced" ?active=${this._activeTab === 'advanced'}>
-                            <ha-icon icon="mdi:cog"></ha-icon>
-                            Advanced
-                        </ha-tab-group-tab>
-                    </ha-tab-group>
-
-                    <!-- Split Layout: Config (60%) | Preview (40%) -->
+                    <!-- Split Layout: Config (33%) | Preview (66%) -->
                     <div class="studio-layout">
+                        <!-- Left Panel: Config -->
                         <div class="config-panel">
-                            ${this._renderValidationErrors()}
-                            ${this._renderActiveTab()}
+                            <!-- Tab Navigation -->
+                            <div class="tab-navigation">
+                                <ha-tab-group @wa-tab-show=${this._handleMainTabChange}>
+                                    <ha-tab-group-tab value="mode" ?active=${this._activeTab === 'mode'}>
+                                        <ha-icon icon="mdi:view-grid"></ha-icon>
+                                        Data Mode
+                                    </ha-tab-group-tab>
+                                    <ha-tab-group-tab value="grid-structure" ?active=${this._activeTab === 'grid-structure'}>
+                                        <ha-icon icon="mdi:table-settings"></ha-icon>
+                                        Grid Structure
+                                    </ha-tab-group-tab>
+                                    <ha-tab-group-tab value="grid-styles" ?active=${this._activeTab === 'grid-styles'}>
+                                        <ha-icon icon="mdi:palette"></ha-icon>
+                                        Grid Styles
+                                    </ha-tab-group-tab>
+                                    <ha-tab-group-tab value="effects" ?active=${this._activeTab === 'effects'}>
+                                        <ha-icon icon="mdi:auto-fix"></ha-icon>
+                                        Effects
+                                    </ha-tab-group-tab>
+                                    <ha-tab-group-tab value="advanced" ?active=${this._activeTab === 'advanced'}>
+                                        <ha-icon icon="mdi:cog"></ha-icon>
+                                        Advanced
+                                    </ha-tab-group-tab>
+                                </ha-tab-group>
+                            </div>
+
+                            <!-- Tab Content -->
+                            <div class="tab-content">
+                                ${this._renderValidationErrors()}
+                                ${this._renderActiveTab()}
+                            </div>
                         </div>
 
+                        <!-- Right Panel: Live Preview -->
                         <div class="preview-panel">
-                            ${this._renderPreview()}
+                            <!-- Canvas Toolbar -->
+                            <div class="canvas-toolbar">
+                                <div class="canvas-toolbar-buttons">
+                                    <button
+                                        class="canvas-toolbar-button ${this._showGridLines ? 'active' : ''}"
+                                        @click=${this._toggleGridLines}
+                                        title="Toggle Grid Lines">
+                                        <ha-icon icon="mdi:grid"></ha-icon>
+                                    </button>
+                                    <div class="canvas-toolbar-divider"></div>
+                                    <button
+                                        class="canvas-toolbar-button ${this._showAnimations ? 'active' : ''}"
+                                        @click=${this._toggleAnimations}
+                                        title="Toggle Animations">
+                                        <ha-icon icon="mdi:animation"></ha-icon>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Live Preview Container -->
+                            <div class="preview-container">
+                                ${this._renderPreviewCard()}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -598,33 +544,32 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
     }
 
     /**
-     * Manual card instantiation preview - NOT Lit child rendering
-     * This is the proven reliable pattern from v3
+     * Render live preview card using ref
      */
-    _renderPreview() {
+    _renderPreviewCard() {
         return html`
-            <div class="preview-header">
-                <span class="preview-title">Live Preview</span>
-                <div class="preview-controls">
-                    <ha-icon-button
-                        @click=${this._toggleGridLines}
-                        title="${this._showGridLines ? 'Hide' : 'Show'} grid lines">
-                        <ha-icon icon="${this._showGridLines ? 'mdi:grid' : 'mdi:grid-off'}"></ha-icon>
-                    </ha-icon-button>
-                    <ha-icon-button
-                        @click=${this._toggleAnimations}
-                        title="${this._showAnimations ? 'Disable' : 'Enable'} animations">
-                        <ha-icon icon="${this._showAnimations ? 'mdi:animation' : 'mdi:animation-outline'}"></ha-icon>
-                    </ha-icon-button>
-                </div>
-            </div>
-
-            <div
-                class="preview-container ${this._showGridLines ? 'show-gridlines' : ''}"
-                ${ref(this._previewRef)}>
+            <div ${ref(this._previewRef)}>
                 <!-- Card will be inserted here by _updatePreviewCard() -->
             </div>
         `;
+    }
+
+    /**
+     * Toggle grid lines in preview
+     */
+    _toggleGridLines() {
+        this._showGridLines = !this._showGridLines;
+        this._updatePreviewCard();
+        lcardsLog.debug('[DataGridStudioV4] Grid lines toggled:', this._showGridLines);
+    }
+
+    /**
+     * Toggle animations in preview
+     */
+    _toggleAnimations() {
+        this._showAnimations = !this._showAnimations;
+        this._updatePreviewCard();
+        lcardsLog.debug('[DataGridStudioV4] Animations toggled:', this._showAnimations);
     }
 
     // ========================================
