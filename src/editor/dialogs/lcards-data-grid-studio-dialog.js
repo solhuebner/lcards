@@ -298,6 +298,61 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 min-height: 300px;
             }
 
+            /* Template Examples Styling */
+            .template-examples {
+                display: flex;
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .example-group {
+                border-left: 3px solid var(--primary-color);
+                padding-left: 16px;
+            }
+
+            .example-title {
+                font-weight: 600;
+                font-size: 14px;
+                margin-bottom: 12px;
+                color: var(--primary-text-color);
+            }
+
+            .example-item {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                margin-bottom: 12px;
+            }
+
+            .example-code-row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .example-item code {
+                flex: 1;
+                font-family: 'Courier New', monospace;
+                font-size: 12px;
+                background: var(--secondary-background-color);
+                padding: 6px 10px;
+                border-radius: 4px;
+                color: var(--primary-color);
+                display: block;
+                overflow-x: auto;
+            }
+
+            .example-item .copy-button {
+                --mdc-icon-button-size: 32px;
+                --mdc-icon-size: 18px;
+            }
+
+            .example-description {
+                font-size: 12px;
+                color: var(--secondary-text-color);
+                padding-left: 10px;
+            }
+
             /* Mode selector cards */
             .mode-selector {
                 display: grid;
@@ -765,79 +820,63 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
     }
 
     /**
-     * Render template syntax examples with copy buttons
+     * Render consolidated template syntax reference with grouped examples
      */
     _renderTemplateSyntaxExamples() {
-        const examples = [
+        const exampleGroups = [
             {
-                title: 'Static Text',
-                description: 'Display fixed text',
-                code: "'DECK 1'",
-                explanation: 'Wrap text in single quotes for static display'
+                title: 'Token Templates',
+                examples: [
+                    { code: '{{ value }}', description: 'Cell value from entity or datasource' },
+                    { code: '{{ timestamp }}', description: 'Data timestamp' },
+                    { code: '{{ row }} / {{ column }}', description: 'Grid position' }
+                ]
             },
             {
-                title: 'Entity State',
-                description: 'Display current state of an entity',
-                code: "{{states('sensor.temperature')}}",
-                explanation: 'Shows the current value of the sensor'
+                title: 'Home Assistant Jinja2',
+                examples: [
+                    { code: "{{states('sensor.temperature')}}", description: 'Get entity state' },
+                    { code: "{{state_attr('sensor.weather', 'humidity')}}", description: 'Get entity attribute' },
+                    { code: "{% if states('light.kitchen') == 'on' %}ON{% else %}OFF{% endif %}", description: 'Conditional logic' },
+                    { code: "{{states('sensor.temperature')|float|round(1)}}°C", description: 'Format numbers' }
+                ]
             },
             {
-                title: 'Entity Attribute',
-                description: 'Access specific attribute of an entity',
-                code: "{{state_attr('sensor.temperature', 'unit_of_measurement')}}",
-                explanation: 'Access attributes like unit, friendly_name, etc.'
+                title: 'JavaScript Expressions',
+                examples: [
+                    { code: '[[[return value.toFixed(2);]]]', description: 'Format numbers' },
+                    { code: '[[[return new Date(timestamp).toLocaleTimeString();]]]', description: 'Format timestamps' },
+                    { code: "[[[return value > 20 ? 'WARM' : 'COOL';]]]", description: 'Conditional values' }
+                ]
             },
             {
-                title: 'Conditional Display',
-                description: 'Show different text based on condition',
-                code: "{% if states('sensor.temperature')|float > 22 %}WARM{% else %}COOL{% endif %}",
-                explanation: 'Use if/else logic to conditionally display text'
-            },
-            {
-                title: 'Formatted Number',
-                description: 'Format numeric values',
-                code: "{{states('sensor.temperature')|float|round(1)}}°C",
-                explanation: 'Round to 1 decimal place and add unit symbol'
-            },
-            {
-                title: 'Time/Date Display',
-                description: 'Show current time or date',
-                code: "{{as_timestamp(now())|timestamp_custom('%H:%M')}}",
-                explanation: 'Format: %H:%M for 24-hour, %I:%M %p for 12-hour'
-            },
-            {
-                title: 'Multiple States Combined',
-                description: 'Combine multiple entity states',
-                code: "{{states('sensor.temp')}}°C / {{states('sensor.humidity')}}%",
-                explanation: 'Show temperature and humidity in one cell'
+                title: 'Combined Examples',
+                examples: [
+                    { code: "[[[return `${value}°C (${value * 9/5 + 32}°F)`;]]]", description: 'Temperature with conversion' },
+                    { code: "{{states('sensor.temp')}}°C / {{states('sensor.humidity')}}%", description: 'Multiple entities' }
+                ]
             }
         ];
 
         return html`
-            <div style="display: flex; flex-direction: column; gap: 16px;">
-                ${examples.map((example, index) => html`
-                    <div style="border: 1px solid var(--divider-color); border-radius: 8px; padding: 12px; background: var(--card-background-color);">
-                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-                            <div>
-                                <div style="font-weight: 600; color: var(--primary-text-color); margin-bottom: 4px;">
-                                    ${example.title}
+            <div class="template-examples">
+                ${exampleGroups.map(group => html`
+                    <div class="example-group">
+                        <div class="example-title">${group.title}</div>
+                        ${group.examples.map(example => html`
+                            <div class="example-item">
+                                <div class="example-code-row">
+                                    <code>${example.code}</code>
+                                    <ha-icon-button
+                                        class="copy-button"
+                                        @click=${() => this._copyToClipboard(example.code)}
+                                        title="Copy to clipboard">
+                                        <ha-icon icon="mdi:content-copy"></ha-icon>
+                                    </ha-icon-button>
                                 </div>
-                                <div style="font-size: 12px; color: var(--secondary-text-color); margin-bottom: 8px;">
-                                    ${example.description}
-                                </div>
+                                <span class="example-description">${example.description}</span>
                             </div>
-                            <ha-icon-button
-                                @click=${() => this._copyToClipboard(example.code)}
-                                title="Copy to clipboard">
-                                <ha-icon icon="mdi:content-copy"></ha-icon>
-                            </ha-icon-button>
-                        </div>
-                        <div style="background: var(--primary-background-color); border-radius: 4px; padding: 10px; font-family: 'Courier New', monospace; font-size: 13px; overflow-x: auto; color: var(--primary-color); border: 1px solid var(--divider-color);">
-                            ${example.code}
-                        </div>
-                        <div style="font-size: 11px; color: var(--secondary-text-color); margin-top: 6px; font-style: italic;">
-                            ${example.explanation}
-                        </div>
+                        `)}
                     </div>
                 `)}
             </div>
