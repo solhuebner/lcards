@@ -33,6 +33,7 @@ import '../components/shared/lcards-style-hierarchy-diagram.js';
 import '../components/editors/lcards-color-section.js';
 import '../components/editors/lcards-grid-layout.js';
 import '../components/editors/lcards-font-selector.js';
+import '../components/editors/lcards-visual-grid-designer.js';
 import '../components/lcards-animation-editor.js';
 import '../components/lcards-filter-editor.js';
 import '../../cards/lcards-data-grid.js';
@@ -1832,73 +1833,26 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
 
     _renderAdvancedTab() {
         return html`
-            <lcards-message
-                type="info"
-                message="Configure advanced CSS Grid properties for fine-grained control over grid layout and item placement.">
+            <lcards-message type="info">
+                <ha-icon icon="mdi:information" slot="icon"></ha-icon>
+                Advanced CSS Grid properties. Use the visual designer below to configure grid layout
+                with live preview, or switch to code editor for direct CSS input.
             </lcards-message>
 
-            <!-- Auto-Placement & Item Alignment -->
+            <lcards-visual-grid-designer
+                .hass=${this.hass}
+                .config=${this._workingConfig.grid || {}}
+                @grid-changed=${this._handleGridChanged}
+                show-preview
+                show-code-editor>
+            </lcards-visual-grid-designer>
+
+            <!-- Additional Advanced Options -->
             <lcards-form-section
-                header="Auto-Placement & Item Alignment"
-                description="How cells automatically fill and align within the grid"
-                icon="mdi:format-align-middle"
-                ?expanded=${true}
-                ?outlined=${true}>
-
-                <div class="form-row-group">
-                    <ha-selector
-                        .hass=${this.hass}
-                        .selector=${{select: {mode: 'dropdown', options: [
-                            { value: 'row', label: 'Row (Fill rows first)' },
-                            { value: 'column', label: 'Column (Fill columns first)' },
-                            { value: 'row dense', label: 'Row Dense (Fill gaps)' },
-                            { value: 'column dense', label: 'Column Dense (Fill gaps)' }
-                        ]}}}
-                        .label=${'Auto Flow'}
-                        .value=${this._workingConfig.grid?.['grid-auto-flow'] || 'row'}
-                        @value-changed=${(e) => this._updateConfig('grid.grid-auto-flow', e.detail.value)}
-                        @closed=${(e) => e.stopPropagation()}>
-                    </ha-selector>
-                </div>
-
-                <lcards-grid-layout>
-                    <ha-selector
-                        .hass=${this.hass}
-                        .selector=${{select: {mode: 'dropdown', options: [
-                            { value: 'start', label: 'Start' },
-                            { value: 'end', label: 'End' },
-                            { value: 'center', label: 'Center' },
-                            { value: 'stretch', label: 'Stretch' }
-                        ]}}}
-                        .label=${'Justify Items'}
-                        .value=${this._workingConfig.grid?.['justify-items'] || 'stretch'}
-                        @value-changed=${(e) => this._updateConfig('grid.justify-items', e.detail.value)}
-                        @closed=${(e) => e.stopPropagation()}>
-                    </ha-selector>
-
-                    <ha-selector
-                        .hass=${this.hass}
-                        .selector=${{select: {mode: 'dropdown', options: [
-                            { value: 'start', label: 'Start' },
-                            { value: 'end', label: 'End' },
-                            { value: 'center', label: 'Center' },
-                            { value: 'stretch', label: 'Stretch' }
-                        ]}}}
-                        .label=${'Align Items'}
-                        .value=${this._workingConfig.grid?.['align-items'] || 'stretch'}
-                        @value-changed=${(e) => this._updateConfig('grid.align-items', e.detail.value)}
-                        @closed=${(e) => e.stopPropagation()}>
-                    </ha-selector>
-                </lcards-grid-layout>
-            </lcards-form-section>
-
-            <!-- Advanced Grid Properties -->
-            <lcards-form-section
-                header="Advanced Grid Properties"
+                header="Additional Grid Options"
                 description="Container alignment and implicit grid sizing"
                 icon="mdi:cog"
-                ?expanded=${false}
-                ?outlined=${true}>
+                ?expanded=${false}>
 
                 <lcards-grid-layout>
                     <ha-textfield
@@ -1953,6 +1907,25 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 </lcards-grid-layout>
             </lcards-form-section>
         `;
+    }
+
+    /**
+     * Handle grid configuration changes from visual grid designer
+     */
+    _handleGridChanged(e) {
+        this._workingConfig.grid = {
+            ...this._workingConfig.grid,
+            ...e.detail.grid
+        };
+        
+        // Also update UI state for grid dimensions if they changed
+        if (e.detail.grid['grid-template-rows']) {
+            this._parseGridConfigForUI();
+        }
+        
+        this.requestUpdate();
+        this._schedulePreviewUpdate();
+        lcardsLog.debug('[DataGridStudioV4] Grid config updated from visual designer:', e.detail.grid);
     }
 
     // Old subtabs removed - Grid Styles is now a main tab, Animation is now a main tab
