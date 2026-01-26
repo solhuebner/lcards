@@ -3,13 +3,14 @@
  *
  * Simplified 2-mode architecture:
  * - Decorative Mode: Auto-generated random data for LCARS ambiance
- * - Data Mode: Real entity/sensor data with grid or timeline layouts
+ * - Data Mode: Real entity/sensor data with grid layout
  *
  * Key Features:
  * - Live preview with configurable grid dimensions
  * - Grid layout: Flexible spreadsheet-style data display
- * - Timeline layout: Single-source historical data visualization
  * - Visual hierarchy diagrams for styling
+ * - Split-panel layout (33/66 config/preview)
+ * - Canvas toolbar with gridlines and animations toggle
  *
  * @element lcards-data-grid-studio-dialog-v4
  * @fires config-changed - When configuration is saved (detail: { config })
@@ -50,7 +51,6 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             _activeCellEdit: { type: Object, state: true }, // {row, col, value}
             _activeRowEdit: { type: Number, state: true }, // row index
             _activeColumnEdit: { type: Number, state: true }, // column index
-            _activeTimelineRowEdit: { type: Number, state: true }, // timeline row editor
             _showGridLines: { type: Boolean, state: true }, // preview gridlines toggle
             _showAnimations: { type: Boolean, state: true }, // preview animations toggle
             _gridStylesSubTab: { type: String, state: true } // Grid Styles sub-tab: 'hierarchy', 'table', 'row-column', 'cell'
@@ -80,7 +80,6 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
         this._activeCellEdit = null;
         this._activeRowEdit = null;
         this._activeColumnEdit = null;
-        this._activeTimelineRowEdit = null;
 
         // Preview toggles
         this._showGridLines = true; // Show gridlines by default for editing clarity
@@ -114,6 +113,11 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
         // Deep clone initial config
         this._workingConfig = JSON.parse(JSON.stringify(this._initialConfig || {}));
 
+        // Migrate old timeline configs to data table mode
+        if (this._workingConfig.layout === 'timeline') {
+            this._migrateTimelineConfig();
+        }
+
         // Ensure data_mode is set
         if (!this._workingConfig.data_mode) {
             this._workingConfig.data_mode = 'decorative';
@@ -135,34 +139,34 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
         this._parseGridConfigForUI();
 
         // Initialize Data mode (grid layout) with sample rows matching grid dimensions
-        if (this._workingConfig.data_mode === 'data' && (!this._workingConfig.layout || this._workingConfig.layout === 'grid')) {
-            if (!this._workingConfig.rows || this._workingConfig.rows.length === 0) {
-                this._initializeGridRows();
-            }
-        }
-
-        // Initialize Data mode timeline layout
-        if (this._workingConfig.data_mode === 'data' && this._workingConfig.layout === 'timeline') {
-            // Initialize source for timeline layout
-            if (!this._workingConfig.source) {
-                this._workingConfig.source = '';
-            }
-            if (!this._workingConfig.history_hours) {
-                this._workingConfig.history_hours = 2;
-            }
-            if (!this._workingConfig.value_template) {
-                this._workingConfig.value_template = '{value}';
-            }
-            // Timeline doesn't use rows array (single source only)
-            if (this._workingConfig.rows) {
-                delete this._workingConfig.rows;
-            }
+        if (this._workingConfig.data_mode === 'data' && !this._workingConfig.rows) {
+            this._initializeGridRows();
         }
 
         lcardsLog.debug('[DataGridStudioV4] Opened with config:', this._workingConfig);
 
         // Schedule initial preview update
         this.updateComplete.then(() => this._updatePreviewCard());
+    }
+
+    /**
+     * Migrate old timeline configs to data table mode
+     * @private
+     */
+    _migrateTimelineConfig() {
+        lcardsLog.warn('[DataGridStudioV4] Migrating deprecated timeline config to manual mode');
+        
+        // Remove layout property
+        delete this._workingConfig.layout;
+        
+        // If there was a source, we can't easily migrate it to the new grid system
+        // Just clear timeline-specific properties
+        delete this._workingConfig.source;
+        delete this._workingConfig.history_hours;
+        delete this._workingConfig.value_template;
+        
+        // Set to manual/data mode
+        this._workingConfig.data_mode = 'data';
     }
 
     /**
@@ -590,7 +594,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 id: 'data',
                 icon: 'mdi:database',
                 title: 'Data',
-                description: 'Real entity/sensor data with grid or timeline layout'
+                description: 'Real entity/sensor data with grid layout'
             }
         ];
 
@@ -1073,14 +1077,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
     }
 
     _renderDataModeEditor() {
-        const layout = this._workingConfig.layout || 'grid';
-
-        // Render different editor based on layout type
-        if (layout === 'timeline') {
-            return this._renderTimelineDataEditor();
-        } else {
-            return this._renderGridDataEditor();
-        }
+        return this._renderGridDataEditor();
     }
 
     _renderGridDataEditor() {
@@ -1204,152 +1201,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
         `;
     }
 
-    _renderTimelineDataEditor() {
-        const sourceType = this._workingConfig.source_type || 'entity';
-
-        return html`
-            <lcards-form-section
-                header="Timeline Configuration"
-                description="Configure single data source for historical timeline display"
-                icon="mdi:chart-timeline-variant"
-                ?expanded=${true}>
-
-                <lcards-message type="info">
-                    <strong>Timeline Mode:</strong> Displays historical values from a single entity or datasource.
-                    The grid columns auto-populate with historical data points.
-                </lcards-message>
-
-                <!-- Source Type Selector -->
-                <ha-selector
-                    .hass=${this.hass}
-                    .selector=${{select: {mode: 'dropdown', options: [
-                        { value: 'entity', label: 'Entity (from Home Assistant)' },
-                        { value: 'datasource', label: 'DataSource (from LCARdS)' }
-                    ]}}}
-                    .label=${'Source Type'}
-                    .value=${sourceType}
-                    @value-changed=${(e) => this._updateConfig('source_type', e.detail.value)}
-                    @closed=${(e) => e.stopPropagation()}>
-                </ha-selector>
-
-                <!-- Entity Picker (shown when source_type is 'entity') -->
-                ${sourceType === 'entity' ? html`
-                    <ha-selector
-                        .hass=${this.hass}
-                        .selector=${{entity: {}}}
-                        .value=${this._workingConfig.source || ''}
-                        .label=${'Entity'}
-                        @value-changed=${(e) => this._updateConfig('source', e.detail.value)}
-                        @closed=${(e) => e.stopPropagation()}>
-                    </ha-selector>
-                ` : ''}
-
-                <!-- DataSource Input (shown when source_type is 'datasource') -->
-                ${sourceType === 'datasource' ? html`
-                    <ha-selector
-                        .hass=${this.hass}
-                        .selector=${{text: {}}}
-                        .value=${this._workingConfig.source || ''}
-                        .label=${'DataSource ID'}
-                        .helper=${'Enter the DataSource ID from your configuration'}
-                        @value-changed=${(e) => this._updateConfig('source', e.detail.value)}
-                        @closed=${(e) => e.stopPropagation()}>
-                    </ha-selector>
-                ` : ''}
-
-                <ha-selector
-                    .hass=${this.hass}
-                    .selector=${{number: {min: 1, max: 168, mode: 'box'}}}
-                    .value=${this._workingConfig.history_hours || 24}
-                    .label=${'History Hours'}
-                    .helper=${'Number of hours of historical data to display'}
-                    @value-changed=${(e) => this._updateConfig('history_hours', parseInt(e.detail.value) || 24)}
-                    @closed=${(e) => e.stopPropagation()}>
-                </ha-selector>
-
-                <ha-selector
-                    .hass=${this.hass}
-                    .selector=${{number: {min: 3, max: 50, mode: 'box'}}}
-                    .value=${this._workingConfig.data_points || 12}
-                    .label=${'Data Points'}
-                    .helper=${'Number of columns (data points) to display'}
-                    @value-changed=${(e) => this._updateConfig('data_points', parseInt(e.detail.value) || 12)}
-                    @closed=${(e) => e.stopPropagation()}>
-                </ha-selector>
-
-                <ha-selector
-                    .hass=${this.hass}
-                    .selector=${{text: {multiline: false}}}
-                    .value=${this._workingConfig.value_template || '{value}'}
-                    .label=${'Value Template'}
-                    .helper=${'Template for formatting displayed values (use {value} for raw value)'}
-                    @value-changed=${(e) => this._updateConfig('value_template', e.detail.value)}
-                    @closed=${(e) => e.stopPropagation()}>
-                </ha-selector>
-
-                <ha-selector
-                    .hass=${this.hass}
-                    .selector=${{select: {mode: 'dropdown', options: [
-                        { value: 'avg', label: 'Average' },
-                        { value: 'min', label: 'Minimum' },
-                        { value: 'max', label: 'Maximum' },
-                        { value: 'last', label: 'Last Value' }
-                    ]}}}
-                    .label=${'Aggregation Method'}
-                    .value=${this._workingConfig.aggregation || 'avg'}
-                    @value-changed=${(e) => this._updateConfig('aggregation', e.detail.value)}
-                    @closed=${(e) => e.stopPropagation()}>
-                </ha-selector>
-
-                <lcards-message type="info" style="margin-top: 12px;">
-                    Timeline will fetch historical data from the ${sourceType} and display it across ${this._workingConfig.data_points || 12} columns.
-                </lcards-message>
-            </lcards-form-section>
-        `;
-    }
-
-    _renderTimelineRowEditor() {
-        const rowIndex = this._activeTimelineRowEdit;
-        const row = this._workingConfig.rows[rowIndex] || {};
-        const entityId = typeof row === 'object' ? row.entity_id : (Array.isArray(row) ? row[0] : '');
-        const label = typeof row === 'object' ? row.label : '';
-
-        return html`
-            <lcards-form-section
-                header="Edit Timeline Row ${rowIndex + 1}"
-                description="Configure datasource for this timeline row"
-                icon="mdi:table-row"
-                ?expanded=${true}>
-
-                <ha-textfield
-                    label="Row Label"
-                    .value=${label}
-                    @input=${(e) => this._updateTimelineRowLabel(rowIndex, e.target.value)}
-                    helper="Display name for this row"
-                    style="margin-bottom: 8px;">
-                </ha-textfield>
-
-                <ha-entity-picker
-                    .hass=${this.hass}
-                    .value=${entityId}
-                    @value-changed=${(e) => this._updateTimelineRowEntity(rowIndex, e.detail.value)}
-                    label="Entity / Datasource"
-                    allow-custom-entity>
-                </ha-entity-picker>
-
-                <div style="display: flex; gap: 8px; margin-top: 16px;">
-                    <ha-button appearance="plain" @click=${() => this._closeTimelineRowEditor()}>
-                        <ha-icon icon="mdi:close" slot="icon"></ha-icon>
-                        Close
-                    </ha-button>
-                </div>
-            </lcards-form-section>
-        `;
-    }
-
     _renderDataModeConfig() {
-        const layout = this._workingConfig.layout || 'grid';
-
         return html`
             <lcards-form-section
                 header="Data Mode Settings"
@@ -1357,36 +1209,11 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 icon="mdi:database"
                 ?expanded=${true}>
 
-                <div class="form-row-group">
-                    <ha-selector
-                        .hass=${this.hass}
-                        .selector=${{select: {mode: 'dropdown', options: [
-                            { value: 'grid', label: 'Grid (Auto-detected cells)' },
-                            { value: 'timeline', label: 'Timeline (Historical data)' }
-                        ]}}}
-                        .label=${'Layout Type'}
-                        .value=${layout}
-                        @value-changed=${(e) => this._handleLayoutChange(e.detail.value)}
-                        @closed=${(e) => e.stopPropagation()}>
-                    </ha-selector>
-                </div>
-
                 <lcards-message type="info">
-                    ${layout === 'timeline'
-                        ? 'Timeline mode: Display historical data from a single source (limited to 1 row)'
-                        : 'Grid mode: Rows with auto-detected cells (static text, entity refs, or templates)'}
-                </lcards-message>
-
-                ${layout === 'timeline' ? this._renderTimelineConfig() : ''}
+                    Grid mode: Rows with auto-detected cells (static text, entity refs, or templates)
+                </lcards:message>
             </lcards-form-section>
         `;
-    }
-
-    /**
-     * Empty placeholder - timeline config is rendered in _renderTimelineDataEditor()
-     */
-    _renderTimelineConfig() {
-        return '';
     }
 
     // ========================================
@@ -2236,23 +2063,9 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 this._workingConfig.layout = 'grid';
             }
 
-            // Initialize grid mode with sample rows
-            if (this._workingConfig.layout === 'grid' && (!this._workingConfig.rows || this._workingConfig.rows.length === 0)) {
+            // Initialize grid mode with sample rows if needed
+            if (!this._workingConfig.rows || this._workingConfig.rows.length === 0) {
                 this._initializeGridRows();
-            }
-
-            // Initialize timeline mode
-            if (this._workingConfig.layout === 'timeline') {
-                if (!this._workingConfig.source) {
-                    this._workingConfig.source = '';
-                }
-                if (!this._workingConfig.history_hours) {
-                    this._workingConfig.history_hours = 2;
-                }
-                if (!this._workingConfig.value_template) {
-                    this._workingConfig.value_template = '{value}';
-                }
-                delete this._workingConfig.rows;
             }
         }
 
@@ -2275,46 +2088,6 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
         // Immediately update preview to add/remove animation config
         this._updatePreviewCard();
         lcardsLog.debug('[DataGridStudioV4] Toggled animations:', this._showAnimations);
-    }
-
-    _handleLayoutChange(newLayout) {
-        const oldLayout = this._workingConfig.layout;
-        this._updateConfig('layout', newLayout);
-
-        // Clean up layout-specific config when switching
-        if (newLayout === 'grid') {
-            // Switching to grid: ensure rows exist, remove timeline fields
-            if (!this._workingConfig.rows || this._workingConfig.rows.length === 0) {
-                this._initializeGridRows();
-            } else {
-                // Normalize existing rows to object format
-                this._normalizeRowsFormat();
-            }
-
-            // Remove timeline-specific fields
-            delete this._workingConfig.source;
-            delete this._workingConfig.history_hours;
-            delete this._workingConfig.value_template;
-
-        } else if (newLayout === 'timeline') {
-            // Switching to timeline: set source and history config, remove rows
-            if (!this._workingConfig.source) {
-                this._workingConfig.source = '';
-            }
-            if (!this._workingConfig.history_hours) {
-                this._workingConfig.history_hours = 2;
-            }
-            if (!this._workingConfig.value_template) {
-                this._workingConfig.value_template = '{value}';
-            }
-
-            // Timeline doesn't use rows array (single source only)
-            delete this._workingConfig.rows;
-        }
-
-        lcardsLog.info('[DataGridStudioV4] Layout changed:', { from: oldLayout, to: newLayout });
-        this.requestUpdate();
-        this._schedulePreviewUpdate();
     }
 
     _setPreviewMode(mode) {
@@ -2909,19 +2682,10 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
 
         // Data mode validation
         if (this._workingConfig.data_mode === 'data') {
-            const layout = this._workingConfig.layout || 'grid';
-
-            if (layout === 'grid') {
-                // Grid layout validation
-                const rows = this._workingConfig.rows || [];
-                if (rows.length === 0) {
-                    errors.push('Data mode (grid layout): At least one row is required');
-                }
-            } else if (layout === 'timeline') {
-                // Timeline layout validation
-                if (!this._workingConfig.source || this._workingConfig.source.trim() === '') {
-                    errors.push('Data mode (timeline layout): Source is required');
-                }
+            // Grid layout validation
+            const rows = this._workingConfig.rows || [];
+            if (rows.length === 0) {
+                errors.push('Data mode: At least one row is required');
             }
         }
 
@@ -3039,49 +2803,6 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
         lcardsLog.info('[DataGridStudioV4] Row deleted:', index);
         this.requestUpdate();
         this._schedulePreviewUpdate();
-    }
-
-    /**
-     * Add timeline row (row-timeline layout)
-     */
-    _addTimelineRow() {
-        if (!this._workingConfig.rows) {
-            this._workingConfig.rows = [];
-        }
-
-        this._workingConfig.rows.push({
-            source: '',
-            label: `Row ${this._workingConfig.rows.length + 1}`,
-            format: '{value}',
-            history_hours: 2,
-            columns: 12
-        });
-
-        lcardsLog.info('[DataGridStudioV4] Timeline row added');
-        this.requestUpdate();
-        this._schedulePreviewUpdate();
-    }
-
-    /**
-     * Edit timeline row configuration
-     */
-    _editTimelineRow(index) {
-        lcardsLog.info('[DataGridStudioV4] Edit timeline row:', index);
-
-        const row = this._workingConfig.rows?.[index];
-        if (!row) {
-            lcardsLog.error('[DataGridStudioV4] Row not found:', index);
-            return;
-        }
-
-        // Create overlay with timeline row editor
-        this._activeOverlay = {
-            type: 'timeline-row',
-            rowIndex: index,
-            data: { ...row }
-        };
-
-        this.requestUpdate();
     }
 
     /**
@@ -3801,76 +3522,6 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
             bubbles: true,
             composed: true
         }));
-    }
-
-    // ========================================
-    // Timeline Row Management
-    // ========================================
-
-    _addTimelineRow() {
-        if (!this._workingConfig.rows) {
-            this._workingConfig.rows = [];
-        }
-
-        this._workingConfig.rows.push({
-            entity_id: '',
-            label: `Row ${this._workingConfig.rows.length + 1}`
-        });
-
-        lcardsLog.info('[DataGridStudioV4] Timeline row added');
-        this.requestUpdate();
-        this._schedulePreviewUpdate();
-    }
-
-    _editTimelineRow(index) {
-        this._activeTimelineRowEdit = index;
-        this.requestUpdate();
-    }
-
-    _closeTimelineRowEditor() {
-        this._activeTimelineRowEdit = null;
-        this.requestUpdate();
-    }
-
-    _updateTimelineRowEntity(index, entityId) {
-        if (this._workingConfig.rows[index]) {
-            if (typeof this._workingConfig.rows[index] === 'object') {
-                this._workingConfig.rows[index].entity_id = entityId;
-            } else {
-                this._workingConfig.rows[index] = {
-                    entity_id: entityId,
-                    label: `Row ${index + 1}`
-                };
-            }
-            this.requestUpdate();
-            this._schedulePreviewUpdate();
-        }
-    }
-
-    _updateTimelineRowLabel(index, label) {
-        if (this._workingConfig.rows[index]) {
-            if (typeof this._workingConfig.rows[index] === 'object') {
-                this._workingConfig.rows[index].label = label;
-            } else {
-                this._workingConfig.rows[index] = {
-                    entity_id: '',
-                    label: label
-                };
-            }
-            this.requestUpdate();
-        }
-    }
-
-    _deleteTimelineRow(index) {
-        if (this._workingConfig.rows && this._workingConfig.rows[index]) {
-            this._workingConfig.rows.splice(index, 1);
-            if (this._activeTimelineRowEdit === index) {
-                this._activeTimelineRowEdit = null;
-            }
-            lcardsLog.info('[DataGridStudioV4] Timeline row deleted:', index);
-            this.requestUpdate();
-            this._schedulePreviewUpdate();
-        }
     }
 }
 
