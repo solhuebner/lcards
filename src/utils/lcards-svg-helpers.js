@@ -3,7 +3,7 @@ import { lcardsLog } from './lcards-logging.js';
 
 /**
  * Generate SVG line element as string
- * 
+ *
  * @param {Object} params - Line parameters
  * @param {number} params.x1 - Start X coordinate
  * @param {number} params.y1 - Start Y coordinate
@@ -22,7 +22,7 @@ export function drawLine({ x1, y1, x2, y2, id, attrs = {}, style = {} }) {
 
 /**
  * Generate SVG polyline element as string
- * 
+ *
  * @param {Object} params - Polyline parameters
  * @param {Array<[number, number]>} params.points - Array of [x, y] coordinate pairs
  * @param {string} [params.id] - Element ID
@@ -76,6 +76,25 @@ export function styleToString(style) {
     .map(([k, v]) => `${k.replace(/[A-Z]/g, m => '-' + m.toLowerCase())}:${v}`)
     .join(';');
   return s ? ` style="${s}"` : '';
+}
+
+/**
+ * Escape double quotes in XML/SVG attribute values
+ *
+ * Required when building SVG strings manually that will be parsed with DOMParser.
+ * CSS variables with fallbacks often contain nested quotes:
+ * var(--my-var, "fallback value")
+ *
+ * @param {string} value - Attribute value to escape
+ * @returns {string} Escaped value safe for XML attributes
+ *
+ * @example
+ * const fill = 'var(--my-color, "red")';
+ * const svg = `<rect fill="${escapeXmlAttribute(fill)}" />`;
+ */
+export function escapeXmlAttribute(value) {
+  if (!value || typeof value !== 'string') return value;
+  return value.replace(/"/g, '&quot;');
 }
 
 // --- SVG Content Processing ---

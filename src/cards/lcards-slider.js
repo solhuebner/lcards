@@ -784,7 +784,7 @@ export class LCARdSSlider extends LCARdSButton {
                 if (fallback) {
                     return this._resolveCssVariable(fallback);
                 }
-                
+
                 // No computed value and no fallback - return safe default
                 return '#000000';
             } else {
@@ -1264,7 +1264,18 @@ export class LCARdSSlider extends LCARdSButton {
 
         // Parse markup and append to text zone
         const parser = new DOMParser();
-        const doc = parser.parseFromString(`<g>${textMarkup}</g>`, 'image/svg+xml');
+        const wrappedMarkup = `<g>${textMarkup}</g>`;
+        const doc = parser.parseFromString(wrappedMarkup, 'image/svg+xml');
+
+        // Check if parsing failed
+        const parseError = doc.querySelector('parsererror');
+        if (parseError) {
+            lcardsLog.trace('[LCARdSSlider] DOMParser failed to parse text markup!');
+            lcardsLog.trace('[LCARdSSlider] Wrapped markup:', wrappedMarkup);
+            lcardsLog.trace('[LCARdSSlider] Parse error:', parseError.textContent);
+            return; // Abort injection to prevent parsererror in final SVG
+        }
+
         const textElements = doc.documentElement.children;
 
         // Append all text elements to text zone
@@ -2456,19 +2467,48 @@ export class LCARdSSlider extends LCARdSButton {
 
             // Inject dynamic content into zones
             this._injectContentIntoZones();
-            
-            // Serialize component SVG - validate all 'fill' attributes are complete
-            const allRects = this._componentSvg.querySelectorAll('rect[fill]');
-            allRects.forEach(rect => {
-                const fillValue = rect.getAttribute('fill');
-                if (fillValue && fillValue.includes('var(') && !fillValue.includes(')')) {
-                    lcardsLog.warn('[LCARdSSlider] Fixing malformed fill attribute:', fillValue);
-                    // Remove malformed var() and use safe default
-                    rect.setAttribute('fill', '#000000');
-                }
+
+            // Validate all attributes before serialization
+            const allElements = this._componentSvg.querySelectorAll('*');
+            let hasInvalidAttrs = false;
+            allElements.forEach(el => {
+                Array.from(el.attributes).forEach(attr => {
+                    const value = attr.value;
+                    // Check for malformed var() or unclosed quotes
+                    if (value && typeof value === 'string') {
+                        if (value.includes('var(') && !value.includes(')')) {
+                            lcardsLog.trace('[LCARdSSlider] Malformed var() in', el.tagName, attr.name, ':', value);
+                            attr.value = '#000000';
+                            hasInvalidAttrs = true;
+                        }
+                        // Check for unescaped quotes or other issues
+                        if (value.includes('"') && !value.startsWith('"')) {
+                            lcardsLog.trace('[LCARdSSlider] Unescaped quote in', el.tagName, attr.name, ':', value);
+                            hasInvalidAttrs = true;
+                        }
+                    }
+                });
             });
-            
+
+            if (hasInvalidAttrs) {
+                lcardsLog.trace('[LCARdSSlider] Found invalid attributes before serialization');
+            }
+
             svgContent = new XMLSerializer().serializeToString(this._componentSvg);
+
+            // Log the serialized SVG if it contains parse errors indicators
+            if (svgContent.includes('parsererror') || svgContent.includes('attributes construct')) {
+                lcardsLog.trace('[LCARdSSlider] Serialized SVG contains parser errors!');
+                lcardsLog.trace('[LCARdSSlider] SVG Content (first 2000 chars):', svgContent.substring(0, 2000));
+
+                // Try to extract the actual error message from parsererror element
+                const parser = new DOMParser();
+                const parsed = parser.parseFromString(svgContent, 'image/svg+xml');
+                const errorNode = parsed.querySelector('parsererror');
+                if (errorNode) {
+                    lcardsLog.trace('[LCARdSSlider] Parser error details:', errorNode.textContent);
+                }
+            }
         } else {
             // Generate fallback slider
             svgContent = this._generateFallbackSlider(width, height);

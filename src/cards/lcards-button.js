@@ -61,7 +61,7 @@ import { escapeHtml } from '../utils/StringUtils.js';
 import { TemplateParser } from '../core/templates/TemplateParser.js';
 import { getComponent } from '../core/packs/components/index.js';
 import { RendererUtils } from '../msd/renderer/RendererUtils.js';
-import { sanitizeSvg, extractViewBox, extractDataUriContent } from '../utils/lcards-svg-helpers.js';
+import { sanitizeSvg, extractViewBox, extractDataUriContent, escapeXmlAttribute } from '../utils/lcards-svg-helpers.js';
 import { applyBaseSvgFilters } from '../msd/utils/BaseSvgFilters.js';
 
 // Import unified schema
@@ -3981,7 +3981,7 @@ export class LCARdSButton extends LCARdSCard {
                     `height="${bgHeight}"`,
                     `rx="${bgRadius}"`,
                     `ry="${bgRadius}"`,
-                    `fill="${field.background}"`,
+                    `fill="${escapeXmlAttribute(field.background)}"`,
                     `pointer-events="none"`
                 ];
 
@@ -3999,7 +3999,7 @@ export class LCARdSButton extends LCARdSCard {
                 `x="${field.x}"`,
                 `y="${field.y}"`,
                 `font-size="${field.font_size}"`,
-                `fill="${field.color}"`,
+                `fill="${escapeXmlAttribute(field.color)}"`,
                 `text-anchor="${field.anchor}"`,
                 `dominant-baseline="${field.baseline}"`,
                 `pointer-events="none"`  // Allow clicks to pass through to segments below
@@ -4010,7 +4010,7 @@ export class LCARdSButton extends LCARdSCard {
             }
 
             if (field.font_family) {
-                textAttrs.push(`font-family="${field.font_family}"`);
+                textAttrs.push(`font-family="${escapeXmlAttribute(field.font_family)}"`);
             }
 
             // Add rotation transform if specified (rotates around text origin point)

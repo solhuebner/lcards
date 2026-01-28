@@ -31,6 +31,7 @@ import { TemplateParser } from '../core/templates/TemplateParser.js';
 import { deepMerge } from '../core/config-manager/merge-helpers.js';
 import { ColorUtils } from '../core/themes/ColorUtils.js';
 import { ProvenanceTracker } from '../utils/provenance-tracker.js';
+import { escapeXmlAttribute } from '../utils/lcards-svg-helpers.js';
 
 /**
  * Base class for simple LCARdS cards
@@ -2798,6 +2799,10 @@ export class LCARdSCard extends LCARdSNativeCard {
             lcardsLog.debug('[LCARdSCard] Component loaded, zones will be extracted after render');
         }
     }
+
+    // ============================================================================
+    // Zone Management Methods
+    // ============================================================================
 
     /**
      * Extract zones from rendered SVG component
