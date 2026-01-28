@@ -1979,7 +1979,8 @@ export class LCARdSSlider extends LCARdSButton {
                 }
 
                 // Apply offset (note: for vertical, offsetY moves up/down, offsetX moves left/right)
-                const indicatorX = (trackWidth / 2) + offsetX;
+                // Position indicator at center of progress bar (progressX + half of progressHeight)
+                const indicatorX = progressX + (progressHeight / 2) + offsetX;
                 const indicatorY = baseIndicatorY + offsetY;
 
                 if (indicatorType === 'round') {

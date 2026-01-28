@@ -553,10 +553,20 @@ export const gridOptionsSchema = {
     description: 'Home Assistant grid layout options. Controls how many rows and columns this card occupies in the dashboard grid.',
     properties: {
         columns: {
-            type: 'number',
-            minimum: 1,
-            maximum: 24,
-            description: 'Number of columns this card spans (1-24)'
+            oneOf: [
+                {
+                    type: 'string',
+                    enum: ['full'],
+                    description: 'Set to "full" to span all available columns'
+                },
+                {
+                    type: 'number',
+                    minimum: 1,
+                    maximum: 24,
+                    description: 'Number of columns this card spans (1-24)'
+                }
+            ],
+            description: 'Number of columns (1-24) or "full" to span all columns'
         },
         rows: {
             type: 'number',

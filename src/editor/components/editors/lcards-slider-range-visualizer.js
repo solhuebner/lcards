@@ -624,7 +624,7 @@ export class LCARdSSliderRangeVisualizer extends LitElement {
                         data-type="displayMin"
                         style="left: ${displayMinPercent}%; opacity: 0.6;"
                         @mousedown="${(e) => this._startDrag(e, 'displayMin')}">
-                        <div class="range-handle-label">${this.displayMin}${this.unit}</div>
+                        <div class="range-handle-label">${this.invertFill ? this.displayMax : this.displayMin}${this.unit}</div>
                     </div>
 
                     <div
@@ -632,7 +632,7 @@ export class LCARdSSliderRangeVisualizer extends LitElement {
                         data-type="displayMax"
                         style="left: ${displayMaxPercent}%; opacity: 0.6;"
                         @mousedown="${(e) => this._startDrag(e, 'displayMax')}">
-                        <div class="range-handle-label">${this.displayMax}${this.unit}</div>
+                        <div class="range-handle-label">${this.invertFill ? this.displayMin : this.displayMax}${this.unit}</div>
                     </div>
                 </div>
 
@@ -656,7 +656,7 @@ export class LCARdSSliderRangeVisualizer extends LitElement {
                         data-type="controlMin"
                         style="left: ${controlMinPercent}%"
                         @mousedown="${(e) => this._startDrag(e, 'controlMin')}">
-                        <div class="range-handle-label">${this.controlMin}${this.unit}</div>
+                        <div class="range-handle-label">${this.invertFill ? this.controlMax : this.controlMin}${this.unit}</div>
                     </div>
 
                     <div
@@ -664,7 +664,7 @@ export class LCARdSSliderRangeVisualizer extends LitElement {
                         data-type="controlMax"
                         style="left: ${controlMaxPercent}%"
                         @mousedown="${(e) => this._startDrag(e, 'controlMax')}">
-                        <div class="range-handle-label">${this.controlMax}${this.unit}</div>
+                        <div class="range-handle-label">${this.invertFill ? this.controlMin : this.controlMax}${this.unit}</div>
                     </div>
                 </div>
 
