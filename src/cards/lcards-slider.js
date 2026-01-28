@@ -1283,8 +1283,13 @@ export class LCARdSSlider extends LCARdSButton {
         const gap = parseInt(trackConfig?.gap) || 4;
         const radius = trackConfig?.shape?.radius ?? 4;
         const interpolated = trackConfig?.gradient?.interpolated ?? false;
-        const gradientStart = this._resolveCssVariable(trackConfig?.gradient?.start || 'var(--error-color, var(--lcards-orange-dark, #cc2200))');
-        const gradientEnd = this._resolveCssVariable(trackConfig?.gradient?.end || 'var(--success-color, var(--lcards-green-medium, #33cc99))');
+        let gradientStart = this._resolveCssVariable(trackConfig?.gradient?.start || 'var(--error-color, var(--lcards-orange-dark, #cc2200))');
+        let gradientEnd = this._resolveCssVariable(trackConfig?.gradient?.end || 'var(--success-color, var(--lcards-green-medium, #33cc99))');
+
+        // Reverse gradient direction when fill is inverted
+        if (this._invertFill) {
+            [gradientStart, gradientEnd] = [gradientEnd, gradientStart];
+        }
         const unfilledOpacity = trackConfig?.appearance?.unfilled?.opacity ?? 0.2;
 
         const trackWidth = trackBounds.width;
@@ -1668,11 +1673,15 @@ export class LCARdSSlider extends LCARdSButton {
                 const tickCount = Math.floor(range / majorInterval) + 1;
 
                 for (let i = 0; i < tickCount; i++) {
-                    const scaleValue = min + (i * majorInterval);
-                    if (scaleValue > max) break;
+                    // Position based on normal iteration (left to right)
+                    const positionValue = min + (i * majorInterval);
+                    if (positionValue > max) break;
+
+                    // Display value: reversed when inverted (show high→low instead of low→high)
+                    const displayValue = this._invertFill ? (max - (positionValue - min)) : positionValue;
 
                     // Calculate x position as percentage of track width
-                    const percent = ((scaleValue - min) / range) * 100;
+                    const percent = ((positionValue - min) / range) * 100;
                     let x = (percent / 100) * trackWidth;
 
                     // Skip first tick (adjacent to left border when present)
@@ -1698,7 +1707,7 @@ export class LCARdSSlider extends LCARdSButton {
                     // Label - positioned near bottom with proper spacing
                     if (labelsEnabled && !isFirstTick) {
                         // Estimate label width (rough approximation: ~8px per digit + unit)
-                        const labelText = Math.round(scaleValue) + labelUnit;
+                        const labelText = Math.round(displayValue) + labelUnit;
                         const estimatedLabelWidth = labelText.length * 8;
 
                         // Check if label would extend beyond track bounds
@@ -1726,15 +1735,16 @@ export class LCARdSSlider extends LCARdSButton {
                 const minorTickCount = Math.floor(range / minorInterval) + 1;
 
                 for (let i = 0; i < minorTickCount; i++) {
-                    const scaleValue = min + (i * minorInterval);
-                    if (scaleValue > max) break;
+                    // Position based on normal iteration
+                    const positionValue = min + (i * minorInterval);
+                    if (positionValue > max) break;
 
                     // Skip if this is a major tick position
-                    const offsetFromMin = scaleValue - min;
+                    const offsetFromMin = positionValue - min;
                     if (offsetFromMin % majorInterval === 0) continue;
 
                     // Calculate x position as percentage of track width
-                    const percent = ((scaleValue - min) / range) * 100;
+                    const percent = ((positionValue - min) / range) * 100;
                     const x = (percent / 100) * trackWidth;
 
                     // Minor tick - from top to minorHeight
@@ -1839,12 +1849,16 @@ export class LCARdSSlider extends LCARdSButton {
                 const tickCount = Math.floor(range / majorInterval) + 1;
 
                 for (let i = 0; i < tickCount; i++) {
-                    const scaleValue = min + (i * majorInterval);
-                    if (scaleValue > max) break;
+                    // Position based on normal iteration (bottom to top)
+                    const positionValue = min + (i * majorInterval);
+                    if (positionValue > max) break;
+
+                    // Display value: reversed when inverted (show high→low instead of low→high)
+                    const displayValue = this._invertFill ? (max - (positionValue - min)) : positionValue;
 
                     // Calculate y position as percentage of track height
                     // INVERTED: 0% = top (max value), 100% = bottom (min value)
-                    const percent = 100 - (((scaleValue - min) / range) * 100);
+                    const percent = 100 - (((positionValue - min) / range) * 100);
                     let y = (percent / 100) * trackHeight;
 
                     // Skip bottom tick (adjacent to bottom border when present)
@@ -1871,7 +1885,7 @@ export class LCARdSSlider extends LCARdSButton {
 
                     // Draw label if enabled (to the right, below the line)
                     if (labelsEnabled && !isBottomTick) {
-                        const labelText = `${scaleValue}${labelUnit}`;
+                        const labelText = `${displayValue}${labelUnit}`;
                         const labelColor = this._resolveCssVariable(labelConfig?.color || 'var(--lcars-card-button, #ff9966)');
                         const labelFontSizeVertical = labelConfig?.font_size || labelFontSize;
 
@@ -1900,15 +1914,16 @@ export class LCARdSSlider extends LCARdSButton {
                 const minorTickCount = Math.floor(range / minorInterval) + 1;
 
                 for (let i = 0; i < minorTickCount; i++) {
-                    const scaleValue = min + (i * minorInterval);
-                    if (scaleValue > max) break;
+                    // Position based on normal iteration
+                    const positionValue = min + (i * minorInterval);
+                    if (positionValue > max) break;
 
                     // Skip if this position has a major tick
-                    const offsetFromMin = scaleValue - min;
+                    const offsetFromMin = positionValue - min;
                     if (offsetFromMin % majorInterval === 0) continue;
 
                     // Calculate y position (inverted like major ticks)
-                    const percent = 100 - (((scaleValue - min) / range) * 100);
+                    const percent = 100 - (((positionValue - min) / range) * 100);
                     const y = (percent / 100) * trackHeight;
 
                     // Minor tick - short horizontal line from left edge
