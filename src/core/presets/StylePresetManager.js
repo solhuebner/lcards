@@ -57,7 +57,7 @@ export class StylePresetManager {
   /**
    * Register style presets from a pack
    * Called by PackManager for each pack loaded
-   * 
+   *
    * @param {Object} pack - Pack object with style_presets field
    */
   registerPresetsFromPack(pack) {
@@ -124,6 +124,7 @@ export class StylePresetManager {
 
   /**
    * Get all available presets for an overlay type (includes universal presets)
+   * Filters out 'base' presets which are meant for extension only
    * @param {string} overlayType - Type of overlay
    * @returns {Array} Array of preset names
    */
@@ -133,7 +134,12 @@ export class StylePresetManager {
     // Add direct presets for this overlay type
     for (const pack of this.loadedPacks) {
       if (pack.style_presets && pack.style_presets[overlayType]) {
-        Object.keys(pack.style_presets[overlayType]).forEach(name => presets.add(name));
+        Object.keys(pack.style_presets[overlayType]).forEach(name => {
+          // Filter out 'base' presets (used for extension only, not direct use)
+          if (name !== 'base') {
+            presets.add(name);
+          }
+        });
       }
     }
 
@@ -141,7 +147,12 @@ export class StylePresetManager {
     if (this._isButtonLikeOverlay(overlayType)) {
       for (const pack of this.loadedPacks) {
         if (pack.style_presets && pack.style_presets.button) {
-          Object.keys(pack.style_presets.button).forEach(name => presets.add(name));
+          Object.keys(pack.style_presets.button).forEach(name => {
+            // Filter out 'base' presets
+            if (name !== 'base') {
+              presets.add(name);
+            }
+          });
         }
       }
     }

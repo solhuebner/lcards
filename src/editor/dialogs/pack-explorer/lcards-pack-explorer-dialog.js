@@ -712,10 +712,10 @@ export class LCARdSPackExplorerDialog extends LitElement {
    */
   _getComponentsForPack(packId) {
     // Components from lcards_buttons pack: dpad
-    // Components from lcards_sliders pack: basic, picard, picard-vertical
+    // Components from lcards_sliders pack: basic
     const componentsByPack = {
       'lcards_buttons': ['dpad'],
-      'lcards_sliders': ['basic', 'picard', 'picard-vertical']
+      'lcards_sliders': ['basic']
     };
 
     const componentNames = componentsByPack[packId] || [];

@@ -245,6 +245,11 @@ export class LCARdSSlider extends LCARdSButton {
         this._componentLoaded = false;
         this._componentMetadata = null;   // NEW: Component metadata (zones, features, etc.)
 
+        // Render function architecture
+        this._componentRenderer = null;           // Component render() function
+        this._componentCalculateZones = null;     // Component calculateZones() function
+        this._componentResolveColors = null;      // Component resolveColors() function
+
         // Memoization for performance
         this._memoizedTrack = null;
         this._memoizedTrackConfig = null;
@@ -623,10 +628,15 @@ export class LCARdSSlider extends LCARdSButton {
                 // NEW: Check if component uses render function (new architecture)
                 if (component.render && typeof component.render === 'function') {
                     // Component provides a render function - use it
-                    lcardsLog.debug(`[LCARdSSlider] Component uses render function`);
+                    lcardsLog.debug(`[LCARdSSlider] Component uses render function architecture`);
 
                     this._componentMetadata = component.metadata;
                     this._componentRenderer = component.render;
+
+                    // Store helper functions if available
+                    this._componentCalculateZones = component.calculateZones || null;
+                    this._componentResolveColors = component.resolveColors || null;
+
                     this._componentLoaded = true;
 
                     // Set orientation from component metadata
@@ -641,7 +651,7 @@ export class LCARdSSlider extends LCARdSButton {
                         };
                     }
 
-                    lcardsLog.debug(`[LCARdSSlider] Component with render function loaded`);
+                    lcardsLog.debug(`[LCARdSSlider] Component loaded with render(), calculateZones: ${!!this._componentCalculateZones}, resolveColors: ${!!this._componentResolveColors}`);
                     this.requestUpdate();
                     return;
                 }
@@ -1611,9 +1621,12 @@ export class LCARdSSlider extends LCARdSButton {
     /**
      * Generate gauge SVG elements (ruler style with progress bar)
      * Design: Transparent ruler with ticks/labels and a thin progress bar
+     * @param {number} trackWidth - Width of the gauge
+     * @param {number} trackHeight - Height of the gauge
+     * @param {boolean} skipProgressBar - If true, don't render the progress bar (for components with separate progress zones)
      * @private
      */
-    _generateGaugeSVG(trackWidth, trackHeight) {
+    _generateGaugeSVG(trackWidth, trackHeight, skipProgressBar = false) {
         const gaugeConfig = this._sliderStyle?.gauge;
         const orientation = this._sliderStyle?.track?.orientation || 'horizontal';
         const isVertical = orientation === 'vertical';
@@ -1877,7 +1890,7 @@ export class LCARdSSlider extends LCARdSButton {
                 }
             }
 
-            // Draw progress bar (at bottom of minor ticks, extends based on value)
+            // Calculate progress bar dimensions (needed for indicator even if bar is skipped)
             // Apply fill inversion if configured
             let progressWidth = valuePercent * trackWidth;
             let progressX = 0;
@@ -1887,12 +1900,15 @@ export class LCARdSSlider extends LCARdSButton {
                 progressX = trackWidth - progressWidth;
             }
 
-            svg += `
-                <rect x="${progressX}" y="${progressY}"
-                      width="${progressWidth}" height="${progressHeight}"
-                      fill="${progressColor}"
-                      rx="${progressRadius}" ry="${progressRadius}" />
-            `;
+            // Draw progress bar (at bottom of minor ticks, extends based on value)
+            if (!skipProgressBar) {
+                svg += `
+                    <rect x="${progressX}" y="${progressY}"
+                          width="${progressWidth}" height="${progressHeight}"
+                          fill="${progressColor}"
+                          rx="${progressRadius}" ry="${progressRadius}" />
+                `;
+            }
 
             // Draw indicator if enabled
             const indicatorConfig = gaugeConfig?.indicator;
@@ -1965,6 +1981,9 @@ export class LCARdSSlider extends LCARdSButton {
         } else {
             // === VERTICAL GAUGE ===
             // Vertical gauges have horizontal tick marks and fill from bottom to top
+
+            // For vertical gauges, progress bar width (not height like horizontal)
+            const progressBarWidth = progressConfig?.width || progressConfig?.height || 12;
 
             // Draw major ticks (horizontal lines) and labels
             if (majorEnabled) {
@@ -2056,8 +2075,7 @@ export class LCARdSSlider extends LCARdSButton {
                 }
             }
 
-            // Draw progress bar (fills from bottom up)
-            // Position at left side after minor ticks
+            // Define progress bar position variables (needed for indicator even if progress bar is skipped)
             const progressX = minorHeight;
             const progressBarHeight = valuePercent * trackHeight;
             let progressY = trackHeight - progressBarHeight; // Start from bottom
@@ -2068,12 +2086,15 @@ export class LCARdSSlider extends LCARdSButton {
                 progressY = 0;
             }
 
-            svg += `
-                <rect x="${progressX}" y="${progressY}"
-                      width="${progressHeight}" height="${progressBarHeight}"
-                      fill="${progressColor}"
-                      rx="${progressRadius}" ry="${progressRadius}" />
-            `;
+            // Draw progress bar (fills from bottom up) - skip if component has separate progress zone
+            if (!skipProgressBar) {
+                svg += `
+                    <rect x="${progressX}" y="${progressY}"
+                          width="${progressBarWidth}" height="${progressBarHeight}"
+                          fill="${progressColor}"
+                          rx="${progressRadius}" ry="${progressRadius}" />
+                `;
+            }
 
             // Draw indicator if enabled
             const indicatorConfig = gaugeConfig?.indicator;
@@ -2101,8 +2122,8 @@ export class LCARdSSlider extends LCARdSButton {
                 }
 
                 // Apply offset (note: for vertical, offsetY moves up/down, offsetX moves left/right)
-                // Position indicator at center of progress bar (progressX + half of progressHeight)
-                const indicatorX = progressX + (progressHeight / 2) + offsetX;
+                // Position indicator at center of progress bar (progressX + half of progress bar width)
+                const indicatorX = progressX + (progressBarWidth / 2) + offsetX;
                 const indicatorY = baseIndicatorY + offsetY;
 
                 if (indicatorType === 'round') {
@@ -2524,6 +2545,218 @@ export class LCARdSSlider extends LCARdSButton {
     }
 
     /**
+     * Render using component's render function (new architecture)
+     * @param {number} width - Container width
+     * @param {number} height - Container height
+     * @returns {TemplateResult} Rendered template
+     * @private
+     */
+    _renderWithRenderer(width, height) {
+        lcardsLog.debug(`[LCARdSSlider] _renderWithRenderer(${width}, ${height})`);
+
+        // Step 1: Calculate zones using component's helper
+        const zones = this._componentCalculateZones
+            ? this._componentCalculateZones(width, height)
+            : null;
+
+        if (!zones) {
+            lcardsLog.error('[LCARdSSlider] Component calculateZones() missing or returned null');
+            return html`<div class="slider-error">Component missing calculateZones()</div>`;
+        }
+
+        // Step 2: Resolve colors based on entity state
+        const entity = this._entity;
+        const actualState = entity?.state || 'unavailable';
+        const classifiedState = this._classifyState(actualState);
+
+        const colors = this._componentResolveColors
+            ? this._componentResolveColors(actualState, classifiedState, this.config, this.hass)
+            : { borderTop: '#9DA4B9', borderBottom: '#9DA4B9' };
+
+        lcardsLog.debug('[LCARdSSlider] Resolved colors:', colors);
+
+        // Step 3: Generate shell SVG
+        const shellSvg = this._componentRenderer({
+            width,
+            height,
+            colors
+        });
+
+        // Step 4: Generate content for zones
+        const trackZone = zones.track;
+        const progressZone = zones.progress;  // Check if component has separate progress zone
+        const orientation = this._sliderStyle?.track?.orientation || 'vertical';
+
+        let trackContent = '';
+        if (this._mode === 'pills') {
+            trackContent = this._generatePillsContent(trackZone, orientation);
+        } else if (this._mode === 'gauge') {
+            // Pass skipProgressBar=true if component has separate progress zone
+            trackContent = this._generateGaugeContent(trackZone, orientation, !!progressZone);
+        }
+
+        // Step 5: Inject content into shell using shadow DOM queries
+        // Parse shell to DOM temporarily
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(shellSvg, 'image/svg+xml');
+        const shellElement = doc.documentElement;
+
+        // Inject track content
+        const trackZoneElement = shellElement.querySelector('#track-zone');
+        if (trackZoneElement && trackContent) {
+            trackZoneElement.innerHTML = trackContent;
+        }
+
+        // Inject progress bar into progress zone if it exists
+        const progressZoneElement = shellElement.querySelector('#progress-zone');
+        if (progressZoneElement && progressZone && this._mode === 'gauge') {
+            // Generate just the progress bar for the progress zone
+            const progressBarContent = this._generateProgressBar(progressZone, orientation);
+            if (progressBarContent) {
+                progressZoneElement.innerHTML = progressBarContent;
+            }
+        }
+
+        // Step 6: Serialize back to string
+        const serializer = new XMLSerializer();
+        const finalSvg = serializer.serializeToString(shellElement);
+
+        // Step 7: Render input overlay using control zone
+        const controlZone = zones.control;
+        const isVertical = orientation === 'vertical';
+
+        const inputTransform = this._invertFill
+            ? (isVertical ? 'scaleY(-1)' : 'scaleX(-1)')
+            : '';
+
+        return html`
+            <div class="slider-container">
+                ${unsafeHTML(finalSvg)}
+                ${!this._controlConfig.locked ? html`
+                    <input
+                        type="range"
+                        class="slider-input-overlay"
+                        .value="${String(this._sliderValue)}"
+                        .min="${String(this._controlConfig.min)}"
+                        .max="${String(this._controlConfig.max)}"
+                        .step="${String(this._controlConfig.step || 1)}"
+                        ?disabled="${this._controlConfig.locked}"
+                        @input="${this._handleSliderInput}"
+                        @change="${this._handleSliderChange}"
+                        orient="${isVertical ? 'vertical' : 'horizontal'}"
+                        style="
+                            left: ${controlZone.x}px;
+                            top: ${controlZone.y}px;
+                            width: ${controlZone.width}px;
+                            height: ${controlZone.height}px;
+                            ${isVertical ? 'writing-mode: vertical-lr; direction: rtl;' : ''}
+                            ${inputTransform ? `transform: ${inputTransform};` : ''}
+                        "
+                    />
+                ` : ''}
+            </div>
+        `;
+    }
+
+    /**
+     * Helper: Classify entity state for color resolution
+     * @param {string} state - Entity state value
+     * @returns {string} Classified state ('on', 'off', 'unavailable')
+     * @private
+     */
+    _classifyState(state) {
+        if (!state || state === 'unavailable' || state === 'unknown') {
+            return 'unavailable';
+        }
+
+        // Domain-specific classification
+        if (this._domain === 'light' || this._domain === 'switch') {
+            return state === 'on' ? 'on' : 'off';
+        }
+
+        // Numeric domains (number, input_number) - check if value is non-zero
+        if (this._domain === 'number' || this._domain === 'input_number') {
+            const numValue = parseFloat(state);
+            return (!isNaN(numValue) && numValue > 0) ? 'on' : 'off';
+        }
+
+        // Default: treat as 'on' if any value exists
+        return 'on';
+    }
+
+    /**
+     * Generate pills content for render function architecture
+     * @param {Object} zoneSpec - Zone specification from calculateZones()
+     * @param {string} orientation - 'horizontal' or 'vertical'
+     * @returns {string} SVG content for pills
+     * @private
+     */
+    _generatePillsContent(zoneSpec, orientation) {
+        const trackConfig = this._sliderStyle?.track?.segments;
+        const trackBounds = {
+            x: 0,  // Content uses zone-local coordinates (zone positioned by transform)
+            y: 0,
+            width: zoneSpec.width,
+            height: zoneSpec.height
+        };
+
+        lcardsLog.debug('[LCARdSSlider] _generatePillsContent()', { trackBounds, trackConfig, orientation });
+
+        // Use existing _generatePillsSVG but at zone dimensions
+        return this._generatePillsSVG(trackBounds, trackConfig, orientation);
+    }
+
+    /**
+     * Generate gauge content for render function architecture
+     * @param {Object} zoneSpec - Zone specification from calculateZones()
+     * @param {string} orientation - 'horizontal' or 'vertical'
+     * @param {boolean} skipProgressBar - If true, don't render progress bar (for separate progress zones)
+     * @returns {string} SVG content for gauge
+     * @private
+     */
+    _generateGaugeContent(zoneSpec, orientation, skipProgressBar = false) {
+        lcardsLog.debug('[LCARdSSlider] _generateGaugeContent()', { zoneSpec, orientation, skipProgressBar });
+
+        // Use existing _generateGaugeSVG - pass skipProgressBar flag
+        return this._generateGaugeSVG(zoneSpec.width, zoneSpec.height, skipProgressBar);
+    }
+
+    /**
+     * Generate just the progress bar visual for separate progress zone
+     * @param {Object} zoneSpec - Progress zone specification from calculateZones()
+     * @param {string} orientation - 'horizontal' or 'vertical'
+     * @returns {string} SVG content for progress bar
+     * @private
+     */
+    _generateProgressBar(zoneSpec, orientation) {
+        lcardsLog.debug('[LCARdSSlider] _generateProgressBar()', { zoneSpec, orientation });
+
+        const isVertical = orientation === 'vertical';
+        const width = zoneSpec.width;
+        const height = zoneSpec.height;
+
+        // Calculate progress percentage
+        const min = this._controlConfig.min;
+        const max = this._controlConfig.max;
+        const value = Number(this._sliderValue);
+        const range = max - min;
+        const progress = range > 0 ? (value - min) / range : 0;
+
+        // Get fill color (gauge active color)
+        const fillColor = this._sliderStyle?.gauge?.fill?.color?.active || '#93e1ff';
+
+        // Generate progress bar rect
+        if (isVertical) {
+            const barHeight = height * progress;
+            const barY = height - barHeight; // Start from bottom
+            return `<rect x="0" y="${barY}" width="${width}" height="${barHeight}" fill="${fillColor}" rx="2" ry="2"></rect>`;
+        } else {
+            const barWidth = width * progress;
+            return `<rect x="0" y="0" width="${barWidth}" height="${height}" fill="${fillColor}" rx="2" ry="2"></rect>`;
+        }
+    }
+
+    /**
      * Render the card
      * @protected
      */
@@ -2617,11 +2850,12 @@ export class LCARdSSlider extends LCARdSButton {
             if (trackZone) {
                 if (!this.config.component || this.config.component === 'basic') {
                     // Basic component: Calculate bounds from borders/margins
+                    // Ensure width/height never go negative (minimum 1px)
                     trackZone.bounds = {
                         x: borderOffsets.left + margins.left,
                         y: borderOffsets.top + margins.top,
-                        width: width - borderOffsets.left - borderOffsets.right - margins.left - margins.right,
-                        height: height - borderOffsets.top - borderOffsets.bottom - margins.top - margins.bottom
+                        width: Math.max(1, width - borderOffsets.left - borderOffsets.right - margins.left - margins.right),
+                        height: Math.max(1, height - borderOffsets.top - borderOffsets.bottom - margins.top - margins.bottom)
                     };
 
                     lcardsLog.debug(`[LCARdSSlider] Track zone bounds recalculated:`, trackZone.bounds);
@@ -2875,7 +3109,7 @@ export class LCARdSSlider extends LCARdSButton {
                             top: ${scaledBounds.y}px;
                             width: ${scaledBounds.width}px;
                             height: ${scaledBounds.height}px;
-                            ${isVertical ? '-webkit-appearance: slider-vertical;' : ''}
+                            ${isVertical ? 'writing-mode: vertical-lr; direction: rtl;' : ''}
                         "
                     />
                 ` : ''}
