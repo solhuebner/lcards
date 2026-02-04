@@ -62,7 +62,7 @@ export class LCARdSChartStudioDialog extends LitElement {
         this.hass = null;
         this._initialConfig = null;
         this._workingConfig = {};
-        this._activeTab = 'data-sources';
+        this._activeTab = 'data';
         this._validationErrors = [];
 
         // Create ref for preview container
@@ -71,11 +71,14 @@ export class LCARdSChartStudioDialog extends LitElement {
         // Debounce timer for preview updates
         this._previewUpdateTimer = null;
 
+        // Preview state
+        this._previewLoading = false;
+        this._previewError = null;
+
         // Initialize state
         this._dataSourceLevel = 'quick';
         this._selectedEntity = '';
         this._renderKey = 0;
-        this._darkPreview = true;
         this._showDataSourceEditor = false;
 
         // Data Sources tab state
@@ -219,6 +222,29 @@ export class LCARdSChartStudioDialog extends LitElement {
             /* Override studio layout for 40/60 split (more preview space for charts) */
             .studio-layout {
                 grid-template-columns: 40% 60%;
+                gap: 24px;
+                align-items: start; /* Align to top for sticky to work */
+            }
+
+            /* Config panel - scrollable */
+            .config-panel {
+                display: flex;
+                flex-direction: column;
+            }
+
+            /* Tab content wrapper - scrollable area */
+            .tab-content {
+                max-height: 70vh;
+                overflow-y: auto;
+                padding-right: 8px; /* Space for scrollbar */
+            }
+
+            /* Preview panel - sticky positioning */
+            .preview-panel {
+                position: sticky;
+                top: 0;
+                height: fit-content;
+                max-height: 85vh; /* Prevent overflow */
             }
 
             /* Chart preview container - dark background for charts */
@@ -231,19 +257,40 @@ export class LCARdSChartStudioDialog extends LitElement {
                 align-items: center;
                 justify-content: center;
                 transition: background-color 0.3s ease;
+                background: var(--primary-background-color);
+                position: relative;
             }
 
-            .preview-container.dark {
-                background: #1c1c1c;
-            }
-
-            .preview-container.light {
-                background: var(--card-background-color);
-            }
-
-            .preview-container > * {
+            .preview-container > *:not(.preview-loading):not(.preview-error) {
                 width: 100%;
                 height: 100%;
+            }
+
+            /* Preview loading state */
+            .preview-loading {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                z-index: 10;
+            }
+
+            /* Preview error state */
+            .preview-error {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                padding: 24px;
+                max-width: 400px;
+                z-index: 10;
             }
 
             /* Data Sources Tab Styles */
@@ -526,6 +573,9 @@ export class LCARdSChartStudioDialog extends LitElement {
         }
 
         try {
+            // Show loading state briefly
+            this._previewLoading = true;
+
             // Manually create card element
             const card = document.createElement('lcards-chart');
 
@@ -540,8 +590,11 @@ export class LCARdSChartStudioDialog extends LitElement {
             // NOW append to DOM after card is fully configured
             container.appendChild(card);
 
-            // Force update after brief delay to ensure DataSources are hydrated
+            // Hide loading state after card is rendered
             setTimeout(() => {
+                this._previewLoading = false;
+
+                // Force update to ensure DataSources are hydrated
                 if (card.hass) {
                     card.hass = { ...this.hass }; // Trigger update
                 }
@@ -550,12 +603,8 @@ export class LCARdSChartStudioDialog extends LitElement {
             lcardsLog.debug('[ChartStudio] Preview card configured and appended');
         } catch (error) {
             lcardsLog.error('[ChartStudio] Failed to update preview:', error);
-            container.innerHTML = `
-                <div style="padding: 24px; text-align: center; color: var(--error-color);">
-                    <ha-icon icon="mdi:alert-circle" style="--mdc-icon-size: 48px;"></ha-icon>
-                    <p>Preview Error: ${error.message}</p>
-                </div>
-            `;
+            this._previewLoading = false;
+            this._previewError = error.message || 'Failed to render chart';
         }
     }
 
@@ -749,15 +798,11 @@ export class LCARdSChartStudioDialog extends LitElement {
      */
     _renderTabNavigation() {
         const tabs = [
-            { id: 'data-sources', icon: 'mdi:database', label: 'Data Sources' },
-            { id: 'chart-type', icon: 'mdi:chart-line', label: 'Chart Type' },
-            { id: 'colors', icon: 'mdi:palette', label: 'Colors' },
-            { id: 'stroke-fill', icon: 'mdi:brush', label: 'Stroke & Fill' },
-            { id: 'markers-grid', icon: 'mdi:chart-scatter-plot', label: 'Markers & Grid' },
-            { id: 'axes', icon: 'mdi:axis-arrow', label: 'Axes' },
-            { id: 'legend-labels', icon: 'mdi:label', label: 'Legend & Labels' },
+            { id: 'data', icon: 'mdi:database-arrow-right', label: 'Data' },
+            { id: 'appearance', icon: 'mdi:palette-advanced', label: 'Appearance' },
+            { id: 'elements', icon: 'mdi:widgets', label: 'Elements' },
             { id: 'theme', icon: 'mdi:theme-light-dark', label: 'Theme' },
-            { id: 'animation', icon: 'mdi:animation', label: 'Animation' },
+            { id: 'effects', icon: 'mdi:shimmer', label: 'Effects' },
             { id: 'advanced', icon: 'mdi:cog', label: 'Advanced' }
         ];
 
@@ -780,24 +825,16 @@ export class LCARdSChartStudioDialog extends LitElement {
      */
     _renderTabContent() {
         switch (this._activeTab) {
-            case 'data-sources':
-                return this._renderDataSourcesTab();
-            case 'chart-type':
-                return this._renderChartTypeTab();
-            case 'colors':
-                return this._renderColorsTab();
-            case 'stroke-fill':
-                return this._renderStrokeFillTab();
-            case 'markers-grid':
-                return this._renderMarkersGridTab();
-            case 'axes':
-                return this._renderAxesTab();
-            case 'legend-labels':
-                return this._renderLegendLabelsTab();
+            case 'data':
+                return this._renderDataTab();
+            case 'appearance':
+                return this._renderAppearanceTab();
+            case 'elements':
+                return this._renderElementsTab();
             case 'theme':
                 return this._renderThemeTab();
-            case 'animation':
-                return this._renderAnimationTab();
+            case 'effects':
+                return this._renderEffectsTab();
             case 'advanced':
                 return this._renderAdvancedTab();
             default:
@@ -810,13 +847,13 @@ export class LCARdSChartStudioDialog extends LitElement {
     // ============================================================================
 
     /**
-     * Render Data Sources tab
+     * Render Data tab (merged Data Sources + Chart Type)
      * @returns {TemplateResult}
      * @private
      */
-    _renderDataSourcesTab() {
+    _renderDataTab() {
         return html`
-            <div class="data-sources-tab">
+            <div class="data-tab">
                 <!-- Series List Editor Component -->
                 <lcards-chart-series-list-editor
                     .hass=${this.hass}
@@ -824,7 +861,7 @@ export class LCARdSChartStudioDialog extends LitElement {
                     @config-changed=${this._handleSeriesConfigChanged}>
                 </lcards-chart-series-list-editor>
 
-                <!-- Integrated Chart Type Selector -->
+                <!-- Chart Type Selector -->
                 ${this._renderChartTypeSelector()}
 
                 ${this._renderDataSourceHelp()}
@@ -920,27 +957,21 @@ export class LCARdSChartStudioDialog extends LitElement {
 
                             <div class="series-content">
                                 <!-- Entity Picker -->
-                                <div class="form-field">
-                                    <label class="form-label">Entity</label>
-                                    <ha-selector
-                                        .hass=${this.hass}
-                                        .selector=${{ entity: {} }}
-                                        .value=${entityId}
-                                        @value-changed=${(e) => this._updateQuickSeriesEntity(index, e.detail.value)}>
-                                    </ha-selector>
-                                </div>
+                                ${FormField.renderField(this, `quick_series_${index}_entity`, {
+                                    label: 'Entity',
+                                    selector: { entity: {} },
+                                    value: entityId,
+                                    onChange: (value) => this._updateQuickSeriesEntity(index, value)
+                                })}
 
                                 <!-- History Window Slider -->
-                                <div class="form-field">
-                                    <label class="form-label">History Window: ${windowHours}h</label>
-                                    <ha-selector
-                                        .hass=${this.hass}
-                                        .selector=${{ number: { min: 1, max: 168, step: 1, mode: 'slider', unit_of_measurement: 'hours' } }}
-                                        .value=${windowHours}
-                                        @value-changed=${(e) => this._updateQuickSeriesWindow(index, e.detail.value)}>
-                                    </ha-selector>
-                                    <div class="form-helper">How far back to show data (1 hour to 7 days)</div>
-                                </div>
+                                ${FormField.renderField(this, `quick_series_${index}_window`, {
+                                    label: `History Window: ${windowHours}h`,
+                                    helper: 'How far back to show data (1 hour to 7 days)',
+                                    selector: { number: { min: 1, max: 168, step: 1, mode: 'slider', unit_of_measurement: 'hours' } },
+                                    value: windowHours,
+                                    onChange: (value) => this._updateQuickSeriesWindow(index, value)
+                                })}
                             </div>
                         </div>
                     `;
@@ -973,16 +1004,13 @@ export class LCARdSChartStudioDialog extends LitElement {
                         <div class="form-helper">Load historical data immediately when chart opens (recommended)</div>
                     </div>
 
-                    <div class="form-field">
-                        <label class="form-label">Max Data Points</label>
-                        <ha-selector
-                            .hass=${this.hass}
-                            .selector=${{ number: { min: 50, max: 1000, step: 50, mode: 'box' } }}
-                            .value=${this._workingConfig.max_points || 500}
-                            @value-changed=${(e) => this._updateConfig('max_points', e.detail.value)}>
-                        </ha-selector>
-                        <div class="form-helper">Limit points for performance (500 recommended)</div>
-                    </div>
+                    ${FormField.renderField(this, 'max_points', {
+                        label: 'Max Data Points',
+                        helper: 'Limit points for performance (500 recommended)',
+                        selector: { number: { min: 50, max: 1000, step: 50, mode: 'box' } },
+                        value: this._workingConfig.max_points || 500,
+                        onChange: (value) => this._updateConfig('max_points', value)
+                    })}
                 </lcards-form-section>
             ` : ''}
         `;
@@ -998,7 +1026,10 @@ export class LCARdSChartStudioDialog extends LitElement {
         const sources = this._workingConfig.sources || [];
 
         return html`
-            <lcards-form-section header="DataSource Configuration">
+            <lcards-form-section
+                header="DataSource Configuration"
+                icon="mdi:database-cog"
+                description="Configure individual DataSources with entities and settings">
                 <lcards-message
                     type="info"
                     message="Advanced mode provides full control over DataSource configuration including history preload, throttling, and transformations.">
@@ -1036,7 +1067,11 @@ export class LCARdSChartStudioDialog extends LitElement {
             </lcards-form-section>
 
             ${sources.length > 0 ? html`
-                <lcards-form-section header="Sources Order">
+                <lcards-form-section
+                    header="Sources Order"
+                    icon="mdi:sort"
+                    description="Drag to reorder series display order"
+                    ?expanded=${false}>
                     <lcards-message
                         type="info"
                         message="Order determines the sequence of series in the chart.">
@@ -1082,35 +1117,28 @@ export class LCARdSChartStudioDialog extends LitElement {
 
         return html`
             <div style="margin-top: 12px;">
-                <div class="form-field">
-                    <label class="form-label">Entity</label>
-                    <ha-selector
-                        .hass=${this.hass}
-                        .selector=${{ entity: {} }}
-                        .value=${config.entity || ''}
-                        @value-changed=${(e) => this._updateDataSourceConfig(name, 'entity', e.detail.value)}>
-                    </ha-selector>
-                </div>
+                ${FormField.renderField(this, `datasource_${name}_entity`, {
+                    label: 'Entity',
+                    selector: { entity: {} },
+                    value: config.entity || '',
+                    onChange: (value) => this._updateDataSourceConfig(name, 'entity', value)
+                })}
 
-                <div class="form-field">
-                    <label class="form-label">Window (seconds)</label>
-                    <ha-selector
-                        .hass=${this.hass}
-                        .selector=${{ number: { min: 60, max: 86400, mode: 'box' } }}
-                        .value=${windowSeconds}
-                        @value-changed=${(e) => this._updateDataSourceConfig(name, 'window_seconds', e.detail.value)}>
-                    </ha-selector>
-                </div>
+                ${FormField.renderField(this, `datasource_${name}_window`, {
+                    label: 'Window (seconds)',
+                    helper: 'Time window for data aggregation',
+                    selector: { number: { min: 60, max: 86400, mode: 'box' } },
+                    value: windowSeconds,
+                    onChange: (value) => this._updateDataSourceConfig(name, 'window_seconds', value)
+                })}
 
-                <div class="form-field">
-                    <label class="form-label">Min Emit (ms)</label>
-                    <ha-selector
-                        .hass=${this.hass}
-                        .selector=${{ number: { min: 0, max: 10000, mode: 'box' } }}
-                        .value=${minEmitMs}
-                        @value-changed=${(e) => this._updateDataSourceConfig(name, 'minEmitMs', e.detail.value)}>
-                    </ha-selector>
-                </div>
+                ${FormField.renderField(this, `datasource_${name}_minEmit`, {
+                    label: 'Min Emit (ms)',
+                    helper: 'Minimum time between updates (throttling)',
+                    selector: { number: { min: 0, max: 10000, mode: 'box' } },
+                    value: minEmitMs,
+                    onChange: (value) => this._updateDataSourceConfig(name, 'minEmitMs', value)
+                })}
 
                 <div class="form-field">
                     <label class="form-label">
@@ -1122,17 +1150,13 @@ export class LCARdSChartStudioDialog extends LitElement {
                     </label>
                 </div>
 
-                ${historyPreload ? html`
-                    <div class="form-field">
-                        <label class="form-label">History Hours</label>
-                        <ha-selector
-                            .hass=${this.hass}
-                            .selector=${{ number: { min: 0, max: 168, mode: 'box' } }}
-                            .value=${historyHours}
-                            @value-changed=${(e) => this._updateDataSourceHistoryConfig(name, 'hours', e.detail.value)}>
-                        </ha-selector>
-                    </div>
-                ` : ''}
+                ${historyPreload ? FormField.renderField(this, `datasource_${name}_history_hours`, {
+                    label: 'History Hours',
+                    helper: 'Hours of historical data to preload (0-168)',
+                    selector: { number: { min: 0, max: 168, mode: 'box' } },
+                    value: historyHours,
+                    onChange: (value) => this._updateDataSourceHistoryConfig(name, 'hours', value)
+                }) : ''}
             </div>
         `;
     }
@@ -1146,7 +1170,10 @@ export class LCARdSChartStudioDialog extends LitElement {
         // This would typically be in the chart card's history configuration
         // For now, just show a placeholder
         return html`
-            <lcards-form-section header="History Configuration">
+            <lcards-form-section
+                header="History Configuration"
+                icon="mdi:history"
+                description="Configure historical data loading">
                 <lcards-message
                     type="info"
                     message="History configuration can be set in the Advanced tab or per DataSource in Advanced mode.">
@@ -1985,6 +2012,292 @@ export class LCARdSChartStudioDialog extends LitElement {
         `;
     }
 
+    /**
+     * Render Appearance tab (merged Colors + Stroke & Fill)
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderAppearanceTab() {
+        const fillType = this._getNestedValue('style.fill.type') || 'solid';
+
+        return html`
+            <!-- Series Colors (Primary) -->
+            <lcards-form-section
+                header="Series Colors"
+                description="Primary colors for data series (array of colors)"
+                icon="mdi:palette"
+                ?expanded=${true}>
+
+                ${this._renderColorList('style.colors.series', 'Series Colors', 'Colors for each data series - cycles through array')}
+            </lcards-form-section>
+
+            <!-- Stroke Configuration -->
+            <lcards-form-section
+                header="Stroke Configuration"
+                description="Line and border styling"
+                icon="mdi:brush"
+                ?expanded=${true}>
+
+                ${FormField.renderField(this, 'style.stroke.width', {
+                    label: 'Stroke Width'
+                })}
+
+                ${FormField.renderField(this, 'style.stroke.curve', {
+                    label: 'Curve Type'
+                })}
+
+                ${this._renderColorList('style.colors.stroke', 'Stroke Colors', 'Outline/line colors - cycles through array')}
+            </lcards-form-section>
+
+            <!-- Fill Configuration -->
+            <lcards-form-section
+                header="Fill Configuration"
+                description="Area and background fill styling"
+                icon="mdi:format-color-fill"
+                ?expanded=${true}>
+
+                ${FormField.renderField(this, 'style.fill.type', {
+                    label: 'Fill Type'
+                })}
+
+                ${FormField.renderField(this, 'style.fill.opacity', {
+                    label: 'Fill Opacity'
+                })}
+
+                ${this._renderColorList('style.colors.fill', 'Fill Colors', 'Area fill colors - cycles through array')}
+
+                ${fillType === 'gradient' ? this._renderGradientConfig() : ''}
+            </lcards-form-section>
+
+            <!-- Background & Foreground (Single Colors) -->
+            <lcards-form-section
+                header="Background & Foreground"
+                description="Base chart colors (single values)"
+                icon="mdi:format-color-fill"
+                ?expanded=${false}>
+
+                <div style="display: grid; gap: 12px;">
+                    ${this._renderSingleColorPicker('style.colors.background', 'Background', 'Chart background')}
+                    ${this._renderSingleColorPicker('style.colors.foreground', 'Foreground', 'Text and labels')}
+                    ${this._renderSingleColorPicker('style.colors.grid', 'Grid Lines', 'Grid line color')}
+                </div>
+            </lcards-form-section>
+
+            <!-- Marker Colors (Collapsed by default) -->
+            <lcards-form-section
+                header="Marker Colors"
+                description="Data point marker styling (arrays)"
+                icon="mdi:circle"
+                ?expanded=${false}>
+
+                ${this._renderColorList('style.colors.marker.fill', 'Marker Fill', 'Fill colors for markers')}
+                ${this._renderColorList('style.colors.marker.stroke', 'Marker Stroke', 'Stroke colors for markers')}
+            </lcards-form-section>
+
+            <!-- Axis Colors (Collapsed) -->
+            <lcards-form-section
+                header="Axis Colors"
+                description="X and Y axis styling (single values)"
+                icon="mdi:axis-arrow"
+                ?expanded=${false}>
+
+                <div style="display: grid; gap: 12px;">
+                    ${this._renderSingleColorPicker('style.colors.axis.x', 'X-Axis', 'X-axis color')}
+                    ${this._renderSingleColorPicker('style.colors.axis.y', 'Y-Axis', 'Y-axis color')}
+                    ${this._renderSingleColorPicker('style.colors.axis.border', 'Axis Border', 'Border around chart')}
+                    ${this._renderSingleColorPicker('style.colors.axis.ticks', 'Axis Ticks', 'Tick mark color')}
+                </div>
+            </lcards-form-section>
+
+            <!-- Legend Colors (Collapsed) -->
+            <lcards-form-section
+                header="Legend Colors"
+                description="Legend text styling"
+                icon="mdi:label"
+                ?expanded=${false}>
+
+                <div style="display: grid; gap: 12px;">
+                    ${this._renderSingleColorPicker('style.colors.legend.default', 'Legend Text', 'Default legend text')}
+                </div>
+                ${this._renderColorList('style.colors.legend.items', 'Legend Items', 'Per-item legend colors (optional)')}
+            </lcards-form-section>
+
+            <!-- Data Label Colors (Collapsed) -->
+            <lcards-form-section
+                header="Data Label Colors"
+                description="On-chart data label styling (array)"
+                icon="mdi:label-variant"
+                ?expanded=${false}>
+
+                ${this._renderColorList('style.colors.data_labels', 'Data Label Colors', 'Colors for data point labels')}
+            </lcards-form-section>
+        `;
+    }
+
+    /**
+     * Render Elements tab (merged Markers & Grid + Axes + Legend & Labels)
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderElementsTab() {
+        const showGrid = this._getNestedValue('style.grid.show') ?? true;
+
+        return html`
+            <!-- Markers Configuration -->
+            <lcards-form-section
+                header="Markers Configuration"
+                description="Data point marker styling"
+                icon="mdi:circle"
+                ?expanded=${true}>
+
+                ${FormField.renderField(this, 'style.markers.size', {
+                    label: 'Marker Size'
+                })}
+
+                ${FormField.renderField(this, 'style.markers.stroke.width', {
+                    label: 'Marker Stroke Width'
+                })}
+            </lcards-form-section>
+
+            <!-- Grid Configuration -->
+            <lcards-form-section
+                header="Grid Configuration"
+                description="Background grid styling"
+                icon="mdi:grid"
+                ?expanded=${true}>
+
+                ${FormField.renderField(this, 'style.grid.show', {
+                    label: 'Show Grid'
+                })}
+
+                ${showGrid ? html`
+                    ${FormField.renderField(this, 'style.grid.opacity', {
+                        label: 'Grid Opacity'
+                    })}
+
+                    ${this._renderColorList('style.grid.row_colors', 'Grid Row Colors', 'Alternating row background colors')}
+                    ${this._renderColorList('style.grid.column_colors', 'Grid Column Colors', 'Alternating column background colors')}
+                ` : ''}
+            </lcards-form-section>
+
+            <!-- X-Axis Configuration -->
+            <lcards-form-section
+                header="X-Axis Configuration"
+                description="Horizontal axis styling and labels"
+                icon="mdi:axis-x-arrow"
+                ?expanded=${true}>
+
+                ${FormField.renderField(this, 'style.xaxis.labels.show', {
+                    label: 'Show X-Axis Labels'
+                })}
+
+                ${FormField.renderField(this, 'style.xaxis.labels.rotate', {
+                    label: 'Label Rotation (degrees)'
+                })}
+
+                ${FormField.renderField(this, 'style.xaxis.border.show', {
+                    label: 'Show X-Axis Border'
+                })}
+
+                ${FormField.renderField(this, 'style.xaxis.ticks.show', {
+                    label: 'Show X-Axis Ticks'
+                })}
+            </lcards-form-section>
+
+            <!-- Y-Axis Configuration -->
+            <lcards-form-section
+                header="Y-Axis Configuration"
+                description="Vertical axis styling and labels"
+                icon="mdi:axis-y-arrow"
+                ?expanded=${true}>
+
+                ${FormField.renderField(this, 'style.yaxis.labels.show', {
+                    label: 'Show Y-Axis Labels'
+                })}
+
+                ${FormField.renderField(this, 'style.yaxis.border.show', {
+                    label: 'Show Y-Axis Border'
+                })}
+
+                ${FormField.renderField(this, 'style.yaxis.ticks.show', {
+                    label: 'Show Y-Axis Ticks'
+                })}
+            </lcards-form-section>
+
+            <!-- Legend Configuration -->
+            <lcards-form-section
+                header="Legend Configuration"
+                description="Chart legend positioning and styling"
+                icon="mdi:label-multiple"
+                ?expanded=${true}>
+
+                ${FormField.renderField(this, 'style.legend.show', {
+                    label: 'Show Legend'
+                })}
+
+                ${this._getNestedValue('style.legend.show') ? html`
+                    ${FormField.renderField(this, 'style.legend.position', {
+                        label: 'Legend Position'
+                    })}
+
+                    ${FormField.renderField(this, 'style.legend.horizontalAlign', {
+                        label: 'Horizontal Alignment'
+                    })}
+                ` : ''}
+            </lcards-form-section>
+
+            <!-- Data Labels Configuration -->
+            <lcards-form-section
+                header="Data Labels"
+                description="Labels displayed on data points"
+                icon="mdi:label-variant"
+                ?expanded=${false}>
+
+                ${FormField.renderField(this, 'style.data_labels.show', {
+                    label: 'Show Data Labels'
+                })}
+
+                ${this._getNestedValue('style.data_labels.show') ? html`
+                    ${FormField.renderField(this, 'style.data_labels.offsetY', {
+                        label: 'Vertical Offset'
+                    })}
+                ` : ''}
+            </lcards-form-section>
+
+            <!-- Tooltip Configuration -->
+            <lcards-form-section
+                header="Tooltip Configuration"
+                description="Interactive tooltip settings"
+                icon="mdi:tooltip-text"
+                ?expanded=${false}>
+
+                ${FormField.renderField(this, 'style.display.tooltip.show', {
+                    label: 'Show Tooltip'
+                })}
+
+                ${this._getNestedValue('style.display.tooltip.show') !== false ? html`
+                    ${FormField.renderField(this, 'style.display.tooltip.theme', {
+                        label: 'Tooltip Theme'
+                    })}
+                ` : ''}
+            </lcards-form-section>
+        `;
+    }
+
+    /**
+     * Render Effects tab (renamed from Animation)
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderEffectsTab() {
+        // Delegate to existing animation tab renderer
+        return this._renderAnimationTab();
+    }
+
+    // ============================================================================
+    // LEGACY TAB RENDERERS (kept for backward compatibility with existing code)
+    // ============================================================================
+
     _renderChartTypeTab() {
         const chartTypes = [
             { value: 'line', label: 'Line', icon: 'mdi:chart-line', desc: 'Trends over time' },
@@ -2619,54 +2932,38 @@ yaxis:
                         <div class="preview-panel">
                             <!-- Preview Toolbar -->
                             <div class="canvas-toolbar">
-                                <div class="canvas-toolbar-label">
-                                    <ha-icon icon="mdi:chart-line" style="--mdc-icon-size: 18px; margin-right: 6px;"></ha-icon>
-                                    <span>Live Preview</span>
-                                </div>
-
                                 <div class="canvas-toolbar-buttons">
                                     <!-- Refresh Preview -->
                                     <button
                                         class="canvas-toolbar-button"
                                         @click=${() => this._updatePreviewCard()}
+                                        ?disabled=${this._previewLoading}
                                         title="Refresh Preview">
                                         <ha-icon icon="mdi:refresh"></ha-icon>
-                                    </button>
-
-                                    <!-- Zoom Reset -->
-                                    <button
-                                        class="canvas-toolbar-button"
-                                        @click=${() => {
-                                            // Reset any zoom transformations
-                                            if (this._previewRef.value) {
-                                                const container = this._previewRef.value;
-                                                container.style.transform = '';
-                                                container.style.zoom = '1';
-                                            }
-                                        }}
-                                        title="Reset Zoom">
-                                        <ha-icon icon="mdi:magnify"></ha-icon>
-                                    </button>
-
-                                    <div class="canvas-toolbar-divider"></div>
-
-                                    <!-- Dark/Light Background Toggle -->
-                                    <button
-                                        class="canvas-toolbar-button ${this._darkPreview ? 'active' : ''}"
-                                        @click=${() => {
-                                            this._darkPreview = !this._darkPreview;
-                                            this.requestUpdate();
-                                        }}
-                                        title="Toggle Background">
-                                        <ha-icon icon="${this._darkPreview ? 'mdi:weather-night' : 'mdi:weather-sunny'}"></ha-icon>
                                     </button>
                                 </div>
                             </div>
 
                             <!-- Live Preview Container -->
                             <div
-                                class="preview-container ${this._darkPreview ? 'dark' : 'light'}"
+                                class="preview-container"
                                 ${ref(this._previewRef)}>
+
+                                ${this._previewLoading ? html`
+                                    <div class="preview-loading">
+                                        <ha-circular-progress active></ha-circular-progress>
+                                        <div style="margin-top: 12px; color: var(--secondary-text-color);">Updating chart...</div>
+                                    </div>
+                                ` : ''}
+
+                                ${this._previewError ? html`
+                                    <div class="preview-error">
+                                        <ha-icon icon="mdi:alert-circle" style="--mdc-icon-size: 48px; color: var(--error-color);"></ha-icon>
+                                        <div style="margin-top: 12px; font-weight: 600;">Chart Error</div>
+                                        <div style="margin-top: 8px; color: var(--secondary-text-color); font-size: 14px;">${this._previewError}</div>
+                                    </div>
+                                ` : ''}
+
                                 <!-- Preview card rendered here via manual DOM manipulation -->
                             </div>
                         </div>
