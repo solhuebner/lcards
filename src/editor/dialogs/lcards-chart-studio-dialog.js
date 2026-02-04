@@ -33,6 +33,7 @@ import { LCARdSFormFieldHelper as FormField } from '../components/shared/lcards-
 import '../components/shared/lcards-form-section.js';
 import '../components/shared/lcards-message.js';
 import '../components/datasources/lcards-datasource-editor-tab.js';
+import '../components/lcards-chart-series-list-editor.js';
 import '../../cards/lcards-chart.js';  // Import card directly for manual instantiation
 import { getChartSchema } from '../../cards/schemas/chart-schema.js';
 import '../components/editors/lcards-color-section.js';
@@ -513,6 +514,13 @@ export class LCARdSChartStudioDialog extends LitElement {
             // NOW append to DOM after card is fully configured
             container.appendChild(card);
 
+            // Force update after brief delay to ensure DataSources are hydrated
+            setTimeout(() => {
+                if (card.hass) {
+                    card.hass = { ...this.hass }; // Trigger update
+                }
+            }, 100);
+
             lcardsLog.debug('[ChartStudio] Preview card configured and appended');
         } catch (error) {
             lcardsLog.error('[ChartStudio] Failed to update preview:', error);
@@ -595,36 +603,49 @@ export class LCARdSChartStudioDialog extends LitElement {
      * Handle Cancel button
      * @private
      */
-    async _handleCancel() {
-        // Confirm if changes were made
-        const hasChanges = JSON.stringify(this._workingConfig) !== JSON.stringify(this._initialConfig);
-
-        if (hasChanges) {
-            const confirmed = await this._showConfirmDialog(
-                'Unsaved Changes',
-                'You have unsaved changes. Are you sure you want to cancel?'
-            );
-            if (!confirmed) return;
+    _handleCancel() {
+        if (this._configHasChanges()) {
+            // Show confirmation - only close if user confirms
+            this._confirmAction('Discard unsaved changes?').then(confirmed => {
+                if (confirmed) {
+                    lcardsLog.debug('[ChartStudio] Cancelled - changes discarded');
+                    this._handleClose();
+                }
+                // If not confirmed, do nothing - stay in studio
+            });
+            return;
         }
-
+        lcardsLog.debug('[ChartStudio] Cancelled');
         this._handleClose();
+    }
+
+    /**
+     * Check if config has changes
+     * @returns {boolean}
+     * @private
+     */
+    _configHasChanges() {
+        const initial = JSON.stringify(this._initialConfig);
+        const current = JSON.stringify(this._workingConfig);
+        return initial !== current;
     }
 
     /**
      * Handle Reset button
      * @private
      */
-    async _handleReset() {
-        const confirmed = await this._showConfirmDialog(
-            'Reset Configuration',
-            'Reset all changes to original configuration?'
-        );
-        if (!confirmed) return;
-
+    _handleReset() {
+        if (!this._confirmAction('Reset to initial configuration? All changes will be lost.')) {
+            return;
+        }
+        lcardsLog.debug('[ChartStudio] Resetting to initial config');
         this._workingConfig = JSON.parse(JSON.stringify(this._initialConfig));
         this._schedulePreviewUpdate();
         this.requestUpdate();
-        lcardsLog.debug('[ChartStudio] Reset to initial config');
+    }
+
+    async _confirmAction(message) {
+        return await this._showConfirmDialog('Confirm Action', message);
     }
 
     /**
@@ -643,41 +664,38 @@ export class LCARdSChartStudioDialog extends LitElement {
 
             // Create content
             const content = document.createElement('div');
-            content.textContent = message;
+            content.innerHTML = message;
             content.style.padding = '16px';
-            content.style.lineHeight = '1.5';
             dialog.appendChild(content);
 
-            // Create button container
-            const buttonContainer = document.createElement('div');
-            buttonContainer.slot = 'secondaryAction';
-            buttonContainer.style.display = 'flex';
-            buttonContainer.style.gap = '8px';
-
-            // Cancel button with explicit handler
+            // Cancel button
             const cancelButton = document.createElement('ha-button');
+            cancelButton.slot = 'secondaryAction';
             cancelButton.textContent = 'Cancel';
+            cancelButton.dialogAction = 'cancel';
+            cancelButton.setAttribute('appearance', 'plain');
             cancelButton.addEventListener('click', () => {
                 dialog.close();
                 resolve(false);
             });
 
-            // Confirm button with explicit handler
+            // Discard button
             const confirmButton = document.createElement('ha-button');
-            confirmButton.textContent = 'Continue';
-            confirmButton.setAttribute('raised', '');
+            confirmButton.slot = 'primaryAction';
+            confirmButton.textContent = 'Discard';
+            confirmButton.dialogAction = 'discard';
+            confirmButton.setAttribute('variant', 'danger');
             confirmButton.addEventListener('click', () => {
                 dialog.close();
                 resolve(true);
             });
 
-            buttonContainer.appendChild(cancelButton);
-            buttonContainer.appendChild(confirmButton);
-            dialog.appendChild(buttonContainer);
+            dialog.appendChild(cancelButton);
+            dialog.appendChild(confirmButton);
 
-            // Handle dialog close (ESC key or backdrop click)
+            // Handle dialog close
             dialog.addEventListener('closed', () => {
-                setTimeout(() => dialog.remove(), 100);
+                dialog.remove();
             });
 
             // Append to body
@@ -771,12 +789,12 @@ export class LCARdSChartStudioDialog extends LitElement {
     _renderDataSourcesTab() {
         return html`
             <div class="data-sources-tab">
-                ${this._renderLevelSelector()}
-
-                <div class="level-content">
-                    ${this._dataSourceLevel === 'quick' ? this._renderQuickStartMode() : ''}
-                    ${this._dataSourceLevel === 'advanced' ? this._renderAdvancedMode() : ''}
-                </div>
+                <!-- Series List Editor Component -->
+                <lcards-chart-series-list-editor
+                    .hass=${this.hass}
+                    .config=${this._workingConfig}
+                    @config-changed=${this._handleSeriesConfigChanged}>
+                </lcards-chart-series-list-editor>
 
                 <!-- Integrated Chart Type Selector -->
                 ${this._renderChartTypeSelector()}
@@ -1647,6 +1665,9 @@ export class LCARdSChartStudioDialog extends LitElement {
      * @private
      */
     _handleDataSourceConfigChanged(event) {
+        // Stop event from bubbling to parent editor
+        event.stopPropagation();
+
         // The datasource-editor-tab fires config-changed when DataSources are added/edited
         // Extract the updated data_sources from the event
         const updatedConfig = event.detail.config;
@@ -1662,6 +1683,35 @@ export class LCARdSChartStudioDialog extends LitElement {
             this._updatePreview();
             this.requestUpdate();
         }
+    }
+
+    /**
+     * Handle series config changes from series-list-editor
+     * @param {CustomEvent} event - config-changed event from series-list-editor
+     * @private
+     */
+    _handleSeriesConfigChanged(event) {
+        // Stop event from bubbling to parent editor
+        event.stopPropagation();
+
+        const updatedConfig = event.detail.config;
+
+        // Update working config with new series configuration
+        if (updatedConfig.sources !== undefined) {
+            this._workingConfig.sources = updatedConfig.sources;
+        }
+
+        if (updatedConfig.data_sources !== undefined) {
+            this._workingConfig.data_sources = { ...updatedConfig.data_sources };
+        }
+
+        lcardsLog.info('[ChartStudio] Series configuration updated:',
+            { seriesCount: this._workingConfig.sources?.length || 0,
+              dataSourceCount: Object.keys(this._workingConfig.data_sources || {}).length });
+
+        // Trigger preview update
+        this._updatePreviewCard();
+        this.requestUpdate();
     }
 
     /**
