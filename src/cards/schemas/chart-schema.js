@@ -169,6 +169,39 @@ export function getChartSchema(options = {}) {
                         items: { type: 'string' },
                         title: 'DataSource Names',
                         description: 'Array of DataSource names (references data_sources config)'
+                    },
+                    {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                datasource: {
+                                    type: 'string',
+                                    description: 'DataSource name or entity ID'
+                                },
+                                buffer: {
+                                    type: 'string',
+                                    description: 'Buffer selector (e.g., "main", "transformation.smoothed", "aggregation.stats")'
+                                },
+                                name: {
+                                    type: 'string',
+                                    description: 'Series name for legend'
+                                },
+                                type: {
+                                    type: 'string',
+                                    enum: ['line', 'area', 'bar', 'scatter'],
+                                    description: 'Series-specific chart type override'
+                                },
+                                yaxis: {
+                                    type: 'number',
+                                    minimum: 0,
+                                    description: 'Y-axis index (0-based) for multi-axis charts'
+                                }
+                            },
+                            required: ['datasource']
+                        },
+                        title: 'Advanced Source Objects',
+                        description: 'Array of source objects with buffer selection and per-series configuration'
                     }
                 ],
                 'x-ui-hints': {
@@ -177,7 +210,11 @@ export function getChartSchema(options = {}) {
                     defaultOneOfBranch: 0,
                     examples: [
                         ['sensor.indoor_temp', 'sensor.outdoor_temp'],
-                        ['temp_source_1', 'temp_source_2']
+                        ['temp_source_1', 'temp_source_2'],
+                        [
+                            { datasource: 'temp_source', buffer: 'main', name: 'Raw' },
+                            { datasource: 'temp_source', buffer: 'transformation.smoothed', name: 'Smoothed' }
+                        ]
                     ]
                 }
             },

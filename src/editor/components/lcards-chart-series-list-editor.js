@@ -377,6 +377,22 @@ export class LCARdSChartSeriesListEditor extends LitElement {
           </ha-selector>
         </div>
 
+        ${useExistingDataSource && existingDataSource ? html`
+          <!-- Buffer Selection (only for existing DataSources with transformations/aggregations) -->
+          <div class="form-row">
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ select: { options: this._getBufferOptions(existingDataSource), mode: 'dropdown' } }}
+              .value=${item.buffer || 'main'}
+              .label=${'Buffer / Data Type'}
+              @value-changed=${(e) => this._updateSeriesField(index, 'buffer', e.detail.value)}>
+            </ha-selector>
+            <div style="font-size: 12px; color: var(--secondary-text-color); margin-top: 6px;">
+              ${this._getBufferHelpText(item.buffer || 'main', existingDataSource)}
+            </div>
+          </div>
+        ` : ''}
+
         <div class="form-row-grid">
           <div class="form-row">
             <ha-selector
@@ -424,7 +440,11 @@ export class LCARdSChartSeriesListEditor extends LitElement {
     const sources = this.config?.sources || [];
     const dataSources = this.config?.data_sources || {};
 
-    return sources.map((sourceName, index) => {
+    return sources.map((sourceConfig, index) => {
+      // Handle both string and object source formats
+      const sourceName = typeof sourceConfig === 'string' ? sourceConfig : sourceConfig.datasource;
+      const buffer = typeof sourceConfig === 'object' ? sourceConfig.buffer : 'main';
+
       const dsConfig = dataSources[sourceName];
       if (!dsConfig) {
         return {
@@ -435,7 +455,8 @@ export class LCARdSChartSeriesListEditor extends LitElement {
           window_seconds: 3600,
           name: '',
           type: 'line',
-          yaxis: 0
+          yaxis: 0,
+          buffer: 'main'
         };
       }
 
@@ -453,7 +474,8 @@ export class LCARdSChartSeriesListEditor extends LitElement {
         window_seconds: hours * 3600,
         name: dsConfig.name || '',
         type: dsConfig.type || 'line',
-        yaxis: dsConfig.yaxis || 0
+        yaxis: dsConfig.yaxis || 0,
+        buffer: buffer || 'main'
       };
     });
   }
@@ -650,7 +672,17 @@ export class LCARdSChartSeriesListEditor extends LitElement {
         };
       }
 
-      newConfig.sources.push(sourceName);
+      // Build sources entry (string or object depending on buffer selection)
+      if (useExistingDataSource && item.buffer && item.buffer !== 'main') {
+        // Object format with buffer selector
+        newConfig.sources.push({
+          datasource: sourceName,
+          buffer: item.buffer
+        });
+      } else {
+        // Simple string format (backward compatible)
+        newConfig.sources.push(sourceName);
+      }
     });
 
     this.dispatchEvent(new CustomEvent('config-changed', {
@@ -812,6 +844,141 @@ export class LCARdSChartSeriesListEditor extends LitElement {
     this._showDataSourceDialog = false;
     this._currentSeriesIndex = null;
     this._currentEditingDataSource = null;
+  }
+
+  /**
+   * Get buffer options for a DataSource
+   * @private
+   * @param {string} dataSourceName - Name of the DataSource
+   * @returns {Array} Array of {value, label} options
+   */
+  _getBufferOptions(dataSourceName) {
+    const options = [
+      { value: 'main', label: '📊 Main Buffer (Raw Data)' }
+    ];
+
+    // Get DataSource config
+    const dsConfig = this.config?.data_sources?.[dataSourceName];
+    if (!dsConfig) {
+      return options;
+    }
+
+    // Add transformation options (handle both array and object format)
+    if (dsConfig.transformations) {
+      if (Array.isArray(dsConfig.transformations)) {
+        // Array format: [{ key: 'mov_avg', type: 'smooth', ... }]
+        dsConfig.transformations.forEach(transform => {
+          if (transform.key) {
+            options.push({
+              value: `transformation.${transform.key}`,
+              label: `🔄 Transform: ${transform.key} (${transform.type})`
+            });
+          }
+        });
+      } else if (typeof dsConfig.transformations === 'object') {
+        // Object format: { mov_avg: { type: 'smooth', ... } }
+        Object.entries(dsConfig.transformations).forEach(([key, config]) => {
+          options.push({
+            value: `transformation.${key}`,
+            label: `🔄 Transform: ${key} (${config.type || 'unknown'})`
+          });
+        });
+      }
+    }
+
+    // Add aggregation options (handle both array and object format)
+    if (dsConfig.aggregations) {
+      if (Array.isArray(dsConfig.aggregations)) {
+        // Array format: [{ key: 'stats', type: 'rolling_statistics_series', ... }]
+        dsConfig.aggregations.forEach(agg => {
+          if (agg.key) {
+            const isTimeSeries = agg.type === 'rolling_statistics_series';
+            const icon = isTimeSeries ? '📈' : '📉';
+            const suffix = isTimeSeries ? '(Time-Series)' : '(Latest Value)';
+            options.push({
+              value: `aggregation.${agg.key}`,
+              label: `${icon} Agg: ${agg.key} ${suffix}`
+            });
+          }
+        });
+      } else if (typeof dsConfig.aggregations === 'object') {
+        // Object format: { min_max: { type: 'min_max', ... } }
+        Object.entries(dsConfig.aggregations).forEach(([key, config]) => {
+          const isTimeSeries = config.type === 'rolling_statistics_series';
+          const icon = isTimeSeries ? '📈' : '📉';
+          const suffix = isTimeSeries ? '(Time-Series)' : '(Latest Value)';
+          options.push({
+            value: `aggregation.${key}`,
+            label: `${icon} Agg: ${key} ${suffix}`
+          });
+        });
+      }
+    }
+
+    return options;
+  }
+
+  /**
+   * Get help text for buffer selection
+   * @private
+   * @param {string} bufferValue - Selected buffer value
+   * @param {string} dataSourceName - DataSource name
+   * @returns {string} Help text
+   */
+  _getBufferHelpText(bufferValue, dataSourceName) {
+    if (bufferValue === 'main') {
+      return 'Historical raw sensor data from main buffer';
+    }
+
+    const parts = bufferValue.split('.');
+    if (parts.length !== 2) {
+      return 'Invalid buffer format';
+    }
+
+    const [type, key] = parts;
+    const dsConfig = this.config?.data_sources?.[dataSourceName];
+
+    if (type === 'transformation' || type === 'transform') {
+      let transform = null;
+
+      // Handle array format
+      if (Array.isArray(dsConfig?.transformations)) {
+        transform = dsConfig.transformations.find(t => t.key === key);
+      }
+      // Handle object format
+      else if (typeof dsConfig?.transformations === 'object' && dsConfig?.transformations?.[key]) {
+        transform = { key, ...dsConfig.transformations[key] };
+      }
+
+      if (transform) {
+        return `Latest transformed value using ${transform.type} (single point)`;
+      }
+      return 'Transformation not found';
+    }
+
+    if (type === 'aggregation' || type === 'agg') {
+      let agg = null;
+
+      // Handle array format
+      if (Array.isArray(dsConfig?.aggregations)) {
+        agg = dsConfig.aggregations.find(a => a.key === key);
+      }
+      // Handle object format
+      else if (typeof dsConfig?.aggregations === 'object' && dsConfig?.aggregations?.[key]) {
+        agg = { key, ...dsConfig.aggregations[key] };
+      }
+
+      if (agg) {
+        if (agg.type === 'rolling_statistics_series') {
+          const stats = agg.stats?.join(', ') || 'values';
+          return `Time-series aggregation: ${stats} over ${agg.window || agg.window_seconds || 'window'}`;
+        }
+        return `Latest ${agg.type} aggregation value (single point)`;
+      }
+      return 'Aggregation not found';
+    }
+
+    return 'Select a buffer type';
   }
 }
 
