@@ -431,16 +431,10 @@ export class LCARdSChartSeriesListEditor extends LitElement {
     const sources = this.config?.sources || [];
     const dataSources = this.config?.data_sources || {};
 
-    lcardsLog.debug('[ChartSeriesListEditor] _getSeriesList called:', {
-      sources,
-      dataSourceKeys: Object.keys(dataSources)
-    });
-
     return sources.map((sourceName, index) => {
       const dsConfig = dataSources[sourceName];
       if (!dsConfig) {
         return {
-          _sourceName: null,
           useExistingDataSource: false,
           existingDataSource: '',
           entity: '',
@@ -457,15 +451,8 @@ export class LCARdSChartSeriesListEditor extends LitElement {
       const isSeriesN = /^series_\d+$/.test(sourceName);
       const useExistingDataSource = !isSeriesN;
 
-      lcardsLog.debug('[ChartSeriesListEditor] Processing source:', {
-        sourceName,
-        isSeriesN,
-        useExistingDataSource
-      });
-
       const hours = dsConfig.history?.hours || ((dsConfig.window_seconds || 3600) / 3600);
       return {
-        _sourceName: sourceName,
         useExistingDataSource,
         existingDataSource: useExistingDataSource ? sourceName : '',
         // Only populate entity/attribute fields for entity mode (series_N DataSources)
@@ -653,17 +640,13 @@ export class LCARdSChartSeriesListEditor extends LitElement {
           lcardsLog.debug('[ChartSeriesListEditor] Creating series with empty entity - user needs to configure');
         }
 
-        sourceName = item._sourceName; // Reuse existing DataSource name if available
-
-        // If no source name (new series), find next available number
-        if (!sourceName || !sourceName.match(/^series_\d+$/)) {
-          while (existingNumbers.includes(nextNumber) || globalNames.has(`series_${nextNumber}`)) {
-            nextNumber++;
-          }
-          sourceName = `series_${nextNumber}`;
-          existingNumbers.push(nextNumber);
+        // Find next available series_N number
+        while (existingNumbers.includes(nextNumber) || globalNames.has(`series_${nextNumber}`)) {
           nextNumber++;
         }
+        sourceName = `series_${nextNumber}`;
+        existingNumbers.push(nextNumber);
+        nextNumber++;
 
         // Create/update the series_N DataSource
         newConfig.data_sources[sourceName] = {
