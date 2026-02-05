@@ -5,7 +5,7 @@
  * (card-local and global) with hierarchical tree view and live detail pane.
  *
  * Features:
- * - Tree view: Datasources → Entity → Transformations → Aggregations → Buffers
+ * - Tree view: Datasources → Entity → Processors → Buffers
  * - Detail pane: Live values, configuration, buffer charts/tables
  * - Live subscription to DataSourceManager (no polling)
  * - Responsive styling matching Theme Browser & Provenance Inspector
@@ -181,8 +181,8 @@ export class LCARdSDataSourceBrowser extends LitElement {
       }
 
       // REFACTORED: Processor buffers from ProcessorManager
-      if (dataSource.processorManager && dataSource.processorManager.buffers.size > 0) {
-        dataSource.processorManager.buffers.forEach((buffer, key) => {
+      if (dataSource.processorManager && dataSource.processorManager.processorBuffers.size > 0) {
+        dataSource.processorManager.processorBuffers.forEach((buffer, key) => {
           bufferNode.children.push({
             id: `${node.id}_buffer_${key}`,
             type: 'buffer',
@@ -444,14 +444,10 @@ export class LCARdSDataSourceBrowser extends LitElement {
         return this._renderDataSourceDetail(data);
       case 'entity':
         return this._renderEntityDetail(data);
-      case 'transformations':
-        return this._renderTransformationsOverview(data);
-      case 'transformation':
-        return this._renderTransformationDetail(data);
-      case 'aggregations':
-        return this._renderAggregationsOverview(data);
-      case 'aggregation':
-        return this._renderAggregationDetail(data);
+      case 'processors':
+        return this._renderProcessorsOverview(data);
+      case 'processor':
+        return this._renderProcessorDetail(data);
       case 'buffers':
         return this._renderBuffersOverview(data);
       case 'buffer':
@@ -554,40 +550,51 @@ export class LCARdSDataSourceBrowser extends LitElement {
   }
 
   /**
-   * Render transformation detail
+   * Render processor detail
    * @private
    */
-  /**
-   * Render transformation detail
-   * @private
-   */
-  _renderTransformationDetail(data) {
-    const { key, processor } = data;
+  _renderProcessorDetail(data) {
+    const { key, processor, type } = data;
 
-    // Create a clean object without hass and circular references
-    const cleanConfig = this._sanitizeForDisplay(processor);
+    // Get buffer info if available
+    const bufferSize = processor.buffer ? processor.buffer.size() : 0;
+    const bufferCapacity = processor.buffer ? processor.buffer.capacity : 0;
+
+    // Get dependency info
+    const dependencies = processor.config?.from ? [processor.config.from] : [];
+
+    // Create clean config for display
+    const cleanConfig = this._sanitizeForDisplay(processor.config);
 
     return html`
       <div class="detail-section">
-        <h4>Transformation: ${key}</h4>
-        <pre class="config-block">${JSON.stringify(cleanConfig, null, 2)}</pre>
+        <h4>Processor: ${key}</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">Type:</span>
+            <span class="detail-value">${type}</span>
+          </div>
+          ${dependencies.length > 0 ? html`
+            <div class="detail-item">
+              <span class="detail-label">Dependencies:</span>
+              <span class="detail-value">${dependencies.join(', ')}</span>
+            </div>
+          ` : ''}
+          <div class="detail-item">
+            <span class="detail-label">Buffer:</span>
+            <span class="detail-value">${bufferSize} / ${bufferCapacity} points</span>
+          </div>
+          ${processor.lastValue !== undefined ? html`
+            <div class="detail-item">
+              <span class="detail-label">Current Value:</span>
+              <span class="detail-value">${processor.lastValue}</span>
+            </div>
+          ` : ''}
+        </div>
       </div>
-    `;
-  }
 
-  /**
-   * Render aggregation detail
-   * @private
-   */
-  _renderAggregationDetail(data) {
-    const { key, processor } = data;
-
-    // Create a clean object without hass and circular references
-    const cleanConfig = this._sanitizeForDisplay(processor);
-
-    return html`
       <div class="detail-section">
-        <h4>Aggregation: ${key}</h4>
+        <h4>Configuration</h4>
         <pre class="config-block">${JSON.stringify(cleanConfig, null, 2)}</pre>
       </div>
     `;
@@ -674,28 +681,39 @@ export class LCARdSDataSourceBrowser extends LitElement {
   }
 
   /**
-   * Render transformations overview
+   * Render processors overview (unified processing pipeline)
    * @private
    */
-  _renderTransformationsOverview(transformationsArray) {
-    if (!transformationsArray || transformationsArray.length === 0) {
-      return html`<p><em>No transformations configured</em></p>`;
+  _renderProcessorsOverview(processorsArray) {
+    if (!processorsArray || processorsArray.length === 0) {
+      return html`<p><em>No processors configured</em></p>`;
     }
 
     // Count by type
     const typeCounts = {};
-    transformationsArray.forEach(([key, processor]) => {
-      const type = processor.config?.type || processor.type || 'unknown';
+    const dependencyMap = new Map();
+
+    processorsArray.forEach(([key, processor]) => {
+      const type = processor.config?.type || 'unknown';
       typeCounts[type] = (typeCounts[type] || 0) + 1;
+
+      // Track dependencies
+      if (processor.config?.from) {
+        dependencyMap.set(key, processor.config.from);
+      }
     });
 
     return html`
       <div class="detail-section">
-        <h4>Transformations Summary</h4>
+        <h4>Processing Pipeline Summary</h4>
         <div class="detail-grid">
           <div class="detail-item">
-            <span class="detail-label">Total Count:</span>
-            <span class="detail-value">${transformationsArray.length}</span>
+            <span class="detail-label">Total Processors:</span>
+            <span class="detail-value">${processorsArray.length}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Dependencies:</span>
+            <span class="detail-value">${dependencyMap.size} processors with dependencies</span>
           </div>
         </div>
       </div>
@@ -703,7 +721,7 @@ export class LCARdSDataSourceBrowser extends LitElement {
       <div class="detail-section">
         <h4>By Type</h4>
         <div class="detail-grid">
-          ${Object.entries(typeCounts).map(([type, count]) => html`
+          ${Object.entries(typeCounts).sort((a, b) => b[1] - a[1]).map(([type, count]) => html`
             <div class="detail-item">
               <span class="detail-label">${type}:</span>
               <span class="detail-value">${count}</span>
@@ -713,69 +731,41 @@ export class LCARdSDataSourceBrowser extends LitElement {
       </div>
 
       <div class="detail-section">
-        <h4>All Transformations</h4>
+        <h4>All Processors</h4>
         <div class="detail-grid">
-          ${transformationsArray.map(([key, processor]) => html`
-            <div class="detail-item">
-              <span class="detail-label">${key}:</span>
-              <span class="detail-value">${processor.config?.type || processor.type || 'unknown'}</span>
-            </div>
-          `)}
+          ${processorsArray.map(([key, processor]) => {
+            const type = processor.config?.type || 'unknown';
+            const from = processor.config?.from;
+            const dependency = from ? ` ← ${from}` : '';
+            const bufferSize = processor.buffer ? processor.buffer.size() : 0;
+
+            return html`
+              <div class="detail-item">
+                <span class="detail-label">${key}:</span>
+                <span class="detail-value">${type}${dependency} (${bufferSize} points)</span>
+              </div>
+            `;
+          })}
         </div>
       </div>
-    `;
-  }
 
-  /**
-   * Render aggregations overview
-   * @private
-   */
-  _renderAggregationsOverview(aggregationsArray) {
-    if (!aggregationsArray || aggregationsArray.length === 0) {
-      return html`<p><em>No aggregations configured</em></p>`;
-    }
-
-    // Count by type
-    const typeCounts = {};
-    aggregationsArray.forEach(([key, processor]) => {
-      const type = processor.config?.type || processor.type || 'unknown';
-      typeCounts[type] = (typeCounts[type] || 0) + 1;
-    });
-
-    return html`
-      <div class="detail-section">
-        <h4>Aggregations Summary</h4>
-        <div class="detail-grid">
-          <div class="detail-item">
-            <span class="detail-label">Total Count:</span>
-            <span class="detail-value">${aggregationsArray.length}</span>
+      ${dependencyMap.size > 0 ? html`
+        <div class="detail-section">
+          <h4>Dependency Graph</h4>
+          <div class="dependency-tree">
+            ${processorsArray.map(([key, processor]) => {
+              const from = processor.config?.from;
+              return from ? html`
+                <div class="dependency-item">
+                  <span class="dep-source">${from}</span>
+                  <span class="dep-arrow">→</span>
+                  <span class="dep-target">${key}</span>
+                </div>
+              ` : '';
+            })}
           </div>
         </div>
-      </div>
-
-      <div class="detail-section">
-        <h4>By Type</h4>
-        <div class="detail-grid">
-          ${Object.entries(typeCounts).map(([type, count]) => html`
-            <div class="detail-item">
-              <span class="detail-label">${type}:</span>
-              <span class="detail-value">${count}</span>
-            </div>
-          `)}
-        </div>
-      </div>
-
-      <div class="detail-section">
-        <h4>All Aggregations</h4>
-        <div class="detail-grid">
-          ${aggregationsArray.map(([key, processor]) => html`
-            <div class="detail-item">
-              <span class="detail-label">${key}:</span>
-              <span class="detail-value">${processor.config?.type || processor.type || 'unknown'}${processor.config?.windowSeconds || processor.windowSeconds ? ` (${processor.config?.windowSeconds || processor.windowSeconds}s)` : ''}</span>
-            </div>
-          `)}
-        </div>
-      </div>
+      ` : ''}
     `;
   }
 
@@ -1128,6 +1118,41 @@ export class LCARdSDataSourceBrowser extends LitElement {
         overflow-x: auto;
         color: var(--primary-color);
         font-size: 13px;
+      }
+
+      .dependency-tree {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px;
+        background: var(--code-background-color, #1e1e1e);
+        border-radius: 6px;
+      }
+
+      .dependency-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 12px;
+        background: var(--secondary-background-color);
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-size: 13px;
+      }
+
+      .dep-source {
+        color: var(--primary-color);
+        font-weight: 500;
+      }
+
+      .dep-arrow {
+        color: var(--secondary-text-color);
+        font-weight: bold;
+      }
+
+      .dep-target {
+        color: var(--accent-color, var(--primary-color));
+        font-weight: 500;
       }
 
       .attributes-table {
