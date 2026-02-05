@@ -18,6 +18,17 @@ const cancelAnimationFrame = isNode
   : window.cancelAnimationFrame;
 
 export class DataSource {
+  /**
+   * Create a new DataSource for a Home Assistant entity
+   * @param {Object} cfg - DataSource configuration
+   * @param {string} cfg.entity - Entity ID to monitor
+   * @param {number} [cfg.windowSeconds=60] - Rolling window size in seconds
+   * @param {number} [cfg.minEmitMs=100] - Minimum time between emits
+   * @param {number} [cfg.coalesceMs] - Coalescing window for rapid updates
+   * @param {Object} [cfg.processing] - Processor configuration
+   * @param {Object} [cfg.history] - History preload configuration
+   * @param {Object} hass - Home Assistant connection object
+   */
   constructor(cfg, hass) {
     this.cfg = { ...cfg };
     this.hass = hass;
@@ -390,6 +401,12 @@ export class DataSource {
     }
   }
 
+  /**
+   * Preload historical data for the entity
+   * Attempts statistics API first (faster), falls back to state history via WebSocket
+   * @private
+   * @async
+   */
   async _preloadHistory() {
     if (!this.hass?.connection || !this.cfg.entity) {
       lcardsLog.warn('[DataSource] ⚠️ No HASS connection or entity for history preload');
@@ -438,6 +455,13 @@ export class DataSource {
     await this._preloadStateHistoryWS(startTime, endTime);
   }
 
+  /**
+   * Preload history using WebSocket state_history API
+   * @private
+   * @async
+   * @param {Date} startTime - Start time for history query
+   * @param {Date} endTime - End time for history query
+   */
   async _preloadStateHistoryWS(startTime, endTime) {
     try {
       lcardsLog.trace(`[DataSource] 📚 Trying WebSocket state history for ${this.cfg.entity}`);
@@ -491,6 +515,13 @@ export class DataSource {
     }
   }
 
+  /**
+   * Preload history using REST API (fallback method)
+   * @private
+   * @async
+   * @param {Date} startTime - Start time for history query
+   * @param {Date} endTime - End time for history query
+   */
   async _preloadHistoryREST(startTime, endTime) {
     try {
       lcardsLog.debug(`[DataSource] 🌐 Trying REST API history for ${this.cfg.entity}`);
@@ -749,6 +780,12 @@ export class DataSource {
     });
   }
 
+  /**
+   * Subscribe to live state changes from Home Assistant via WebSocket
+   * Sets up event subscription for the configured entity
+   * @private
+   * @async
+   */
   async _subscribeLive() {
     if (!this.hass?.connection?.subscribeEvents || !this.cfg.entity) return;
 
@@ -771,6 +808,13 @@ export class DataSource {
     }
   }
 
+  /**
+   * Handle raw event value with coalescing and throttling
+   * Implements intelligent value change detection to reduce unnecessary updates
+   * @private
+   * @param {number} timestamp - Event timestamp in milliseconds
+   * @param {number} value - Numeric value to process
+   */
   _onRawEventValue(timestamp, value) {
     if (value === null) {
       this._stats.invalid++;
@@ -822,6 +866,11 @@ export class DataSource {
     }
   }
 
+  /**
+   * Ensure an emit is scheduled on the next animation frame
+   * Uses requestAnimationFrame for optimal timing
+   * @private
+   */
   _ensureScheduleEmit() {
     if (this._pendingRaf) return; // Already scheduled
 
@@ -831,6 +880,11 @@ export class DataSource {
     });
   }
 
+  /**
+   * Check if pending data should be emitted based on timing constraints
+   * Enforces minEmitMs, coalesceMs, and maxDelayMs policies
+   * @private
+   */
   _frameEmitCheck() {
     if (!this._pending || this._destroyed) return;
 
@@ -876,38 +930,12 @@ export class DataSource {
     }
   }
 
-  /* OLD
-  subscribe(callback) {
-    if (typeof callback !== 'function') {
-      lcardsLog.warn('[DataSource] Subscribe requires a function callback');
-      return () => {};
-    }
-
-    this.subscribers.add(callback);
-
-    // Immediate hydration with current data
-    const lastPoint = this.buffer.last();
-    if (lastPoint) {
-      try {
-        callback({
-          t: lastPoint.t,
-          v: lastPoint.v,
-          buffer: this.buffer,
-          stats: this._stats
-        });
-      } catch (error) {
-        lcardsLog.warn('[DataSource] Initial callback error:', error);
-      }
-    }
-
-    // Return unsubscribe function
-    return () => {
-      this.subscribers.delete(callback);
-    };
-  }
-  */
-
-
+  /**
+   * Subscribe to data source updates
+   * Provides immediate hydration with current data if available
+   * @param {Function} callback - Callback function to receive data updates
+   * @returns {Function} Unsubscribe function
+   */
   subscribe(callback) {
     if (typeof callback !== 'function') {
       lcardsLog.warn('[DataSource] Subscribe requires a function callback');
@@ -960,7 +988,16 @@ export class DataSource {
     };
   }
 
-  // ENHANCED: Subscribe with metadata support
+  /**
+   * Subscribe to data source updates with overlay metadata tracking
+   * Stores subscriber metadata for debugging and visualization
+   * @param {Function} callback - Callback function to receive data updates
+   * @param {Object} [metadata={}] - Optional metadata about the subscriber
+   * @param {string} [metadata.overlayId] - ID of the subscribing overlay
+   * @param {string} [metadata.overlayType] - Type of the subscribing overlay
+   * @param {string} [metadata.component] - Component name of subscriber
+   * @returns {Function} Unsubscribe function
+   */
   subscribeWithMetadata(callback, metadata = {}) {
     if (typeof callback !== 'function') {
       lcardsLog.warn('[DataSource] Subscribe requires a function callback');
@@ -1088,6 +1125,13 @@ export class DataSource {
     return null;
   }
 
+  /**
+   * Parse time window string to milliseconds
+   * Supports formats: "60s", "5m", "2h", "1d"
+   * @private
+   * @param {string} windowStr - Time window string to parse
+   * @returns {number} Milliseconds or NaN if invalid
+   */
   _parseTimeWindowMs(windowStr) {
     if (typeof windowStr !== 'string') return NaN;
 
@@ -1115,7 +1159,10 @@ export class DataSource {
     }
   }
 
-  // Debug and introspection methods
+  /**
+   * Get performance statistics and configuration info
+   * @returns {Object} Statistics including emits, coalesced events, config details
+   */
   getStats() {
     return {
       ...this._stats,
@@ -1144,7 +1191,10 @@ export class DataSource {
     };
   }
 
-  // ENHANCED: Basic subscriber information with overlay metadata
+  /**
+   * Get information about all subscribers with overlay metadata
+   * @returns {Array<Object>} Array of subscriber info objects with metadata
+   */
   getSubscriberInfo() {
     return Array.from(this.subscribers).map((callback, index) => {
       // Check if callback has stored metadata
@@ -1173,7 +1223,9 @@ export class DataSource {
         index: index
       };
     });
-  }  /**
+  }
+
+  /**
    * Get current data with enhanced metadata
    * @returns {Object|null} Current data object or null
    */
@@ -1266,6 +1318,10 @@ export class DataSource {
     this._pending = false;
   }
 
+  /**
+   * Destroy the data source and clean up all resources
+   * Stops periodic updates, unsubscribes from HA, clears subscribers and buffer
+   */
   destroy() {
     this._destroyed = true;
     this._stopPeriodicUpdates();
@@ -1274,6 +1330,13 @@ export class DataSource {
     this.buffer.clear();
   }
 
+  /**
+   * Extract numeric value from statistics API response
+   * Tries various statistics fields (sum, mean, min, max, state)
+   * @private
+   * @param {Object} stat - Statistics object from HA API
+   * @returns {number|null} Extracted numeric value or null
+   */
   _extractStatisticValue(stat) {
     // Priority order for statistic values
     if (Number.isFinite(stat.mean)) return stat.mean;
