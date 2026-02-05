@@ -56,7 +56,7 @@
  *   - datasource: temp_sensor
  *     buffer: main
  *   - datasource: temp_sensor
- *     buffer: processing.hourly_stats
+ *     buffer: aggregation.hourly_stats
  * chart_type: line
  * series_names: [Raw Data, Hourly Stats]
  * ```
@@ -365,7 +365,7 @@ export class LCARdSChart extends LCARdSCard {
       if (dataSourceRef?.transformedBuffers?.has(key)) {
         const transformBuffer = dataSourceRef.transformedBuffers.get(key);
         const bufferData = transformBuffer.getAll();
-        lcardsLog.debug(`[LCARdSChart] Using processor buffer: ${key} (${bufferData.length} points)`);
+        lcardsLog.debug(`[LCARdSChart] Using transformation buffer: ${key} (${bufferData.length} points)`);
         return bufferData;
       }
 
@@ -396,7 +396,7 @@ export class LCARdSChart extends LCARdSCard {
         if (dataSourceRef?.transformedBuffers?.has(key)) {
           const transformBuffer = dataSourceRef.transformedBuffers.get(key);
           const bufferData = transformBuffer.getAll();
-          lcardsLog.debug(`[LCARdSChart] Using processor buffer: ${key} (${bufferData.length} points)`);
+          lcardsLog.debug(`[LCARdSChart] Using transformation buffer: ${key} (${bufferData.length} points)`);
           return bufferData;
         }
 
@@ -567,7 +567,7 @@ export class LCARdSChart extends LCARdSCard {
    */
   _handleDataUpdate(seriesIndex, data, dataSourceRef) {
     // Extract buffer array from DataSource update object if needed
-    // DataSource emits { buffer: RollingBuffer, processing: {}, ... }
+    // DataSource emits { buffer: RollingBuffer, transformations: {}, aggregations: {}, ... }
     let dataArray;
     if (data?.buffer && typeof data.buffer.getAll === 'function') {
       // Get buffer selector from series config (default to 'main')

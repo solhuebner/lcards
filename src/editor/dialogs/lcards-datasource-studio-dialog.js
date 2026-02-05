@@ -21,6 +21,7 @@ import { lcardsLog } from '../../utils/lcards-logging.js';
 import { editorStyles } from '../base/editor-styles.js';
 import '../components/shared/lcards-message.js';
 import '../components/datasources/lcards-transformation-list-editor.js';
+import '../components/datasources/lcards-aggregation-list-editor.js';
 
 export class LCARdSDataSourceStudioDialog extends LitElement {
     static get properties() {
@@ -396,26 +397,40 @@ export class LCARdSDataSourceStudioDialog extends LitElement {
             <div class="tab-content" @click=${this._handleContentClick}>
                 <lcards-message type="info">
                     <ha-icon icon="mdi:information" slot="icon"></ha-icon>
-                    Processors transform, smooth, and aggregate data before it's emitted.
-                    Apply filters, moving averages, statistics, unit conversions, and more.
+                    Transformations process incoming data before it's emitted. Apply filters,
+                    moving averages, unit conversions, and more.
                 </lcards-message>
 
                 <lcards-transformation-list-editor
-                    .transformations=${this._workingConfig.processing || {}}
+                    .transformations=${this._workingConfig.transformations || {}}
                     .hass=${this.hass}
-                    @transformations-changed=${this._handleProcessingChange}>
+                    @transformations-changed=${this._handleTransformationsChange}>
                 </lcards-transformation-list-editor>
             </div>
         `;
     }
 
     /**
-     * Render Aggregate tab (DEPRECATED - now uses Processing tab)
-     * @deprecated Use _renderTransformTab which handles all processing
+     * Render Aggregate tab
      */
     _renderAggregateTab() {
-        // Redirect to processing tab for backwards compatibility
-        return this._renderTransformTab();
+        return html`
+            <div class="tab-content" @click=${this._handleContentClick}>
+                <lcards-message type="info">
+                    <ha-icon icon="mdi:information" slot="icon"></ha-icon>
+                    Aggregations compute derived values (min, max, average, sum) from the data buffer.
+                    Useful for statistics and summary metrics.
+                </lcards-message>
+
+                <div class="form-section">
+                    <lcards-aggregation-list-editor
+                        .aggregations=${this._workingConfig.aggregations || {}}
+                        .hass=${this.hass}
+                        @aggregations-changed=${this._handleAggregationsChange}>
+                    </lcards-aggregation-list-editor>
+                </div>
+            </div>
+        `;
     }
 
     /**
@@ -585,35 +600,35 @@ export class LCARdSDataSourceStudioDialog extends LitElement {
     }
 
     /**
-     * Handle processing change (unified transformations/aggregations)
+     * Handle transformations change
      */
-    _handleProcessingChange(event) {
-        const processing = event.detail.value;
+    _handleTransformationsChange(event) {
+        const transformations = event.detail.value;
         const newConfig = JSON.parse(JSON.stringify(this._workingConfig));
 
-        if (Object.keys(processing).length === 0) {
-            delete newConfig.processing;
+        if (Object.keys(transformations).length === 0) {
+            delete newConfig.transformations;
         } else {
-            newConfig.processing = processing;
+            newConfig.transformations = transformations;
         }
 
         this._workingConfig = newConfig;
     }
 
     /**
-     * Handle transformations change (DEPRECATED - redirects to processing)
-     * @deprecated Use _handleProcessingChange
-     */
-    _handleTransformationsChange(event) {
-        this._handleProcessingChange(event);
-    }
-
-    /**
-     * Handle aggregations change (DEPRECATED - redirects to processing)
-     * @deprecated Use _handleProcessingChange
+     * Handle aggregations change
      */
     _handleAggregationsChange(event) {
-        this._handleProcessingChange(event);
+        const aggregations = event.detail.value;
+        const newConfig = JSON.parse(JSON.stringify(this._workingConfig));
+
+        if (Object.keys(aggregations).length === 0) {
+            delete newConfig.aggregations;
+        } else {
+            newConfig.aggregations = aggregations;
+        }
+
+        this._workingConfig = newConfig;
     }
 
     /**
@@ -699,10 +714,6 @@ export class LCARdSDataSourceStudioDialog extends LitElement {
         }
 
         // Remove empty objects
-        if (cleanConfig.processing && Object.keys(cleanConfig.processing).length === 0) {
-            delete cleanConfig.processing;
-        }
-        // Backwards compatibility: clean up old fields if present
         if (cleanConfig.transformations && Object.keys(cleanConfig.transformations).length === 0) {
             delete cleanConfig.transformations;
         }

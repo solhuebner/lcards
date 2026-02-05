@@ -394,13 +394,8 @@ export class LCARdSCard extends LCARdSNativeCard {
                             value: data.v,
                             cardId: this._getDisplayId()
                         });
-                        // Re-process custom templates when datasource data changes (if card implements it)
-                        if (typeof this._processCustomTemplates === 'function') {
-                            this._processCustomTemplates();
-                        } else {
-                            // For cards without custom template processing, just trigger a re-render
-                            this.requestUpdate();
-                        }
+                        // Re-process custom templates when datasource data changes
+                        this._processCustomTemplates();
                     });
 
                     // Track subscription for cleanup

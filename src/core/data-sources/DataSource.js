@@ -232,7 +232,141 @@ export class DataSource {
     return wsSec;
   }
 
-  // DEPRECATED: Old transformation validation/ordering methods removed - ProcessorManager handles this
+  /**
+   * NEW: Validate transformation chains for common errors
+   * @private
+   */
+  _validateTransformationChains() {
+    const errors = [];
+
+    this.transformations.forEach((processor, key) => {
+      const inputSource = processor.config.input_source;
+
+      if (inputSource) {
+        // Check source exists
+        if (!this.transformations.has(inputSource)) {
+          errors.push(`Transform '${key}' references non-existent source '${inputSource}'`);
+        }
+
+        // Check for self-reference
+        if (inputSource === key) {
+          errors.push(`Transform '${key}' cannot reference itself`);
+        }
+      }
+    });
+
+    if (errors.length > 0) {
+      const errorMsg = `Transform chain validation failed:\n  ${errors.join('\n  ')}`;
+      lcardsLog.error(`[DataSource] ❌ ${errorMsg}`);
+      throw new Error(errorMsg);
+    }
+  }
+
+  /**
+   * NEW: Determine execution order for transformations based on dependencies
+   * Uses topological sort (Kahn's algorithm) to handle chained transformations
+   * @private
+   * @returns {Array<string>} Ordered array of transformation keys
+   */
+  _determineTransformationOrder() {
+    // Return cached order if valid
+    if (this._transformationOrderValid && this._transformationOrder) {
+      return this._transformationOrder;
+    }
+
+    const keys = Array.from(this.transformations.keys());
+
+    // Quick path: no transformations
+    if (keys.length === 0) {
+      this._transformationOrder = [];
+      this._transformationOrderValid = true;
+      return [];
+    }
+
+    // Quick path: check if any transform uses input_source
+    const hasChaining = Array.from(this.transformations.values())
+      .some(p => p.config.input_source);
+
+    if (!hasChaining) {
+      // No chaining - return original order (parallel processing)
+      this._transformationOrder = keys;
+      this._transformationOrderValid = true;
+      return keys;
+    }
+
+    // Build dependency graph
+    const graph = new Map();
+    const inDegree = new Map();
+
+    keys.forEach(key => {
+      graph.set(key, []);
+      inDegree.set(key, 0);
+    });
+
+    keys.forEach(key => {
+      const processor = this.transformations.get(key);
+      const inputSource = processor.config.input_source;
+
+      if (inputSource) {
+        // Add edge: inputSource -> key
+        if (graph.has(inputSource)) {
+          graph.get(inputSource).push(key);
+          inDegree.set(key, inDegree.get(key) + 1);
+        }
+      }
+    });
+
+    // Topological sort using Kahn's algorithm
+    const queue = [];
+    const result = [];
+
+    // Start with nodes that have no dependencies
+    inDegree.forEach((degree, key) => {
+      if (degree === 0) {
+        queue.push(key);
+      }
+    });
+
+    while (queue.length > 0) {
+      const current = queue.shift();
+      result.push(current);
+
+      // Reduce in-degree for dependent nodes
+      graph.get(current).forEach(dependent => {
+        inDegree.set(dependent, inDegree.get(dependent) - 1);
+        if (inDegree.get(dependent) === 0) {
+          queue.push(dependent);
+        }
+      });
+    }
+
+    // Detect cycles
+    if (result.length !== keys.length) {
+      const remaining = keys.filter(k => !result.includes(k));
+      const involved = remaining.map(k => {
+        const src = this.transformations.get(k).config.input_source;
+        return `${k} → ${src}`;
+      }).join(', ');
+
+      lcardsLog.error(
+        `[DataSource] ❌ Circular dependency detected in transformations: ${involved}\n` +
+        `  Falling back to config order (chaining will not work correctly)`
+      );
+
+      // Return original order as fallback
+      this._transformationOrder = keys;
+      this._transformationOrderValid = true;
+      return keys;
+    }
+
+    // Cache and return
+    this._transformationOrder = result;
+    this._transformationOrderValid = true;
+
+    lcardsLog.trace(`[DataSource] Transformation execution order: ${result.join(' → ')}`);
+
+    return result;
+  }
 
   /**
    * ENHANCED: Preload historical data with multiple fallback strategies
@@ -732,6 +866,142 @@ export class DataSource {
       }
     }
     return wsSec;
+  }
+
+  /**
+   * NEW: Validate transformation chains for common errors
+   * @private
+   */
+  _validateTransformationChains() {
+    const errors = [];
+
+    this.transformations.forEach((processor, key) => {
+      const inputSource = processor.config.input_source;
+
+      if (inputSource) {
+        // Check source exists
+        if (!this.transformations.has(inputSource)) {
+          errors.push(`Transform '${key}' references non-existent source '${inputSource}'`);
+        }
+
+        // Check for self-reference
+        if (inputSource === key) {
+          errors.push(`Transform '${key}' cannot reference itself`);
+        }
+      }
+    });
+
+    if (errors.length > 0) {
+      const errorMsg = `Transform chain validation failed:\n  ${errors.join('\n  ')}`;
+      lcardsLog.error(`[DataSource] ❌ ${errorMsg}`);
+      throw new Error(errorMsg);
+    }
+  }
+
+  /**
+   * NEW: Determine execution order for transformations based on dependencies
+   * Uses topological sort (Kahn's algorithm) to handle chained transformations
+   * @private
+   * @returns {Array<string>} Ordered array of transformation keys
+   */
+  _determineTransformationOrder() {
+    // Return cached order if valid
+    if (this._transformationOrderValid && this._transformationOrder) {
+      return this._transformationOrder;
+    }
+
+    const keys = Array.from(this.transformations.keys());
+
+    // Quick path: no transformations
+    if (keys.length === 0) {
+      this._transformationOrder = [];
+      this._transformationOrderValid = true;
+      return [];
+    }
+
+    // Quick path: check if any transform uses input_source
+    const hasChaining = Array.from(this.transformations.values())
+      .some(p => p.config.input_source);
+
+    if (!hasChaining) {
+      // No chaining - return original order (parallel processing)
+      this._transformationOrder = keys;
+      this._transformationOrderValid = true;
+      return keys;
+    }
+
+    // Build dependency graph
+    const graph = new Map();
+    const inDegree = new Map();
+
+    keys.forEach(key => {
+      graph.set(key, []);
+      inDegree.set(key, 0);
+    });
+
+    keys.forEach(key => {
+      const processor = this.transformations.get(key);
+      const inputSource = processor.config.input_source;
+
+      if (inputSource) {
+        // Add edge: inputSource -> key
+        if (graph.has(inputSource)) {
+          graph.get(inputSource).push(key);
+          inDegree.set(key, inDegree.get(key) + 1);
+        }
+      }
+    });
+
+    // Topological sort using Kahn's algorithm
+    const queue = [];
+    const result = [];
+
+    // Start with nodes that have no dependencies
+    inDegree.forEach((degree, key) => {
+      if (degree === 0) {
+        queue.push(key);
+      }
+    });
+
+    while (queue.length > 0) {
+      const current = queue.shift();
+      result.push(current);
+
+      // Reduce in-degree for dependent nodes
+      graph.get(current).forEach(dependent => {
+        inDegree.set(dependent, inDegree.get(dependent) - 1);
+        if (inDegree.get(dependent) === 0) {
+          queue.push(dependent);
+        }
+      });
+    }
+
+    // Detect cycles
+    if (result.length !== keys.length) {
+      const remaining = keys.filter(k => !result.includes(k));
+      const involved = remaining.map(k => {
+        const src = this.transformations.get(k).config.input_source;
+        return `${k} → ${src}`;
+      }).join(', ');
+
+      lcardsLog.error(
+        `[DataSource] ❌ Circular dependency detected in transformations: ${involved}\n` +
+        `  Falling back to config order (chaining will not work correctly)`
+      );
+
+      // Return original order as fallback
+      this._transformationOrder = keys;
+      this._transformationOrderValid = true;
+      return keys;
+    }
+
+    // Cache and return
+    this._transformationOrder = result;
+    this._transformationOrderValid = true;
+
+    lcardsLog.trace(`[DataSource] Transformation execution order: ${result.join(' → ')}`);
+
+    return result;
   }
 
   /**
@@ -1355,10 +1625,15 @@ export class DataSource {
       currentValue: currentData.v,
       timestamp: currentData.t ? new Date(currentData.t).toISOString() : null,
       bufferSize: this.buffer.size(),
-      processing: {
-        count: this.processorManager ? this.processorManager.getProcessorCount() : 0,
-        data: currentData.processing,
-        processors: this.processorManager ? this.processorManager.getProcessorNames() : []
+      transformations: {
+        count: this.transformations.size,
+        data: currentData.transformations,
+        processors: Array.from(this.transformations.keys())
+      },
+      aggregations: {
+        count: this.aggregations.size,
+        data: currentData.aggregations,
+        processors: Array.from(this.aggregations.keys())
       },
       stats: currentData.stats
     };
@@ -1785,9 +2060,13 @@ export class DataSource {
       },
       buffer: this.buffer.getStats(),
       subscribers: this.subscribers.size,
-      processing: {
-        size: this.processorManager ? this.processorManager.getProcessorCount() : 0,
-        keys: this.processorManager ? this.processorManager.getProcessorNames() : []
+      transformations: {
+        size: this.transformations.size,
+        keys: Array.from(this.transformations.keys())
+      },
+      aggregations: {
+        size: this.aggregations.size,
+        keys: Array.from(this.aggregations.keys())
       },
       state: {
         started: this._started,
@@ -2093,11 +2372,34 @@ export class DataSource {
   }
 
   /**
-   * Get processor execution graph for debugging
+   * NEW: Get transformation execution graph for debugging
    * @returns {Object} Dependency graph with execution order
    */
-  getProcessorGraph() {
-    return this.processorManager ? this.processorManager.getGraph() : null;
+  getTransformationGraph() {
+    const graph = {};
+
+    this.transformations.forEach((processor, key) => {
+      graph[key] = {
+        type: processor.constructor.name,
+        inputSource: processor.config.input_source || null,
+        dependents: [],
+        supportsHistorical: processor.supportsHistoricalReprocessing
+      };
+    });
+
+    // Fill in dependents
+    Object.entries(graph).forEach(([key, node]) => {
+      if (node.inputSource && graph[node.inputSource]) {
+        graph[node.inputSource].dependents.push(key);
+      }
+    });
+
+    return {
+      graph,
+      executionOrder: this._determineTransformationOrder(),
+      hasChaining: Array.from(this.transformations.values())
+        .some(p => p.config.input_source)
+    };
   }
 
   /**

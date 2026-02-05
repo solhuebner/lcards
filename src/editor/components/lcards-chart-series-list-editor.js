@@ -378,7 +378,7 @@ export class LCARdSChartSeriesListEditor extends LitElement {
         </div>
 
         ${useExistingDataSource && existingDataSource ? html`
-          <!-- Buffer Selection (only for existing DataSources with processors) -->
+          <!-- Buffer Selection (only for existing DataSources with transformations/aggregations) -->
           <div class="form-row">
             <ha-selector
               .hass=${this.hass}
@@ -863,32 +863,10 @@ export class LCARdSChartSeriesListEditor extends LitElement {
       return options;
     }
 
-    // Add processing options (unified transformations/aggregations)
-    if (dsConfig.processing) {
-      if (Array.isArray(dsConfig.processing)) {
-        // Array format: [{ key: 'mov_avg', type: 'smooth', ... }]
-        dsConfig.processing.forEach(processor => {
-          if (processor.key) {
-            options.push({
-              value: `processing.${processor.key}`,
-              label: `🔄 ${processor.key} (${processor.type})`
-            });
-          }
-        });
-      } else if (typeof dsConfig.processing === 'object') {
-        // Object format: { mov_avg: { type: 'smooth', ... } }
-        Object.entries(dsConfig.processing).forEach(([key, config]) => {
-          options.push({
-            value: `processing.${key}`,
-            label: `🔄 ${key} (${config.type || 'unknown'})`
-          });
-        });
-      }
-    }
-
-    // Backwards compatibility: support old transformations/aggregations fields
+    // Add transformation options (handle both array and object format)
     if (dsConfig.transformations) {
       if (Array.isArray(dsConfig.transformations)) {
+        // Array format: [{ key: 'mov_avg', type: 'smooth', ... }]
         dsConfig.transformations.forEach(transform => {
           if (transform.key) {
             options.push({
@@ -898,6 +876,7 @@ export class LCARdSChartSeriesListEditor extends LitElement {
           }
         });
       } else if (typeof dsConfig.transformations === 'object') {
+        // Object format: { mov_avg: { type: 'smooth', ... } }
         Object.entries(dsConfig.transformations).forEach(([key, config]) => {
           options.push({
             value: `transformation.${key}`,
@@ -907,8 +886,10 @@ export class LCARdSChartSeriesListEditor extends LitElement {
       }
     }
 
+    // Add aggregation options (handle both array and object format)
     if (dsConfig.aggregations) {
       if (Array.isArray(dsConfig.aggregations)) {
+        // Array format: [{ key: 'stats', type: 'rolling_statistics_series', ... }]
         dsConfig.aggregations.forEach(agg => {
           if (agg.key) {
             const isTimeSeries = agg.type === 'rolling_statistics_series';
@@ -921,6 +902,7 @@ export class LCARdSChartSeriesListEditor extends LitElement {
           }
         });
       } else if (typeof dsConfig.aggregations === 'object') {
+        // Object format: { min_max: { type: 'min_max', ... } }
         Object.entries(dsConfig.aggregations).forEach(([key, config]) => {
           const isTimeSeries = config.type === 'rolling_statistics_series';
           const icon = isTimeSeries ? '📈' : '📉';
