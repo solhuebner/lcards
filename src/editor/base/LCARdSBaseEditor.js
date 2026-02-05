@@ -1266,15 +1266,15 @@ export class LCARdSBaseEditor extends LitElement {
             <ha-tab-group @wa-tab-show=${this._handleDeveloperSubTabChange}>
                 <ha-tab-group-tab value="0" ?active=${(this._developerSubTab || 0) === 0}>Data Sources</ha-tab-group-tab>
                 <ha-tab-group-tab value="1" ?active=${(this._developerSubTab || 0) === 1}>Rules</ha-tab-group-tab>
-                <ha-tab-group-tab value="2" ?active=${(this._developerSubTab || 0) === 2}>Templates</ha-tab-group-tab>
-                <ha-tab-group-tab value="3" ?active=${(this._developerSubTab || 0) === 3}>Theme Browser</ha-tab-group-tab>
-                <ha-tab-group-tab value="4" ?active=${(this._developerSubTab || 0) === 4}>Provenance</ha-tab-group-tab>
+                <ha-tab-group-tab value="2" ?active=${(this._developerSubTab || 0) === 2}>Theme Browser</ha-tab-group-tab>
+                <ha-tab-group-tab value="3" ?active=${(this._developerSubTab || 0) === 3}>Provenance</ha-tab-group-tab>
+                <ha-tab-group-tab value="4" ?active=${(this._developerSubTab || 0) === 4}>Templates</ha-tab-group-tab>
 
                 <ha-tab-panel value="0" ?hidden=${(this._developerSubTab || 0) !== 0}>${this._renderDataSourcesTab()}</ha-tab-panel>
                 <ha-tab-panel value="1" ?hidden=${(this._developerSubTab || 0) !== 1}>${this._renderRulesTab()}</ha-tab-panel>
-                <ha-tab-panel value="2" ?hidden=${(this._developerSubTab || 0) !== 2}>${this._renderTemplatesTab()}</ha-tab-panel>
-                <ha-tab-panel value="3" ?hidden=${(this._developerSubTab || 0) !== 3}>${this._renderThemeTokensTab()}</ha-tab-panel>
-                <ha-tab-panel value="4" ?hidden=${(this._developerSubTab || 0) !== 4}>${this._renderProvenanceTab()}</ha-tab-panel>
+                <ha-tab-panel value="2" ?hidden=${(this._developerSubTab || 0) !== 2}>${this._renderThemeTokensTab()}</ha-tab-panel>
+                <ha-tab-panel value="3" ?hidden=${(this._developerSubTab || 0) !== 3}>${this._renderProvenanceTab()}</ha-tab-panel>
+                <ha-tab-panel value="4" ?hidden=${(this._developerSubTab || 0) !== 4}>${this._renderTemplatesTab()}</ha-tab-panel>
             </ha-tab-group>
         `;
     }
@@ -1315,7 +1315,7 @@ export class LCARdSBaseEditor extends LitElement {
     _getUtilityTabs() {
         return [
             //{ label: 'Advanced', content: () => this._renderFromConfig(this._getAdvancedTabConfig()) },
-            { label: 'Main Engineering', content: () => this._renderDeveloperTab() },
+            { label: '🖖 Main Engineering', content: () => this._renderDeveloperTab() },
             { label: 'YAML', content: () => this._renderYamlTab() }
         ];
     }

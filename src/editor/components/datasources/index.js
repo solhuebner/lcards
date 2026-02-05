@@ -13,3 +13,5 @@ export { LCARdSTransformationDialog } from './lcards-transformation-dialog.js';
 export { LCARdSTransformationListEditor } from './lcards-transformation-list-editor.js';
 export { LCARdSAggregationDialog } from './lcards-aggregation-dialog.js';
 export { LCARdSAggregationListEditor } from './lcards-aggregation-list-editor.js';
+export { LCARdSProcessorEditor } from './lcards-processor-editor.js';
+export { LCARdSProcessorTreeEditor } from './lcards-processor-tree-editor.js';

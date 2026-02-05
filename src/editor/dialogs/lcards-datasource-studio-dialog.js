@@ -20,8 +20,7 @@ import { fireEvent } from 'custom-card-helpers';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import { editorStyles } from '../base/editor-styles.js';
 import '../components/shared/lcards-message.js';
-import '../components/datasources/lcards-transformation-list-editor.js';
-import '../components/datasources/lcards-aggregation-list-editor.js';
+import '../components/datasources/lcards-processor-tree-editor.js';
 
 export class LCARdSDataSourceStudioDialog extends LitElement {
     static get properties() {
@@ -62,10 +61,10 @@ export class LCARdSDataSourceStudioDialog extends LitElement {
                 }
 
                 ha-dialog {
-                    --mdc-dialog-min-width: 700px;
-                    --mdc-dialog-max-width: 900px;
-                    --mdc-dialog-min-height: 600px;
-                    --mdc-dialog-max-height: 80vh;
+                    --mdc-dialog-min-width: 90vw;
+                    --mdc-dialog-max-width: 90vw;
+                    --mdc-dialog-min-height: 75vh;
+                    --mdc-dialog-max-height: 85vh;
                 }
 
                 ha-dialog::part(dialog) {
@@ -83,8 +82,7 @@ export class LCARdSDataSourceStudioDialog extends LitElement {
                 .dialog-content {
                     display: flex;
                     flex-direction: column;
-                    min-height: 500px;
-                    max-height: calc(80vh - 120px);
+                    height: calc(75vh - 100px);
                     overflow: hidden;
                 }
 
@@ -194,10 +192,7 @@ export class LCARdSDataSourceStudioDialog extends LitElement {
                             Timing & History
                         </ha-tab-group-tab>
                         <ha-tab-group-tab value="transform" ?active=${this._activeTab === 'transform'}>
-                            Transform
-                        </ha-tab-group-tab>
-                        <ha-tab-group-tab value="aggregate" ?active=${this._activeTab === 'aggregate'}>
-                            Aggregate
+                            Processing
                         </ha-tab-group-tab>
                         <ha-tab-group-tab value="advanced" ?active=${this._activeTab === 'advanced'}>
                             Advanced
@@ -213,9 +208,6 @@ export class LCARdSDataSourceStudioDialog extends LitElement {
                         <ha-tab-panel value="transform" ?hidden=${this._activeTab !== 'transform'}>
                             ${this._activeTab === 'transform' ? this._renderTransformTab() : ''}
                         </ha-tab-panel>
-                        <ha-tab-panel value="aggregate" ?hidden=${this._activeTab !== 'aggregate'}>
-                            ${this._activeTab === 'aggregate' ? this._renderAggregateTab() : ''}
-                        </ha-tab-panel>
                         <ha-tab-panel value="advanced" ?hidden=${this._activeTab !== 'advanced'}>
                             ${this._activeTab === 'advanced' ? this._renderAdvancedTab() : ''}
                         </ha-tab-panel>
@@ -223,21 +215,20 @@ export class LCARdSDataSourceStudioDialog extends LitElement {
                 </div>
 
                 <!-- Dialog Actions -->
-                <ha-button
-                    slot="primaryAction"
-                    variant="brand"
-                    @click=${this._handleSave}
-                    .disabled=${!this._isValid()}>
-                    <ha-icon icon="mdi:${this.mode === 'add' ? 'plus' : 'check'}" slot="icon"></ha-icon>
-                    ${this.mode === 'add' ? 'Create' : 'Save'}
-                </ha-button>
-
-                <ha-button
-                    slot="secondaryAction"
-                    appearance="plain"
-                    @click=${this._handleCancel}>
-                    Cancel
-                </ha-button>
+                <div slot="primaryAction">
+                    <ha-button
+                        appearance="plain"
+                        @click=${this._handleCancel}>
+                        Cancel
+                    </ha-button>
+                    <ha-button
+                        variant="brand"
+                        @click=${this._handleSave}
+                        .disabled=${!this._isValid()}>
+                        <ha-icon icon="mdi:${this.mode === 'add' ? 'plus' : 'check'}" slot="icon"></ha-icon>
+                        ${this.mode === 'add' ? 'Create' : 'Save'}
+                    </ha-button>
+                </div>
             </ha-dialog>
         `;
     }
@@ -390,45 +381,24 @@ export class LCARdSDataSourceStudioDialog extends LitElement {
     }
 
     /**
-     * Render Transform tab
+     * Render Processing tab (unified transformations + aggregations)
      */
     _renderTransformTab() {
         return html`
             <div class="tab-content" @click=${this._handleContentClick}>
                 <lcards-message type="info">
                     <ha-icon icon="mdi:information" slot="icon"></ha-icon>
-                    Transformations process incoming data before it's emitted. Apply filters,
-                    moving averages, unit conversions, and more.
+                    Process data through transformations (scale, smooth, round) and
+                    aggregations (statistics, trends, rates). Processors execute in
+                    dependency order to build complex data pipelines.
                 </lcards-message>
 
-                <lcards-transformation-list-editor
-                    .transformations=${this._workingConfig.transformations || {}}
+                <lcards-processor-tree-editor
+                    .value=${this._workingConfig.processing || {}}
                     .hass=${this.hass}
-                    @transformations-changed=${this._handleTransformationsChange}>
-                </lcards-transformation-list-editor>
-            </div>
-        `;
-    }
-
-    /**
-     * Render Aggregate tab
-     */
-    _renderAggregateTab() {
-        return html`
-            <div class="tab-content" @click=${this._handleContentClick}>
-                <lcards-message type="info">
-                    <ha-icon icon="mdi:information" slot="icon"></ha-icon>
-                    Aggregations compute derived values (min, max, average, sum) from the data buffer.
-                    Useful for statistics and summary metrics.
-                </lcards-message>
-
-                <div class="form-section">
-                    <lcards-aggregation-list-editor
-                        .aggregations=${this._workingConfig.aggregations || {}}
-                        .hass=${this.hass}
-                        @aggregations-changed=${this._handleAggregationsChange}>
-                    </lcards-aggregation-list-editor>
-                </div>
+                    @change=${this._handleProcessingChange}
+                    label="Processing Pipeline">
+                </lcards-processor-tree-editor>
             </div>
         `;
     }
@@ -600,32 +570,16 @@ export class LCARdSDataSourceStudioDialog extends LitElement {
     }
 
     /**
-     * Handle transformations change
+     * Handle processing change (unified transformations + aggregations)
      */
-    _handleTransformationsChange(event) {
-        const transformations = event.detail.value;
+    _handleProcessingChange(event) {
+        const processing = event.detail.value;
         const newConfig = JSON.parse(JSON.stringify(this._workingConfig));
 
-        if (Object.keys(transformations).length === 0) {
-            delete newConfig.transformations;
+        if (Object.keys(processing).length === 0) {
+            delete newConfig.processing;
         } else {
-            newConfig.transformations = transformations;
-        }
-
-        this._workingConfig = newConfig;
-    }
-
-    /**
-     * Handle aggregations change
-     */
-    _handleAggregationsChange(event) {
-        const aggregations = event.detail.value;
-        const newConfig = JSON.parse(JSON.stringify(this._workingConfig));
-
-        if (Object.keys(aggregations).length === 0) {
-            delete newConfig.aggregations;
-        } else {
-            newConfig.aggregations = aggregations;
+            newConfig.processing = processing;
         }
 
         this._workingConfig = newConfig;
@@ -714,11 +668,9 @@ export class LCARdSDataSourceStudioDialog extends LitElement {
         }
 
         // Remove empty objects
-        if (cleanConfig.transformations && Object.keys(cleanConfig.transformations).length === 0) {
-            delete cleanConfig.transformations;
-        }
-        if (cleanConfig.aggregations && Object.keys(cleanConfig.aggregations).length === 0) {
-            delete cleanConfig.aggregations;
+        // Remove empty processing
+        if (cleanConfig.processing && Object.keys(cleanConfig.processing).length === 0) {
+            delete cleanConfig.processing;
         }
 
         lcardsLog.info('[DataSourceStudio] Saving DataSource:', {

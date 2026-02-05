@@ -162,21 +162,20 @@ export class LCARdSTransformationDialog extends LitElement {
           ${this._renderForm()}
         </div>
 
-        <ha-button
-          slot="secondaryAction"
-          appearance="plain"
-          @click=${this._handleCancel}>
-          Cancel
-        </ha-button>
-
-        <ha-button
-          slot="primaryAction"
-          variant="brand"
-          appearance="accent"
-          @click=${this._handleSave}
-          ?disabled=${!this._isValid()}>
-          ${this.mode === 'add' ? 'Create' : 'Save'}
-        </ha-button>
+        <div slot="primaryAction">
+          <ha-button
+            appearance="plain"
+            @click=${this._handleCancel}>
+            Cancel
+          </ha-button>
+          <ha-button
+            variant="brand"
+            appearance="accent"
+            @click=${this._handleSave}
+            ?disabled=${!this._isValid()}>
+            ${this.mode === 'add' ? 'Create' : 'Save'}
+          </ha-button>
+        </div>
       </lcards-dialog>
     `;
   }

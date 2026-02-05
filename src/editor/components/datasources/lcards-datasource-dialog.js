@@ -19,8 +19,7 @@ import { LitElement, html, css } from 'lit';
 import { fireEvent } from 'custom-card-helpers';
 import '../shared/lcards-dialog.js';
 import '../shared/lcards-form-section.js';
-import './lcards-transformation-list-editor.js';
-import './lcards-aggregation-list-editor.js';
+import './lcards-processor-tree-editor.js';
 
 export class LCARdSDataSourceDialog extends LitElement {
   static get properties() {
@@ -111,11 +110,23 @@ export class LCARdSDataSourceDialog extends LitElement {
     // CRITICAL: Deep copy the sourceConfig to avoid mutating the original
     // Shallow copy would share nested objects (processing)
     if (this.sourceConfig) {
+      let config = { ...this.sourceConfig };
+
+      // MIGRATION: Convert old transformations/aggregations to processing
+      if (config.transformations || config.aggregations) {
+        config.processing = {
+          ...config.transformations,
+          ...config.aggregations
+        };
+        delete config.transformations;
+        delete config.aggregations;
+      }
+
       this._config = {
-        ...this.sourceConfig,
+        ...config,
         // Deep copy nested objects
-        history: this.sourceConfig.history ? { ...this.sourceConfig.history } : undefined,
-        processing: this.sourceConfig.processing ? { ...this.sourceConfig.processing } : undefined
+        history: config.history ? { ...config.history } : undefined,
+        processing: config.processing ? { ...config.processing } : undefined
       };
     } else {
       this._config = {
@@ -164,21 +175,20 @@ export class LCARdSDataSourceDialog extends LitElement {
           ${this._renderForm()}
         </div>
 
-        <ha-button
-          slot="secondaryAction"
-          appearance="plain"
-          @click=${this._handleCancel}>
-          Cancel
-        </ha-button>
-
-        <ha-button
-          slot="primaryAction"
-          variant="brand"
-          appearance="accent"
-          @click=${this._handleSave}
-          ?disabled=${!this._isValid()}>
-          ${this.mode === 'add' ? 'Create' : 'Save'}
-        </ha-button>
+        <div slot="primaryAction">
+          <ha-button
+            appearance="plain"
+            @click=${this._handleCancel}>
+            Cancel
+          </ha-button>
+          <ha-button
+            variant="brand"
+            appearance="accent"
+            @click=${this._handleSave}
+            ?disabled=${!this._isValid()}>
+            ${this.mode === 'add' ? 'Create' : 'Save'}
+          </ha-button>
+        </div>
       </lcards-dialog>
     `;
   }
@@ -252,19 +262,13 @@ export class LCARdSDataSourceDialog extends LitElement {
           ` : ''}
         </lcards-form-section>
 
-        <!-- Transformations -->
-        <lcards-transformation-list-editor
-          .transformations=${this._config.transformations || {}}
+        <!-- Processing (unified transformations + aggregations) -->
+        <lcards-processor-list-editor
+          .value=${this._config.processing || {}}
           .hass=${this.hass}
-          @transformations-changed=${this._handleTransformationsChange}>
-        </lcards-transformation-list-editor>
-
-        <!-- Aggregations -->
-        <lcards-aggregation-list-editor
-          .aggregations=${this._config.aggregations || {}}
-          .hass=${this.hass}
-          @aggregations-changed=${this._handleAggregationsChange}>
-        </lcards-aggregation-list-editor>
+          @change=${this._handleProcessingChange}
+          label="Processing Pipeline">
+        </lcards-processor-list-editor>
       </div>
     `;
   }
@@ -467,36 +471,8 @@ export class LCARdSDataSourceDialog extends LitElement {
     return true;
   }
 
-  _handleTransformationsChange(event) {
-    const transformations = event.detail.value;
-
-    // CRITICAL: Create completely new config with deep copy in ONE STEP
-    // Doing it in two steps (spread, then assign) causes race conditions
-    const newConfig = {
-      ...this._config,
-      // Deep copy nested objects
-      history: this._config.history ? { ...this._config.history } : undefined
-    };
-
-    // Remove transformations if empty, otherwise set (create new object)
-    if (Object.keys(transformations).length === 0) {
-      delete newConfig.transformations;
-    } else {
-      newConfig.transformations = { ...transformations };
-    }
-
-    // Preserve aggregations with deep copy
-    if (this._config.aggregations) {
-      newConfig.aggregations = { ...this._config.aggregations };
-    }
-
-    this._config = newConfig;
-
-    this._renderFormToDialog();
-  }
-
-  _handleAggregationsChange(event) {
-    const aggregations = event.detail.value;
+  _handleProcessingChange(event) {
+    const processing = event.detail.value;
 
     // CRITICAL: Create completely new config with deep copy in ONE STEP
     const newConfig = {
@@ -505,16 +481,11 @@ export class LCARdSDataSourceDialog extends LitElement {
       history: this._config.history ? { ...this._config.history } : undefined
     };
 
-    // Remove aggregations if empty, otherwise set
-    if (Object.keys(aggregations).length === 0) {
-      delete newConfig.aggregations;
+    // Remove processing if empty, otherwise set (create new object)
+    if (Object.keys(processing).length === 0) {
+      delete newConfig.processing;
     } else {
-      newConfig.aggregations = { ...aggregations };
-    }
-
-    // Preserve transformations with deep copy
-    if (this._config.transformations) {
-      newConfig.transformations = { ...this._config.transformations };
+      newConfig.processing = { ...processing };
     }
 
     this._config = newConfig;
