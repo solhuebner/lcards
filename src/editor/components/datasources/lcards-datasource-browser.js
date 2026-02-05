@@ -131,56 +131,31 @@ export class LCARdSDataSourceBrowser extends LitElement {
         });
       }
 
-      // Add transformations
-      if (dataSource.transformations && dataSource.transformations.size > 0) {
-        const transformsNode = {
-          id: `${node.id}_transforms`,
-          type: 'transformations',
-          label: `Transformations (${dataSource.transformations.size})`,
-          icon: 'mdi:sync',
-          data: Array.from(dataSource.transformations.entries()),
+      // REFACTORED: Add processors from unified ProcessorManager
+      if (dataSource.processorManager && dataSource.processorManager.processors.size > 0) {
+        const processorsNode = {
+          id: `${node.id}_processors`,
+          type: 'processors',
+          label: `Processors (${dataSource.processorManager.processors.size})`,
+          icon: 'mdi:cog-outline',
+          data: Array.from(dataSource.processorManager.processors.entries()),
           children: []
         };
 
         let idx = 0;
-        dataSource.transformations.forEach((processor, key) => {
-          transformsNode.children.push({
-            id: `${node.id}_transform_${idx}`,
-            type: 'transformation',
-            label: `${key}`,
-            icon: 'mdi:sync',
-            data: { key, processor },
+        dataSource.processorManager.processors.forEach((processor, key) => {
+          processorsNode.children.push({
+            id: `${node.id}_processor_${idx}`,
+            type: 'processor',
+            label: `${key} (${processor.config.type})`,
+            icon: 'mdi:function-variant',
+            data: { key, processor, type: processor.config.type },
             children: []
           });
           idx++;
         });
 
-        node.children.push(transformsNode);
-      }
-
-      // Add aggregations
-      if (dataSource.aggregations && dataSource.aggregations.size > 0) {
-        const aggsNode = {
-          id: `${node.id}_aggs`,
-          type: 'aggregations',
-          label: `Aggregations (${dataSource.aggregations.size})`,
-          icon: 'mdi:chart-line',
-          data: Array.from(dataSource.aggregations.entries()),
-          children: []
-        };
-
-        dataSource.aggregations.forEach((processor, key) => {
-          aggsNode.children.push({
-            id: `${node.id}_agg_${key}`,
-            type: 'aggregation',
-            label: key,
-            icon: 'mdi:chart-line',
-            data: { key, processor },
-            children: []
-          });
-        });
-
-        node.children.push(aggsNode);
+        node.children.push(processorsNode);
       }
 
       // Add buffers
@@ -205,9 +180,9 @@ export class LCARdSDataSourceBrowser extends LitElement {
         });
       }
 
-      // Transformed buffers (Map)
-      if (dataSource.transformedBuffers && dataSource.transformedBuffers.size > 0) {
-        dataSource.transformedBuffers.forEach((buffer, key) => {
+      // REFACTORED: Processor buffers from ProcessorManager
+      if (dataSource.processorManager && dataSource.processorManager.buffers.size > 0) {
+        dataSource.processorManager.buffers.forEach((buffer, key) => {
           bufferNode.children.push({
             id: `${node.id}_buffer_${key}`,
             type: 'buffer',
@@ -839,29 +814,15 @@ export class LCARdSDataSourceBrowser extends LitElement {
       });
     }
 
-    // Transformed buffers (from transformedBuffers Map, not transformation processors)
-    if (dataSource.transformedBuffers && dataSource.transformedBuffers.size > 0) {
-      dataSource.transformedBuffers.forEach((buffer, key) => {
+    // REFACTORED: Processor buffers from ProcessorManager
+    if (dataSource.processorManager && dataSource.processorManager.buffers.size > 0) {
+      dataSource.processorManager.buffers.forEach((buffer, key) => {
         buffers.push({
-          name: `Transform: ${key}`,
+          name: `Processor: ${key}`,
           buffer: buffer,
           size: buffer.size(),
           capacity: buffer.capacity
         });
-      });
-    }
-
-    // Aggregation buffers (from aggregations Map if they have buffers)
-    if (dataSource.aggregations) {
-      dataSource.aggregations.forEach((processor, key) => {
-        if (processor.buffer) {
-          buffers.push({
-            name: `Aggregation: ${key}`,
-            buffer: processor.buffer,
-            size: processor.buffer.size(),
-            capacity: processor.buffer.capacity
-          });
-        }
       });
     }
 

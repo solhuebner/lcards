@@ -111,12 +111,15 @@ export class UnifiedTemplateEvaluator {
 
       // Phase 3: Datasource templates (sync)
       const types = TemplateDetector.detectTemplateTypes(result);
+      lcardsLog.trace('[UnifiedTemplateEvaluator] Template type detection:', types);
+
       if (types.hasDatasources || types.hasMSD) {
         lcardsLog.debug('[UnifiedTemplateEvaluator] Phase 3: Evaluating datasource templates', {
           hasExplicitDatasources: types.hasDatasources,
           hasLegacyMSD: types.hasMSD
         });
         result = this.evaluateDatasources(result);
+        lcardsLog.trace('[UnifiedTemplateEvaluator] After datasource evaluation:', result);
       }
 
       // Phase 4: Jinja2 templates (async via HA)
@@ -150,13 +153,21 @@ export class UnifiedTemplateEvaluator {
    * @returns {string} Content with datasources evaluated
    */
   evaluateDatasources(content) {
+    lcardsLog.trace('[UnifiedTemplateEvaluator] evaluateDatasources() called with:', content);
+
     if (!this.dataSourceManager) {
       lcardsLog.warn('[UnifiedTemplateEvaluator] No dataSourceManager available, skipping datasources');
       return content;
     }
 
+    lcardsLog.trace('[UnifiedTemplateEvaluator] Calling dataSourceEvaluator.evaluate()');
+
     // Delegate to DataSourceTemplateEvaluator
-    return this.dataSourceEvaluator.evaluate(content);
+    const result = this.dataSourceEvaluator.evaluate(content);
+
+    lcardsLog.trace('[UnifiedTemplateEvaluator] dataSourceEvaluator.evaluate() returned:', result);
+
+    return result;
   }
 
   /**

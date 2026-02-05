@@ -2,12 +2,11 @@ import { lcardsLog } from '../../utils/lcards-logging.js';
 
 /**
  * [DataSource] Data source implementation - provides real-time Home Assistant entity subscriptions
- * 📈 Features coalescing/throttling, history preload, rolling buffer management, and transformation processing
+ * 📈 Features coalescing/throttling, history preload, rolling buffer management, and unified processing pipeline
  */
 
 import { RollingBuffer } from './RollingBuffer.js';
-import { createTransformationProcessor } from './transformations/TransformationProcessor.js';
-import { createAggregationProcessor } from './aggregations/index.js';
+import { ProcessorManager } from './ProcessorManager.js';
 
 // Node.js polyfills for test environment
 const isNode = typeof window === 'undefined';
@@ -68,14 +67,8 @@ export class DataSource {
     this.subscribers = new Set();
     this.haUnsubscribe = null;
 
-    // NEW: Transformation and aggregation processors
-    this.transformations = new Map();
-    this.aggregations = new Map();
-    this.transformedBuffers = new Map();
-
-    // NEW: Cache transformation execution order
-    this._transformationOrder = null;
-    this._transformationOrderValid = false;
+    // REFACTORED: Unified processor manager (replaces transformations/aggregations split)
+    this.processorManager = null; // Will be initialized in _initializeProcessors()
 
     // PORT: Complete internal timing state from original
     this._lastEmitTime = 0;
@@ -127,97 +120,41 @@ export class DataSource {
   }
 
   /**
-   * Initialize transformation and aggregation processors from configuration
+   * Initialize unified processor pipeline from configuration
    * @private
    * @param {Object} cfg - Data source configuration
    */
   _initializeProcessors(cfg) {
-    // NEW: Load transformation profiles first
-    const profiles = this._loadTransformationProfiles(cfg);
-
-    // Initialize transformations
-    if (cfg.transformations) {
-      // Support both array format (legacy) and object format (preferred)
-      const transformsArray = Array.isArray(cfg.transformations)
-        ? cfg.transformations
-        : Object.entries(cfg.transformations).map(([key, config]) => ({ key, ...config }));
-
-      transformsArray.forEach((transformConfig, index) => {
-        try {
-          const key = transformConfig.key || `transform_${index}`;
-
-          // NEW: Check if this is a profile reference
-          const expandedConfig = transformConfig.profile
-            ? this._expandProfile(transformConfig.profile, profiles, transformConfig)
-            : transformConfig;
-
-          const processor = createTransformationProcessor({
-            ...expandedConfig,
-            hass: this.hass // Pass hass for multi-entity expressions
-          });
-
-          this.transformations.set(key, processor);
-
-          // Create buffer for transformed historical data
-          // FIXED: Use same capacity calculation as main buffer
-          const wsSec = this._getWindowSeconds();
-          const capacity = Math.max(60, Math.floor(wsSec * 10));
-          this.transformedBuffers.set(key, new RollingBuffer(capacity));
-
-          lcardsLog.trace(`[DataSource] ✓ Initialized transformation: ${key} (${expandedConfig.type})`);
-        } catch (error) {
-          lcardsLog.error(`[DataSource] ❌ Failed to initialize transformation ${transformConfig.type}:`, error);
-        }
-      });
+    // BREAKING CHANGE: Reject old transformations/aggregations format
+    if (cfg.transformations || cfg.aggregations) {
+      const errorMsg = (
+        '❌ DataSource config uses deprecated "transformations" or "aggregations" fields. ' +
+        'These have been replaced with a unified "processing" field. Migration required:\n' +
+        '  OLD: transformations: { ... }, aggregations: { ... }\n' +
+        '  NEW: processing: { processor_name: { type: "...", ... } }\n' +
+        'See documentation for migration guide.'
+      );
+      lcardsLog.error(`[DataSource] ${errorMsg}`);
+      throw new Error(errorMsg);
     }
 
-    // Initialize aggregations
-    if (cfg.aggregations) {
-      // Support both array format (legacy) and object format (preferred)
-      const aggregationsArray = Array.isArray(cfg.aggregations)
-        ? cfg.aggregations
-        : Object.entries(cfg.aggregations).map(([key, config]) => ({ key, ...config }));
-
-      aggregationsArray.forEach((config, index) => {
-        try {
-          // Validate required fields
-          if (!config.type) {
-            lcardsLog.error(
-              `[DataSource] ❌ Aggregation at index ${index} missing required "type" property`
-            );
-            return;
-          }
-
-          if (!config.key) {
-            lcardsLog.error(
-              `[DataSource] ❌ Aggregation at index ${index} missing required "key" property`
-            );
-            return;
-          }
-
-          // Create aggregation processor
-          const processor = createAggregationProcessor(config.type, config);
-          this.aggregations.set(config.key, processor);
-
-          lcardsLog.debug(
-            `[DataSource] ✓ Initialized aggregation: ${config.key} (${config.type})`
-          );
-        } catch (error) {
-          lcardsLog.error(
-            `[DataSource] ❌ Failed to initialize aggregation ${config.type}:`,
-            error
-          );
-        }
-      });
+    // Initialize ProcessorManager with new processing config
+    if (cfg.processing) {
+      try {
+        this.processorManager = new ProcessorManager(this, cfg.processing);
+        this.processorManager.initialize(cfg.processing, this.buffer);
+        lcardsLog.debug(
+          `[DataSource] ✓ Initialized ProcessorManager with ${Object.keys(cfg.processing).length} processors`
+        );
+      } catch (error) {
+        lcardsLog.error('[DataSource] ❌ Failed to initialize ProcessorManager:', error);
+        throw error;
+      }
+    } else {
+      // No processing configured - create empty manager
+      this.processorManager = new ProcessorManager(this, {});
+      lcardsLog.trace('[DataSource] No processing configured');
     }
-
-    // NEW: Validate transformation chains after initialization
-    this._validateTransformationChains();
-
-    lcardsLog.trace(
-      `[DataSource] Processor initialization complete: ` +
-      `${this.transformations.size} transformations, ${this.aggregations.size} aggregations`
-    );
   }
 
   /**
@@ -295,141 +232,7 @@ export class DataSource {
     return wsSec;
   }
 
-  /**
-   * NEW: Validate transformation chains for common errors
-   * @private
-   */
-  _validateTransformationChains() {
-    const errors = [];
-
-    this.transformations.forEach((processor, key) => {
-      const inputSource = processor.config.input_source;
-
-      if (inputSource) {
-        // Check source exists
-        if (!this.transformations.has(inputSource)) {
-          errors.push(`Transform '${key}' references non-existent source '${inputSource}'`);
-        }
-
-        // Check for self-reference
-        if (inputSource === key) {
-          errors.push(`Transform '${key}' cannot reference itself`);
-        }
-      }
-    });
-
-    if (errors.length > 0) {
-      const errorMsg = `Transform chain validation failed:\n  ${errors.join('\n  ')}`;
-      lcardsLog.error(`[DataSource] ❌ ${errorMsg}`);
-      throw new Error(errorMsg);
-    }
-  }
-
-  /**
-   * NEW: Determine execution order for transformations based on dependencies
-   * Uses topological sort (Kahn's algorithm) to handle chained transformations
-   * @private
-   * @returns {Array<string>} Ordered array of transformation keys
-   */
-  _determineTransformationOrder() {
-    // Return cached order if valid
-    if (this._transformationOrderValid && this._transformationOrder) {
-      return this._transformationOrder;
-    }
-
-    const keys = Array.from(this.transformations.keys());
-
-    // Quick path: no transformations
-    if (keys.length === 0) {
-      this._transformationOrder = [];
-      this._transformationOrderValid = true;
-      return [];
-    }
-
-    // Quick path: check if any transform uses input_source
-    const hasChaining = Array.from(this.transformations.values())
-      .some(p => p.config.input_source);
-
-    if (!hasChaining) {
-      // No chaining - return original order (parallel processing)
-      this._transformationOrder = keys;
-      this._transformationOrderValid = true;
-      return keys;
-    }
-
-    // Build dependency graph
-    const graph = new Map();
-    const inDegree = new Map();
-
-    keys.forEach(key => {
-      graph.set(key, []);
-      inDegree.set(key, 0);
-    });
-
-    keys.forEach(key => {
-      const processor = this.transformations.get(key);
-      const inputSource = processor.config.input_source;
-
-      if (inputSource) {
-        // Add edge: inputSource -> key
-        if (graph.has(inputSource)) {
-          graph.get(inputSource).push(key);
-          inDegree.set(key, inDegree.get(key) + 1);
-        }
-      }
-    });
-
-    // Topological sort using Kahn's algorithm
-    const queue = [];
-    const result = [];
-
-    // Start with nodes that have no dependencies
-    inDegree.forEach((degree, key) => {
-      if (degree === 0) {
-        queue.push(key);
-      }
-    });
-
-    while (queue.length > 0) {
-      const current = queue.shift();
-      result.push(current);
-
-      // Reduce in-degree for dependent nodes
-      graph.get(current).forEach(dependent => {
-        inDegree.set(dependent, inDegree.get(dependent) - 1);
-        if (inDegree.get(dependent) === 0) {
-          queue.push(dependent);
-        }
-      });
-    }
-
-    // Detect cycles
-    if (result.length !== keys.length) {
-      const remaining = keys.filter(k => !result.includes(k));
-      const involved = remaining.map(k => {
-        const src = this.transformations.get(k).config.input_source;
-        return `${k} → ${src}`;
-      }).join(', ');
-
-      lcardsLog.error(
-        `[DataSource] ❌ Circular dependency detected in transformations: ${involved}\n` +
-        `  Falling back to config order (chaining will not work correctly)`
-      );
-
-      // Return original order as fallback
-      this._transformationOrder = keys;
-      this._transformationOrderValid = true;
-      return keys;
-    }
-
-    // Cache and return
-    this._transformationOrder = result;
-    this._transformationOrderValid = true;
-
-    lcardsLog.trace(`[DataSource] Transformation execution order: ${result.join(' → ')}`);
-
-    return result;
-  }
+  // DEPRECATED: Old transformation validation/ordering methods removed - ProcessorManager handles this
 
   /**
    * ENHANCED: Preload historical data with multiple fallback strategies
@@ -501,7 +304,7 @@ export class DataSource {
 
         if (value !== null) {
           this.buffer.push(timestamp, value);
-          this._updateAggregations(timestamp, value, {});
+          this._processValue(timestamp, value);
           this._stats.historyLoaded++;
         }
       }
@@ -533,79 +336,10 @@ export class DataSource {
 
         if (value !== null) {
           this.buffer.push(timestamp, value);
-          this._updateAggregations(timestamp, value, {});
+          this._processValue(timestamp, value);
           this._stats.historyLoaded++;
         }
       }
-    }
-  }
-
-  /**
-   * Start the data source with proper initialization sequence
-   * @returns {Promise} Resolves when fully initialized
-   */
-  async start() {
-    if (this._started || this._destroyed) return;
-
-    try {
-      lcardsLog.trace(`[DataSource] 🚀 Starting initialization for ${this.cfg.entity}`);
-
-      // STEP 1: Preload historical data FIRST
-      if (this.hass?.callService) {
-        await this._preloadHistory();
-      }
-
-      // STEP 2: Initialize with current HASS state if available
-      if (this.hass.states && this.hass.states[this.cfg.entity]) {
-        const currentState = this.hass.states[this.cfg.entity];
-
-        // ✅ NEW: Extract metadata from initial state
-        this._extractMetadata(currentState);
-
-        lcardsLog.trace(`[DataSource] 🔄 Loading initial state for ${this.cfg.entity}:`, currentState.state);
-
-                // ENHANCED: Capture unit_of_measurement from initial state
-        if (currentState.attributes?.unit_of_measurement) {
-          this.cfg.unit_of_measurement = currentState.attributes.unit_of_measurement;
-          lcardsLog.trace(`[DataSource] 📊 Captured initial unit_of_measurement for ${this.cfg.entity}: "${this.cfg.unit_of_measurement}"`);
-        }
-
-        // FIXED: Use current timestamp for initial state
-        const currentTimestamp = Date.now();
-        const rawValue = this.cfg.attribute ? currentState.attributes?.[this.cfg.attribute] : currentState.state;
-        const value = this._toNumber(rawValue);
-
-        if (value !== null) {
-          lcardsLog.trace(`[DataSource] Adding current state: ${value} at ${currentTimestamp}`);
-          this.buffer.push(currentTimestamp, value);
-          this._stats.currentValue = value;
-        }
-      }
-
-      // STEP 3: Setup real-time subscriptions
-      this.haUnsubscribe = await this.hass.connection.subscribeEvents((event) => {
-        if (event.event_type === 'state_changed' &&
-            event.data?.entity_id === this.cfg.entity) {
-          lcardsLog.trace(`[DataSource] 📊 HA event received for ${this.cfg.entity}:`, event.data.new_state?.state);
-          this._handleStateChange(event.data);
-        }
-      }, 'state_changed');
-
-      this._started = true;
-      lcardsLog.trace(`[DataSource] ✅ Full initialization complete for ${this.cfg.entity} - Buffer: ${this.buffer.size()} points`);
-
-      // STEP 4: Process historical data through transformations
-      this._processHistoricalTransformations();
-
-      // STEP 5: Emit initial data to any existing subscribers
-      this._emitInitialData();
-
-      // ✅ NEW: STEP 6: Start periodic updates for time-based aggregations
-      this._startPeriodicUpdates();
-
-    } catch (error) {
-      lcardsLog.error(`[DataSource] ❌ Failed to initialize ${this.cfg.entity}:`, error);
-      throw error;
     }
   }
 
@@ -614,15 +348,18 @@ export class DataSource {
    * @private
    */
   _startPeriodicUpdates() {
-    // Check if we have time-based aggregations
-    const hasTimeBased = Array.from(this.aggregations.values()).some(agg =>
-      agg.type === 'duration' ||
-      agg.type === 'session_stats' ||
-      agg.config.requires_periodic_update
+    // Check if we have time-based processors via processorManager
+    if (!this.processorManager) {
+      return; // No processor manager, skip
+    }
+
+    // Check if any processors need periodic updates (e.g., duration processor)
+    const hasTimeBased = Array.from(this.processorManager.processors.values()).some(proc =>
+      proc.type === 'duration' || proc.config.requires_periodic_update
     );
 
     if (!hasTimeBased) {
-      return; // No time-based aggregations, don't start timer
+      return; // No time-based processors, don't start timer
     }
 
     // Determine update interval (default 1 second for smooth time display)
@@ -640,36 +377,22 @@ export class DataSource {
         return;
       }
 
-      // Recalculate time-based aggregations
+      // Emit updated data to subscribers
+      // Duration and other time-based processors will recalculate on next access
       const timestamp = Date.now();
       const lastValue = this.buffer.last()?.v;
 
       if (lastValue !== null && lastValue !== undefined) {
-        // Update aggregations with current timestamp
-        // This allows duration aggregations to recalculate elapsed time
-        this.aggregations.forEach((processor, key) => {
-          if (processor.type === 'duration' || processor.type === 'session_stats') {
-            try {
-              // Force recalculation without adding a new value
-              processor._calculate();
-            } catch (error) {
-              lcardsLog.warn(`[DataSource] Periodic aggregation update failed for ${key}:`, error);
-            }
-          }
-        });
-
-        // Emit updated data to subscribers
         const emitData = {
           t: timestamp,
           v: lastValue,
           buffer: this.buffer,
           stats: { ...this._stats },
-          transformations: this._getTransformationData(),
-          aggregations: this._getAggregationData(),
+          processing: this._getProcessingData(),
           entity: this.cfg.entity,
           unit_of_measurement: this.cfg.unit_of_measurement,
           historyReady: this._stats.historyLoaded > 0,
-          isPeriodicUpdate: true  // Flag to indicate this is a periodic update
+          isPeriodicUpdate: true
         };
 
         this.subscribers.forEach((callback) => {
@@ -710,8 +433,8 @@ export class DataSource {
           v: lastPoint.v,
           buffer: this.buffer,
           stats: { ...this._stats },
-          transformations: this._getTransformationData(), // Convert Map to Object
-          aggregations: this._getAggregationData(),       // Convert Map to Object
+          processing: this._getProcessingData(),  // REFACTORED: Unified processing // Convert Map to Object
+          // (removed - now in processing)
           entity: this.cfg.entity,
           unit_of_measurement: this.cfg.unit_of_measurement,
           historyReady: this._stats.historyLoaded > 0,
@@ -733,8 +456,8 @@ export class DataSource {
           v: null,
           buffer: this.buffer,
           stats: { ...this._stats },
-          transformations: this._getTransformationData(),
-          aggregations: this._getAggregationData(),
+          processing: this._getProcessingData(),  // REFACTORED: Unified processing
+          // (removed - now in processing)
           entity: this.cfg.entity,
           unit_of_measurement: this.cfg.unit_of_measurement,
           historyReady: this._stats.historyLoaded > 0,
@@ -784,7 +507,7 @@ export class DataSource {
 
           if (value !== null) {
             this.buffer.push(timestamp, value);
-            this._updateAggregations(timestamp, value, {});
+            this._processValue(timestamp, value);
             this._stats.historyLoaded++;
           }
         }
@@ -835,7 +558,7 @@ export class DataSource {
 
           if (value !== null) {
             this.buffer.push(timestamp, value);
-            this._updateAggregations(timestamp, value, {});
+            this._processValue(timestamp, value);
             this._stats.historyLoaded++;
           }
         }
@@ -894,7 +617,7 @@ export class DataSource {
 
           if (value !== null) {
             this.buffer.push(timestamp, value);
-            this._updateAggregations(timestamp, value, {});
+            this._processValue(timestamp, value);
             this._stats.historyLoaded++;
           }
         }
@@ -1012,142 +735,6 @@ export class DataSource {
   }
 
   /**
-   * NEW: Validate transformation chains for common errors
-   * @private
-   */
-  _validateTransformationChains() {
-    const errors = [];
-
-    this.transformations.forEach((processor, key) => {
-      const inputSource = processor.config.input_source;
-
-      if (inputSource) {
-        // Check source exists
-        if (!this.transformations.has(inputSource)) {
-          errors.push(`Transform '${key}' references non-existent source '${inputSource}'`);
-        }
-
-        // Check for self-reference
-        if (inputSource === key) {
-          errors.push(`Transform '${key}' cannot reference itself`);
-        }
-      }
-    });
-
-    if (errors.length > 0) {
-      const errorMsg = `Transform chain validation failed:\n  ${errors.join('\n  ')}`;
-      lcardsLog.error(`[DataSource] ❌ ${errorMsg}`);
-      throw new Error(errorMsg);
-    }
-  }
-
-  /**
-   * NEW: Determine execution order for transformations based on dependencies
-   * Uses topological sort (Kahn's algorithm) to handle chained transformations
-   * @private
-   * @returns {Array<string>} Ordered array of transformation keys
-   */
-  _determineTransformationOrder() {
-    // Return cached order if valid
-    if (this._transformationOrderValid && this._transformationOrder) {
-      return this._transformationOrder;
-    }
-
-    const keys = Array.from(this.transformations.keys());
-
-    // Quick path: no transformations
-    if (keys.length === 0) {
-      this._transformationOrder = [];
-      this._transformationOrderValid = true;
-      return [];
-    }
-
-    // Quick path: check if any transform uses input_source
-    const hasChaining = Array.from(this.transformations.values())
-      .some(p => p.config.input_source);
-
-    if (!hasChaining) {
-      // No chaining - return original order (parallel processing)
-      this._transformationOrder = keys;
-      this._transformationOrderValid = true;
-      return keys;
-    }
-
-    // Build dependency graph
-    const graph = new Map();
-    const inDegree = new Map();
-
-    keys.forEach(key => {
-      graph.set(key, []);
-      inDegree.set(key, 0);
-    });
-
-    keys.forEach(key => {
-      const processor = this.transformations.get(key);
-      const inputSource = processor.config.input_source;
-
-      if (inputSource) {
-        // Add edge: inputSource -> key
-        if (graph.has(inputSource)) {
-          graph.get(inputSource).push(key);
-          inDegree.set(key, inDegree.get(key) + 1);
-        }
-      }
-    });
-
-    // Topological sort using Kahn's algorithm
-    const queue = [];
-    const result = [];
-
-    // Start with nodes that have no dependencies
-    inDegree.forEach((degree, key) => {
-      if (degree === 0) {
-        queue.push(key);
-      }
-    });
-
-    while (queue.length > 0) {
-      const current = queue.shift();
-      result.push(current);
-
-      // Reduce in-degree for dependent nodes
-      graph.get(current).forEach(dependent => {
-        inDegree.set(dependent, inDegree.get(dependent) - 1);
-        if (inDegree.get(dependent) === 0) {
-          queue.push(dependent);
-        }
-      });
-    }
-
-    // Detect cycles
-    if (result.length !== keys.length) {
-      const remaining = keys.filter(k => !result.includes(k));
-      const involved = remaining.map(k => {
-        const src = this.transformations.get(k).config.input_source;
-        return `${k} → ${src}`;
-      }).join(', ');
-
-      lcardsLog.error(
-        `[DataSource] ❌ Circular dependency detected in transformations: ${involved}\n` +
-        `  Falling back to config order (chaining will not work correctly)`
-      );
-
-      // Return original order as fallback
-      this._transformationOrder = keys;
-      this._transformationOrderValid = true;
-      return keys;
-    }
-
-    // Cache and return
-    this._transformationOrder = result;
-    this._transformationOrderValid = true;
-
-    lcardsLog.trace(`[DataSource] Transformation execution order: ${result.join(' → ')}`);
-
-    return result;
-  }
-
-  /**
    * ENHANCED: Preload historical data with multiple fallback strategies
    * @private
    */
@@ -1217,7 +804,7 @@ export class DataSource {
 
         if (value !== null) {
           this.buffer.push(timestamp, value);
-          this._updateAggregations(timestamp, value, {});
+          this._processValue(timestamp, value);
           this._stats.historyLoaded++;
         }
       }
@@ -1249,7 +836,7 @@ export class DataSource {
 
         if (value !== null) {
           this.buffer.push(timestamp, value);
-          this._updateAggregations(timestamp, value, {});
+          this._processValue(timestamp, value);
           this._stats.historyLoaded++;
         }
       }
@@ -1295,6 +882,15 @@ export class DataSource {
         lcardsLog.trace(`[DataSource] Adding current state: ${value} at ${currentTimestamp}`);
         this.buffer.push(currentTimestamp, value);
         this._stats.currentValue = value;
+
+        // REFACTORED: Process initial value through unified processor pipeline
+        if (this.processorManager) {
+          try {
+            this.processorManager.process(value, currentTimestamp, this.buffer);
+          } catch (error) {
+            lcardsLog.warn('[DataSource] Processor pipeline failed for initial state:', error);
+          }
+        }
       }
     }
 
@@ -1310,8 +906,7 @@ export class DataSource {
       this._started = true;
       lcardsLog.trace(`[DataSource] ✅ Full initialization complete for ${this.cfg.entity} - Buffer: ${this.buffer.size()} points`);
 
-      // STEP 4: Process historical data through transformations
-      this._processHistoricalTransformations();
+      // Historical data is already processed via _processValue() when buffer was populated
 
       // STEP 5: Emit initial data to any existing subscribers
       this._emitInitialData();
@@ -1330,15 +925,18 @@ export class DataSource {
    * @private
    */
   _startPeriodicUpdates() {
-    // Check if we have time-based aggregations
-    const hasTimeBased = Array.from(this.aggregations.values()).some(agg =>
-      agg.type === 'duration' ||
-      agg.type === 'session_stats' ||
-      agg.config.requires_periodic_update
+    // Check if we have time-based processors via processorManager
+    if (!this.processorManager) {
+      return; // No processor manager, skip
+    }
+
+    // Check if any processors need periodic updates (e.g., duration processor)
+    const hasTimeBased = Array.from(this.processorManager.processors.values()).some(proc =>
+      proc.type === 'duration' || proc.config.requires_periodic_update
     );
 
     if (!hasTimeBased) {
-      return; // No time-based aggregations, don't start timer
+      return; // No time-based processors, don't start timer
     }
 
     // Determine update interval (default 1 second for smooth time display)
@@ -1356,36 +954,22 @@ export class DataSource {
         return;
       }
 
-      // Recalculate time-based aggregations
+      // Emit updated data to subscribers
+      // Duration and other time-based processors will recalculate on next access
       const timestamp = Date.now();
       const lastValue = this.buffer.last()?.v;
 
       if (lastValue !== null && lastValue !== undefined) {
-        // Update aggregations with current timestamp
-        // This allows duration aggregations to recalculate elapsed time
-        this.aggregations.forEach((processor, key) => {
-          if (processor.type === 'duration' || processor.type === 'session_stats') {
-            try {
-              // Force recalculation without adding a new value
-              processor._calculate();
-            } catch (error) {
-              lcardsLog.warn(`[DataSource] Periodic aggregation update failed for ${key}:`, error);
-            }
-          }
-        });
-
-        // Emit updated data to subscribers
         const emitData = {
           t: timestamp,
           v: lastValue,
           buffer: this.buffer,
           stats: { ...this._stats },
-          transformations: this._getTransformationData(),
-          aggregations: this._getAggregationData(),
+          processing: this._getProcessingData(),
           entity: this.cfg.entity,
           unit_of_measurement: this.cfg.unit_of_measurement,
           historyReady: this._stats.historyLoaded > 0,
-          isPeriodicUpdate: true  // Flag to indicate this is a periodic update
+          isPeriodicUpdate: true
         };
 
         this.subscribers.forEach((callback) => {
@@ -1426,8 +1010,8 @@ export class DataSource {
           v: lastPoint.v,
           buffer: this.buffer,
           stats: { ...this._stats },
-          transformations: this._getTransformationData(), // Convert Map to Object
-          aggregations: this._getAggregationData(),       // Convert Map to Object
+          processing: this._getProcessingData(),  // REFACTORED: Unified processing // Convert Map to Object
+          // (removed - now in processing)
           entity: this.cfg.entity,
           unit_of_measurement: this.cfg.unit_of_measurement,
           historyReady: this._stats.historyLoaded > 0,
@@ -1449,8 +1033,8 @@ export class DataSource {
           v: null,
           buffer: this.buffer,
           stats: { ...this._stats },
-          transformations: this._getTransformationData(),
-          aggregations: this._getAggregationData(),
+          processing: this._getProcessingData(),  // REFACTORED: Unified processing
+          // (removed - now in processing)
           entity: this.cfg.entity,
           unit_of_measurement: this.cfg.unit_of_measurement,
           historyReady: this._stats.historyLoaded > 0,
@@ -1500,7 +1084,7 @@ export class DataSource {
 
           if (value !== null) {
             this.buffer.push(timestamp, value);
-            this._updateAggregations(timestamp, value, {});
+            this._processValue(timestamp, value);
             this._stats.historyLoaded++;
           }
         }
@@ -1551,7 +1135,7 @@ export class DataSource {
 
           if (value !== null) {
             this.buffer.push(timestamp, value);
-            this._updateAggregations(timestamp, value, {});
+            this._processValue(timestamp, value);
             this._stats.historyLoaded++;
           }
         }
@@ -1610,7 +1194,7 @@ export class DataSource {
 
           if (value !== null) {
             this.buffer.push(timestamp, value);
-            this._updateAggregations(timestamp, value, {});
+            this._processValue(timestamp, value);
             this._stats.historyLoaded++;
           }
         }
@@ -1682,11 +1266,14 @@ export class DataSource {
     // Store in raw buffer
     this.buffer.push(timestamp, value);
 
-    // Apply transformations and cache history
-    const transformedData = this._applyTransformations(timestamp, value);
-
-    // Update aggregations
-    this._updateAggregations(timestamp, value, transformedData);
+    // REFACTORED: Process through unified processor pipeline
+    if (this.processorManager) {
+      try {
+        this.processorManager.process(value, timestamp, this.buffer);
+      } catch (error) {
+        lcardsLog.warn('[DataSource] Processor pipeline failed:', error);
+      }
+    }
 
     // Update statistics
     this._stats.updates++;
@@ -1700,8 +1287,7 @@ export class DataSource {
         v: value,
         buffer: this.buffer,
         stats: { ...this._stats },
-        transformations: this._getTransformationData(), // NEW
-        aggregations: this._getAggregationData(),       // NEW
+        processing: this._getProcessingData(),  // REFACTORED: Unified processing
         entity: this.cfg.entity,
         unit_of_measurement: this.cfg.unit_of_measurement, // NEW: Include unit info
         historyReady: this._stats.historyLoaded > 0
@@ -1726,95 +1312,34 @@ export class DataSource {
    * @param {number} value - Raw value
    * @param {Object} transformedData - Transformed values from this update
    */
-  _updateAggregations(timestamp, value, transformedData) {
-    this.aggregations.forEach((processor, key) => {
+  /**
+   * REFACTORED: Process value through unified processor pipeline
+   * Replaces old _applyTransformations and _updateAggregations
+   * @private
+   */
+  _processValue(timestamp, value) {
+    if (this.processorManager) {
       try {
-        processor.update(timestamp, value, transformedData);
+        this.processorManager.process(value, timestamp, this.buffer);
       } catch (error) {
-        lcardsLog.warn(`[DataSource] Aggregation ${key} failed:`, error);
+        lcardsLog.warn('[DataSource] Processor pipeline failed:', error);
       }
-    });
+    }
   }
 
   /**
-   * Get current aggregation data
+   * Get current processing results from all processors
    * @private
-   * @returns {Object} Current aggregation results
+   * @returns {Object} Current processing results
    */
-  _getAggregationData() {
-    const results = {};
-    this.aggregations.forEach((processor, key) => {
-      try {
-        results[key] = processor.getValue();
-      } catch (error) {
-        lcardsLog.warn(`[DataSource] Failed to get aggregation value for ${key}:`, error);
-        results[key] = null;
-      }
-    });
-    return results;
-  }
-
-  /**
-   * Get current transformation data
-   * @private
-   * @returns {Object} Current transformation results
-   */
-  _getTransformationData() {
-    const results = {};
-
-    // Get the latest raw value to transform
-    const latestPoint = this.buffer.last();
-    if (!latestPoint) {
-      // No data available - return empty results
-      this.transformations.forEach((processor, key) => {
-        results[key] = null;
-      });
-      return results;
+  _getProcessingData() {
+    if (!this.processorManager) {
+      lcardsLog.trace('[DataSource] No processorManager, returning {}');
+      return {};
     }
 
-    // Apply transformations to the latest value
-    this.transformations.forEach((processor, key) => {
-      try {
-        // Use proper timestamp and value from buffer point
-        const timestamp = latestPoint.timestamp || latestPoint.t;
-        const value = latestPoint.value || latestPoint.v;
-
-        if (Number.isFinite(value) && Number.isFinite(timestamp)) {
-          // For chained transforms, we need to process in order
-          const executionOrder = this._determineTransformationOrder();
-          const tempResults = {};
-
-          executionOrder.forEach((execKey) => {
-            const execProcessor = this.transformations.get(execKey);
-            const inputSource = execProcessor.config.input_source;
-            const inputValue = inputSource ? tempResults[inputSource] : value;
-
-            if (Number.isFinite(inputValue)) {
-              // For expression processors, provide access to previous transforms
-              if (execProcessor.constructor.name === 'ExpressionProcessor') {
-                execProcessor.transformedData = { ...tempResults };
-              }
-
-              tempResults[execKey] = execProcessor.transform(inputValue, timestamp, this.buffer);
-            } else {
-              tempResults[execKey] = null;
-            }
-
-            // If this is the key we're looking for, store it
-            if (execKey === key) {
-              results[key] = tempResults[execKey];
-            }
-          });
-        } else {
-          lcardsLog.debug(`[DataSource] Invalid data for transformation ${key}:`, { value, timestamp });
-          results[key] = null;
-        }
-      } catch (error) {
-        lcardsLog.warn(`[DataSource] Failed to get current transformation ${key}:`, error);
-        results[key] = null;
-      }
-    });
-
+    const results = this.processorManager.getResults();
+    lcardsLog.trace(`[DataSource] _getProcessingData() returning:`, results);
     return results;
   }
 
@@ -1830,15 +1355,10 @@ export class DataSource {
       currentValue: currentData.v,
       timestamp: currentData.t ? new Date(currentData.t).toISOString() : null,
       bufferSize: this.buffer.size(),
-      transformations: {
-        count: this.transformations.size,
-        data: currentData.transformations,
-        processors: Array.from(this.transformations.keys())
-      },
-      aggregations: {
-        count: this.aggregations.size,
-        data: currentData.aggregations,
-        processors: Array.from(this.aggregations.keys())
+      processing: {
+        count: this.processorManager ? this.processorManager.getProcessorCount() : 0,
+        data: currentData.processing,
+        processors: this.processorManager ? this.processorManager.getProcessorNames() : []
       },
       stats: currentData.stats
     };
@@ -2062,8 +1582,8 @@ export class DataSource {
           v: lastPoint.v,
           buffer: this.buffer,
           stats: { ...this._stats },
-          transformations: this._getTransformationData(), // Convert Map to Object
-          aggregations: this._getAggregationData(),       // Convert Map to Object
+          processing: this._getProcessingData(),  // REFACTORED: Unified processing // Convert Map to Object
+          // (removed - now in processing)
           entity: this.cfg.entity,
           historyReady: this._stats.historyLoaded > 0
         };
@@ -2265,13 +1785,9 @@ export class DataSource {
       },
       buffer: this.buffer.getStats(),
       subscribers: this.subscribers.size,
-      transformations: {
-        size: this.transformations.size,
-        keys: Array.from(this.transformations.keys())
-      },
-      aggregations: {
-        size: this.aggregations.size,
-        keys: Array.from(this.aggregations.keys())
+      processing: {
+        size: this.processorManager ? this.processorManager.getProcessorCount() : 0,
+        keys: this.processorManager ? this.processorManager.getProcessorNames() : []
       },
       state: {
         started: this._started,
@@ -2323,10 +1839,9 @@ export class DataSource {
         v: null,
         buffer: this.buffer,
         stats: { ...this._stats },
-        transformations: this._getTransformationData(),
-        aggregations: this._getAggregationData(),
+        processing: this._getProcessingData(),  // REFACTORED: Unified processing
         entity: this.cfg.entity,
-        metadata: { ...this.metadata },  // ✅ NEW: Include metadata
+        metadata: { ...this.metadata },
         historyReady: this._stats.historyLoaded > 0,
         bufferSize: 0,
         started: this._started
@@ -2338,10 +1853,9 @@ export class DataSource {
       v: lastPoint.v,
       buffer: this.buffer,
       stats: { ...this._stats },
-      transformations: this._getTransformationData(),
-      aggregations: this._getAggregationData(),
+      processing: this._getProcessingData(),  // REFACTORED: Unified processing
       entity: this.cfg.entity,
-      metadata: { ...this.metadata },  // ✅ NEW: Include metadata
+      metadata: { ...this.metadata },
       historyReady: this._stats.historyLoaded > 0,
       bufferSize: this.buffer.size(),
       started: this._started
@@ -2579,34 +2093,11 @@ export class DataSource {
   }
 
   /**
-   * NEW: Get transformation execution graph for debugging
+   * Get processor execution graph for debugging
    * @returns {Object} Dependency graph with execution order
    */
-  getTransformationGraph() {
-    const graph = {};
-
-    this.transformations.forEach((processor, key) => {
-      graph[key] = {
-        type: processor.constructor.name,
-        inputSource: processor.config.input_source || null,
-        dependents: [],
-        supportsHistorical: processor.supportsHistoricalReprocessing
-      };
-    });
-
-    // Fill in dependents
-    Object.entries(graph).forEach(([key, node]) => {
-      if (node.inputSource && graph[node.inputSource]) {
-        graph[node.inputSource].dependents.push(key);
-      }
-    });
-
-    return {
-      graph,
-      executionOrder: this._determineTransformationOrder(),
-      hasChaining: Array.from(this.transformations.values())
-        .some(p => p.config.input_source)
-    };
+  getProcessorGraph() {
+    return this.processorManager ? this.processorManager.getGraph() : null;
   }
 
   /**
@@ -2617,192 +2108,19 @@ export class DataSource {
    * @param {number} value - Raw value to transform
    * @returns {Object} Map of transformation keys to results
    */
-  _applyTransformations(timestamp, value) {
-    const results = {};
-
-    // Get execution order (cached after first call)
-    const executionOrder = this._determineTransformationOrder();
-
-    executionOrder.forEach((key) => {
-      const processor = this.transformations.get(key);
-
-      try {
-
-        // This allows ExpressionProcessor to access entity attributes
-        processor.dataSource = this;
-
-        // Determine input value: chained source or raw value
-        const inputSource = processor.config.input_source;
-        const inputValue = inputSource
-          ? results[inputSource]   // Chain from previous transform
-          : value;                 // Use raw value (default)
-
-        // Validate chained input exists
-        if (inputSource && results[inputSource] === undefined) {
-          const available = Object.keys(results).join(', ') || 'none yet';
-          const notYetProcessed = executionOrder
-            .filter(k => !results.hasOwnProperty(k))
-            .join(', ');
-
-          lcardsLog.warn(
-            `[DataSource] ⚠️ Transform '${key}' references '${inputSource}' which is not available yet.\n` +
-            `  Available: [${available}]\n` +
-            `  Not yet processed: [${notYetProcessed}]\n` +
-            `  Hint: Check if '${inputSource}' has a valid key and appears before '${key}'.`
-          );
-          results[key] = null;
-          return;
-        }
-
-        // Validate input is numeric
-        if (!Number.isFinite(inputValue)) {
-          if (inputSource) {
-            lcardsLog.debug(
-              `[DataSource] Transform '${key}' skipped - ` +
-              `input from '${inputSource}' is non-numeric: ${inputValue}`
-            );
-          }
-          results[key] = null;
-          return;
-        }
-
-        // NEW: For expression processors, provide access to all previous transforms
-        if (processor.constructor.name === 'ExpressionProcessor') {
-          processor.transformedData = { ...results }; // Pass all current results
-        }
-
-        // Execute transformation
-        const transformedValue = processor.transform(inputValue, timestamp, this.buffer);
-        results[key] = transformedValue;
-
-        // Debug logging if enabled
-        if (processor.config.debug) {
-          lcardsLog.debug(
-            `[DataSource] 🔍 Transform '${key}': ` +
-            `${inputValue.toFixed(2)} → ${transformedValue !== null ? transformedValue.toFixed(2) : 'null'}`
-          );
-        }
-
-        // Cache transformed historical data if valid
-        if (transformedValue !== null && Number.isFinite(transformedValue)) {
-          const buffer = this.transformedBuffers.get(key);
-          if (buffer) {
-            buffer.push(timestamp, transformedValue);
-          }
-        }
-
-      } catch (error) {
-        lcardsLog.warn(`[DataSource] ⚠️ Transformation '${key}' failed:`, error.message);
-        results[key] = null;
-      }
-    });
-
-    return results;
-  }
+  // DEPRECATED: Removed in favor of ProcessorManager unified pipeline
+  // Old method: _applyTransformations(timestamp, value)
+  // New approach: ProcessorManager.process() handles all processing automatically
 
   /**
-   * Process historical data through transformations to populate transform buffers
-   * ENHANCED: Respects transformation execution order for chained transforms
+   * DEPRECATED: Historical processing now handled automatically via _processValue()
+   * All processors are invoked when values are pushed to buffer, including historical data.
+   * This method is no longer needed.
    * @private
+   * @deprecated Use _processValue() which is called on every buffer.push()
    */
   _processHistoricalTransformations() {
-    if (this.transformations.size === 0) {
-      return;
-    }
-
-    lcardsLog.debug(
-      `[DataSource] 🔄 Processing historical data through ${this.transformations.size} transformations...`
-    );
-
-    try {
-      const historicalPoints = this.buffer.getRecent(this.buffer.size());
-
-      if (historicalPoints.length === 0) {
-        lcardsLog.debug(`[DataSource] No historical data to process for transformations`);
-        return;
-      }
-
-      // Get correct execution order for chained transforms
-      const executionOrder = this._determineTransformationOrder();
-
-      // Track start time for performance monitoring
-      const startTime = performance.now();
-
-      // Process each historical point in chronological order
-      historicalPoints.reverse().forEach((point) => {
-        const transformResults = {};
-
-        // Execute transforms in dependency order
-        executionOrder.forEach((key) => {
-          const processor = this.transformations.get(key);
-
-          try {
-            // Skip if transform doesn't support historical reprocessing
-            if (!processor.supportsHistoricalReprocessing) {
-              transformResults[key] = null;
-              return;
-            }
-
-            // Determine input: chained source or raw value
-            const inputSource = processor.config.input_source;
-            const inputValue = inputSource
-              ? transformResults[inputSource]
-              : point.value;
-
-            if (inputValue === null || !Number.isFinite(inputValue)) {
-              transformResults[key] = null;
-              return;
-            }
-
-            // For expression processors, provide access to previous transforms
-            if (processor.constructor.name === 'ExpressionProcessor') {
-              processor.transformedData = { ...transformResults };
-            }
-
-            const transformedValue = processor.transform(
-              inputValue,
-              point.timestamp,
-              this.buffer
-            );
-
-            transformResults[key] = transformedValue;
-
-            // Store in buffer
-            if (transformedValue !== null && Number.isFinite(transformedValue)) {
-              const buffer = this.transformedBuffers.get(key);
-              if (buffer) {
-                buffer.push(point.timestamp, transformedValue);
-              }
-            }
-          } catch (error) {
-            lcardsLog.warn(
-              `[DataSource] Failed to process historical point through transformation ${key}:`,
-              error.message
-            );
-            transformResults[key] = null;
-          }
-        });
-      });
-
-      const duration = performance.now() - startTime;
-
-      // Performance warning for slow processing
-      if (duration > 100) {
-        lcardsLog.warn(
-          `[DataSource] ⚠️ Historical chain processing took ${duration.toFixed(1)}ms ` +
-          `(${historicalPoints.length} points × ${this.transformations.size} transforms)`
-        );
-      }
-
-      // Log results
-      this.transformedBuffers.forEach((buffer, key) => {
-        lcardsLog.debug(
-          `[DataSource] ✅ Populated '${key}' buffer with ${buffer.size()} historical points`
-        );
-      });
-
-    } catch (error) {
-      lcardsLog.error(`[DataSource] Error processing historical transformations:`, error);
-    }
+    // No-op - processors handle historical data automatically
+    lcardsLog.debug(`[DataSource] Historical processing handled automatically via _processValue()`);
   }
 }

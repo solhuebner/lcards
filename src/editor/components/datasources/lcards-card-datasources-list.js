@@ -161,19 +161,11 @@ export class LCARdSCardDataSourcesList extends LitElement {
               <span class="value">${config.window_seconds || 60}s</span>
             </div>
 
-            <!-- Transformations -->
-            ${config.transformations ? html`
+            <!-- Processors -->
+            ${config.processing ? html`
               <div class="info-row">
-                <span class="label">Transformations:</span>
-                <span class="value">${Object.keys(config.transformations).length}</span>
-              </div>
-            ` : ''}
-
-            <!-- Aggregations -->
-            ${config.aggregations ? html`
-              <div class="info-row">
-                <span class="label">Aggregations:</span>
-                <span class="value">${Object.keys(config.aggregations).length}</span>
+                <span class="label">Processors:</span>
+                <span class="value">${Object.keys(config.processing).length}</span>
               </div>
             ` : ''}
 

@@ -180,21 +180,15 @@ export class LCARdSCardTemplateEvaluator extends TemplateEvaluator {
    * @returns {string} Content with tokens evaluated
    */
   _evaluateTokens(content) {
-    // List of MSD domain prefixes to exclude
-    const msdDomains = [
-      'sensor', 'light', 'switch', 'climate', 'binary_sensor',
-      'cover', 'fan', 'lock', 'media_player', 'vacuum',
-      'camera', 'alarm_control_panel', 'device_tracker', 'person',
-      'zone', 'input_boolean', 'input_number', 'input_select',
-      'input_text', 'input_datetime', 'counter', 'timer'
-    ];
-
-    // Match {token} but NOT {{jinja2}}, {% jinja2 %}, {# comment #}, {datasource:...}, or {msd.datasource}
-    const domainPattern = msdDomains.join('\\.|') + '\\.';
-    const tokenRegex = new RegExp(
-      `\\{(?!\\{)(?!%)(?!#)(?!datasource:)(?!${domainPattern})([^{}]+)\\}`,
-      'g'
-    );
+    // Match {token} but NOT:
+    // - {{jinja2}} or {% jinja2 %} or {# comment #}
+    // - {datasource:...} or {ds:...} (explicit datasource syntax)
+    //
+    // This evaluates token templates like:
+    // - {entity.state}
+    // - {config.name}
+    // - {theme:palette.moonlight}
+    const tokenRegex = /\{(?!\{)(?!%)(?!#)(?!datasource:)(?!ds:)([^{}]+)\}/g;
 
     return content.replace(tokenRegex, (match, token) => {
       try {

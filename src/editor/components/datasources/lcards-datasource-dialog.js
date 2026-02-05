@@ -109,14 +109,13 @@ export class LCARdSDataSourceDialog extends LitElement {
     this._name = this.sourceName || '';
 
     // CRITICAL: Deep copy the sourceConfig to avoid mutating the original
-    // Shallow copy would share nested objects (transformations/aggregations)
+    // Shallow copy would share nested objects (processing)
     if (this.sourceConfig) {
       this._config = {
         ...this.sourceConfig,
         // Deep copy nested objects
         history: this.sourceConfig.history ? { ...this.sourceConfig.history } : undefined,
-        transformations: this.sourceConfig.transformations ? { ...this.sourceConfig.transformations } : undefined,
-        aggregations: this.sourceConfig.aggregations ? { ...this.sourceConfig.aggregations } : undefined
+        processing: this.sourceConfig.processing ? { ...this.sourceConfig.processing } : undefined
       };
     } else {
       this._config = {
@@ -131,26 +130,6 @@ export class LCARdSDataSourceDialog extends LitElement {
           days: 0
         }
       };
-    }
-
-    // Convert transformations array to object format for editing
-    if (this._config.transformations && Array.isArray(this._config.transformations)) {
-      const transformsObj = {};
-      this._config.transformations.forEach(transform => {
-        const { key, ...config } = transform;
-        transformsObj[key] = config;
-      });
-      this._config.transformations = transformsObj;
-    }
-
-    // Convert aggregations array to object format for editing
-    if (this._config.aggregations && Array.isArray(this._config.aggregations)) {
-      const aggsObj = {};
-      this._config.aggregations.forEach(agg => {
-        const { key, ...config } = agg;
-        aggsObj[key] = config;
-      });
-      this._config.aggregations = aggsObj;
     }
 
     this._entityValid = false;
@@ -554,8 +533,7 @@ export class LCARdSDataSourceDialog extends LitElement {
     const cleanConfig = {
       ...this._config,
       history: this._config.history ? { ...this._config.history } : undefined,
-      transformations: this._config.transformations ? { ...this._config.transformations } : undefined,
-      aggregations: this._config.aggregations ? { ...this._config.aggregations } : undefined
+      processing: this._config.processing ? { ...this._config.processing } : undefined
     };
 
     if (!cleanConfig.attribute || cleanConfig.attribute === '__state__') {
@@ -571,12 +549,9 @@ export class LCARdSDataSourceDialog extends LitElement {
       delete cleanConfig.max_delay_ms;
     }
 
-    // Clean up empty transformations/aggregations objects
-    if (cleanConfig.transformations && Object.keys(cleanConfig.transformations).length === 0) {
-      delete cleanConfig.transformations;
-    }
-    if (cleanConfig.aggregations && Object.keys(cleanConfig.aggregations).length === 0) {
-      delete cleanConfig.aggregations;
+    // Clean up empty processing object
+    if (cleanConfig.processing && Object.keys(cleanConfig.processing).length === 0) {
+      delete cleanConfig.processing;
     }
 
     this.dispatchEvent(new CustomEvent('save', {

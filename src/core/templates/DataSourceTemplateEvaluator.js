@@ -4,16 +4,18 @@ import { TemplateParser } from './TemplateParser.js';
 
 /**
  * DataSourceTemplateEvaluator - Evaluates LCARdS datasource templates
- * 
+ *
  * Supports syntax: {datasource.path:format}
- * 
+ *
  * Examples:
  * - {cpu_temp} - Simple datasource value
  * - {cpu_temp.v} - Explicit value path
  * - {cpu_temp:.1f} - With format specification
- * - {cpu_temp.transformations.celsius} - Transformation
- * - {metrics.aggregations.avg} - Aggregation
- * 
+ * - {cpu_temp.processing.celsius} - Processor output (NEW)
+ * - {metrics.processing.stats} - Aggregated processor output (NEW)
+ * - {cpu_temp.transformations.celsius} - DEPRECATED (use processing)
+ * - {metrics.aggregations.avg} - DEPRECATED (use processing)
+ *
  * @extends TemplateEvaluator
  */
 export class DataSourceTemplateEvaluator extends TemplateEvaluator {
@@ -24,11 +26,11 @@ export class DataSourceTemplateEvaluator extends TemplateEvaluator {
 
   /**
    * Evaluate datasource templates in content
-   * 
+   *
    * Supports two syntaxes:
    * 1. Explicit: {datasource:name.path:format}
    * 2. Legacy: {name.path:format}
-   * 
+   *
    * @param {string} content - Content with datasource templates
    * @returns {string} Evaluated content
    */
@@ -56,11 +58,12 @@ export class DataSourceTemplateEvaluator extends TemplateEvaluator {
   }
 
   /**
-   * Evaluate explicit datasource templates: {datasource:ref}
+   * Evaluate explicit datasource templates: {datasource:ref} or {ds:ref}
    * @private
    */
   _evaluateExplicitDatasources(content) {
-    const datasourceRegex = /\{datasource:([^}]+)\}/g;
+    // Support both full and short prefix: {datasource:...} or {ds:...}
+    const datasourceRegex = /\{(?:datasource|ds):([^}]+)\}/g;
 
     return content.replace(datasourceRegex, (match, reference) => {
       try {
@@ -101,25 +104,30 @@ export class DataSourceTemplateEvaluator extends TemplateEvaluator {
 
   /**
    * Resolve datasource reference to value
-   * 
+   *
    * Supports:
    * - name
    * - name.path
    * - name.path:format
    * - name:format
-   * 
+   *
    * @private
    * @param {string} reference - Reference string
    * @returns {*} Resolved value or null
    */
   _resolveDatasourceReference(reference) {
+    lcardsLog.trace(`[DataSourceTemplateEvaluator] Resolving reference: ${reference}`);
+
     if (!this.dataSourceManager) {
+      lcardsLog.trace('[DataSourceTemplateEvaluator] No dataSourceManager');
       return null;
     }
 
     // Parse reference: name[.path][:format]
     const parsed = TemplateParser.parseMSDReference(reference);
     const { source, path, format } = parsed;
+
+    lcardsLog.trace(`[DataSourceTemplateEvaluator] Parsed: source=${source}, path=${JSON.stringify(path)}, format=${format}`);
 
     // Get datasource
     const dataSource = this.dataSourceManager.getSource(source);
@@ -135,8 +143,15 @@ export class DataSourceTemplateEvaluator extends TemplateEvaluator {
       return null;
     }
 
+    lcardsLog.trace(`[DataSourceTemplateEvaluator] currentData:`, currentData);
+
+    // Check if accessing processor output (don't append original entity unit)
+    const isProcessorOutput = path && path.length > 0 && path[0] === 'processing';
+
     // Resolve value based on path
     let value = this._resolveDataSourceValue(currentData, path);
+
+    lcardsLog.trace(`[DataSourceTemplateEvaluator] Resolved value: ${value}`);
 
     if (value === null || value === undefined) {
       lcardsLog.debug(`[DataSourceTemplateEvaluator] Value not found for '${reference}'`);
@@ -145,7 +160,9 @@ export class DataSourceTemplateEvaluator extends TemplateEvaluator {
 
     // Apply format if specified
     if (format) {
-      value = this._applyFormat(value, format, currentData.metadata);
+      // Don't append unit for processor outputs - they may have converted units
+      const metadata = isProcessorOutput ? null : currentData.metadata;
+      value = this._applyFormat(value, format, metadata);
     }
 
     return value;
@@ -153,50 +170,117 @@ export class DataSourceTemplateEvaluator extends TemplateEvaluator {
 
   /**
    * Resolve value from datasource data using path
-   * 
+   *
    * @private
    * @param {Object} currentData - DataSource current data
    * @param {Array<string>} path - Path array
    * @returns {*} Resolved value
    */
   _resolveDataSourceValue(currentData, path) {
+    lcardsLog.trace(`[DataSourceTemplateEvaluator] _resolveDataSourceValue path=${JSON.stringify(path)}`);
+
     // No path - return base value
     if (!path || path.length === 0) {
       return currentData.v || currentData.value;
     }
 
-    // Handle transformations
-    if (path[0] === 'transformations' && currentData.transformations) {
-      const transformKey = path.slice(1).join('.');
-      return this._getNestedValue(currentData.transformations, transformKey);
-    }
+    // REFACTORED: Handle new unified processing field
+    if (path[0] === 'processing' && currentData.processing) {
+      lcardsLog.trace(`[DataSourceTemplateEvaluator] Accessing processing field:`, currentData.processing);
 
-    // Handle aggregations
-    if (path[0] === 'aggregations' && currentData.aggregations) {
-      const aggKey = path[1];
-      const aggData = currentData.aggregations[aggKey];
+      const processorKey = path[1];
+      const processorData = currentData.processing[processorKey];
 
-      if (aggData === null || aggData === undefined) {
+      lcardsLog.trace(`[DataSourceTemplateEvaluator] Processor ${processorKey} data:`, processorData);
+
+      if (processorData === null || processorData === undefined) {
         return null;
       }
 
-      // Handle nested aggregation paths
+      // Handle nested processor paths (e.g., statistics.min)
       if (path.length > 2) {
         const nestedPath = path.slice(2).join('.');
-        return this._getNestedValue(aggData, nestedPath);
+        return this._getNestedValue(processorData, nestedPath);
       }
 
-      // Return aggregation value
-      if (typeof aggData === 'object' && aggData !== null) {
-        // Try common aggregation properties
-        if (aggData.avg !== undefined) return aggData.avg;
-        if (aggData.value !== undefined) return aggData.value;
-        if (aggData.last !== undefined) return aggData.last;
-        if (aggData.current !== undefined) return aggData.current;
-        if (aggData.direction !== undefined) return aggData.direction;
+      // Return processor value
+      if (typeof processorData === 'object' && processorData !== null) {
+        // Try common processor output properties
+        if (processorData.v !== undefined) return processorData.v;
+        if (processorData.value !== undefined) return processorData.value;
+        if (processorData.mean !== undefined) return processorData.mean;
+        if (processorData.avg !== undefined) return processorData.avg;
       }
 
-      return aggData;
+      return processorData;
+    }
+
+    // DEPRECATED: Handle old transformations field with warning
+    if (path[0] === 'transformations') {
+      lcardsLog.warn(
+        `[DataSourceTemplateEvaluator] ⚠️ DEPRECATED: Using 'transformations' in template. ` +
+        `Replace with 'processing'. Path: ${path.join('.')}`
+      );
+
+      // Try to find in processing field (migration helper)
+      if (currentData.processing) {
+        const processorKey = path[1];
+        const processorData = currentData.processing[processorKey];
+
+        if (processorData !== undefined) {
+          lcardsLog.info(
+            `[DataSourceTemplateEvaluator] ℹ️ Found processor '${processorKey}' in new 'processing' field. ` +
+            `Update template from {datasource.transformations.${processorKey}} to {datasource.processing.${processorKey}}`
+          );
+
+          if (path.length > 2) {
+            const nestedPath = path.slice(2).join('.');
+            return this._getNestedValue(processorData, nestedPath);
+          }
+
+          return processorData;
+        }
+      }
+
+      lcardsLog.error(
+        `[DataSourceTemplateEvaluator] ❌ Processor '${path[1]}' not found. ` +
+        `Ensure datasource config uses 'processing' field instead of 'transformations'.`
+      );
+      return null;
+    }
+
+    // DEPRECATED: Handle old aggregations field with warning
+    if (path[0] === 'aggregations') {
+      lcardsLog.warn(
+        `[DataSourceTemplateEvaluator] ⚠️ DEPRECATED: Using 'aggregations' in template. ` +
+        `Replace with 'processing'. Path: ${path.join('.')}`
+      );
+
+      // Try to find in processing field (migration helper)
+      if (currentData.processing) {
+        const processorKey = path[1];
+        const processorData = currentData.processing[processorKey];
+
+        if (processorData !== undefined) {
+          lcardsLog.info(
+            `[DataSourceTemplateEvaluator] ℹ️ Found processor '${processorKey}' in new 'processing' field. ` +
+            `Update template from {datasource.aggregations.${processorKey}} to {datasource.processing.${processorKey}}`
+          );
+
+          if (path.length > 2) {
+            const nestedPath = path.slice(2).join('.');
+            return this._getNestedValue(processorData, nestedPath);
+          }
+
+          return processorData;
+        }
+      }
+
+      lcardsLog.error(
+        `[DataSourceTemplateEvaluator] ❌ Processor '${path[1]}' not found. ` +
+        `Ensure datasource config uses 'processing' field instead of 'aggregations'.`
+      );
+      return null;
     }
 
     // Generic nested path
@@ -217,12 +301,12 @@ export class DataSourceTemplateEvaluator extends TemplateEvaluator {
 
   /**
    * Apply format specification to value
-   * 
+   *
    * Supports:
    * - .1f, .2f - Float with decimals
    * - int - Integer
    * - % - Percentage
-   * 
+   *
    * @private
    * @param {*} value - Value to format
    * @param {string} formatSpec - Format specification
@@ -281,7 +365,7 @@ export class DataSourceTemplateEvaluator extends TemplateEvaluator {
 
   /**
    * Get dependencies from template content
-   * 
+   *
    * @param {string} content - Content to analyze
    * @returns {Array<string>} DataSource names
    */
@@ -296,7 +380,7 @@ export class DataSourceTemplateEvaluator extends TemplateEvaluator {
 
   /**
    * Update DataSourceManager reference
-   * 
+   *
    * @param {Object} dataSourceManager - New DataSourceManager instance
    */
   updateDataSourceManager(dataSourceManager) {

@@ -388,6 +388,27 @@ export class LCARdSCard extends LCARdSNativeCard {
                     // Track this datasource for cleanup
                     this._registeredDataSources.add(name);
 
+                    // Subscribe to datasource for real-time template updates
+                    const unsubscribe = source.subscribe((data) => {
+                        lcardsLog.trace(`[LCARdSCard] DataSource ${name} updated, re-evaluating templates`, {
+                            value: data.v,
+                            cardId: this._getDisplayId()
+                        });
+                        // Re-process custom templates when datasource data changes (if card implements it)
+                        if (typeof this._processCustomTemplates === 'function') {
+                            this._processCustomTemplates();
+                        } else {
+                            // For cards without custom template processing, just trigger a re-render
+                            this.requestUpdate();
+                        }
+                    });
+
+                    // Track subscription for cleanup
+                    if (!this._datasourceSubscriptions) {
+                        this._datasourceSubscriptions = new Map();
+                    }
+                    this._datasourceSubscriptions.set(name, unsubscribe);
+
                     lcardsLog.debug(`[LCARdSCard] Created DataSource '${name}'`, {
                         entity: config.entity,
                         hasHistory: !!config.history,
