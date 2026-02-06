@@ -42,6 +42,10 @@ import '../components/lcards-filter-editor.js';
 import '../components/yaml/lcards-yaml-editor.js';
 import { configToYaml, yamlToConfig } from '../utils/yaml-utils.js';
 
+// d3-zoom imports for pan/zoom functionality
+import { zoom, zoomIdentity } from 'd3-zoom';
+import { select } from 'd3-selection';
+
 // Phase 1 Modularization: Extracted utilities
 import { getPreviewCoordinatesFromMouseEvent, snapToGrid } from './msd-studio/msd-coordinate-utils.js';
 import { getBaseSvgAnchors, resolveControlPosition, resolvePositionWithSide } from './msd-studio/msd-anchor-utils.js';
@@ -145,6 +149,10 @@ export class LCARdSMSDStudioDialog extends LitElement {
             _clickTimeout: { type: Number, state: true },  // Timeout for distinguishing click from double-click
             // Preview Zoom
             _previewZoom: { type: Number, state: true },
+            // Pan/Zoom State (d3-zoom integration)
+            _currentZoom: { type: Number, state: true },
+            _zoomBehavior: { type: Object, state: true },
+            _zoomSvg: { type: Object, state: true },
             // HA Components Availability
             _haComponentsAvailable: { type: Boolean, state: true }
         };
@@ -212,6 +220,11 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
         // Preview Zoom State
         this._previewZoom = 1.0;
+
+        // Pan/Zoom State (d3-zoom integration)
+        this._currentZoom = 1.0;
+        this._zoomBehavior = null;
+        this._zoomSvg = null;
 
         // Controls Tab State
         this._showControlForm = false;
@@ -390,6 +403,146 @@ export class LCARdSMSDStudioDialog extends LitElement {
         if (this._boundMouseUpHandler) {
             document.removeEventListener('mouseup', this._boundMouseUpHandler);
         }
+    }
+
+    /**
+     * Called after first render - initialize zoom behavior
+     * @param {Map} changedProps - Changed properties
+     */
+    async firstUpdated(changedProps) {
+        super.firstUpdated(changedProps);
+        
+        // Wait for preview to render, then initialize zoom
+        await this.updateComplete;
+        requestAnimationFrame(() => {
+            this._initializeZoom();
+        });
+    }
+
+    /**
+     * Initialize d3-zoom behavior on the preview SVG
+     * Called after first render when SVG is available
+     * @private
+     */
+    _initializeZoom() {
+        const previewPanel = this.shadowRoot.querySelector('.preview-panel');
+        if (!previewPanel) {
+            lcardsLog.warn('[MSDStudio] Preview panel not found for zoom initialization');
+            return;
+        }
+
+        // Traverse shadow DOM to find MSD card's SVG
+        const livePreview = previewPanel.querySelector('lcards-msd-live-preview');
+        if (!livePreview?.shadowRoot) return;
+
+        const cardContainer = livePreview.shadowRoot.querySelector('.preview-card-container');
+        if (!cardContainer) return;
+
+        const msdCard = cardContainer.querySelector('lcards-msd-card');
+        if (!msdCard?.shadowRoot) return;
+
+        const svg = msdCard.shadowRoot.querySelector('svg');
+        if (!svg) {
+            lcardsLog.warn('[MSDStudio] SVG not found for zoom initialization');
+            return;
+        }
+
+        // Create zoom behavior with constraints
+        this._zoomBehavior = zoom()
+            .scaleExtent([0.25, 4])  // 25% to 400% zoom range
+            .filter((event) => {
+                // Block zoom during active drawing/placement modes
+                const blockingModes = ['place_anchor', 'place_control', 'draw_channel', 'connect_line'];
+                if (blockingModes.includes(this._activeMode)) {
+                    return false;
+                }
+
+                // Allow zoom on mousewheel
+                if (event.type === 'wheel') return true;
+                
+                // Allow pinch-to-zoom
+                if (event.type === 'touchstart' && event.touches?.length === 2) return true;
+
+                // Allow pan with Shift+Drag or Middle-mouse button
+                if (event.type === 'mousedown') {
+                    return event.button === 1 || (event.button === 0 && event.shiftKey);
+                }
+
+                return false;
+            })
+            .on('zoom', (event) => {
+                // Apply transform to SVG's main overlay group
+                const mainGroup = svg.querySelector('g[id*="msd"]') || svg.querySelector('g');
+                if (mainGroup) {
+                    const t = event.transform;
+                    mainGroup.setAttribute('transform', 
+                        `translate(${t.x},${t.y}) scale(${t.k})`
+                    );
+                }
+
+                // Update zoom level display
+                this._currentZoom = event.transform.k;
+                this.requestUpdate();
+
+                lcardsLog.trace('[MSDStudio] Zoom applied:', {
+                    scale: event.transform.k,
+                    translate: [event.transform.x, event.transform.y]
+                });
+            });
+
+        // Attach zoom behavior to SVG
+        select(svg).call(this._zoomBehavior);
+        this._zoomSvg = svg;
+
+        lcardsLog.info('[MSDStudio] 🔍 Zoom behavior initialized');
+    }
+
+    /**
+     * Zoom in by 30%
+     * @private
+     */
+    _zoomIn() {
+        if (!this._zoomBehavior || !this._zoomSvg) return;
+        select(this._zoomSvg)
+            .transition()
+            .duration(300)
+            .call(this._zoomBehavior.scaleBy, 1.3);
+    }
+
+    /**
+     * Zoom out by ~23% (inverse of 1.3)
+     * @private
+     */
+    _zoomOut() {
+        if (!this._zoomBehavior || !this._zoomSvg) return;
+        select(this._zoomSvg)
+            .transition()
+            .duration(300)
+            .call(this._zoomBehavior.scaleBy, 0.77);
+    }
+
+    /**
+     * Reset zoom to 1:1 and center canvas
+     * @private
+     */
+    _zoomReset() {
+        if (!this._zoomBehavior || !this._zoomSvg) return;
+        select(this._zoomSvg)
+            .transition()
+            .duration(500)
+            .call(this._zoomBehavior.transform, zoomIdentity);
+    }
+
+    /**
+     * Get current d3-zoom transform for coordinate conversion
+     * @returns {Object} Transform {x, y, k} where k is scale
+     * @private
+     */
+    _getZoomTransform() {
+        if (!this._zoomSvg) return { x: 0, y: 0, k: 1 };
+        
+        const transform = select(this._zoomSvg).property('__zoom');
+        return transform || { x: 0, y: 0, k: 1 };
     }
 
     static get styles() {
@@ -783,6 +936,35 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                 <ha-icon icon="${toggle.icon}"></ha-icon>
                             </button>
                         `)}
+
+                        <!-- Divider -->
+                        <div class="canvas-toolbar-divider"></div>
+
+                        <!-- Zoom Controls -->
+                        <button
+                            class="canvas-toolbar-button"
+                            @click=${(e) => { e.stopPropagation(); this._zoomOut(); }}
+                            title="Zoom Out (Mouse Wheel Down)">
+                            <ha-icon icon="mdi:magnify-minus"></ha-icon>
+                        </button>
+
+                        <div class="zoom-level-display" title="Current Zoom Level">
+                            ${Math.round(this._currentZoom * 100)}%
+                        </div>
+
+                        <button
+                            class="canvas-toolbar-button"
+                            @click=${(e) => { e.stopPropagation(); this._zoomIn(); }}
+                            title="Zoom In (Mouse Wheel Up)">
+                            <ha-icon icon="mdi:magnify-plus"></ha-icon>
+                        </button>
+
+                        <button
+                            class="canvas-toolbar-button"
+                            @click=${(e) => { e.stopPropagation(); this._zoomReset(); }}
+                            title="Reset Zoom (100%) - Pan: Shift+Drag or Middle-Click">
+                            <ha-icon icon="mdi:fit-to-screen"></ha-icon>
+                        </button>
                     </div>
 
                     <!-- Toggle Button (expanded state - right side) -->
@@ -3367,7 +3549,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _getPreviewCoordinatesFromMouseEvent(event) {
-        return getPreviewCoordinatesFromMouseEvent(event, this.shadowRoot, this._workingConfig);
+        const zoomTransform = this._getZoomTransform();
+        return getPreviewCoordinatesFromMouseEvent(event, this.shadowRoot, this._workingConfig, zoomTransform);
     }
 
     /**
@@ -3424,8 +3607,15 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const rect = svg.getBoundingClientRect();
 
         // Calculate click position relative to SVG
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
+        let x = event.clientX - rect.left;
+        let y = event.clientY - rect.top;
+
+        // Apply inverse zoom transform if zoom is active
+        const zoomTransform = this._getZoomTransform();
+        if (zoomTransform?.k && zoomTransform.k !== 1) {
+            x = (x - zoomTransform.x) / zoomTransform.k;
+            y = (y - zoomTransform.y) / zoomTransform.k;
+        }
 
         // Get viewBox from config
         const viewBox = this._workingConfig.msd?.view_box;
@@ -3503,8 +3693,15 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const panelRect = previewPanel.getBoundingClientRect();
 
         // Calculate mouse position relative to SVG
-        const svgX = event.clientX - rect.left;
-        const svgY = event.clientY - rect.top;
+        let svgX = event.clientX - rect.left;
+        let svgY = event.clientY - rect.top;
+
+        // Apply inverse zoom transform if zoom is active
+        const zoomTransform = this._getZoomTransform();
+        if (zoomTransform?.k && zoomTransform.k !== 1) {
+            svgX = (svgX - zoomTransform.x) / zoomTransform.k;
+            svgY = (svgY - zoomTransform.y) / zoomTransform.k;
+        }
 
         // Get viewBox from config
         const viewBox = this._workingConfig.msd?.view_box;

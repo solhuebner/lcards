@@ -121,6 +121,19 @@ export const msdStudioStyles = css`
         color: white;
     }
 
+    /* Zoom Level Display in Canvas Toolbar */
+    .zoom-level-display {
+        font-size: 14px;
+        font-weight: 600;
+        color: white;
+        padding: 0 8px;
+        min-width: 52px;
+        text-align: center;
+        user-select: none;
+        font-family: var(--lcars-font-family, 'Antonio', sans-serif);
+        letter-spacing: 0.5px;
+    }
+
     /* Tab header icon button toggles - match canvas toolbar styling */
     ha-icon-button {
         width: 40px;
