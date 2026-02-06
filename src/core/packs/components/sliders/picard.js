@@ -15,6 +15,14 @@
  * @module core/packs/components/sliders/picard
  */
 
+// Default color constants
+const DEFAULT_BORDER_ACTIVE = '#2766FF';
+const DEFAULT_BORDER_INACTIVE = '#9DA4B9';
+const DEFAULT_PROGRESS_COLOR = '#00EDED';
+const DEFAULT_RANGE_BORDER_COLOR = '#000000';
+const DEFAULT_RANGE_FRAME_COLOR = '#2765FD';
+const DEFAULT_ANIMATION_COLOR = '#3AA5D0';
+
 /**
  * Calculate zone bounds for Picard component
  * Scales from original 365×601 viewBox to actual container dimensions
@@ -78,26 +86,25 @@ export function resolveColors(actualState, classifiedState, config, hass) {
         return colorConfig[actualState] || colorConfig[classifiedState] || colorConfig.default || fallback;
     };
     
-    // Map classifiedState to component's internal states
-    // 'on' maps to 'active', 'off' maps to 'inactive'
+    // Determine if entity is active based on classified state
     const isActive = classifiedState === 'on';
     
     return {
         borderTop: resolveStateColor(
             config.style?.border?.top?.color,
-            isActive ? '#2766FF' : '#9DA4B9'
+            isActive ? DEFAULT_BORDER_ACTIVE : DEFAULT_BORDER_INACTIVE
         ),
         borderBottom: resolveStateColor(
             config.style?.border?.bottom?.color,
-            '#9DA4B9'
+            DEFAULT_BORDER_INACTIVE
         ),
         progressBar: resolveStateColor(
             config.style?.gauge?.progress_bar?.color,
-            '#00EDED'
+            DEFAULT_PROGRESS_COLOR
         ),
-        rangeBorder: config.style?.range?.border?.color || '#000000',
-        rangeFrame: config.style?.range?.frame?.color || '#2765FD',
-        animationIndicator: config.style?.animation?.indicator?.color || '#3AA5D0'
+        rangeBorder: config.style?.range?.border?.color || DEFAULT_RANGE_BORDER_COLOR,
+        rangeFrame: config.style?.range?.frame?.color || DEFAULT_RANGE_FRAME_COLOR,
+        animationIndicator: config.style?.animation?.indicator?.color || DEFAULT_ANIMATION_COLOR
     };
 }
 
