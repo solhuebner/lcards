@@ -625,7 +625,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                     slot="primaryAction"
                     variant="brand"
                     @click=${this._handleSave}>
-                    <ha-icon icon="mdi:check" slot="icon"></ha-icon>
+                    <ha-icon icon="mdi:check" slot="start"></ha-icon>
                     Save
                 </ha-button>
 
@@ -863,11 +863,11 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 <!-- Grid Controls -->
                 <div style="display: flex; gap: 8px; margin-top: 12px;">
                     <ha-button @click=${this._addManualRow}>
-                        <ha-icon icon="mdi:table-row-plus-after" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:table-row-plus-after" slot="start"></ha-icon>
                         Add Row
                     </ha-button>
                     <ha-button @click=${this._addManualColumn}>
-                        <ha-icon icon="mdi:table-column-plus-after" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:table-column-plus-after" slot="start"></ha-icon>
                         Add Column
                     </ha-button>
                 </div>
@@ -1092,11 +1092,11 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 <!-- Grid Controls -->
                 <div style="display: flex; gap: 8px; margin-top: 12px;">
                     <ha-button @click=${this._addManualRow}>
-                        <ha-icon icon="mdi:table-row-plus-after" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:table-row-plus-after" slot="start"></ha-icon>
                         Add Row
                     </ha-button>
                     <ha-button @click=${this._addManualColumn}>
-                        <ha-icon icon="mdi:table-column-plus-after" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:table-column-plus-after" slot="start"></ha-icon>
                         Add Column
                     </ha-button>
                 </div>
@@ -1211,11 +1211,11 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                 <!-- Grid Controls -->
                 <div style="display: flex; gap: 8px; margin-top: 12px;">
                     <ha-button @click=${this._addManualRow}>
-                        <ha-icon icon="mdi:table-row-plus-after" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:table-row-plus-after" slot="start"></ha-icon>
                         Add Row
                     </ha-button>
                     <ha-button @click=${this._addManualColumn}>
-                        <ha-icon icon="mdi:table-column-plus-after" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:table-column-plus-after" slot="start"></ha-icon>
                         Add Column
                     </ha-button>
                 </div>
@@ -1855,7 +1855,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
     _renderAdvancedTab() {
         return html`
             <lcards-message type="info">
-                <ha-icon icon="mdi:information" slot="icon"></ha-icon>
+                <ha-icon icon="mdi:information" slot="start"></ha-icon>
                 Advanced CSS Grid properties. Changes affect the entire grid container.
                 Use the live preview panel to see results in real-time.
             </lcards-message>
@@ -3149,11 +3149,11 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
 
                 <div style="display: flex; gap: 8px; margin-top: 12px;">
                     <ha-button @click=${this._saveCellEdit}>
-                        <ha-icon icon="mdi:check" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:check" slot="start"></ha-icon>
                         Save
                     </ha-button>
                     <ha-button appearance="plain" @click=${this._cancelCellEdit}>
-                        <ha-icon icon="mdi:close" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:close" slot="start"></ha-icon>
                         Cancel
                     </ha-button>
                 </div>
@@ -3303,7 +3303,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                             @click=${() => this._clearCellStyle(row, col)}
                             style="margin-top: 12px;"
                             .disabled=${!hasCellStyle}>
-                            <ha-icon icon="mdi:eraser" slot="icon"></ha-icon>
+                            <ha-icon icon="mdi:eraser" slot="start"></ha-icon>
                             Clear Cell Styles
                         </ha-button>
                     </div>
@@ -3443,32 +3443,32 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
 
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px;">
                     <ha-button @click=${() => this._insertRowBefore(rowIndex)}>
-                        <ha-icon icon="mdi:table-row-plus-before" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:table-row-plus-before" slot="start"></ha-icon>
                         Insert Before
                     </ha-button>
 
                     <ha-button @click=${() => this._insertRowAfter(rowIndex)}>
-                        <ha-icon icon="mdi:table-row-plus-after" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:table-row-plus-after" slot="start"></ha-icon>
                         Insert After
                     </ha-button>
 
                     <ha-button @click=${() => this._moveRowUp(rowIndex)} .disabled=${rowIndex === 0}>
-                        <ha-icon icon="mdi:arrow-up-bold" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:arrow-up-bold" slot="start"></ha-icon>
                         Move Up
                     </ha-button>
 
                     <ha-button @click=${() => this._moveRowDown(rowIndex)} .disabled=${rowIndex === this._workingConfig.rows.length - 1}>
-                        <ha-icon icon="mdi:arrow-down-bold" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:arrow-down-bold" slot="start"></ha-icon>
                         Move Down
                     </ha-button>
 
                     <ha-button variant="danger" @click=${() => this._deleteManualRow(rowIndex)}>
-                        <ha-icon icon="mdi:delete" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:delete" slot="start"></ha-icon>
                         Delete Row
                     </ha-button>
 
                     <ha-button appearance="plain" @click=${() => { this._activeRowEdit = null; this.requestUpdate(); }}>
-                        <ha-icon icon="mdi:close" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:close" slot="start"></ha-icon>
                         Close
                     </ha-button>
                 </div>
@@ -3618,7 +3618,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                             @click=${() => this._clearRowStyle(rowIndex)}
                             style="margin-top: 12px;"
                             .disabled=${!hasRowStyle}>
-                            <ha-icon icon="mdi:eraser" slot="icon"></ha-icon>
+                            <ha-icon icon="mdi:eraser" slot="start"></ha-icon>
                             Clear Row Styles
                         </ha-button>
                     </div>
@@ -3645,32 +3645,32 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
 
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px;">
                     <ha-button @click=${() => this._insertColumnBefore(colIndex)}>
-                        <ha-icon icon="mdi:table-column-plus-before" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:table-column-plus-before" slot="start"></ha-icon>
                         Insert Before
                     </ha-button>
 
                     <ha-button @click=${() => this._insertColumnAfter(colIndex)}>
-                        <ha-icon icon="mdi:table-column-plus-after" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:table-column-plus-after" slot="start"></ha-icon>
                         Insert After
                     </ha-button>
 
                     <ha-button @click=${() => this._moveColumnLeft(colIndex)} .disabled=${colIndex === 0}>
-                        <ha-icon icon="mdi:arrow-left-bold" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:arrow-left-bold" slot="start"></ha-icon>
                         Move Left
                     </ha-button>
 
                     <ha-button @click=${() => this._moveColumnRight(colIndex)} .disabled=${colIndex === this._gridColumnCount - 1}>
-                        <ha-icon icon="mdi:arrow-right-bold" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:arrow-right-bold" slot="start"></ha-icon>
                         Move Right
                     </ha-button>
 
                     <ha-button variant="danger" @click=${() => this._deleteColumn(colIndex)}>
-                        <ha-icon icon="mdi:delete" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:delete" slot="start"></ha-icon>
                         Delete Column
                     </ha-button>
 
                     <ha-button appearance="plain" @click=${() => { this._activeColumnEdit = null; this.requestUpdate(); }}>
-                        <ha-icon icon="mdi:close" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:close" slot="start"></ha-icon>
                         Close
                     </ha-button>
                 </div>
@@ -3820,7 +3820,7 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
                             @click=${() => this._clearColumnStyle(colIndex)}
                             style="margin-top: 12px;"
                             .disabled=${!hasColumnStyle}>
-                            <ha-icon icon="mdi:eraser" slot="icon"></ha-icon>
+                            <ha-icon icon="mdi:eraser" slot="start"></ha-icon>
                             Clear Column Styles
                         </ha-button>
                     </div>

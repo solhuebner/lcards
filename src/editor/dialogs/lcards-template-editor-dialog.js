@@ -251,7 +251,7 @@ export class LCARdSTemplateEditorDialog extends LitElement {
                         class="add-row-button"
                         raised
                         @click=${this._addRow}>
-                        <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:plus" slot="start"></ha-icon>
                         Add Row
                     </ha-button>
 
@@ -372,7 +372,7 @@ export class LCARdSTemplateEditorDialog extends LitElement {
                 <ha-button
                     class="add-cell-button"
                     @click=${() => this._addCell(rowIndex)}>
-                    <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                    <ha-icon icon="mdi:plus" slot="start"></ha-icon>
                     Add Cell
                 </ha-button>
             </div>

@@ -71,7 +71,7 @@ export class LCARdSChartEditor extends LCARdSBaseEditor {
                     <ha-button
                         raised
                         @click=${this._openChartStudio}>
-                        <ha-icon icon="mdi:chart-line" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:chart-line" slot="start"></ha-icon>
                         Open Configuration Studio
                     </ha-button>
                 </div>

@@ -150,7 +150,7 @@ export class LCARdSChartSeriesListEditor extends LitElement {
         <!-- Add Series Button -->
         <div class="add-series-container">
           <ha-button @click=${() => this._addSeries()}>
-            <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+            <ha-icon icon="mdi:plus" slot="start"></ha-icon>
             Add Series
           </ha-button>
         </div>
@@ -347,13 +347,13 @@ export class LCARdSChartSeriesListEditor extends LitElement {
 
           <div class="form-row" style="display: flex; gap: 8px; align-items: center;">
             <ha-button @click=${() => this._openDataSourceDialog(index)}>
-              <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+              <ha-icon icon="mdi:plus" slot="start"></ha-icon>
               Create New
             </ha-button>
             <ha-button
               .disabled=${!isCardLocalDs}
               @click=${() => this._editDataSource(existingDataSource)}>
-              <ha-icon icon="mdi:pencil" slot="icon"></ha-icon>
+              <ha-icon icon="mdi:pencil" slot="start"></ha-icon>
               Edit DataSource
             </ha-button>
             ${isGlobalDs ? html`

@@ -1983,7 +1983,7 @@ export class LCARdSProvenanceTab extends LitElement {
               class="open-inspector-button"
               raised
               @click=${this._openDialog}>
-              <ha-icon icon="mdi:file-tree" slot="icon"></ha-icon>
+              <ha-icon icon="mdi:file-tree" slot="start"></ha-icon>
               Open Provenance Inspector
             </ha-button>
           </div>

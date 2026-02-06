@@ -192,17 +192,17 @@ export class LCARdSGridRowEditor extends LitElement {
                 <!-- Row Operations -->
                 <div class="operations-section">
                     <ha-button class="operation-btn" @click=${this._handleInsertAbove}>
-                        <ha-icon icon="mdi:arrow-up-bold" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:arrow-up-bold" slot="start"></ha-icon>
                         Insert Row Above
                     </ha-button>
 
                     <ha-button class="operation-btn" @click=${this._handleInsertBelow}>
-                        <ha-icon icon="mdi:arrow-down-bold" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:arrow-down-bold" slot="start"></ha-icon>
                         Insert Row Below
                     </ha-button>
 
                     <ha-button class="operation-btn" @click=${this._handleDuplicate}>
-                        <ha-icon icon="mdi:content-copy" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:content-copy" slot="start"></ha-icon>
                         Duplicate Row
                     </ha-button>
                 </div>
@@ -245,7 +245,7 @@ export class LCARdSGridRowEditor extends LitElement {
                 <!-- Danger Zone -->
                 <div class="danger-zone">
                     <ha-button class="danger-btn" @click=${this._handleDelete}>
-                        <ha-icon icon="mdi:delete" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:delete" slot="start"></ha-icon>
                         Delete Row
                     </ha-button>
                 </div>
@@ -256,7 +256,7 @@ export class LCARdSGridRowEditor extends LitElement {
                     Cancel
                 </ha-button>
                 <ha-button variant="brand" @click=${this._handleSave}>
-                    <ha-icon icon="mdi:check" slot="icon"></ha-icon>
+                    <ha-icon icon="mdi:check" slot="start"></ha-icon>
                     Apply
                 </ha-button>
             </div>

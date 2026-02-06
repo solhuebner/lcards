@@ -90,7 +90,7 @@ export class LCARdSDataGridEditor extends LCARdSBaseEditor {
                     <ha-button
                         raised
                         @click=${this._openConfigurationStudio}>
-                        <ha-icon icon="mdi:pencil-ruler" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:pencil-ruler" slot="start"></ha-icon>
                         Open Configuration Studio
                     </ha-button>
                 </div>

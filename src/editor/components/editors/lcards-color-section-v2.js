@@ -373,7 +373,7 @@ export class LCARdSColorSectionV2 extends LitElement {
                                 <ha-button
                                     @click=${() => this._addState(state)}
                                     outlined>
-                                    <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                                    <ha-icon icon="mdi:plus" slot="start"></ha-icon>
                                     ${this._formatStateLabel(state)}
                                 </ha-button>
                             `)}
@@ -399,7 +399,7 @@ export class LCARdSColorSectionV2 extends LitElement {
                             variant="brand"
                             @click=${this._addCustomState}
                             ?disabled=${!this._customStateInput.trim()}>
-                            <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                            <ha-icon icon="mdi:plus" slot="start"></ha-icon>
                             Add Custom
                         </ha-button>
                     </div>

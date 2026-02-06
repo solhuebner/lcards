@@ -137,7 +137,7 @@ export class LCARdSDataSourceEditorTab extends LitElement {
           <ha-button
             raised
             @click=${this._openBrowser}>
-            <ha-icon icon="mdi:database-search" slot="icon"></ha-icon>
+            <ha-icon icon="mdi:database-search" slot="start"></ha-icon>
             Browse Sources
           </ha-button>
         </div>

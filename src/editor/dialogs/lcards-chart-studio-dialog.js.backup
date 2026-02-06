@@ -542,7 +542,7 @@ export class LCARdSChartStudioDialog extends LitElement {
     async _handleCancel() {
         // Confirm if changes were made
         const hasChanges = JSON.stringify(this._workingConfig) !== JSON.stringify(this._initialConfig);
-        
+
         if (hasChanges) {
             const confirmed = await this._showConfirmDialog(
                 'Unsaved Changes',
@@ -689,7 +689,7 @@ export class LCARdSChartStudioDialog extends LitElement {
         return html`
             <div class="data-sources-tab">
                 ${this._renderLevelSelector()}
-                
+
                 <div class="level-content">
                     ${this._dataSourceLevel === 'simple' ? this._renderSimpleMode() : ''}
                     ${this._dataSourceLevel === 'multi' ? this._renderMultiMode() : ''}
@@ -834,7 +834,7 @@ export class LCARdSChartStudioDialog extends LitElement {
                 </div>
 
                 <ha-button class="add-button" @click=${this._addSeries}>
-                    <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                    <ha-icon icon="mdi:plus" slot="start"></ha-icon>
                     Add Series
                 </ha-button>
             </lcards-form-section>
@@ -885,7 +885,7 @@ export class LCARdSChartStudioDialog extends LitElement {
                 `}
 
                 <ha-button class="add-button" @click=${() => this._openDataSourcePicker()}>
-                    <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                    <ha-icon icon="mdi:plus" slot="start"></ha-icon>
                     Add DataSource
                 </ha-button>
             </lcards-form-section>
@@ -1065,10 +1065,10 @@ export class LCARdSChartStudioDialog extends LitElement {
                 <div style="font-size: 14px; line-height: 1.6;">
                     <h4>Simple Mode</h4>
                     <p>Quick chart from a single entity. Best for beginners.</p>
-                    
+
                     <h4>Multi-Series Mode</h4>
                     <p>Display multiple entities on the same chart with custom names.</p>
-                    
+
                     <h4>Advanced Mode</h4>
                     <p>Full DataSource control with history preload, throttling, and transformations.</p>
                 </div>
@@ -1087,7 +1087,7 @@ export class LCARdSChartStudioDialog extends LitElement {
      */
     _detectDataSourceLevel() {
         const config = this._workingConfig;
-        
+
         if (config.data_sources && Object.keys(config.data_sources).length > 0) {
             return 'advanced';
         } else if (Array.isArray(config.sources) && config.sources.length > 0) {
@@ -1095,7 +1095,7 @@ export class LCARdSChartStudioDialog extends LitElement {
         } else if (config.source) {
             return 'simple';
         }
-        
+
         return 'simple'; // Default
     }
 
@@ -1210,17 +1210,17 @@ export class LCARdSChartStudioDialog extends LitElement {
      */
     _moveSeries(index, direction) {
         if (!this._workingConfig.sources) return;
-        
+
         const newIndex = index + direction;
         if (newIndex < 0 || newIndex >= this._workingConfig.sources.length) return;
 
         // Swap sources
-        [this._workingConfig.sources[index], this._workingConfig.sources[newIndex]] = 
+        [this._workingConfig.sources[index], this._workingConfig.sources[newIndex]] =
         [this._workingConfig.sources[newIndex], this._workingConfig.sources[index]];
 
         // Swap series names if they exist
         if (this._workingConfig.series_names && this._workingConfig.series_names.length > index) {
-            [this._workingConfig.series_names[index], this._workingConfig.series_names[newIndex]] = 
+            [this._workingConfig.series_names[index], this._workingConfig.series_names[newIndex]] =
             [this._workingConfig.series_names[newIndex], this._workingConfig.series_names[index]];
         }
 
@@ -1235,9 +1235,9 @@ export class LCARdSChartStudioDialog extends LitElement {
      */
     _removeSeries(index) {
         if (!this._workingConfig.sources) return;
-        
+
         this._workingConfig.sources.splice(index, 1);
-        
+
         if (this._workingConfig.series_names && this._workingConfig.series_names.length > index) {
             this._workingConfig.series_names.splice(index, 1);
         }
@@ -1255,7 +1255,7 @@ export class LCARdSChartStudioDialog extends LitElement {
             'Open DataSource Editor',
             'Advanced DataSource configuration requires the full editor. Save your changes and open the DataSource editor tab?'
         );
-        
+
         if (confirmed) {
             // Save and close studio
             this._handleSave();
@@ -1300,7 +1300,7 @@ export class LCARdSChartStudioDialog extends LitElement {
      */
     _updateDataSourceConfig(name, key, value) {
         if (!this._workingConfig.data_sources || !this._workingConfig.data_sources[name]) return;
-        
+
         this._workingConfig.data_sources[name][key] = value;
         this.requestUpdate();
         this._schedulePreviewUpdate();
@@ -1315,11 +1315,11 @@ export class LCARdSChartStudioDialog extends LitElement {
      */
     _updateDataSourceHistoryConfig(name, key, value) {
         if (!this._workingConfig.data_sources || !this._workingConfig.data_sources[name]) return;
-        
+
         if (!this._workingConfig.data_sources[name].history) {
             this._workingConfig.data_sources[name].history = {};
         }
-        
+
         this._workingConfig.data_sources[name].history[key] = value;
         this.requestUpdate();
         this._schedulePreviewUpdate();
@@ -1333,11 +1333,11 @@ export class LCARdSChartStudioDialog extends LitElement {
      */
     _moveSource(index, direction) {
         if (!this._workingConfig.sources) return;
-        
+
         const newIndex = index + direction;
         if (newIndex < 0 || newIndex >= this._workingConfig.sources.length) return;
 
-        [this._workingConfig.sources[index], this._workingConfig.sources[newIndex]] = 
+        [this._workingConfig.sources[index], this._workingConfig.sources[newIndex]] =
         [this._workingConfig.sources[newIndex], this._workingConfig.sources[index]];
 
         this.requestUpdate();
@@ -1369,7 +1369,7 @@ export class LCARdSChartStudioDialog extends LitElement {
     _setNestedValue(path, value) {
         const parts = path.split('.');
         const lastPart = parts.pop();
-        
+
         let target = this._workingConfig;
         for (const part of parts) {
             if (!target[part]) {
@@ -1377,7 +1377,7 @@ export class LCARdSChartStudioDialog extends LitElement {
             }
             target = target[part];
         }
-        
+
         target[lastPart] = value;
         this.requestUpdate();
         this._updatePreview();
@@ -1393,7 +1393,7 @@ export class LCARdSChartStudioDialog extends LitElement {
      */
     _renderSingleColorPicker(path, label, fallback) {
         const value = this._getNestedValue(path) || fallback;
-        
+
         return html`
             <ha-selector
                 .hass=${this.hass}
@@ -1415,12 +1415,12 @@ export class LCARdSChartStudioDialog extends LitElement {
      */
     _renderColorArray(path, label, description = '') {
         const colors = this._getNestedValue(path) || [];
-        
+
         return html`
             <div style="margin-bottom: 16px;">
                 <div style="font-weight: 500; margin-bottom: 8px;">${label}</div>
                 ${description ? html`<div style="font-size: 12px; color: var(--secondary-text-color); margin-bottom: 8px;">${description}</div>` : ''}
-                
+
                 <div class="color-array-list" style="display: flex; flex-direction: column; gap: 8px;">
                     ${colors.map((color, index) => html`
                         <div style="display: flex; gap: 8px; align-items: center;">
@@ -1438,9 +1438,9 @@ export class LCARdSChartStudioDialog extends LitElement {
                         </div>
                     `)}
                 </div>
-                
+
                 <ha-button @click=${() => this._addColorToArray(path)} style="margin-top: 8px;">
-                    <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                    <ha-icon icon="mdi:plus" slot="start"></ha-icon>
                     Add Color
                 </ha-button>
             </div>
@@ -1495,7 +1495,7 @@ export class LCARdSChartStudioDialog extends LitElement {
         return html`
             <div class="gradient-config" style="padding-left: 16px; border-left: 2px solid var(--divider-color); margin-top: 16px;">
                 <h4 style="margin: 0 0 12px 0;">Gradient Settings</h4>
-                
+
                 <ha-selector
                     .hass=${this.hass}
                     .selector=${{ select: { options: [
@@ -1548,7 +1548,7 @@ export class LCARdSChartStudioDialog extends LitElement {
                 description="Choose the visualization type for your data"
                 icon="mdi:chart-line-variant"
                 ?expanded=${true}>
-                
+
                 <div class="chart-type-grid" style="
                     display: grid;
                     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -1556,7 +1556,7 @@ export class LCARdSChartStudioDialog extends LitElement {
                     margin-top: 16px;
                 ">
                     ${chartTypes.map(type => html`
-                        <div 
+                        <div
                             class="chart-type-card ${currentType === type.value ? 'selected' : ''}"
                             style="
                                 padding: 16px;
@@ -1569,8 +1569,8 @@ export class LCARdSChartStudioDialog extends LitElement {
                                 text-align: center;
                             "
                             @click=${() => this._setConfigValue('chart_type', type.value)}>
-                            <ha-icon 
-                                icon="${type.icon}" 
+                            <ha-icon
+                                icon="${type.icon}"
                                 style="font-size: 32px; margin-bottom: 8px;">
                             </ha-icon>
                             <div style="font-weight: 600; margin-bottom: 4px;">
@@ -1590,7 +1590,7 @@ export class LCARdSChartStudioDialog extends LitElement {
                 description="Configure chart size and data limits"
                 icon="mdi:resize"
                 ?expanded=${true}>
-                
+
                 <ha-selector
                     .hass=${this.hass}
                     .selector=${{ number: { min: 100, max: 1000, step: 50, mode: 'slider', unit_of_measurement: 'px' } }}
@@ -1615,7 +1615,7 @@ export class LCARdSChartStudioDialog extends LitElement {
                 description="Configure horizontal axis type"
                 icon="mdi:axis-x-arrow"
                 ?expanded=${true}>
-                
+
                 <ha-selector
                     .hass=${this.hass}
                     .selector=${{ select: { options: [
@@ -1639,7 +1639,7 @@ export class LCARdSChartStudioDialog extends LitElement {
                 description="Primary colors for data visualization"
                 icon="mdi:palette"
                 ?expanded=${true}>
-                
+
                 ${this._renderColorArray('style.colors.series', 'Series Colors', 'Colors for each data series')}
             </lcards-form-section>
 
@@ -1649,7 +1649,7 @@ export class LCARdSChartStudioDialog extends LitElement {
                 description="Line and area fill colors"
                 icon="mdi:brush"
                 ?expanded=${true}>
-                
+
                 ${this._renderColorArray('style.colors.stroke', 'Stroke Colors', 'Outline/line colors')}
                 ${this._renderColorArray('style.colors.fill', 'Fill Colors', 'Area fill colors')}
             </lcards-form-section>
@@ -1660,7 +1660,7 @@ export class LCARdSChartStudioDialog extends LitElement {
                 description="Base chart colors"
                 icon="mdi:format-color-fill"
                 ?expanded=${true}>
-                
+
                 ${this._renderSingleColorPicker('style.colors.background', 'Background', 'transparent')}
                 ${this._renderSingleColorPicker('style.colors.foreground', 'Foreground', 'var(--lcars-white, #FFFFFF)')}
                 ${this._renderSingleColorPicker('style.colors.grid', 'Grid', 'var(--lcars-gray, #999999)')}
@@ -1672,7 +1672,7 @@ export class LCARdSChartStudioDialog extends LitElement {
                 description="Data point marker styling"
                 icon="mdi:circle"
                 ?expanded=${false}>
-                
+
                 ${this._renderColorArray('style.colors.marker.fill', 'Marker Fill')}
                 ${this._renderColorArray('style.colors.marker.stroke', 'Marker Stroke')}
             </lcards-form-section>
@@ -1683,7 +1683,7 @@ export class LCARdSChartStudioDialog extends LitElement {
                 description="X and Y axis styling"
                 icon="mdi:axis-arrow"
                 ?expanded=${false}>
-                
+
                 ${this._renderSingleColorPicker('style.colors.axis.x', 'X-Axis', null)}
                 ${this._renderSingleColorPicker('style.colors.axis.y', 'Y-Axis', null)}
                 ${this._renderSingleColorPicker('style.colors.axis.border', 'Axis Border', null)}
@@ -1696,7 +1696,7 @@ export class LCARdSChartStudioDialog extends LitElement {
                 description="Legend text styling"
                 icon="mdi:label"
                 ?expanded=${false}>
-                
+
                 ${this._renderSingleColorPicker('style.colors.legend.default', 'Legend Text', null)}
                 ${this._renderColorArray('style.colors.legend.items', 'Legend Items', 'Per-item legend colors')}
             </lcards-form-section>
@@ -1707,7 +1707,7 @@ export class LCARdSChartStudioDialog extends LitElement {
                 description="On-chart data label styling"
                 icon="mdi:label-variant"
                 ?expanded=${false}>
-                
+
                 ${this._renderColorArray('style.colors.data_labels', 'Data Label Colors')}
             </lcards-form-section>
         `;
@@ -1726,7 +1726,7 @@ export class LCARdSChartStudioDialog extends LitElement {
                 description="Line and border styling"
                 icon="mdi:brush"
                 ?expanded=${true}>
-                
+
                 <ha-selector
                     .hass=${this.hass}
                     .selector=${{ number: { min: 0, max: 10, step: 0.5, mode: 'slider' } }}
@@ -1755,7 +1755,7 @@ export class LCARdSChartStudioDialog extends LitElement {
                 description="Area and background fill styling"
                 icon="mdi:format-color-fill"
                 ?expanded=${true}>
-                
+
                 <ha-selector
                     .hass=${this.hass}
                     .selector=${{ select: { options: [
@@ -1795,7 +1795,7 @@ export class LCARdSChartStudioDialog extends LitElement {
                 description="Data point marker styling"
                 icon="mdi:circle"
                 ?expanded=${true}>
-                
+
                 <ha-selector
                     .hass=${this.hass}
                     .selector=${{ number: { min: 0, max: 20, step: 1, mode: 'slider' } }}
@@ -1819,7 +1819,7 @@ export class LCARdSChartStudioDialog extends LitElement {
                 description="Background grid styling"
                 icon="mdi:grid"
                 ?expanded=${true}>
-                
+
                 <ha-selector
                     .hass=${this.hass}
                     .selector=${{ boolean: {} }}
@@ -1914,21 +1914,21 @@ export class LCARdSChartStudioDialog extends LitElement {
                 open
                 @closed=${this._handleClose}
                 .heading=${'Chart Configuration Studio'}>
-                
+
                 <div slot="primaryAction">
                     <ha-button @click=${this._handleSave}>
-                        <ha-icon icon="mdi:content-save" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:content-save" slot="start"></ha-icon>
                         Save
                     </ha-button>
                 </div>
 
                 <div slot="secondaryAction">
                     <ha-button @click=${this._handleReset}>
-                        <ha-icon icon="mdi:restore" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:restore" slot="start"></ha-icon>
                         Reset
                     </ha-button>
                     <ha-button @click=${this._handleCancel}>
-                        <ha-icon icon="mdi:close" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:close" slot="start"></ha-icon>
                         Cancel
                     </ha-button>
                 </div>

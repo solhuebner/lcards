@@ -103,34 +103,34 @@ document.body.appendChild(studio);
 import '../dialogs/lcards-data-grid-studio-dialog.js';
 
 class LCARdSDataGridEditor extends LCARdSBaseEditor {
-  
+
   _openConfigurationStudio() {
     const studio = document.createElement('lcards-data-grid-studio-dialog');
     studio.hass = this.hass;
     studio.config = this.config;
-    
+
     studio.addEventListener('config-changed', (e) => {
       // Update config and notify Home Assistant
       this.config = e.detail.config;
       this._fireConfigChanged();
     });
-    
+
     studio.addEventListener('closed', () => {
       studio.remove();
     });
-    
+
     document.body.appendChild(studio);
   }
-  
+
   _renderDataModeTab() {
     return html`
       <ha-button
         raised
         @click=${this._openConfigurationStudio}>
-        <ha-icon icon="mdi:view-dashboard-edit" slot="icon"></ha-icon>
+        <ha-icon icon="mdi:view-dashboard-edit" slot="start"></ha-icon>
         Open Configuration Studio
       </ha-button>
-      
+
       <!-- Other tab content... -->
     `;
   }
@@ -144,10 +144,10 @@ The dialog works with a configuration object that includes:
 ```javascript
 {
   type: 'custom:lcards-data-grid',
-  
+
   // Data mode configuration
   data_mode: 'random' | 'template' | 'datasource',
-  
+
   // Grid layout
   grid: {
     rows: 8,
@@ -155,22 +155,22 @@ The dialog works with a configuration object that includes:
     gap: 8
     // Additional CSS Grid properties...
   },
-  
+
   // Random mode specific
   format: 'mixed' | 'digit' | 'float' | 'alpha' | 'hex',
   refresh_interval: 0,
-  
+
   // Template mode specific
   rows: [
     // Row configurations...
   ],
-  
+
   // DataSource mode specific
   layout: 'timeline' | 'spreadsheet',
   source: 'datasource_id',
   history_hours: 1,
   columns: [/* column configs */],
-  
+
   // Styling
   style: {
     color: '#color',
@@ -178,7 +178,7 @@ The dialog works with a configuration object that includes:
     font_size: 18,
     align: 'left' | 'center' | 'right'
   },
-  
+
   // Animation
   animation: {
     type: 'none' | 'cascade',

@@ -239,7 +239,7 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
             class="open-sandbox-button"
             raised
             @click=${this._openSandbox}>
-            <ha-icon icon="mdi:flask-outline" slot="icon"></ha-icon>
+            <ha-icon icon="mdi:flask-outline" slot="start"></ha-icon>
             Open Sandbox
           </ha-button>
         </div>
@@ -270,7 +270,7 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
       <div class="header-row">
         <h3>Template Discovery</h3>
         <ha-button @click=${this._openSandbox}>
-          <ha-icon icon="mdi:flask-outline" slot="icon"></ha-icon>
+          <ha-icon icon="mdi:flask-outline" slot="start"></ha-icon>
           🧪 Open Template Sandbox
         </ha-button>
       </div>

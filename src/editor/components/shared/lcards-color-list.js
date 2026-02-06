@@ -187,7 +187,7 @@ export class LCARdSColorList extends LitElement {
 
     return html`
       <ha-button class="add-button" @click=${this._addColor} ?disabled=${this.disabled}>
-        <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+        <ha-icon icon="mdi:plus" slot="start"></ha-icon>
         Add Color
       </ha-button>
 

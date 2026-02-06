@@ -1089,13 +1089,13 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
               class="open-browser-button"
               raised
               @click=${this._openDialog}>
-              <ha-icon icon="mdi:palette" slot="icon"></ha-icon>
+              <ha-icon icon="mdi:palette" slot="start"></ha-icon>
               Open Theme Browser
             </ha-button>
             <ha-button
               class="open-pack-explorer-button"
               @click=${this._openPackExplorer}>
-              <ha-icon icon="mdi:package-variant" slot="icon"></ha-icon>
+              <ha-icon icon="mdi:package-variant" slot="start"></ha-icon>
               Browse All Packs
             </ha-button>
           </div>
@@ -1951,15 +1951,15 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
           <!-- Action Buttons -->
           <div class="alert-lab-actions">
             <ha-button @click="${this._applyAlertMode}">
-              <ha-icon icon="mdi:play" slot="icon"></ha-icon>
+              <ha-icon icon="mdi:play" slot="start"></ha-icon>
               Apply Live
             </ha-button>
             <ha-button @click="${this._resetToDefaults}">
-              <ha-icon icon="mdi:restore" slot="icon"></ha-icon>
+              <ha-icon icon="mdi:restore" slot="start"></ha-icon>
               Reset to Defaults
             </ha-button>
             <ha-button @click="${this._exportAlertConfig}">
-              <ha-icon icon="mdi:export" slot="icon"></ha-icon>
+              <ha-icon icon="mdi:export" slot="start"></ha-icon>
               Export Config
             </ha-button>
           </div>

@@ -228,7 +228,7 @@ export class LCARdSChartSeriesListEditor extends LitElement {
         <!-- Add Series Button (Single unified approach) -->
         <div class="add-series-container">
           <ha-button @click=${() => this._addSeries()}>
-            <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+            <ha-icon icon="mdi:plus" slot="start"></ha-icon>
             Add Series
           </ha-button>
         </div>
@@ -326,7 +326,7 @@ export class LCARdSChartSeriesListEditor extends LitElement {
         <ha-button
           size="small"
           @click=${() => this._toggleSeriesMode(index)}>
-          <ha-icon icon=${mode === 'quick' ? 'mdi:cog' : 'mdi:flash'} slot="icon"></ha-icon>
+          <ha-icon icon=${mode === 'quick' ? 'mdi:cog' : 'mdi:flash'} slot="start"></ha-icon>
           Switch to ${mode === 'quick' ? 'Advanced' : 'Quick'}
         </ha-button>
       </div>
@@ -405,7 +405,7 @@ export class LCARdSChartSeriesListEditor extends LitElement {
         <div class="form-row">
           <ha-button
             @click=${() => this._openDataSourceDialog(index)}>
-            <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+            <ha-icon icon="mdi:plus" slot="start"></ha-icon>
             Create New DataSource
           </ha-button>
         </div>

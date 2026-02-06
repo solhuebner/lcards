@@ -1145,7 +1145,7 @@ export class LCARdSChartStudioDialog extends LitElement {
                 <ha-button
                     class="add-button"
                     @click=${() => this._addQuickSeries()}>
-                    <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                    <ha-icon icon="mdi:plus" slot="start"></ha-icon>
                     ${seriesCount === 0 ? 'Add Entity' : 'Add Another Series'}
                 </ha-button>
             </lcards-form-section>
@@ -1225,7 +1225,7 @@ export class LCARdSChartStudioDialog extends LitElement {
                 `}
 
                 <ha-button class="add-button" @click=${() => this._openDataSourcePicker()}>
-                    <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                    <ha-icon icon="mdi:plus" slot="start"></ha-icon>
                     Add DataSource
                 </ha-button>
             </lcards-form-section>
@@ -3188,7 +3188,7 @@ yaxis:
                     slot="primaryAction"
                     variant="brand"
                     @click=${this._handleSave}>
-                    <ha-icon icon="mdi:check" slot="icon"></ha-icon>
+                    <ha-icon icon="mdi:check" slot="start"></ha-icon>
                     Save
                 </ha-button>
 

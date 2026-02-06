@@ -258,19 +258,19 @@ export class LCARdSGridColumnEditor extends LitElement {
                         Text Alignment
                     </label>
                     <div class="alignment-buttons">
-                        <button 
+                        <button
                             class="align-btn ${this._editAlignment === 'left' ? 'active' : ''}"
                             @click=${() => this._editAlignment = 'left'}>
                             <ha-icon icon="mdi:format-align-left"></ha-icon>
                             <span class="align-btn-label">Left</span>
                         </button>
-                        <button 
+                        <button
                             class="align-btn ${this._editAlignment === 'center' ? 'active' : ''}"
                             @click=${() => this._editAlignment = 'center'}>
                             <ha-icon icon="mdi:format-align-center"></ha-icon>
                             <span class="align-btn-label">Center</span>
                         </button>
-                        <button 
+                        <button
                             class="align-btn ${this._editAlignment === 'right' ? 'active' : ''}"
                             @click=${() => this._editAlignment = 'right'}>
                             <ha-icon icon="mdi:format-align-right"></ha-icon>
@@ -282,12 +282,12 @@ export class LCARdSGridColumnEditor extends LitElement {
                 <!-- Column Operations -->
                 <div class="operations-section">
                     <ha-button class="operation-btn" @click=${this._handleInsertLeft}>
-                        <ha-icon icon="mdi:arrow-left-bold" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:arrow-left-bold" slot="start"></ha-icon>
                         Insert Column Left
                     </ha-button>
 
                     <ha-button class="operation-btn" @click=${this._handleInsertRight}>
-                        <ha-icon icon="mdi:arrow-right-bold" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:arrow-right-bold" slot="start"></ha-icon>
                         Insert Column Right
                     </ha-button>
                 </div>
@@ -323,7 +323,7 @@ export class LCARdSGridColumnEditor extends LitElement {
                 <!-- Danger Zone -->
                 <div class="danger-zone">
                     <ha-button class="danger-btn" @click=${this._handleDelete}>
-                        <ha-icon icon="mdi:delete" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:delete" slot="start"></ha-icon>
                         Delete Column
                     </ha-button>
                 </div>
@@ -334,7 +334,7 @@ export class LCARdSGridColumnEditor extends LitElement {
                     Cancel
                 </ha-button>
                 <ha-button variant="brand" @click=${this._handleSave}>
-                    <ha-icon icon="mdi:check" slot="icon"></ha-icon>
+                    <ha-icon icon="mdi:check" slot="start"></ha-icon>
                     Apply
                 </ha-button>
             </div>

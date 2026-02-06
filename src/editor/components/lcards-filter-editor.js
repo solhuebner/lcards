@@ -225,7 +225,7 @@ export class LCARdSFilterEditor extends LitElement {
                 <ha-button
                     class="add-button"
                     @click=${this._addFilter}>
-                    <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                    <ha-icon icon="mdi:plus" slot="start"></ha-icon>
                     Add Filter
                 </ha-button>
 

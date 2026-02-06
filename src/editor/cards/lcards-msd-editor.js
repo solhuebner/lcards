@@ -74,7 +74,7 @@ export class LCARdSMSDEditor extends LCARdSBaseEditor {
                     <ha-button
                         raised
                         @click=${this._openMsdStudio}>
-                        <ha-icon icon="mdi:monitor-dashboard" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:monitor-dashboard" slot="start"></ha-icon>
                         Open Configuration Studio
                     </ha-button>
                 </div>

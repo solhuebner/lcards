@@ -342,13 +342,13 @@ export class LCARdSVisualGridDesigner extends LitElement {
                 <ha-button
                     .appearance=${this.mode === 'visual' ? 'accent' : 'plain'}
                     @click=${() => this._switchMode('visual')}>
-                    <ha-icon icon="mdi:pencil-ruler" slot="icon"></ha-icon>
+                    <ha-icon icon="mdi:pencil-ruler" slot="start"></ha-icon>
                     Visual Designer
                 </ha-button>
                 <ha-button
                     .appearance=${this.mode === 'text' ? 'accent' : 'plain'}
                     @click=${() => this._switchMode('text')}>
-                    <ha-icon icon="mdi:code-braces" slot="icon"></ha-icon>
+                    <ha-icon icon="mdi:code-braces" slot="start"></ha-icon>
                     CSS Editor
                 </ha-button>
             </div>
@@ -508,10 +508,10 @@ export class LCARdSVisualGridDesigner extends LitElement {
      */
     _renderAdvancedProperties() {
         const isExpanded = this._advancedExpanded || false;
-        
+
         return html`
             <div class="advanced-section">
-                <div 
+                <div
                     class="advanced-header ${isExpanded ? 'expanded' : ''}"
                     @click=${() => {
                         this._advancedExpanded = !isExpanded;
@@ -574,7 +574,7 @@ export class LCARdSVisualGridDesigner extends LitElement {
     _renderValidationError(prop) {
         const error = this._validationErrors[prop];
         if (!error) return '';
-        
+
         return html`
             <div class="validation-error">
                 <ha-icon icon="mdi:alert-circle"></ha-icon>
@@ -604,18 +604,18 @@ export class LCARdSVisualGridDesigner extends LitElement {
      */
     _switchMode(newMode) {
         if (this.mode === newMode) return;
-        
+
         lcardsLog.debug('[VisualGridDesigner] Switching mode', {
             from: this.mode,
             to: newMode
         });
-        
+
         this.mode = newMode;
-        
+
         if (newMode === 'text') {
             this._syncCssInputsFromProps();
         }
-        
+
         this.requestUpdate();
     }
 
@@ -690,19 +690,19 @@ export class LCARdSVisualGridDesigner extends LitElement {
     _handleCSSInput(prop, val) {
         this._cssInputs[prop] = val;
         this.requestUpdate();
-        
+
         // Clear existing timer
         if (this._cssDebounceTimer) {
             clearTimeout(this._cssDebounceTimer);
         }
-        
+
         // Debounce 500ms
         this._cssDebounceTimer = setTimeout(() => {
             lcardsLog.debug('[VisualGridDesigner] CSS input changed (debounced)', {
                 property: prop,
                 value: val
             });
-            
+
             // Validate and fire event
             this._validateCSSValue(prop, val);
             this._fireGridChanged();
@@ -736,15 +736,15 @@ export class LCARdSVisualGridDesigner extends LitElement {
     _validateCSSValue(prop, val) {
         // Clear existing error
         delete this._validationErrors[prop];
-        
+
         if (!val || val.trim() === '') {
             // Empty is valid (will use defaults)
             this.requestUpdate();
             return true;
         }
-        
+
         let isValid = true;
-        
+
         // Basic validation patterns
         switch (prop) {
             case 'grid-template-columns':
@@ -756,7 +756,7 @@ export class LCARdSVisualGridDesigner extends LitElement {
                     isValid = false;
                 }
                 break;
-            
+
             case 'gap':
                 // Check for valid length value
                 if (!/^\d+(\.\d+)?(px|em|rem|%)?(\s+\d+(\.\d+)?(px|em|rem|%)?)?$/.test(val)) {
@@ -765,7 +765,7 @@ export class LCARdSVisualGridDesigner extends LitElement {
                 }
                 break;
         }
-        
+
         if (!isValid) {
             lcardsLog.warn('[VisualGridDesigner] Validation error', {
                 property: prop,
@@ -773,7 +773,7 @@ export class LCARdSVisualGridDesigner extends LitElement {
                 error: this._validationErrors[prop]
             });
         }
-        
+
         this.requestUpdate();
         return isValid;
     }
@@ -784,8 +784,8 @@ export class LCARdSVisualGridDesigner extends LitElement {
      */
     _fireGridChanged() {
         const cssGrid = {
-            'grid-template-columns': this.mode === 'text' 
-                ? this._cssInputs['grid-template-columns'] 
+            'grid-template-columns': this.mode === 'text'
+                ? this._cssInputs['grid-template-columns']
                 : `repeat(${this.columns}, 1fr)`,
             'grid-template-rows': this.mode === 'text'
                 ? this._cssInputs['grid-template-rows']
@@ -794,7 +794,7 @@ export class LCARdSVisualGridDesigner extends LitElement {
                 ? this._cssInputs['gap']
                 : `${this.gap}px`
         };
-        
+
         // Include advanced properties if in text mode
         if (this.mode === 'text') {
             if (this._cssInputs['grid-auto-flow'] && this._cssInputs['grid-auto-flow'] !== 'row') {
@@ -807,16 +807,16 @@ export class LCARdSVisualGridDesigner extends LitElement {
                 cssGrid['align-items'] = this._cssInputs['align-items'];
             }
         }
-        
+
         const detail = {
             rows: this.rows,
             columns: this.columns,
             gap: this.gap,
             cssGrid
         };
-        
+
         lcardsLog.debug('[VisualGridDesigner] Firing grid-changed event', detail);
-        
+
         this.dispatchEvent(new CustomEvent('grid-changed', {
             detail,
             bubbles: true,

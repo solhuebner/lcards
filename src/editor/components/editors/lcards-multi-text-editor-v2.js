@@ -175,7 +175,7 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
 
                 <!-- Add Button -->
                 <ha-button class="add-button" @click=${this._toggleAddDialog}>
-                    <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                    <ha-icon icon="mdi:plus" slot="start"></ha-icon>
                     Add Text Field
                 </ha-button>
 
@@ -469,7 +469,7 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
                             <div class="quick-add-buttons">
                                 ${availableCommonFields.map(fieldName => html`
                                     <ha-button @click=${() => this._addField(fieldName)}>
-                                        <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                                        <ha-icon icon="mdi:plus" slot="start"></ha-icon>
                                         ${fieldName}
                                     </ha-button>
                                 `)}
@@ -493,7 +493,7 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
                             variant="brand"
                             @click=${() => this._addField(this._newFieldName)}
                             ?disabled=${!this._isValidFieldName(this._newFieldName)}>
-                            <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                            <ha-icon icon="mdi:plus" slot="start"></ha-icon>
                             Add
                         </ha-button>
                     </div>

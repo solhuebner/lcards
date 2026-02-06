@@ -200,12 +200,12 @@ export class LCARdSGridCellEditor extends LitElement {
             <div class="editor-content">
                 <!-- Mode Toggle -->
                 <div class="mode-toggle">
-                    <button 
+                    <button
                         class="mode-btn ${this._editMode === 'static' ? 'active' : ''}"
                         @click=${() => this._setEditMode('static')}>
                         Static Value
                     </button>
-                    <button 
+                    <button
                         class="mode-btn ${this._editMode === 'template' ? 'active' : ''}"
                         @click=${() => this._setEditMode('template')}>
                         Template
@@ -275,7 +275,7 @@ export class LCARdSGridCellEditor extends LitElement {
                     Cancel
                 </ha-button>
                 <ha-button variant="brand" @click=${this._handleSave}>
-                    <ha-icon icon="mdi:check" slot="icon"></ha-icon>
+                    <ha-icon icon="mdi:check" slot="start"></ha-icon>
                     Apply
                 </ha-button>
             </div>

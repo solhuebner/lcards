@@ -141,7 +141,7 @@ render() {
                     Cancel
                 </ha-button>
                 <ha-button variant="brand" appearance="accent" @click=${this._handleSave}>
-                    <ha-icon icon="mdi:content-save" slot="icon"></ha-icon>
+                    <ha-icon icon="mdi:content-save" slot="start"></ha-icon>
                     Save
                 </ha-button>
             </div>
@@ -177,7 +177,7 @@ html`<ha-button>Do Something</ha-button>`
 ```javascript
 html`
     <ha-button variant="brand" appearance="accent">
-        <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+        <ha-icon icon="mdi:plus" slot="start"></ha-icon>
         Add Item
     </ha-button>
 `
@@ -475,7 +475,7 @@ html`
         <ha-textfield label="Name"></ha-textfield>
         <div class="actions" style="display: flex; gap: 8px; justify-content: flex-end;">
             <ha-button variant="danger">
-                <ha-icon icon="mdi:delete" slot="icon"></ha-icon>
+                <ha-icon icon="mdi:delete" slot="start"></ha-icon>
                 Remove
             </ha-button>
         </div>
@@ -611,7 +611,7 @@ _updateConfig() { }     // Does this handle an event? Update state? Both?
 ```javascript
 // CORRECT - HA button with icon
 <ha-button variant="brand" appearance="accent" @click=${this._handleAdd}>
-    <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+    <ha-icon icon="mdi:plus" slot="start"></ha-icon>
     Add
 </ha-button>
 ```
@@ -642,7 +642,7 @@ Before submitting editor code:
 - [ ] All form controls use HA components (`ha-textfield`, `ha-select`, etc.)
 - [ ] Spacing follows standards (12px sections, 8px gaps)
 - [ ] Destructive actions right-aligned with `variant="danger"`
-- [ ] Icons in buttons use `slot="icon"`
+- [ ] Icons in buttons use `slot="start"`
 - [ ] Dialog close events handled properly
 - [ ] No `customElements.get()` fallback checks
 - [ ] Build succeeds without errors
@@ -2037,12 +2037,12 @@ _renderColorsTab() {
             header="Gradient Colors"
             description="Start and end colors for gradient"
             .colorPaths=${[
-                { 
+                {
                     path: 'style.gradient.start',
                     label: 'Gradient Start',
                     helper: 'Color at minimum value'
                 },
-                { 
+                {
                     path: 'style.gradient.end',
                     label: 'Gradient End',
                     helper: 'Color at maximum value'
@@ -2449,7 +2449,7 @@ HA's `ha-button` provides comprehensive functionality with proper semantic varia
 
 // ✅ NEW: ha-button with proper appearance/variants
 <ha-button @click=${handler}>
-  <ha-icon slot="icon" icon="mdi:plus"></ha-icon>
+  <ha-icon slot="start" icon="mdi:plus"></ha-icon>
   Add Item
 </ha-button>
 
@@ -2483,7 +2483,7 @@ HA's `ha-button` provides comprehensive functionality with proper semantic varia
 ```javascript
 // ✅ DO: Use variant="danger" for destructive actions
 <ha-button variant="danger" @click=${this._deleteItem}>
-  <ha-icon slot="icon" icon="mdi:delete"></ha-icon>
+  <ha-icon slot="start" icon="mdi:delete"></ha-icon>
   Delete
 </ha-button>
 
@@ -2534,20 +2534,20 @@ HA's `ha-button` provides comprehensive functionality with proper semantic varia
 // Launch/action buttons in headers
 <div class="header-actions">
   <ha-button size="small" appearance="plain" @click=${handler}>
-    <ha-icon slot="icon" icon="mdi:refresh"></ha-icon>
+    <ha-icon slot="start" icon="mdi:refresh"></ha-icon>
     Refresh
   </ha-button>
 </div>
 
 // Inline action buttons (edit/modify)
 <ha-button size="small" appearance="plain" @click=${handler}>
-  <ha-icon slot="icon" icon="mdi:pencil"></ha-icon>
+  <ha-icon slot="start" icon="mdi:pencil"></ha-icon>
   Edit
 </ha-button>
 
 // Inline destructive buttons (delete)
 <ha-button size="small" appearance="plain" variant="danger" @click=${deleteHandler}>
-  <ha-icon slot="icon" icon="mdi:delete"></ha-icon>
+  <ha-icon slot="start" icon="mdi:delete"></ha-icon>
   Delete
 </ha-button>
 

@@ -923,7 +923,7 @@ export class LCARdSTemplateSandbox extends LitElement {
 
       <div class="form-row">
         <ha-button @click=${() => this._evaluateTemplate()} ?disabled=${this._isEvaluating} style="width: 100%; --mdc-typography-button-font-size: 14px;">
-          <ha-icon icon="mdi:play" slot="icon"></ha-icon>
+          <ha-icon icon="mdi:play" slot="start"></ha-icon>
           ${this._isEvaluating ? 'Evaluating...' : 'Evaluate Now'}
         </ha-button>
       </div>
@@ -1018,7 +1018,7 @@ export class LCARdSTemplateSandbox extends LitElement {
         <!-- Template Metadata -->
         <div class="form-row" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 12px; padding: 12px; background: var(--secondary-background-color); border-radius: 6px; font-size: 13px;">
           <ha-button @click=${() => this._evaluateTemplate()} ?disabled=${this._isEvaluating} style="--mdc-typography-button-font-size: 12px;">
-            <ha-icon icon="mdi:play" slot="icon"></ha-icon>
+            <ha-icon icon="mdi:play" slot="start"></ha-icon>
             ${this._isEvaluating ? 'Evaluating...' : 'Evaluate Now'}
           </ha-button>
 
@@ -1371,11 +1371,11 @@ export class LCARdSTemplateSandbox extends LitElement {
           ${isSuccess ? html`
             <div class="action-buttons">
               <ha-button @click=${() => this._copyToClipboard(String(result.result))}>
-                <ha-icon icon="mdi:content-copy" slot="icon"></ha-icon>
+                <ha-icon icon="mdi:content-copy" slot="start"></ha-icon>
                 Copy Result
               </ha-button>
               <ha-button @click=${() => this._copyToClipboard(this._templateInput)}>
-                <ha-icon icon="mdi:code-braces" slot="icon"></ha-icon>
+                <ha-icon icon="mdi:code-braces" slot="start"></ha-icon>
                 Copy Template
               </ha-button>
             </div>
@@ -1517,11 +1517,11 @@ export class LCARdSTemplateSandbox extends LitElement {
             ${status === 'success' ? html`
               <div class="action-buttons">
                 <ha-button @click=${() => this._copyToClipboard(resultStr)}>
-                  <ha-icon icon="mdi:content-copy" slot="icon"></ha-icon>
+                  <ha-icon icon="mdi:content-copy" slot="start"></ha-icon>
                   Copy Result
                 </ha-button>
                 <ha-button @click=${() => this._copyToClipboard(this._templateInput)}>
-                  <ha-icon icon="mdi:code-braces" slot="icon"></ha-icon>
+                  <ha-icon icon="mdi:code-braces" slot="start"></ha-icon>
                   Copy Template
                 </ha-button>
               </div>

@@ -524,7 +524,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
 
                 <!-- Add Button -->
                 <ha-button class="add-button" @click=${() => this._addRange()}>
-                    <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                    <ha-icon icon="mdi:plus" slot="start"></ha-icon>
                     Add Range
                 </ha-button>
             </lcards-form-section>

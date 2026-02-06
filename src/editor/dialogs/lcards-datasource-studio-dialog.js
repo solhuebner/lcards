@@ -225,7 +225,7 @@ export class LCARdSDataSourceStudioDialog extends LitElement {
                         variant="brand"
                         @click=${this._handleSave}
                         .disabled=${!this._isValid()}>
-                        <ha-icon icon="mdi:${this.mode === 'add' ? 'plus' : 'check'}" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:${this.mode === 'add' ? 'plus' : 'check'}" slot="start"></ha-icon>
                         ${this.mode === 'add' ? 'Create' : 'Save'}
                     </ha-button>
                 </div>
@@ -387,7 +387,7 @@ export class LCARdSDataSourceStudioDialog extends LitElement {
         return html`
             <div class="tab-content" @click=${this._handleContentClick}>
                 <lcards-message type="info">
-                    <ha-icon icon="mdi:information" slot="icon"></ha-icon>
+                    <ha-icon icon="mdi:information" slot="start"></ha-icon>
                     Process data through transformations (scale, smooth, round) and
                     aggregations (statistics, trends, rates). Processors execute in
                     dependency order to build complex data pipelines.

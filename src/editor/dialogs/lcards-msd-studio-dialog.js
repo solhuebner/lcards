@@ -1582,12 +1582,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 <!-- Anchor Actions & Visualization Helpers -->
                 <div style="display: flex; gap: 8px; margin-bottom: 16px; align-items: center;">
                     <ha-button @click=${this._openAnchorForm}>
-                        <ha-icon icon="mdi:map-marker-plus" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:map-marker-plus" slot="start"></ha-icon>
                         Add Anchor
                     </ha-button>
                     <ha-button @click=${() => this._setMode(MODES.PLACE_ANCHOR)}
                                ?disabled=${this._activeMode === MODES.PLACE_ANCHOR}>
-                        <ha-icon icon="mdi:cursor-default-click" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:cursor-default-click" slot="start"></ha-icon>
                         Place on Canvas
                     </ha-button>
 
@@ -1788,14 +1788,14 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
                 <div slot="primaryAction">
                     <ha-button @click=${this._saveAnchor}>
-                        <ha-icon icon="mdi:content-save" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:content-save" slot="start"></ha-icon>
                         Save
                     </ha-button>
                 </div>
 
                 <div slot="secondaryAction">
                     <ha-button @click=${this._closeAnchorForm} appearance="plain">
-                        <ha-icon icon="mdi:close" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:close" slot="start"></ha-icon>
                         Cancel
                     </ha-button>
                 </div>
@@ -6491,12 +6491,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 <!-- Control Actions & Visualization Helpers -->
                 <div style="display: flex; gap: 8px; margin-bottom: 16px; align-items: center;">
                     <ha-button @click=${this._openControlForm}>
-                        <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:plus" slot="start"></ha-icon>
                         Add Control
                     </ha-button>
                     <ha-button @click=${() => this._setMode('place_control')}
                                ?disabled=${this._activeMode === MODES.PLACE_CONTROL}>
-                        <ha-icon icon="mdi:cursor-default-click" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:cursor-default-click" slot="start"></ha-icon>
                         Place on Canvas
                     </ha-button>
 
@@ -6965,14 +6965,14 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
                 <div slot="primaryAction">
                     <ha-button @click=${this._saveControl}>
-                        <ha-icon icon="mdi:content-save" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:content-save" slot="start"></ha-icon>
                         Save
                     </ha-button>
                 </div>
 
                 <div slot="secondaryAction">
                     <ha-button @click=${this._closeControlForm} appearance="plain">
-                        <ha-icon icon="mdi:close" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:close" slot="start"></ha-icon>
                         Cancel
                     </ha-button>
                 </div>
@@ -7211,7 +7211,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         <ha-button
                             @click=${this._resetCardPicker}
                             appearance="plain">
-                            <ha-icon icon="mdi:swap-horizontal" slot="icon"></ha-icon>
+                            <ha-icon icon="mdi:swap-horizontal" slot="start"></ha-icon>
                             Change Card Type
                         </ha-button>
                     </div>
@@ -7226,7 +7226,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                 raised
                                 @click=${this._openCardEditorModal}
                                 style="width: 100%;">
-                                <ha-icon icon="mdi:pencil" slot="icon"></ha-icon>
+                                <ha-icon icon="mdi:pencil" slot="start"></ha-icon>
                                 Open Card Editor
                             </ha-button>
 
@@ -7294,7 +7294,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                     <ha-button
                                         @click=${this._cancelCardTypeChange}
                                         style="width: 100%;">
-                                        <ha-icon icon="mdi:undo" slot="icon"></ha-icon>
+                                        <ha-icon icon="mdi:undo" slot="start"></ha-icon>
                                         Cancel - Keep Current Card
                                     </ha-button>
                                 </div>
@@ -7319,7 +7319,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                 this.requestUpdate();
                             }}
                             appearance="plain">
-                            <ha-icon icon="mdi:swap-horizontal" slot="icon"></ha-icon>
+                            <ha-icon icon="mdi:swap-horizontal" slot="start"></ha-icon>
                             Change Card Type
                         </ha-button>
                     </div>
@@ -7340,7 +7340,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                     this.requestUpdate();
                                 }}
                                 style="flex: 1;">
-                                <ha-icon icon="mdi:form-select" slot="icon"></ha-icon>
+                                <ha-icon icon="mdi:form-select" slot="start"></ha-icon>
                                 Graphical
                             </ha-button>
                             <ha-button
@@ -7350,7 +7350,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                     this.requestUpdate();
                                 }}
                                 style="flex: 1;">
-                                <ha-icon icon="mdi:code-braces" slot="icon"></ha-icon>
+                                <ha-icon icon="mdi:code-braces" slot="start"></ha-icon>
                                 YAML
                             </ha-button>
                         </div>
@@ -7374,7 +7374,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                     raised
                                     @click=${this._openCardEditorModal}
                                     style="width: 100%;">
-                                    <ha-icon icon="mdi:pencil" slot="icon"></ha-icon>
+                                    <ha-icon icon="mdi:pencil" slot="start"></ha-icon>
                                     Open Card Editor
                                 </ha-button>
 
@@ -7449,7 +7449,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                             </div>
                         </div>
                         <ha-chip>
-                            <ha-icon icon="mdi:eye" slot="icon"></ha-icon>
+                            <ha-icon icon="mdi:eye" slot="start"></ha-icon>
                             Real-time
                         </ha-chip>
                     </div>
@@ -8466,12 +8466,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 <!-- Line Actions & Visualization Helpers -->
                 <div style="display: flex; gap: 8px; margin-bottom: 16px; align-items: center;">
                     <ha-button @click=${this._openLineForm}>
-                        <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:plus" slot="start"></ha-icon>
                         Add Line
                     </ha-button>
                     <ha-button @click=${() => this._setMode('connect_line')}
                                ?disabled=${this._activeMode === MODES.CONNECT_LINE}>
-                        <ha-icon icon="mdi:vector-line" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:vector-line" slot="start"></ha-icon>
                         Enter Connect Mode
                     </ha-button>
 
@@ -8677,12 +8677,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 <!-- Channel Actions & Visualization Helpers -->
                 <div style="display: flex; gap: 8px; margin-bottom: 16px; align-items: center;">
                     <ha-button @click=${this._openChannelForm}>
-                        <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:plus" slot="start"></ha-icon>
                         Add Channel
                     </ha-button>
                     <ha-button @click=${() => this._setMode('draw_channel')}
                                ?disabled=${this._activeMode === MODES.DRAW_CHANNEL}>
-                        <ha-icon icon="mdi:vector-rectangle" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:vector-rectangle" slot="start"></ha-icon>
                         Draw on Canvas
                     </ha-button>
 
@@ -9349,12 +9349,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                 <ha-button
                                     primary
                                     @click=${() => this._applyChannelToLines(data.id, data.suggestedLines, 'prefer')}>
-                                    <ha-icon icon="mdi:check-circle" slot="icon"></ha-icon>
+                                    <ha-icon icon="mdi:check-circle" slot="start"></ha-icon>
                                     Route Through (Prefer)
                                 </ha-button>
                                 <ha-button
                                     @click=${() => this._applyChannelToLines(data.id, data.suggestedLines, 'force')}>
-                                    <ha-icon icon="mdi:lock" slot="icon"></ha-icon>
+                                    <ha-icon icon="mdi:lock" slot="start"></ha-icon>
                                     Force Through
                                 </ha-button>
                                 <ha-button
@@ -10258,14 +10258,14 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
                 <div slot="primaryAction">
                     <ha-button @click=${() => this._saveLine()}>
-                        <ha-icon icon="mdi:content-save" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:content-save" slot="start"></ha-icon>
                         Save
                     </ha-button>
                 </div>
 
                 <div slot="secondaryAction">
                     <ha-button @click=${this._closeLineForm} appearance="plain">
-                        <ha-icon icon="mdi:close" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:close" slot="start"></ha-icon>
                         Cancel
                     </ha-button>
                 </div>
@@ -10537,7 +10537,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                     @click=${() => this._convertLineToManual(this._lineFormData.id)}
                                     size="small"
                                     style="margin-top: 12px;">
-                                    <ha-icon icon="mdi:content-save-edit" slot="icon"></ha-icon>
+                                    <ha-icon icon="mdi:content-save-edit" slot="start"></ha-icon>
                                     Freeze to Manual Mode
                                 </ha-button>
                                 <div style="font-size: 11px; color: var(--secondary-text-color); margin-top: 4px;">
@@ -10636,7 +10636,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                             this.requestUpdate();
                                         }}
                                         size="small">
-                                        <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+                                        <ha-icon icon="mdi:plus" slot="start"></ha-icon>
                                         Add Waypoint
                                     </ha-button>
                                 </div>
@@ -12124,22 +12124,22 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
                 <div slot="primaryAction">
                     <ha-button @click=${this._handleSave}>
-                        <ha-icon icon="mdi:content-save" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:content-save" slot="start"></ha-icon>
                         Save
                     </ha-button>
                 </div>
 
                 <div slot="secondaryAction">
                     <ha-button @click=${() => window.open('https://github.com/snootched/LCARdS', '_blank')} appearance="plain">
-                        <ha-icon icon="mdi:book-open-variant" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:book-open-variant" slot="start"></ha-icon>
                         Documentation
                     </ha-button>
                     <ha-button @click=${this._handleReset} appearance="plain" variant="warning">
-                        <ha-icon icon="mdi:restore" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:restore" slot="start"></ha-icon>
                         Reset
                     </ha-button>
                     <ha-button @click=${this._handleCancel} appearance="plain">
-                        <ha-icon icon="mdi:close" slot="icon"></ha-icon>
+                        <ha-icon icon="mdi:close" slot="start"></ha-icon>
                         Cancel
                     </ha-button>
                 </div>

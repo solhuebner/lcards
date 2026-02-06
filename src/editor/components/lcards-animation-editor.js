@@ -277,7 +277,7 @@ export class LCARdSAnimationEditor extends LitElement {
     return html`
       <div class="animations-container">
         <ha-button @click=${this._addAnimation} class="add-button">
-          <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+          <ha-icon icon="mdi:plus" slot="start"></ha-icon>
           Add Animation
         </ha-button>
         ${this.animations.length === 0 ? this._renderEmptyState() : ''}
