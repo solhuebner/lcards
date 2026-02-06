@@ -1294,6 +1294,56 @@ export class DataSource {
   }
 
   /**
+   * Get current value of a specific processor
+   * @param {string} processorName - Name of the processor
+   * @returns {*} Current processor value or undefined if not found
+   */
+  getProcessorData(processorName) {
+    if (!this.processorManager) {
+      lcardsLog.warn('[DataSource] No processorManager initialized');
+      return undefined;
+    }
+
+    const results = this.processorManager.getResults();
+    return results[processorName];
+  }
+
+  /**
+   * Get RollingBuffer for a specific processor (for charting/history)
+   * @param {string} processorName - Name of the processor
+   * @returns {RollingBuffer|null} Processor buffer or null if not found
+   */
+  getProcessorBuffer(processorName) {
+    if (!this.processorManager) {
+      lcardsLog.warn('[DataSource] No processorManager initialized');
+      return null;
+    }
+
+    return this.processorManager.getBuffer(processorName);
+  }
+
+  /**
+   * Get historical data for a specific processor
+   * @param {string} processorName - Name of the processor
+   * @param {number} count - Number of recent points to get (default: 100)
+   * @returns {Array} Historical processor data [{t, v}, ...] or empty array
+   */
+  getProcessorHistory(processorName, count = 100) {
+    const buffer = this.getProcessorBuffer(processorName);
+    if (!buffer) {
+      lcardsLog.warn(`[DataSource] No buffer found for processor: ${processorName}`);
+      return [];
+    }
+
+    try {
+      return buffer.getRecent(count) || [];
+    } catch (error) {
+      lcardsLog.error(`[DataSource] Error getting history for processor ${processorName}:`, error);
+      return [];
+    }
+  }
+
+  /**
    * Stop the data source and release resources
    */
   async stop() {
@@ -1468,37 +1518,22 @@ export class DataSource {
   }
 
   /**
-   * Get transformed historical data for overlays (ensure this method exists)
-   * @param {string} transformKey - Key of the transformation
-   * @param {number} count - Number of recent points to get
-   * @returns {Array} Historical transformed data
+   * Get historical data for a specific processor
+   * @param {string} processorName - Name of the processor
+   * @param {number} count - Number of recent points to get (default: 100)
+   * @returns {Array} Historical processor data [{t, v}, ...] or empty array
    */
-  getTransformedHistory(transformKey, count = 100) {
-    const buffer = this.transformedBuffers.get(transformKey);
-    if (!buffer || buffer.size() === 0) {
+  getProcessorHistory(processorName, count = 100) {
+    const buffer = this.getProcessorBuffer(processorName);
+    if (!buffer) {
+      lcardsLog.warn(`[DataSource] No buffer found for processor: ${processorName}`);
       return [];
     }
 
-    // Use the correct RollingBuffer method
     try {
-      // Try getRecent method first
-      if (typeof buffer.getRecent === 'function') {
-        return buffer.getRecent(count);
-      }
-      // Fallback to manual extraction
-      else {
-        const points = [];
-        const maxCount = Math.min(count, buffer.size());
-        for (let i = 0; i < maxCount; i++) {
-          const point = buffer.last(); // This won't work well, but it's a fallback
-          if (point) {
-            points.push(point);
-          }
-        }
-        return points;
-      }
+      return buffer.getRecent(count) || [];
     } catch (error) {
-      lcardsLog.error(`[DataSource] Error getting transformed history for ${transformKey}:`, error);
+      lcardsLog.error(`[DataSource] Error getting history for processor ${processorName}:`, error);
       return [];
     }
   }

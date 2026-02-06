@@ -183,18 +183,19 @@ export class LCARdSCardDataSourcesList extends LitElement {
             <div class="action-buttons">
               <ha-button
                 @click=${() => this._handleInspect(name)}>
-                <ha-icon icon="mdi:magnify" slot="icon"></ha-icon>
+                <ha-icon icon="mdi:magnify" slot="start"></ha-icon>
                 Inspect
               </ha-button>
               <ha-button
                 @click=${() => this._handleEdit(name, config)}>
-                <ha-icon icon="mdi:pencil" slot="icon"></ha-icon>
+                <ha-icon icon="mdi:pencil" slot="start"></ha-icon>
                 Edit
               </ha-button>
               <ha-button
-                style="--mdc-theme-primary: var(--error-color);"
+                appearance="filled"
+                variant="danger"
                 @click=${() => this._handleDelete(name)}>
-                <ha-icon icon="mdi:delete" slot="icon"></ha-icon>
+                <ha-icon icon="mdi:delete" slot="start"></ha-icon>
                 Remove
               </ha-button>
             </div>

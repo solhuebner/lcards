@@ -7,35 +7,30 @@
  */
 
 // ============================================================================
-// DATA SOURCES SCHEMA - Historical data queries and transformations
+// DATA SOURCES SCHEMA - Historical data queries and processing pipeline
 // ============================================================================
 
 export const dataSourcesSchema = {
     type: 'object',
-    description: 'Historical data sources for charts and analytics. Each key defines a named data source that can be referenced in templates and configurations.',
-    $comment: 'Data sources enable real-time subscriptions, historical data queries, transformations, and aggregations',
+    description: 'Data sources for real-time entity tracking, historical data, and processing pipelines. Each key defines a named data source accessible in templates.',
+    $comment: 'Data sources enable entity subscriptions, history preload, and unified processing pipeline',
     examples: [
         {
-            temp_history: {
+            temp: {
                 entity: 'sensor.temperature',
-                windowSeconds: 3600,
-                history: {
-                    enabled: true,
-                    hours: 6
-                },
-                transformations: [
-                    {
-                        type: 'moving_average',
-                        window: 10,
-                        key: 'smoothed'
-                    }
-                ]
+                history: { hours: 6 },
+                processing: {
+                    fahrenheit: { type: 'convert_unit', from: 'c', to: 'f' },
+                    smoothed: { type: 'smooth', from: 'fahrenheit', method: 'exponential', alpha: 0.3 },
+                    rounded: { type: 'round', from: 'smoothed', precision: 1 }
+                }
             },
-            power_usage: {
+            power: {
                 entity: 'sensor.power',
-                attribute: 'current',
-                minEmitMs: 1000,
-                coalesceMs: 200
+                update_interval: 1000,
+                processing: {
+                    kilowatts: { type: 'scale', input_range: [0, 1000], output_range: [0, 1] }
+                }
             }
         }
     ],
@@ -54,37 +49,12 @@ export const dataSourcesSchema = {
                 description: 'Entity attribute to track instead of state',
                 examples: ['temperature', 'brightness', 'current']
             },
-            windowSeconds: {
-                type: 'number',
-                minimum: 1,
-                maximum: 86400,
-                description: 'Rolling window size in seconds (1-86400, default: 60)',
-                examples: [60, 3600, 86400]
-            },
-            minEmitMs: {
+            update_interval: {
                 type: 'number',
                 minimum: 0,
                 maximum: 10000,
-                description: 'Minimum time between updates in milliseconds (throttling, default: 100)',
+                description: 'Minimum milliseconds between updates (throttling, default: 100)',
                 examples: [100, 1000, 5000]
-            },
-            coalesceMs: {
-                type: 'number',
-                minimum: 0,
-                maximum: 5000,
-                description: 'Coalesce rapid changes within window in milliseconds (default: auto)',
-                examples: [50, 100, 200]
-            },
-            maxDelayMs: {
-                type: 'number',
-                minimum: 0,
-                maximum: 10000,
-                description: 'Maximum delay before forced emission in milliseconds (default: auto)',
-                examples: [500, 1000, 2000]
-            },
-            emitOnSameValue: {
-                type: 'boolean',
-                description: 'Emit updates even if value unchanged (default: true)'
             },
             history: {
                 type: 'object',
@@ -108,60 +78,35 @@ export const dataSourcesSchema = {
                     }
                 }
             },
-            transformations: {
-                type: 'array',
-                description: 'Data transformations to apply in sequence',
-                items: {
+            processing: {
+                type: 'object',
+                description: 'Processing pipeline with named processors. Each processor transforms data and stores results in a buffer accessible via templates.',
+                additionalProperties: {
                     type: 'object',
                     properties: {
                         type: {
                             type: 'string',
-                            description: 'Transformation type',
-                            examples: ['moving_average', 'unit_conversion', 'smooth', 'expression', 'sum', 'min', 'max']
+                            enum: [
+                                'convert_unit',
+                                'scale',
+                                'smooth',
+                                'expression',
+                                'statistics',
+                                'rate',
+                                'trend',
+                                'duration',
+                                'threshold',
+                                'clamp',
+                                'round',
+                                'delta'
+                            ],
+                            description: 'Processor type',
+                            examples: ['convert_unit', 'smooth', 'expression']
                         },
-                        key: {
+                        from: {
                             type: 'string',
-                            description: 'Key for accessing transformation result in templates',
-                            examples: ['smoothed', 'celsius', 'hourly_avg']
-                        },
-                        window: {
-                            type: 'number',
-                            minimum: 1,
-                            description: 'Window size for transformation (number of data points)'
-                        },
-                        method: {
-                            type: 'string',
-                            description: 'Transformation method/algorithm',
-                            examples: ['moving_average', 'exponential']
-                        },
-                        expression: {
-                            type: 'string',
-                            description: 'JavaScript expression for custom transformations'
-                        }
-                    },
-                    required: ['type']
-                }
-            },
-            aggregations: {
-                type: 'array',
-                description: 'Statistical aggregations over time windows',
-                items: {
-                    type: 'object',
-                    properties: {
-                        type: {
-                            type: 'string',
-                            description: 'Aggregation type',
-                            examples: ['moving_average', 'min', 'max', 'sum', 'count', 'rate']
-                        },
-                        key: {
-                            type: 'string',
-                            description: 'Key for accessing aggregation result',
-                            examples: ['avg_15m', 'hourly_max', 'daily_sum']
-                        },
-                        window: {
-                            type: ['number', 'string'],
-                            description: 'Time window for aggregation (number in seconds or string like "15m", "1h", "24h")',
-                            examples: [900, '15m', '1h', '24h']
+                            description: 'Source processor name to depend on (creates dependency chain). If omitted, uses raw entity value.',
+                            examples: ['fahrenheit', 'smoothed', 'scaled']
                         }
                     },
                     required: ['type']

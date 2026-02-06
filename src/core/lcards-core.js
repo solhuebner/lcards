@@ -40,6 +40,7 @@ import { DebugFlagsPanel } from './hud/panels/DebugFlagsPanel.js';  // ✅ Debug
 import { SystemHealthPanel } from './hud/panels/SystemHealthPanel.js';  // ✅ System health monitoring
 import { PackManager } from './PackManager.js';  // ✅ Pack registration system
 import { AssetManager } from './assets/AssetManager.js';  // ✅ Asset management system
+import { DataSourceDebugAPI } from '../api/DataSourceDebugAPI.js';  // ✅ DataSource debug tools
 
 /**
  * LCARdSCore - Central coordinator for all LCARdS infrastructure
@@ -238,6 +239,14 @@ class LCARdSCore {
 
             // Set default active panel
             this.hudManager.setActivePanel('performance');
+
+            // Attach DataSource debug API (Phase 3+)
+            if (typeof window !== 'undefined') {
+                window.lcards = window.lcards || {};
+                window.lcards.debug = window.lcards.debug || {};
+                window.lcards.debug.datasources = DataSourceDebugAPI.create();
+                lcardsLog.debug('[LCARdSCore] ✅ DataSource debug API attached at window.lcards.debug.datasources');
+            }
 
             this._coreInitialized = true;
 
