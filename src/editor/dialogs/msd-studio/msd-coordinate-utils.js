@@ -11,14 +11,15 @@ import { lcardsLog } from '../../../utils/lcards-logging.js';
 
 /**
  * Convert mouse event to ViewBox coordinates
- * Handles all the shadow DOM traversal and coordinate conversion
+ * Handles shadow DOM traversal, ViewBox scaling, and zoom transform
  *
  * @param {MouseEvent} event - Mouse event
  * @param {ShadowRoot} dialogShadowRoot - Dialog's shadow root
  * @param {Object} config - Working config object
+ * @param {Object} [zoomTransform] - Optional d3-zoom transform {x, y, k}
  * @returns {Object|null} {x, y} in ViewBox coordinates, or null if conversion fails
  */
-export function getPreviewCoordinatesFromMouseEvent(event, dialogShadowRoot, config) {
+export function getPreviewCoordinatesFromMouseEvent(event, dialogShadowRoot, config, zoomTransform = null) {
     // Find the preview panel
     const previewPanel = dialogShadowRoot.querySelector('.preview-panel');
     if (!previewPanel) return null;
@@ -70,8 +71,15 @@ export function getPreviewCoordinatesFromMouseEvent(event, dialogShadowRoot, con
     // Convert to SVG pixel coordinates
     const svgLeft = rect.left - panelRect.left;
     const svgTop = rect.top - panelRect.top;
-    const svgPixelX = mouseX - svgLeft - offsetX;
-    const svgPixelY = mouseY - svgTop - offsetY;
+    let svgPixelX = mouseX - svgLeft - offsetX;
+    let svgPixelY = mouseY - svgTop - offsetY;
+
+    // ✨ ZOOM INTEGRATION: Apply inverse zoom transform
+    // This converts screen coordinates back to pre-zoom SVG coordinates
+    if (zoomTransform && zoomTransform.k !== 1) {
+        svgPixelX = (svgPixelX - zoomTransform.x) / zoomTransform.k;
+        svgPixelY = (svgPixelY - zoomTransform.y) / zoomTransform.k;
+    }
 
     // Convert to ViewBox coordinates
     const x = svgPixelX * scale + viewBoxX;
