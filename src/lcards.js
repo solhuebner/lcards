@@ -13,12 +13,10 @@ lcardsLogBanner();
 
 // Now import everything else (including MSD system which will use correct log level)
 import * as anime from 'animejs';
-import { readYamlFile } from './utils/lcards-fileutils.js';
-import { preloadSVGs, loadSVGToCache, getSVGFromCache } from './utils/lcards-fileutils.js';
+import { loadSVGToCache, getSVGFromCache } from './utils/lcards-fileutils.js';
 import { loadFont } from './utils/lcards-theme.js';
 
 import * as animHelpers from './utils/lcards-anim-helpers.js';
-// import { animPresets } from './utils/lcards-anim-presets.js'; // REMOVED: All presets now from packs
 import { listAnimationPresets, getAnimationPreset } from './core/animation/presets.js';
 import * as svgHelpers from './utils/lcards-svg-helpers.js';
 import * as anchorHelpers from './utils/lcards-anchor-helpers.js';
@@ -26,15 +24,13 @@ import * as anchorHelpers from './utils/lcards-anchor-helpers.js';
 // MSD system import
 import './msd/index.js';
 
-// Native card imports
-import { LCARdSMSDCard } from './cards/lcards-msd.js';
-
 // LCARdS card imports
 import { LCARdSButton } from './cards/lcards-button.js';
 import { LCARdSElbow } from './cards/lcards-elbow.js';
 import { LCARdSChart } from './cards/lcards-chart.js';
 import { LCARdSSlider } from './cards/lcards-slider.js';
 import { LCARdSDataGrid } from './cards/lcards-data-grid.js';
+import { LCARdSMSDCard } from './cards/lcards-msd.js';
 
 // Unified API system removed - legacy architecture
 // Use DOM queries: document.querySelector('lcards-msd')._msdPipeline
@@ -69,8 +65,6 @@ async function initializeCustomCard() {
         scopes: new Map(),
     };
 
-    // NOTE: MSD presets (including cascade-color) are merged AFTER pack loading
-    // See below after lcardsCore.initialize() completes
 
     // Backward-compatible shortcuts (to be deprecated)
     window.lcards.animejs = window.lcards.anim.animejs;
@@ -83,9 +77,9 @@ async function initializeCustomCard() {
     window.lcards.svgHelpers = svgHelpers;
     window.lcards.anchorHelpers = anchorHelpers;
     window.lcards.findSvgAnchors = anchorHelpers.findSvgAnchors;
-    window.lcards.getSvgContent = anchorHelpers.getSvgContent;
-    window.lcards.getSvgViewBox = anchorHelpers.getSvgViewBox;
-    window.lcards.getSvgAspectRatio = anchorHelpers.getSvgAspectRatio;
+    //window.lcards.getSvgContent = anchorHelpers.getSvgContent;
+    //window.lcards.getSvgViewBox = anchorHelpers.getSvgViewBox;
+    //window.lcards.getSvgAspectRatio = anchorHelpers.getSvgAspectRatio;
 
 
     window.lcards.loadFont = loadFont;
