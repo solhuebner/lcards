@@ -76,7 +76,7 @@ export function getPreviewCoordinatesFromMouseEvent(event, dialogShadowRoot, con
 
     // ✨ ZOOM INTEGRATION: Apply inverse zoom transform
     // This converts screen coordinates back to pre-zoom SVG coordinates
-    if (zoomTransform && zoomTransform.k !== 1) {
+    if (zoomTransform?.k && zoomTransform.k !== 1) {
         svgPixelX = (svgPixelX - zoomTransform.x) / zoomTransform.k;
         svgPixelY = (svgPixelY - zoomTransform.y) / zoomTransform.k;
     }

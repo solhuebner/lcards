@@ -3612,7 +3612,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
         // Apply inverse zoom transform if zoom is active
         const zoomTransform = this._getZoomTransform();
-        if (zoomTransform && zoomTransform.k !== 1) {
+        if (zoomTransform?.k && zoomTransform.k !== 1) {
             x = (x - zoomTransform.x) / zoomTransform.k;
             y = (y - zoomTransform.y) / zoomTransform.k;
         }
@@ -3698,7 +3698,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
         // Apply inverse zoom transform if zoom is active
         const zoomTransform = this._getZoomTransform();
-        if (zoomTransform && zoomTransform.k !== 1) {
+        if (zoomTransform?.k && zoomTransform.k !== 1) {
             svgX = (svgX - zoomTransform.x) / zoomTransform.k;
             svgY = (svgY - zoomTransform.y) / zoomTransform.k;
         }
