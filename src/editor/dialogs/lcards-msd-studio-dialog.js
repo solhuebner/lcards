@@ -944,7 +944,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         <button
                             class="canvas-toolbar-button"
                             @click=${(e) => { e.stopPropagation(); this._zoomOut(); }}
-                            title="Zoom Out (Shift + Mouse Wheel Down)">
+                            title="Zoom Out (Mouse Wheel Down)">
                             <ha-icon icon="mdi:magnify-minus"></ha-icon>
                         </button>
 
@@ -955,14 +955,14 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         <button
                             class="canvas-toolbar-button"
                             @click=${(e) => { e.stopPropagation(); this._zoomIn(); }}
-                            title="Zoom In (Shift + Mouse Wheel Up)">
+                            title="Zoom In (Mouse Wheel Up)">
                             <ha-icon icon="mdi:magnify-plus"></ha-icon>
                         </button>
 
                         <button
                             class="canvas-toolbar-button"
                             @click=${(e) => { e.stopPropagation(); this._zoomReset(); }}
-                            title="Reset Zoom to 100%">
+                            title="Reset Zoom (100%) - Pan: Shift+Drag or Middle-Click">
                             <ha-icon icon="mdi:fit-to-screen"></ha-icon>
                         </button>
                     </div>
