@@ -224,7 +224,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
         // Pan/Zoom State (d3-zoom integration)
         this._currentZoom = 1.0;
         this._zoomBehavior = null;
-        this._zoomSvg = null;
+        this._zoomContainer = null;  // The preview-scroll-container element
+        this._zoomWrapper = null;     // The zoomable wrapper div
 
         // Controls Tab State
         this._showControlForm = false;
@@ -411,7 +412,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
      */
     async firstUpdated(changedProps) {
         super.firstUpdated(changedProps);
-        
+
         // Wait for preview to render, then initialize zoom
         await this.updateComplete;
         requestAnimationFrame(() => {
@@ -420,8 +421,65 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
-     * Initialize d3-zoom behavior on the preview SVG
-     * Called after first render when SVG is available
+     * Called after every render - re-attach zoom if SVG changed
+     * @param {Map} changedProps - Changed properties
+     */
+    updated(changedProps) {
+        super.updated(changedProps);
+
+        // Re-initialize zoom if the working config changed (triggers card re-render)
+        if (changedProps.has('_workingConfig')) {
+            // Wait for the preview to re-render with new config
+            requestAnimationFrame(() => {
+                this._reinitializeZoomIfNeeded();
+            });
+        }
+    }
+
+    /**
+     * Re-initialize zoom if the container element has changed
+     * @private
+     */
+    _reinitializeZoomIfNeeded() {
+        const currentContainer = this._getCurrentZoomContainer();
+
+        // If we don't have a zoom container yet, or it's different, re-initialize
+        if (currentContainer && (!this._zoomContainer || currentContainer !== this._zoomContainer)) {
+            lcardsLog.debug('[MSDStudio] Zoom container changed, re-initializing zoom');
+
+            // Store the current zoom transform before re-initializing
+            const currentTransform = this._getZoomTransform();
+
+            // Re-initialize with the new container
+            this._initializeZoom();
+
+            // Restore the previous zoom level
+            if (currentTransform && currentTransform.k !== 1 && this._zoomBehavior && this._zoomContainer) {
+                select(this._zoomContainer).call(
+                    this._zoomBehavior.transform,
+                    zoomIdentity
+                        .translate(currentTransform.x, currentTransform.y)
+                        .scale(currentTransform.k)
+                );
+            }
+        }
+    }
+
+    /**
+     * Get the current zoom container element
+     * @returns {HTMLElement|null} The container element or null if not found
+     * @private
+     */
+    _getCurrentZoomContainer() {
+        const previewPanel = this.shadowRoot.querySelector('.preview-panel');
+        if (!previewPanel) return null;
+
+        return previewPanel.querySelector('.preview-scroll-container');
+    }
+
+    /**
+     * Initialize d3-zoom behavior on the preview container
+     * Called after first render when container is available
      * @private
      */
     _initializeZoom() {
@@ -431,19 +489,17 @@ export class LCARdSMSDStudioDialog extends LitElement {
             return;
         }
 
-        // Traverse shadow DOM to find MSD card's SVG
-        const livePreview = previewPanel.querySelector('lcards-msd-live-preview');
-        if (!livePreview?.shadowRoot) return;
+        // Find the preview scroll container - this is what we'll attach zoom to
+        const container = previewPanel.querySelector('.preview-scroll-container');
+        if (!container) {
+            lcardsLog.warn('[MSDStudio] Preview scroll container not found for zoom initialization');
+            return;
+        }
 
-        const cardContainer = livePreview.shadowRoot.querySelector('.preview-card-container');
-        if (!cardContainer) return;
-
-        const msdCard = cardContainer.querySelector('lcards-msd-card');
-        if (!msdCard?.shadowRoot) return;
-
-        const svg = msdCard.shadowRoot.querySelector('svg');
-        if (!svg) {
-            lcardsLog.warn('[MSDStudio] SVG not found for zoom initialization');
+        // Find the zoomable wrapper div (contains lcards-msd-live-preview)
+        const zoomableWrapper = container.querySelector('.msd-zoom-wrapper');
+        if (!zoomableWrapper) {
+            lcardsLog.warn('[MSDStudio] Zoomable wrapper not found for zoom initialization');
             return;
         }
 
@@ -459,7 +515,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
                 // Allow zoom on mousewheel
                 if (event.type === 'wheel') return true;
-                
+
                 // Allow pinch-to-zoom
                 if (event.type === 'touchstart' && event.touches?.length === 2) return true;
 
@@ -471,18 +527,14 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 return false;
             })
             .on('zoom', (event) => {
-                // Apply transform to SVG's main overlay group
-                const mainGroup = svg.querySelector('g[id*="msd"]') || svg.querySelector('g');
-                if (mainGroup) {
-                    const t = event.transform;
-                    mainGroup.setAttribute('transform', 
-                        `translate(${t.x},${t.y}) scale(${t.k})`
-                    );
-                }
+                // Apply transform to the zoomable wrapper div
+                // This affects the entire preview including all MSD layers
+                const t = event.transform;
+                zoomableWrapper.style.transform = `translate(${t.x}px, ${t.y}px) scale(${t.k})`;
+                zoomableWrapper.style.transformOrigin = 'top left';
 
-                // Update zoom level display
+                // Update zoom level display (only update the value, don't trigger re-render)
                 this._currentZoom = event.transform.k;
-                this.requestUpdate();
 
                 lcardsLog.trace('[MSDStudio] Zoom applied:', {
                     scale: event.transform.k,
@@ -490,11 +542,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 });
             });
 
-        // Attach zoom behavior to SVG
-        select(svg).call(this._zoomBehavior);
-        this._zoomSvg = svg;
+        // Attach zoom behavior to the container
+        select(container).call(this._zoomBehavior);
+        this._zoomContainer = container;
+        this._zoomWrapper = zoomableWrapper;
 
-        lcardsLog.info('[MSDStudio] 🔍 Zoom behavior initialized');
+        lcardsLog.info('[MSDStudio] 🔍 Zoom behavior initialized on preview container');
     }
 
     /**
@@ -502,11 +555,17 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _zoomIn() {
-        if (!this._zoomBehavior || !this._zoomSvg) return;
-        select(this._zoomSvg)
+        // Ensure zoom is attached to current container
+        this._reinitializeZoomIfNeeded();
+
+        if (!this._zoomBehavior || !this._zoomContainer) return;
+        select(this._zoomContainer)
             .transition()
             .duration(300)
             .call(this._zoomBehavior.scaleBy, 1.3);
+
+        // Update display after transition
+        setTimeout(() => this.requestUpdate(), 350);
     }
 
     /**
@@ -514,11 +573,17 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _zoomOut() {
-        if (!this._zoomBehavior || !this._zoomSvg) return;
-        select(this._zoomSvg)
+        // Ensure zoom is attached to current container
+        this._reinitializeZoomIfNeeded();
+
+        if (!this._zoomBehavior || !this._zoomContainer) return;
+        select(this._zoomContainer)
             .transition()
             .duration(300)
             .call(this._zoomBehavior.scaleBy, 0.77);
+
+        // Update display after transition
+        setTimeout(() => this.requestUpdate(), 350);
     }
 
     /**
@@ -526,11 +591,17 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _zoomReset() {
-        if (!this._zoomBehavior || !this._zoomSvg) return;
-        select(this._zoomSvg)
+        // Ensure zoom is attached to current container
+        this._reinitializeZoomIfNeeded();
+
+        if (!this._zoomBehavior || !this._zoomContainer) return;
+        select(this._zoomContainer)
             .transition()
             .duration(500)
             .call(this._zoomBehavior.transform, zoomIdentity);
+
+        // Update display after transition
+        setTimeout(() => this.requestUpdate(), 550);
     }
 
     /**
@@ -539,9 +610,9 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _getZoomTransform() {
-        if (!this._zoomSvg) return { x: 0, y: 0, k: 1 };
-        
-        const transform = select(this._zoomSvg).property('__zoom');
+        if (!this._zoomContainer) return { x: 0, y: 0, k: 1 };
+
+        const transform = select(this._zoomContainer).property('__zoom');
         return transform || { x: 0, y: 0, k: 1 };
     }
 
@@ -660,22 +731,40 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
-     * Zoom preview by factor
+     * Zoom preview by factor (used by old zoom buttons at bottom)
+     * Now delegates to d3-zoom system for consistency
      * @param {number} factor - Zoom multiplier (e.g., 1.1 for 10% larger, 0.9 for 10% smaller)
      * @private
      */
     _zoom(factor) {
-        this._previewZoom = Math.max(0.25, Math.min(4.0, this._previewZoom * factor));
-        this.requestUpdate();
+        // Ensure zoom is attached to current container
+        this._reinitializeZoomIfNeeded();
+
+        if (!this._zoomBehavior || !this._zoomContainer) {
+            // Fallback to old system if d3-zoom not initialized
+            this._previewZoom = Math.max(0.25, Math.min(4.0, this._previewZoom * factor));
+            this.requestUpdate();
+            return;
+        }
+
+        // Use d3-zoom scaleBy
+        select(this._zoomContainer)
+            .transition()
+            .duration(200)
+            .call(this._zoomBehavior.scaleBy, factor);
+
+        // Update display after transition
+        setTimeout(() => this.requestUpdate(), 250);
     }
 
     /**
-     * Reset zoom to 100%
+     * Reset zoom to 100% (used by old reset button at bottom)
+     * Now delegates to d3-zoom system for consistency
      * @private
      */
     _resetZoom() {
-        this._previewZoom = 1.0;
-        this.requestUpdate();
+        // Delegate to d3-zoom reset
+        this._zoomReset();
     }
 
     /**
@@ -12363,8 +12452,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                  @mousemove=${this._handlePreviewMouseMove}
                                  @mouseleave=${this._handlePreviewMouseLeave}>
 
-                                <!-- Zoomable preview container -->
-                                <div style="transform: scale(${this._previewZoom}); transform-origin: top left; transition: transform 0.2s ease;">
+                                <!-- Zoomable preview container (d3-zoom applies transform dynamically) -->
+                                <div class="msd-zoom-wrapper" style="transform-origin: top left;">
                                     <lcards-msd-live-preview
                                         .hass=${this.hass}
                                         .config=${this._workingConfig}
