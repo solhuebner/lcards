@@ -533,13 +533,20 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 zoomableWrapper.style.transform = `translate(${t.x}px, ${t.y}px) scale(${t.k})`;
                 zoomableWrapper.style.transformOrigin = 'top left';
 
-                // Update zoom level display (only update the value, don't trigger re-render)
+                // Update zoom level display
                 this._currentZoom = event.transform.k;
+                this.requestUpdate(); // Safe now - no CSS transform conflict
 
                 lcardsLog.trace('[MSDStudio] Zoom applied:', {
                     scale: event.transform.k,
                     translate: [event.transform.x, event.transform.y]
                 });
+            })
+            .on('end', () => {
+                // Request update after pan/zoom ends to refresh overlay positions
+                // Fixes issue where anchors/controls stay in old position after shift+drag
+                this.requestUpdate();
+                lcardsLog.trace('[MSDStudio] Zoom/pan ended, refreshing overlays');
             });
 
         // Attach zoom behavior to the container
@@ -1025,35 +1032,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                 <ha-icon icon="${toggle.icon}"></ha-icon>
                             </button>
                         `)}
-
-                        <!-- Divider -->
-                        <div class="canvas-toolbar-divider"></div>
-
-                        <!-- Zoom Controls -->
-                        <button
-                            class="canvas-toolbar-button"
-                            @click=${(e) => { e.stopPropagation(); this._zoomOut(); }}
-                            title="Zoom Out (Mouse Wheel Down)">
-                            <ha-icon icon="mdi:magnify-minus"></ha-icon>
-                        </button>
-
-                        <div class="zoom-level-display" title="Current Zoom Level">
-                            ${Math.round(this._currentZoom * 100)}%
-                        </div>
-
-                        <button
-                            class="canvas-toolbar-button"
-                            @click=${(e) => { e.stopPropagation(); this._zoomIn(); }}
-                            title="Zoom In (Mouse Wheel Up)">
-                            <ha-icon icon="mdi:magnify-plus"></ha-icon>
-                        </button>
-
-                        <button
-                            class="canvas-toolbar-button"
-                            @click=${(e) => { e.stopPropagation(); this._zoomReset(); }}
-                            title="Reset Zoom (100%) - Pan: Shift+Drag or Middle-Click">
-                            <ha-icon icon="mdi:fit-to-screen"></ha-icon>
-                        </button>
                     </div>
 
                     <!-- Toggle Button (expanded state - right side) -->
@@ -7755,11 +7733,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     ">
                         <div id="${previewId}" style="width: 100%; max-width: 500px;"></div>
                     </div>
-
-                    <!-- Preview Footer -->
-                    <div class="preview-footer" style="padding-top: 12px; border-top: 1px solid var(--divider-color); font-size: 12px; color: var(--secondary-text-color); text-align: center;">
-                        Preview updates automatically when you modify the card configuration
-                    </div>
                 </div>
             `;
         } catch (error) {
@@ -12498,7 +12471,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                     title="Zoom Out">
                                     <ha-icon icon="mdi:magnify-minus"></ha-icon>
                                 </ha-icon-button>
-                                <span class="zoom-level">${Math.round(this._previewZoom * 100)}%</span>
+                                <span class="zoom-level">${Math.round(this._currentZoom * 100)}%</span>
                                 <ha-icon-button
                                     @click=${(e) => { e.stopPropagation(); this._zoom(1.1); }}
                                     title="Zoom In">

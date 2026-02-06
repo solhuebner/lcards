@@ -338,12 +338,6 @@ export class LCARdSMSDLivePreview extends LitElement {
                 <!-- Preview Card Container (populated by _updatePreviewCard) -->
                 <div class="preview-card-container">
                 </div>
-
-                <!-- Footer -->
-                <div class="preview-footer">
-                    <ha-icon icon="mdi:information"></ha-icon>
-                    <span>Preview updates automatically (300ms debounce)</span>
-                </div>
             </div>
         `;
     }

@@ -1,12 +1,12 @@
 {
   "name": "lcards",
-  "version": "1.27.04",
+  "version": "1.35.05",
   "type": "module",
   "description": "LCARdS - Modern LCARS card system for Home Assistant",
   "main": "index.js",
   "author": "Jason Weyermars",
   "license": "MIT",
-  "homepage": "https://lcards.io",
+  "homepage": "https://lcards.unimatrix01.ca",
   "directories": {
     "doc": "doc"
   },
@@ -18,7 +18,6 @@
     "Star Trek"
   ],
   "scripts": {
-    "clean": "rimraf dist",
     "build": "webpack --mode production",
     "build:dev": "webpack --mode development",
     "create-editor": "node tools/create-editor.js",
