@@ -55,14 +55,6 @@ export async function initMsdPipeline(userMsdConfig, svgContent, mountEl, hass =
   try {
     await coordinator.initializeSystemsWithPacksFirst(mergedConfig, mountEl, hass);
 
-    // ✅ CRITICAL FIX: Set card GUID BEFORE completeSystems() for HUD registration
-    if (cardGuid) {
-      coordinator.setCardGuid(cardGuid);
-      lcardsLog.trace('[PipelineCore] Card GUID set in coordinator BEFORE completeSystems:', cardGuid);
-    } else {
-      lcardsLog.warn('[PipelineCore] ⚠️ No card GUID provided - HUD registration may fail');
-    }
-
     // Use Core ValidationService singleton instead of creating MSD-specific instance
     lcardsLog.trace('[PipelineCore] Configuring Core ValidationService');
     let validationService = null;
