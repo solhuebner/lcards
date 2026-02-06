@@ -17,9 +17,9 @@ type: custom:lcards-msd
 config:
   data_sources:
     temp_sensor:
-      entity: sensor.temperature
+      entity_id: sensor.temperature
       history:
-        enabled: true
+        preload: true
         hours: 24
 
   overlays:
@@ -55,11 +55,10 @@ chart_type: line
 The card will:
 1. Check if `sensor.temperature` data source exists
 2. If not, **auto-create it** with sensible defaults:
-   - `history.enabled: true` (charts need history!)
+   - `history.preload: true` (charts need history!)
    - `history.hours: 24` (or custom via `history_hours` config)
-   - `windowSeconds: 3600` (1 hour window)
-   - `minEmitMs: 1000` (1 second minimum between updates)
-   - `coalesceMs: 200` (200ms coalescing for smooth updates)
+   - `history_size: 3600` (1 hour of data points)
+   - `update_interval: 1` (1 second minimum between updates)
    - Marked with `_autoCreated: true` and `_chartEntity: true` flags
 
 ### Custom History Hours
@@ -107,11 +106,10 @@ async _subscribeToDataSources() {
 
       // Auto-create with chart-optimized settings
       dataSource = await dataSourceManager.createDataSource(sourceId, {
-        entity: sourceId,
-        history: { enabled: true, hours: config.history_hours || 24 },
-        windowSeconds: 3600,
-        minEmitMs: 1000,
-        coalesceMs: 200,
+        entity_id: sourceId,
+        history: { preload: true, hours: config.history_hours || 24 },
+        history_size: 3600,
+        update_interval: 1,
         _autoCreated: true,
         _chartEntity: true
       });
@@ -184,13 +182,16 @@ For advanced control, define explicitly:
 ```yaml
 data_sources:
   temp_advanced:
-    entity: sensor.temperature
+    entity_id: sensor.temperature
     history:
-      enabled: true
+      preload: true
       hours: 168  # 1 week
-    aggregations:
-      - type: moving_average
-        window: 10
+    history_size: 10080  # 1 week at 1-minute intervals
+    processing:
+      hourly_avg:
+        type: statistics
+        window: 3600
+        output: mean
 ```
 
 ### 3. MSD Context Preferred

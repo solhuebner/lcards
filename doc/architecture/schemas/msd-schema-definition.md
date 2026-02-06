@@ -498,14 +498,31 @@ msd:
 data_sources:
   # Optional: Named data source definitions (can share with other cards)
   <source_id>:
-    entity: <entity_id>
+    entity_id: <entity_id>
       # Required: Entity ID to fetch data from
-      # Example: entity: sensor.temperature
+      # Example: entity_id: sensor.temperature
 
-    windowSeconds: <number>
-      # Optional: Time window for historical data (seconds)
-      # Min: 1
-      # Example: windowSeconds: 3600  # 1 hour
+    update_interval: <number>
+      # Optional: Update throttle in seconds (default: 0 = no throttle)
+      # Min: 0
+      # Example: update_interval: 5  # Update at most every 5 seconds
+
+    history_size: <number>
+      # Optional: Buffer size in data points (default: 3600)
+      # Example: history_size: 1440  # Keep last 1440 points
+
+    history:
+      # Optional: Historical data preloading
+      preload: <boolean>        # Load history on init
+      hours: <number>           # Hours of history
+      days: <number>            # Days of history
+
+    processing:
+      # Optional: Data processing pipeline
+      <processor_name>:
+        type: <processor_type>  # convert_unit, scale, smooth, statistics, etc.
+        from: <source>          # Optional: reference another processor
+        # ... processor-specific config ...
 
 rules:
   # Optional: Dynamic styling rules (can share with other cards)

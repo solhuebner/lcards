@@ -88,9 +88,9 @@ Use for nested sections or dense layouts:
 ```html
 <lcards-form-section header="Main Section" ?expanded=${true}>
     <!-- Main content with 12px spacing -->
-    
-    <lcards-form-section 
-        header="Nested Section" 
+
+    <lcards-form-section
+        header="Nested Section"
         ?expanded=${false}
         ?compact=${true}>
         <!-- Nested content with 8px spacing -->
@@ -175,7 +175,7 @@ static get styles() {
 
 // In template
 html`
-    <ha-icon-button 
+    <ha-icon-button
         class="${this.isActive ? 'active' : ''}"
         icon="mdi:grid"
         @click=${this._toggle}>
@@ -204,7 +204,7 @@ html`
         </div>
         <div class="info-card-actions">
             <ha-button raised @click=${this._openStudio}>
-                <ha-icon icon="mdi:pencil" slot="icon"></ha-icon>
+                <ha-icon icon="mdi:pencil" slot="start"></ha-icon>
                 Open Studio
             </ha-button>
         </div>
@@ -265,9 +265,9 @@ html`
             </div>
         `)}
     </div>
-    
+
     <ha-button class="add-button" @click=${this._add}>
-        <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
+        <ha-icon icon="mdi:plus" slot="start"></ha-icon>
         Add Item
     </ha-button>
 `
@@ -473,9 +473,9 @@ export class MyEditor extends LitElement {
                 header="Basic Settings"
                 icon="mdi:cog"
                 ?expanded=${true}>
-                
+
                 <!-- Form fields here -->
-                
+
             </lcards-form-section>
 
             <!-- Nested Section with Compact Spacing -->
@@ -484,9 +484,9 @@ export class MyEditor extends LitElement {
                 icon="mdi:tune"
                 ?expanded=${false}
                 ?compact=${true}>
-                
+
                 <!-- Advanced form fields -->
-                
+
             </lcards-form-section>
         `;
     }

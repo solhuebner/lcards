@@ -33,16 +33,19 @@ series_names:                          # Optional: custom names for legend
 # OPTION 3: Advanced DataSource configuration (NEW in v1.16!)
 data_sources:
   <source-name>:                       # Arbitrary DataSource ID
-    entity: <entity-id>                # Required: entity to track
+    entity_id: <entity-id>             # Required: entity to track
     attribute: <attribute-name>        # Optional: entity attribute
-    window_seconds: <number>           # Rolling window size (default: 3600)
-    minEmitMs: <number>                # Minimum time between emissions (throttling)
-    coalesceMs: <number>               # Coalesce rapid changes within window
-    maxDelayMs: <number>               # Maximum delay before forced emission
+    update_interval: <number>          # Update throttle in seconds (default: 0 = no throttle)
+    history_size: <number>             # Buffer size in data points (default: 3600)
     history:
       preload: <boolean>               # Preload history on initialization
       hours: <number>                  # Hours of history to preload
       days: <number>                   # Days of history to preload
+    processing:                        # Optional: data processing pipeline
+      <processor_name>:
+        type: <processor_type>         # convert_unit, scale, smooth, statistics, etc.
+        from: <source_processor>       # Optional: reference another processor
+        # ... processor-specific config ...
 
 # Reference data_sources by name:
 source: <source-name>                  # Single DataSource
@@ -222,14 +225,18 @@ show_legend: true
 style:
   colors: ["#FF9900", "#99CCFF"]
 
-# Example 3: Advanced data_sources config
+# Example 3: Advanced data_sources config with processing
 type: custom:lcards-chart
 data_sources:
   temperature:
-    entity: sensor.temperature
-    window_seconds: 7200           # 2 hour window
-    minEmitMs: 500                 # Throttle updates
-    coalesceMs: 200                # Coalesce rapid changes
+    entity_id: sensor.temperature
+    update_interval: 5             # Update every 5 seconds
+    history_size: 1440             # Keep 2 hours at 5-second intervals
+    processing:
+      smoothed:
+        type: smooth
+        window: 10
+        method: exponential
     history:
       preload: true
       hours: 2
@@ -330,15 +337,15 @@ style:
 ### DataSource Auto-Creation
 
 When using simple `source` or `sources`, Chart automatically creates DataSources with default settings:
-- `window_seconds`: 3600 (1 hour)
+- `history_size`: 3600 data points
+- `update_interval`: 0 (no throttling)
 - `history.preload`: false
-- No throttling/coalescing
 
 For advanced control, use `data_sources` config to specify:
-- Custom window sizes
-- History preloading
-- Update throttling
-- Coalescing behavior
+- Custom buffer sizes (`history_size`)
+- Update throttling (`update_interval`)
+- History preloading (`history.preload`, `history.hours`, `history.days`)
+- Data processing pipelines (`processing`)
 
 ### Style Property Resolution Order
 

@@ -83,12 +83,12 @@ async _openDataSourcePickerDialog() {
   dialog.hass = this.hass;
   dialog.currentSource = this._getConfigValue('source') || '';
   dialog.open = true;
-  
+
   dialog.addEventListener('source-selected', (e) => {
     const selectedSource = e.detail.source;
     this._setConfigValue('source', selectedSource);
   });
-  
+
   document.body.appendChild(dialog);
 }
 ```
@@ -100,11 +100,10 @@ When creating a new DataSource, the following configuration is used:
 ```javascript
 {
   name: '{custom_or_generated_name}',
-  entity: '{selected_entity_id}',
+  entity_id: '{selected_entity_id}',
   attribute: '__state__',
-  windowSeconds: 60,
-  minEmitMs: 100,
-  emitOnSameValue: true,
+  update_interval: 1,
+  history_size: 100,
   history: {
     preload: false,
     hours: 1

@@ -18,8 +18,7 @@ graph TB
 
     subgraph "Singleton DataSourceManager"
         DSM[DataSourceManager Singleton]
-        Transform[Shared Transformations]
-        Aggregate[Shared Aggregations]
+        Process[Unified Processing Pipeline]
         Compute[Shared Computed Values]
     end
 
@@ -39,9 +38,8 @@ graph TB
 
     Entities --> DSM
     History --> DSM
-    DSM --> Transform
-    Transform --> Aggregate
-    Aggregate --> Compute
+    DSM --> Process
+    Process --> Compute
 
     %% Singleton distribution
     Compute -.distribute.-> TemplatesA
@@ -77,9 +75,8 @@ flowchart TB
     end
 
     subgraph Layer2["Layer 2: Data Processing"]
-        Buffer[Time-Windowed Buffer]
-        Trans[Transformation Pipeline]
-        Agg[Aggregation Engine]
+        Buffer[Rolling Buffer]
+        Process[Processing Pipeline]
         Compute[Computed Sources]
     end
 
@@ -93,10 +90,8 @@ flowchart TB
     HA --> Hist
     Sub --> Buffer
     Hist --> Buffer
-    Buffer --> Trans
-    Trans --> Agg
-    Trans --> Compute
-    Agg --> Compute
+    Buffer --> Process
+    Process --> Compute
     Compute --> Template
     Compute --> Rules
     Template --> Overlay
@@ -112,16 +107,16 @@ flowchart TB
 - Manage subscription lifecycle
 
 **Layer 2: Data Processing**
-- Maintain time-windowed data buffers (default 60s, configurable)
-- Apply transformation pipelines (unit conversion, scaling, smoothing)
-- Calculate aggregations (averages, min/max, rates, trends)
+- Maintain rolling data buffers with configurable size
+- Execute processor pipeline (conversions, scaling, smoothing, statistics, etc.)
+- Chain processors with dependency resolution
 - Generate computed values from multiple sources
 
 **Layer 3: Data Consumption**
 - Process templates with datasource values
 - Evaluate rules engine conditions
 - Provide values for overlay rendering
-- Support dot-notation access (`datasource.value`, `datasource.aggregates.avg`)
+- Support dot-notation access (`datasource.value`, `datasource.processing.processor_name`)
 
 ---
 
@@ -134,15 +129,17 @@ Direct subscriptions to Home Assistant entities with optional processing.
 ```yaml
 data_sources:
   temperature:
-    type: entity
-    entity: sensor.outdoor_temperature
-    transformations:
-      - type: unit_conversion
-        from: "°F"
-        to: "°C"
-    aggregations:
-      - type: moving_average
-        window: 300  # 5 minutes
+    entity_id: sensor.outdoor_temperature
+    update_interval: 5  # seconds
+    processing:
+      celsius:
+        type: convert_unit
+        from: fahrenheit
+        to: celsius
+      smoothed:
+        type: smooth
+        from: celsius
+        window: 10  # data points
 ```
 
 **Features:**
@@ -150,8 +147,8 @@ data_sources:
 - Historical data preloading
 - Attribute access
 - ⭐ **Nested attribute paths** (`attribute_path: "forecast[0].temperature"`)
-- Transformation pipelines
-- Aggregation windows
+- Unified processing pipeline with 12 processor types
+- Processor chaining with dependency resolution
 
 ### 2. Computed Sources
 
@@ -173,31 +170,39 @@ data_sources:
 - Automatic dependency tracking
 - Reactive updates
 
-### 3. Aggregated Sources
+### 3. Processed Sources
 
-Statistical analysis over time windows.
+Statistical analysis and transformations over data.
 
 ```yaml
 data_sources:
   power_stats:
-    type: entity
-    entity: sensor.power_consumption
-    aggregations:
-      - type: moving_average
-        window: 3600
-        key: "hourly_avg"
-      - type: rate_of_change
-        window: 300
-        key: "trend"
+    entity_id: sensor.power_consumption
+    history_size: 3600  # 1 hour of data
+    processing:
+      hourly_avg:
+        type: statistics
+        window: 3600  # seconds
+        output: mean
+      trend_5min:
+        type: rate
+        from: hourly_avg
+        window: 300  # seconds
 ```
 
-**Aggregation Types:**
-- Moving averages (simple, exponential)
-- Min/Max tracking
-- Rate of change
-- Trend detection
-- Duration tracking
-- ⭐ **Rolling statistics** (multi-value: min, max, mean, median, quartiles, OHLC)
+**Processor Types:**
+- Unit conversions (convert_unit)
+- Scaling and normalization (scale)
+- Smoothing (smooth)
+- Statistical analysis (statistics)
+- Rate of change (rate)
+- Trend detection (trend)
+- Duration tracking (duration)
+- Threshold detection (threshold)
+- Value clamping (clamp)
+- Rounding (round)
+- Delta calculation (delta)
+- JavaScript expressions (expression)
 
 ---
 
@@ -208,20 +213,18 @@ sequenceDiagram
     participant HA as Home Assistant
     participant Sub as Subscription Manager
     participant DS as DataSource
-    participant Buffer as Data Buffer
-    participant Trans as Transformations
-    participant Agg as Aggregations
+    participant Buffer as Rolling Buffer
+    participant Proc as Processor Pipeline
     participant Overlay as Overlay System
 
     HA->>Sub: Entity state changed
     Sub->>DS: Notify datasource
-    DS->>Buffer: Add to time window
-    Buffer->>Trans: Apply transformations
-    Trans->>Agg: Calculate aggregates
-    Agg->>DS: Update processed values
+    DS->>Buffer: Add to rolling buffer
+    Buffer->>Proc: Execute processor pipeline
+    Proc->>DS: Update processed values
     DS->>Overlay: Trigger re-render
 
-    Note over DS,Overlay: Coalescing prevents<br/>excessive updates
+    Note over DS,Overlay: Update throttling prevents<br/>excessive re-renders
 ```
 
 ### Detailed Flow Steps
@@ -232,29 +235,29 @@ sequenceDiagram
    - Raw value captured with timestamp
 
 2. **Buffering**
-   - Value added to time-windowed buffer
-   - Old values outside window removed
-   - Buffer size maintained (default 60s)
+   - Value added to rolling buffer
+   - Old values removed when buffer size exceeded
+   - Buffer size configurable via `history_size`
 
-3. **Transformation**
-   - Pipeline processors applied in order
-   - Unit conversions, scaling, smoothing
-   - Results keyed for template access
+3. **Processing**
+   - Processor pipeline executed in dependency order
+   - Unit conversions, scaling, smoothing, statistics, etc.
+   - Each processor can reference previous processors via `from` field
 
-4. **Aggregation**
-   - Statistical calculations over buffer
-   - Moving averages, rates, trends
-   - Results keyed for template access
+4. **Dependency Resolution**
+   - Topological sort determines execution order
+   - Circular dependencies detected and reported
+   - Processors execute only when dependencies ready
 
 5. **Emission**
-   - Coalescing window prevents rapid updates
-   - Minimum emit interval enforced
-   - Maximum delay ensures freshness
+   - Update throttling via `update_interval` (seconds)
+   - Subscribers notified of data changes
+   - Processed values available immediately
 
 6. **Consumption**
    - Templates resolved with datasource values
    - Rules evaluated with dot-notation access
-   - Overlays rendered with processed data
+   - Overlays rendered with processed data via `processing.processor_name`
 
 ---
 
@@ -418,9 +421,8 @@ getCurrentData() {
     v: lastPoint.v,
     buffer: this.buffer,
     stats: { ...this._stats },
-    transformations: this._getTransformationData(),
-    aggregations: this._getAggregationData(),
-    entity: this.cfg.entity,
+    processing: this._getProcessingData(),  // ✅ Unified processing results
+    entity: this.cfg.entity_id,
     metadata: { ...this.metadata },  // ✅ Metadata included
     historyReady: this._stats.historyLoaded > 0,
     bufferSize: this.buffer.size(),
@@ -691,9 +693,9 @@ overlays:
 ### DataSource Properties
 
 **Base Properties:**
-- `.v` or `.value` - Current processed value
+- `.v` or `.value` - Current raw value
 - `.t` or `.timestamp` - Last update timestamp
-- `.entity` - Entity ID
+- `.entity_id` - Entity ID
 - `.buffer` - Rolling buffer instance
 - `.started` - Boolean indicating if datasource is active
 
@@ -709,13 +711,9 @@ overlays:
 - `.metadata.last_changed` - Last state change timestamp
 - `.metadata.last_updated` - Last update timestamp
 
-**Transformation Results:**
-- `.transformations.<key>` - Named transformation output
-- Example: `.transformations.celsius`
-
-**Aggregation Results:**
-- `.aggregations.<key>` - Named aggregation output
-- Example: `.aggregations.hourly_avg`
+**Processing Results:**
+- `.processing.<processor_name>` - Named processor output
+- Example: `.processing.celsius`, `.processing.smoothed`, `.processing.hourly_avg`
 
 **Example Access:**
 ```javascript
@@ -723,11 +721,11 @@ overlays:
 {temperature.v}                                    // Current value
 {temperature.metadata.unit_of_measurement}         // Unit
 {temperature.metadata.friendly_name}               // Display name
-{temperature.transformations.celsius}              // Transformed value
-{temperature.aggregations.avg}                     // Aggregated value
+{temperature.processing.celsius}                   // Processed value
+{temperature.processing.hourly_avg}                // Statistical processor
 
 // In console
-const source = window.lcards.debug.msd.systems.dataSourceManager.getSource('temperature');
+const source = window.lcards.core.dataSourceManager.getSource('temperature');
 console.log(source.getCurrentData());
 // {
 //   t: 1698355200000,
@@ -738,8 +736,11 @@ console.log(source.getCurrentData());
 //     device_class: "temperature",
 //     ...
 //   },
-//   transformations: { ... },
-//   aggregations: { ... }
+//   processing: {
+//     celsius: 23.5,
+//     smoothed: 23.3,
+//     hourly_avg: 23.1
+//   }
 // }
 ```
 
@@ -752,12 +753,12 @@ Datasources can be used in rules engine conditions:
 ```yaml
 data_sources:
   temperature:
-    type: entity
-    entity: sensor.temp
-    aggregations:
-      - type: moving_average
+    entity_id: sensor.temp
+    processing:
+      hourly_avg:
+        type: statistics
         window: 600
-        key: "avg"
+        output: mean
 
 overlays:
   - id: warning_text
@@ -765,7 +766,7 @@ overlays:
     content: "High Temp!"
     rules:
       - conditions:
-          - datasource: temperature.aggregates.avg
+          - datasource: temperature.processing.hourly_avg
             operator: ">"
             value: 25
         properties:
@@ -775,95 +776,88 @@ overlays:
 
 ---
 
-## 🎯 Transformation Pipeline
+## 🎯 Unified Processing Pipeline
 
-Transformations are applied sequentially, with each transformation's output available to the next:
+Processors execute in dependency order, with each processor able to reference previous processors:
 
 ```mermaid
 graph LR
-    Raw[Raw Value] --> T1[Transform 1]
-    T1 --> T2[Transform 2]
-    T2 --> T3[Transform 3]
-    T3 --> Final[Final Value]
+    Raw[Raw Value] --> P1[Processor 1]
+    P1 --> P2[Processor 2]
+    P2 --> P3[Processor 3]
+    P3 --> Results[Processing Results]
 
-    T1 -.key: step1.-> Storage[(Results Storage)]
-    T2 -.key: step2.-> Storage
-    T3 -.key: step3.-> Storage
-    Final -.value.-> Storage
+    P1 -.name: proc1.-> Storage[(Results Object)]
+    P2 -.name: proc2.-> Storage
+    P3 -.name: proc3.-> Storage
+    Results -.accessible via.-> Templates[Template System]
 ```
 
-### Available Transformations
+### Processor Types
 
-**Unit Conversions:**
-- Temperature (°F ↔ °C ↔ K)
-- Distance (mi ↔ km ↔ m ↔ ft)
-- Speed (mph ↔ km/h ↔ m/s)
-- Volume (gal ↔ L ↔ mL)
-- Pressure (psi ↔ bar ↔ kPa)
-- 50+ predefined conversions
+LCARdS supports 12 processor types for data transformation and analysis:
 
-**Scaling:**
-- Linear scaling
-- Non-linear (exponential, logarithmic, power)
-- Clamping
-- Normalization
+**Data Conversion:**
+- `convert_unit` - Unit conversions (temperature, distance, speed, volume, pressure)
+- `scale` - Linear/non-linear scaling, normalization
+- `clamp` - Constrain values to min/max range
+- `round` - Round to specified precision
 
-**Smoothing:**
-- Simple moving average
-- Exponential moving average (EMA)
-- Weighted moving average
+**Statistical Analysis:**
+- `statistics` - Calculate mean, median, min, max, sum over window
+- `smooth` - Moving average smoothing (simple, exponential, weighted)
+- `delta` - Calculate change from previous value
+- `rate` - Rate of change over time window
 
-**Statistical:**
-- Standard deviation
-- Percentile calculations
-- Z-score normalization
+**Analysis & Detection:**
+- `trend` - Trend detection (increasing, decreasing, stable)
+- `duration` - Time spent in specific state or range
+- `threshold` - Detect threshold crossings
+- `expression` - Custom JavaScript expressions
 
-**Device-Specific:**
-- Brightness (0-255 ↔ 0-100%)
-- Volume levels
-- Signal strength (dBm ↔ %)
-- Battery levels
-
----
-
-## 📈 Aggregation Engine
-
-Aggregations calculate statistics over time-windowed data:
+### Processing Configuration
 
 ```yaml
 data_sources:
-  sensor_stats:
-    type: entity
-    entity: sensor.data
-    windowSeconds: 3600  # 1 hour buffer
-    aggregations:
-      - type: moving_average
-        window: 600        # 10 min average
-        key: "avg_10min"
+  temperature:
+    entity_id: sensor.outdoor_temp
+    processing:
+      # Step 1: Convert to Celsius
+      celsius:
+        type: convert_unit
+        from: fahrenheit
+        to: celsius
 
-      - type: min_max
-        window: 1800       # 30 min min/max
-        key: "range_30min"
+      # Step 2: Smooth the converted value
+      smoothed:
+        type: smooth
+        from: celsius  # Reference previous processor
+        window: 10
+        method: exponential
 
-      - type: rate_of_change
-        window: 300        # 5 min rate
-        key: "trend_5min"
+      # Step 3: Calculate hourly average
+      hourly_avg:
+        type: statistics
+        from: smoothed
+        window: 3600
+        output: mean
+
+      # Step 4: Detect trend
+      trend:
+        type: rate
+        from: hourly_avg
+        window: 600
 ```
 
-### Aggregation Types
-
-| Type | Output | Use Case |
-|------|--------|----------|
-| `moving_average` | Single value | Smooth fluctuations |
-| `exponential_average` | Single value | Recent values weighted more |
-| `min_max` | `{min, max}` | Range tracking |
-| `rate_of_change` | Rate value | Trend detection |
-| `trend_detection` | Direction/strength | Directional changes |
-| `duration_tracker` | Duration value | Time in state |
+**Key Features:**
+- Processors reference each other via `from` field
+- Dependency resolution via topological sort
+- Circular dependency detection
+- Each processor output accessible via `.processing.processor_name`
 
 ---
 
-## 🔍 Computed Sources
+##  Computed Sources
 
 Combine multiple datasources with JavaScript expressions:
 
@@ -871,12 +865,10 @@ Combine multiple datasources with JavaScript expressions:
 data_sources:
   # Source datasources
   temp_f:
-    type: entity
-    entity: sensor.temperature
+    entity_id: sensor.temperature
 
   humidity:
-    type: entity
-    entity: sensor.humidity
+    entity_id: sensor.humidity
 
   # Computed heat index
   heat_index:
@@ -898,43 +890,40 @@ data_sources:
 
 ## ⚡ Performance Optimization
 
-### Coalescing & Throttling
+### Update Throttling
 
-Prevent excessive updates with smart timing:
+Control update frequency to prevent excessive re-renders:
 
 ```yaml
 data_sources:
   fast_sensor:
-    type: entity
-    entity: sensor.high_frequency
-    minEmitMs: 100      # Min 100ms between emissions
-    coalesceMs: 50      # Batch updates within 50ms
-    maxDelayMs: 500     # Force emit after 500ms
+    entity_id: sensor.high_frequency
+    update_interval: 1    # Update at most once per second
 ```
 
-**Coalescing:** Batches rapid updates into single emission
-**Throttling:** Enforces minimum time between emissions
-**Max Delay:** Ensures data freshness
+**Update Interval:** Minimum time (in seconds) between datasource updates. Default is 0 (no throttling).
 
-### Window Management
+### Buffer Management
 
 Configure buffer sizes for memory efficiency:
 
 ```yaml
 data_sources:
   memory_efficient:
-    type: entity
-    entity: sensor.data
-    windowSeconds: 60        # Small window for recent data only
-    aggregations:
-      - type: moving_average
-        window: 30           # Aggregate over 30s only
+    entity_id: sensor.data
+    history_size: 100        # Keep last 100 data points
+    processing:
+      recent_avg:
+        type: statistics
+        window: 30           # Calculate over last 30 points
+        output: mean
 ```
 
 **Best Practices:**
-- Use smallest window that meets requirements
-- Historical preload only when needed
-- Consider update frequency vs. window size
+- Use smallest `history_size` that meets requirements
+- Historical preload only when needed (`history.preload: true`)
+- Consider update frequency vs. buffer size
+- Window-based processors (statistics, smooth, rate) require sufficient history
 
 ---
 
@@ -944,30 +933,31 @@ data_sources:
 graph TB
     subgraph "DataSource Instance"
         Config[Configuration]
-        Buffer[Time-Windowed Buffer]
-        Processed[Processed Values]
+        Buffer[Rolling Buffer]
+        Processing[Processing Results]
         Metadata[Metadata]
     end
 
     subgraph "Buffer Contents"
         Values[Value Array]
         Timestamps[Timestamp Array]
-        Window[Window Size: windowSeconds]
+        Size[Buffer Size: history_size]
     end
 
     Config --> Buffer
     Buffer --> Values
     Buffer --> Timestamps
-    Buffer --> Window
-    Buffer --> Processed
-    Processed --> Templates[Available to Templates]
+    Buffer --> Size
+    Buffer --> Processing
+    Processing --> Templates[Available to Templates]
 ```
 
 **Memory Characteristics:**
 - Runtime-only storage (no persistence)
-- Fixed-size circular buffers
-- Automatic cleanup of old values
-- Efficient timestamp-based lookups
+- Fixed-size rolling buffers (configurable via `history_size`)
+- Automatic cleanup when buffer size exceeded
+- Efficient circular buffer implementation
+- Processing results cached per update
 
 ---
 
@@ -978,16 +968,15 @@ graph TB
 ```yaml
 data_sources:
   cpu_temp:
-    type: entity
-    entity: sensor.cpu_temperature
+    entity_id: sensor.cpu_temperature
 
 overlays:
   - id: cpu_display
     type: text
-    content: "CPU: {cpu_temp.value}°C"
+    content: "CPU: {cpu_temp.v}°C"
     rules:
       - conditions:
-          - datasource: cpu_temp.value
+          - datasource: cpu_temp.v
             operator: ">"
             value: 70
         properties:
@@ -1015,15 +1004,17 @@ animations:
 ## 📚 Key Files
 
 **Core Implementation:**
-- `src/msd/datasource/DataSourceManager.js` - Main manager
-- `src/msd/datasource/DataSourceMixin.js` - Entity subscriptions
-- `src/msd/datasource/processors/` - Transformation processors
-- `src/msd/datasource/aggregations/` - Aggregation engines
+- `src/core/data-sources/DataSourceManager.js` - Singleton manager
+- `src/core/data-sources/DataSource.js` - DataSource class
+- `src/core/data-sources/ProcessorManager.js` - Processor execution & dependency resolution
+- `src/core/data-sources/processors/` - 12 processor type implementations
+- `src/api/DataSourceDebugAPI.js` - Debug console API
 
 **Integration Points:**
 - Unified Template System (`src/core/templates/`) - Template resolution
 - `src/msd/rules/RulesEngine.js` - Rules evaluation
-- `src/msd/MsdCardCoordinator.js` - Orchestration
+- `src/msd/MsdCardCoordinator.js` - MSD orchestration
+- `src/base/LCARdSCard.js` - LCARdS Card integration
 
 ---
 
@@ -1031,17 +1022,16 @@ animations:
 
 ### Architecture
 - [Architecture Overview](../overview.md)
-- [Systems Manager](../components/msd-card-coordinator.md)
-- [Rules Engine](../subsystems/rules-engine.md)
+- [MSD Card Coordinator](./msd-card-coordinator.md)
+- [Rules Engine](./rules-engine.md)
 
 ### User Documentation
-- [DataSource Configuration Guide](../../user-guide/configuration/datasources.md)
-- [DataSource Transformations Reference](../../user-guide/configuration/datasource-transformations.md)
-- [DataSource Aggregations Reference](../../user-guide/configuration/datasource-aggregations.md)
-- [Computed Sources Guide](../../user-guide/configuration/computed-sources.md)
-- [DataSource Examples](../../user-guide/examples/datasource-examples.md)
+- [DataSource Configuration Guide](../../user/configuration/datasources.md)
+- [Processor Reference](../../user/reference/datasources/processor-reference.md)
+- [Computed Sources Guide](../../user/configuration/datasources.md#computed-sources)
+- [DataSource Examples](../../user/configuration/datasources.md#examples)
 
 ---
 
-**Last Updated:** October 31, 2025
-**Version:** 2025.10.1-fuk.42-69
+**Last Updated:** February 2026
+**Version:** v1.16+
