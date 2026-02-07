@@ -2733,8 +2733,10 @@ export class LCARdSSlider extends LCARdSButton {
         // Vertical mode: height = bar width, Horizontal mode: height = bar height
         const barThickness = progressBarConfig.height ?? null;
 
-        // Get alignment (start/center/end for cross-sectional positioning)
-        const align = progressBarConfig.align ?? progressBarConfig.position ?? 'center';
+        // Get alignment (start/middle/end for cross-sectional positioning)
+        // Support legacy 'center' value
+        let align = progressBarConfig.align ?? progressBarConfig.position ?? 'middle';
+        if (align === 'center') align = 'middle'; // Backward compatibility
 
         // Get padding - can be specified as individual values or padding object
         const paddingTop = progressBarConfig.padding?.top ?? progressBarConfig.padding_top ?? 0;
@@ -2756,7 +2758,7 @@ export class LCARdSSlider extends LCARdSButton {
                 x = paddingLeft; // Left edge
             } else if (align === 'end') {
                 x = zoneWidth - paddingRight - width; // Right edge
-            } else { // 'center'
+            } else { // 'middle'
                 x = paddingLeft + ((zoneWidth - paddingLeft - paddingRight - width) / 2); // Centered
             }
         } else {
@@ -2770,7 +2772,7 @@ export class LCARdSSlider extends LCARdSButton {
                 y = paddingTop; // Top edge
             } else if (align === 'end') {
                 y = zoneHeight - paddingBottom - height; // Bottom edge
-            } else { // 'center'
+            } else { // 'middle'
                 y = paddingTop + ((zoneHeight - paddingTop - paddingBottom - height) / 2); // Centered
             }
         }

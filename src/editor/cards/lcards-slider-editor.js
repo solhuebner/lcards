@@ -277,28 +277,14 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
         }
 
         // Show full orientation selector
-        return html`
-            <ha-selector
-                .hass=${this.hass}
-                .label=${'Orientation'}
-                .value=${this.config?.style?.track?.orientation || 'horizontal'}
-                .selector=${{
-                    select: {
-                        mode: 'dropdown',
-                        options: [
-                            { value: 'horizontal', label: 'Horizontal' },
-                            { value: 'vertical', label: 'Vertical' }
-                        ]
-                    }
-                }}
-                @value-changed=${(e) => this._valueChanged({
-                    target: {
-                        configPath: 'style.track.orientation',
-                        value: e.detail.value
-                    }
-                })}
-            ></ha-selector>
-        `;
+        return FormField.renderField(this, 'style.track.orientation', {
+            label: 'Orientation',
+            type: 'select',
+            options: [
+                { value: 'horizontal', label: 'Horizontal' },
+                { value: 'vertical', label: 'Vertical' }
+            ]
+        });
     }
 
     /**
@@ -636,7 +622,8 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
 
         const itemStyle = 'background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: var(--ha-card-border-radius, 12px); overflow: hidden;';
         const headerStyle = 'display: flex; align-items: center; gap: 12px; padding: 12px; cursor: pointer; user-select: none; background: var(--secondary-background-color);';
-        const iconStyle = 'color: var(--primary-color); --mdc-icon-size: 24px;';
+        const iconColor = range.color || 'var(--primary-color)';
+        const iconStyle = `color: ${iconColor}; --mdc-icon-size: 24px;`;
         const infoStyle = 'flex: 1; min-width: 0;';
         const labelStyle = 'font-weight: 600; font-size: 14px;';
         const valueStyle = 'font-size: 12px; color: var(--secondary-text-color); margin-top: 2px;';
@@ -863,12 +850,39 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                 <lcards-grid-layout>
                     ${FormField.renderField(this, 'style.gauge.progress_bar.height', {
                         label: 'Height',
-                        helper: 'Progress bar height in pixels (default: 12)'
+                        helper: 'Cross-sectional thickness (width in vertical, height in horizontal)'
                     })}
 
-                    ${FormField.renderField(this, 'style.gauge.progress_bar.radius', {
-                        label: 'Border Radius',
-                        helper: 'Progress bar border radius in pixels (default: 2)'
+                    ${FormField.renderField(this, 'style.gauge.progress_bar.align', {
+                        label: 'Alignment',
+                        helper: 'Cross-sectional alignment (left/middle/right in vertical)',
+                        type: 'select',
+                        mode: 'dropdown',
+                        options: [
+                            { value: 'start', label: 'Start' },
+                            { value: 'middle', label: 'Middle' },
+                            { value: 'end', label: 'End' }
+                        ]
+                    })}
+                </lcards-grid-layout>
+
+                <!-- Progress bar padding -->
+                <lcards-grid-layout>
+                    ${FormField.renderField(this, 'style.gauge.progress_bar.padding.top', {
+                        label: 'Padding Top',
+                        helper: 'Top padding in pixels'
+                    })}
+                    ${FormField.renderField(this, 'style.gauge.progress_bar.padding.right', {
+                        label: 'Padding Right',
+                        helper: 'Right padding in pixels'
+                    })}
+                    ${FormField.renderField(this, 'style.gauge.progress_bar.padding.bottom', {
+                        label: 'Padding Bottom',
+                        helper: 'Bottom padding in pixels'
+                    })}
+                    ${FormField.renderField(this, 'style.gauge.progress_bar.padding.left', {
+                        label: 'Padding Left',
+                        helper: 'Left padding in pixels'
                     })}
                 </lcards-grid-layout>
 
@@ -1013,52 +1027,50 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                 ?outlined=${true}
                 headerLevel="4">
 
-                <lcards-grid-layout>
-                    ${FormField.renderField(this, 'style.gauge.indicator.enabled', {
-                        label: 'Show Indicator',
-                        helper: 'Display a marker at the current value'
-                    })}
+                ${FormField.renderField(this, 'style.gauge.indicator.enabled', {
+                    label: 'Show Indicator',
+                    helper: 'Display a marker at the current value'
+                })}
 
-                    ${FormField.renderField(this, 'style.gauge.indicator.type', {
-                        label: 'Indicator Type',
-                        helper: 'line: rectangle, round: ellipse/circle, triangle: rotatable triangle'
-                    })}
+                ${FormField.renderField(this, 'style.gauge.indicator.type', {
+                    label: 'Indicator Type',
+                    helper: 'line: rectangle, round: ellipse/circle, triangle: rotatable triangle'
+                })}
 
-                    ${FormField.renderField(this, 'style.gauge.indicator.size.width', {
-                        label: 'Width',
-                        helper: 'Indicator width in pixels (or rx for round type)'
-                    })}
+                ${FormField.renderField(this, 'style.gauge.indicator.size.width', {
+                    label: 'Width',
+                    helper: 'Indicator width in pixels (or rx for round type)'
+                })}
 
-                    ${FormField.renderField(this, 'style.gauge.indicator.size.height', {
-                        label: 'Height',
-                        helper: 'Indicator height in pixels (or ry for round type)'
-                    })}
+                ${FormField.renderField(this, 'style.gauge.indicator.size.height', {
+                    label: 'Height',
+                    helper: 'Indicator height in pixels (or ry for round type)'
+                })}
 
-                    ${FormField.renderField(this, 'style.gauge.indicator.rotation', {
-                        label: 'Rotation',
-                        helper: 'Rotation angle in degrees (for triangle type, -180 to 180)'
-                    })}
+                ${FormField.renderField(this, 'style.gauge.indicator.rotation', {
+                    label: 'Rotation',
+                    helper: 'Rotation angle in degrees (for triangle type, -180 to 180)'
+                })}
 
-                    ${FormField.renderField(this, 'style.gauge.indicator.offset.x', {
-                        label: 'Offset X',
-                        helper: 'Horizontal offset from progress bar end (pixels)'
-                    })}
+                ${FormField.renderField(this, 'style.gauge.indicator.offset.x', {
+                    label: 'Offset X',
+                    helper: 'Horizontal offset from progress bar end (pixels)'
+                })}
 
-                    ${FormField.renderField(this, 'style.gauge.indicator.offset.y', {
-                        label: 'Offset Y',
-                        helper: 'Vertical offset from progress bar end (pixels)'
-                    })}
+                ${FormField.renderField(this, 'style.gauge.indicator.offset.y', {
+                    label: 'Offset Y',
+                    helper: 'Vertical offset from progress bar end (pixels)'
+                })}
 
-                    ${FormField.renderField(this, 'style.gauge.indicator.border.enabled', {
-                        label: 'Show Border',
-                        helper: 'Add border around indicator'
-                    })}
+                ${FormField.renderField(this, 'style.gauge.indicator.border.enabled', {
+                    label: 'Show Border',
+                    helper: 'Add border around indicator'
+                })}
 
-                    ${FormField.renderField(this, 'style.gauge.indicator.border.width', {
-                        label: 'Border Width',
-                        helper: 'Border width in pixels'
-                    })}
-                </lcards-grid-layout>
+                ${FormField.renderField(this, 'style.gauge.indicator.border.width', {
+                    label: 'Border Width',
+                    helper: 'Border width in pixels'
+                })}
 
                 <!-- INLINE: Indicator colors -->
                 <lcards-color-section

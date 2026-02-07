@@ -499,12 +499,37 @@ export function getSliderSchema(options = {}) {
                                         'x-ui-hints': {
                                             selector: { number: { min: 1, max: 100, mode: 'box', unit_of_measurement: 'px' } },
                                             label: 'Height',
-                                            helper: 'Progress bar height in pixels (use YAML for theme tokens)'
+                                            helper: 'Cross-sectional thickness (width in vertical, height in horizontal)'
                                         }
                                     },
-                                    radius: {
-                                        type: 'number',
-                                        minimum: 0
+                                    align: {
+                                        type: 'string',
+                                        enum: ['start', 'middle', 'end'],
+                                        default: 'middle',
+                                        'x-ui-hints': {
+                                            selector: {
+                                                select: {
+                                                    mode: 'dropdown',
+                                                    options: [
+                                                        { value: 'start', label: 'Start' },
+                                                        { value: 'middle', label: 'Middle' },
+                                                        { value: 'end', label: 'End' }
+                                                    ]
+                                                }
+                                            },
+                                            label: 'Alignment',
+                                            helper: 'Cross-sectional alignment (left/middle/right in vertical, top/middle/bottom in horizontal)'
+                                        }
+                                    },
+                                    padding: {
+                                        type: 'object',
+                                        description: 'Padding to offset from aligned position',
+                                        properties: {
+                                            top: { type: 'number', minimum: 0 },
+                                            right: { type: 'number', minimum: 0 },
+                                            bottom: { type: 'number', minimum: 0 },
+                                            left: { type: 'number', minimum: 0 }
+                                        }
                                     }
                                 }
                             },
