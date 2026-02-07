@@ -162,6 +162,7 @@ export const dpadComponents = {
 
         // Metadata for discovery and documentation
         metadata: {
+            type: 'dpad',  // Explicit type for ComponentManager
             id: 'dpad',
             name: 'D-Pad Control',
             description: 'Interactive directional control with 9 segments',

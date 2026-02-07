@@ -861,44 +861,21 @@ export class LCARdSElbow extends LCARdSButton {
     }
 
     /**
-     * Resolve theme tokens in a color value
-     * Handles both simple strings and state-based color objects
+     * Resolve color value with state-based support
+     * Uses resolveStateColor utility (theme tokens already resolved by CoreConfigManager)
      * @param {string|Object} colorValue - Color value (string or state object)
      * @param {string} [currentState] - Current button/entity state for state-based colors
      * @returns {string} Resolved CSS color value
      * @private
      */
     _resolveColorValue(colorValue, currentState = 'default') {
-        if (!colorValue) return null;
-
-        // Handle state-based color object
-        if (typeof colorValue === 'object') {
-            const stateColor = colorValue[currentState] || colorValue.default;
-            if (!stateColor) return null;
-            // Recursively resolve the state-specific color
-            return this._resolveColorValue(stateColor, currentState);
-        }
-
-        // Handle simple string color
-        if (typeof colorValue === 'string') {
-            // Check if it's a theme token (theme:path.to.token)
-            if (colorValue.startsWith('theme:')) {
-                const tokenPath = colorValue.replace('theme:', '');
-                const resolvedValue = this.getThemeToken(tokenPath, colorValue);
-
-                // If resolved value is still a theme token or computed token, resolve it again
-                if (resolvedValue && resolvedValue !== colorValue) {
-                    return this._resolveColorValue(resolvedValue, currentState);
-                }
-
-                return resolvedValue || colorValue;
-            }
-
-            // Return as-is (CSS color, var(), rgb(), etc.)
-            return colorValue;
-        }
-
-        return null;
+        // Use shared resolution utility (matches button/slider pattern)
+        return resolveStateColor({
+            actualState: this._entity?.state,
+            classifiedState: currentState,
+            colorConfig: colorValue,
+            fallback: null
+        });
     }
 
     /**

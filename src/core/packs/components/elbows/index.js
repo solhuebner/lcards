@@ -104,6 +104,7 @@ export const elbowComponents = {
         },
 
         metadata: {
+            type: 'elbow',
             name: 'Header Left Elbow',
             description: 'Top-left corner elbow (vertical bar on left, horizontal bar on top)',
             version: '1.0.0'
@@ -165,6 +166,7 @@ export const elbowComponents = {
         },
 
         metadata: {
+            type: 'elbow',
             name: 'Header Right Elbow',
             description: 'Top-right corner elbow (vertical bar on right, horizontal bar on top)',
             version: '1.0.0'
@@ -225,6 +227,7 @@ export const elbowComponents = {
         },
 
         metadata: {
+            type: 'elbow',
             name: 'Footer Left Elbow',
             description: 'Bottom-left corner elbow (vertical bar on left, horizontal bar on bottom)',
             version: '1.0.0'
@@ -287,6 +290,7 @@ export const elbowComponents = {
         },
 
         metadata: {
+            type: 'elbow',
             name: 'Footer Right Elbow',
             description: 'Bottom-right corner elbow (vertical bar on right, horizontal bar on bottom)',
             version: '1.0.0'
@@ -353,6 +357,7 @@ export const elbowComponents = {
         },
 
         metadata: {
+            type: 'elbow',
             name: 'Header Contained',
             description: 'Horizontal bar with mirrored elbows on both ends (top)',
             version: '1.0.0'
@@ -417,6 +422,7 @@ export const elbowComponents = {
         },
 
         metadata: {
+            type: 'elbow',
             name: 'Footer Contained',
             description: 'Horizontal bar with mirrored elbows on both ends (bottom)',
             version: '1.0.0'
@@ -461,6 +467,7 @@ export const elbowComponents = {
         },
 
         metadata: {
+            type: 'elbow',
             name: 'Header Open',
             description: 'Simple horizontal bar at top (no vertical arms)',
             version: '1.0.0'
@@ -503,6 +510,7 @@ export const elbowComponents = {
         },
 
         metadata: {
+            type: 'elbow',
             name: 'Footer Open',
             description: 'Simple horizontal bar at bottom (no vertical arms)',
             version: '1.0.0'
@@ -566,6 +574,7 @@ export const elbowComponents = {
         },
 
         metadata: {
+            type: 'elbow',
             name: 'Diagonal Cap Left',
             description: 'Top-left with configurable diagonal cut (0° = square, 45° = diagonal)',
             version: '1.0.0'
@@ -627,6 +636,7 @@ export const elbowComponents = {
         },
 
         metadata: {
+            type: 'elbow',
             name: 'Diagonal Cap Right',
             description: 'Top-right with configurable diagonal cut (0° = square, 45° = diagonal)',
             version: '1.0.0'
@@ -686,6 +696,7 @@ export const elbowComponents = {
         },
 
         metadata: {
+            type: 'elbow',
             name: 'Diagonal Cap Footer Left',
             description: 'Bottom-left with configurable diagonal cut (0° = square, 45° = diagonal)',
             version: '1.0.0'
@@ -746,6 +757,7 @@ export const elbowComponents = {
         },
 
         metadata: {
+            type: 'elbow',
             name: 'Diagonal Cap Footer Right',
             description: 'Bottom-right with configurable diagonal cut (0° = square, 45° = diagonal)',
             version: '1.0.0'

@@ -163,36 +163,20 @@ export class ComponentManager {
     }
 
     /**
-     * Infer component type from name and structure
+     * Get component type from metadata
      * @param {string} name - Component name
      * @param {Object} component - Component definition
-     * @returns {string} Inferred type
+     * @returns {string} Component type
      * @private
      */
     _inferComponentType(name, component) {
-        // Check explicit type in metadata
+        // REQUIRED: All components must declare their type in metadata
         if (component.metadata?.type) {
             return component.metadata.type;
         }
 
-        // Infer from name patterns
-        if (name.includes('dpad') || name.includes('keypad')) {
-            return 'button';
-        }
-
-        if (name === 'basic' || name.includes('picard') || name.includes('slider')) {
-            return 'slider';
-        }
-
-        if (name.includes('elbow') || name.includes('header') || name.includes('footer')) {
-            return 'elbow';
-        }
-
-        if (name.includes('msd') || name.includes('background')) {
-            return 'msd';
-        }
-
-        // Default
+        // Log warning for components missing type
+        lcardsLog.warn(`[ComponentManager] Component '${name}' missing type in metadata, defaulting to 'unknown'`);
         return 'unknown';
     }
 

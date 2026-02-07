@@ -2,26 +2,19 @@
  * Picard Slider Component
  *
  * Star Trek LCARS-inspired vertical slider with:
- * - State-aware borders (blue when active, gray when inactive)
+ * - State-aware borders (resolved by card)
  * - Animated indicator (pulsing light blue in top-left)
  * - Separate progress bar zone (cyan fill)
  * - Range indicator zone (inset colored bars with black borders)
  * - Decorative border frame around range area
  * - Track zone for pills or gauge
+ * - Colors are resolved by the card, not the component
  *
  * Orientation: Vertical only (initially)
  * ViewBox: 365×601 (scales proportionally with container)
  *
  * @module core/packs/components/sliders/picard
  */
-
-// Default color constants
-const DEFAULT_BORDER_ACTIVE = '#2766FF';
-const DEFAULT_BORDER_INACTIVE = '#9DA4B9';
-const DEFAULT_PROGRESS_COLOR = '#00EDED';
-const DEFAULT_RANGE_BORDER_COLOR = '#000000';
-const DEFAULT_RANGE_FRAME_COLOR = '#2765FD';
-const DEFAULT_ANIMATION_COLOR = '#3AA5D0';
 
 /**
  * Calculate zone bounds for Picard component
@@ -76,53 +69,6 @@ export function calculateZones(width, height) {
 }
 
 /**
- * Resolve state-based colors for Picard component
- * @param {string} actualState - Entity's actual state value ('on', 'off', etc.)
- * @param {string} classifiedState - Classified state ('active', 'inactive', 'unavailable')
- * @param {Object} config - Full card config
- * @param {Object} hass - Home Assistant object
- * @returns {Object} Resolved color map
- */
-export function resolveColors(actualState, classifiedState, config, hass) {
-    // Helper to resolve state-based color
-    const resolveStateColor = (colorConfig, fallback) => {
-        if (!colorConfig) return fallback;
-        if (typeof colorConfig === 'string') return colorConfig;
-        // Try actual state first, then classified state, then default
-        return colorConfig[actualState] || colorConfig[classifiedState] || colorConfig.default || fallback;
-    };
-
-    // Determine if entity is active based on classified state
-    const isActive = classifiedState === 'on';
-
-    // Resolve border colors (state-based by default)
-    const borderTop = resolveStateColor(
-        config.style?.border?.top?.color,
-        isActive ? DEFAULT_BORDER_ACTIVE : DEFAULT_BORDER_INACTIVE
-    );
-    const borderBottom = resolveStateColor(
-        config.style?.border?.bottom?.color,
-        DEFAULT_BORDER_INACTIVE
-    );
-
-    return {
-        borderTop,
-        borderBottom,
-        progressBar: resolveStateColor(
-            config.style?.gauge?.progress_bar?.color,
-            DEFAULT_PROGRESS_COLOR
-        ),
-        // Range border (individual range bar borders)
-        rangeBorder: config.style?.range?.border?.color || DEFAULT_RANGE_BORDER_COLOR,
-        // Range frame defaults to same state-based color as top border (L-shapes)
-        rangeFrame: config.style?.range?.frame?.color || borderTop,
-        // Solid bar defaults to same state-based color as top border (L-shapes)
-        solidBar: config.style?.solid_bar?.color || borderTop,
-        animationIndicator: config.style?.animation?.indicator?.color || DEFAULT_ANIMATION_COLOR
-    };
-}
-
-/**
  * Render Picard component shell SVG
  * @param {Object} context - Full render context
  * @param {number} context.width - Container width in pixels
@@ -135,8 +81,9 @@ export function resolveColors(actualState, classifiedState, config, hass) {
  * @returns {string} Complete SVG markup with zones marked for content injection
  */
 export function render(context) {
-    const { width, height, colors, config, style } = context;
-    const zones = calculateZones(width, height);
+    const { width, height, colors, config, style, zones: contextZones } = context;
+    // Use pre-calculated zones from context (already adjusted for borders) or calculate fresh
+    const zones = contextZones || calculateZones(width, height);
 
     // Scale factors for border paths
     const sx = width / 365;
@@ -231,6 +178,7 @@ export function render(context) {
  * Component metadata
  */
 export const metadata = {
+    type: 'slider',
     name: 'picard',
     displayName: 'Picard',
     orientation: 'vertical',
@@ -379,6 +327,5 @@ export const metadata = {
 export default {
     render,
     calculateZones,
-    resolveColors,
     metadata
 };

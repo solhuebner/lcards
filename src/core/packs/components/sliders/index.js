@@ -9,6 +9,7 @@
  * @module core/packs/components/sliders
  */
 
+import defaultComponent from './default.js';
 import picardComponent from './picard.js';
 
 /**
@@ -54,13 +55,16 @@ const sliderBasicSvg = `<?xml version="1.0" encoding="UTF-8"?>
  * @type {Object.<string, {svg: string, orientation: string, features: string[]}>}
  */
 export const sliderComponents = {
-    // Basic shell - works with any orientation
+    // Basic shell - works with any orientation (legacy - kept for compatibility)
     'basic': {
         svg: sliderBasicSvg,
         orientation: 'auto',  // Adapts to style.track.orientation
         features: []
     },
-    
+
+    // Default component - render function architecture (replaces basic)
+    'default': defaultComponent,
+
     // Picard component - render function architecture
     'picard': picardComponent
 };

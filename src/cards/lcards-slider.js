@@ -247,7 +247,6 @@ export class LCARdSSlider extends LCARdSButton {
         // Render function architecture
         this._componentRenderer = null;           // Component render() function
         this._componentCalculateZones = null;     // Component calculateZones() function
-        this._componentResolveColors = null;      // Component resolveColors() function
 
         // Memoization for performance
         this._memoizedTrack = null;
@@ -345,10 +344,8 @@ export class LCARdSSlider extends LCARdSButton {
         // Re-resolve slider style with the new merged config (has provenance!)
         this._resolveSliderStyleSync();
 
-        // Re-load component if specified (now that preset is merged, track.type will be preserved)
-        if (this.config.component) {
-            this._loadSliderComponent();
-        }
+        // Always load component (defaults to 'default' if not specified)
+        this._loadSliderComponent();
 
         // Re-update entity context (now reads the correct style.track.type from merged preset)
         this._updateEntityContext();
@@ -619,13 +616,8 @@ export class LCARdSSlider extends LCARdSButton {
      * @private
      */
     async _loadSliderComponent() {
-        const componentName = this.config.component;
-        if (!componentName) {
-            this._componentSvg = null;
-            this._componentLoaded = false;
-            this._componentMetadata = null; // NEW
-            return;
-        }
+        // Default to 'default' component if not specified
+        const componentName = this.config.component || 'default';
 
         lcardsLog.debug(`[LCARdSSlider] Loading component: ${componentName}`);
 
@@ -656,7 +648,6 @@ export class LCARdSSlider extends LCARdSButton {
 
                     // Store helper functions if available
                     this._componentCalculateZones = component.calculateZones || null;
-                    this._componentResolveColors = component.resolveColors || null;
 
                     this._componentLoaded = true;
 
@@ -672,7 +663,7 @@ export class LCARdSSlider extends LCARdSButton {
                         };
                     }
 
-                    lcardsLog.debug(`[LCARdSSlider] Component loaded with render(), calculateZones: ${!!this._componentCalculateZones}, resolveColors: ${!!this._componentResolveColors}`);
+                    lcardsLog.debug(`[LCARdSSlider] Component loaded with render(), calculateZones: ${!!this._componentCalculateZones}`);
                     this.requestUpdate();
                     return;
                 }
@@ -886,58 +877,23 @@ export class LCARdSSlider extends LCARdSButton {
 
     /**
      * Resolve state-based border color
-     * Supports: border.color[state], border.color.default, border.color (plain string), theme fallback
+     * Uses resolveStateColor utility (theme tokens already resolved by CoreConfigManager)
      * @param {Object|string} colorConfig - Color configuration (state object or string)
      * @returns {string} Resolved color
      * @private
      */
     _resolveStateBorderColor(colorConfig) {
-        // If no color configured, get default from theme tokens
-        if (!colorConfig) {
-            const themeManager = this._singletons?.themeManager;
-            if (themeManager) {
-                const themeColor = themeManager.getToken('components.slider.border.color');
-                if (themeColor) {
-                    // If theme token is a state object, resolve based on current state
-                    if (typeof themeColor === 'object' && !Array.isArray(themeColor)) {
-                        const sliderState = this._getButtonState();
-                        const tokenValue = themeColor[sliderState] || themeColor.default || themeColor;
-                        // Resolve any nested theme tokens (e.g., 'colors.card.button' -> actual value)
-                        const resolved = themeManager.resolver?.resolve(tokenValue, tokenValue) || tokenValue;
-                        lcardsLog.debug(`[LCARdSSlider] Using theme border color for state '${sliderState}':`, resolved);
-                        return resolved;
-                    }
-                    // Plain string theme token - resolve any nested tokens
-                    const resolved = themeManager.resolver?.resolve(themeColor, themeColor) || themeColor;
-                    lcardsLog.debug(`[LCARdSSlider] Using theme border color:`, resolved);
-                    return resolved;
-                }
-            }
-            lcardsLog.debug(`[LCARdSSlider] No color config or theme token, using fallback`);
-            return 'var(--lcars-color-secondary, #000000)'; // Ultimate fallback
-        }
-
-        // If it's a plain string, return it directly
-        if (typeof colorConfig === 'string') {
-            lcardsLog.debug(`[LCARdSSlider] Border color is plain string:`, colorConfig);
-            return colorConfig;
-        }
-
-        // State-based color resolution (matches button pattern)
-        const sliderState = this._getButtonState(); // Inherited from LCARdSButton
+        // Get current state for state-based color resolution
+        const sliderState = this._getButtonState();
         const actualEntityState = this._entity?.state;
-        lcardsLog.debug(`[LCARdSSlider] Resolving border color for state '${sliderState}' (actual: '${actualEntityState}'):`, colorConfig);
 
-        // Try actual entity state first (e.g., "heat"), then fall back to classified state (e.g., "inactive")
-        const resolvedColor = resolveStateColor({
+        // Use shared resolution utility (matches button pattern)
+        return resolveStateColor({
             actualState: actualEntityState,
             classifiedState: sliderState,
             colorConfig: colorConfig,
             fallback: 'var(--lcars-color-secondary, #000000)'
         });
-
-        lcardsLog.debug(`[LCARdSSlider] Resolved border color:`, resolvedColor);
-        return resolvedColor;
     }
 
     /**
@@ -954,24 +910,40 @@ export class LCARdSSlider extends LCARdSButton {
         const width = this._containerSize.width || 300;
         const height = this._containerSize.height || 60;
 
+        this._injectBordersToElement(this._componentSvg, width, height);
+    }
+
+    /**
+     * Inject borders into an SVG element (works for both _componentSvg and component-based rendering)
+     * @param {SVGElement} svgElement - The SVG element to inject borders into
+     * @param {number} width - Container width
+     * @param {number} height - Container height
+     * @private
+     */
+    _injectBordersToElement(svgElement, width, height) {
+        if (!svgElement) return;
+
+        const borderConfig = this._sliderStyle?.border;
+        if (!borderConfig) return;
+
         // Find or create border-zone group
-        let borderZone = this._componentSvg.querySelector('#border-zone');
+        let borderZone = svgElement.querySelector('#border-zone');
         if (!borderZone) {
             borderZone = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             borderZone.setAttribute('id', 'border-zone');
             borderZone.setAttribute('data-zone', 'border');
             // Insert before track-zone so borders render behind content
-            const trackZone = this._componentSvg.querySelector('#track-zone');
+            const trackZone = svgElement.querySelector('#track-zone');
             if (trackZone) {
-                this._componentSvg.insertBefore(borderZone, trackZone);
+                svgElement.insertBefore(borderZone, trackZone);
             } else {
-                this._componentSvg.appendChild(borderZone);
+                svgElement.appendChild(borderZone);
             }
         }
 
-        // Clear existing borders ONLY for basic component
+        // Clear existing borders ONLY for basic/default component
         // Styled components have designed borders that should be preserved
-        if (!this.config.component || this.config.component === 'basic') {
+        if (!this.config.component || this.config.component === 'basic' || this.config.component === 'default') {
             borderZone.innerHTML = '';
         } else {
             // For styled components, only remove dynamically added borders (not component's original content)
@@ -1000,9 +972,7 @@ export class LCARdSSlider extends LCARdSButton {
             rect.setAttribute('width', leftSize);
             rect.setAttribute('height', height);
             const leftColor = this._resolveStateBorderColor(borderConfig.left.color);
-            lcardsLog.debug('[LCARdSSlider] Left border color before resolve:', leftColor);
             const resolvedColor = this._resolveCssVariable(leftColor);
-            lcardsLog.debug('[LCARdSSlider] Left border color after resolve:', resolvedColor);
             // Ensure color is valid before setting (never empty/null)
             rect.setAttribute('fill', resolvedColor || '#000000');
             fragment.appendChild(rect);
@@ -1018,9 +988,7 @@ export class LCARdSSlider extends LCARdSButton {
             rect.setAttribute('width', width);
             rect.setAttribute('height', topSize);
             const topColor = this._resolveStateBorderColor(borderConfig.top.color);
-            lcardsLog.debug('[LCARdSSlider] Top border color before resolve:', topColor);
             const resolvedColor = this._resolveCssVariable(topColor);
-            lcardsLog.debug('[LCARdSSlider] Top border color after resolve:', resolvedColor);
             // Ensure color is valid before setting (never empty/null)
             rect.setAttribute('fill', resolvedColor || '#000000');
             fragment.appendChild(rect);
@@ -1056,13 +1024,6 @@ export class LCARdSSlider extends LCARdSButton {
 
         // Append all borders atomically in one operation
         borderZone.appendChild(fragment);
-
-        lcardsLog.debug(`[LCARdSSlider] Injected borders:`, {
-            left: leftSize,
-            top: topSize,
-            right: rightSize,
-            bottom: bottomSize
-        });
     }
 
     /**
@@ -2758,21 +2719,63 @@ export class LCARdSSlider extends LCARdSButton {
             return html`<div class="slider-error">Component missing calculateZones()</div>`;
         }
 
-        // Step 2: Resolve colors based on entity state
-        const entity = this._entity;
-        const actualState = entity?.state || 'unavailable';
-        const classifiedState = this._classifyState(actualState);
+        // Step 1.5: Adjust zones to account for borders and margins (inset content from edges)
+        const borderConfig = this._sliderStyle?.border;
+        // Track margins are under style.track.margin
+        const margins = this._sliderStyle?.track?.margin || { top: 0, right: 0, bottom: 0, left: 0 };
 
-        const colors = this._componentResolveColors
-            ? this._componentResolveColors(actualState, classifiedState, this.config, this.hass)
-            : { borderTop: '#9DA4B9', borderBottom: '#9DA4B9' };
+        // Calculate total insets (borders + margins)
+        const getBorderSize = (borderDef) => borderDef?.size ?? borderDef?.width ?? 0;
+        const leftInset = (borderConfig?.left?.enabled ? getBorderSize(borderConfig.left) : 0) + (margins.left || 0);
+        const topInset = (borderConfig?.top?.enabled ? getBorderSize(borderConfig.top) : 0) + (margins.top || 0);
+        const rightInset = (borderConfig?.right?.enabled ? getBorderSize(borderConfig.right) : 0) + (margins.right || 0);
+        const bottomInset = (borderConfig?.bottom?.enabled ? getBorderSize(borderConfig.bottom) : 0) + (margins.bottom || 0);
 
-        lcardsLog.debug('[LCARdSSlider] Resolved colors:', colors);
+        if (leftInset > 0 || topInset > 0 || rightInset > 0 || bottomInset > 0) {
+            // Inset zones that should not overlap borders/margins (track, progress, control, range)
+            const zonesToInset = ['track', 'progress', 'control', 'range', 'solidBar'];
+            zonesToInset.forEach(zoneName => {
+                if (zones[zoneName]) {
+                    zones[zoneName].x += leftInset;
+                    zones[zoneName].y += topInset;
+                    zones[zoneName].width -= (leftInset + rightInset);
+                    zones[zoneName].height -= (topInset + bottomInset);
+                }
+            });
+
+            lcardsLog.debug('[LCARdSSlider] Inset zones for borders and margins:', {
+                left: leftInset, top: topInset, right: rightInset, bottom: bottomInset
+            });
+        }
+
+        // Step 2: Resolve colors using card's existing resolution logic (not component's)
+        // Components should receive pre-resolved colors, not do their own resolution
+        // (borderConfig already defined above)
+        const colors = {
+            // Border colors (using card's state-aware resolution)
+            borderTop: this._resolveStateBorderColor(borderConfig?.top?.color),
+            borderBottom: this._resolveStateBorderColor(borderConfig?.bottom?.color),
+            borderLeft: this._resolveStateBorderColor(borderConfig?.left?.color),
+            borderRight: this._resolveStateBorderColor(borderConfig?.right?.color),
+            // Progress bar color
+            progressBar: this._resolveCssVariable(this._sliderStyle?.gauge?.progress_bar?.color) || '#00EDED',
+            // Range frame and borders
+            rangeBorder: this._resolveCssVariable(this._sliderStyle?.range?.border?.color) || '#000000',
+            rangeFrame: this._resolveCssVariable(this._sliderStyle?.range?.frame?.color) || this._resolveStateBorderColor(borderConfig?.top?.color),
+            // Solid bar (defaults to same as top border)
+            solidBar: this._resolveCssVariable(this._sliderStyle?.solid_bar?.color) || this._resolveStateBorderColor(borderConfig?.top?.color),
+            // Animation indicator
+            animationIndicator: this._resolveCssVariable(this._sliderStyle?.animation?.indicator?.color) || '#3AA5D0'
+        };
+
+        lcardsLog.debug('[LCARdSSlider] Resolved colors using card logic:', colors);
 
         // Step 3: Build full render context
+        const entity = this._entity;
         const context = {
             width,
             height,
+            zones,  // Pass adjusted zones to component renderer
             colors,
             config: this.config,
             style: this._sliderStyle,
@@ -2833,6 +2836,9 @@ export class LCARdSSlider extends LCARdSButton {
                 rangeZoneElement.innerHTML = rangeContent;
             }
         }
+
+        // Inject borders if configured
+        this._injectBordersToElement(shellElement, width, height);
 
         // Step 7: Serialize back to string
         const serializer = new XMLSerializer();
