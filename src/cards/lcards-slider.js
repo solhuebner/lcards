@@ -239,7 +239,6 @@ export class LCARdSSlider extends LCARdSButton {
         this._containerSize = { width: 200, height: 60 };
 
         // SVG component state
-        this._componentSvg = null;       // Parsed SVG DOM
         this._zones = new Map();          // Zone elements and bounds
         this._componentLoaded = false;
         this._componentMetadata = null;   // NEW: Component metadata (zones, features, etc.)
@@ -460,9 +459,8 @@ export class LCARdSSlider extends LCARdSButton {
         // This ensures pills reflect current value on first load and subsequent updates
         if (this._mode === 'pills') {
             this._updatePillOpacities();
-        } else {
-            this._updateGaugeIndicator();
         }
+        // Note: Gauge mode uses full re-render, no incremental updates needed
     }
 
     /**
@@ -628,7 +626,6 @@ export class LCARdSSlider extends LCARdSButton {
 
             if (!componentManager) {
                 lcardsLog.error('[LCARdSSlider] ComponentManager not available');
-                this._componentSvg = null;
                 this._componentLoaded = false;
                 this._componentMetadata = null;
                 return;
@@ -682,7 +679,6 @@ export class LCARdSSlider extends LCARdSButton {
 
         } catch (error) {
             lcardsLog.error(`[LCARdSSlider] Component load failed:`, error);
-            this._componentSvg = null;
             this._componentLoaded = false;
             this._componentMetadata = null;
         }
@@ -854,111 +850,14 @@ export class LCARdSSlider extends LCARdSButton {
      *   }
      * }
      */
+    /**
+     * DEPRECATED: Old rendering path - ranges are now injected in _renderWithRenderer()
+     * @private
+     * @deprecated
+     */
     _injectRanges() {
-        if (!this._componentSvg) return;
-
-        const ranges = this._sliderStyle?.ranges || [];
-        if (ranges.length === 0) return;
-
-        const rangeZone = this._zones.get('range');
-        if (!rangeZone) return; // Only Picard and similar components have range zone
-
-        rangeZone.element.innerHTML = '';
-
-        const { width, height } = rangeZone.bounds;
-        const orientation = this._sliderStyle?.track?.orientation || 'horizontal';
-        const isVertical = orientation === 'vertical';
-
-        // Get inset config from component metadata or style
-        const componentMetadata = this._componentMetadata;
-        const insetConfig = this._sliderStyle?.gauge?.range?.inset ||
-                           componentMetadata?.insetBorder || {};
-        const borderSize = insetConfig?.border?.size || insetConfig?.size || 4;
-        const borderColor = insetConfig?.border?.color || insetConfig?.color || 'black';
-        const gap = insetConfig?.gap || 5;
-
-        const displayMin = this._displayConfig.min;
-        const displayMax = this._displayConfig.max;
-        const displayRange = displayMax - displayMin;
-
-        const svgNS = 'http://www.w3.org/2000/svg';
-
-        lcardsLog.debug(`[LCARdSSlider] Injecting ${ranges.length} inset ranges`, {
-            width,
-            height,
-            borderSize,
-            gap,
-            orientation
-        });
-
-        ranges.forEach((range, idx) => {
-            const startPercent = (range.min - displayMin) / displayRange;
-            const endPercent = (range.max - displayMin) / displayRange;
-
-            if (isVertical) {
-                // Vertical: ranges stack from bottom to top
-                // Y position is inverted (0% = bottom/max, 100% = top/min)
-                const yStart = height * (1 - endPercent);
-                const yEnd = height * (1 - startPercent);
-                const rangeHeight = yEnd - yStart;
-
-                // Outer rect (black border)
-                const outerRect = document.createElementNS(svgNS, 'rect');
-                outerRect.setAttribute('x', '0');
-                outerRect.setAttribute('y', yStart);
-                outerRect.setAttribute('width', width);
-                outerRect.setAttribute('height', rangeHeight);
-                outerRect.setAttribute('fill', borderColor);
-                outerRect.setAttribute('data-range-index', idx);
-                outerRect.setAttribute('data-range-label', range.label || '');
-                rangeZone.element.appendChild(outerRect);
-
-                // Inner rect (range color, inset by gap)
-                const innerRect = document.createElementNS(svgNS, 'rect');
-                innerRect.setAttribute('x', gap);
-                innerRect.setAttribute('y', yStart + gap);
-                innerRect.setAttribute('width', width - 2 * gap);
-                innerRect.setAttribute('height', Math.max(0, rangeHeight - 2 * gap));
-                innerRect.setAttribute('fill', ColorUtils.resolveCssVariable(range.color));
-                innerRect.setAttribute('data-range-index', idx);
-                rangeZone.element.appendChild(innerRect);
-
-                lcardsLog.trace(`[LCARdSSlider] Range ${idx} (${range.min}-${range.max}):`, {
-                    yStart,
-                    yEnd,
-                    rangeHeight,
-                    innerHeight: rangeHeight - 2 * gap
-                });
-            } else {
-                // Horizontal: ranges extend from left to right
-                const xStart = width * startPercent;
-                const xEnd = width * endPercent;
-                const rangeWidth = xEnd - xStart;
-
-                // Outer rect (black border)
-                const outerRect = document.createElementNS(svgNS, 'rect');
-                outerRect.setAttribute('x', xStart);
-                outerRect.setAttribute('y', '0');
-                outerRect.setAttribute('width', rangeWidth);
-                outerRect.setAttribute('height', height);
-                outerRect.setAttribute('fill', borderColor);
-                outerRect.setAttribute('data-range-index', idx);
-                outerRect.setAttribute('data-range-label', range.label || '');
-                rangeZone.element.appendChild(outerRect);
-
-                // Inner rect (range color, inset by gap)
-                const innerRect = document.createElementNS(svgNS, 'rect');
-                innerRect.setAttribute('x', xStart + gap);
-                innerRect.setAttribute('y', gap);
-                innerRect.setAttribute('width', Math.max(0, rangeWidth - 2 * gap));
-                innerRect.setAttribute('height', height - 2 * gap);
-                innerRect.setAttribute('fill', ColorUtils.resolveCssVariable(range.color));
-                innerRect.setAttribute('data-range-index', idx);
-                rangeZone.element.appendChild(innerRect);
-            }
-        });
-
-        lcardsLog.debug(`[LCARdSSlider] Injected ${ranges.length} inset ranges`);
+        // NO-OP: Ranges now handled by _generateRangeIndicators() in new rendering path
+        return;
     }
 
     /**
@@ -1069,79 +968,15 @@ export class LCARdSSlider extends LCARdSButton {
     }
 
     /**
-     * Inject text fields using button's text processing system
-     * Creates SVG text elements in the configured text area
+     * DEPRECATED: Old rendering path - text fields are now injected via _injectTextFieldsToElement()
      * @param {number} width - Slider width
      * @param {number} height - Slider height
      * @private
+     * @deprecated
      */
     _injectTextFields(width, height) {
-        if (!this._componentSvg) return;
-
-        // Use button's _resolveTextConfiguration() to get processed templates
-        // This reads from this.config.text which has been modified by _processCustomTemplates
-        const textFields = this._resolveTextConfiguration();
-        if (!textFields || Object.keys(textFields).length === 0) return;
-
-        // Get text area from config (slider-specific property)
-        const textArea = this.config.text?.area || 'auto';
-
-        // Find text-zone and get its bounds for zone-relative positioning
-        let textZone = this._componentSvg.querySelector('#text-zone');
-        const textZoneData = this._zones.get('text');
-
-        // Use zone bounds if available, otherwise fallback to container dimensions
-        const zoneWidth = textZoneData?.bounds?.width || width;
-        const zoneHeight = textZoneData?.bounds?.height || height;
-
-        lcardsLog.debug(`[LCARdSSlider] Text zone dimensions: ${zoneWidth}×${zoneHeight} (container: ${width}×${height})`);
-
-        if (!textZone) {
-            textZone = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            textZone.setAttribute('id', 'text-zone');
-            textZone.setAttribute('data-zone', 'text');
-            // Insert before track-zone so text renders above borders but below track
-            const trackZone = this._componentSvg.querySelector('#track-zone');
-            if (trackZone) {
-                this._componentSvg.insertBefore(textZone, trackZone);
-            } else {
-                this._componentSvg.appendChild(textZone);
-            }
-        }
-
-        // Clear existing text
-        textZone.innerHTML = '';
-
-        // Process text fields using button's system with zone-relative dimensions
-        const processedFields = this._processTextFields(textFields, zoneWidth, zoneHeight, null);
-
-        // Generate SVG text elements (using button's method) with zone-relative dimensions
-        const textMarkup = this._generateTextElements(processedFields);
-
-        lcardsLog.debug(`[LCARdSSlider] Generated text markup:`, textMarkup);
-
-        // Parse markup and append to text zone
-        const parser = new DOMParser();
-        const wrappedMarkup = `<g>${textMarkup}</g>`;
-        const doc = parser.parseFromString(wrappedMarkup, 'image/svg+xml');
-
-        // Check if parsing failed
-        const parseError = doc.querySelector('parsererror');
-        if (parseError) {
-            lcardsLog.trace('[LCARdSSlider] DOMParser failed to parse text markup!');
-            lcardsLog.trace('[LCARdSSlider] Wrapped markup:', wrappedMarkup);
-            lcardsLog.trace('[LCARdSSlider] Parse error:', parseError.textContent);
-            return; // Abort injection to prevent parsererror in final SVG
-        }
-
-        const textElements = doc.documentElement.children;
-
-        // Append all text elements to text zone
-        Array.from(textElements).forEach(element => {
-            textZone.appendChild(element.cloneNode(true));
-        });
-
-        lcardsLog.debug(`[LCARdSSlider] Injected ${processedFields.length} text fields into text-zone`);
+        // NO-OP: Text injection now handled by _injectTextFieldsToElement() in new rendering path
+        return;
     }
 
     /**
@@ -2029,23 +1864,13 @@ export class LCARdSSlider extends LCARdSButton {
     }
 
     /**
-     * Inject dynamic content into component zones
+     * DEPRECATED: Old rendering path - content injection now handled in _renderWithRenderer()
      * @private
+     * @deprecated
      */
     _injectContentIntoZones() {
-        if (!this._componentSvg) return;
-
-        // NEW: Inject ranges FIRST (background layer, only if range zone exists)
-        this._injectRanges();
-
-        // Inject track content based on visual style (on top of ranges)
-        const trackZone = this._zones.get('track');
-        if (trackZone) {
-            const trackContent = this._mode === 'pills'
-                ? this._generateTrackContent()  // Pills (segmented bar)
-                : this._generateGaugeSVG(trackZone.bounds.width, trackZone.bounds.height);  // Gauge ruler
-            trackZone.element.innerHTML = trackContent;
-        }
+        // NO-OP: Content injection now handled by _renderWithRenderer() in new rendering path
+        return;
     }
 
     /**
@@ -2057,9 +1882,8 @@ export class LCARdSSlider extends LCARdSButton {
 
         if (this._mode === 'pills') {
             this._updatePillOpacities();
-        } else {
-            this._updateGaugeIndicator();
         }
+        // Note: Gauge mode uses full re-render, no incremental updates needed
     }
 
     /**
