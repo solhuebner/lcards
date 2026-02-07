@@ -1753,41 +1753,6 @@ export class LCARdSSlider extends LCARdSButton {
                 `;
             }
 
-            // Draw indicator if enabled (skip if component has separate progress zone)
-            if (!skipProgressBar) {
-                const indicator = this._getIndicatorConfig(gaugeConfig);
-                if (indicator) {
-                    // Calculate base indicator position (at progress bar end, apply inversion)
-                    let indicatorX = valuePercent * trackWidth;
-                    if (this._invertFill) {
-                        indicatorX = trackWidth - indicatorX;
-                    }
-
-                    // Apply offset
-                    indicatorX += indicator.offsetX;
-
-                    // Y position: center on progress bar if shown, otherwise center in track
-                    const indicatorY = skipProgressBar
-                        ? (trackHeight / 2) + indicator.offsetY
-                        : (progressY + (progressHeight / 2)) + indicator.offsetY;
-
-                    // Render indicator using helper
-                    svg += this._renderIndicator(
-                        indicator.type,
-                        indicatorX,
-                        indicatorY,
-                        indicator.width,
-                        indicator.height,
-                        indicator.rotation,
-                        indicator.color,
-                        indicator.borderEnabled,
-                        indicator.borderColor,
-                        indicator.borderWidth,
-                        false // isVertical = false for horizontal gauge
-                    );
-                }
-            }
-
         } else {
             // === VERTICAL GAUGE ===
             // Vertical gauges have horizontal tick marks and fill from bottom to top
@@ -1902,40 +1867,6 @@ export class LCARdSSlider extends LCARdSButton {
                           fill="${progressColor}"
                           rx="${progressRadius}" ry="${progressRadius}" />
                 `;
-            }
-
-            // Draw indicator if enabled (skip if component has separate progress zone)
-            if (!skipProgressBar) {
-                const indicator = this._getIndicatorConfig(gaugeConfig);
-                if (indicator) {
-                    // Calculate base indicator position (at progress bar end, inverted Y, with fill inversion support)
-                    let baseIndicatorY = trackHeight - (valuePercent * trackHeight);
-                    if (this._invertFill) {
-                        baseIndicatorY = valuePercent * trackHeight;
-                    }
-
-                    // Apply offset (note: for vertical, offsetY moves up/down, offsetX moves left/right)
-                    // X position: center on progress bar if shown, otherwise center in track width
-                    const indicatorX = skipProgressBar
-                        ? (trackWidth / 2) + indicator.offsetX
-                        : (progressX + (progressBarWidth / 2)) + indicator.offsetX;
-                    const indicatorY = baseIndicatorY + indicator.offsetY;
-
-                    // Render indicator using helper
-                    svg += this._renderIndicator(
-                        indicator.type,
-                        indicatorX,
-                        indicatorY,
-                        indicator.width,
-                        indicator.height,
-                        indicator.rotation,
-                        indicator.color,
-                        indicator.borderEnabled,
-                        indicator.borderColor,
-                        indicator.borderWidth,
-                        true // isVertical = true for vertical gauge
-                    );
-                }
             }
         }
 
@@ -2544,7 +2475,7 @@ export class LCARdSSlider extends LCARdSButton {
         if (this._mode === 'pills') {
             trackContent = this._generatePillsContent(trackZone, orientation);
         } else if (this._mode === 'gauge') {
-            // Pass skipProgressBar=true if component has separate progress zone
+            // Pass skipProgressBar=true if component has a progress zone (render progress bar there instead)
             // Pass skipRanges=true ONLY for non-Default components (Picard renders ranges separately)
             const skipRangesInGauge = componentName !== 'default';
             trackContent = this._generateGaugeContent(trackZone, orientation, !!progressZone, skipRangesInGauge);
@@ -2563,9 +2494,9 @@ export class LCARdSSlider extends LCARdSButton {
         }
 
         // Inject progress bar into progress zone if it exists
+        // The progress bar includes the value indicator (marks the end of the bar)
         const progressZoneElement = shellElement.querySelector('#progress-zone');
         if (progressZoneElement && progressZone && this._mode === 'gauge') {
-            // Generate just the progress bar for the progress zone
             const progressBarContent = this._generateProgressBar(progressZone, orientation);
             if (progressBarContent) {
                 progressZoneElement.innerHTML = progressBarContent;
