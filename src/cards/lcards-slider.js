@@ -415,6 +415,9 @@ export class LCARdSSlider extends LCARdSButton {
      * @protected
      */
     _handleHassUpdate(newHass, oldHass) {
+        // Call parent to handle state-based color resolution
+        super._handleHassUpdate(newHass, oldHass);
+
         // Update entity value
         if (this.config.entity && this._entity) {
             // Get new value and set it
@@ -1507,7 +1510,7 @@ export class LCARdSSlider extends LCARdSButton {
         const orientation = this._sliderStyle?.track?.orientation || 'horizontal';
         const isVertical = orientation === 'vertical';
 
-        // Config hash for memoization
+        // Config hash for memoization (include entity state for reactive colors)
         const configHash = JSON.stringify({
             gaugeConfig,
             width: trackWidth,
@@ -1515,7 +1518,8 @@ export class LCARdSSlider extends LCARdSButton {
             orientation,
             value: this._sliderValue,
             ranges: skipRanges ? [] : (this._sliderStyle?.ranges || []),
-            skipRanges
+            skipRanges,
+            entityState: this._entity?.state  // Include state for reactive tick colors
         });
 
         if (this._memoizedGauge && this._memoizedGaugeConfig === configHash) {
