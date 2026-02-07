@@ -83,6 +83,38 @@ export const SLIDER_PRESETS = {
           unavailable: 'theme:components.button.text.color.unavailable'
         }
       }
+    },
+
+    // Gauge scale configuration (tick marks and labels)
+    gauge: {
+      scale: {
+        tick_marks: {
+          major: {
+            color: {
+              default: 'theme:components.slider.gauge.tick.major.color.default',
+              active: 'theme:components.slider.gauge.tick.major.color.active',
+              inactive: 'theme:components.slider.gauge.tick.major.color.inactive',
+              unavailable: 'theme:components.slider.gauge.tick.major.color.unavailable'
+            }
+          },
+          minor: {
+            color: {
+              default: 'theme:components.slider.gauge.tick.minor.color.default',
+              active: 'theme:components.slider.gauge.tick.minor.color.active',
+              inactive: 'theme:components.slider.gauge.tick.minor.color.inactive',
+              unavailable: 'theme:components.slider.gauge.tick.minor.color.unavailable'
+            }
+          }
+        },
+        labels: {
+          color: {
+            default: 'theme:components.slider.gauge.label.color.default',
+            active: 'theme:components.slider.gauge.label.color.active',
+            inactive: 'theme:components.slider.gauge.label.color.inactive',
+            unavailable: 'theme:components.slider.gauge.label.color.unavailable'
+          }
+        }
+      }
     }
   },
 
@@ -153,7 +185,7 @@ export const SLIDER_PRESETS = {
 
     // Track configuration overrides (directly at root)
     track: {
-      type: 'gauge',  // ✅ THIS determines gauge mode
+      type: 'gauge',
       margin: 0  // Override base margin for seamless ruler
     }
   },
@@ -174,5 +206,32 @@ export const SLIDER_PRESETS = {
         size: 120
       }
     },
+  },
+
+  // =====================================
+  // PICARD PRESET - Picard-style vertical slider
+  // =====================================
+  'picard-gauge-vertical': {
+    extends: 'slider.gauge-basic',
+    description: 'Picard-style vertical slider',
+
+    // Track configuration overrides (directly at root)
+    track: {
+      orientation: 'vertical',
+      invert_fill: false,
+    },
+    gauge: {
+      indicator: {
+        enabled: true,
+        size: {
+          height: 20,
+          width: 52
+        },
+        type: 'round',
+        border: {
+          enabled: true
+        }
+      }
+    }
   }
 };

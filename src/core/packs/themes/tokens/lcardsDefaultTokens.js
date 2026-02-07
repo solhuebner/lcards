@@ -76,7 +76,7 @@ export const lcardsDefaultTokens = {
     // Text colors
     text: {
       onLight: 'black',
-      onDark: 'var(--lcars-text-gray, var(--lcards-moonlight))',
+      onDark: 'var(--lcards-gray-medium, var(--lcards-moonlight))',
       disabled: 'var(--lcards-gray-medium-dark)'
     },
 
@@ -263,7 +263,30 @@ export const lcardsDefaultTokens = {
           height: 4
         },
         tick: {
-          color: 'colors.text.secondary'
+          major: {
+            color: {
+              default: 'colors.card.button',
+              active: 'lighten(colors.card.button, 0.1)',
+              inactive: 'colors.card.buttonOff',
+              unavailable: 'colors.card.buttonUnavailable'
+            }
+          },
+          minor: {
+            color: {
+              default: 'colors.card.button',
+              active: 'lighten(colors.card.button, 0.1)',
+              inactive: 'colors.card.buttonOff',
+              unavailable: 'colors.card.buttonUnavailable'
+            }
+          }
+        },
+        label: {
+          color: {
+            default: 'colors.card.button',
+            active: 'lighten(colors.card.button, 0.1)',
+            inactive: 'colors.card.buttonOff',
+            unavailable: 'colors.card.buttonUnavailable'
+          }
         }
       },
       text: 'components.button.text'

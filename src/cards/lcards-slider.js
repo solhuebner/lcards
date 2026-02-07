@@ -1484,71 +1484,30 @@ export class LCARdSSlider extends LCARdSButton {
         }
 
         // ====================================================================
-        // NEW: Render labels for ranges (after background rects)
-        // ====================================================================
-        if (ranges.length > 0) {
-            const labelColor = ColorUtils.resolveCssVariable(
-                gaugeConfig?.scale?.labels?.color ||
-                'var(--primary-text-color, #ffffff)'
-            );
-            const labelFontSize = gaugeConfig?.scale?.labels?.font_size || 12;
-
-            ranges.forEach((rangeConfig, idx) => {
-                if (!rangeConfig.label) return; // Skip if no label configured
-
-                const rangeMin = rangeConfig.min;
-                const rangeMax = rangeConfig.max;
-                const rangeMidValue = (rangeMin + rangeMax) / 2;
-                const midPercent = (rangeMidValue - min) / range;
-
-                if (isVertical) {
-                    // Vertical: label at midpoint Y, right-aligned
-                    const yPos = trackHeight * (1 - midPercent);
-                    const xPos = trackWidth - 5; // 5px from right edge
-
-                    svg += `
-                        <text class="range-label"
-                              x="${xPos}" y="${yPos}"
-                              font-size="${labelFontSize}px"
-                              font-weight="400"
-                              font-family="var(--primary-font-family, Antonio, sans-serif)"
-                              fill="${labelColor}"
-                              text-anchor="end"
-                              dy="0.35em">${rangeConfig.label}</text>
-                    `;
-                } else {
-                    // Horizontal: label at midpoint X, centered
-                    const xPos = trackWidth * midPercent;
-                    const yPos = 15; // 15px from top
-
-                    svg += `
-                        <text class="range-label"
-                              x="${xPos}" y="${yPos}"
-                              font-size="${labelFontSize}px"
-                              font-weight="400"
-                              font-family="var(--primary-font-family, Antonio, sans-serif)"
-                              fill="${labelColor}"
-                              text-anchor="middle">${rangeConfig.label}</text>
-                    `;
-                }
-            });
-        }
-
-        // ====================================================================
-        // Continue with existing major ticks rendering...
+        // Tick marks and labels
         // ====================================================================
 
         // Major tick configuration
         const majorEnabled = tickConfig?.major?.enabled !== false;
         const majorInterval = tickConfig?.major?.interval || 10; // Value units (not percentage)
-        const majorColor = ColorUtils.resolveCssVariable(tickConfig?.major?.color || 'var(--lcars-card-button, #ff9966)');
+        const majorColor = resolveStateColor({
+            actualState: this._entity?.state,
+            classifiedState: this._getButtonState(),
+            colorConfig: tickConfig?.major?.color,
+            fallback: 'var(--lcars-card-button, #ff9966)'
+        });
         const majorHeight = tickConfig?.major?.height; // undefined = full height
         const majorStrokeWidth = tickConfig?.major?.width || 2;
 
         // Minor tick configuration
         const minorEnabled = tickConfig?.minor?.enabled !== false;
         const minorInterval = tickConfig?.minor?.interval || 2; // Value units (not percentage)
-        const minorColor = ColorUtils.resolveCssVariable(tickConfig?.minor?.color || 'var(--lcars-card-button, #ff9966)');
+        const minorColor = resolveStateColor({
+            actualState: this._entity?.state,
+            classifiedState: this._getButtonState(),
+            colorConfig: tickConfig?.minor?.color,
+            fallback: 'var(--lcars-card-button, #ff9966)'
+        });
         const minorHeight = tickConfig?.minor?.height || 10;
         const minorStrokeWidth = tickConfig?.minor?.width || 1;
 
@@ -1556,6 +1515,14 @@ export class LCARdSSlider extends LCARdSButton {
         const labelsEnabled = labelConfig?.enabled !== false;
         const labelUnit = this._displayConfig.unit || labelConfig?.unit || '';
         const labelPadding = labelConfig?.padding || 3; // Padding between tick and label
+
+        // Label color - state-aware resolution for tick labels
+        const tickLabelColor = resolveStateColor({
+            actualState: this._entity?.state,
+            classifiedState: this._getButtonState(),
+            colorConfig: labelConfig?.color,
+            fallback: 'var(--lcars-card-button, #ff9966)'
+        });
 
         // Progress bar configuration
         const progressConfig = gaugeConfig?.progress_bar;
@@ -1596,25 +1563,24 @@ export class LCARdSSlider extends LCARdSButton {
                     const percent = ((positionValue - min) / range) * 100;
                     let x = (percent / 100) * trackWidth;
 
-                    // Skip first tick (adjacent to left border when present)
                     const edgeClearance = 5; // pixels
                     const isFirstTick = x < edgeClearance;
 
-                    if (!isFirstTick) {
-                        // If tick is at the very edge (no border), inset by half stroke width
-                        // so the full stroke is visible instead of being cut off
-                        const isAtRightEdge = Math.abs(x - trackWidth) < 0.5; // floating point tolerance
-                        if (isAtRightEdge) {
-                            x = trackWidth - (majorStrokeWidth / 2);
-                        }
+                    // Inset edge ticks so they're fully visible
+                    if (isFirstTick) {
+                        x = majorStrokeWidth / 2;
+                    }
+                    const isAtRightEdge = Math.abs(x - trackWidth) < 0.5; // floating point tolerance
+                    if (isAtRightEdge) {
+                        x = trackWidth - (majorStrokeWidth / 2);
+                    }
 
-                        // Major tick - full height or custom height
-                        const tickY2 = majorHeight !== undefined ? majorHeight : trackHeight;
-                        svg += `
+                    // Major tick - full height or custom height
+                    const tickY2 = majorHeight !== undefined ? majorHeight : trackHeight;
+                    svg += `
                     <line x1="${x}" y1="0" x2="${x}" y2="${tickY2}"
                           stroke="${majorColor}" stroke-width="${majorStrokeWidth}" />
                 `;
-                    }
 
                     // Label - positioned near bottom with proper spacing
                     if (labelsEnabled && !isFirstTick) {
@@ -1633,7 +1599,7 @@ export class LCARdSSlider extends LCARdSButton {
                             svg += `
                         <text x="${x}" y="${labelY}"
                               font-size="${labelFontSize}px" font-weight="400" font-family="var(--primary-font-family, Antonio, sans-serif)"
-                              fill="${majorColor}"
+                              fill="${tickLabelColor}"
                               text-anchor="end"
                               dx="${-labelPadding}" dy="0">${labelText}</text>
                     `;
@@ -1722,9 +1688,10 @@ export class LCARdSSlider extends LCARdSButton {
                     const ry = indicatorHeight / 2;
 
                     svg += `
-                        <ellipse cx="${indicatorX}" cy="${indicatorY}" rx="${rx}" ry="${ry}"
+                        <ellipse cx="0" cy="0" rx="${rx}" ry="${ry}"
                                  fill="${indicatorColor}"
-                                 ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}"` : ''} />
+                                 ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}"` : ''}
+                                 transform="translate(${indicatorX},${indicatorY}) rotate(${rotation})" />
                     `;
                 } else if (indicatorType === 'triangle') {
                     // Triangle with rotation support
@@ -1742,15 +1709,16 @@ export class LCARdSSlider extends LCARdSButton {
                     `;
                 } else {
                     // Line indicator (default)
-                    const lineX = indicatorX - (indicatorWidth / 2);
-                    const lineY = indicatorY - (indicatorHeight / 2);
+                    const halfWidth = indicatorWidth / 2;
+                    const halfHeight = indicatorHeight / 2;
 
                     svg += `
-                        <rect x="${lineX}" y="${lineY}"
+                        <rect x="${-halfWidth}" y="${-halfHeight}"
                               width="${indicatorWidth}" height="${indicatorHeight}"
                               fill="${indicatorColor}"
                               ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}"` : ''}
-                              rx="1" ry="1" />
+                              rx="1" ry="1"
+                              transform="translate(${indicatorX},${indicatorY}) rotate(${rotation})" />
                     `;
                 }
             }
@@ -1779,32 +1747,30 @@ export class LCARdSSlider extends LCARdSButton {
                     const percent = 100 - (((positionValue - min) / range) * 100);
                     let y = (percent / 100) * trackHeight;
 
-                    // Skip bottom tick (adjacent to bottom border when present)
                     const edgeClearance = 5; // pixels
                     const isBottomTick = y > (trackHeight - edgeClearance); // bottom tick (min value)
 
-                    if (!isBottomTick) {
-                        // If tick is at the very top edge (no border), inset by half stroke width
-                        // so the full stroke is visible instead of being cut off
-                        const isAtTopEdge = y < 0.5; // floating point tolerance
-                        if (isAtTopEdge) {
-                            y = majorStrokeWidth / 2;
-                        }
+                    // Inset edge ticks so they're fully visible
+                    if (isBottomTick) {
+                        y = trackHeight - (majorStrokeWidth / 2);
+                    }
+                    const isAtTopEdge = y < 0.5; // floating point tolerance
+                    if (isAtTopEdge) {
+                        y = majorStrokeWidth / 2;
+                    }
 
-                        // Determine tick width (full width or custom)
-                        const tickX2 = majorHeight !== undefined ? majorHeight : trackWidth;
+                    // Determine tick width (full width or custom)
+                    const tickX2 = majorHeight !== undefined ? majorHeight : trackWidth;
 
-                        // Draw horizontal tick line
-                        svg += `
+                    // Draw horizontal tick line
+                    svg += `
                     <line x1="0" y1="${y}" x2="${tickX2}" y2="${y}"
                           stroke="${majorColor}" stroke-width="${majorStrokeWidth}" />
                 `;
-                    }
 
                     // Draw label if enabled (to the right, below the line)
                     if (labelsEnabled && !isBottomTick) {
                         const labelText = `${displayValue}${labelUnit}`;
-                        const labelColor = ColorUtils.resolveCssVariable(labelConfig?.color || 'var(--lcars-card-button, #ff9966)');
                         const labelFontSizeVertical = labelConfig?.font_size || labelFontSize;
 
                         // Estimate label width and check bounds
@@ -1819,7 +1785,7 @@ export class LCARdSSlider extends LCARdSButton {
                         if (shouldRenderLabel) {
                             svg += `
                         <text x="${labelX}" y="${y}" font-size="${labelFontSizeVertical}px" font-weight="400" font-family="var(--primary-font-family, Antonio, sans-serif)"
-                              fill="${labelColor}" text-anchor="end"
+                              fill="${tickLabelColor}" text-anchor="end"
                               dx="0" dy="${labelVerticalOffset}">${labelText}</text>
                     `;
                         }
@@ -1909,9 +1875,10 @@ export class LCARdSSlider extends LCARdSButton {
                     const ry = indicatorHeight / 2;
 
                     svg += `
-                        <ellipse cx="${indicatorX}" cy="${indicatorY}" rx="${rx}" ry="${ry}"
+                        <ellipse cx="0" cy="0" rx="${rx}" ry="${ry}"
                                  fill="${indicatorColor}"
-                                 ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}"` : ''} />
+                                 ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}"` : ''}
+                                 transform="translate(${indicatorX},${indicatorY}) rotate(${rotation})" />
                     `;
                 } else if (indicatorType === 'triangle') {
                     // Triangle with rotation support (default: pointing right for vertical gauge)
@@ -1930,15 +1897,16 @@ export class LCARdSSlider extends LCARdSButton {
                 } else {
                     // Line indicator (horizontal for vertical gauge)
                     // For vertical gauge: height is line length (horizontal), width is thickness (vertical)
-                    const lineY = indicatorY - (indicatorWidth / 2);
-                    const lineX = indicatorX - (indicatorHeight / 2);
+                    const halfWidth = indicatorHeight / 2;
+                    const halfHeight = indicatorWidth / 2;
 
                     svg += `
-                        <rect x="${lineX}" y="${lineY}"
+                        <rect x="${-halfWidth}" y="${-halfHeight}"
                               width="${indicatorHeight}" height="${indicatorWidth}"
                               fill="${indicatorColor}"
                               ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}"` : ''}
-                              rx="1" ry="1" />
+                              rx="1" ry="1"
+                              transform="translate(${indicatorX},${indicatorY}) rotate(${rotation})" />
                     `;
                 }
             }
@@ -2874,9 +2842,10 @@ export class LCARdSSlider extends LCARdSButton {
                     const rx = indicatorWidth / 2;
                     const ry = indicatorHeight / 2;
                     svg += `
-                        <ellipse cx="${indicatorX}" cy="${indicatorY}" rx="${rx}" ry="${ry}"
+                        <ellipse cx="0" cy="0" rx="${rx}" ry="${ry}"
                                  fill="${indicatorColor}"
-                                 ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}"` : ''} />
+                                 ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}"` : ''}
+                                 transform="translate(${indicatorX},${indicatorY}) rotate(${rotation})" />
                     `;
                 } else if (indicatorType === 'triangle') {
                     const halfWidth = indicatorHeight / 2;
@@ -2890,14 +2859,15 @@ export class LCARdSSlider extends LCARdSButton {
                     `;
                 } else {
                     // Line indicator (horizontal for vertical gauge)
-                    const lineY = indicatorY - (indicatorWidth / 2);
-                    const lineX = indicatorX - (indicatorHeight / 2);
+                    const halfWidth = indicatorHeight / 2;
+                    const halfHeight = indicatorWidth / 2;
                     svg += `
-                        <rect x="${lineX}" y="${lineY}"
+                        <rect x="${-halfWidth}" y="${-halfHeight}"
                               width="${indicatorHeight}" height="${indicatorWidth}"
                               fill="${indicatorColor}"
                               ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}"` : ''}
-                              rx="1" ry="1" />
+                              rx="1" ry="1"
+                              transform="translate(${indicatorX},${indicatorY}) rotate(${rotation})" />
                     `;
                 }
             } else {
@@ -2914,9 +2884,10 @@ export class LCARdSSlider extends LCARdSButton {
                     const rx = indicatorWidth / 2;
                     const ry = indicatorHeight / 2;
                     svg += `
-                        <ellipse cx="${indicatorX}" cy="${indicatorY}" rx="${rx}" ry="${ry}"
+                        <ellipse cx="0" cy="0" rx="${rx}" ry="${ry}"
                                  fill="${indicatorColor}"
-                                 ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}"` : ''} />
+                                 ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}"` : ''}
+                                 transform="translate(${indicatorX},${indicatorY}) rotate(${rotation})" />
                     `;
                 } else if (indicatorType === 'triangle') {
                     const halfWidth = indicatorHeight / 2;
@@ -2930,14 +2901,15 @@ export class LCARdSSlider extends LCARdSButton {
                     `;
                 } else {
                     // Line indicator (vertical for horizontal gauge)
-                    const lineY = indicatorY - (indicatorHeight / 2);
-                    const lineX = indicatorX - (indicatorWidth / 2);
+                    const halfWidth = indicatorWidth / 2;
+                    const halfHeight = indicatorHeight / 2;
                     svg += `
-                        <rect x="${lineX}" y="${lineY}"
+                        <rect x="${-halfWidth}" y="${-halfHeight}"
                               width="${indicatorWidth}" height="${indicatorHeight}"
                               fill="${indicatorColor}"
                               ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}"` : ''}
-                              rx="1" ry="1" />
+                              rx="1" ry="1"
+                              transform="translate(${indicatorX},${indicatorY}) rotate(${rotation})" />
                     `;
                 }
             }

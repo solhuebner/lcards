@@ -73,7 +73,7 @@ class SliderConfigState {
 
         // 2. Infer from preset name (gauge-* = gauge, otherwise pills)
         if (this.preset) {
-            return this.preset.startsWith('gauge') ? 'gauge' : 'pills';
+            return this.preset.includes('gauge') ? 'gauge' : 'pills';
         }
 
         // 3. Default to pills
@@ -423,15 +423,6 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                         label: 'Style Preset',
                         helper: 'Quick styling (pills-basic, gauge-basic, etc.)'
                     },
-                    ...(state.preset ? [{
-                        type: 'custom',
-                        render: () => html`
-                            <lcards-message
-                                type="success"
-                                message="✓ Preset '${state.preset}' applied! Track style, colors, and spacing configured automatically.">
-                            </lcards-message>
-                        `
-                    }] : []),
                     ...(this.config.component ? [{
                         type: 'custom',
                         render: () => this._renderComponentInfo(this.config.component)
@@ -672,12 +663,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                             ?useColorPicker=${true}>
                         </lcards-color-section>
 
-                        <lcards-grid-layout columns="2">
-                            ${FormField.renderField(this, `${basePath}.label`, {
-                                label: 'Label',
-                                helper: 'Optional descriptive label (Cold, Normal, Hot)'
-                            })}
-
+                        <lcards-grid-layout columns="1">
                             ${FormField.renderField(this, `${basePath}.opacity`, {
                                 label: 'Opacity',
                                 helper: 'Background opacity (0-1, default: 0.3)'
@@ -955,16 +941,26 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     </lcards-grid-layout>
                 </lcards-form-section>
 
-                <!-- INLINE: Tick mark color -->
-                <lcards-color-section
+                <!-- State-aware color sections for ticks -->
+                <lcards-color-section-v2
                     .editor=${this}
                     basePath="style.gauge.scale.tick_marks.major.color"
-                    header="Tick Mark Color"
-                    description="Color for scale tick marks (both major and minor)"
-                    ?singleColor=${true}
-                    ?expanded=${false}
-                    ?useColorPicker=${true}>
-                </lcards-color-section>
+                    header="Major Tick Colors"
+                    description="State-based colors for major tick marks - supports custom states"
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                    ?allowCustomStates=${true}
+                    ?expanded=${false}>
+                </lcards-color-section-v2>
+
+                <lcards-color-section-v2
+                    .editor=${this}
+                    basePath="style.gauge.scale.tick_marks.minor.color"
+                    header="Minor Tick Colors"
+                    description="State-based colors for minor tick marks - supports custom states"
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                    ?allowCustomStates=${true}
+                    ?expanded=${false}>
+                </lcards-color-section-v2>
 
                 <!-- Scale Labels Subsection with INLINE COLOR -->
                 <lcards-form-section
@@ -996,16 +992,16 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     })}
                     </lcards-grid-layout>
 
-                    <!-- INLINE: Label color -->
-                    <lcards-color-section
+                    <!-- State-aware label colors -->
+                    <lcards-color-section-v2
                         .editor=${this}
                         basePath="style.gauge.scale.labels.color"
-                        header="Label Color"
-                        description="Color for scale numeric labels"
-                        ?singleColor=${true}
-                        ?expanded=${false}
-                        ?useColorPicker=${true}>
-                    </lcards-color-section>
+                        header="Label Colors"
+                        description="State-based colors for scale numeric labels - supports custom states"
+                        .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                        ?allowCustomStates=${true}
+                        ?expanded=${false}>
+                    </lcards-color-section-v2>
                 </lcards-form-section>
             </lcards-form-section>
 
