@@ -44,7 +44,7 @@ export function calculateZones(width, height) {
         range: {
             x: 148 * scaleX,
             y: 84 * scaleY,
-            width: 16 * scaleX,
+            width: 18 * scaleX,      // Wider to better display ranges (was 16)
             height: 418 * scaleY
         },
         solidBar: {
@@ -66,6 +66,61 @@ export function calculateZones(width, height) {
             height: 552 * scaleY    // To y:522 (before bottom vertical arm starts)
         }
     };
+}
+
+/**
+ * Render range segments with ] frame styling (extends left to cover background)
+ * @param {Object} zoneSpec - Range zone dimensions
+ * @param {Object} colors - Resolved colors
+ * @param {Object} style - Resolved style
+ * @param {Object} config - Card config
+ * @returns {string} SVG markup for range segments
+ */
+function renderRangeSegments(zoneSpec, colors, style, config) {
+    const ranges = style?.ranges || [];
+    if (ranges.length === 0) return '';
+
+    const displayMin = config.min ?? 0;
+    const displayMax = config.max ?? 100;
+    const displayRange = displayMax - displayMin;
+
+    const borderColor = style?.range?.border?.color || '#000000';
+    const borderGap = style?.range?.border?.gap ?? 2;
+
+    const height = zoneSpec.height;
+    const width = zoneSpec.width;
+
+    let svg = '';
+
+    ranges.forEach((range, index) => {
+        const rangeMin = range.min ?? displayMin;
+        const rangeMax = range.max ?? displayMax;
+        const rangeColor = range.color || '#CCCCCC';
+
+        const startPercent = (rangeMin - displayMin) / displayRange;
+        const endPercent = (rangeMax - displayMin) / displayRange;
+        const sizePercent = endPercent - startPercent;
+
+        const isFirstRange = index === 0;
+        const isLastRange = index === ranges.length - 1;
+
+        // Vertical: ranges stack from bottom to top
+        const rangeHeight = height * sizePercent;
+        const rangeY = height * (1 - endPercent);
+
+        // Background rect: extend left beyond zone to cover frame background
+        svg += `<rect x="${-borderGap}" y="${rangeY}" width="${width + borderGap}" height="${rangeHeight}" fill="${borderColor}" />`;
+
+        // Color rect: ] frame - borders only on outer edges
+        const topInset = isFirstRange ? borderGap : 0;
+        const bottomInset = isLastRange ? borderGap : 0;
+        const innerWidth = width - borderGap;  // Right border only
+        const innerHeight = Math.max(1, rangeHeight - topInset - bottomInset);
+
+        svg += `<rect x="${-borderGap}" y="${rangeY + topInset}" width="${innerWidth}" height="${innerHeight}" fill="${rangeColor}" />`;
+    });
+
+    return svg;
 }
 
 /**
@@ -96,7 +151,7 @@ export function render(context) {
     const frameThickness = style?.range?.frame?.thickness ?? 5;
     const armHorizontalHeight = style?.border?.arm?.horizontal_height ?? 16;
     const armVerticalWidth = style?.border?.arm?.vertical_width ?? 30;
-    const hasRanges = config.style?.range?.ranges && config.style.range.ranges.length > 0;
+    const hasRanges = style?.ranges && style.ranges.length > 0;
 
     return `
 <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
@@ -140,7 +195,14 @@ export function render(context) {
   </rect>
   ` : ''}
 
-  <!-- Progress bar zone (leftmost) -->
+  <!-- Range indicators zone (render first so progress thumb appears on top) -->
+  <g id="range-zone" data-zone="range"
+     transform="translate(${zones.range.x}, ${zones.range.y})"
+     data-bounds="${zones.range.x},${zones.range.y},${zones.range.width},${zones.range.height}">
+    ${hasRanges ? renderRangeSegments(zones.range, colors, style, config) : ''}
+  </g>
+
+  <!-- Progress bar zone (leftmost, renders after ranges for proper z-order) -->
   <g id="progress-zone" data-zone="progress"
      transform="translate(${zones.progress.x}, ${zones.progress.y})"
      data-bounds="${zones.progress.x},${zones.progress.y},${zones.progress.width},${zones.progress.height}">
@@ -152,12 +214,6 @@ export function render(context) {
         width="${zones.control.width}" height="${zones.control.height}"
         fill="none" stroke="none" pointer-events="all"
         data-bounds="${zones.control.x},${zones.control.y},${zones.control.width},${zones.control.height}" />
-
-  <!-- Range indicators zone -->
-  <g id="range-zone" data-zone="range"
-     transform="translate(${zones.range.x}, ${zones.range.y})"
-     data-bounds="${zones.range.x},${zones.range.y},${zones.range.width},${zones.range.height}">
-  </g>
 
   <!-- Track zone (pills or gauge - rightmost) -->
   <g id="track-zone" data-zone="track"

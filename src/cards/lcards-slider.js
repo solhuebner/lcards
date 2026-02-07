@@ -1402,7 +1402,7 @@ export class LCARdSSlider extends LCARdSButton {
      * @param {boolean} skipProgressBar - If true, don't render the progress bar (for components with separate progress zones)
      * @private
      */
-    _generateGaugeSVG(trackWidth, trackHeight, skipProgressBar = false) {
+    _generateGaugeSVG(trackWidth, trackHeight, skipProgressBar = false, skipRanges = false) {
         const gaugeConfig = this._sliderStyle?.gauge;
         const orientation = this._sliderStyle?.track?.orientation || 'horizontal';
         const isVertical = orientation === 'vertical';
@@ -1414,7 +1414,8 @@ export class LCARdSSlider extends LCARdSButton {
             height: trackHeight,
             orientation,
             value: this._sliderValue,
-            ranges: this._sliderStyle?.ranges || []  // NEW: Include ranges
+            ranges: skipRanges ? [] : (this._sliderStyle?.ranges || []),
+            skipRanges
         });
 
         if (this._memoizedGauge && this._memoizedGaugeConfig === configHash) {
@@ -1431,11 +1432,11 @@ export class LCARdSSlider extends LCARdSButton {
         const labelConfig = gaugeConfig?.scale?.labels;
 
         // ====================================================================
-        // NEW: Inject range backgrounds FIRST (behind ticks/labels)
+        // Range backgrounds (only if not using separate range zone)
         // ====================================================================
-        const ranges = this._sliderStyle?.ranges || [];
+        const ranges = skipRanges ? [] : (this._sliderStyle?.ranges || []);
         if (ranges.length > 0) {
-            lcardsLog.debug(`[LCARdSSlider] Rendering ${ranges.length} range backgrounds`);
+            lcardsLog.debug(`[LCARdSSlider] Rendering ${ranges.length} range backgrounds in gauge track`);
 
             ranges.forEach((rangeConfig, idx) => {
                 const rangeMin = rangeConfig.min;
@@ -2549,7 +2550,9 @@ export class LCARdSSlider extends LCARdSButton {
             trackContent = this._generatePillsContent(trackZone, orientation);
         } else if (this._mode === 'gauge') {
             // Pass skipProgressBar=true if component has separate progress zone
-            trackContent = this._generateGaugeContent(trackZone, orientation, !!progressZone);
+            // Pass skipRanges=true ONLY for non-Default components (Picard renders ranges separately)
+            const skipRangesInGauge = componentName !== 'default' && componentName !== 'basic';
+            trackContent = this._generateGaugeContent(trackZone, orientation, !!progressZone, skipRangesInGauge);
         }
 
         // Step 6: Inject content into shell using shadow DOM queries
@@ -2574,14 +2577,10 @@ export class LCARdSSlider extends LCARdSButton {
             }
         }
 
-        // Inject range indicators into range zone if it exists and ranges configured
-        const rangeZoneElement = shellElement.querySelector('#range-zone');
-        if (rangeZoneElement && rangeZone && this.config.ranges && this.config.ranges.length > 0) {
-            const rangeContent = this._generateRangeIndicators(rangeZone, orientation);
-            if (rangeContent) {
-                rangeZoneElement.innerHTML = rangeContent;
-            }
-        }
+        // Range rendering is ALWAYS handled internally:
+        // - Default component: Ranges integrated into pills colors or gauge background segments
+        // - Picard/other components: Ranges rendered by component's own render() function
+        // Therefore, NO external range injection needed here
 
         // Inject borders if configured
         this._injectBordersToElement(shellElement, width, height);
@@ -2707,11 +2706,11 @@ export class LCARdSSlider extends LCARdSButton {
      * @returns {string} SVG content for gauge
      * @private
      */
-    _generateGaugeContent(zoneSpec, orientation, skipProgressBar = false) {
-        lcardsLog.debug('[LCARdSSlider] _generateGaugeContent()', { zoneSpec, orientation, skipProgressBar });
+    _generateGaugeContent(zoneSpec, orientation, skipProgressBar = false, skipRanges = false) {
+        lcardsLog.debug('[LCARdSSlider] _generateGaugeContent()', { zoneSpec, orientation, skipProgressBar, skipRanges });
 
-        // Use existing _generateGaugeSVG - pass skipProgressBar flag
-        return this._generateGaugeSVG(zoneSpec.width, zoneSpec.height, skipProgressBar);
+        // Use existing _generateGaugeSVG - pass skip flags
+        return this._generateGaugeSVG(zoneSpec.width, zoneSpec.height, skipProgressBar, skipRanges);
     }
 
     /**
@@ -2894,7 +2893,7 @@ export class LCARdSSlider extends LCARdSButton {
         const isVertical = orientation === 'vertical';
         const width = zoneSpec.width;
         const height = zoneSpec.height;
-        const ranges = this.config.ranges || [];
+        const ranges = this._sliderStyle?.ranges || [];
 
         if (ranges.length === 0) {
             return '';
@@ -2906,7 +2905,7 @@ export class LCARdSSlider extends LCARdSButton {
 
         // Get border styling from config
         const borderColor = this._sliderStyle?.range?.border?.color || '#000000';
-        const borderGap = this._sliderStyle?.range?.border?.gap || 5;
+        const borderGap = this._sliderStyle?.range?.border?.gap ?? 2;  // Default 2px (reduced from 5)
 
         let svg = '';
 
@@ -2921,17 +2920,21 @@ export class LCARdSSlider extends LCARdSButton {
             const endPercent = (rangeMax - displayMin) / displayRange;
             const sizePercent = endPercent - startPercent;
 
+            // Determine which borders to draw (avoid gaps between ranges)
+            const isFirstRange = index === 0;
+            const isLastRange = index === ranges.length - 1;
+
             if (isVertical) {
                 // Vertical: ranges stack from bottom to top (Y axis inverted)
                 const rangeHeight = height * sizePercent;
                 const rangeY = height * (1 - endPercent);  // Invert Y for bottom-up fill
 
-                // Outer rect (black border)
+                // Outer rect (border)
                 svg += `<rect x="0" y="${rangeY}" width="${width}" height="${rangeHeight}" fill="${borderColor}" />`;
 
-                // Inner rect (range color) - inset by borderGap
-                const innerWidth = Math.max(1, width - (2 * borderGap));
-                const innerHeight = Math.max(1, rangeHeight - (2 * borderGap));
+                // Inner rect (range color) - inset by borderGap on all sides
+                const innerWidth = Math.max(1, width - (borderGap * 2));
+                const innerHeight = Math.max(1, rangeHeight - (borderGap * 2));
                 const innerX = borderGap;
                 const innerY = rangeY + borderGap;
 
