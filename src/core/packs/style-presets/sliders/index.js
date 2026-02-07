@@ -27,21 +27,6 @@ export const SLIDER_PRESETS = {
       background: 'theme:components.slider.track.background',
       margin: 'theme:components.slider.track.margin',
     },
-
-    // Text configuration (directly at root)
-    text: {
-      default: {
-        font_family: 'theme:typography.fontFamily.primary',
-        font_size: 'theme:typography.fontSize.base',
-        color: {
-          default: 'theme:components.button.text.color.active',
-          active: 'theme:components.button.text.color.active',
-          inactive: 'theme:components.button.text.color.inactive',
-          unavailable: 'theme:components.button.text.color.unavailable'
-        }
-      }
-    },
-
     // Border configuration (directly at root)
     border: {
       left: {
@@ -84,6 +69,20 @@ export const SLIDER_PRESETS = {
           unavailable: 'theme:components.slider.border.color.unavailable'
         }
       }
+    },
+
+    // Text configuration (directly at root)
+    text: {
+      default: {
+        font_family: 'theme:typography.fontFamily.primary',
+        font_size: 'theme:typography.fontSize.base',
+        color: {
+          default: 'theme:components.button.text.color.active',
+          active: 'theme:components.button.text.color.active',
+          inactive: 'theme:components.button.text.color.inactive',
+          unavailable: 'theme:components.button.text.color.unavailable'
+        }
+      }
     }
   },
 
@@ -92,18 +91,7 @@ export const SLIDER_PRESETS = {
   // =====================================
   'pills-basic': {
     extends: 'slider.base',
-    description: 'Segmented pill slider for interactive controls',
-
-    border: {
-      top: {
-        enabled: true,
-        size: 10
-      },
-      left: {
-        enabled: true,
-        size: 120
-      }
-    },
+    description: 'Segmented pill slider',
 
     // Track configuration overrides (directly at root)
     track: {
@@ -137,6 +125,26 @@ export const SLIDER_PRESETS = {
   },
 
   // =====================================
+  // PILLS PRESET - Segmented slider
+  // =====================================
+  'pills-left-border': {
+    extends: 'slider.pills-basic',
+    description: 'Left border with pills slider. ',
+
+    border: {
+      top: {
+        enabled: true,
+        size: 10
+      },
+      left: {
+        enabled: true,
+        size: 120
+      }
+    }
+  },
+
+
+  // =====================================
   // GAUGE PRESET - Ruler style
   // =====================================
   'gauge-basic': {
@@ -147,7 +155,15 @@ export const SLIDER_PRESETS = {
     track: {
       type: 'gauge',  // ✅ THIS determines gauge mode
       margin: 0  // Override base margin for seamless ruler
-    },
+    }
+  },
+
+  // =====================================
+  // GAUGE PRESET - Ruler style with left border
+  // =====================================
+  'gauge-left-border': {
+    extends: 'slider.gauge-basic',
+    description: 'Left border with gauge slider.',
     border: {
       top: {
         enabled: true,
@@ -158,38 +174,5 @@ export const SLIDER_PRESETS = {
         size: 120
       }
     },
-    // Gauge configuration (directly at root)
-    gauge2: {
-      progress_bar: {
-        color: 'theme:components.slider.gauge.progress.color',
-        height: 'theme:components.slider.gauge.progress.height',
-        radius: 2
-      },
-      scale: {
-        tick_marks: {
-          major: {
-            enabled: true,
-            interval: 10,
-            color: 'theme:components.slider.gauge.tick.color',
-            height: 20,
-            width: 2
-          },
-          minor: {
-            enabled: true,
-            interval: 2,
-            color: 'theme:components.slider.gauge.tick.color',
-            height: 10,
-            width: 1
-          }
-        },
-        labels: {
-          enabled: true,
-          unit: '',
-          color: 'theme:components.slider.gauge.tick.color',
-          font_size: 14,
-          padding: 3
-        }
-      }
-    }
   }
 };

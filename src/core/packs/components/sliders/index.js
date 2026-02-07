@@ -13,40 +13,9 @@ import defaultComponent from './default.js';
 import picardComponent from './picard.js';
 
 /**
- * Basic Slider Component (Unified)
- * Square viewBox with preserveAspectRatio="none" for flexible orientation
- * Orientation controlled by style.track.orientation config, not component
- * ViewBox: 100x100 (normalized, stretches to fit container)
- */
-const sliderBasicSvg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-  <metadata>
-    <title>LCARdS Basic Slider Component</title>
-    <description>Unified slider shell for horizontal or vertical orientation</description>
-  </metadata>
-
-  <!-- Track zone: normalized to square -->
-  <g id="track-zone"
-     data-zone="track"
-     data-bounds="10,10,80,80">
-    <!-- Card injects pills/gauge here -->
-  </g>
-
-  <!-- Control zone: full area -->
-  <rect id="control-zone"
-        data-zone="control"
-        data-bounds="0,0,100,100"
-        x="0" y="0"
-        width="100" height="100"
-        fill="none"
-        stroke="none"
-        pointer-events="none" />
-</svg>`;
-
-/**
  * Slider component registry
  *
- * Base component: 'basic' (orientation-agnostic, stretches via CSS)
+ * Base component: 'default' (orientation-agnostic, render function architecture)
  * Styled components: Decorative variants with locked orientation (e.g., 'picard')
  *
  * Orientation is controlled by style.track.orientation config, NOT component choice.
@@ -55,14 +24,7 @@ const sliderBasicSvg = `<?xml version="1.0" encoding="UTF-8"?>
  * @type {Object.<string, {svg: string, orientation: string, features: string[]}>}
  */
 export const sliderComponents = {
-    // Basic shell - works with any orientation (legacy - kept for compatibility)
-    'basic': {
-        svg: sliderBasicSvg,
-        orientation: 'auto',  // Adapts to style.track.orientation
-        features: []
-    },
-
-    // Default component - render function architecture (replaces basic)
+    // Default component - render function architecture
     'default': defaultComponent,
 
     // Picard component - render function architecture

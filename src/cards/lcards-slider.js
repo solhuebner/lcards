@@ -151,7 +151,7 @@ export class LCARdSSlider extends LCARdSButton {
                 }
 
                 .text-field {
-                    font-family: 'LCARS', 'Antonio', sans-serif;
+                    font-family: var(--primary-font-family, 'Antonio', sans-serif);
                     font-size: 14px;
                     line-height: 1.2;
                     color: var(--lcars-white, #ffffff);
@@ -737,9 +737,9 @@ export class LCARdSSlider extends LCARdSButton {
             }
         }
 
-        // Clear existing borders ONLY for basic/default component
+        // Clear existing borders ONLY for default component
         // Styled components have designed borders that should be preserved
-        if (!this.config.component || this.config.component === 'basic' || this.config.component === 'default') {
+        if (!this.config.component || this.config.component === 'default') {
             borderZone.innerHTML = '';
         } else {
             // For styled components, only remove dynamically added borders (not component's original content)
@@ -1511,7 +1511,7 @@ export class LCARdSSlider extends LCARdSButton {
                               x="${xPos}" y="${yPos}"
                               font-size="${labelFontSize}px"
                               font-weight="400"
-                              font-family="Antonio"
+                              font-family="var(--primary-font-family, Antonio, sans-serif)"
                               fill="${labelColor}"
                               text-anchor="end"
                               dy="0.35em">${rangeConfig.label}</text>
@@ -1526,7 +1526,7 @@ export class LCARdSSlider extends LCARdSButton {
                               x="${xPos}" y="${yPos}"
                               font-size="${labelFontSize}px"
                               font-weight="400"
-                              font-family="Antonio"
+                              font-family="var(--primary-font-family, Antonio, sans-serif)"
                               fill="${labelColor}"
                               text-anchor="middle">${rangeConfig.label}</text>
                     `;
@@ -1632,7 +1632,7 @@ export class LCARdSSlider extends LCARdSButton {
                         if (shouldRenderLabel) {
                             svg += `
                         <text x="${x}" y="${labelY}"
-                              font-size="${labelFontSize}px" font-weight="400" font-family="Antonio"
+                              font-size="${labelFontSize}px" font-weight="400" font-family="var(--primary-font-family, Antonio, sans-serif)"
                               fill="${majorColor}"
                               text-anchor="end"
                               dx="${-labelPadding}" dy="0">${labelText}</text>
@@ -1818,7 +1818,7 @@ export class LCARdSSlider extends LCARdSButton {
 
                         if (shouldRenderLabel) {
                             svg += `
-                        <text x="${labelX}" y="${y}" font-size="${labelFontSizeVertical}px" font-weight="400" font-family="Antonio"
+                        <text x="${labelX}" y="${y}" font-size="${labelFontSizeVertical}px" font-weight="400" font-family="var(--primary-font-family, Antonio, sans-serif)"
                               fill="${labelColor}" text-anchor="end"
                               dx="0" dy="${labelVerticalOffset}">${labelText}</text>
                     `;
@@ -2250,17 +2250,21 @@ export class LCARdSSlider extends LCARdSButton {
         // Calculate relative position (0 = top, 1 = bottom)
         const relativeY = (event.clientY - rect.top) / rect.height;
 
-        // Convert to value (inverted: bottom = min, top = max)
-        const { min, max } = this._controlConfig;
-        let value = max - (relativeY * (max - min));
+        // Convert to value using DISPLAY range (for visual alignment with gauge)
+        // Then clamp to CONTROL range (what user can actually set)
+        const displayMin = this._displayConfig.min;
+        const displayMax = this._displayConfig.max;
+        let value = displayMax - (relativeY * (displayMax - displayMin));
 
         // Apply invert fill if configured
         if (this._invertFill) {
-            value = max - value + min;
+            value = displayMax - value + displayMin;
         }
 
-        // Clamp and apply step
-        value = Math.max(min, Math.min(max, value));
+        // Clamp to control range and apply step
+        const controlMin = this._controlConfig.min;
+        const controlMax = this._controlConfig.max;
+        value = Math.max(controlMin, Math.min(controlMax, value));
         const step = this._controlConfig.step || 1;
         value = Math.round(value / step) * step;
 
@@ -2270,8 +2274,10 @@ export class LCARdSSlider extends LCARdSButton {
             rectHeight: rect.height,
             relativeY,
             value,
-            min,
-            max
+            displayMin,
+            displayMax,
+            controlMin,
+            controlMax
         });
 
         this._sliderValue = value;
@@ -2292,17 +2298,21 @@ export class LCARdSSlider extends LCARdSButton {
         // Calculate relative position (0 = top, 1 = bottom)
         const relativeY = (touch.clientY - rect.top) / rect.height;
 
-        // Convert to value (inverted: bottom = min, top = max)
-        const { min, max } = this._controlConfig;
-        let value = max - (relativeY * (max - min));
+        // Convert to value using DISPLAY range (for visual alignment with gauge)
+        // Then clamp to CONTROL range (what user can actually set)
+        const displayMin = this._displayConfig.min;
+        const displayMax = this._displayConfig.max;
+        let value = displayMax - (relativeY * (displayMax - displayMin));
 
         // Apply invert fill if configured
         if (this._invertFill) {
-            value = max - value + min;
+            value = displayMax - value + displayMin;
         }
 
-        // Clamp and apply step
-        value = Math.max(min, Math.min(max, value));
+        // Clamp to control range and apply step
+        const controlMin = this._controlConfig.min;
+        const controlMax = this._controlConfig.max;
+        value = Math.max(controlMin, Math.min(controlMax, value));
         const step = this._controlConfig.step || 1;
         value = Math.round(value / step) * step;
 
@@ -2456,7 +2466,7 @@ export class LCARdSSlider extends LCARdSButton {
 
         // Step 1.3: For Default component, override text zone with border-aware calculation
         const componentName = this.config.component || 'default';
-        if (componentName === 'default' || componentName === 'basic') {
+        if (componentName === 'default') {
             const borderBasedZones = this._calculateZonesFromBorders(width, height);
             zones.text = borderBasedZones.text;
             this._zones.set('text', { bounds: borderBasedZones.text });
@@ -2551,7 +2561,7 @@ export class LCARdSSlider extends LCARdSButton {
         } else if (this._mode === 'gauge') {
             // Pass skipProgressBar=true if component has separate progress zone
             // Pass skipRanges=true ONLY for non-Default components (Picard renders ranges separately)
-            const skipRangesInGauge = componentName !== 'default' && componentName !== 'basic';
+            const skipRangesInGauge = componentName !== 'default';
             trackContent = this._generateGaugeContent(trackZone, orientation, !!progressZone, skipRangesInGauge);
         }
 
@@ -2777,9 +2787,10 @@ export class LCARdSSlider extends LCARdSButton {
             }
         }
 
-        // Calculate progress percentage
-        const min = this._controlConfig.min;
-        const max = this._controlConfig.max;
+        // Calculate progress percentage using DISPLAY range (not control range)
+        // This ensures the visual position matches the gauge scale
+        const min = this._displayConfig.min;
+        const max = this._displayConfig.max;
         const value = Number(this._sliderValue);
         const range = max - min;
         const progress = range > 0 ? (value - min) / range : 0;
@@ -3002,7 +3013,7 @@ export class LCARdSSlider extends LCARdSButton {
                     const fontSize = Math.min(12, height / 20);
                     svg += `<text x="${width / 2}" y="${labelY}"
                                   text-anchor="middle" dominant-baseline="middle"
-                                  font-family="LCARS, Antonio, sans-serif" font-size="${fontSize}"
+                                  font-family="var(--primary-font-family, Antonio, sans-serif)" font-size="${fontSize}"
                                   fill="#ffffff">${rangeLabel}</text>`;
                 }
             } else {
@@ -3027,7 +3038,7 @@ export class LCARdSSlider extends LCARdSButton {
                     const fontSize = Math.min(12, height / 3);
                     svg += `<text x="${labelX}" y="${height / 2}"
                                   text-anchor="middle" dominant-baseline="middle"
-                                  font-family="LCARS, Antonio, sans-serif" font-size="${fontSize}"
+                                  font-family="var(--primary-font-family, Antonio, sans-serif)" font-size="${fontSize}"
                                   fill="#ffffff">${rangeLabel}</text>`;
                 }
             }
@@ -3109,8 +3120,8 @@ export class LCARdSSlider extends LCARdSButton {
     static getStubConfig() {
         return {
             type: 'custom:lcards-slider',
-            component: 'basic',
-            preset: 'pills-basic'
+            component: 'default',
+            preset: 'pills-left-border'
         };
     }
 

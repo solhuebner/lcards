@@ -394,18 +394,9 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
 
         return [
             {
-                type: 'custom',
-                render: () => html`
-                    <lcards-message
-                        type="info"
-                        message="Configure your slider: Choose a component shell (basic or styled), apply a preset for quick styling, and select the entity to control.">
-                    </lcards-message>
-                `
-            },
-            {
                 type: 'section',
                 header: 'Component & Preset',
-                description: 'Shell SVG and visual style presets',
+                description: 'Choose your slider type and a style presets',
                 icon: 'mdi:shape',
                 expanded: true,
                 outlined: true,
@@ -1475,7 +1466,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
         const orientation = metadata.orientation || 'auto';
 
         return html`
-            <div style="margin-top: 12px; padding: 12px; background: var(--secondary-background-color); border-radius: 8px; border: 1px solid var(--divider-color);">
+            <div style="margin-top: 12px; padding: 12px; background: var(--primary-background-color); border-radius: var(--ha-card-border-radius, 12px);">
                 <div style="font-weight: 600; margin-bottom: 8px; color: var(--primary-text-color);">
                     ${metadata.displayName || componentName}
                 </div>

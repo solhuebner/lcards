@@ -147,22 +147,12 @@ export function render(context) {
     // User-configurable options with defaults
     const showAnimation = config.show_animation !== false;
     const animationSpeed = config.animation_speed || 2;
-    const borderRadius = style?.border?.radius ?? 0;
-    const frameThickness = style?.range?.frame?.thickness ?? 5;
-    const armHorizontalHeight = style?.border?.arm?.horizontal_height ?? 16;
-    const armVerticalWidth = style?.border?.arm?.vertical_width ?? 30;
     const hasRanges = style?.ranges && style.ranges.length > 0;
 
     return `
 <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <clipPath id="picard-clip">
-      <rect x="0" y="0" width="${width}" height="${height}" rx="${borderRadius}" />
-    </clipPath>
-  </defs>
-
   <!-- Background (transparent) -->
-  <rect width="${width}" height="${height}" fill="transparent" rx="${borderRadius}" />
+  <rect width="${width}" height="${height}" fill="transparent" />
 
   <!-- Top-left border ] shape (state-aware: blue when active) -->
   <path fill="${colors.borderTop}" d="M0,0 L${175*sx},0 L${175*sx},${64*sy} L${145*sx},${64*sy} L${145*sx},${16*sy} L0,${16*sy} Z" />
@@ -188,10 +178,16 @@ export function render(context) {
   <!-- Solid vertical bar (connector between range and track) -->
   <rect x="${zones.solidBar.x}" y="${zones.solidBar.y}" width="${zones.solidBar.width}" height="${zones.solidBar.height}" fill="${colors.solidBar}" />
 
-  <!-- Animation indicator (conditional + customizable speed) -->
+  <!-- Animation indicators (3 squares with staggered timing) -->
   ${showAnimation ? `
-  <rect x="${2*sx}" y="${32*sy}" width="${16*sx}" height="${18*sy}" fill="${colors.animationIndicator}">
+  <rect x="${2*sx}" y="${28*sy}" width="${26*sx}" height="${24*sy}" fill="${colors.animationIndicator}">
     <animate attributeName="opacity" values="1;0.3;1" dur="${animationSpeed}s" repeatCount="indefinite" />
+  </rect>
+  <rect x="${38*sx}" y="${28*sy}" width="${26*sx}" height="${24*sy}" fill="${colors.animationIndicator}">
+    <animate attributeName="opacity" values="1;0.3;1" dur="${animationSpeed}s" begin="${animationSpeed/3}s" repeatCount="indefinite" />
+  </rect>
+  <rect x="${74*sx}" y="${28*sy}" width="${26*sx}" height="${24*sy}" fill="${colors.animationIndicator}">
+    <animate attributeName="opacity" values="1;0.3;1" dur="${animationSpeed}s" begin="${(animationSpeed*2)/3}s" repeatCount="indefinite" />
   </rect>
   ` : ''}
 
@@ -254,10 +250,10 @@ export const metadata = {
             key: 'show_animation',
             type: 'boolean',
             default: true,
-            description: 'Show pulsing animation indicator in top-left',
+            description: 'Show pulsing animation indicators in top-left',
             'x-ui-hints': {
                 label: 'Show Animation',
-                helper: 'Show pulsing animation indicator in top-left (default: true)',
+                helper: 'Show 3 pulsing animation indicators in top-left (default: true)',
                 selector: { boolean: {} }
             }
         },
@@ -277,100 +273,6 @@ export const metadata = {
                         max: 10
                     }
                 }
-            }
-        },
-        {
-            key: 'style.border.radius',
-            type: 'number',
-            default: 0,
-            description: 'Border radius for rounded corners',
-            'x-ui-hints': {
-                label: 'Border Radius',
-                helper: 'Border radius for rounded corners (default: 0)',
-                selector: {
-                    number: {
-                        mode: 'box',
-                        step: 1,
-                        min: 0,
-                        max: 50
-                    }
-                }
-            }
-        },
-        {
-            key: 'style.range.frame.thickness',
-            type: 'number',
-            default: 5,
-            description: 'Thickness of decorative range frame',
-            'x-ui-hints': {
-                label: 'Frame Thickness',
-                helper: 'Thickness of decorative range frame (default: 5)',
-                selector: {
-                    number: {
-                        mode: 'box',
-                        step: 1,
-                        min: 0,
-                        max: 20
-                    }
-                }
-            }
-        },
-        {
-            key: 'style.range.frame.color',
-            type: 'color',
-            default: '#2765FD',
-            description: 'Color of decorative range frame',
-            'x-ui-hints': {
-                label: 'Frame Color',
-                helper: 'Color of decorative range frame (default: #2765FD)',
-                format: 'color-lcards'
-            }
-        },
-        {
-            key: 'style.border.arm.horizontal_height',
-            type: 'number',
-            default: 16,
-            description: 'Height of horizontal arms on corner borders',
-            'x-ui-hints': {
-                label: 'Horizontal Arm Height',
-                helper: 'Height of horizontal parts of ] [ corner borders (default: 16)',
-                selector: {
-                    number: {
-                        mode: 'box',
-                        step: 1,
-                        min: 8,
-                        max: 40
-                    }
-                }
-            }
-        },
-        {
-            key: 'style.border.arm.vertical_width',
-            type: 'number',
-            default: 30,
-            description: 'Width of vertical arms on corner borders',
-            'x-ui-hints': {
-                label: 'Vertical Arm Width',
-                helper: 'Width of vertical parts of ] [ corner borders (default: 30)',
-                selector: {
-                    number: {
-                        mode: 'box',
-                        step: 1,
-                        min: 10,
-                        max: 60
-                    }
-                }
-            }
-        },
-        {
-            key: 'style.solid_bar.color',
-            type: 'color',
-            default: '#9DA4B9',
-            description: 'Color of solid vertical connector bar',
-            'x-ui-hints': {
-                label: 'Solid Bar Color',
-                helper: 'Color of vertical bar between ranges and gauge (default: #9DA4B9)',
-                format: 'color-lcards'
             }
         }
     ],
