@@ -60,10 +60,10 @@ export function calculateZones(width, height) {
             height: 441 * scaleY
         },
         text: {
-            x: 0,
-            y: 20 * scaleY,
-            width: 145 * scaleX,
-            height: 50 * scaleY
+            x: 0 * scaleX,         // After left border decorations with padding
+            y: 16 * scaleY,         // After top horizontal arm (arm thickness = 16)
+            width: 365 * scaleX,    // Usable width (365 - 20 left - 20 right padding)
+            height: 552 * scaleY    // To y:522 (before bottom vertical arm starts)
         }
     };
 }
