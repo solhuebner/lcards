@@ -912,11 +912,6 @@ export class LCARdSProvenanceTab extends LitElement {
         font-weight: 500;
       }
 
-      .tree-node-content.selected .node-source-badge {
-        background: rgba(255, 255, 255, 0.2);
-        color: white;
-      }
-
       .tree-node-content.selected ha-icon {
         color: white;
       }
@@ -953,43 +948,6 @@ export class LCARdSProvenanceTab extends LitElement {
         font-family: 'Roboto Mono', monospace;
         font-size: 13px;
         color: var(--primary-text-color);
-      }
-
-      .node-source-badge {
-        font-size: 11px;
-        padding: 2px 8px;
-        border-radius: 12px;
-        background: var(--secondary-background-color);
-        color: var(--secondary-text-color);
-        font-weight: 500;
-      }
-
-      /* Source Layer Color Coding */
-      .node-source-badge[data-source="user_config"],
-      .node-source-badge[data-source="user"] {
-        background: #4caf50;
-        color: white;
-      }
-
-      .node-source-badge[data-source*="preset"] {
-        background: #ff9800;
-        color: white;
-      }
-
-      .node-source-badge[data-source*="theme"] {
-        background: #9c27b0;
-        color: white;
-      }
-
-      .node-source-badge[data-source*="card_defaults"],
-      .node-source-badge[data-source="defaults"] {
-        background: #2196f3;
-        color: white;
-      }
-
-      .node-source-badge[data-source*="rules"] {
-        background: #f44336;
-        color: white;
       }
 
       .tree-children {
@@ -2236,9 +2194,15 @@ export class LCARdSProvenanceTab extends LitElement {
                 ${usedByTokens.length > 0 ? html`<span class="tree-badge" title="Referenced by ${usedByTokens.length} token(s)">🔖${usedByTokens.length}</span>` : ''}
               </span>
               ${!hasChildren ? html`
-                <span class="node-source-badge" data-source="${source}">
-                  ${this._formatLayerName(source)}
-                </span>
+                <ha-assist-chip
+                  .label=${this._formatLayerName(source)}
+                  .filled=${true}
+                  style="
+                    --ha-assist-chip-filled-container-color: ${this._getSourceBadgeColor(source)};
+                    --md-sys-color-primary: white;
+                    --md-sys-color-on-surface: white;
+                  ">
+                </ha-assist-chip>
               ` : ''}
             </div>
             ${hasChildren && isExpanded ? html`
@@ -3971,6 +3935,15 @@ export class LCARdSProvenanceTab extends LitElement {
       'unknown': 'Unknown'
     };
     return names[layer] || layer;
+  }
+
+  _getSourceBadgeColor(source) {
+    if (source === 'user_config' || source === 'user') return '#4caf50';
+    if (source?.includes('preset')) return '#ff9800';
+    if (source?.includes('theme')) return '#9c27b0';
+    if (source?.includes('card_defaults') || source === 'defaults') return '#2196f3';
+    if (source?.includes('rules')) return '#f44336';
+    return 'var(--secondary-background-color)';
   }
 
   _formatValue(value) {

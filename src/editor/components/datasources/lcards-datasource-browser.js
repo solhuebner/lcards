@@ -318,7 +318,15 @@ export class LCARdSDataSourceBrowser extends LitElement {
         <div class="detail-header">
           <ha-icon icon="${this._selectedNode.icon}"></ha-icon>
           <h3>${label}</h3>
-          <span class="detail-type">${type}</span>
+          <ha-assist-chip
+            .label=${type.toUpperCase()}
+            .filled=${true}
+            style="
+              --ha-assist-chip-filled-container-color: var(--primary-color);
+              --md-sys-color-primary: var(--text-primary-color, white);
+              --md-sys-color-on-surface: var(--text-primary-color, white);
+            ">
+          </ha-assist-chip>
         </div>
 
         ${this._renderActionButtons()}
@@ -1029,16 +1037,6 @@ export class LCARdSDataSourceBrowser extends LitElement {
         margin: 0;
         flex: 1;
         font-size: 18px;
-      }
-
-      .detail-type {
-        padding: 4px 12px;
-        background: var(--primary-color);
-        color: var(--text-primary-color, white);
-        border-radius: 12px;
-        font-size: 12px;
-        font-weight: 500;
-        text-transform: uppercase;
       }
 
       /* Action buttons */

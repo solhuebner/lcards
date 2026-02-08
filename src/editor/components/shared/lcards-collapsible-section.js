@@ -3,7 +3,7 @@
  *
  * A reusable collapsible section component with consistent styling across the editor.
  * Features:
- * - Left-justified title with optional badge
+ * - Left-justified title
  * - Right-justified count chip
  * - Animated chevron indicator (always visible)
  * - Smooth expand/collapse transitions
@@ -21,12 +21,6 @@ export class LCARdSCollapsibleSection extends LitElement {
       // Section title text
       title: { type: String },
 
-      // Optional badge text (e.g., "theme", "user", "defaults")
-      badge: { type: String },
-
-      // Badge type for color styling (matches badge text typically)
-      badgeType: { type: String, attribute: 'badge-type' },
-
       // Count to display in the chip
       count: { type: Number },
 
@@ -41,8 +35,6 @@ export class LCARdSCollapsibleSection extends LitElement {
   constructor() {
     super();
     this.title = '';
-    this.badge = '';
-    this.badgeType = '';
     this.count = 0;
     this.expanded = false;
     this.countLabel = 'items';
@@ -135,61 +127,6 @@ export class LCARdSCollapsibleSection extends LitElement {
         color: var(--primary-text-color);
       }
 
-      .section-badge {
-        padding: 4px 10px;
-        border-radius: 12px;
-        font-size: 11px;
-        font-weight: 500;
-        text-transform: uppercase;
-      }
-
-      /* Badge color variants */
-      .section-badge.defaults {
-        background: #9e9e9e22;
-        color: #9e9e9e;
-      }
-
-      .section-badge.theme {
-        background: #2196f322;
-        color: #2196f3;
-      }
-
-      .section-badge.user {
-        background: #4caf5022;
-        color: #4caf50;
-      }
-
-      .section-badge.presets {
-        background: #ff980022;
-        color: #ff9800;
-      }
-
-      .section-badge.rules {
-        background: #f4433622;
-        color: #f44336;
-      }
-
-      .section-badge.templates {
-        background: #9c27b022;
-        color: #9c27b0;
-      }
-
-      .section-badge.unknown {
-        background: #60606022;
-        color: #606060;
-      }
-
-      .section-count {
-        font-size: 12px;
-        color: var(--primary-text-color);
-        background: var(--secondary-background-color);
-        border: 1px solid var(--primary-color);
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-weight: 500;
-        opacity: 0.9;
-      }
-
       .section-content {
         max-height: 0;
         overflow: hidden;
@@ -220,15 +157,20 @@ export class LCARdSCollapsibleSection extends LitElement {
           <div class="header-left">
             <span class="section-chevron" aria-hidden="true">▶</span>
             <span class="section-title">${this.title}</span>
-            ${this.badge ? html`
-              <span class="section-badge ${this.badgeType || this.badge}">${this.badge}</span>
-            ` : ''}
           </div>
           <div class="header-right">
             <div class="actions-slot" @click=${(e) => e.stopPropagation()}>
               <slot name="actions"></slot>
             </div>
-            <span class="section-count">${this.count} ${this.countLabel}</span>
+            <ha-assist-chip
+              .label=${`${this.count} ${this.countLabel}`}
+              style="
+                --md-assist-chip-outline-color: var(--primary-color);
+                --md-sys-color-primary: var(--primary-text-color);
+                --md-sys-color-on-surface: var(--primary-text-color);
+                opacity: 0.9;
+              ">
+            </ha-assist-chip>
           </div>
         </div>
         <div class="section-content" id="section-content" role="region">
