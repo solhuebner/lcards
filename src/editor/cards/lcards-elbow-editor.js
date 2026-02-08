@@ -204,8 +204,8 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                 ?expanded=${true}
                 ?outlined=${true}>
 
-                <div style="padding: 20px; background: var(--ha-card-background, #1c1c1c); border-radius: 8px; text-align: center;">
-                    <svg viewBox="0 0 400 300" style="max-width: 500px; width: 100%; height: auto;">
+                <div style="padding: 30px; background: var(--ha-card-background, #1c1c1c); border-radius: var(--ha-card-border-radius, 12px); text-align: center;">
+                    <svg viewBox="0 0 400 250" style="max-width: 500px; width: 100%; height: auto;">
                         <!-- Background -->
                         <rect x="0" y="0" width="400" height="300" fill="transparent" stroke="none"/>
 
@@ -217,7 +217,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                             <rect x="50" y="50" width="300" height="30" fill="var(--primary-color, #FF9900)" opacity="0.7"/>
 
                             <!-- Outer arc (outer_curve) - the "bite" depth -->
-                            <path d="M 130 50 A 40 40 0 0 0 50 90"
+                            <path d="M 130 50 A 44 40 0 0 0 48 100"
                                   fill="none"
                                   stroke="var(--accent-color, #00FFFF)"
                                   stroke-width="3"
@@ -245,24 +245,24 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
 
                         <!-- Labels with arrows -->
                         <!-- bar_width label -->
-                        <line x1="130" y1="150" x2="160" y2="150" stroke="white" stroke-width="2" marker-end="url(#arrowhead)"/>
-                        <text x="165" y="155" fill="white" font-size="14" font-weight="bold">bar_width</text>
-                        <text x="165" y="170" fill="white" font-size="11" opacity="0.7">(vertical thickness)</text>
+                        <line x1="50" y1="200" x2="160" y2="200" stroke="white" stroke-width="2" marker-end="url(#arrowhead)"/>
+                        <text x="165" y="195" fill="white" font-size="14" font-weight="bold">bar_width</text>
+                        <text x="165" y="210" fill="white" font-size="11" opacity="0.7">(vertical thickness)</text>
 
                         <!-- bar_height label -->
                         <line x1="200" y1="80" x2="200" y2="35" stroke="white" stroke-width="2" marker-end="url(#arrowhead)"/>
-                        <text x="125" y="30" fill="white" font-size="14" font-weight="bold">bar_height</text>
-                        <text x="105" y="20" fill="white" font-size="11" opacity="0.7">(horizontal thickness)</text>
+                        <text x="165" y="14" fill="white" font-size="14" font-weight="bold">bar_height</text>
+                        <text x="165" y="30" fill="white" font-size="11" opacity="0.7">(horizontal thickness)</text>
 
                         <!-- outer_curve label -->
-                        <line x1="90" y1="70" x2="30" y2="70" stroke="var(--accent-color, #00FFFF)" stroke-width="2" marker-end="url(#arrowhead-cyan)"/>
-                        <text x="10" y="50" fill="var(--accent-color, #00FFFF)" font-size="14" font-weight="bold">outer_curve</text>
-                        <text x="10" y="65" fill="var(--accent-color, #00FFFF)" font-size="11" opacity="0.9">(cut depth/scale)</text>
+                        <line x1="90" y1="70" x2="67" y2="38" stroke="var(--accent-color, #00FFFF)" stroke-width="2" marker-end="url(#arrowhead-cyan)"/>
+                        <text x="0" y="12" fill="var(--accent-color, #00FFFF)" font-size="14" font-weight="bold">outer_curve</text>
+                        <text x="0" y="26" fill="var(--accent-color, #00FFFF)" font-size="11" opacity="0.9">(cut depth/scale)</text>
 
                         <!-- inner_curve label -->
-                        <line x1="115" y1="95" x2="90" y2="120" stroke="var(--warning-color, #FFAA00)" stroke-width="2" marker-end="url(#arrowhead-yellow)"/>
-                        <text x="10" y="135" fill="var(--warning-color, #FFAA00)" font-size="14" font-weight="bold">inner_curve</text>
-                        <text x="10" y="150" fill="var(--warning-color, #FFAA00)" font-size="11" opacity="0.9">(inner cut depth)</text>
+                        <line x1="120" y1="90" x2="160" y2="120" stroke="var(--warning-color, #FFAA00)" stroke-width="2" marker-end="url(#arrowhead-yellow)"/>
+                        <text x="165" y="135" fill="var(--warning-color, #FFAA00)" font-size="14" font-weight="bold">inner_curve</text>
+                        <text x="165" y="150" fill="var(--warning-color, #FFAA00)" font-size="11" opacity="0.9">(inner cut depth)</text>
 
                         <!-- Arrow markers -->
                         <defs>
@@ -549,6 +549,16 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                 ?expanded=${true}
                 ?outlined=${true}>
 
+                <lcards-color-section-v2
+                    .editor=${this}
+                    basePath="elbow.segments.outer_segment.color"
+                    header="Outer Segment Color"
+                    description="Color states for outer frame segment - supports custom states like 'heat', 'cool', etc."
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                    ?allowCustomStates=${true}
+                    ?expanded=${false}>
+                </lcards-color-section-v2>
+
                 <ha-selector
                     .hass=${this.hass}
                     .label=${'Bar Width'}
@@ -661,16 +671,6 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                         </lcards-message>
                     `}
                 ` : ''}
-
-                <lcards-color-section-v2
-                    .editor=${this}
-                    basePath="elbow.segments.outer_segment.color"
-                    header="Outer Segment Color"
-                    description="Color states for outer frame segment - supports custom states like 'heat', 'cool', etc."
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
-                    ?allowCustomStates=${true}
-                    ?expanded=${false}>
-                </lcards-color-section-v2>
             </lcards-form-section>
 
             <lcards-form-section

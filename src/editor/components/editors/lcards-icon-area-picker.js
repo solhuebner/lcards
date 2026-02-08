@@ -66,7 +66,7 @@ export class LCARdSIconAreaPicker extends LitElement {
                 grid-template-columns: repeat(3, 50px);
                 grid-template-rows: repeat(3, 50px);
                 gap: 6px;
-                background: var(--card-background-color, #fff);
+                background: var(--primary-background-color, #fff);
                 border: 2px solid var(--divider-color, #e0e0e0);
                 border-radius: 8px;
                 padding: 12px;

@@ -55,17 +55,27 @@ export class LCARdSIconEditor extends LitElement {
         const iconAreaValid = ['left', 'right', 'top', 'bottom', 'none'];
 
         return html`
-            <!-- Show Icon Toggle -->
-            ${FormField.renderField(this.editor, 'show_icon', {
-                label: 'Show Icon'
-            })}
+            <!-- Basic Icon Settings -->
+            <lcards-form-section
+                header="Icon Configuration"
+                description="Enable and select icon"
+                icon="mdi:shape"
+                ?expanded=${true}
+                ?outlined=${true}
+                headerLevel="4">
 
-            ${showIcon ? html`
-                <!-- Icon Picker -->
-                ${FormField.renderField(this.editor, 'icon', {
-                    label: 'Icon'
+                ${FormField.renderField(this.editor, 'show_icon', {
+                    label: 'Show Icon'
                 })}
 
+                ${showIcon ? html`
+                    ${FormField.renderField(this.editor, 'icon', {
+                        label: 'Icon'
+                    })}
+                ` : ''}
+            </lcards-form-section>
+
+            ${showIcon ? html`
                 <!-- Icon Area Section -->
                 <lcards-form-section
                     header="Icon Area"

@@ -73,7 +73,7 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
                 .add-dialog {
                     background: var(--card-background-color);
                     border: 2px solid var(--divider-color);
-                    border-radius: 12px;
+                    border-radius: var(--ha-card-border-radius, 12px);
                     padding: 16px;
                     margin-top: 12px;
                 }

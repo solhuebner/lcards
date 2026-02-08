@@ -89,6 +89,11 @@ export class LCARdSFormSection extends LitElement {
                 display: block;
             }
 
+            /* Add spacing between ha-selector elements to prevent cramping when helper text is present */
+            ::slotted(ha-selector) {
+                margin-bottom: 16px;
+            }
+
             /* Icon spacing in headers */
             h1 ha-icon,
             h2 ha-icon,

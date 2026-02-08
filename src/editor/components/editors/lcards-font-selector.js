@@ -87,8 +87,8 @@ export class LCARdSFontSelector extends LitElement {
                 margin-top: 8px;
                 padding: 12px;
                 border: 1px solid var(--divider-color, #e0e0e0);
-                border-radius: var(--card-border-radius, 8px);
-                background: var(--card-background-color, #fff);
+                border-radius: var(--ha-card-border-radius, 12px);
+                background: var(--primary-background-color, #fff);
                 font-size: 16px;
                 text-align: center;
             }
@@ -305,7 +305,7 @@ export class LCARdSFontSelector extends LitElement {
     _isKnownFont(fontValue) {
         const core = window.lcards?.core;
         if (!core?.assetManager) return false;
-        
+
         const fonts = core.assetManager.listFonts();
         return fonts.some(f => f.key === fontValue || f.legacyName === fontValue);
     }
@@ -317,7 +317,7 @@ export class LCARdSFontSelector extends LitElement {
     _migrateFontName(fontValue) {
         const core = window.lcards?.core;
         if (!core?.assetManager) return fontValue;
-        
+
         return core.assetManager._migrateLegacyFontName(fontValue);
     }
 

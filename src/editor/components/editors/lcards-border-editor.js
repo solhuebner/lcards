@@ -49,27 +49,6 @@ export class LCARdSBorderEditor extends LitElement {
                 display: block;
             }
 
-            .mode-toggle {
-                display: flex;
-                flex-direction: column;
-                gap: 8px;
-                padding: 12px;
-                background: var(--secondary-background-color);
-                border-radius: 8px;
-                margin-bottom: 12px;
-            }
-
-            .mode-toggle label {
-                font-weight: 500;
-                color: var(--primary-text-color);
-                font-size: 14px;
-                margin: 0;
-            }
-
-            .mode-toggle ha-selector {
-                width: 100%;
-            }
-
             .form-row {
                 margin-bottom: 12px;
             }
@@ -95,8 +74,8 @@ export class LCARdSBorderEditor extends LitElement {
                 justify-content: center;
                 align-items: center;
                 padding: 24px;
-                background: var(--card-background-color);
-                border-radius: 8px;
+                background: var(--primary-background-color);
+                border-radius: var(--ha-card-border-radius, 12px);
                 margin-bottom: 12px;
             }
 
@@ -172,9 +151,9 @@ export class LCARdSBorderEditor extends LitElement {
 
                 ${this._renderWidthControls()}
 
-                ${this._renderColorControls()}
-
                 ${this._renderRadiusControls()}
+
+                ${this._renderColorControls()}
             </lcards-form-section>
         `;
     }
@@ -238,42 +217,30 @@ export class LCARdSBorderEditor extends LitElement {
         const isUnified = this._widthMode === 'unified';
 
         return html`
-            <div class="mode-toggle">
-                <label>Per-Side Width</label>
+            <lcards-form-section
+                header="Border Width"
+                description="Configure border thickness"
+                icon="mdi:border-style"
+                ?expanded=${false}
+                ?outlined=${true}
+                headerLevel="5">
+
                 <ha-selector
                     .hass=${this.editor?.hass}
                     .selector=${{ boolean: {} }}
                     .value=${!isUnified}
-                    .label=${'Enable individual side widths'}
+                    .label=${'Per-Side Width'}
                     @value-changed=${(e) => {
                         if (e.detail.value !== !isUnified) {
                             this._toggleWidthMode();
                         }
                     }}>
                 </ha-selector>
-            </div>
 
-            ${isUnified ? html`
-                <ha-selector
-                    .hass=${this.hass}
-                    .label=${'Width (px)'}
-                    .selector=${{
-                        number: {
-                            min: 0,
-                            max: 100,
-                            step: 1,
-                            mode: 'box',
-                            unit_of_measurement: 'px'
-                        }
-                    }}
-                    .value=${typeof width === 'number' ? width : 2}
-                    @value-changed=${(e) => this._updateBorderProperty('width', e.detail.value)}>
-                </ha-selector>
-            ` : html`
-                <div class="per-side-grid">
+                ${isUnified ? html`
                     <ha-selector
                         .hass=${this.hass}
-                        .label=${'Top (px)'}
+                        .label=${'Width (px)'}
                         .selector=${{
                             number: {
                                 min: 0,
@@ -283,56 +250,74 @@ export class LCARdSBorderEditor extends LitElement {
                                 unit_of_measurement: 'px'
                             }
                         }}
-                        .value=${width?.top || 2}
-                        @value-changed=${(e) => this._updateBorderProperty('width.top', e.detail.value)}>
+                        .value=${typeof width === 'number' ? width : 2}
+                        @value-changed=${(e) => this._updateBorderProperty('width', e.detail.value)}>
                     </ha-selector>
-                    <ha-selector
-                        .hass=${this.hass}
-                        .label=${'Right (px)'}
-                        .selector=${{
-                            number: {
-                                min: 0,
-                                max: 100,
-                                step: 1,
-                                mode: 'box',
-                                unit_of_measurement: 'px'
-                            }
-                        }}
-                        .value=${width?.right || 2}
-                        @value-changed=${(e) => this._updateBorderProperty('width.right', e.detail.value)}>
-                    </ha-selector>
-                    <ha-selector
-                        .hass=${this.hass}
-                        .label=${'Bottom (px)'}
-                        .selector=${{
-                            number: {
-                                min: 0,
-                                max: 100,
-                                step: 1,
-                                mode: 'box',
-                                unit_of_measurement: 'px'
-                            }
-                        }}
-                        .value=${width?.bottom || 2}
-                        @value-changed=${(e) => this._updateBorderProperty('width.bottom', e.detail.value)}>
-                    </ha-selector>
-                    <ha-selector
-                        .hass=${this.hass}
-                        .label=${'Left (px)'}
-                        .selector=${{
-                            number: {
-                                min: 0,
-                                max: 100,
-                                step: 1,
-                                mode: 'box',
-                                unit_of_measurement: 'px'
-                            }
-                        }}
-                        .value=${width?.left || 2}
-                        @value-changed=${(e) => this._updateBorderProperty('width.left', e.detail.value)}>
-                    </ha-selector>
-                </div>
-            `}
+                ` : html`
+                    <div class="per-side-grid">
+                        <ha-selector
+                            .hass=${this.hass}
+                            .label=${'Top (px)'}
+                            .selector=${{
+                                number: {
+                                    min: 0,
+                                    max: 100,
+                                    step: 1,
+                                    mode: 'box',
+                                    unit_of_measurement: 'px'
+                                }
+                            }}
+                            .value=${width?.top || 2}
+                            @value-changed=${(e) => this._updateBorderProperty('width.top', e.detail.value)}>
+                        </ha-selector>
+                        <ha-selector
+                            .hass=${this.hass}
+                            .label=${'Right (px)'}
+                            .selector=${{
+                                number: {
+                                    min: 0,
+                                    max: 100,
+                                    step: 1,
+                                    mode: 'box',
+                                    unit_of_measurement: 'px'
+                                }
+                            }}
+                            .value=${width?.right || 2}
+                            @value-changed=${(e) => this._updateBorderProperty('width.right', e.detail.value)}>
+                        </ha-selector>
+                        <ha-selector
+                            .hass=${this.hass}
+                            .label=${'Bottom (px)'}
+                            .selector=${{
+                                number: {
+                                    min: 0,
+                                    max: 100,
+                                    step: 1,
+                                    mode: 'box',
+                                    unit_of_measurement: 'px'
+                                }
+                            }}
+                            .value=${width?.bottom || 2}
+                            @value-changed=${(e) => this._updateBorderProperty('width.bottom', e.detail.value)}>
+                        </ha-selector>
+                        <ha-selector
+                            .hass=${this.hass}
+                            .label=${'Left (px)'}
+                            .selector=${{
+                                number: {
+                                    min: 0,
+                                    max: 100,
+                                    step: 1,
+                                    mode: 'box',
+                                    unit_of_measurement: 'px'
+                                }
+                            }}
+                            .value=${width?.left || 2}
+                            @value-changed=${(e) => this._updateBorderProperty('width.left', e.detail.value)}>
+                        </ha-selector>
+                    </div>
+                `}
+            </lcards-form-section>
         `;
     }
 
@@ -364,42 +349,30 @@ export class LCARdSBorderEditor extends LitElement {
         const isUnified = this._radiusMode === 'unified';
 
         return html`
-            <div class="mode-toggle">
-                <label>Per-Corner Radius</label>
+            <lcards-form-section
+                header="Border Radius"
+                description="Configure corner rounding"
+                icon="mdi:border-radius"
+                ?expanded=${false}
+                ?outlined=${true}
+                headerLevel="5">
+
                 <ha-selector
                     .hass=${this.editor?.hass}
                     .selector=${{ boolean: {} }}
                     .value=${!isUnified}
-                    .label=${'Enable individual corner radii'}
+                    .label=${'Per-Corner Radius'}
                     @value-changed=${(e) => {
                         if (e.detail.value !== !isUnified) {
                             this._toggleRadiusMode();
                         }
                     }}>
                 </ha-selector>
-            </div>
 
-            ${isUnified ? html`
-                <ha-selector
-                    .hass=${this.editor?.hass}
-                    .label=${'Radius (px)'}
-                    .selector=${{
-                        number: {
-                            min: 0,
-                            max: 100,
-                            step: 1,
-                            mode: 'box',
-                            unit_of_measurement: 'px'
-                        }
-                    }}
-                    .value=${typeof radius === 'number' ? radius : 12}
-                    @value-changed=${(e) => this._updateBorderProperty('radius', e.detail.value)}>
-                </ha-selector>
-            ` : html`
-                <div class="per-side-grid">
+                ${isUnified ? html`
                     <ha-selector
                         .hass=${this.editor?.hass}
-                        .label=${'Top-Left (px)'}
+                        .label=${'Radius (px)'}
                         .selector=${{
                             number: {
                                 min: 0,
@@ -409,56 +382,74 @@ export class LCARdSBorderEditor extends LitElement {
                                 unit_of_measurement: 'px'
                             }
                         }}
-                        .value=${radius?.top_left || 12}
-                        @value-changed=${(e) => this._updateBorderProperty('radius.top_left', e.detail.value)}>
+                        .value=${typeof radius === 'number' ? radius : 12}
+                        @value-changed=${(e) => this._updateBorderProperty('radius', e.detail.value)}>
                     </ha-selector>
-                    <ha-selector
-                        .hass=${this.editor?.hass}
-                        .label=${'Top-Right (px)'}
-                        .selector=${{
-                            number: {
-                                min: 0,
-                                max: 100,
-                                step: 1,
-                                mode: 'box',
-                                unit_of_measurement: 'px'
-                            }
-                        }}
-                        .value=${radius?.top_right || 12}
-                        @value-changed=${(e) => this._updateBorderProperty('radius.top_right', e.detail.value)}>
-                    </ha-selector>
-                    <ha-selector
-                        .hass=${this.editor?.hass}
-                        .label=${'Bottom-Right (px)'}
-                        .selector=${{
-                            number: {
-                                min: 0,
-                                max: 100,
-                                step: 1,
-                                mode: 'box',
-                                unit_of_measurement: 'px'
-                            }
-                        }}
-                        .value=${radius?.bottom_right || 12}
-                        @value-changed=${(e) => this._updateBorderProperty('radius.bottom_right', e.detail.value)}>
-                    </ha-selector>
-                    <ha-selector
-                        .hass=${this.editor?.hass}
-                        .label=${'Bottom-Left (px)'}
-                        .selector=${{
-                            number: {
-                                min: 0,
-                                max: 100,
-                                step: 1,
-                                mode: 'box',
-                                unit_of_measurement: 'px'
-                            }
-                        }}
-                        .value=${radius?.bottom_left || 12}
-                        @value-changed=${(e) => this._updateBorderProperty('radius.bottom_left', e.detail.value)}>
-                    </ha-selector>
-                </div>
-            `}
+                ` : html`
+                    <div class="per-side-grid">
+                        <ha-selector
+                            .hass=${this.editor?.hass}
+                            .label=${'Top-Left (px)'}
+                            .selector=${{
+                                number: {
+                                    min: 0,
+                                    max: 100,
+                                    step: 1,
+                                    mode: 'box',
+                                    unit_of_measurement: 'px'
+                                }
+                            }}
+                            .value=${radius?.top_left || 12}
+                            @value-changed=${(e) => this._updateBorderProperty('radius.top_left', e.detail.value)}>
+                        </ha-selector>
+                        <ha-selector
+                            .hass=${this.editor?.hass}
+                            .label=${'Top-Right (px)'}
+                            .selector=${{
+                                number: {
+                                    min: 0,
+                                    max: 100,
+                                    step: 1,
+                                    mode: 'box',
+                                    unit_of_measurement: 'px'
+                                }
+                            }}
+                            .value=${radius?.top_right || 12}
+                            @value-changed=${(e) => this._updateBorderProperty('radius.top_right', e.detail.value)}>
+                        </ha-selector>
+                        <ha-selector
+                            .hass=${this.editor?.hass}
+                            .label=${'Bottom-Right (px)'}
+                            .selector=${{
+                                number: {
+                                    min: 0,
+                                    max: 100,
+                                    step: 1,
+                                    mode: 'box',
+                                    unit_of_measurement: 'px'
+                                }
+                            }}
+                            .value=${radius?.bottom_right || 12}
+                            @value-changed=${(e) => this._updateBorderProperty('radius.bottom_right', e.detail.value)}>
+                        </ha-selector>
+                        <ha-selector
+                            .hass=${this.editor?.hass}
+                            .label=${'Bottom-Left (px)'}
+                            .selector=${{
+                                number: {
+                                    min: 0,
+                                    max: 100,
+                                    step: 1,
+                                    mode: 'box',
+                                    unit_of_measurement: 'px'
+                                }
+                            }}
+                            .value=${radius?.bottom_left || 12}
+                            @value-changed=${(e) => this._updateBorderProperty('radius.bottom_left', e.detail.value)}>
+                        </ha-selector>
+                    </div>
+                `}
+            </lcards-form-section>
         `;
     }
 

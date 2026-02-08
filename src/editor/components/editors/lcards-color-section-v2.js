@@ -247,6 +247,7 @@ export class LCARdSColorSectionV2 extends LitElement {
                 header="${this.header}"
                 description="${this.description}"
                 ?expanded=${this.expanded}
+                icon="mdi:palette"
                 outlined>
 
                 <!-- Existing States (List) -->
@@ -262,11 +263,16 @@ export class LCARdSColorSectionV2 extends LitElement {
                 <div class="state-mapping-info">
                     <ha-icon icon="mdi:information" style="float: left; margin-right: 8px;"></ha-icon>
                     <strong>State Mapping Guide:</strong><br>
+                    <br>
                     Use custom state names (e.g., <code>heat</code>, <code>cool</code>, <code>playing</code>) for exact entity states, or use mapped states:<br>
                     • <strong>active</strong> → on, locked, open, home, playing, heating, cooling, etc.<br>
                     • <strong>inactive</strong> → off, paused, idle, stopped, unlocked, closed, etc.<br>
                     • <strong>unavailable</strong> → unavailable, unknown<br>
                     • <strong>default</strong> → fallback for all other states
+                    <br><br>
+                    Special states for interactive elements (if supported):<br>
+                    • <strong>hover</strong> → while hovering<br>
+                    • <strong>pressed</strong> → while pressed<br>
                 </div>
 
                 <!-- Add State Controls -->

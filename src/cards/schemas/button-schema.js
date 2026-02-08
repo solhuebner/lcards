@@ -131,12 +131,9 @@ export function getButtonSchema(options = {}) {
 
             icon: {
                 type: 'string',
-                pattern: '^(mdi|si):[a-z0-9-]+$',
-                description: 'Icon identifier (format: mdi:icon-name or si:icon-name)',
                 examples: ['mdi:lightbulb', 'mdi:home', 'si:github', 'mdi:thermometer'],
                 'x-ui-hints': {
                     label: 'Icon',
-                    helper: 'Select an icon from Material Design Icons or Simple Icons',
                     selector: {
                         icon: {}
                     }
@@ -183,7 +180,7 @@ export function getButtonSchema(options = {}) {
                     width: {
                         type: 'number',
                         minimum: 0,
-                        maximum: 20,
+                        maximum: 200,
                         default: 0,
                         description: 'Divider width in pixels (0 = no divider, default: 0)',
                         'x-ui-hints': {
@@ -193,7 +190,7 @@ export function getButtonSchema(options = {}) {
                                 number: {
                                     mode: 'box',
                                     min: 0,
-                                    max: 20,
+                                    max: 200,
                                     step: 1,
                                     unit_of_measurement: 'px'
                                 }

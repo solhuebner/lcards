@@ -62,10 +62,10 @@ export class LCARdSPaddingEditor extends LitElement {
                 gap: 8px;
                 justify-content: center;
                 align-items: center;
-                padding: 16px;
-                background: var(--card-background-color, #fff);
+                padding: 16px 16px 24px 16px;
+                background: var(--primary-background-color, #fff);
                 border: 2px solid var(--divider-color, #e0e0e0);
-                border-radius: 8px;
+                border-radius: var(--ha-card-border-radius, 12px);
             }
 
             .padding-cell {
@@ -89,11 +89,11 @@ export class LCARdSPaddingEditor extends LitElement {
             .padding-cell.center {
                 grid-column: 2;
                 grid-row: 2;
-                background: var(--primary-background-color, #f5f5f5);
+                background: var(--primary-color, #f5f5f5);
                 border: 2px solid var(--divider-color, #e0e0e0);
-                border-radius: 6px;
+                border-radius: 12px;
                 font-size: 12px;
-                color: var(--secondary-text-color, #757575);
+                color: var(--text-primary-color, #757575);
                 font-weight: 600;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
