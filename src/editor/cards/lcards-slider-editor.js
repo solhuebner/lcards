@@ -1463,44 +1463,61 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
 
         return html`
             <div style="margin-top: 12px; padding: 12px; background: var(--primary-background-color); border-radius: var(--ha-card-border-radius, 12px);">
-                <div style="font-weight: 600; margin-bottom: 8px; color: var(--primary-text-color);">
+                <div style="font-weight: 600; margin-bottom: 8px; color: var(--primary-text-color); font-size: 15px;">
                     ${metadata.displayName || componentName}
                 </div>
                 ${metadata.description ? html`
-                    <div style="margin-bottom: 12px; font-size: 13px; color: var(--secondary-text-color);">
+                    <div style="margin-bottom: 12px; font-size: 14px; color: var(--secondary-text-color);">
                         ${metadata.description}
                     </div>
                 ` : ''}
 
                 <!-- Orientation Info -->
-                <div style="margin-bottom: 8px; font-size: 12px;">
-                    <span style="color: var(--secondary-text-color);">Orientation:</span>
-                    <span style="margin-left: 4px; padding: 2px 8px; background: var(--primary-color); color: white; border-radius: 4px; font-size: 11px; font-weight: 500;">
-                        ${orientation === 'auto' ? 'Flexible' : orientation}
-                    </span>
+                <div style="margin-bottom: 8px;">
+                    <div style="font-size: 13px; color: var(--secondary-text-color); margin-bottom: 6px;">
+                        Orientation:
+                    </div>
+                    <ha-chip-set>
+                        <ha-assist-chip
+                            .label=${orientation === 'auto' ? 'Flexible' : orientation}
+                            .filled=${true}
+                            style="
+                                --ha-assist-chip-filled-container-color: var(--primary-color);
+                                --md-sys-color-primary: white;
+                                --md-sys-color-on-surface: white;
+                            ">
+                            <ha-icon icon="mdi:phone-rotate-landscape" slot="icon"></ha-icon>
+                        </ha-assist-chip>
+                    </ha-chip-set>
                 </div>
 
                 <!-- Features as chips -->
                 ${features.length > 0 ? html`
                     <div style="margin-bottom: 8px;">
-                        <div style="font-size: 12px; color: var(--secondary-text-color); margin-bottom: 6px;">
+                        <div style="font-size: 13px; color: var(--secondary-text-color); margin-bottom: 6px;">
                             Features:
                         </div>
-                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                        <ha-chip-set>
                             ${features.map(feature => html`
-                                <span style="display: inline-flex; align-items: center; padding: 4px 10px; background: var(--success-color, #4caf50); color: white; border-radius: 12px; font-size: 11px; font-weight: 500;">
-                                    <ha-icon icon="mdi:check" style="--mdc-icon-size: 14px; margin-right: 4px;"></ha-icon>
-                                    ${feature}
-                                </span>
+                                <ha-assist-chip
+                                    .label=${feature}
+                                    .filled=${true}
+                                    style="
+                                        --ha-assist-chip-filled-container-color: var(--success-color, #4caf50);
+                                        --md-sys-color-primary: white;
+                                        --md-sys-color-on-surface: white;
+                                    ">
+                                    <ha-icon icon="mdi:check" slot="icon"></ha-icon>
+                                </ha-assist-chip>
                             `)}
-                        </div>
+                        </ha-chip-set>
                     </div>
                 ` : ''}
 
                 <!-- Configurable Options Info -->
                 ${configurableOptions.length > 0 ? html`
-                    <div style="font-size: 12px; color: var(--secondary-text-color);">
-                        <ha-icon icon="mdi:tune" style="--mdc-icon-size: 14px; vertical-align: middle; margin-right: 4px;"></ha-icon>
+                    <div style="font-size: 13px; color: var(--secondary-text-color);">
+                        <ha-icon icon="mdi:tune" style="--mdc-icon-size: 16px; vertical-align: middle; margin-right: 4px;"></ha-icon>
                         <strong>${configurableOptions.length}</strong> configurable option${configurableOptions.length !== 1 ? 's' : ''} available
                         <span style="color: var(--primary-color); font-weight: 500;"> → See "Component Options" tab</span>
                     </div>
