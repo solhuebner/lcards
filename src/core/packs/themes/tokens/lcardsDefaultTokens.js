@@ -31,7 +31,7 @@ export const lcardsDefaultTokens = {
   // ==========================================================================
   typography: {
     fontFamily: {
-      primary: "var(--lcars-font, 'Antonio, Segoe UI Variable Static Text, Segoe UI, sans-serif')"
+      primary: "var(--lcars-font), var(--lcars-fallback-font), 'Antonio', 'Segoe UI Variable Static Text', 'Segoe UI', sans-serif"
     },
     fontSize: {
       sm: 12,
