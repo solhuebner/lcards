@@ -1143,7 +1143,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     basePath="style.border.left.color"
                     header="Left Border Colors"
                     description="State-based colors for left border - supports custom states"
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>
@@ -1175,7 +1175,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     basePath="style.border.top.color"
                     header="Top Border Colors"
                     description="State-based colors for top border - supports custom states"
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>
@@ -1207,7 +1207,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     basePath="style.border.right.color"
                     header="Right Border Colors"
                     description="State-based colors for right border - supports custom states"
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>
@@ -1239,7 +1239,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     basePath="style.border.bottom.color"
                     header="Bottom Border Colors"
                     description="State-based colors for bottom border - supports custom states"
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>

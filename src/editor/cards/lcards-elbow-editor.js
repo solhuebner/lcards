@@ -490,7 +490,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                     basePath="elbow.segment.color"
                     header="Segment Colors"
                     description="Elbow segment color for each state - supports custom states"
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>
@@ -667,7 +667,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                     basePath="elbow.segments.outer_segment.color"
                     header="Outer Segment Color"
                     description="Color states for outer frame segment - supports custom states like 'heat', 'cool', etc."
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>
@@ -685,7 +685,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                     basePath="elbow.segments.inner_segment.color"
                     header="Inner Segment Color"
                     description="Color states for inner content segment - supports custom states like 'heat', 'cool', etc."
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>

@@ -367,7 +367,7 @@ export class LCARdSColorSectionV2 extends LitElement {
                 <!-- Quick Add Buttons for Suggested States -->
                 ${availableSuggested.length > 0 ? html`
                     <div class="quick-add-section">
-                        <div class="field-label">Quick Add Suggested States</div>
+                        <div class="field-label">Quick Add States</div>
                         <div class="quick-add-buttons">
                             ${availableSuggested.map(state => html`
                                 <ha-button
