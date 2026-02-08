@@ -238,25 +238,51 @@ export class LCARdSElbow extends LCARdSButton {
             tokenBase = `theme:${positionTokenPath}`;
         }
 
-        // ALWAYS set elbow colors - override button preset defaults
-        // Initialize nested structure if needed
-        if (!this.config.style) this.config.style = {};
-        if (!this.config.style.card) this.config.style.card = {};
-        if (!this.config.style.card.color) this.config.style.card.color = {};
+        // ALWAYS set elbow colors into segment.color - this is where elbows read from
+        // Initialize segment structure if needed
+        if (!this._elbowConfig.segment) this._elbowConfig.segment = {};
 
-        // Set state-based colors using determined token path
-        this.config.style.card.color.background = {
+        // Create defaults object
+        const colorDefaults = {
             default: `${tokenBase}.default`,
             active: `${tokenBase}.active`,
             inactive: `${tokenBase}.inactive`,
-            unavailable: `${tokenBase}.unavailable`
+            unavailable: `${tokenBase}.unavailable`,
+            hover: `${tokenBase}.hover`,
+            pressed: `${tokenBase}.pressed`
         };
 
-        lcardsLog.debug(`[LCARdSElbow] Set elbow background colors:`, {
+        // Merge defaults with user config (user values override defaults)
+        // Create new object to avoid frozen object errors from HA config
+        this._elbowConfig.segment.color = {
+            ...colorDefaults,
+            ...(this._elbowConfig.segment.color || {})
+        };
+
+        // For segmented mode, also set into segments.outer_segment and segments.inner_segment
+        if (this._elbowConfig.style === 'segmented') {
+            if (!this._elbowConfig.segments) this._elbowConfig.segments = {};
+
+            // Outer segment
+            if (!this._elbowConfig.segments.outer_segment) this._elbowConfig.segments.outer_segment = {};
+            this._elbowConfig.segments.outer_segment.color = {
+                ...colorDefaults,
+                ...(this._elbowConfig.segments.outer_segment.color || {})
+            };
+
+            // Inner segment
+            if (!this._elbowConfig.segments.inner_segment) this._elbowConfig.segments.inner_segment = {};
+            this._elbowConfig.segments.inner_segment.color = {
+                ...colorDefaults,
+                ...(this._elbowConfig.segments.inner_segment.color || {})
+            };
+        }
+
+        lcardsLog.debug(`[LCARdSElbow] Set elbow segment color defaults:`, {
             type: componentType,
             position,
             tokenBase,
-            colors: this.config.style.card.color.background
+            segmentColor: this._elbowConfig.segment?.color
         });
     }
 
@@ -276,122 +302,94 @@ export class LCARdSElbow extends LCARdSButton {
     /**
      * Inject elbow-specific colors into the resolved button style
      * Called after button style resolution to ensure colors aren't overwritten
-     * Uses same fallback logic as _initializeElbowDefaultColors()
-     * Also extracts interaction styles (hover/pressed) for dynamic state handling
+     * Extracts interaction styles (hover/pressed) from segment.color for dynamic state handling
      * @private
      */
     _injectElbowColors() {
         if (!this._elbowConfig || !this._buttonStyle) return;
 
+        // Get theme manager for token resolution
+        const themeManager = this._singletons?.themeManager;
+
         // Check if segmented or simple elbow
         const isSegmented = this._elbowConfig?.style === 'segmented';
 
         if (isSegmented) {
-            // Extract interaction styles for OUTER segment
+            // Extract interaction styles for OUTER segment from segments.outer_segment.color
             const outerColor = this._elbowConfig.segments?.outer_segment?.color;
-            if (outerColor) {
-                const hoverColor = outerColor.hover;
-                const pressedColor = outerColor.pressed;
-                const resolvedHover = hoverColor ? this._resolveColorValue(hoverColor, this._getButtonState()) : null;
-                const resolvedPressed = pressedColor ? this._resolveColorValue(pressedColor, this._getButtonState()) : null;
+            if (outerColor?.hover || outerColor?.pressed) {
+                let hoverColor = outerColor.hover;
+                let pressedColor = outerColor.pressed;
 
-                this._elbowOuterHoverStyle = resolvedHover ? { backgroundColor: resolvedHover } : null;
-                this._elbowOuterPressedStyle = resolvedPressed ? { backgroundColor: resolvedPressed } : null;
+                // Resolve theme tokens
+                if (hoverColor && typeof hoverColor === 'string' && hoverColor.startsWith('theme:')) {
+                    const tokenPath = hoverColor.substring(6);
+                    hoverColor = themeManager?.getToken(tokenPath) || hoverColor;
+                }
+                if (pressedColor && typeof pressedColor === 'string' && pressedColor.startsWith('theme:')) {
+                    const tokenPath = pressedColor.substring(6);
+                    pressedColor = themeManager?.getToken(tokenPath) || pressedColor;
+                }
+
+                this._elbowOuterHoverStyle = hoverColor ? { backgroundColor: hoverColor } : null;
+                this._elbowOuterPressedStyle = pressedColor ? { backgroundColor: pressedColor } : null;
 
                 lcardsLog.debug('[LCARdSElbow] Extracted outer segment interaction styles', {
                     hasHover: !!this._elbowOuterHoverStyle,
-                    hasPressed: !!this._elbowOuterPressedStyle,
-                    hoverColorResolved: resolvedHover,
-                    pressedColorResolved: resolvedPressed
+                    hasPressed: !!this._elbowOuterPressedStyle
                 });
             }
 
-            // Extract interaction styles for INNER segment
+            // Extract interaction styles for INNER segment from segments.inner_segment.color
             const innerColor = this._elbowConfig.segments?.inner_segment?.color;
-            if (innerColor) {
-                const hoverColor = innerColor.hover;
-                const pressedColor = innerColor.pressed;
-                const resolvedHover = hoverColor ? this._resolveColorValue(hoverColor, this._getButtonState()) : null;
-                const resolvedPressed = pressedColor ? this._resolveColorValue(pressedColor, this._getButtonState()) : null;
+            if (innerColor?.hover || innerColor?.pressed) {
+                let hoverColor = innerColor.hover;
+                let pressedColor = innerColor.pressed;
 
-                this._elbowInnerHoverStyle = resolvedHover ? { backgroundColor: resolvedHover } : null;
-                this._elbowInnerPressedStyle = resolvedPressed ? { backgroundColor: resolvedPressed } : null;
+                // Resolve theme tokens
+                if (hoverColor && typeof hoverColor === 'string' && hoverColor.startsWith('theme:')) {
+                    const tokenPath = hoverColor.substring(6);
+                    hoverColor = themeManager?.getToken(tokenPath) || hoverColor;
+                }
+                if (pressedColor && typeof pressedColor === 'string' && pressedColor.startsWith('theme:')) {
+                    const tokenPath = pressedColor.substring(6);
+                    pressedColor = themeManager?.getToken(tokenPath) || pressedColor;
+                }
+
+                this._elbowInnerHoverStyle = hoverColor ? { backgroundColor: hoverColor } : null;
+                this._elbowInnerPressedStyle = pressedColor ? { backgroundColor: pressedColor } : null;
 
                 lcardsLog.debug('[LCARdSElbow] Extracted inner segment interaction styles', {
                     hasHover: !!this._elbowInnerHoverStyle,
-                    hasPressed: !!this._elbowInnerPressedStyle,
-                    hoverColorResolved: resolvedHover,
-                    pressedColorResolved: resolvedPressed
+                    hasPressed: !!this._elbowInnerPressedStyle
                 });
             }
         } else {
             // Simple elbow - extract from segment.color
             const segmentColor = this._elbowConfig.segment?.color;
-            if (segmentColor) {
-                const hoverColor = segmentColor.hover;
-                const pressedColor = segmentColor.pressed;
+            if (segmentColor?.hover || segmentColor?.pressed) {
+                let hoverColor = segmentColor.hover;
+                let pressedColor = segmentColor.pressed;
 
-                // Resolve theme tokens and CSS variables
-                const resolvedHover = hoverColor ? this._resolveColorValue(hoverColor, this._getButtonState()) : null;
-                const resolvedPressed = pressedColor ? this._resolveColorValue(pressedColor, this._getButtonState()) : null;
+                // Resolve theme tokens
+                if (hoverColor && typeof hoverColor === 'string' && hoverColor.startsWith('theme:')) {
+                    const tokenPath = hoverColor.substring(6);
+                    hoverColor = themeManager?.getToken(tokenPath) || hoverColor;
+                }
+                if (pressedColor && typeof pressedColor === 'string' && pressedColor.startsWith('theme:')) {
+                    const tokenPath = pressedColor.substring(6);
+                    pressedColor = themeManager?.getToken(tokenPath) || pressedColor;
+                }
 
-                this._elbowHoverStyle = resolvedHover ? { backgroundColor: resolvedHover } : null;
-                this._elbowPressedStyle = resolvedPressed ? { backgroundColor: resolvedPressed } : null;
+                this._elbowHoverStyle = hoverColor ? { backgroundColor: hoverColor } : null;
+                this._elbowPressedStyle = pressedColor ? { backgroundColor: pressedColor } : null;
 
                 lcardsLog.debug('[LCARdSElbow] Extracted simple segment interaction styles', {
                     hasHover: !!this._elbowHoverStyle,
-                    hasPressed: !!this._elbowPressedStyle,
-                    hoverColorResolved: resolvedHover,
-                    pressedColorResolved: resolvedPressed
+                    hasPressed: !!this._elbowPressedStyle
                 });
             }
         }
-
-        // Get component metadata
-        const component = getElbowComponent(this._elbowConfig.type);
-        const position = component?.layout?.position || 'header';
-        const componentType = this._elbowConfig.type;
-
-        // Apply same fallback logic as initialization
-        const themeManager = this._singletons?.themeManager || window.lcards?.core?.themeManager;
-
-        let tokenBase;
-        if (themeManager) {
-            // Check if component-specific tokens exist
-            const componentTokenPath = `components.elbow.${componentType}.background`;
-            const hasComponentTokens = themeManager.getToken(`${componentTokenPath}.default`, null) !== null;
-
-            if (hasComponentTokens) {
-                tokenBase = `theme:${componentTokenPath}`;
-            } else {
-                const positionTokenPath = position === 'footer'
-                    ? 'components.elbow.footer.background'
-                    : 'components.elbow.header.background';
-                tokenBase = `theme:${positionTokenPath}`;
-            }
-        } else {
-            const positionTokenPath = position === 'footer'
-                ? 'components.elbow.footer.background'
-                : 'components.elbow.header.background';
-            tokenBase = `theme:${positionTokenPath}`;
-        }
-
-        // Inject elbow colors into resolved button style
-        if (!this._buttonStyle.card) this._buttonStyle.card = {};
-        if (!this._buttonStyle.card.color) this._buttonStyle.card.color = {};
-
-        this._buttonStyle.card.color.background = {
-            default: `${tokenBase}.default`,
-            active: `${tokenBase}.active`,
-            inactive: `${tokenBase}.inactive`,
-            unavailable: `${tokenBase}.unavailable`
-        };
-
-        lcardsLog.debug(`[LCARdSElbow] Injected elbow colors:`, {
-            type: componentType,
-            position,
-            tokenBase
-        });
     }
 
     /**
