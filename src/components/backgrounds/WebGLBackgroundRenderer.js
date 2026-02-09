@@ -19,6 +19,9 @@ export class WebGLBackgroundRenderer {
     this.nebulaParticles = null;
     this.isDragging = false;
     this.previousMousePosition = { x: 0, y: 0 };
+    
+    // Performance constants
+    this.PARTICLE_REDUCTION_FACTOR = 0.5; // Reduce to 50% on low FPS
   }
 
   /**
@@ -280,7 +283,7 @@ export class WebGLBackgroundRenderer {
       } else if (e.detail.shouldReduceEffects && this.nebulaParticles) {
         // Reduce particle count
         const currentCount = this.nebulaParticles.geometry.attributes.position.count;
-        const reducedCount = Math.floor(currentCount * 0.5);
+        const reducedCount = Math.floor(currentCount * this.PARTICLE_REDUCTION_FACTOR);
         lcardsLog.info(`[WebGL] Reducing nebula particles: ${currentCount} → ${reducedCount}`);
         this._updateParticleCount(reducedCount);
       }

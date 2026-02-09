@@ -4,7 +4,7 @@
  * 
  * @module base/mixins/BackgroundAnimationMixin
  */
-import { html } from 'lit';
+import { html, css } from 'lit';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import { WebGLBackgroundRenderer } from '../../components/backgrounds/WebGLBackgroundRenderer.js';
 import { CanvasBackgroundRenderer } from '../../components/backgrounds/CanvasBackgroundRenderer.js';
@@ -15,6 +15,34 @@ export const BackgroundAnimationMixin = (superClass) => class extends superClass
       ...super.properties,
       backgroundAnimation: { type: Object }
     };
+  }
+
+  static get styles() {
+    return [
+      super.styles || [],
+      css`
+        .lcards-background-layer {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        .lcards-card-container {
+          position: relative;
+          width: 100%;
+          height: 100%;
+        }
+
+        .lcards-card-content {
+          position: relative;
+          z-index: 1;
+        }
+      `
+    ];
   }
 
   constructor() {
@@ -62,10 +90,7 @@ export const BackgroundAnimationMixin = (superClass) => class extends superClass
     if (!this.backgroundAnimation?.type) return html``;
 
     return html`
-      <div 
-        class="lcards-background-layer" 
-        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0;"
-      >
+      <div class="lcards-background-layer">
         <div class="lcards-background-container"></div>
       </div>
     `;
@@ -164,9 +189,9 @@ export const BackgroundAnimationMixin = (superClass) => class extends superClass
    */
   render() {
     return html`
-      <div class="lcards-card-container" style="position: relative; width: 100%; height: 100%;">
+      <div class="lcards-card-container">
         ${this._renderBackgroundAnimation()}
-        <div class="lcards-card-content" style="position: relative; z-index: 1;">
+        <div class="lcards-card-content">
           ${super.render()}
         </div>
       </div>
