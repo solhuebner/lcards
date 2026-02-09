@@ -44,8 +44,8 @@ function _splitText(element, options = {}) {
   let wrappedHTML = '';
 
   if (type === 'chars') {
-    // Split into characters
-    const chars = originalText.split('');
+    // Split into characters (using Array.from for proper Unicode support)
+    const chars = Array.from(originalText);
     wrappedHTML = chars
       .map(char => `<span class="${charsClass}">${char}</span>`)
       .join('');
@@ -476,19 +476,28 @@ export const TEXT_PRESETS = {
 
         // Add cursor if enabled
         if (cursor) {
-          // Add cursor class to element for styling
-          element.classList.add('lcards-typewriter-cursor');
+          // Sanitize cursor character to prevent CSS injection
+          const sanitizedCursor = cursorChar
+            .replace(/\\/g, '\\\\')  // Escape backslashes
+            .replace(/'/g, "\\'")    // Escape single quotes
+            .replace(/"/g, '\\"');   // Escape double quotes
 
-          // Inject cursor styles into shadow root or document head
-          const styleId = 'lcards-typewriter-cursor-style';
+          // Generate unique style ID for this element's cursor settings
+          const elementId = element.id || `lcards-typewriter-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          if (!element.id) {
+            element.id = elementId;
+          }
+          const styleId = `lcards-typewriter-cursor-${elementId}`;
+          
+          // Check if this specific style already exists
           let styleEl = document.getElementById(styleId);
           
           if (!styleEl) {
             styleEl = document.createElement('style');
             styleEl.id = styleId;
             styleEl.textContent = `
-              .lcards-typewriter-cursor::after {
-                content: '${cursorChar}';
+              #${elementId}.lcards-typewriter-cursor::after {
+                content: '${sanitizedCursor}';
                 animation: lcards-cursor-blink ${cursorBlinkSpeed}ms step-end infinite;
                 margin-left: 2px;
               }
@@ -498,7 +507,13 @@ export const TEXT_PRESETS = {
               }
             `;
             document.head.appendChild(styleEl);
+            
+            // Store style element reference for cleanup
+            element._cursorStyleEl = styleEl;
           }
+
+          // Add cursor class to element for styling
+          element.classList.add('lcards-typewriter-cursor');
         }
 
         lcardsLog.debug('[text-typewriter] Text split complete', {
@@ -512,6 +527,12 @@ export const TEXT_PRESETS = {
         if (element) {
           // Remove cursor class
           element.classList.remove('lcards-typewriter-cursor');
+          
+          // Remove cursor style element if it exists
+          if (element._cursorStyleEl) {
+            element._cursorStyleEl.remove();
+            delete element._cursorStyleEl;
+          }
           
           // Revert text split
           if (element._textSplitter) {
