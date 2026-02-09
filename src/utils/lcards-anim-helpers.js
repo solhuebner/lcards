@@ -123,6 +123,152 @@ export async function animateWithRoot(options) {
 }
 
 /**
+ * Process special animation markers (_timeline, _stagger, _radial)
+ * These are inserted by presets to signal special handling
+ * 
+ * Marker Types:
+ * 
+ * 1. _timeline: true
+ *    - Creates an anime.js timeline instead of a single animation
+ *    - Input: { _timeline: true, steps: [{targets, params, offset}], loop, ... }
+ *    - Output: Timeline instance that can have multiple steps added
+ *    - Example: timeline-cascade preset creates sequential reveals
+ * 
+ * 2. _stagger: true (in delay object)
+ *    - Converts delay config object to anime.js stagger() function
+ *    - Input: delay: { _stagger: true, value: 100, grid: [6,2], from: 'center' }
+ *    - Output: delay: stagger(100, { grid: [6,2], from: 'center' })
+ *    - Example: stagger-grid preset animates grid elements with progressive delay
+ * 
+ * 3. _radial: true (in delay object)
+ *    - Creates radial stagger pattern from center point outward
+ *    - Input: delay: { _radial: true, value: 50, from: 'center' }
+ *    - Output: delay: stagger(50, { from: 'center' })
+ *    - Example: stagger-radial preset creates ripple effects
+ * 
+ * @param {Object} params - Animation parameters from preset
+ * @param {Element} element - Target element for animation
+ * @param {Object} scope - Scope object with scope.scope property
+ * @returns {Object} { isTimeline: boolean, timelineInstance: object|null, processedParams: object }
+ * @private
+ */
+function _processAnimationMarkers(params, element, scope) {
+  // 1. Handle _timeline marker - create timeline instead of single animation
+  if (params._timeline === true) {
+    lcardsLog.debug('[animateElement] Processing _timeline marker');
+    
+    const { _timeline, steps, ...timelineGlobals } = params;
+    
+    if (!window.lcards?.anim?.animejs?.createTimeline) {
+      lcardsLog.error('[animateElement] createTimeline not available for _timeline marker');
+      return { isTimeline: false, timelineInstance: null, processedParams: params };
+    }
+    
+    const timeline = window.lcards.anim.animejs.createTimeline({
+      scope: scope?.scope,
+      ...timelineGlobals
+    });
+
+    // Add each step to timeline
+    if (Array.isArray(steps)) {
+      steps.forEach(step => {
+        const { targets, offset, params: stepParams, ...stepAnimationProps } = step;
+        
+        // If step has targets, resolve them; otherwise use element
+        const stepTargets = targets || element;
+        
+        // Merge step params if provided
+        const finalStepProps = stepParams ? { ...stepAnimationProps, ...stepParams } : stepAnimationProps;
+        
+        timeline.add(stepTargets, finalStepProps, offset);
+      });
+    }
+
+    return { 
+      isTimeline: true, 
+      timelineInstance: timeline, 
+      processedParams: params 
+    };
+  }
+
+  // Make a copy to avoid mutating original
+  const processedParams = { ...params };
+
+  // 2. Handle _stagger marker - convert to stagger function
+  if (processedParams.delay?._stagger === true) {
+    lcardsLog.debug('[animateElement] Processing _stagger marker');
+    
+    const staggerConfig = processedParams.delay;
+    
+    if (!window.lcards?.anim?.animejs?.stagger) {
+      lcardsLog.warn('[animateElement] stagger() not available for _stagger marker');
+    } else {
+      // Build stagger options
+      const staggerOptions = {};
+      
+      if (staggerConfig.from !== undefined) {
+        staggerOptions.from = staggerConfig.from;
+      }
+      if (staggerConfig.grid !== undefined) {
+        staggerOptions.grid = staggerConfig.grid;
+      }
+      if (staggerConfig.axis !== undefined) {
+        staggerOptions.axis = staggerConfig.axis;
+      }
+      if (staggerConfig.easing !== undefined) {
+        staggerOptions.easing = staggerConfig.easing;
+      }
+      if (staggerConfig.direction !== undefined) {
+        staggerOptions.direction = staggerConfig.direction;
+      }
+      
+      processedParams.delay = window.lcards.anim.animejs.stagger(
+        staggerConfig.value || 100,
+        staggerOptions
+      );
+      
+      lcardsLog.debug('[animateElement] Converted _stagger to stagger function', { 
+        value: staggerConfig.value,
+        options: staggerOptions
+      });
+    }
+  }
+
+  // 3. Handle _radial marker - calculate radial stagger positions
+  if (processedParams.delay?._radial === true) {
+    lcardsLog.debug('[animateElement] Processing _radial marker');
+    
+    const radialConfig = processedParams.delay;
+    
+    if (!window.lcards?.anim?.animejs?.stagger) {
+      lcardsLog.warn('[animateElement] stagger() not available for _radial marker');
+    } else {
+      // Use anime.js stagger with 'center' from option
+      // This creates a radial effect from the center point
+      processedParams.delay = window.lcards.anim.animejs.stagger(
+        radialConfig.value || 50,
+        {
+          from: radialConfig.from || 'center',
+          grid: radialConfig.grid,
+          axis: radialConfig.axis
+        }
+      );
+      
+      lcardsLog.debug('[animateElement] Converted _radial to radial stagger', { 
+        value: radialConfig.value,
+        from: radialConfig.from || 'center'
+      });
+    }
+  }
+
+  return { 
+    isTimeline: false, 
+    timelineInstance: null, 
+    processedParams 
+  };
+}
+
+/**
  * Animates element(s) using anime.js with special handling for SVG animations.
  * Unchanged behavior, v4-native through window.lcards.anim.anime
  */
@@ -222,20 +368,41 @@ export async function animateElement(scope, options, hass = null, onInstanceCrea
           continue;
         }
 
+        // ✨ NEW: Process special animation markers (_timeline, _stagger, _radial)
+        const markerResult = _processAnimationMarkers(params, element, scope);
+        
+        // If timeline marker was processed, track the timeline instance and skip anime() call
+        if (markerResult.isTimeline && markerResult.timelineInstance) {
+          lcardsLog.debug(`[animateElement] Timeline created for ${type}`, {
+            scopeId: scope.id || 'no-id',
+            element: element.id || element.tagName
+          });
+          
+          // Call callback with the timeline instance (for tracking)
+          if (onInstanceCreated && typeof onInstanceCreated === 'function') {
+            onInstanceCreated(markerResult.timelineInstance);
+          }
+          
+          continue; // Skip anime() call for timelines
+        }
+        
+        // Use processed params (with stagger/radial converted if needed)
+        const processedParams = markerResult.processedParams;
+
         // Check if preset created a drawable (for draw animations)
         // or overrode the target element
         let targetElement = element;
-        let animeParams = { ...params };
+        let animeParams = { ...processedParams };
 
         if (element._drawable) {
           // Use drawable created by preset setup (e.g., draw animation)
           targetElement = element._drawable;
           lcardsLog.debug(`[animateElement] Using drawable for ${type}`, { element: element.tagName });
-        } else if (params.targets && params.targets instanceof Element) {
+        } else if (processedParams.targets && processedParams.targets instanceof Element) {
           // Preset wants to animate a different element (e.g., text child of group)
-          targetElement = params.targets;
+          targetElement = processedParams.targets;
           // Remove targets from params since it's passed as first argument
-          const { targets: _, ...rest } = params;
+          const { targets: _, ...rest } = processedParams;
           animeParams = rest;
         }
 
