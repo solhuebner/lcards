@@ -21,13 +21,16 @@
  */
 
 import { LitElement, html, css } from 'lit';
-import { EditorView, keymap, lineNumbers, highlightActiveLineGutter } from '@codemirror/view';
+import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, placeholder, highlightTrailingWhitespace } from '@codemirror/view';
 import { EditorState, Compartment } from '@codemirror/state';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { yaml } from '@codemirror/lang-yaml';
 import { autocompletion } from '@codemirror/autocomplete';
 import { linter, lintGutter } from '@codemirror/lint';
 import { vsCodeDark } from '@fsegurai/codemirror-theme-vscode-dark';
+import { search, searchKeymap, highlightSelectionMatches } from '@codemirror/search';
+import { bracketMatching, foldGutter, foldKeymap } from '@codemirror/language';
+import { indentationMarkers } from '@replit/codemirror-indentation-markers';
 import { lcardsLog } from '../../../utils/lcards-logging.js';
 import { validateYaml, yamlToConfig } from '../../utils/yaml-utils.js';
 
@@ -40,6 +43,7 @@ export class LCARdSYamlEditor extends LitElement {
             hass: { type: Object },            // HA instance for entity autocomplete
             readOnly: { type: Boolean },       // Read-only mode
             _isMaximized: { type: Boolean, state: true }, // Maximized state
+            _showHelp: { type: Boolean, state: true },     // Help dialog visibility
         };
     }
 
@@ -54,6 +58,7 @@ export class LCARdSYamlEditor extends LitElement {
         this._schemaCompartment = new Compartment();
         this._editableCompartment = new Compartment();
         this._isMaximized = false;
+        this._showHelp = false;
         this._changeDebounceTimer = null;
     }
 
@@ -95,6 +100,15 @@ export class LCARdSYamlEditor extends LitElement {
             ha-icon-button {
                 --mdc-icon-button-size: 36px;
                 --mdc-icon-size: 20px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            ha-icon-button ha-icon {
+                display: flex;
+                align-items: center;
+                justify-content: center;
             }
 
             .editor-container {
@@ -192,6 +206,218 @@ export class LCARdSYamlEditor extends LitElement {
             .editor-container :global(.cm-lintRange-error) {
                 background-color: rgba(224, 108, 117, 0.2);
             }
+
+            /* Search panel */
+            .editor-container :global(.cm-panel) {
+                background: #21252b;
+                border-bottom: 1px solid #3e4451;
+                color: #abb2bf;
+            }
+
+            .editor-container :global(.cm-textfield) {
+                background: #282c34;
+                border: 1px solid #3e4451;
+                color: #abb2bf;
+                padding: 4px 8px;
+                border-radius: 3px;
+            }
+
+            .editor-container :global(.cm-button) {
+                background: #3e4451;
+                border: none;
+                color: #abb2bf;
+                padding: 4px 12px;
+                border-radius: 3px;
+                cursor: pointer;
+            }
+
+            .editor-container :global(.cm-button:hover) {
+                background: #4e545f;
+            }
+
+            /* Bracket matching */
+            .editor-container :global(.cm-matchingBracket) {
+                background-color: rgba(97, 175, 239, 0.3);
+                border: 1px solid #61afef;
+            }
+
+            /* Selection match highlighting */
+            .editor-container :global(.cm-selectionMatch) {
+                background-color: rgba(152, 195, 121, 0.2);
+            }
+
+            /* Trailing whitespace */
+            .editor-container :global(.cm-trailingWhitespace) {
+                background-color: rgba(224, 108, 117, 0.3);
+            }
+
+            /* Fold markers */
+            .editor-container :global(.cm-foldGutter) {
+                color: #5c6370;
+                padding-left: 4px;
+            }
+
+            /* Indentation markers */
+            .editor-container :global(.cm-indent-markers) {
+                position: absolute;
+                left: 0;
+                right: 0;
+                pointer-events: none;
+            }
+
+            .editor-container :global(.cm-indent-marker) {
+                border-left: 1px solid rgba(92, 99, 112, 0.3);
+                height: 100%;
+            }
+
+            .editor-container :global(.cm-indent-marker-active) {
+                border-left: 1px solid rgba(97, 175, 239, 0.4);
+            }
+
+            /* Status footer */
+            .status-footer {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 4px 12px;
+                background: var(--card-background-color, #21252b);
+                border-top: 1px solid var(--divider-color, #181a1f);
+                font-size: 12px;
+                color: #5c6370;
+                gap: 16px;
+            }
+
+            .status-left {
+                display: flex;
+                gap: 16px;
+                align-items: center;
+            }
+
+            .status-right {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+            }
+
+            .status-item {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            }
+
+            .status-item ha-icon {
+                --mdc-icon-size: 14px;
+            }
+
+            .hint {
+                color: #98c379;
+            }
+
+            /* Help dialog */
+            .help-dialog {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: #282c34;
+                border: 1px solid #3e4451;
+                border-radius: 8px;
+                box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+                z-index: 10000;
+                max-width: 600px;
+                width: 90%;
+                max-height: 80vh;
+                overflow: auto;
+                color: #abb2bf;
+            }
+
+            .help-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 16px 20px;
+                border-bottom: 1px solid #3e4451;
+                background: #21252b;
+                border-radius: 8px 8px 0 0;
+            }
+
+            .help-title {
+                font-size: 18px;
+                font-weight: 600;
+                color: #61afef;
+            }
+
+            .help-content {
+                padding: 20px;
+            }
+
+            .help-section {
+                margin-bottom: 24px;
+            }
+
+            .help-section:last-child {
+                margin-bottom: 0;
+            }
+
+            .help-section-title {
+                font-size: 14px;
+                font-weight: 600;
+                color: #e5c07b;
+                margin-bottom: 12px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .help-section-title ha-icon {
+                --mdc-icon-size: 18px;
+            }
+
+            .shortcut-list {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .shortcut-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 8px 12px;
+                background: #21252b;
+                border-radius: 4px;
+            }
+
+            .shortcut-desc {
+                color: #abb2bf;
+            }
+
+            .shortcut-keys {
+                display: flex;
+                gap: 4px;
+            }
+
+            .key {
+                padding: 4px 8px;
+                background: #3e4451;
+                border: 1px solid #4e545f;
+                border-radius: 4px;
+                font-family: 'Consolas', 'Monaco', monospace;
+                font-size: 11px;
+                color: #98c379;
+                min-width: 24px;
+                text-align: center;
+            }
+
+            .help-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.7);
+                z-index: 9999;
+            }
         `;
     }
 
@@ -199,6 +425,11 @@ export class LCARdSYamlEditor extends LitElement {
         return html`
             <div class="editor-wrapper">
                 <div class="toolbar">
+                    <ha-icon-button
+                        .label=${'Keyboard shortcuts'}
+                        @click=${this._toggleHelp}>
+                        <ha-icon icon="mdi:keyboard"></ha-icon>
+                    </ha-icon-button>
                     <ha-icon-button
                         .label=${this._isMaximized ? 'Exit maximize' : 'Maximize editor'}
                         @click=${this._toggleMaximize}>
@@ -210,8 +441,243 @@ export class LCARdSYamlEditor extends LitElement {
                     id="editor-mount"
                     @keydown=${this._ignoreKeydown}>
                 </div>
+                <div class="status-footer">
+                    <div class="status-left">
+                        <div class="status-item hint">
+                            <ha-icon icon="mdi:lightbulb-on-outline"></ha-icon>
+                            <span>Ctrl+Space for autocomplete</span>
+                        </div>
+                        <div class="status-item hint">
+                            <ha-icon icon="mdi:magnify"></ha-icon>
+                            <span>Ctrl+F to search</span>
+                        </div>
+                    </div>
+                    <div class="status-right">
+                        <div class="status-item">
+                            <ha-icon icon="mdi:keyboard"></ha-icon>
+                            <span style="cursor: pointer; color: #61afef;" @click=${this._toggleHelp}>Show all shortcuts</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            ${this._showHelp ? this._renderHelpDialog() : ''}
+        `;
+    }
+
+    /**
+     * Render help dialog with keyboard shortcuts
+     * @private
+     */
+    _renderHelpDialog() {
+        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+        const mod = isMac ? 'Cmd' : 'Ctrl';
+
+        return html`
+            <div class="help-overlay" @click=${this._toggleHelp}></div>
+            <div class="help-dialog" @click=${(e) => e.stopPropagation()}>
+                <div class="help-header">
+                    <div class="help-title">Keyboard Shortcuts</div>
+                    <ha-icon-button
+                        .label=${'Close'}
+                        @click=${this._toggleHelp}>
+                        <ha-icon icon="mdi:close"></ha-icon>
+                    </ha-icon-button>
+                </div>
+                <div class="help-content">
+                    <div class="help-section">
+                        <div class="help-section-title">
+                            <ha-icon icon="mdi:pencil"></ha-icon>
+                            Editing
+                        </div>
+                        <div class="shortcut-list">
+                            <div class="shortcut-item">
+                                <span class="shortcut-desc">Undo</span>
+                                <div class="shortcut-keys">
+                                    <span class="key">${mod}</span>
+                                    <span class="key">Z</span>
+                                </div>
+                            </div>
+                            <div class="shortcut-item">
+                                <span class="shortcut-desc">Redo</span>
+                                <div class="shortcut-keys">
+                                    <span class="key">${mod}</span>
+                                    <span class="key">Shift</span>
+                                    <span class="key">Z</span>
+                                </div>
+                            </div>
+                            <div class="shortcut-item">
+                                <span class="shortcut-desc">Indent line/selection</span>
+                                <div class="shortcut-keys">
+                                    <span class="key">Tab</span>
+                                </div>
+                            </div>
+                            <div class="shortcut-item">
+                                <span class="shortcut-desc">Dedent line/selection</span>
+                                <div class="shortcut-keys">
+                                    <span class="key">Shift</span>
+                                    <span class="key">Tab</span>
+                                </div>
+                            </div>
+                            <div class="shortcut-item">
+                                <span class="shortcut-desc">Delete line</span>
+                                <div class="shortcut-keys">
+                                    <span class="key">${mod}</span>
+                                    <span class="key">Shift</span>
+                                    <span class="key">K</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="help-section">
+                        <div class="help-section-title">
+                            <ha-icon icon="mdi:code-braces"></ha-icon>
+                            Autocomplete & Navigation
+                        </div>
+                        <div class="shortcut-list">
+                            <div class="shortcut-item">
+                                <span class="shortcut-desc">Trigger autocomplete</span>
+                                <div class="shortcut-keys">
+                                    <span class="key">${mod}</span>
+                                    <span class="key">Space</span>
+                                </div>
+                            </div>
+                            <div class="shortcut-item">
+                                <span class="shortcut-desc">Close autocomplete popup</span>
+                                <div class="shortcut-keys">
+                                    <span class="key">Esc</span>
+                                </div>
+                            </div>
+                            <div class="shortcut-item">
+                                <span class="shortcut-desc">Fold/unfold section</span>
+                                <div class="shortcut-keys">
+                                    <span class="key">${mod}</span>
+                                    <span class="key">Shift</span>
+                                    <span class="key">[</span>
+                                </div>
+                            </div>
+                            <div class="shortcut-item">
+                                <span class="shortcut-desc">Fold all sections</span>
+                                <div class="shortcut-keys">
+                                    <span class="key">${mod}</span>
+                                    <span class="key">Alt</span>
+                                    <span class="key">[</span>
+                                </div>
+                            </div>
+                            <div class="shortcut-item">
+                                <span class="shortcut-desc">Unfold all sections</span>
+                                <div class="shortcut-keys">
+                                    <span class="key">${mod}</span>
+                                    <span class="key">Alt</span>
+                                    <span class="key">]</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="help-section">
+                        <div class="help-section-title">
+                            <ha-icon icon="mdi:magnify"></ha-icon>
+                            Search & Replace
+                        </div>
+                        <div class="shortcut-list">
+                            <div class="shortcut-item">
+                                <span class="shortcut-desc">Find</span>
+                                <div class="shortcut-keys">
+                                    <span class="key">${mod}</span>
+                                    <span class="key">F</span>
+                                </div>
+                            </div>
+                            <div class="shortcut-item">
+                                <span class="shortcut-desc">Find next</span>
+                                <div class="shortcut-keys">
+                                    <span class="key">${mod}</span>
+                                    <span class="key">G</span>
+                                </div>
+                            </div>
+                            <div class="shortcut-item">
+                                <span class="shortcut-desc">Find previous</span>
+                                <div class="shortcut-keys">
+                                    <span class="key">${mod}</span>
+                                    <span class="key">Shift</span>
+                                    <span class="key">G</span>
+                                </div>
+                            </div>
+                            <div class="shortcut-item">
+                                <span class="shortcut-desc">Replace</span>
+                                <div class="shortcut-keys">
+                                    <span class="key">${mod}</span>
+                                    <span class="key">H</span>
+                                </div>
+                            </div>
+                            <div class="shortcut-item">
+                                <span class="shortcut-desc">Select all matches</span>
+                                <div class="shortcut-keys">
+                                    <span class="key">${mod}</span>
+                                    <span class="key">Alt</span>
+                                    <span class="key">G</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="help-section">
+                        <div class="help-section-title">
+                            <ha-icon icon="mdi:cursor-default"></ha-icon>
+                            Selection
+                        </div>
+                        <div class="shortcut-list">
+                            <div class="shortcut-item">
+                                <span class="shortcut-desc">Select line</span>
+                                <div class="shortcut-keys">
+                                    <span class="key">${mod}</span>
+                                    <span class="key">L</span>
+                                </div>
+                            </div>
+                            <div class="shortcut-item">
+                                <span class="shortcut-desc">Select all</span>
+                                <div class="shortcut-keys">
+                                    <span class="key">${mod}</span>
+                                    <span class="key">A</span>
+                                </div>
+                            </div>
+                            <div class="shortcut-item">
+                                <span class="shortcut-desc">Add cursor above/below</span>
+                                <div class="shortcut-keys">
+                                    <span class="key">${mod}</span>
+                                    <span class="key">Alt</span>
+                                    <span class="key">↑/↓</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="help-section">
+                        <div class="help-section-title">
+                            <ha-icon icon="mdi:lightbulb-on"></ha-icon>
+                            Tips
+                        </div>
+                        <div class="shortcut-list">
+                            <div class="shortcut-item" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                                <span class="shortcut-desc" style="color: #98c379;">• Schema autocomplete suggests valid properties and values</span>
+                                <span class="shortcut-desc" style="color: #98c379;">• Entity IDs autocomplete from your Home Assistant instance</span>
+                                <span class="shortcut-desc" style="color: #98c379;">• Red underlines show validation errors - hover for details</span>
+                                <span class="shortcut-desc" style="color: #98c379;">• Indentation guides help align YAML structure</span>
+                                <span class="shortcut-desc" style="color: #e06c75;">• Pink highlights indicate trailing whitespace (YAML sensitive!)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         `;
+    }
+
+    /**
+     * Toggle help dialog visibility
+     * @private
+     */
+    _toggleHelp() {
+        this._showHelp = !this._showHelp;
     }
 
     /**
@@ -278,10 +744,40 @@ export class LCARdSYamlEditor extends LitElement {
             // YAML language support
             yaml(),
 
+            // Placeholder text when empty
+            placeholder('# Start typing your YAML configuration...\n# Press Ctrl+Space for autocomplete suggestions'),
+
+            // Code folding
+            foldGutter(),
+
+            // Bracket matching
+            bracketMatching(),
+
+            // Search/Replace panel
+            search(),
+
+            // Highlight selection matches
+            highlightSelectionMatches(),
+
+            // Indentation guides (critical for YAML!)
+            indentationMarkers({
+                colors: {
+                    light: 'rgba(92, 99, 112, 0.3)',
+                    dark: 'rgba(92, 99, 112, 0.3)',
+                    activeLight: 'rgba(97, 175, 239, 0.4)',
+                    activeDark: 'rgba(97, 175, 239, 0.4)'
+                }
+            }),
+
+            // Highlight trailing whitespace (YAML is picky!)
+            highlightTrailingWhitespace(),
+
             // Keymaps
             keymap.of([
                 ...defaultKeymap,
                 ...historyKeymap,
+                ...searchKeymap,
+                ...foldKeymap,
                 indentWithTab
             ]),
 
