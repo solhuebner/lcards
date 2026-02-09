@@ -308,6 +308,13 @@ export class LCARdSCard extends LCARdSNativeCard {
 
             // Update with processed config if valid
             if (result.valid && result.mergedConfig) {
+                lcardsLog.trace(`[LCARdSCard] Updating config with merged result`, {
+                    hasMergedConfig: !!result.mergedConfig,
+                    hasProvenanceInMerged: !!result.mergedConfig.__provenance,
+                    mergedConfigKeys: Object.keys(result.mergedConfig),
+                    cardType: this.constructor.CARD_TYPE
+                });
+
                 // Update internal config
                 this.config = result.mergedConfig;
 

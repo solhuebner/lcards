@@ -181,6 +181,97 @@ export class LCARdSElbow extends LCARdSButton {
     }
 
     /**
+     * Called after CoreConfigManager processes config (async)
+     * This is where we add provenance for dynamically-computed values
+     * @protected
+     */
+    _onConfigUpdated() {
+        lcardsLog.debug('[LCARdSElbow] _onConfigUpdated called - adding provenance for dynamic colors');
+
+        // Track provenance for dynamically-added color fields
+        // This runs AFTER CoreConfigManager has processed the config
+        // and AFTER _initializeElbowDefaultColors() has added the color defaults
+        this._trackColorProvenance();
+
+        // Call parent
+        if (super._onConfigUpdated) {
+            super._onConfigUpdated();
+        }
+    }
+
+    /**
+     * Track provenance for dynamically-added color values
+     * Must be called AFTER _initializeElbowDefaultColors() has run
+     * @private
+     */
+    _trackColorProvenance() {
+        // Use _provenance (from CoreConfigManager result) not config.__provenance
+        // This follows the same pattern as button/slider cards
+        if (!this._provenance?.field_sources) {
+            lcardsLog.warn('[LCARdSElbow] Cannot track color provenance - no _provenance.field_sources');
+            return;
+        }
+
+        if (!this._elbowConfig) {
+            lcardsLog.warn('[LCARdSElbow] Cannot track color provenance - no _elbowConfig');
+            return;
+        }
+
+        let trackedCount = 0;
+
+        // Track segment colors
+        if (this._elbowConfig.segment?.color) {
+            Object.entries(this._elbowConfig.segment.color).forEach(([colorKey, tokenValue]) => {
+                const fieldPath = `elbow.segment.color.${colorKey}`;
+
+                // Check if this field already has provenance (from user config or card defaults)
+                if (!this._provenance.field_sources[fieldPath]) {
+                    this._provenance.field_sources[fieldPath] = {
+                        layers: { card_defaults: tokenValue },
+                        final: 'card_defaults'
+                    };
+                    trackedCount++;
+                }
+            });
+        }
+
+        // Track segmented mode colors
+        if (this._elbowConfig.style === 'segmented' && this._elbowConfig.segments) {
+            // Outer segment
+            if (this._elbowConfig.segments.outer_segment?.color) {
+                Object.entries(this._elbowConfig.segments.outer_segment.color).forEach(([colorKey, tokenValue]) => {
+                    const fieldPath = `elbow.segments.outer_segment.color.${colorKey}`;
+                    if (!this._provenance.field_sources[fieldPath]) {
+                        this._provenance.field_sources[fieldPath] = {
+                            layers: { card_defaults: tokenValue },
+                            final: 'card_defaults'
+                        };
+                        trackedCount++;
+                    }
+                });
+            }
+
+            // Inner segment
+            if (this._elbowConfig.segments.inner_segment?.color) {
+                Object.entries(this._elbowConfig.segments.inner_segment.color).forEach(([colorKey, tokenValue]) => {
+                    const fieldPath = `elbow.segments.inner_segment.color.${colorKey}`;
+                    if (!this._provenance.field_sources[fieldPath]) {
+                        this._provenance.field_sources[fieldPath] = {
+                            layers: { card_defaults: tokenValue },
+                            final: 'card_defaults'
+                        };
+                        trackedCount++;
+                    }
+                });
+            }
+        }
+
+        if (trackedCount > 0) {
+            lcardsLog.info(`[LCARdSElbow] Tracked provenance for ${trackedCount} dynamically-added colors`);
+        }
+    }
+
+    /**
      * Initialize position-aware default state-based colors for elbows
      * Sets card.color.background defaults based on elbow type and position
      * MUST override any button preset colors
@@ -252,11 +343,14 @@ export class LCARdSElbow extends LCARdSButton {
             pressed: `${tokenBase}.pressed`
         };
 
+        // Track which colors exist before we add defaults
+        const existingSegmentColors = this._elbowConfig.segment.color || {};
+
         // Merge defaults with user config (user values override defaults)
         // Create new object to avoid frozen object errors from HA config
         this._elbowConfig.segment.color = {
             ...colorDefaults,
-            ...(this._elbowConfig.segment.color || {})
+            ...existingSegmentColors
         };
 
         // For segmented mode, also set into segments.outer_segment and segments.inner_segment
@@ -265,16 +359,18 @@ export class LCARdSElbow extends LCARdSButton {
 
             // Outer segment
             if (!this._elbowConfig.segments.outer_segment) this._elbowConfig.segments.outer_segment = {};
+            const existingOuterColors = this._elbowConfig.segments.outer_segment.color || {};
             this._elbowConfig.segments.outer_segment.color = {
                 ...colorDefaults,
-                ...(this._elbowConfig.segments.outer_segment.color || {})
+                ...existingOuterColors
             };
 
             // Inner segment
             if (!this._elbowConfig.segments.inner_segment) this._elbowConfig.segments.inner_segment = {};
+            const existingInnerColors = this._elbowConfig.segments.inner_segment.color || {};
             this._elbowConfig.segments.inner_segment.color = {
                 ...colorDefaults,
-                ...(this._elbowConfig.segments.inner_segment.color || {})
+                ...existingInnerColors
             };
         }
 
