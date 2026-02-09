@@ -308,10 +308,11 @@ export const BUTTON_PRESETS = {
 
     // Text styling - left aligned for outline style
     text: {
+      default: {
+        font_size: 'theme:typography.fontSize.2xl',
+      },
       name: {
         position: 'right',
-        //font_size: 'theme:components.button.text.font_size',
-        font_size: 'theme:typography.fontSize.2xl',
         show: true,
         padding: {
           right: 12
@@ -329,10 +330,11 @@ export const BUTTON_PRESETS = {
     extends: 'button.base',
     icon_area: 'right',
     text: {
+      default: {
+        font_size: 'theme:typography.fontSize.2xl',
+      },
       name: {
         position: 'left',
-        //font_size: 'theme:components.button.text.font_size',
-        font_size: 'theme:typography.fontSize.2xl',
         show: true,
         padding: {
           left: 12
@@ -383,6 +385,7 @@ export const BUTTON_PRESETS = {
     text: {
 
       default: {
+        font_size: 'theme:typography.fontSize.2xl',
         color: {
           default: 'theme:components.button.background.active',
           active: 'theme:components.button.background.active',
@@ -392,8 +395,6 @@ export const BUTTON_PRESETS = {
       },
       name: {
         position: 'right',
-        //font_size: 'theme:components.button.text.font_size',
-        font_size: 'theme:typography.fontSize.2xl',
         show: true,
         padding: {
           right: 12
@@ -401,7 +402,6 @@ export const BUTTON_PRESETS = {
       },
       state: {
         position: 'left',
-        font_size: 'theme:components.button.text.font_size',
         show: false
       }
     },
@@ -428,8 +428,6 @@ export const BUTTON_PRESETS = {
       },
       name: {
         position: 'left',
-        //font_size: 'theme:components.button.text.font_size',
-        font_size: 'theme:typography.fontSize.2xl',
         show: true,
         padding: {
           left: 12
@@ -437,7 +435,6 @@ export const BUTTON_PRESETS = {
       },
       state: {
         position: 'right',
-        font_size: 'theme:components.button.text.font_size',
         show: false
       }
     },

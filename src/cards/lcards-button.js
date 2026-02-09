@@ -3589,6 +3589,10 @@ export class LCARdSButton extends LCARdSCard {
         // Extract user-defined defaults from text.default (config)
         const userDefaults = textConfig.default || {};
 
+        // DEBUG: Log what we're working with
+        lcardsLog.debug('[Button._resolveTextConfiguration] textConfig:', textConfig);
+        lcardsLog.debug('[Button._resolveTextConfiguration] userDefaults:', userDefaults);
+
         // Get preset text fields from resolved button style
         const presetTextFields = this._buttonStyle?.text || {};
 
@@ -3623,6 +3627,16 @@ export class LCARdSButton extends LCARdSCard {
             // Get preset defaults if this is a known field
             const presetDefault = presetDefaults[fieldId] || {};
 
+            // DEBUG: Log font_size sources for this field
+            lcardsLog.trace(`[Button._resolveTextConfiguration] Field '${fieldId}' font_size sources:`, {
+                fieldConfig_font_size: fieldConfig.font_size,
+                fieldConfig_size: fieldConfig.size,
+                userDefaults_font_size: userDefaults.font_size,
+                presetFieldConfig_font_size: presetFieldConfig.font_size,
+                presetFieldConfig_size: presetFieldConfig.size,
+                presetTextDefaults_font_size: this._buttonStyle?.text?.default?.font_size
+            });
+
             // Use processed template content if available (stored in _processedTemplates)
             // This survives config replacement by CoreConfigManager
             // Check if key EXISTS in _processedTemplates (not if value is truthy - empty string is valid!)
@@ -3641,14 +3655,14 @@ export class LCARdSButton extends LCARdSCard {
                 x_percent: fieldConfig.x_percent !== undefined ? fieldConfig.x_percent : (presetFieldConfig.x_percent !== undefined ? presetFieldConfig.x_percent : null),
                 y_percent: fieldConfig.y_percent !== undefined ? fieldConfig.y_percent : (presetFieldConfig.y_percent !== undefined ? presetFieldConfig.y_percent : null),
                 padding: fieldConfig.padding !== undefined ? fieldConfig.padding :
-                        (presetFieldConfig.padding !== undefined ? presetFieldConfig.padding :
                         (userDefaults.padding !== undefined ? userDefaults.padding :
+                        (presetFieldConfig.padding !== undefined ? presetFieldConfig.padding :
                         (presetTextDefaults.padding !== undefined ? presetTextDefaults.padding : 8))),
-                font_size: fieldConfig.font_size || fieldConfig.size || presetFieldConfig.font_size || presetFieldConfig.size || userDefaults.font_size || this._buttonStyle?.text?.default?.font_size || 14,
-                color: fieldConfig.color || presetFieldConfig.color || userDefaults.color || presetTextDefaults.color || null, // null means use default
-                font_weight: fieldConfig.font_weight || presetFieldConfig.font_weight || userDefaults.font_weight || this._buttonStyle?.text?.default?.font_weight || 'normal',
-                font_family: fieldConfig.font_family || presetFieldConfig.font_family || userDefaults.font_family || this._buttonStyle?.text?.default?.font_family || "'LCARS', 'Antonio', sans-serif",
-                text_transform: fieldConfig.text_transform || presetFieldConfig.text_transform || userDefaults.text_transform || this._buttonStyle?.text?.default?.text_transform || 'none',
+                font_size: fieldConfig.font_size || fieldConfig.size || userDefaults.font_size || presetFieldConfig.font_size || presetFieldConfig.size || this._buttonStyle?.text?.default?.font_size || 14,
+                color: fieldConfig.color || userDefaults.color || presetFieldConfig.color || presetTextDefaults.color || null, // null means use default
+                font_weight: fieldConfig.font_weight || userDefaults.font_weight || presetFieldConfig.font_weight || this._buttonStyle?.text?.default?.font_weight || 'normal',
+                font_family: fieldConfig.font_family || userDefaults.font_family || presetFieldConfig.font_family || this._buttonStyle?.text?.default?.font_family || "'LCARS', 'Antonio', sans-serif",
+                text_transform: fieldConfig.text_transform || userDefaults.text_transform || presetFieldConfig.text_transform || this._buttonStyle?.text?.default?.text_transform || 'none',
                 anchor: fieldConfig.anchor || presetFieldConfig.anchor || presetDefault.anchor || null,
                 baseline: fieldConfig.baseline || presetFieldConfig.baseline || presetDefault.baseline || null,
                 rotation: fieldConfig.rotation !== undefined ? fieldConfig.rotation : (presetFieldConfig.rotation !== undefined ? presetFieldConfig.rotation : 0),
@@ -3656,18 +3670,18 @@ export class LCARdSButton extends LCARdSCard {
                 template: fieldConfig.template !== undefined ? fieldConfig.template : (presetFieldConfig.template !== undefined ? presetFieldConfig.template : true),
 
                 // Text background properties for "bar label" effect
-                // Priority: field-specific config > preset field config > text.default (config) > text.default (preset) > null
+                // Priority: field-specific config > text.default (config) > preset field config > text.default (preset) > null
                 background: fieldConfig.background !== undefined ? fieldConfig.background :
-                           (presetFieldConfig.background !== undefined ? presetFieldConfig.background :
                            (userDefaults.background !== undefined ? userDefaults.background :
+                           (presetFieldConfig.background !== undefined ? presetFieldConfig.background :
                            (presetTextDefaults.background !== undefined ? presetTextDefaults.background : null))),
                 background_padding: fieldConfig.background_padding !== undefined ? fieldConfig.background_padding :
-                                   (presetFieldConfig.background_padding !== undefined ? presetFieldConfig.background_padding :
                                    (userDefaults.background_padding !== undefined ? userDefaults.background_padding :
+                                   (presetFieldConfig.background_padding !== undefined ? presetFieldConfig.background_padding :
                                    (presetTextDefaults.background_padding !== undefined ? presetTextDefaults.background_padding : 8))),
                 background_radius: fieldConfig.background_radius !== undefined ? fieldConfig.background_radius :
-                                  (presetFieldConfig.background_radius !== undefined ? presetFieldConfig.background_radius :
                                   (userDefaults.background_radius !== undefined ? userDefaults.background_radius :
+                                  (presetFieldConfig.background_radius !== undefined ? presetFieldConfig.background_radius :
                                   (presetTextDefaults.background_radius !== undefined ? presetTextDefaults.background_radius : 4)))
             };
         }
