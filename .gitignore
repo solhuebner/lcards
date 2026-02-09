@@ -403,6 +403,7 @@ dist/
 todo.txt
 src/TODO:.md
 doc-temp/
+doc-staging/
 test-temp/
 hacsfiles/
 hacsfiles/lcards/msd/
