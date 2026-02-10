@@ -76,9 +76,9 @@ export class TriggerManager {
       return;
     }
 
-    // Entity state change triggers are handled by the card's HASS update handler
+    // Entity state change triggers - setup entity subscription
     if (trigger === 'on_entity_change') {
-      lcardsLog.debug(`[TriggerManager] on_entity_change handled by card HASS monitoring (skipping)`);
+      this._setupEntityChangeListeners();
       return;
     }
 
@@ -96,6 +96,81 @@ export class TriggerManager {
       default:
         lcardsLog.warn(`[TriggerManager] Unknown trigger type: ${trigger}`);
     }
+  }
+
+  /**
+   * Setup entity change listeners for all on_entity_change animations
+   * @private
+   */
+  _setupEntityChangeListeners() {
+    const animations = this.registrations.get('on_entity_change');
+    if (!animations || animations.length === 0) {
+      return;
+    }
+
+    // Get SystemsManager from AnimationManager
+    const systemsManager = this.animationManager?.systemsManager;
+    if (!systemsManager) {
+      lcardsLog.warn('[TriggerManager] Cannot setup entity change listeners - no SystemsManager');
+      return;
+    }
+
+    // Track entity subscriptions for cleanup
+    if (!this._entitySubscriptions) {
+      this._entitySubscriptions = [];
+    }
+
+    // Subscribe to each unique entity
+    const subscribedEntities = new Set();
+    
+    animations.forEach(animDef => {
+      const entityId = animDef.entity;
+      
+      if (!entityId) {
+        lcardsLog.warn(`[TriggerManager] on_entity_change animation missing entity_id for overlay: ${this.overlayId}`);
+        return;
+      }
+
+      // Only subscribe once per entity
+      if (subscribedEntities.has(entityId)) {
+        return;
+      }
+      subscribedEntities.add(entityId);
+
+      // Subscribe to entity state changes
+      const unsubscribe = systemsManager.subscribeToEntity(entityId, (newState, oldState) => {
+        lcardsLog.debug(`[TriggerManager] Entity change detected: ${entityId} (overlay: ${this.overlayId})`);
+        
+        // Filter animations by state transition if specified
+        animations.forEach(anim => {
+          if (anim.entity !== entityId) {
+            return;
+          }
+
+          // Check from_state filter
+          // Note: If oldState is null/undefined (entity just became available), only match if from_state is not specified
+          if (anim.from_state) {
+            if (!oldState || oldState.state !== anim.from_state) {
+              lcardsLog.debug(`[TriggerManager] Skipping animation - from_state mismatch: expected ${anim.from_state}, got ${oldState?.state || 'unavailable'}`);
+              return;
+            }
+          }
+
+          // Check to_state filter
+          if (anim.to_state && newState?.state !== anim.to_state) {
+            lcardsLog.debug(`[TriggerManager] Skipping animation - to_state mismatch: expected ${anim.to_state}, got ${newState?.state || 'unavailable'}`);
+            return;
+          }
+
+          // State transition matches - trigger animation
+          lcardsLog.debug(`[TriggerManager] 🎬 Triggering animation for ${this.overlayId} on entity change: ${entityId}`);
+          this.animationManager.playAnimation(this.overlayId, anim);
+        });
+      });
+
+      this._entitySubscriptions.push(unsubscribe);
+      lcardsLog.debug(`[TriggerManager] ✅ Subscribed to entity: ${entityId} for overlay: ${this.overlayId}`);
+    });
   }
 
   /**
@@ -142,6 +217,19 @@ export class TriggerManager {
         lcardsLog.error(`[TriggerManager] Failed to cleanup listener for ${trigger}:`, error);
       }
     });
+
+    // Cleanup entity subscriptions
+    if (this._entitySubscriptions && this._entitySubscriptions.length > 0) {
+      this._entitySubscriptions.forEach(unsubscribe => {
+        try {
+          unsubscribe();
+        } catch (error) {
+          lcardsLog.error(`[TriggerManager] Failed to cleanup entity subscription:`, error);
+        }
+      });
+      this._entitySubscriptions = [];
+      lcardsLog.debug(`[TriggerManager] Cleaned up entity subscriptions`);
+    }
 
     // Clear all maps
     this.listeners.clear();
