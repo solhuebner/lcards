@@ -45,6 +45,10 @@ export class RulesEngine extends BaseService {
     // ✨ NEW: Compiled rules cache
     this.compiledRules = new Map();
 
+    // ✨ NEW: Rule-based animation tracking
+    // Maps ruleId to Set of overlayIds that have active rule animations
+    this.activeRuleAnimations = new Map(); // ruleId -> Set<overlayId>
+
     this.buildRulesIndex();
     this.buildDependencyIndex();
     this.markAllDirty(); // Initial state
@@ -425,6 +429,11 @@ export class RulesEngine extends BaseService {
         const result = await this.evaluateRule(rule, getEntity, overlays, entity);  // ✨ CHANGED: Pass entity
         processedRules.add(rule.id);
 
+        // Get previous evaluation result to detect transitions
+        const previousEval = this.lastEvaluation.get(rule.id);
+        const wasMatched = previousEval?.matched || false;
+        const isMatched = result.matched;
+
         // Cache evaluation result
         this.lastEvaluation.set(rule.id, {
           matched: result.matched,
@@ -435,6 +444,16 @@ export class RulesEngine extends BaseService {
         if (result.matched) {
           results.push(result);
           this.evalCounts.matched++;
+
+          // ✨ NEW: Execute rule animations when rule transitions to matched state
+          if (!wasMatched && result.animations && result.animations.length > 0) {
+            lcardsLog.debug(`[RulesEngine] Rule ${rule.id} matched - executing animations`);
+            await this._executeRuleAnimations(result.animations, rule.id);
+          }
+        } else if (wasMatched) {
+          // ✨ NEW: Stop animations when rule transitions from matched to unmatched
+          lcardsLog.debug(`[RulesEngine] Rule ${rule.id} unmatched - stopping animations`);
+          this._stopRuleAnimations(rule.id);
         }
 
         // Remove from dirty set
@@ -1145,6 +1164,164 @@ export class RulesEngine extends BaseService {
       animations: [],
       baseSvgUpdate: null  // ✅ NEW: Include base_svg in empty result
     };
+  }
+
+  /**
+   * Execute animations from rule matches
+   * Called when rules are evaluated and animations are specified in apply.animations
+   * 
+   * @param {Array} animationCommands - Array of animation commands from aggregated rule results
+   * @param {string} ruleId - Rule ID that triggered these animations
+   * @private
+   */
+  async _executeRuleAnimations(animationCommands, ruleId) {
+    if (!animationCommands || animationCommands.length === 0) {
+      return;
+    }
+
+    const animationManager = this.systemsManager?.animationManager;
+    if (!animationManager) {
+      lcardsLog.warn('[RulesEngine] Cannot execute rule animations - no AnimationManager available');
+      return;
+    }
+
+    lcardsLog.debug(`[RulesEngine] 🎬 Executing ${animationCommands.length} animation(s) for rule: ${ruleId}`);
+
+    // Track which overlays have animations started by this rule
+    if (!this.activeRuleAnimations.has(ruleId)) {
+      this.activeRuleAnimations.set(ruleId, new Set());
+    }
+    const activeOverlays = this.activeRuleAnimations.get(ruleId);
+
+    for (const animCmd of animationCommands) {
+      try {
+        // Resolve overlay targets (supports overlay ID, tag, type, pattern)
+        const targetOverlays = this._resolveAnimationTargets(animCmd);
+
+        if (targetOverlays.length === 0) {
+          lcardsLog.debug(`[RulesEngine] No overlays found matching animation target:`, animCmd);
+          continue;
+        }
+
+        lcardsLog.debug(`[RulesEngine] Triggering animation for ${targetOverlays.length} overlay(s):`, {
+          targets: targetOverlays,
+          preset: animCmd.preset,
+          loop: animCmd.loop
+        });
+
+        // Execute animation on each target overlay
+        for (const overlayId of targetOverlays) {
+          await animationManager.playAnimation(overlayId, animCmd);
+          
+          // Track that this overlay has an active rule animation
+          if (animCmd.loop) {
+            activeOverlays.add(overlayId);
+          }
+        }
+
+      } catch (error) {
+        lcardsLog.error(`[RulesEngine] Failed to execute rule animation:`, error);
+      }
+    }
+  }
+
+  /**
+   * Stop animations that were started by a rule
+   * Called when a rule unmatches and its animations should stop
+   * 
+   * @param {string} ruleId - Rule ID whose animations should be stopped
+   * @private
+   */
+  _stopRuleAnimations(ruleId) {
+    const activeOverlays = this.activeRuleAnimations.get(ruleId);
+    
+    if (!activeOverlays || activeOverlays.size === 0) {
+      return;
+    }
+
+    const animationManager = this.systemsManager?.animationManager;
+    if (!animationManager) {
+      lcardsLog.warn('[RulesEngine] Cannot stop rule animations - no AnimationManager available');
+      return;
+    }
+
+    lcardsLog.debug(`[RulesEngine] 🛑 Stopping animations for rule: ${ruleId} (${activeOverlays.size} overlay(s))`);
+
+    // Stop animations on each overlay that has rule-triggered animations
+    activeOverlays.forEach(overlayId => {
+      try {
+        animationManager.stopAnimations(overlayId);
+      } catch (error) {
+        lcardsLog.error(`[RulesEngine] Failed to stop animation for overlay ${overlayId}:`, error);
+      }
+    });
+
+    // Clear tracking
+    activeOverlays.clear();
+  }
+
+  /**
+   * Resolve animation targets to overlay IDs
+   * Supports: overlay (direct ID), tag, type, pattern
+   * 
+   * @param {Object} animCmd - Animation command with targeting info
+   * @returns {Array<string>} Array of overlay IDs
+   * @private
+   */
+  _resolveAnimationTargets(animCmd) {
+    const targets = [];
+    const overlayRegistry = this.systemsManager?.getOverlayRegistry?.();
+
+    if (!overlayRegistry) {
+      lcardsLog.warn('[RulesEngine] No overlay registry available for animation targeting');
+      return targets;
+    }
+
+    // Direct overlay ID targeting
+    if (animCmd.overlay) {
+      if (overlayRegistry.has(animCmd.overlay)) {
+        targets.push(animCmd.overlay);
+      }
+      return targets;
+    }
+
+    // Tag-based targeting
+    if (animCmd.tag) {
+      overlayRegistry.forEach((metadata, overlayId) => {
+        if (metadata.tags && metadata.tags.includes(animCmd.tag)) {
+          targets.push(overlayId);
+        }
+      });
+      return targets;
+    }
+
+    // Type-based targeting
+    if (animCmd.type) {
+      overlayRegistry.forEach((metadata, overlayId) => {
+        if (metadata.type === animCmd.type) {
+          targets.push(overlayId);
+        }
+      });
+      return targets;
+    }
+
+    // Pattern-based targeting (regex)
+    if (animCmd.pattern) {
+      try {
+        const regex = new RegExp(animCmd.pattern);
+        overlayRegistry.forEach((metadata, overlayId) => {
+          if (regex.test(overlayId)) {
+            targets.push(overlayId);
+          }
+        });
+      } catch (error) {
+        lcardsLog.error('[RulesEngine] Invalid pattern for animation targeting:', error);
+      }
+      return targets;
+    }
+
+    lcardsLog.warn('[RulesEngine] Animation command has no valid targeting criteria:', animCmd);
+    return targets;
   }
 
   /**
