@@ -148,14 +148,17 @@ export class TriggerManager {
           }
 
           // Check from_state filter
-          if (anim.from_state && oldState?.state !== anim.from_state) {
-            lcardsLog.debug(`[TriggerManager] Skipping animation - from_state mismatch: expected ${anim.from_state}, got ${oldState?.state}`);
-            return;
+          // Note: If oldState is null/undefined (entity just became available), only match if from_state is not specified
+          if (anim.from_state) {
+            if (!oldState || oldState.state !== anim.from_state) {
+              lcardsLog.debug(`[TriggerManager] Skipping animation - from_state mismatch: expected ${anim.from_state}, got ${oldState?.state || 'unavailable'}`);
+              return;
+            }
           }
 
           // Check to_state filter
           if (anim.to_state && newState?.state !== anim.to_state) {
-            lcardsLog.debug(`[TriggerManager] Skipping animation - to_state mismatch: expected ${anim.to_state}, got ${newState?.state}`);
+            lcardsLog.debug(`[TriggerManager] Skipping animation - to_state mismatch: expected ${anim.to_state}, got ${newState?.state || 'unavailable'}`);
             return;
           }
 

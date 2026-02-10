@@ -277,6 +277,12 @@ export class AnimationManager extends BaseService {
    * @private
    */
   _extractValueFromPath(data, pathParts) {
+    // Guard against null/undefined data
+    if (!data || typeof data !== 'object') {
+      lcardsLog.warn(`[AnimationManager] Invalid datasource data: ${data}`);
+      return undefined;
+    }
+
     // No path specified - return main buffer value
     if (pathParts.length === 0) {
       return data.v;
@@ -292,7 +298,7 @@ export class AnimationManager extends BaseService {
 
     // Processor buffer not found - log warning and fallback to main buffer
     lcardsLog.warn(`[AnimationManager] Processor buffer '${processorKey}' not found in datasource. Available: ${Object.keys(data).join(', ')}. Falling back to main buffer.`);
-    return data.v;
+    return data.v !== undefined ? data.v : undefined;
   }
 
   /**

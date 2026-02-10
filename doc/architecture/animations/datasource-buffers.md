@@ -143,7 +143,7 @@ data_sources:
 
 ## Migration from Old Structure
 
-### OLD Structure (Deprecated)
+### Old Structure (Deprecated)
 
 ```javascript
 {
@@ -157,7 +157,7 @@ data_sources:
 }
 ```
 
-### NEW Structure (Current)
+### New Structure (Current)
 
 ```javascript
 {
