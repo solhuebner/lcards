@@ -40,6 +40,7 @@ import '../components/lcards-msd-live-preview.js';
 import '../components/lcards-animation-editor.js';
 import '../components/lcards-filter-editor.js';
 import '../components/yaml/lcards-yaml-editor.js';
+import '../components/lcards-card-picker-wrapper.js';
 import { configToYaml, yamlToConfig } from '../utils/yaml-utils.js';
 
 // d3-zoom imports for pan/zoom functionality
@@ -80,6 +81,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
     static get properties() {
         return {
             hass: { type: Object },
+            lovelace: { type: Object },  // HA automatically sets this
             _initialConfig: { type: Object },
             _workingConfig: { type: Object, state: true },
             _activeTab: { type: String, state: true },
@@ -171,6 +173,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
         this._activeTab = TABS.BASE_SVG;
         this._activeMode = MODES.VIEW;
         this._validationErrors = [];
+        this._cardPickerRequestId = 0; // Track card picker requests
+        this._pendingCardPickerRequests = new Map(); // Map requestId -> resolve/reject
         this._debugSettings = {
             // Debug toggles
             anchors: true,
@@ -385,15 +389,22 @@ export class LCARdSMSDStudioDialog extends LitElement {
         // Setup event interception
         this._eventInterceptor.setupEventInterception();
 
-        // Load card picker asynchronously
-        this._cardPickerManager.ensureCardPickerLoaded().then((loaded) => {
-            if (loaded) {
+        // Load card picker asynchronously with delay
+        // Delay allows HA to register hui-*-card elements first
+        setTimeout(async () => {
+            try {
+                await this._cardPickerManager.ensureComponentsLoaded();
+            } catch (error) {
+                lcardsLog.debug('[MSDStudio] Warning: Could not load card picker components');
+            }
+
+            if (this._cardPickerManager.isLoaded()) {
                 lcardsLog.debug('[MSDStudio] ✅ Card picker loaded successfully');
                 this.requestUpdate();
             } else {
                 lcardsLog.debug('[MSDStudio] ⚠️ Card picker not available, using manual config');
             }
-        });
+        }, 50);
 
         // Add keyboard event listener (Phase 7)
         this._boundKeyDownHandler = this._handleKeyDown.bind(this);
@@ -402,6 +413,11 @@ export class LCARdSMSDStudioDialog extends LitElement {
         // Add document mouseup listener for drag end
         this._boundMouseUpHandler = this._handleDragEnd.bind(this);
         document.addEventListener('mouseup', this._boundMouseUpHandler);
+
+        // Add card picker result listener on document (event proxy from editor)
+        this._boundCardPickerResultHandler = this._handleCardPickerResult.bind(this);
+        document.addEventListener('card-picker-result', this._boundCardPickerResultHandler);
+        lcardsLog.debug('[MSDStudio] Listening for card-picker-result events from editor');
 
         // Detect SVG source mode from config
         this._detectSvgSourceMode();
@@ -425,12 +441,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
         if (this._previewUpdateTimer) {
             clearTimeout(this._previewUpdateTimer);
         }
-        
+
         // Cleanup Native HA Card Picker & Editor Managers
         this._eventInterceptor?.cleanupEventInterception();
         this._cardPickerManager?.cleanup();
         this._editorLauncher?.cleanup();
-        
+
         // Remove keyboard event listener (Phase 7)
         if (this._boundKeyDownHandler) {
             document.removeEventListener('keydown', this._boundKeyDownHandler);
@@ -438,6 +454,10 @@ export class LCARdSMSDStudioDialog extends LitElement {
         // Remove document mouseup listener
         if (this._boundMouseUpHandler) {
             document.removeEventListener('mouseup', this._boundMouseUpHandler);
+        }
+        // Remove card picker result listener from document
+        if (this._boundCardPickerResultHandler) {
+            document.removeEventListener('card-picker-result', this._boundCardPickerResultHandler);
         }
     }
 
@@ -6837,9 +6857,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     `}
                 </lcards-form-section>
 
-                <!-- Native HA Card Picker -->
-                ${this._renderCardPickerSection()}
-
                 ${this._renderControlHelp()}
             </div>
         `;
@@ -7048,48 +7065,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @returns {TemplateResult}
      * @private
      */
-    _renderCardPickerSection() {
-        if (!this._cardPickerManager?.isLoaded()) {
-            return html`
-                <lcards-form-section
-                    header="Quick Add Card"
-                    description="Native HA card picker (loading...)"
-                    icon="mdi:card-plus"
-                    ?expanded=${false}
-                    ?outlined=${true}>
-                    
-                    <div class="card-picker-loading">
-                        <ha-circular-progress indeterminate></ha-circular-progress>
-                        <p>Loading card picker...</p>
-                    </div>
-                </lcards-form-section>
-            `;
-        }
-
-        return html`
-            <lcards-form-section
-                header="Quick Add Card"
-                description="Select a card type to add as a new control overlay"
-                icon="mdi:card-plus"
-                ?expanded=${false}
-                ?outlined=${true}>
-                
-                <div id="card-picker-container" class="card-picker-container">
-                    <hui-card-picker
-                        .hass=${this.hass}
-                        .lovelace=${this._getLovelaceConfig()}
-                        @config-changed=${(e) => {
-                            // This event is handled by the interceptor
-                            // but we include this handler for clarity
-                            lcardsLog.debug('[MSDStudio] Card picker config-changed event:', e.detail);
-                        }}
-                        label="Select Card Type">
-                    </hui-card-picker>
-                </div>
-            </lcards-form-section>
-        `;
-    }
-
     /**
      * Render control help documentation
      * @returns {TemplateResult}
@@ -7537,23 +7512,53 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const cardType = this._controlFormCard?.type || '';
         const lovelace = this._getLovelace();
 
-        lcardsLog.trace('[MSDStudio] Rendering Card tab with HA native components, cardType:', cardType, 'lovelace:', !!lovelace);
+        // Ensure lovelace has required config.views structure for hui-card-picker
+        if (lovelace && (!lovelace.config || !lovelace.config.views)) {
+            lcardsLog.warn('[MSDStudio] Lovelace missing config.views, adding fallback structure');
+            if (!lovelace.config) {
+                lovelace.config = { views: [] };
+            } else if (!lovelace.config.views) {
+                lovelace.config.views = [];
+            }
+        }
+
+        lcardsLog.trace('[MSDStudio] Rendering Card tab with HA native components', {
+            cardType,
+            hasLovelace: !!lovelace,
+            hasConfig: !!lovelace?.config,
+            hasViews: !!lovelace?.config?.views,
+            viewsCount: lovelace?.config?.views?.length
+        });
 
         return html`
             <div style="display: flex; flex-direction: column; gap: 16px;">
                 ${!cardType ? html`
-                    <!-- HA Native Card Picker -->
+                    <!-- Card Picker Button (opens in editor context) -->
                     <lcards-form-section
                         header="Select Card Type"
                         description="Choose a card to display in this control overlay"
                         ?expanded=${true}>
-                        <div class="card-picker-container" style="padding: 16px;">
-                            <hui-card-picker
-                                .hass=${this.hass}
-                                .lovelace=${lovelace}
-                                .cardConfig=${{}}
-                                @config-changed=${this._handleCardPicked}>
-                            </hui-card-picker>
+                        <div class="card-picker-container" style="padding: 16px; text-align: center;">
+                            <ha-button
+                                raised
+                                @click=${async () => {
+                                    try {
+                                        const cardConfig = await this._requestCardFromPicker('control');
+                                        if (cardConfig) {
+                                            this._controlFormCard = cardConfig;
+                                            this._previousCardConfig = null;
+                                            this.requestUpdate();
+                                        }
+                                    } catch (error) {
+                                        lcardsLog.error('[MSDStudio] Card picker failed:', error);
+                                    }
+                                }}>
+                                <ha-icon icon="mdi:card-plus" slot="start"></ha-icon>
+                                Open Card Picker
+                            </ha-button>
+                            <div style="margin-top: 12px; font-size: 12px; color: var(--secondary-text-color);">
+                                Opens card picker in a separate dialog
+                            </div>
                         </div>
                     </lcards-form-section>
                 ` : html`
@@ -7620,6 +7625,36 @@ export class LCARdSMSDStudioDialog extends LitElement {
         return html`
             <div style="display: flex; flex-direction: column; gap: 16px;">
                 ${!cardType ? html`
+                    <!-- Card Picker Button (opens in editor context) -->
+                    <div style="padding: 16px; background: var(--card-background-color); border-radius: 8px; text-align: center;">
+                        <div style="margin-bottom: 12px; font-weight: 500;">Quick Add Card</div>
+                        <ha-button
+                            raised
+                            @click=${async () => {
+                                try {
+                                    const cardConfig = await this._requestCardFromPicker('control');
+                                    if (cardConfig) {
+                                        this._controlFormCard = cardConfig;
+                                        this._previousCardConfig = null;
+                                        lcardsLog.debug('[MSDStudio] Card selected:', cardConfig);
+                                        this.requestUpdate();
+                                    }
+                                } catch (error) {
+                                    lcardsLog.error('[MSDStudio] Card picker failed:', error);
+                                }
+                            }}>
+                            <ha-icon icon="mdi:card-plus" slot="start"></ha-icon>
+                            Open Card Picker
+                        </ha-button>
+                        <div style="margin-top: 8px; font-size: 12px; color: var(--secondary-text-color);">
+                            Opens card picker in a separate dialog
+                        </div>
+                    </div>
+
+                    <div style="text-align: center; color: var(--secondary-text-color); font-size: 12px; margin: -8px 0;">
+                        — OR —
+                    </div>
+
                     <!-- Enhanced Dropdown Card Selector -->
                     <lcards-form-section
                         header="Select Card Type"
@@ -7991,6 +8026,10 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
+     * Initialize card picker with proper DOM structure
+     * @private
+     */
+    /**
      * Handle card type selection
      * @param {string} cardType - Selected card type
      * @private
@@ -8096,6 +8135,33 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
+     * Handle card picked from hui-card-picker
+     * @param {CustomEvent} e - config-changed event from picker
+     * @private
+     */
+    _handleCardPicked(e) {
+        e.stopPropagation();
+        lcardsLog.debug('[MSDStudio] Card picked from hui-card-picker:', e.detail);
+
+        if (!e.detail?.config?.type) {
+            lcardsLog.warn('[MSDStudio] Invalid card picked:', e.detail);
+            return;
+        }
+
+        const pickedCard = e.detail.config;
+
+        // Try to get enhanced stub config from the card class
+        const stubConfig = this._getEnhancedStubConfig(pickedCard);
+        this._controlFormCard = stubConfig;
+
+        // Clear previous config since we selected a new card
+        this._previousCardConfig = null;
+
+        lcardsLog.debug('[MSDStudio] Card set to:', this._controlFormCard);
+        this.requestUpdate();
+    }
+
+    /**
      * Handle card type selection from value-changed event (legacy)
      * @param {CustomEvent} e - Value changed event
      * @private
@@ -8128,6 +8194,62 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
         lcardsLog.debug('[MSDStudio] Card set to:', this._controlFormCard);
         this.requestUpdate();
+    }
+
+    /**
+     * Request card from picker via editor context (event-based proxy)
+     * @param {string} context - Context for the request ('control', 'line', etc.)
+     * @returns {Promise<Object>} Resolves with card config when picked
+     * @private
+     */
+    async _requestCardFromPicker(context = 'control') {
+        return new Promise((resolve, reject) => {
+            const requestId = ++this._cardPickerRequestId;
+
+            // Store resolver for this request
+            this._pendingCardPickerRequests.set(requestId, { resolve, reject, context });
+
+            lcardsLog.debug('[MSDStudio] Requesting card picker:', { requestId, context });
+
+            // Dispatch event to editor (composed: true crosses shadow DOM)
+            const event = new CustomEvent('open-card-picker', {
+                bubbles: true,
+                composed: true,
+                detail: { requestId, context }
+            });
+
+            this.dispatchEvent(event);
+
+            // Timeout after 60 seconds
+            setTimeout(() => {
+                if (this._pendingCardPickerRequests.has(requestId)) {
+                    this._pendingCardPickerRequests.delete(requestId);
+                    reject(new Error('Card picker request timed out'));
+                }
+            }, 60000);
+        });
+    }
+
+    /**
+     * Handle card picker result from editor (event proxy)
+     * @param {CustomEvent} e - card-picker-result event from editor
+     * @private
+     */
+    _handleCardPickerResult(e) {
+        const { requestId, context, config } = e.detail;
+
+        lcardsLog.debug('[MSDStudio] Card picker result received:', { requestId, context, type: config?.type });
+
+        const pending = this._pendingCardPickerRequests.get(requestId);
+        if (pending) {
+            this._pendingCardPickerRequests.delete(requestId);
+
+            // Enhance stub config and resolve
+            const enhancedConfig = this._getEnhancedStubConfig(config);
+            pending.resolve(enhancedConfig);
+        } else {
+            lcardsLog.warn('[MSDStudio] Received result for unknown requestId:', requestId);
+        }
     }
 
     /**
@@ -12466,8 +12588,40 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _getLovelaceConfig() {
-        const mainApp = document.querySelector("home-assistant");
-        return mainApp?.lovelace || { config: { views: [] }, editMode: true };
+        // Use the same logic as _getLovelace() to find the real lovelace object
+        const lovelace = this._getLovelace();
+
+        if (lovelace) {
+            lcardsLog.debug('[MSDStudio] _getLovelaceConfig - lovelace found:', {
+                hasConfig: !!lovelace.config,
+                hasViews: !!lovelace.config?.views,
+                viewsIsArray: Array.isArray(lovelace.config?.views),
+                viewsCount: lovelace.config?.views?.length,
+                configKeys: lovelace.config ? Object.keys(lovelace.config) : [],
+                lovelaceKeys: Object.keys(lovelace)
+            });
+
+            // Ensure the lovelace object has the required config.views structure
+            if (!lovelace.config) {
+                lcardsLog.warn('[MSDStudio] Lovelace missing config, adding fallback structure');
+                lovelace.config = { views: [] };
+            } else if (!lovelace.config.views) {
+                lcardsLog.warn('[MSDStudio] Lovelace missing config.views, adding fallback');
+                lovelace.config.views = [];
+            } else if (!Array.isArray(lovelace.config.views)) {
+                lcardsLog.error('[MSDStudio] Lovelace config.views exists but is NOT an array!', {
+                    viewsType: typeof lovelace.config.views,
+                    viewsValue: lovelace.config.views
+                });
+                lovelace.config.views = [];
+            }
+
+            return lovelace;
+        }
+
+        // Ultimate fallback if no lovelace found at all
+        lcardsLog.warn('[MSDStudio] No lovelace found, using minimal fallback');
+        return { config: { views: [] }, editMode: true };
     }
 
     /**
@@ -12477,12 +12631,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
      */
     _handleCardPickerSelection(cardConfig) {
         if (!cardConfig) return;
-        
+
         lcardsLog.debug('[MSDStudio] 🎯 Card selected from picker:', cardConfig.type);
-        
+
         // Generate new control ID
         const newControlId = this._generateControlId();
-        
+
         // Create new control overlay with selected card
         const newControl = {
             id: newControlId,
@@ -12492,11 +12646,11 @@ export class LCARdSMSDStudioDialog extends LitElement {
             obstacle: false,
             card: cardConfig
         };
-        
+
         // Add to working config
         const controls = this._workingConfig.msd?.controls || [];
         const updatedControls = [...controls, newControl];
-        
+
         this._workingConfig = {
             ...this._workingConfig,
             msd: {
@@ -12504,11 +12658,11 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 controls: updatedControls
             }
         };
-        
+
         // Update preview
         this._schedulePreviewUpdate();
         this.requestUpdate();
-        
+
         lcardsLog.debug('[MSDStudio] ✅ Control added:', newControlId);
     }
 
@@ -12536,19 +12690,19 @@ export class LCARdSMSDStudioDialog extends LitElement {
     _updateLayerCard(controlId, cardConfig, metadata = {}) {
         const controls = this._workingConfig.msd?.controls || [];
         const controlIndex = controls.findIndex(c => c.id === controlId);
-        
+
         if (controlIndex === -1) {
             lcardsLog.warn('[MSDStudio] ⚠️ Control not found:', controlId);
             return;
         }
-        
+
         // Update control
         const updatedControls = [...controls];
         updatedControls[controlIndex] = {
             ...updatedControls[controlIndex],
             card: cardConfig
         };
-        
+
         this._workingConfig = {
             ...this._workingConfig,
             msd: {
@@ -12556,14 +12710,14 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 controls: updatedControls
             }
         };
-        
+
         // Update preview if not maintaining editor state
         if (!metadata.maintainEditorState) {
             this._schedulePreviewUpdate();
         }
-        
+
         this.requestUpdate();
-        
+
         lcardsLog.debug('[MSDStudio] 🔄 Control card updated:', controlId, metadata);
     }
 
@@ -12578,7 +12732,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             lcardsLog.warn('[MSDStudio] ⚠️ No card found for control:', controlId);
             return;
         }
-        
+
         lcardsLog.debug('[MSDStudio] 🎨 Opening editor for control:', controlId);
         this._editorLauncher?.openCardEditor(controlId, control.card);
     }

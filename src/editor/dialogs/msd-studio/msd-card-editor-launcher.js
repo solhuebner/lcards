@@ -9,8 +9,6 @@
  * - Active child editor tracking
  * - Proper cleanup on dialog close
  * - Special handling for picture-elements element editors
- *
- * Adapted from simple-swipe-card's dialog management patterns.
  */
 
 import { lcardsLog } from '../../../utils/lcards-logging.js';
@@ -164,7 +162,7 @@ export class MSDCardEditorLauncher {
             lcardsLog.debug(`[MSDCardEditorLauncher] ✅ Dialog shown for layer ${layerId}`);
         } catch (err) {
             lcardsLog.error('[MSDCardEditorLauncher] ❌ Error opening editor:', err);
-            
+
             // Fallback: Just log error - the native approach should work
             // The import statement causes build issues, so we rely on the primary method
             lcardsLog.warn('[MSDCardEditorLauncher] ⚠️ Cannot open editor - native dialog method failed');
@@ -183,12 +181,12 @@ export class MSDCardEditorLauncher {
         if (this.dialog._eventInterceptor?._isElementEditorEvent(e)) {
             lcardsLog.debug(`[MSDCardEditorLauncher] 🎨 Element editor event for layer ${layerId}`);
             editorDialog._handlingElementEdit = true;
-            
+
             // Track config for restoration if needed
             if (e.detail?.config) {
                 editorDialog._lastElementConfig = JSON.parse(JSON.stringify(e.detail.config));
                 editorDialog._savingFromElementEditor = true;
-                
+
                 // Silently update config
                 this.dialog._updateLayerCard(layerId, e.detail.config, {
                     maintainEditorState: true,
@@ -196,7 +194,7 @@ export class MSDCardEditorLauncher {
                     elementEditorEvent: true,
                 });
             }
-            
+
             return; // Let event propagate naturally
         }
 
@@ -205,7 +203,7 @@ export class MSDCardEditorLauncher {
             e.stopPropagation();
 
             lcardsLog.debug(`[MSDCardEditorLauncher] 🔄 Config update for layer ${layerId}`);
-            
+
             // Update silently (don't close dialog)
             this.dialog._updateLayerCard(layerId, e.detail.config, {
                 maintainEditorState: true,

@@ -8,8 +8,6 @@
  * - Preventing card picker events from closing the studio dialog
  * - Allowing element editors (picture-elements) to function properly
  * - Managing event flow between nested dialogs
- *
- * Adapted from simple-swipe-card's battle-tested event handling patterns.
  */
 
 import { lcardsLog } from '../../../utils/lcards-logging.js';
@@ -50,15 +48,15 @@ export class MSDEventInterceptor {
             if (e.type === "config-changed" && e.detail?.config) {
                 if (e.target?.tagName?.toLowerCase() === "hui-card-picker") {
                     const path = e.composedPath ? e.composedPath() : [];
-                    
+
                     // Check if event is from our studio
                     if (this._isEventFromOurStudio(path)) {
                         lcardsLog.debug('[MSDEventInterceptor] 🎯 Card picker selection captured:', e.detail.config.type);
-                        
+
                         // Stop propagation to prevent studio closure
                         if (e.stopImmediatePropagation) e.stopImmediatePropagation();
                         e.stopPropagation();
-                        
+
                         // Process card addition
                         this.dialog._handleCardPickerSelection(e.detail.config);
                         return false;
@@ -74,17 +72,17 @@ export class MSDEventInterceptor {
                 if (this.dialog._activeChildEditors?.has(dialog)) {
                     lcardsLog.debug('[MSDEventInterceptor] 🔒 Child editor closed');
                     this.dialog._activeChildEditors.delete(dialog);
-                    
+
                     // End element edit session if this was handling element edits
                     if (dialog._handlingElementEdit) {
                         setTimeout(() => {
-                            if (this._elementEditSession.active && 
+                            if (this._elementEditSession.active &&
                                 Date.now() - this._elementEditSession.timestamp > 500) {
                                 this._elementEditSession.active = false;
                             }
                         }, 500);
                     }
-                    
+
                     this.dialog.requestUpdate();
                 }
             }
@@ -104,7 +102,7 @@ export class MSDEventInterceptor {
         document.addEventListener("config-changed", this._boundCardPickerHandler, {
             capture: true,
         });
-        
+
         document.addEventListener("dialog-closed", this._boundDialogClosedHandler, {
             capture: true,
         });
@@ -135,7 +133,7 @@ export class MSDEventInterceptor {
 
         // Check event detail for element editor markers
         if (e.detail) {
-            if (e.detail.fromElementEditor || e.detail.elementConfig || 
+            if (e.detail.fromElementEditor || e.detail.elementConfig ||
                 e.detail.elementToEdit || e.detail.element) {
                 if (shouldLog) {
                     lcardsLog.debug('[MSDEventInterceptor] 🔍 Element editor detected via event detail');
@@ -194,7 +192,7 @@ export class MSDEventInterceptor {
                 capture: true,
             });
         }
-        
+
         if (this._boundDialogClosedHandler) {
             document.removeEventListener("dialog-closed", this._boundDialogClosedHandler, {
                 capture: true,
