@@ -172,23 +172,23 @@ data_sources:
 #### Template Migration
 
 ```yaml
-# OLD (still works with warning)
+# Old (not supported - will fall back to main buffer with warning)
 text: "{datasource:temp.transformations.celsius}°C"
 
-# NEW (recommended)
+# New (recommended)
 text: "{datasource:temp.celsius}°C"
 ```
 
 #### Animation Migration
 
 ```yaml
-# OLD
+# Old (not supported - will fall back to main buffer with warning)
 animations:
   - trigger: on_datasource_change
     datasource: temp.transformations.celsius
     preset: pulse
 
-# NEW
+# New (recommended)
 animations:
   - trigger: on_datasource_change
     datasource: temp.celsius
@@ -197,7 +197,15 @@ animations:
 
 ### Backward Compatibility
 
-The old nested paths (`transformations.key`, `aggregations.key`) are **deprecated** but may still work with warnings logged. Update to the flat structure to avoid future issues.
+The old nested paths (`transformations.key`, `aggregations.key`) are **no longer supported**.
+
+If you reference a processor buffer that doesn't exist (e.g., `temp.transformations.celsius` when only `temp.celsius` exists), AnimationManager will:
+1. Log a warning listing available buffers
+2. Fall back to the main buffer (`data.v`)
+
+**Migration Required:** Update all datasource references to use the flat structure:
+- ❌ Old: `datasource: temp.transformations.celsius`
+- ✅ New: `datasource: temp.celsius`
 
 ## AnimationManager Implementation
 

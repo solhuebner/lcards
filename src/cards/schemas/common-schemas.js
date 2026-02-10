@@ -268,8 +268,8 @@ export const animationSchema = {
         entity: {
             type: 'string',
             description: 'Entity ID to monitor (required for on_entity_change trigger)',
-            pattern: '^[a-z_]+\\.[a-z0-9_]+$',
-            examples: ['light.bedroom', 'sensor.temperature', 'binary_sensor.door']
+            pattern: '^[a-zA-Z_]+\\.[a-zA-Z0-9_]+$',
+            examples: ['light.bedroom', 'sensor.temperature', 'binary_sensor.door', 'climate.Home_HVAC']
         },
         from_state: {
             type: 'string',

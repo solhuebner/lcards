@@ -1248,9 +1248,10 @@ export class RulesEngine extends BaseService {
     lcardsLog.debug(`[RulesEngine] 🛑 Stopping animations for rule: ${ruleId} (${activeOverlays.size} overlay(s))`);
 
     // Stop animations on each overlay that has rule-triggered animations
+    // ✅ FIX: Only stop rule-triggered animations by passing trigger type
     activeOverlays.forEach(overlayId => {
       try {
-        animationManager.stopAnimations(overlayId);
+        animationManager.stopAnimations(overlayId, 'on_rule');
       } catch (error) {
         lcardsLog.error(`[RulesEngine] Failed to stop animation for overlay ${overlayId}:`, error);
       }
@@ -1270,9 +1271,13 @@ export class RulesEngine extends BaseService {
    */
   _resolveAnimationTargets(animCmd) {
     const targets = [];
-    const overlayRegistry = this.systemsManager?.getOverlayRegistry?.();
+    
+    // Try method first, then direct property access, then empty Map
+    const overlayRegistry = this.systemsManager?.getOverlayRegistry?.() 
+      || this.systemsManager?._overlayRegistry 
+      || new Map();
 
-    if (!overlayRegistry) {
+    if (overlayRegistry.size === 0) {
       lcardsLog.warn('[RulesEngine] No overlay registry available for animation targeting');
       return targets;
     }

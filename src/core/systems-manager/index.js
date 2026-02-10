@@ -247,6 +247,16 @@ export class CoreSystemsManager {
   }
 
   /**
+   * Get the overlay registry for animation targeting
+   * Used by RulesEngine to resolve animation targets
+   *
+   * @returns {Map<string, Object>} Map of overlayId -> metadata
+   */
+  getOverlayRegistry() {
+    return this._overlayRegistry;
+  }
+
+  /**
    * Get all unique tags across all registered overlays
    * Used by editor to populate tag selector dropdown
    *
