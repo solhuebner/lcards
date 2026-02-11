@@ -6,8 +6,16 @@
  * - Alert Lab tab: HSL color pickers for alert mode customization
  * - YAML Export tab: Copyable YAML for manual setup
  *
- * This panel is registered as a custom Home Assistant panel via the
- * custom_components/lcards integration.
+ * This panel must be registered manually in Home Assistant's configuration.yaml:
+ * 
+ * ```yaml
+ * panel_custom:
+ *   - name: lcards-config
+ *     sidebar_title: LCARdS Config
+ *     sidebar_icon: mdi:cog
+ *     url_path: lcards-config
+ *     module_url: /hacsfiles/lcards/lcards-config-panel.js
+ * ```
  *
  * @element lcards-config-panel
  */

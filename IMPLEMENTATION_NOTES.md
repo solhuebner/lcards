@@ -2,7 +2,16 @@
 
 ## Overview
 
-This PR implements a complete end-to-end system for managing persistent configuration via Home Assistant input helpers. The implementation includes WebSocket-based helper creation, a central configuration panel, and integration with the Alert Lab as a proof of concept.
+This implementation provides a complete end-to-end system for managing persistent configuration via Home Assistant input helpers. The system is **frontend-only** for HACS compatibility and includes WebSocket-based helper creation, a central configuration panel, and integration with the Alert Lab.
+
+## Architecture - Frontend-Only Design
+
+The implementation follows HACS requirements by using **only frontend code** with no Python backend:
+
+- **No custom integration**: No `custom_components/` directory
+- **Manual panel registration**: Users add `panel_custom` to their `configuration.yaml`
+- **Standalone panel bundle**: `dist/lcards-config-panel.js` is self-contained
+- **Standard HA pattern**: Uses Home Assistant's official `panel_custom` integration
 
 ## What Was Implemented
 
@@ -52,14 +61,23 @@ This PR implements a complete end-to-end system for managing persistent configur
 - Responsive design using HA design system
 - Real-time status updates
 
-**2.2 Panel Registration**
-- Directory: `custom_components/lcards/`
-- Files:
-  - `__init__.py`: Integration setup and panel registration
-  - `manifest.json`: Integration metadata
-  - `frontend/lcards-config-panel.js`: Panel JS (copied from src)
-- Registered as custom HA panel at `/lcards-config`
-- Appears in sidebar as "LCARdS Config"
+**2.2 Panel Build Configuration**
+- Updated: `webpack.config.cjs`
+- Separate webpack entry for panel: `src/panels/lcards-config-panel.js`
+- Output: `dist/lcards-config-panel.js` (34KB minified)
+- Self-contained bundle with all dependencies
+- Source maps for debugging
+
+**2.3 Manual Panel Registration**
+Users add to `configuration.yaml`:
+```yaml
+panel_custom:
+  - name: lcards-config
+    sidebar_title: LCARdS Config
+    sidebar_icon: mdi:cog
+    url_path: lcards-config
+    module_url: /hacsfiles/lcards/lcards-config-panel.js
+```
 
 ### Phase 3: Alert Lab Integration ✅
 
@@ -135,7 +153,7 @@ This PR implements a complete end-to-end system for managing persistent configur
 
 ## File Manifest
 
-### New Files (12)
+### New Files (9)
 
 **Core Infrastructure:**
 - `src/core/helpers/lcards-helper-api.js` (8.3 KB)
@@ -144,19 +162,24 @@ This PR implements a complete end-to-end system for managing persistent configur
 
 **Configuration Panel:**
 - `src/panels/lcards-config-panel.js` (21.2 KB)
-- `custom_components/lcards/__init__.py` (1.6 KB)
-- `custom_components/lcards/manifest.json` (230 bytes)
-- `custom_components/lcards/frontend/lcards-config-panel.js` (21.2 KB, copy)
+- `dist/lcards-config-panel.js` (34 KB minified, auto-generated)
 
 **Documentation:**
-- `doc/configuration/persistent-helpers.md` (7.5 KB)
+- `doc/configuration/persistent-helpers.md` (7.5 KB, updated)
 - `doc/development/helpers-api.md` (12.3 KB)
 
-### Modified Files (3)
+### Modified Files (4)
 
 - `src/core/lcards-core.js` - Added HelperManager initialization
 - `src/editor/components/theme-browser/lcards-theme-token-browser-tab.js` - Alert Lab integration
+- `webpack.config.cjs` - Added separate panel build entry
 - `CHANGELOG.md` - Added release notes
+
+### Removed Files (3)
+
+- `custom_components/lcards/__init__.py` - Python integration (no longer needed)
+- `custom_components/lcards/manifest.json` - Integration metadata (no longer needed)
+- `custom_components/lcards/frontend/lcards-config-panel.js` - Duplicate (now in dist/)
 
 ## Build Verification
 
@@ -185,14 +208,29 @@ All code compiles cleanly with no errors. Only standard webpack size warnings.
 
 ### Installation
 
-1. Copy `custom_components/lcards/` to Home Assistant
-2. Restart Home Assistant
-3. "LCARdS Config" appears in sidebar
+**Step 1: Install LCARdS**
+- Install via HACS or manually to `/hacsfiles/lcards/` or `/local/community/lcards/`
+
+**Step 2: Add Panel Configuration**
+Add to your `configuration.yaml`:
+```yaml
+panel_custom:
+  - name: lcards-config
+    sidebar_title: LCARdS Config
+    sidebar_icon: mdi:cog
+    url_path: lcards-config
+    module_url: /hacsfiles/lcards/lcards-config-panel.js  # For HACS
+    # OR for manual install:
+    # module_url: /local/community/lcards/lcards-config-panel.js
+```
+
+**Step 3: Restart Home Assistant**
+- Restart required for panel to appear in sidebar
 
 ### Creating Helpers
 
 **Option 1: Via Panel (Recommended)**
-1. Open LCARdS Config panel
+1. Open LCARdS Config panel from sidebar
 2. Go to Helpers tab
 3. Click "Create All Missing Helpers"
 
@@ -229,7 +267,8 @@ automation:
 
 ## Success Criteria Met
 
-- ✅ Config panel appears in HA sidebar after integration setup
+- ✅ Config panel uses frontend-only architecture (HACS compatible)
+- ✅ Manual panel registration via `panel_custom`
 - ✅ All 13 POC helpers defined in registry
 - ✅ Helpers tab shows accurate status (requires testing)
 - ✅ Alert Lab saves HSL values to helpers

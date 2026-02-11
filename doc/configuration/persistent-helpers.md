@@ -10,13 +10,39 @@ The helper system provides:
 - **Central Management**: Dedicated configuration panel
 - **Manual Fallback**: YAML export for manual setup
 
+## Installing the Configuration Panel
+
+The LCARdS configuration panel is a frontend-only component that must be registered manually in your Home Assistant configuration.
+
+### Step 1: Add Panel Configuration
+
+Add the following to your Home Assistant `configuration.yaml`:
+
+```yaml
+panel_custom:
+  - name: lcards-config
+    sidebar_title: LCARdS Config
+    sidebar_icon: mdi:cog
+    url_path: lcards-config
+    module_url: /hacsfiles/lcards/lcards-config-panel.js
+```
+
+**Note**: If you installed LCARdS manually (not via HACS), adjust the path:
+```yaml
+    module_url: /local/community/lcards/lcards-config-panel.js
+```
+
+### Step 2: Restart Home Assistant
+
+After adding the configuration, restart Home Assistant for the panel to appear in the sidebar.
+
+### Step 3: Verify Installation
+
+Once restarted, you should see **"LCARdS Config"** in your Home Assistant sidebar. Click it to access the configuration panel.
+
 ## Accessing the Configuration Panel
 
-After installing the LCARdS custom integration, a new sidebar entry will appear:
-
-1. Navigate to **LCARdS Config** in your Home Assistant sidebar
-2. The panel will show the status of all LCARdS helpers
-3. Three tabs are available:
+After installation, the panel provides three tabs:
    - **Helpers**: View, create, and edit helpers
    - **Alert Lab**: Color customization for alert modes
    - **YAML Export**: Copy YAML for manual setup
@@ -228,13 +254,20 @@ data:
 
 ## Troubleshooting
 
-### Helpers Not Appearing
+### Panel Not Appearing in Sidebar
 
-1. Verify the custom integration is installed:
-   - Check `custom_components/lcards/` exists
-   - Verify `manifest.json` and `__init__.py` are present
-2. Restart Home Assistant
-3. Check logs for integration errors
+1. Verify the `panel_custom` configuration is in `configuration.yaml`
+2. Check the module path is correct (`/hacsfiles/lcards/lcards-config-panel.js` for HACS)
+3. Restart Home Assistant (required after config changes)
+4. Check Home Assistant logs for panel registration errors
+5. Ensure LCARdS is properly installed and the panel file exists
+
+### Panel Loads But Shows Errors
+
+1. Check browser console for JavaScript errors
+2. Verify `window.lcards.core.helperManager` is available
+3. Ensure main LCARdS card system is loaded (add at least one LCARdS card to a dashboard)
+4. Clear browser cache and reload
 
 ### Helper Creation Fails
 
