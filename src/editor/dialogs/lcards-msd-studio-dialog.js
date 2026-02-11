@@ -590,7 +590,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
                 // Update zoom level display
                 this._currentZoom = event.transform.k;
-                this.requestUpdate(); // Safe now - no CSS transform conflict
+                this.requestUpdate(); // Updates studio overlays
 
                 lcardsLog.trace('[MSDStudio] Zoom applied:', {
                     scale: event.transform.k,
@@ -4641,11 +4641,22 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const offsetX = (rect.width - renderedWidth) / 2;
         const offsetY = (rect.height - renderedHeight) / 2;
 
-        // Convert viewBox coords to SVG pixel position
-        const svgPixelX = (vbX - viewBoxX) / scale + offsetX;
-        const svgPixelY = (vbY - viewBoxY) / scale + offsetY;
-        const pixelWidth = width / scale;
-        const pixelHeight = height / scale;
+        // Get zoom transform
+        const zoomTransform = this._getZoomTransform();
+        const zoomK = zoomTransform?.k || 1;
+        const zoomX = zoomTransform?.x || 0;
+        const zoomY = zoomTransform?.y || 0;
+
+        // Convert viewBox coords to SVG pixel position with zoom
+        let svgPixelX = (vbX - viewBoxX) / scale + offsetX;
+        let svgPixelY = (vbY - viewBoxY) / scale + offsetY;
+        let pixelWidth = width / scale;
+        let pixelHeight = height / scale;
+
+        svgPixelX = svgPixelX * zoomK + zoomX;
+        svgPixelY = svgPixelY * zoomK + zoomY;
+        pixelWidth = pixelWidth * zoomK;
+        pixelHeight = pixelHeight * zoomK;
 
         // Convert to preview panel coordinates
         const pixelX = (rect.left - panelRect.left) + svgPixelX;
@@ -5004,11 +5015,17 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
         lcardsLog.trace('[MSDStudio] Rendering grid with', verticalLines.length, 'vertical and', horizontalLines.length, 'horizontal lines');
 
-        // Calculate base_svg boundary position
-        const baseSvgLeft = (rect.left - panelRect.left) + offsetX;
-        const baseSvgTop = (rect.top - panelRect.top) + offsetY;
-        const baseSvgWidth = renderedWidth;
-        const baseSvgHeight = renderedHeight;
+        // Get zoom transform to apply to grid
+        const zoomTransform = this._getZoomTransform();
+        const zoomK = zoomTransform?.k || 1;
+        const zoomX = zoomTransform?.x || 0;
+        const zoomY = zoomTransform?.y || 0;
+
+        // Calculate base_svg boundary position with zoom applied
+        const baseSvgLeft = (rect.left - panelRect.left) + offsetX * zoomK + zoomX;
+        const baseSvgTop = (rect.top - panelRect.top) + offsetY * zoomK + zoomY;
+        const baseSvgWidth = renderedWidth * zoomK;
+        const baseSvgHeight = renderedHeight * zoomK;
 
         // Get grid opacity from settings
         const gridOpacity = this._debugSettings.grid_opacity ?? 0.3;
@@ -5036,7 +5053,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
                 <!-- Grid Lines -->
                 ${verticalLines.map(x => {
-                    const svgPixelX = (x - viewBoxX) / scale;
+                    const svgPixelX = ((x - viewBoxX) / scale) * zoomK;
                     return html`
                         <div style="
                             position: absolute;
@@ -5050,7 +5067,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     `;
                 })}
                 ${horizontalLines.map(y => {
-                    const svgPixelY = (y - viewBoxY) / scale;
+                    const svgPixelY = ((y - viewBoxY) / scale) * zoomK;
                     return html`
                         <div style="
                             position: absolute;
@@ -5123,6 +5140,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const offsetX = (rect.width - renderedWidth) / 2;
         const offsetY = (rect.height - renderedHeight) / 2;
 
+        // Get zoom transform to apply to anchor positions
+        const zoomTransform = this._getZoomTransform();
+        const zoomK = zoomTransform?.k || 1;
+        const zoomX = zoomTransform?.x || 0;
+        const zoomY = zoomTransform?.y || 0;
+
         return html`
             <div style="
                 position: absolute;
@@ -5137,8 +5160,11 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     if (!Array.isArray(position)) return '';
 
                     const [vbX, vbY] = position;
-                    const svgPixelX = (vbX - viewBoxX) / scale + offsetX;
-                    const svgPixelY = (vbY - viewBoxY) / scale + offsetY;
+                    // Convert viewBox coords to SVG pixels, then apply zoom
+                    let svgPixelX = (vbX - viewBoxX) / scale + offsetX;
+                    let svgPixelY = (vbY - viewBoxY) / scale + offsetY;
+                    svgPixelX = svgPixelX * zoomK + zoomX;
+                    svgPixelY = svgPixelY * zoomK + zoomY;
                     const pixelX = (rect.left - panelRect.left) + svgPixelX;
                     const pixelY = (rect.top - panelRect.top) + svgPixelY;
 
@@ -5248,6 +5274,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const offsetX = (rect.width - renderedWidth) / 2;
         const offsetY = (rect.height - renderedHeight) / 2;
 
+        // Get zoom transform
+        const zoomTransform = this._getZoomTransform();
+        const zoomK = zoomTransform?.k || 1;
+        const zoomX = zoomTransform?.x || 0;
+        const zoomY = zoomTransform?.y || 0;
+
         // Get all anchors from the card's resolved model (already merged base SVG + user-defined)
         const resolvedModel = msdCard._msdPipeline?.getResolvedModel?.();
         const anchors = resolvedModel?.anchors || {};
@@ -5314,10 +5346,16 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     vbX += offset[0];
                     vbY += offset[1];
 
-                    const svgPixelX = (vbX - viewBoxX) / scale + offsetX;
-                    const svgPixelY = (vbY - viewBoxY) / scale + offsetY;
-                    const pixelWidth = width / scale;
-                    const pixelHeight = height / scale;
+                    // Convert to SVG pixels then apply zoom
+                    let svgPixelX = (vbX - viewBoxX) / scale + offsetX;
+                    let svgPixelY = (vbY - viewBoxY) / scale + offsetY;
+                    let pixelWidth = width / scale;
+                    let pixelHeight = height / scale;
+
+                    svgPixelX = svgPixelX * zoomK + zoomX;
+                    svgPixelY = svgPixelY * zoomK + zoomY;
+                    pixelWidth = pixelWidth * zoomK;
+                    pixelHeight = pixelHeight * zoomK;
 
                     const pixelX = (rect.left - panelRect.left) + svgPixelX;
                     const pixelY = (rect.top - panelRect.top) + svgPixelY;
@@ -5433,6 +5471,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const offsetX = (rect.width - renderedWidth) / 2;
         const offsetY = (rect.height - renderedHeight) / 2;
 
+        // Get zoom transform
+        const zoomTransform = this._getZoomTransform();
+        const zoomK = zoomTransform?.k || 1;
+        const zoomX = zoomTransform?.x || 0;
+        const zoomY = zoomTransform?.y || 0;
+
         return html`
             <div style="
                 position: absolute;
@@ -5459,10 +5503,21 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     const [startX, startY] = startPos;
                     const [endX, endY] = endPos;
 
-                    const pixelStartX = (startX - viewBoxX) / scale + offsetX + (rect.left - panelRect.left);
-                    const pixelStartY = (startY - viewBoxY) / scale + offsetY + (rect.top - panelRect.top);
-                    const pixelEndX = (endX - viewBoxX) / scale + offsetX + (rect.left - panelRect.left);
-                    const pixelEndY = (endY - viewBoxY) / scale + offsetY + (rect.top - panelRect.top);
+                    // Apply zoom to coordinates
+                    let svgStartX = (startX - viewBoxX) / scale + offsetX;
+                    let svgStartY = (startY - viewBoxY) / scale + offsetY;
+                    let svgEndX = (endX - viewBoxX) / scale + offsetX;
+                    let svgEndY = (endY - viewBoxY) / scale + offsetY;
+
+                    svgStartX = svgStartX * zoomK + zoomX;
+                    svgStartY = svgStartY * zoomK + zoomY;
+                    svgEndX = svgEndX * zoomK + zoomX;
+                    svgEndY = svgEndY * zoomK + zoomY;
+
+                    const pixelStartX = (rect.left - panelRect.left) + svgStartX;
+                    const pixelStartY = (rect.top - panelRect.top) + svgStartY;
+                    const pixelEndX = (rect.left - panelRect.left) + svgEndX;
+                    const pixelEndY = (rect.top - panelRect.top) + svgEndY;
 
                     const color = line.style?.color || '#00FFAA';
                     const length = Math.sqrt(Math.pow(pixelEndX - pixelStartX, 2) + Math.pow(pixelEndY - pixelStartY, 2));
@@ -5559,6 +5614,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const offsetX = (rect.width - renderedWidth) / 2;
         const offsetY = (rect.height - renderedHeight) / 2;
 
+        // Get zoom transform
+        const zoomTransform = this._getZoomTransform();
+        const zoomK = zoomTransform?.k || 1;
+        const zoomX = zoomTransform?.x || 0;
+        const zoomY = zoomTransform?.y || 0;
+
         // Detect overlapping endpoints and calculate offsets for them
         const endpointPositions = new Map(); // key: "x,y", value: array of {line, endpoint, pos}
 
@@ -5627,14 +5688,24 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     const endPos = this._resolvePositionWithSide(endTarget, line.attach_side);
                     if (!endPos) return '';
 
-                    // Convert to screen coordinates
+                    // Convert to screen coordinates with zoom
                     const [startX, startY] = startPos;
                     const [endX, endY] = endPos;
 
-                    const pixelStartX = (startX - viewBoxX) / scale + offsetX + (rect.left - panelRect.left);
-                    const pixelStartY = (startY - viewBoxY) / scale + offsetY + (rect.top - panelRect.top);
-                    const pixelEndX = (endX - viewBoxX) / scale + offsetX + (rect.left - panelRect.left);
-                    const pixelEndY = (endY - viewBoxY) / scale + offsetY + (rect.top - panelRect.top);
+                    let svgStartX = (startX - viewBoxX) / scale + offsetX;
+                    let svgStartY = (startY - viewBoxY) / scale + offsetY;
+                    let svgEndX = (endX - viewBoxX) / scale + offsetX;
+                    let svgEndY = (endY - viewBoxY) / scale + offsetY;
+
+                    svgStartX = svgStartX * zoomK + zoomX;
+                    svgStartY = svgStartY * zoomK + zoomY;
+                    svgEndX = svgEndX * zoomK + zoomX;
+                    svgEndY = svgEndY * zoomK + zoomY;
+
+                    const pixelStartX = (rect.left - panelRect.left) + svgStartX;
+                    const pixelStartY = (rect.top - panelRect.top) + svgStartY;
+                    const pixelEndX = (rect.left - panelRect.left) + svgEndX;
+                    const pixelEndY = (rect.top - panelRect.top) + svgEndY;
 
                     // Check if this line is being dragged
                     const isDragging = this._lineEndpointDragState.active && this._lineEndpointDragState.lineId === line.id;
@@ -5644,12 +5715,16 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     const startOffset = endpointOffsets.get(`${line.id}:start`) || { dx: 0, dy: 0 };
                     const endOffset = endpointOffsets.get(`${line.id}:end`) || { dx: 0, dy: 0 };
 
-                    // Calculate drag position if applicable
+                    // Calculate drag position if applicable with zoom
                     let dragPixelX = 0, dragPixelY = 0;
                     if (isDragging && this._lineEndpointDragState.currentPos) {
                         const [dragX, dragY] = this._lineEndpointDragState.currentPos;
-                        dragPixelX = (dragX - viewBoxX) / scale + offsetX + (rect.left - panelRect.left);
-                        dragPixelY = (dragY - viewBoxY) / scale + offsetY + (rect.top - panelRect.top);
+                        let svgDragX = (dragX - viewBoxX) / scale + offsetX;
+                        let svgDragY = (dragY - viewBoxY) / scale + offsetY;
+                        svgDragX = svgDragX * zoomK + zoomX;
+                        svgDragY = svgDragY * zoomK + zoomY;
+                        dragPixelX = (rect.left - panelRect.left) + svgDragX;
+                        dragPixelY = (rect.top - panelRect.top) + svgDragY;
                     }
 
                     // Hide endpoint markers when in waypoint mode for the selected line
@@ -5942,10 +6017,20 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const offsetX = (rect.width - renderedWidth) / 2;
         const offsetY = (rect.height - renderedHeight) / 2;
 
-        // Helper to convert viewBox to pixel coordinates
+        // Get zoom transform
+        const zoomTransform = this._getZoomTransform();
+        const zoomK = zoomTransform?.k || 1;
+        const zoomX = zoomTransform?.x || 0;
+        const zoomY = zoomTransform?.y || 0;
+
+        // Helper to convert viewBox to pixel coordinates with zoom
         const vbToPixel = (vbX, vbY) => {
-            const pixelX = (vbX - viewBoxX) / scale + offsetX + (rect.left - panelRect.left);
-            const pixelY = (vbY - viewBoxY) / scale + offsetY + (rect.top - panelRect.top);
+            let svgX = (vbX - viewBoxX) / scale + offsetX;
+            let svgY = (vbY - viewBoxY) / scale + offsetY;
+            svgX = svgX * zoomK + zoomX;
+            svgY = svgY * zoomK + zoomY;
+            const pixelX = svgX + (rect.left - panelRect.left);
+            const pixelY = svgY + (rect.top - panelRect.top);
             return [pixelX, pixelY];
         };
 
@@ -6481,10 +6566,18 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const offsetX = (rect.width - renderedWidth) / 2;
         const offsetY = (rect.height - renderedHeight) / 2;
 
-        // Helper function to convert viewBox coords to pixel position
+        // Get zoom transform
+        const zoomTransform = this._getZoomTransform();
+        const zoomK = zoomTransform?.k || 1;
+        const zoomX = zoomTransform?.x || 0;
+        const zoomY = zoomTransform?.y || 0;
+
+        // Helper function to convert viewBox coords to pixel position with zoom
         const toPixelPos = (vbX, vbY) => {
-            const svgPixelX = (vbX - viewBoxX) / scale + offsetX;
-            const svgPixelY = (vbY - viewBoxY) / scale + offsetY;
+            let svgPixelX = (vbX - viewBoxX) / scale + offsetX;
+            let svgPixelY = (vbY - viewBoxY) / scale + offsetY;
+            svgPixelX = svgPixelX * zoomK + zoomX;
+            svgPixelY = svgPixelY * zoomK + zoomY;
             return {
                 x: (rect.left - panelRect.left) + svgPixelX,
                 y: (rect.top - panelRect.top) + svgPixelY
