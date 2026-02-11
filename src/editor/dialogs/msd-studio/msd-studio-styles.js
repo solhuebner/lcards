@@ -270,7 +270,6 @@ export const msdStudioStyles = css`
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        padding-top: 48px;  /* Push preview down below action bar */
     }
 
     .preview-scroll-container {

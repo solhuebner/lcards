@@ -687,11 +687,15 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @param {string} mode - Mode identifier
      * @private
      */
-    _setMode(mode) {
+    async _setMode(mode) {
+        lcardsLog.debug(`[MSDStudio] _setMode ENTRY: ${this._activeMode} → ${mode}`);
+
         // Toggle off if clicking active mode
         if (this._activeMode === mode) {
+            lcardsLog.debug(`[MSDStudio] _setMode: Toggling off mode ${mode}`);
             this._activeMode = MODES.VIEW;
         } else {
+            lcardsLog.debug(`[MSDStudio] _setMode: Activating mode ${mode}`);
             this._activeMode = mode;
         }
 
@@ -708,14 +712,27 @@ export class LCARdSMSDStudioDialog extends LitElement {
             this._connectLineState = { source: null, tempLineElement: null };
         }
 
-        // Exit waypoint mode if switching away from ADD_WAYPOINT
+        // Clear waypoint markers if switching away from ADD_WAYPOINT
+        // (but don't call _exitWaypointMode as it resets mode to VIEW)
         if (this._activeMode !== MODES.ADD_WAYPOINT && this._showWaypointMarkers) {
-            this._exitWaypointMode();
-            return; // _exitWaypointMode calls requestUpdate()
+            lcardsLog.debug(`[MSDStudio] _setMode: Clearing waypoint markers`);
+            this._showWaypointMarkers = false;
+            if (this._selectedLineId && this._workingConfig.msd?.overlays) {
+                const lineOverlay = this._workingConfig.msd.overlays.find(o => o.id === this._selectedLineId);
+                if (lineOverlay) {
+                    delete lineOverlay._editorSelected;
+                }
+            }
+            this._selectedLineId = null;
+            // Continue with normal mode activation below
         }
 
-        lcardsLog.debug('[MSDStudio] Mode changed:', this._activeMode);
+        lcardsLog.debug('[MSDStudio] Mode changed:', this._activeMode, '- requesting update');
         this.requestUpdate();
+
+        lcardsLog.debug('[MSDStudio] _setMode: Awaiting updateComplete...');
+        await this.updateComplete;
+        lcardsLog.debug(`[MSDStudio] _setMode EXIT: Mode ${this._activeMode} is now active, DOM updated`);
     }
 
     /**
@@ -1047,8 +1064,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                 class="canvas-toolbar-button ${this._activeMode === btn.mode ? 'active' : ''}"
                                 @click=${async (e) => {
                                     e.stopPropagation();
-                                    this._setMode(btn.mode);
-                                    await this.updateComplete;
+                                    await this._setMode(btn.mode);
                                 }}
                                 title="${btn.tooltip}">
                                 <ha-icon icon="${btn.icon}"></ha-icon>
@@ -1889,7 +1905,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         <ha-icon icon="mdi:map-marker-plus" slot="start"></ha-icon>
                         Add Anchor
                     </ha-button>
-                    <ha-button @click=${() => this._setMode(MODES.PLACE_ANCHOR)}
+                    <ha-button @click=${async (e) => { e.stopPropagation(); await this._setMode(MODES.PLACE_ANCHOR); }}
                                ?disabled=${this._activeMode === MODES.PLACE_ANCHOR}>
                         <ha-icon icon="mdi:cursor-default-click" slot="start"></ha-icon>
                         Place on Canvas
@@ -2556,6 +2572,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _handlePlaceAnchorClick(event) {
+        lcardsLog.debug(`[MSDStudio] _handlePlaceAnchorClick ENTRY - mode: ${this._activeMode}`);
+
         // Get coordinates from click
         const coords = this._getPreviewCoordinates(event);
         if (!coords) {
@@ -2563,7 +2581,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             return;
         }
 
-        lcardsLog.trace('[MSDStudio] Place anchor at:', coords);
+        lcardsLog.debug('[MSDStudio] Place anchor at:', coords);
 
         // Coordinates are already snapped to grid if enabled in _getPreviewCoordinates
         const { x, y } = coords;
@@ -2587,6 +2605,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _handlePlaceControlClick(event) {
+        lcardsLog.debug(`[MSDStudio] _handlePlaceControlClick ENTRY - mode: ${this._activeMode}`);
+
         // Get coordinates from click
         const coords = this._getPreviewCoordinates(event);
         if (!coords) {
@@ -2594,7 +2614,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             return;
         }
 
-        lcardsLog.trace('[MSDStudio] Place control at:', coords);
+        lcardsLog.debug('[MSDStudio] Place control at:', coords);
 
         // Generate control ID
         const overlays = this._workingConfig.msd?.overlays || [];
@@ -6813,7 +6833,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         <ha-icon icon="mdi:plus" slot="start"></ha-icon>
                         Add Control
                     </ha-button>
-                    <ha-button @click=${() => this._setMode('place_control')}
+                    <ha-button @click=${async (e) => { e.stopPropagation(); await this._setMode('place_control'); }}
                                ?disabled=${this._activeMode === MODES.PLACE_CONTROL}>
                         <ha-icon icon="mdi:cursor-default-click" slot="start"></ha-icon>
                         Place on Canvas
@@ -7563,19 +7583,19 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     </lcards-form-section>
                 ` : html`
                     <!-- Selected Card Info + Change Button -->
-                    <div class="selected-card-header" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 8px;">
+                    <div class="selected-card-info" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--info-color, #03a9f4); color: white; border-radius: 8px; margin-bottom: 16px;">
                         <div style="display: flex; align-items: center; gap: 12px;">
-                            <ha-icon icon="${this._getCardIcon(cardType)}" style="--mdc-icon-size: 24px; color: var(--primary-color);"></ha-icon>
+                            <ha-icon icon="${this._getCardIcon(cardType)}" style="--mdc-icon-size: 28px; color: white;"></ha-icon>
                             <div>
-                                <div style="font-weight: 600; font-size: 14px;">${this._getCardTypeName(cardType)}</div>
-                                <div style="font-size: 12px; color: var(--secondary-text-color);">Selected card type</div>
+                                <div style="font-weight: 600; font-size: 15px;">${this._getCardTypeName(cardType)}</div>
+                                <div style="font-size: 12px; opacity: 0.9;">Card type selected</div>
                             </div>
                         </div>
                         <ha-button
                             @click=${this._resetCardPicker}
-                            appearance="plain">
+                            style="--mdc-theme-primary: white; --mdc-theme-on-primary: var(--info-color, #03a9f4);">
                             <ha-icon icon="mdi:swap-horizontal" slot="start"></ha-icon>
-                            Change Card Type
+                            Change
                         </ha-button>
                     </div>
 
@@ -7592,16 +7612,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                 <ha-icon icon="mdi:pencil" slot="start"></ha-icon>
                                 Open Card Editor
                             </ha-button>
-
-                            <!-- Show current card type info -->
-                            ${this._controlFormCard ? html`
-                                <div style="margin-top: 16px; padding: 12px; background: var(--secondary-background-color); border-radius: 4px; font-size: 13px;">
-                                    <div style="color: var(--secondary-text-color); margin-bottom: 4px;">Current Configuration:</div>
-                                    <div style="font-family: monospace; white-space: pre-wrap; max-height: 150px; overflow-y: auto;">
-                                        ${JSON.stringify(this._controlFormCard, null, 2)}
-                                    </div>
-                                </div>
-                            ` : ''}
                         </div>
                     </lcards-form-section>
                 `}
@@ -7696,12 +7706,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     </lcards-form-section>
                 ` : html`
                     <!-- Selected Card Info + Change Button -->
-                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 8px;">
+                    <div class="selected-card-info" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--info-color, #03a9f4); color: white; border-radius: 8px; margin-bottom: 16px;">
                         <div style="display: flex; align-items: center; gap: 12px;">
-                            <ha-icon icon="${this._getCardIcon(cardType)}" style="--mdc-icon-size: 24px; color: var(--primary-color);"></ha-icon>
+                            <ha-icon icon="${this._getCardIcon(cardType)}" style="--mdc-icon-size: 28px; color: white;"></ha-icon>
                             <div>
-                                <div style="font-weight: 600; font-size: 14px;">${this._getCardTypeName(cardType)}</div>
-                                <div style="font-size: 12px; color: var(--secondary-text-color);">Selected card type</div>
+                                <div style="font-weight: 600; font-size: 15px;">${this._getCardTypeName(cardType)}</div>
+                                <div style="font-size: 12px; opacity: 0.9;">Card type selected</div>
                             </div>
                         </div>
                         <ha-button
@@ -7711,46 +7721,33 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                 this._controlFormCard = { type: '' };
                                 this.requestUpdate();
                             }}
-                            appearance="plain">
+                            style="--mdc-theme-primary: white; --mdc-theme-on-primary: var(--info-color, #03a9f4);">
                             <ha-icon icon="mdi:swap-horizontal" slot="start"></ha-icon>
-                            Change Card Type
+                            Change
                         </ha-button>
                     </div>
 
                     <!-- HA Native Card Configuration Editor (same as Tier 1) -->
                     <lcards-form-section
                         header="Card Configuration"
-                        description="Configure the card using graphical editor or YAML"
+                        description="Configure the card using graphical editor or view YAML"
                         icon="mdi:cog"
                         ?expanded=${true}>
 
-                        <!-- Editor Mode Tabs -->
-                        <div style="padding: 0 16px 8px; display: flex; gap: 8px; border-bottom: 1px solid var(--divider-color); padding-bottom: 8px;">
-                            <ha-button
-                                appearance="${this._cardConfigMode === 'graphical' ? 'active' : 'filled'}"
-                                @click=${() => {
-                                    this._cardConfigMode = 'graphical';
-                                    this.requestUpdate();
-                                }}
-                                style="flex: 1;">
-                                <ha-icon icon="mdi:form-select" slot="start"></ha-icon>
-                                Graphical
-                            </ha-button>
-                            <ha-button
-                                appearance="${this._cardConfigMode === 'yaml' ? 'active' : 'filled'}"
-                                @click=${() => {
-                                    this._cardConfigMode = 'yaml';
-                                    this.requestUpdate();
-                                }}
-                                style="flex: 1;">
-                                <ha-icon icon="mdi:code-braces" slot="start"></ha-icon>
-                                YAML
-                            </ha-button>
-                        </div>
-
                         <div class="card-editor-container" style="padding: 16px;">
                             ${this._cardConfigMode === 'yaml' ? html`
-                                <!-- YAML Editor -->
+                                <!-- YAML Editor with Show Code toggle -->
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                    <div style="font-weight: 500;">YAML Configuration</div>
+                                    <ha-button
+                                        @click=${() => {
+                                            this._cardConfigMode = 'graphical';
+                                            this.requestUpdate();
+                                        }}>
+                                        <ha-icon icon="mdi:form-select" slot="start"></ha-icon>
+                                        Switch to Editor
+                                    </ha-button>
+                                </div>
                                 <ha-yaml-editor
                                     .hass=${this.hass}
                                     .defaultValue=${this._controlFormCard}
@@ -7766,18 +7763,21 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                 <ha-button
                                     raised
                                     @click=${this._openCardEditorModal}
-                                    style="width: 100%;">
+                                    style="width: 100%; margin-bottom: 12px;">
                                     <ha-icon icon="mdi:pencil" slot="start"></ha-icon>
                                     Open Card Editor
                                 </ha-button>
 
-                                <!-- Show current card config preview -->
-                                ${this._controlFormCard ? html`
-                                    <div style="margin-top: 16px; padding: 12px; background: var(--secondary-background-color); border-radius: 4px; font-size: 13px;">
-                                        <div style="color: var(--secondary-text-color); margin-bottom: 4px;">Current Configuration:</div>
-                                        <div style="font-family: monospace; white-space: pre-wrap; max-height: 150px; overflow-y: auto;">${JSON.stringify(this._controlFormCard, null, 2)}</div>
-                                    </div>
-                                ` : ''}
+                                <!-- Show Code toggle button (like HA dialogs) -->
+                                <ha-button
+                                    @click=${() => {
+                                        this._cardConfigMode = 'yaml';
+                                        this.requestUpdate();
+                                    }}
+                                    style="width: 100%;">
+                                    <ha-icon icon="mdi:code-braces" slot="start"></ha-icon>
+                                    Show Code
+                                </ha-button>
                             ` : html`
                                 <!-- Fallback: Basic UI Editor -->
                                 <lcards-message type="warning">
@@ -8944,7 +8944,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         <ha-icon icon="mdi:plus" slot="start"></ha-icon>
                         Add Line
                     </ha-button>
-                    <ha-button @click=${() => this._setMode('connect_line')}
+                    <ha-button @click=${async (e) => { e.stopPropagation(); await this._setMode('connect_line'); }}
                                ?disabled=${this._activeMode === MODES.CONNECT_LINE}>
                         <ha-icon icon="mdi:vector-line" slot="start"></ha-icon>
                         Enter Connect Mode
@@ -9155,7 +9155,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                         <ha-icon icon="mdi:plus" slot="start"></ha-icon>
                         Add Channel
                     </ha-button>
-                    <ha-button @click=${() => this._setMode('draw_channel')}
+                    <ha-button @click=${async (e) => { e.stopPropagation(); await this._setMode('draw_channel'); }}
                                ?disabled=${this._activeMode === MODES.DRAW_CHANNEL}>
                         <ha-icon icon="mdi:vector-rectangle" slot="start"></ha-icon>
                         Draw on Canvas
