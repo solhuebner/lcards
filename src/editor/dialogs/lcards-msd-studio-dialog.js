@@ -167,6 +167,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
 
     constructor() {
         super();
+        lcardsLog.debug('[MSDStudio] Constructor called');
         this.hass = null;
         this._initialConfig = null;
         this._workingConfig = {};
@@ -231,7 +232,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         this._previewZoom = 1.0;
 
         // Pan/Zoom State (d3-zoom integration)
-        this._currentZoom = 1.0;
+        this._currentZoom = { x: 0, y: 0, k: 1 };
         this._zoomBehavior = null;
         this._zoomContainer = null;  // The preview-scroll-container element
         this._zoomWrapper = null;     // The zoomable wrapper div
@@ -467,10 +468,13 @@ export class LCARdSMSDStudioDialog extends LitElement {
      */
     async firstUpdated(changedProps) {
         super.firstUpdated(changedProps);
+        lcardsLog.debug('[MSDStudio] firstUpdated called');
 
         // Wait for preview to render, then initialize zoom
         await this.updateComplete;
+        lcardsLog.debug('[MSDStudio] updateComplete, scheduling zoom init');
         requestAnimationFrame(() => {
+            lcardsLog.debug('[MSDStudio] requestAnimationFrame fired, calling _initializeZoom');
             this._initializeZoom();
         });
     }
@@ -538,11 +542,14 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _initializeZoom() {
+        lcardsLog.debug('[MSDStudio][ZOOM] _initializeZoom called');
+
         const previewPanel = this.shadowRoot.querySelector('.preview-panel');
         if (!previewPanel) {
             lcardsLog.warn('[MSDStudio] Preview panel not found for zoom initialization');
             return;
         }
+        lcardsLog.debug('[MSDStudio][ZOOM] Found preview panel');
 
         // Find the preview scroll container - this is what we'll attach zoom to
         const container = previewPanel.querySelector('.preview-scroll-container');
@@ -550,6 +557,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             lcardsLog.warn('[MSDStudio] Preview scroll container not found for zoom initialization');
             return;
         }
+        lcardsLog.debug('[MSDStudio][ZOOM] Found scroll container');
 
         // Find the zoomable wrapper div (contains lcards-msd-live-preview)
         const zoomableWrapper = container.querySelector('.msd-zoom-wrapper');
@@ -557,6 +565,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
             lcardsLog.warn('[MSDStudio] Zoomable wrapper not found for zoom initialization');
             return;
         }
+        lcardsLog.debug('[MSDStudio][ZOOM] Found zoomable wrapper');
 
         // Create zoom behavior with constraints
         this._zoomBehavior = zoom()
@@ -588,13 +597,25 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 zoomableWrapper.style.transform = `translate(${t.x}px, ${t.y}px) scale(${t.k})`;
                 zoomableWrapper.style.transformOrigin = 'top left';
 
-                // Update zoom level display
-                this._currentZoom = event.transform.k;
+                // Update wrapper dimensions to match scaled size for proper scrollbar sizing
+                // Add margin to account for negative translate values (panning)
+                const baseWidth = zoomableWrapper.scrollWidth / (this._currentZoom?.k || 1);
+                const baseHeight = zoomableWrapper.scrollHeight / (this._currentZoom?.k || 1);
+                const marginX = Math.abs(Math.min(0, t.x));
+                const marginY = Math.abs(Math.min(0, t.y));
+                zoomableWrapper.style.width = `${baseWidth * t.k + marginX}px`;
+                zoomableWrapper.style.height = `${baseHeight * t.k + marginY}px`;
+                zoomableWrapper.style.marginLeft = `${marginX}px`;
+                zoomableWrapper.style.marginTop = `${marginY}px`;
+
+                // Store full transform object (not just scale)
+                this._currentZoom = { x: t.x, y: t.y, k: t.k };
                 this.requestUpdate(); // Updates studio overlays
 
-                lcardsLog.trace('[MSDStudio] Zoom applied:', {
-                    scale: event.transform.k,
-                    translate: [event.transform.x, event.transform.y]
+                lcardsLog.debug('[MSDStudio][ZOOM] Transform applied:', {
+                    transform: `translate(${t.x}px, ${t.y}px) scale(${t.k})`,
+                    dimensions: `${baseWidth * t.k}px × ${baseHeight * t.k}px`,
+                    x: t.x, y: t.y, k: t.k
                 });
             })
             .on('end', () => {
@@ -608,6 +629,17 @@ export class LCARdSMSDStudioDialog extends LitElement {
         select(container).call(this._zoomBehavior);
         this._zoomContainer = container;
         this._zoomWrapper = zoomableWrapper;
+
+        // Add scroll event listener to sync scrollbar with overlays
+        // Scrollbar moves viewport, but wrapper has CSS transform
+        // Overlays are siblings and need to account for scroll offset
+        container.addEventListener('scroll', () => {
+            lcardsLog.trace('[MSDStudio][ZOOM] Scroll detected, refreshing overlays');
+            // Just refresh - overlays use getBoundingClientRect which accounts for scroll
+            this.requestUpdate();
+        });
+
+        lcardsLog.debug('[MSDStudio][ZOOM] Zoom initialization complete with scroll sync');
 
         lcardsLog.info('[MSDStudio] 🔍 Zoom behavior initialized on preview container');
     }
@@ -3746,18 +3778,13 @@ export class LCARdSMSDStudioDialog extends LitElement {
         }
 
         // Get bounding rect of SVG element
+        // NOTE: rect is already in transformed screen space due to CSS transform
         const rect = svg.getBoundingClientRect();
 
         // Calculate click position relative to SVG
-        let x = event.clientX - rect.left;
-        let y = event.clientY - rect.top;
-
-        // Apply inverse zoom transform if zoom is active
-        const zoomTransform = this._getZoomTransform();
-        if (zoomTransform?.k && zoomTransform.k !== 1) {
-            x = (x - zoomTransform.x) / zoomTransform.k;
-            y = (y - zoomTransform.y) / zoomTransform.k;
-        }
+        // No inverse zoom needed - rect already accounts for transform
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
 
         // Get viewBox from config
         const viewBox = this._workingConfig.msd?.view_box;
@@ -3829,21 +3856,16 @@ export class LCARdSMSDStudioDialog extends LitElement {
         if (!svg) return null;
 
         // Get bounding rect of SVG element relative to viewport
+        // NOTE: rect is already in transformed screen space due to CSS transform on parent
         const rect = svg.getBoundingClientRect();
 
         // Get preview panel rect
         const panelRect = previewPanel.getBoundingClientRect();
 
         // Calculate mouse position relative to SVG
-        let svgX = event.clientX - rect.left;
-        let svgY = event.clientY - rect.top;
-
-        // Apply inverse zoom transform if zoom is active
-        const zoomTransform = this._getZoomTransform();
-        if (zoomTransform?.k && zoomTransform.k !== 1) {
-            svgX = (svgX - zoomTransform.x) / zoomTransform.k;
-            svgY = (svgY - zoomTransform.y) / zoomTransform.k;
-        }
+        // No need to apply inverse zoom - rect is already transformed
+        const svgX = event.clientX - rect.left;
+        const svgY = event.clientY - rect.top;
 
         // Get viewBox from config
         const viewBox = this._workingConfig.msd?.view_box;
@@ -3897,18 +3919,12 @@ export class LCARdSMSDStudioDialog extends LitElement {
             coordX = Math.round(coordX / gridSpacing) * gridSpacing;
             coordY = Math.round(coordY / gridSpacing) * gridSpacing;
 
-            // Convert snapped viewBox coords back to pixel position relative to SVG
-            // Account for letterboxing offset
-            let snappedSvgX = (coordX - vbX) / scale + offsetX;
-            let snappedSvgY = (coordY - vbY) / scale + offsetY;
+            // Convert snapped viewBox coords back to pixel position
+            // rect is already in transformed screen space, so no zoom multiplication needed
+            const snappedSvgX = (coordX - vbX) / scale + offsetX;
+            const snappedSvgY = (coordY - vbY) / scale + offsetY;
 
-            // Re-apply zoom transform to get visual position
-            if (zoomTransform?.k && zoomTransform.k !== 1) {
-                snappedSvgX = snappedSvgX * zoomTransform.k + zoomTransform.x;
-                snappedSvgY = snappedSvgY * zoomTransform.k + zoomTransform.y;
-            }
-
-            // Convert to preview panel coordinates
+            // Convert to preview panel coordinates (rect already includes transform)
             pixelX = (rect.left - panelRect.left) + snappedSvgX;
             pixelY = (rect.top - panelRect.top) + snappedSvgY;
         }
@@ -4641,22 +4657,11 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const offsetX = (rect.width - renderedWidth) / 2;
         const offsetY = (rect.height - renderedHeight) / 2;
 
-        // Get zoom transform
-        const zoomTransform = this._getZoomTransform();
-        const zoomK = zoomTransform?.k || 1;
-        const zoomX = zoomTransform?.x || 0;
-        const zoomY = zoomTransform?.y || 0;
-
-        // Convert viewBox coords to SVG pixel position with zoom
-        let svgPixelX = (vbX - viewBoxX) / scale + offsetX;
-        let svgPixelY = (vbY - viewBoxY) / scale + offsetY;
-        let pixelWidth = width / scale;
-        let pixelHeight = height / scale;
-
-        svgPixelX = svgPixelX * zoomK + zoomX;
-        svgPixelY = svgPixelY * zoomK + zoomY;
-        pixelWidth = pixelWidth * zoomK;
-        pixelHeight = pixelHeight * zoomK;
+        // Convert viewBox coords to SVG pixel position (CSS transform handles zoom)
+        const svgPixelX = (vbX - viewBoxX) / scale + offsetX;
+        const svgPixelY = (vbY - viewBoxY) / scale + offsetY;
+        const pixelWidth = width / scale;
+        const pixelHeight = height / scale;
 
         // Convert to preview panel coordinates
         const pixelX = (rect.left - panelRect.left) + svgPixelX;
@@ -4994,38 +4999,66 @@ export class LCARdSMSDStudioDialog extends LitElement {
         if (!previewPanel) return '';
         const panelRect = previewPanel.getBoundingClientRect();
 
-        lcardsLog.trace('[MSDStudio] SVG Rect:', rect);
-        lcardsLog.trace('[MSDStudio] Panel rect:', panelRect);
+        const zoomWrapper = this.shadowRoot.querySelector('.msd-zoom-wrapper');
+        const wrapperRect = zoomWrapper?.getBoundingClientRect();
 
-        // Calculate scale
+        // Get scroll container for scroll position
+        const scrollContainer = this.shadowRoot.querySelector('.preview-scroll-container');
+        const scrollLeft = scrollContainer?.scrollLeft || 0;
+        const scrollTop = scrollContainer?.scrollTop || 0;
+
+        // Get current zoom transform to calculate untransformed coordinates
+        const zoomTransform = this._getZoomTransform();
+        const zoomK = zoomTransform?.k || 1;
+        const zoomX = zoomTransform?.x || 0;
+        const zoomY = zoomTransform?.y || 0;
+
+        lcardsLog.debug('[MSDStudio][GRID] SCROLL & ZOOM DEBUG:', {
+            scroll: { left: scrollLeft, top: scrollTop },
+            svg: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
+            panel: { left: panelRect.left, top: panelRect.top },
+            wrapper: wrapperRect ? { left: wrapperRect.left, top: wrapperRect.top, width: wrapperRect.width, height: wrapperRect.height } : null,
+            wrapperTransform: zoomWrapper?.style.transform,
+            zoom: { k: zoomK, x: zoomX, y: zoomY },
+            // Calculate what overlay position will be
+            overlayCalc: {
+                baseSvgLeft: rect.left - panelRect.left,
+                baseSvgTop: rect.top - panelRect.top,
+                note: 'Overlay positioned relative to panel using SVG rect'
+            }
+        });
+
+        // Calculate scale (NO ZOOM - CSS transform handles it)
         const scaleX = viewBoxWidth / rect.width;
         const scaleY = viewBoxHeight / rect.height;
         const scale = Math.max(scaleX, scaleY);
 
-        lcardsLog.trace('[MSDStudio] Scale:', { scaleX, scaleY, scale });
+        lcardsLog.debug('[MSDStudio][GRID] Scale calculation:', {
+            scaleX, scaleY, scale,
+            viewBoxSize: { width: viewBoxWidth, height: viewBoxHeight },
+            rectSize: { width: rect.width, height: rect.height }
+        });
 
         const renderedWidth = viewBoxWidth / scale;
         const renderedHeight = viewBoxHeight / scale;
         const offsetX = (rect.width - renderedWidth) / 2;
         const offsetY = (rect.height - renderedHeight) / 2;
 
-        // Calculate preview panel dimensions for full-height/width lines
-        const panelWidth = panelRect.width;
-        const panelHeight = panelRect.height;
-
+        lcardsLog.debug('[MSDStudio][GRID] Calculated positions:', {
+            renderedSize: { width: renderedWidth, height: renderedHeight },
+            offset: { x: offsetX, y: offsetY },
+            baseSvgLeft: (rect.left - panelRect.left) + offsetX,
+            baseSvgTop: (rect.top - panelRect.top) + offsetY
+        });
         lcardsLog.trace('[MSDStudio] Rendering grid with', verticalLines.length, 'vertical and', horizontalLines.length, 'horizontal lines');
 
-        // Get zoom transform to apply to grid
-        const zoomTransform = this._getZoomTransform();
-        const zoomK = zoomTransform?.k || 1;
-        const zoomX = zoomTransform?.x || 0;
-        const zoomY = zoomTransform?.y || 0;
-
-        // Calculate base_svg boundary position with zoom applied
-        const baseSvgLeft = (rect.left - panelRect.left) + offsetX * zoomK + zoomX;
-        const baseSvgTop = (rect.top - panelRect.top) + offsetY * zoomK + zoomY;
-        const baseSvgWidth = renderedWidth * zoomK;
-        const baseSvgHeight = renderedHeight * zoomK;
+        // Calculate base_svg boundary position
+        // Use SVG rect directly - it's already in transformed screen space
+        // Overlays are positioned relative to panel, outside scroll container
+        const baseSvgLeft = (rect.left - panelRect.left) + offsetX;
+        const baseSvgTop = (rect.top - panelRect.top) + offsetY;
+        const baseSvgWidth = renderedWidth;
+        const baseSvgHeight = renderedHeight;
 
         // Get grid opacity from settings
         const gridOpacity = this._debugSettings.grid_opacity ?? 0.3;
@@ -5052,8 +5085,15 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 "></div>
 
                 <!-- Grid Lines -->
-                ${verticalLines.map(x => {
-                    const svgPixelX = ((x - viewBoxX) / scale) * zoomK;
+                ${verticalLines.map((x, idx) => {
+                    const svgPixelX = (x - viewBoxX) / scale;
+                    if (idx === 0) {
+                        lcardsLog.debug('[MSDStudio][GRID] First vertical line:', {
+                            viewBoxX: x,
+                            svgPixelX,
+                            calculation: `(${x} - ${viewBoxX}) / ${scale} = ${svgPixelX}`
+                        });
+                    }
                     return html`
                         <div style="
                             position: absolute;
@@ -5067,7 +5107,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     `;
                 })}
                 ${horizontalLines.map(y => {
-                    const svgPixelY = ((y - viewBoxY) / scale) * zoomK;
+                    const svgPixelY = (y - viewBoxY) / scale;
                     return html`
                         <div style="
                             position: absolute;
@@ -5140,12 +5180,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const offsetX = (rect.width - renderedWidth) / 2;
         const offsetY = (rect.height - renderedHeight) / 2;
 
-        // Get zoom transform to apply to anchor positions
-        const zoomTransform = this._getZoomTransform();
-        const zoomK = zoomTransform?.k || 1;
-        const zoomX = zoomTransform?.x || 0;
-        const zoomY = zoomTransform?.y || 0;
-
         return html`
             <div style="
                 position: absolute;
@@ -5156,17 +5190,25 @@ export class LCARdSMSDStudioDialog extends LitElement {
                 pointer-events: none;
                 z-index: 997;
             ">
-                ${Object.entries(allAnchors).map(([name, position]) => {
+                ${Object.entries(allAnchors).map(([name, position], idx) => {
                     if (!Array.isArray(position)) return '';
 
                     const [vbX, vbY] = position;
-                    // Convert viewBox coords to SVG pixels, then apply zoom
-                    let svgPixelX = (vbX - viewBoxX) / scale + offsetX;
-                    let svgPixelY = (vbY - viewBoxY) / scale + offsetY;
-                    svgPixelX = svgPixelX * zoomK + zoomX;
-                    svgPixelY = svgPixelY * zoomK + zoomY;
+                    // Convert viewBox coords to SVG pixels (CSS transform handles zoom)
+                    const svgPixelX = (vbX - viewBoxX) / scale + offsetX;
+                    const svgPixelY = (vbY - viewBoxY) / scale + offsetY;
                     const pixelX = (rect.left - panelRect.left) + svgPixelX;
                     const pixelY = (rect.top - panelRect.top) + svgPixelY;
+
+                    if (idx === 0) {
+                        lcardsLog.debug('[MSDStudio][ANCHOR] First anchor position:', {
+                            name,
+                            viewBox: { x: vbX, y: vbY },
+                            svgPixel: { x: svgPixelX, y: svgPixelY },
+                            finalPixel: { x: pixelX, y: pixelY },
+                            calculation: `(${vbX} - ${viewBoxX}) / ${scale} + ${offsetX} = ${svgPixelX}`
+                        });
+                    }
 
                     const isBaseSvg = !userAnchors[name];
                     const color = isBaseSvg ? '#888888' : '#FFFF00';
@@ -5274,12 +5316,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const offsetX = (rect.width - renderedWidth) / 2;
         const offsetY = (rect.height - renderedHeight) / 2;
 
-        // Get zoom transform
-        const zoomTransform = this._getZoomTransform();
-        const zoomK = zoomTransform?.k || 1;
-        const zoomX = zoomTransform?.x || 0;
-        const zoomY = zoomTransform?.y || 0;
-
         // Get all anchors from the card's resolved model (already merged base SVG + user-defined)
         const resolvedModel = msdCard._msdPipeline?.getResolvedModel?.();
         const anchors = resolvedModel?.anchors || {};
@@ -5346,16 +5382,11 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     vbX += offset[0];
                     vbY += offset[1];
 
-                    // Convert to SVG pixels then apply zoom
-                    let svgPixelX = (vbX - viewBoxX) / scale + offsetX;
-                    let svgPixelY = (vbY - viewBoxY) / scale + offsetY;
-                    let pixelWidth = width / scale;
-                    let pixelHeight = height / scale;
-
-                    svgPixelX = svgPixelX * zoomK + zoomX;
-                    svgPixelY = svgPixelY * zoomK + zoomY;
-                    pixelWidth = pixelWidth * zoomK;
-                    pixelHeight = pixelHeight * zoomK;
+                    // Convert to SVG pixels (CSS transform handles zoom)
+                    const svgPixelX = (vbX - viewBoxX) / scale + offsetX;
+                    const svgPixelY = (vbY - viewBoxY) / scale + offsetY;
+                    const pixelWidth = width / scale;
+                    const pixelHeight = height / scale;
 
                     const pixelX = (rect.left - panelRect.left) + svgPixelX;
                     const pixelY = (rect.top - panelRect.top) + svgPixelY;
@@ -5471,12 +5502,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const offsetX = (rect.width - renderedWidth) / 2;
         const offsetY = (rect.height - renderedHeight) / 2;
 
-        // Get zoom transform
-        const zoomTransform = this._getZoomTransform();
-        const zoomK = zoomTransform?.k || 1;
-        const zoomX = zoomTransform?.x || 0;
-        const zoomY = zoomTransform?.y || 0;
-
         return html`
             <div style="
                 position: absolute;
@@ -5503,16 +5528,11 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     const [startX, startY] = startPos;
                     const [endX, endY] = endPos;
 
-                    // Apply zoom to coordinates
-                    let svgStartX = (startX - viewBoxX) / scale + offsetX;
-                    let svgStartY = (startY - viewBoxY) / scale + offsetY;
-                    let svgEndX = (endX - viewBoxX) / scale + offsetX;
-                    let svgEndY = (endY - viewBoxY) / scale + offsetY;
-
-                    svgStartX = svgStartX * zoomK + zoomX;
-                    svgStartY = svgStartY * zoomK + zoomY;
-                    svgEndX = svgEndX * zoomK + zoomX;
-                    svgEndY = svgEndY * zoomK + zoomY;
+                    // Convert to SVG pixels (CSS transform handles zoom)
+                    const svgStartX = (startX - viewBoxX) / scale + offsetX;
+                    const svgStartY = (startY - viewBoxY) / scale + offsetY;
+                    const svgEndX = (endX - viewBoxX) / scale + offsetX;
+                    const svgEndY = (endY - viewBoxY) / scale + offsetY;
 
                     const pixelStartX = (rect.left - panelRect.left) + svgStartX;
                     const pixelStartY = (rect.top - panelRect.top) + svgStartY;
@@ -5614,12 +5634,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const offsetX = (rect.width - renderedWidth) / 2;
         const offsetY = (rect.height - renderedHeight) / 2;
 
-        // Get zoom transform
-        const zoomTransform = this._getZoomTransform();
-        const zoomK = zoomTransform?.k || 1;
-        const zoomX = zoomTransform?.x || 0;
-        const zoomY = zoomTransform?.y || 0;
-
         // Detect overlapping endpoints and calculate offsets for them
         const endpointPositions = new Map(); // key: "x,y", value: array of {line, endpoint, pos}
 
@@ -5688,19 +5702,14 @@ export class LCARdSMSDStudioDialog extends LitElement {
                     const endPos = this._resolvePositionWithSide(endTarget, line.attach_side);
                     if (!endPos) return '';
 
-                    // Convert to screen coordinates with zoom
+                    // Convert to screen coordinates (CSS transform handles zoom)
                     const [startX, startY] = startPos;
                     const [endX, endY] = endPos;
 
-                    let svgStartX = (startX - viewBoxX) / scale + offsetX;
-                    let svgStartY = (startY - viewBoxY) / scale + offsetY;
-                    let svgEndX = (endX - viewBoxX) / scale + offsetX;
-                    let svgEndY = (endY - viewBoxY) / scale + offsetY;
-
-                    svgStartX = svgStartX * zoomK + zoomX;
-                    svgStartY = svgStartY * zoomK + zoomY;
-                    svgEndX = svgEndX * zoomK + zoomX;
-                    svgEndY = svgEndY * zoomK + zoomY;
+                    const svgStartX = (startX - viewBoxX) / scale + offsetX;
+                    const svgStartY = (startY - viewBoxY) / scale + offsetY;
+                    const svgEndX = (endX - viewBoxX) / scale + offsetX;
+                    const svgEndY = (endY - viewBoxY) / scale + offsetY;
 
                     const pixelStartX = (rect.left - panelRect.left) + svgStartX;
                     const pixelStartY = (rect.top - panelRect.top) + svgStartY;
@@ -6017,18 +6026,10 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const offsetX = (rect.width - renderedWidth) / 2;
         const offsetY = (rect.height - renderedHeight) / 2;
 
-        // Get zoom transform
-        const zoomTransform = this._getZoomTransform();
-        const zoomK = zoomTransform?.k || 1;
-        const zoomX = zoomTransform?.x || 0;
-        const zoomY = zoomTransform?.y || 0;
-
-        // Helper to convert viewBox to pixel coordinates with zoom
+        // Helper to convert viewBox to pixel coordinates (CSS transform handles zoom)
         const vbToPixel = (vbX, vbY) => {
-            let svgX = (vbX - viewBoxX) / scale + offsetX;
-            let svgY = (vbY - viewBoxY) / scale + offsetY;
-            svgX = svgX * zoomK + zoomX;
-            svgY = svgY * zoomK + zoomY;
+            const svgX = (vbX - viewBoxX) / scale + offsetX;
+            const svgY = (vbY - viewBoxY) / scale + offsetY;
             const pixelX = svgX + (rect.left - panelRect.left);
             const pixelY = svgY + (rect.top - panelRect.top);
             return [pixelX, pixelY];
@@ -6566,18 +6567,10 @@ export class LCARdSMSDStudioDialog extends LitElement {
         const offsetX = (rect.width - renderedWidth) / 2;
         const offsetY = (rect.height - renderedHeight) / 2;
 
-        // Get zoom transform
-        const zoomTransform = this._getZoomTransform();
-        const zoomK = zoomTransform?.k || 1;
-        const zoomX = zoomTransform?.x || 0;
-        const zoomY = zoomTransform?.y || 0;
-
-        // Helper function to convert viewBox coords to pixel position with zoom
+        // Helper function to convert viewBox coords to pixel position (CSS transform handles zoom)
         const toPixelPos = (vbX, vbY) => {
-            let svgPixelX = (vbX - viewBoxX) / scale + offsetX;
-            let svgPixelY = (vbY - viewBoxY) / scale + offsetY;
-            svgPixelX = svgPixelX * zoomK + zoomX;
-            svgPixelY = svgPixelY * zoomK + zoomY;
+            const svgPixelX = (vbX - viewBoxX) / scale + offsetX;
+            const svgPixelY = (vbY - viewBoxY) / scale + offsetY;
             return {
                 x: (rect.left - panelRect.left) + svgPixelX,
                 y: (rect.top - panelRect.top) + svgPixelY
@@ -12859,17 +12852,16 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                         .hass=${this.hass}
                                         .config=${this._workingConfig}
                                         .debugSettings=${this._getDebugSettings()}
-                                        .showRefreshButton=${true}
-                                        .zoomTransform=${this._getZoomTransform()}>
+                                        .showRefreshButton=${true}>
                                     </lcards-msd-live-preview>
                                 </div>
 
-                                <!-- Draw Channel Rectangle Overlay -->
-                                ${this._renderDrawChannelOverlay()}
-                            <!-- Crosshair Guidelines -->
-                            ${this._renderCrosshairGuidelines()}
+                            </div>
+                            <!-- End scrollable container -->
 
-                            <!-- Persistent Debug Overlays -->
+                            <!-- Overlays rendered OUTSIDE scroll container to prevent scroll affecting them -->
+                            ${this._renderDrawChannelOverlay()}
+                            ${this._renderCrosshairGuidelines()}
                             ${this._renderGridOverlay()}
                             ${this._renderAnchorMarkers()}
                             ${this._renderBoundingBoxes()}
@@ -12878,17 +12870,11 @@ export class LCARdSMSDStudioDialog extends LitElement {
                             ${this._renderWaypointMarkers()}
                             ${this._renderDragAttachPoints()}
                             ${this._renderChannelsOverlay()}
-
-                            <!-- Temporary Highlights -->
                             ${this._renderAnchorHighlight()}
                             ${this._renderControlHighlight()}
                             ${this._renderLineHighlight()}
                             ${this._renderChannelHighlight()}
-
-                            <!-- Attachment Points (Connect Line Mode) -->
                             ${this._renderAttachmentPointsOverlay()}
-                            </div>
-                            <!-- End scrollable container -->
 
                             <!-- Canvas Toolbar (Floating - outside scroll) -->
                             ${this._renderCanvasToolbar()}
@@ -12900,7 +12886,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
                                     title="Zoom Out">
                                     <ha-icon icon="mdi:magnify-minus"></ha-icon>
                                 </ha-icon-button>
-                                <span class="zoom-level">${Math.round(this._currentZoom * 100)}%</span>
+                                <span class="zoom-level">${Math.round((this._currentZoom?.k || 1) * 100)}%</span>
                                 <ha-icon-button
                                     @click=${(e) => { e.stopPropagation(); this._zoom(1.1); }}
                                     title="Zoom In">

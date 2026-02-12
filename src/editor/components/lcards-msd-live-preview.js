@@ -11,15 +11,13 @@
  * @property {Object} config - Current MSD card configuration
  * @property {Object} debugSettings - Debug visualization settings
  * @property {Boolean} showRefreshButton - Show manual refresh button (default: true)
- * @property {Object} zoomTransform - Zoom/pan transform from d3-zoom {x, y, k}
  *
  * @example
  * <lcards-msd-live-preview
  *   .hass=${this.hass}
  *   .config=${this._workingConfig}
  *   .debugSettings=${{ anchors: true, bounding_boxes: true }}
- *   .showRefreshButton=${true}
- *   .zoomTransform=${{ x: 0, y: 0, k: 1 }}>
+ *   .showRefreshButton=${true}>
  * </lcards-msd-live-preview>
  */
 
@@ -34,7 +32,6 @@ export class LCARdSMSDLivePreview extends LitElement {
         config: { type: Object },
         debugSettings: { type: Object },
         showRefreshButton: { type: Boolean },
-        zoomTransform: { type: Object },
         _renderKey: { type: Number, state: true },
         _debounceTimer: { state: true }
     };
@@ -45,7 +42,6 @@ export class LCARdSMSDLivePreview extends LitElement {
         this.config = null;
         this.debugSettings = {};
         this.showRefreshButton = true;
-        this.zoomTransform = null;
         this._renderKey = 0;
         this._debounceTimer = null;
     }
@@ -233,9 +229,9 @@ export class LCARdSMSDLivePreview extends LitElement {
      * @private
      */
     _updatePreviewCard() {
-        const container = this.shadowRoot?.querySelector('.zoom-wrapper');
+        const container = this.shadowRoot?.querySelector('.preview-card-container');
         if (!container) {
-            lcardsLog.warn('[MSDLivePreview] Zoom wrapper not found');
+            lcardsLog.warn('[MSDLivePreview] Card container not found');
             return;
         }
 
@@ -343,18 +339,11 @@ export class LCARdSMSDLivePreview extends LitElement {
      * Render component
      */
     render() {
-        // Calculate CSS transform from zoomTransform
-        const transformStyle = this.zoomTransform
-            ? `translate(${this.zoomTransform.x}px, ${this.zoomTransform.y}px) scale(${this.zoomTransform.k})`
-            : 'none';
-
         return html`
             <div class="preview-container">
                 <!-- Preview Card Container (populated by _updatePreviewCard) -->
+                <!-- Parent .msd-zoom-wrapper provides CSS transform for zoom -->
                 <div class="preview-card-container">
-                    <!-- Zoom wrapper applies transform. Content dynamically inserted by _updatePreviewCard() -->
-                    <div class="zoom-wrapper" style="transform: ${transformStyle}">
-                    </div>
                 </div>
             </div>
         `;
