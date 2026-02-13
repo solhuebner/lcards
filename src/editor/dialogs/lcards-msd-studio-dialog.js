@@ -643,42 +643,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
-     * Zoom in by 30%
-     * @private
-     */
-    _zoomIn() {
-        // Ensure zoom is attached to current container
-        this._reinitializeZoomIfNeeded();
-
-        if (!this._zoomBehavior || !this._zoomContainer) return;
-        select(this._zoomContainer)
-            .transition()
-            .duration(300)
-            .call(this._zoomBehavior.scaleBy, 1.3);
-
-        // Update display after transition
-        setTimeout(() => this.requestUpdate(), 350);
-    }
-
-    /**
-     * Zoom out by ~23% (inverse of 1.3)
-     * @private
-     */
-    _zoomOut() {
-        // Ensure zoom is attached to current container
-        this._reinitializeZoomIfNeeded();
-
-        if (!this._zoomBehavior || !this._zoomContainer) return;
-        select(this._zoomContainer)
-            .transition()
-            .duration(300)
-            .call(this._zoomBehavior.scaleBy, 0.77);
-
-        // Update display after transition
-        setTimeout(() => this.requestUpdate(), 350);
-    }
-
-    /**
      * Reset zoom to 1:1 and center canvas
      * @private
      */
@@ -976,80 +940,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
             bubbles: true,
             composed: true
         }));
-    }
-
-    /**
-     * Get config value by dot-notation path
-     * Required by child components like lcards-color-section
-     * @param {string} path - Path like 'style.color'
-     * @returns {*} Value at path or undefined
-     * @private
-     */
-    _getConfigValue(path) {
-        if (!path) return undefined;
-
-        const keys = path.split('.');
-        let value = this._workingConfig;
-
-        for (const key of keys) {
-            if (value === null || value === undefined) {
-                return undefined;
-            }
-            value = value[key];
-        }
-
-        return value;
-    }
-
-    /**
-     * Get mode label text
-     * @param {string} mode - Mode identifier
-     * @returns {string}
-     * @private
-     */
-    _getModeLabel(mode) {
-        const labels = {
-            [MODES.VIEW]: 'View',
-            [MODES.PLACE_ANCHOR]: 'Place Anchor',
-            [MODES.PLACE_CONTROL]: 'Place Control',
-            [MODES.CONNECT_LINE]: 'Connect Line',
-            [MODES.DRAW_CHANNEL]: 'Draw Channel'
-        };
-        return labels[mode] || 'Unknown';
-    }
-
-    /**
-     * Get mode tooltip (Phase 7)
-     * @param {string} mode - Mode constant
-     * @returns {string}
-     * @private
-     */
-    _getModeTooltip(mode) {
-        const tooltips = {
-            [MODES.VIEW]: 'Default mode - navigate and select items',
-            [MODES.PLACE_ANCHOR]: 'Click on preview to place named anchors (Tab: Anchors)',
-            [MODES.PLACE_CONTROL]: 'Click on preview to place control overlays (Tab: Controls)',
-            [MODES.CONNECT_LINE]: 'Click source → target to create line connections (Tab: Lines)',
-            [MODES.DRAW_CHANNEL]: 'Click and drag to draw routing channel rectangles (Tab: Channels)'
-        };
-        return tooltips[mode] || '';
-    }
-
-    /**
-     * Get mode icon
-     * @param {string} mode - Mode identifier
-     * @returns {string}
-     * @private
-     */
-    _getModeIcon(mode) {
-        const icons = {
-            [MODES.VIEW]: 'mdi:cursor-default',
-            [MODES.PLACE_ANCHOR]: 'mdi:map-marker-plus',
-            [MODES.PLACE_CONTROL]: 'mdi:widgets',
-            [MODES.CONNECT_LINE]: 'mdi:vector-line',
-            [MODES.DRAW_CHANNEL]: 'mdi:chart-timeline-variant'
-        };
-        return icons[mode] || 'mdi:help';
     }
 
     /**
@@ -3997,52 +3887,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * Inject line highlighting styles into MSD card shadow DOM
      * @private
      */
-    _injectLineHighlightStyles() {
-        const livePreview = this.shadowRoot?.querySelector('lcards-msd-live-preview');
-        if (!livePreview) return;
-
-        const lpShadow = livePreview.shadowRoot;
-        if (!lpShadow) return;
-
-        const cardContainer = lpShadow.querySelector('.preview-card-container');
-        if (!cardContainer) return;
-
-        const msdCard = cardContainer.querySelector('lcards-msd-card');
-        if (!msdCard) return;
-
-        const msdShadow = msdCard.shadowRoot || msdCard.renderRoot;
-        if (!msdShadow) return;
-
-        // Check if styles already injected
-        if (msdShadow.querySelector('#msd-studio-highlight-styles')) {
-            return;
-        }
-
-        // Inject styles
-        const styleEl = document.createElement('style');
-        styleEl.id = 'msd-studio-highlight-styles';
-        styleEl.textContent = `
-            .line-path {
-                pointer-events: auto !important;
-            }
-            .line-path.line-selected {
-                filter: drop-shadow(0 0 8px #66B0FF) drop-shadow(0 0 4px #66B0FF) !important;
-                stroke-width: 4 !important;
-            }
-            .line-path:hover {
-                filter: drop-shadow(0 0 4px #66B0FF) !important;
-                stroke-width: 3 !important;
-                cursor: pointer;
-            }
-            .line-path.line-selected:hover {
-                filter: drop-shadow(0 0 8px #66B0FF) drop-shadow(0 0 4px #66B0FF) !important;
-                stroke-width: 4 !important;
-            }
-        `;
-        msdShadow.appendChild(styleEl);
-        lcardsLog.debug('[MSDStudioDialog] Injected line highlight styles');
-    }
-
     /**
      * Inject line highlighting styles into MSD card shadow DOM
      * @private
@@ -7514,96 +7358,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
-     * Render Card subtab using HA native components
-     * @returns {TemplateResult}
-     * @private
-     */
-    _renderControlFormCardNative() {
-        const cardType = this._controlFormCard?.type || '';
-        const lovelace = this._getLovelace();
-
-        // Ensure lovelace has required config.views structure for hui-card-picker
-        if (lovelace && (!lovelace.config || !lovelace.config.views)) {
-            lcardsLog.warn('[MSDStudio] Lovelace missing config.views, adding fallback structure');
-            if (!lovelace.config) {
-                lovelace.config = { views: [] };
-            } else if (!lovelace.config.views) {
-                lovelace.config.views = [];
-            }
-        }
-
-        lcardsLog.trace('[MSDStudio] Rendering Card tab with HA native components', {
-            cardType,
-            hasLovelace: !!lovelace,
-            hasConfig: !!lovelace?.config,
-            hasViews: !!lovelace?.config?.views,
-            viewsCount: lovelace?.config?.views?.length
-        });
-
-        return html`
-            <div style="display: flex; flex-direction: column; gap: 16px;">
-                ${!cardType ? html`
-                    <!-- Card Picker Button (opens in editor context) -->
-                    <lcards-form-section
-                        header="Select Card Type"
-                        description="Choose a card to display in this control overlay"
-                        ?expanded=${true}>
-                        <div class="card-picker-container" style="padding: 16px; text-align: center;">
-                            <ha-button
-                                raised
-                                @click=${async () => {
-                                    try {
-                                        const cardConfig = await this._requestCardFromPicker('control');
-                                        if (cardConfig) {
-                                            this._controlFormCard = cardConfig;
-                                            this._previousCardConfig = null;
-                                            this.requestUpdate();
-                                        }
-                                    } catch (error) {
-                                        lcardsLog.error('[MSDStudio] Card picker failed:', error);
-                                    }
-                                }}>
-                                <ha-icon icon="mdi:card-plus" slot="start"></ha-icon>
-                                Open Card Picker
-                            </ha-button>
-                            <div style="margin-top: 12px; font-size: 12px; color: var(--secondary-text-color);">
-                                Opens card picker in a separate dialog
-                            </div>
-                        </div>
-                    </lcards-form-section>
-                ` : html`
-                    <!-- Selected Card Info + Change Button -->
-                    <div class="selected-card-info" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--primary-background-color, #03a9f4); color: white; border-radius: var(--ha-card-border-radius, 12px); margin-bottom: 16px;">
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <ha-icon icon="${this._getCardIcon(cardType)}" style="--mdc-icon-size: 28px; color: white;"></ha-icon>
-                            <div>
-                                <div style="font-weight: 600; font-size: 15px;">${this._getCardTypeName(cardType)}</div>
-                                <div style="font-size: 12px; opacity: 0.9;">Selected card type</div>
-                            </div>
-                        </div>
-                        <ha-button
-                            @click=${this._resetCardPicker}
-                            style="--mdc-theme-primary: white; --mdc-theme-on-primary: var(--info-color, #03a9f4);">
-                            <ha-icon icon="mdi:swap-horizontal" slot="start"></ha-icon>
-                            Change
-                        </ha-button>
-                    </div>
-
-                    <!-- HA Native Card Configuration Editor -->
-                    <lcards-form-section
-                        header="Card Configuration"
-                        description="Click to open the card editor in a separate modal dialog"
-                        ?expanded=${true}>
-                        <div class="card-editor-container" style="padding: 16px;">
-                            <ha-button
-                                raised
-                                @click=${this._openCardEditorModal}
-                                style="width: 100%;">
-                                <ha-icon icon="mdi:pencil" slot="start"></ha-icon>
-                                Open Card Editor
-                            </ha-button>
-                        </div>
-                    </lcards-form-section>
+     * Render Card subtab - REMOVED (unused)
                 `}
             </div>
         `;
@@ -7792,77 +7547,8 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
-     * Render Preview subtab
-     * @returns {TemplateResult}
-     * @private
+     * Render Preview subtab - REMOVED (unused)
      */
-    _renderControlFormPreview() {
-        const card = this._controlFormCard || {};
-
-        if (!card.type) {
-            return html`
-                <div class="control-preview-panel" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center;">
-                    <ha-icon icon="mdi:card-outline" style="--mdc-icon-size: 64px; color: var(--disabled-text-color); opacity: 0.3;"></ha-icon>
-                    <div style="margin-top: 16px; color: var(--secondary-text-color);">
-                        <strong>No Card Selected</strong>
-                    </div>
-                    <div style="margin-top: 8px; font-size: 14px; color: var(--disabled-text-color);">
-                        Select a card type in the "Card" tab to see live preview
-                    </div>
-                </div>
-            `;
-        }
-
-        try {
-            // Create preview container
-            const previewId = `card-preview-${Date.now()}`;
-
-            // Defer card creation until after render
-            setTimeout(() => this._createPreviewCardInTab(previewId, card), 0);
-
-            return html`
-                <div class="control-preview-panel" style="display: flex; flex-direction: column; gap: 16px; padding: 16px;">
-                    <!-- Preview Header -->
-                    <div class="preview-header" style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid var(--divider-color);">
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <ha-icon icon="${this._getCardIcon(card.type)}" style="--mdc-icon-size: 24px; color: var(--primary-color);"></ha-icon>
-                            <div>
-                                <div style="font-weight: 600; font-size: 14px;">${this._getCardTypeName(card.type)}</div>
-                                <div style="font-size: 12px; color: var(--secondary-text-color);">Live Preview</div>
-                            </div>
-                        </div>
-                        <ha-chip>
-                            <ha-icon icon="mdi:eye" slot="start"></ha-icon>
-                            Real-time
-                        </ha-chip>
-                    </div>
-
-                    <!-- Preview Card Wrapper -->
-                    <div class="preview-card-wrapper" style="
-                        flex: 1;
-                        background: var(--card-background-color);
-                        border: 2px solid var(--divider-color);
-                        border-radius: 12px;
-                        padding: 20px;
-                        min-height: 200px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        overflow: auto;
-                    ">
-                        <div id="${previewId}" style="width: 100%; max-width: 500px;"></div>
-                    </div>
-                </div>
-            `;
-        } catch (error) {
-            lcardsLog.error('[MSDStudio] Preview render error:', error);
-            return html`
-                <lcards-message type="error">
-                    Failed to render preview: ${error.message}
-                </lcards-message>
-            `;
-        }
-    }
 
     /**
      * Create and mount preview card in Preview tab
@@ -8015,10 +7701,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         return cards;
     }
 
-    /**
-     * Initialize card picker with proper DOM structure
-     * @private
-     */
+
     /**
      * Handle card type selection
      * @param {string} cardType - Selected card type
@@ -8151,40 +7834,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         this.requestUpdate();
     }
 
-    /**
-     * Handle card type selection from value-changed event (legacy)
-     * @param {CustomEvent} e - Value changed event
-     * @private
-     */
-    _handleCardTypeSelected(e) {
-        lcardsLog.debug('[MSDStudio] Card type selected from event:', e.detail);
-        const cardType = e.detail.value;
-        if (cardType) {
-            this._selectCardType(cardType);
-        }
-    }
 
-    /**
-     * Handle card picked from hui-card-picker
-     * @param {CustomEvent} e - Config changed event from hui-card-picker
-     * @private
-     */
-    _handleCardPicked(e) {
-        lcardsLog.debug('[MSDStudio] Card picked:', e.detail);
-        const pickedCard = e.detail.config;
-
-        if (!pickedCard || !pickedCard.type) {
-            lcardsLog.warn('[MSDStudio] Invalid card picked:', pickedCard);
-            return;
-        }
-
-        // Try to get enhanced stub config from the card class
-        const stubConfig = this._getEnhancedStubConfig(pickedCard);
-        this._controlFormCard = stubConfig;
-
-        lcardsLog.debug('[MSDStudio] Card set to:', this._controlFormCard);
-        this.requestUpdate();
-    }
 
     /**
      * Request card from picker via editor context (event-based proxy)
@@ -8425,102 +8075,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         return false;
     }
 
-    /**
-     * Alternative: Force-load by creating temporary grid card editor
-     * @returns {Promise<boolean>}
-     * @private
-     */
-    async _forceLoadViaGridCard() {
-        lcardsLog.debug('[MSDStudio] Strategy 2: Force-load via grid-card editor...');
 
-        try {
-            // Check if already loaded
-            const HuiCardPicker = customElements.get('hui-card-picker');
-            if (HuiCardPicker) {
-                lcardsLog.debug('[MSDStudio] hui-card-picker already available');
-                return true;
-            }
-
-            // Check if hui-dialog-edit-card is available
-            const HuiDialogEditCard = customElements.get('hui-dialog-edit-card');
-            if (!HuiDialogEditCard) {
-                lcardsLog.warn('[MSDStudio] hui-dialog-edit-card not available, cannot force-load');
-                return false;
-            }
-
-            // Create temporary hidden dialog
-            const tempDialog = document.createElement('hui-dialog-edit-card');
-            tempDialog.style.display = 'none';
-            tempDialog.style.visibility = 'hidden';
-            tempDialog.style.position = 'fixed';
-            tempDialog.style.top = '-9999px';
-
-            // Append to body (required for HA to initialize it)
-            document.body.appendChild(tempDialog);
-
-            // Set minimal config to trigger internal component loading
-            tempDialog.hass = this.hass;
-            tempDialog.lovelaceConfig = this._getLovelace()?.config || {};
-
-            // Create stub card config to pass to dialog
-            const stubCardConfig = { type: 'button' };
-
-            // Call dialog's internal methods to trigger component loading
-            // Note: This may trigger errors in console, but that's OK - we just need registration
-            try {
-                if (tempDialog.showDialog) {
-                    tempDialog.showDialog({ cardConfig: stubCardConfig });
-                }
-            } catch (e) {
-                // Expected to fail - we don't have proper params
-                // But it should have triggered component loading
-                lcardsLog.debug('[MSDStudio] Dialog open failed (expected):', e.message);
-            }
-
-            // Wait a tick for component registration to complete
-            await new Promise(resolve => setTimeout(resolve, 100));
-
-            // Clean up - remove dialog
-            if (tempDialog.closeDialog) {
-                try {
-                    tempDialog.closeDialog();
-                } catch (e) {
-                    // Ignore cleanup errors
-                }
-            }
-            document.body.removeChild(tempDialog);
-
-            // Wait for component definition
-            try {
-                await Promise.race([
-                    customElements.whenDefined('hui-card-picker'),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
-                ]);
-            } catch (e) {
-                lcardsLog.warn('[MSDStudio] hui-card-picker not defined after force-load attempt');
-                return false;
-            }
-
-            // Verify components are now available
-            const pickerNow = customElements.get('hui-card-picker');
-            const editorNow = customElements.get('hui-card-element-editor');
-
-            if (pickerNow && editorNow) {
-                lcardsLog.debug('[MSDStudio] ✅ Successfully force-loaded HA components');
-                return true;
-            } else {
-                lcardsLog.warn('[MSDStudio] Force-load partially succeeded:', {
-                    picker: !!pickerNow,
-                    editor: !!editorNow
-                });
-                return false;
-            }
-
-        } catch (error) {
-            lcardsLog.error('[MSDStudio] Force-load failed:', error);
-            return false;
-        }
-    }
 
     /**
      * Alternative: Force-load by creating temporary grid card editor
@@ -9639,24 +9194,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         `;
     }
 
-    /**
-     * Render channel help message
-     * @returns {TemplateResult}
-     * @private
-     */
-    _renderChannelHelp() {
-        return html`
-            <lcards-message type="info" style="margin-top: 16px;">
-                <strong>About Routing Channels:</strong>
-                <ul style="margin: 8px 0; padding-left: 20px; font-size: 13px;">
-                    <li><strong>Bundling</strong>: Lines prefer to route through these areas (cable management, power corridors)</li>
-                    <li><strong>Avoiding</strong>: Lines try to stay out of these areas (sensitive equipment, obstructions)</li>
-                    <li><strong>Waypoint</strong>: Lines must pass through these areas (routing hubs, junctions)</li>
-                    <li><strong>Priority</strong>: Higher priority channels have stronger influence (1-100)</li>
-                </ul>
-            </lcards-message>
-        `;
-    }
+
 
     /**
      * Render channel form dialog
@@ -10167,20 +9705,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @returns {TemplateResult}
      * @private
      */
-    /**
-     * Update debug setting
-     * @param {string} key - Setting key
-     * @param {*} value - New value
-     * @private
-     */
-    _updateDebugSetting(key, value) {
-        this._debugSettings = {
-            ...this._debugSettings,
-            [key]: value
-        };
-        this._schedulePreviewUpdate();
-    }
-
     // ============================
     // Lines Tab Methods (Phase 4)
     // ============================
@@ -10576,14 +10100,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
         }, 2500);
     }
 
-    /**
-     * Open line form with pre-filled connection from connect mode
-     * @param {string} anchor - Source anchor/overlay
-     * @param {string} attachTo - Target anchor/overlay
-     * @param {string} anchorSide - Optional source side
-     * @param {string} attachSide - Optional target side
-     * @private
-     */
     /**
      * Open line form with connection data pre-filled
      * @param {Object} source - Source connection info {type, id, point}
@@ -11990,112 +11506,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         `;
     }
 
-    /**
-     * Render visual line style preview with dark background
-     * @returns {TemplateResult}
-     * @private
-     */
-    _renderLineStylePreview() {
-        const color = this._lineFormData.style?.color || 'var(--lcars-orange)';
-        const width = this._lineFormData.style?.width || 2;
-        const opacity = this._lineFormData.style?.opacity ?? 1;
-        const dashArray = this._lineFormData.style?.dash_array || '';
-        const markerStart = this._lineFormData.style?.marker_start;
-        const markerEnd = this._lineFormData.style?.marker_end;
-        const cornerStyle = this._lineFormData.corner_style || 'miter';
-        const cornerRadius = this._lineFormData.corner_radius || 12;
-        const linecap = this._lineFormData.style?.line_cap || 'butt';
-        const linejoin = this._lineFormData.style?.line_join || cornerStyle;
 
-        // Helper function to create marker definition
-        const createMarker = (marker, id) => {
-            if (!marker?.type || marker.type === 'none') return '';
-
-            // Use marker size directly in pixels
-            const size = marker.size ?? 10;
-            const half = size / 2;
-
-            // Determine colors
-            const fillColor = marker.fill || color;
-            const strokeColor = marker.stroke || 'none';
-            const strokeWidth = marker.stroke_width || 0;
-
-            let shape = '';
-            switch (marker.type) {
-                case 'arrow':
-                    shape = `<path d="M 0 0 L ${size} ${half} L 0 ${size} z" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
-                    break;
-                case 'dot':
-                    shape = `<circle cx="${half}" cy="${half}" r="${half * 0.6}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
-                    break;
-                case 'diamond':
-                    shape = `<path d="M ${half} 0 L ${size} ${half} L ${half} ${size} L 0 ${half} z" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
-                    break;
-                case 'square':
-                    const offset = size * 0.15;
-                    const sqSize = size * 0.7;
-                    shape = `<rect x="${offset}" y="${offset}" width="${sqSize}" height="${sqSize}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
-                    break;
-                case 'triangle':
-                    shape = `<path d="M ${half} 0 L ${size} ${size} L 0 ${size} z" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
-                    break;
-                case 'line':
-                    // Orthogonal line marker
-                    const lineLength = size * 0.8;
-                    const lineOffset = (size - lineLength) / 2;
-                    shape = `<line x1="${half}" y1="${lineOffset}" x2="${half}" y2="${size - lineOffset}" stroke="${fillColor}" stroke-width="${Math.max(strokeWidth || 2, 2)}" stroke-linecap="round" opacity="${opacity}" />`;
-                    break;
-                case 'rect':
-                    // Rectangle marker with fill and optional stroke
-                    const rectSize = size * 0.7;
-                    const rectOffset = (size - rectSize) / 2;
-                    shape = `<rect x="${rectOffset}" y="${rectOffset}" width="${rectSize}" height="${rectSize}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" opacity="${opacity}" />`;
-                    break;
-            }
-
-            // Embed shape directly - it's safe static SVG content
-            return `
-                <marker id="${id}" viewBox="0 0 ${size} ${size}"
-                    markerWidth="${size}" markerHeight="${size}"
-                    refX="${half}" refY="${half}" orient="auto">
-                    ${shape}
-                </marker>
-            `;
-        };
-
-        // Create path with corners (L-shaped route)
-        let pathD = 'M 20,35 L 80,35 L 80,15 L 220,15 L 220,35 L 280,35';
-
-        // Apply corner rounding if round style is selected
-        if (cornerStyle === 'round' && cornerRadius > 0) {
-            const r = Math.min(cornerRadius, 15); // Cap radius for preview
-            pathD = `M 20,35 L ${80-r},35 Q 80,35 80,${35-r} L 80,${15+r} Q 80,15 ${80+r},15 L ${220-r},15 Q 220,15 220,${15+r} L 220,${35-r} Q 220,35 ${220+r},35 L 280,35`;
-        }
-
-        return html`
-            <div style="margin-top: 0; padding: 20px; background: #0a0a0a; border-radius: 8px; border: 1px solid #333;">
-                <div style="font-size: 12px; font-weight: 500; margin-bottom: 12px; color: #999;">Preview</div>
-                <svg viewBox="0 0 300 50" style="width: 100%; height: 85px; background: #000;">
-                    <defs>
-                        ${unsafeHTML(createMarker(markerStart, 'start-preview'))}
-                        ${unsafeHTML(createMarker(markerEnd, 'end-preview'))}
-                    </defs>
-                    <path
-                        d="${pathD}"
-                        stroke="${color}"
-                        stroke-width="${width}"
-                        stroke-opacity="${opacity}"
-                        stroke-dasharray="${dashArray}"
-                        stroke-linecap="${linecap}"
-                        stroke-linejoin="${linejoin}"
-                        fill="none"
-                        marker-start="${markerStart?.type && markerStart.type !== 'none' ? 'url(#start-preview)' : ''}"
-                        marker-end="${markerEnd?.type && markerEnd.type !== 'none' ? 'url(#end-preview)' : ''}"
-                    />
-                </svg>
-            </div>
-        `;
-    }
 
     /**
      * Render vertical line style preview for split-view dialog
@@ -12398,34 +11809,7 @@ export class LCARdSMSDStudioDialog extends LitElement {
         return this._validationErrors.length;
     }
 
-    /**
-     * Render validation errors footer (Phase 7)
-     * @returns {TemplateResult}
-     * @private
-     */
-    _renderValidationFooter() {
-        const errorCount = this._getValidationErrorCount();
-        if (errorCount === 0) return '';
 
-        return html`
-            <div style="
-                padding: 12px 24px;
-                background: var(--error-color, #f44336);
-                color: white;
-                border-top: 1px solid var(--divider-color);
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                font-size: 14px;
-            ">
-                <ha-icon icon="mdi:alert-circle" style="--mdc-icon-size: 20px;"></ha-icon>
-                <span><strong>${errorCount}</strong> validation error${errorCount > 1 ? 's' : ''} found</span>
-                <ha-button @click=${this._showValidationErrors} appearance="plain" style="margin-left: auto;">
-                    View Details
-                </ha-button>
-            </div>
-        `;
-    }
 
     /**
      * Show validation errors dialog (Phase 7)
@@ -12573,90 +11957,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
     }
 
     /**
-     * Get lovelace configuration for card picker
-     * @returns {Object} Lovelace config
-     * @private
-     */
-    _getLovelaceConfig() {
-        // Use the same logic as _getLovelace() to find the real lovelace object
-        const lovelace = this._getLovelace();
-
-        if (lovelace) {
-            lcardsLog.debug('[MSDStudio] _getLovelaceConfig - lovelace found:', {
-                hasConfig: !!lovelace.config,
-                hasViews: !!lovelace.config?.views,
-                viewsIsArray: Array.isArray(lovelace.config?.views),
-                viewsCount: lovelace.config?.views?.length,
-                configKeys: lovelace.config ? Object.keys(lovelace.config) : [],
-                lovelaceKeys: Object.keys(lovelace)
-            });
-
-            // Ensure the lovelace object has the required config.views structure
-            if (!lovelace.config) {
-                lcardsLog.warn('[MSDStudio] Lovelace missing config, adding fallback structure');
-                lovelace.config = { views: [] };
-            } else if (!lovelace.config.views) {
-                lcardsLog.warn('[MSDStudio] Lovelace missing config.views, adding fallback');
-                lovelace.config.views = [];
-            } else if (!Array.isArray(lovelace.config.views)) {
-                lcardsLog.error('[MSDStudio] Lovelace config.views exists but is NOT an array!', {
-                    viewsType: typeof lovelace.config.views,
-                    viewsValue: lovelace.config.views
-                });
-                lovelace.config.views = [];
-            }
-
-            return lovelace;
-        }
-
-        // Ultimate fallback if no lovelace found at all
-        lcardsLog.warn('[MSDStudio] No lovelace found, using minimal fallback');
-        return { config: { views: [] }, editMode: true };
-    }
-
-    /**
-     * Handle card selection from native HA card picker
-     * @param {Object} cardConfig - Selected card configuration
-     * @private
-     */
-    _handleCardPickerSelection(cardConfig) {
-        if (!cardConfig) return;
-
-        lcardsLog.debug('[MSDStudio] 🎯 Card selected from picker:', cardConfig.type);
-
-        // Generate new control ID
-        const newControlId = this._generateControlId();
-
-        // Create new control overlay with selected card
-        const newControl = {
-            id: newControlId,
-            position: [100, 100], // Default position
-            size: 'auto',
-            attachment: 'center',
-            obstacle: false,
-            card: cardConfig
-        };
-
-        // Add to working config
-        const controls = this._workingConfig.msd?.controls || [];
-        const updatedControls = [...controls, newControl];
-
-        this._workingConfig = {
-            ...this._workingConfig,
-            msd: {
-                ...this._workingConfig.msd,
-                controls: updatedControls
-            }
-        };
-
-        // Update preview
-        this._schedulePreviewUpdate();
-        this.requestUpdate();
-
-        lcardsLog.debug('[MSDStudio] ✅ Control added:', newControlId);
-    }
-
-    /**
      * Generate unique control ID
      * @returns {string} New control ID
      * @private
@@ -12668,47 +11968,6 @@ export class LCARdSMSDStudioDialog extends LitElement {
             id++;
         }
         return `control_${id}`;
-    }
-
-    /**
-     * Update control card configuration
-     * @param {string} controlId - Control ID
-     * @param {Object} cardConfig - New card configuration
-     * @param {Object} metadata - Event metadata
-     * @private
-     */
-    _updateLayerCard(controlId, cardConfig, metadata = {}) {
-        const controls = this._workingConfig.msd?.controls || [];
-        const controlIndex = controls.findIndex(c => c.id === controlId);
-
-        if (controlIndex === -1) {
-            lcardsLog.warn('[MSDStudio] ⚠️ Control not found:', controlId);
-            return;
-        }
-
-        // Update control
-        const updatedControls = [...controls];
-        updatedControls[controlIndex] = {
-            ...updatedControls[controlIndex],
-            card: cardConfig
-        };
-
-        this._workingConfig = {
-            ...this._workingConfig,
-            msd: {
-                ...this._workingConfig.msd,
-                controls: updatedControls
-            }
-        };
-
-        // Update preview if not maintaining editor state
-        if (!metadata.maintainEditorState) {
-            this._schedulePreviewUpdate();
-        }
-
-        this.requestUpdate();
-
-        lcardsLog.debug('[MSDStudio] 🔄 Control card updated:', controlId, metadata);
     }
 
     /**
