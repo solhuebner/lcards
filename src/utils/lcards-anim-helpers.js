@@ -495,6 +495,16 @@ export async function animateElement(scope, options, hass = null, onInstanceCrea
         return;
       }
 
+      lcardsLog.debug('[animateElement] Elements resolved:', {
+        selector: targets,
+        elementsFound: elements.length,
+        elementDetails: elements.map(el => ({
+          tag: el.tagName,
+          id: el.id,
+          classes: el.className
+        }))
+      });
+
       // Log cascade animation targeting for debugging
       if (type === 'cascade-color') {
         lcardsLog.debug('[animateElement] Cascade-color targeting:', {

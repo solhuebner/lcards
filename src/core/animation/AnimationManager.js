@@ -607,25 +607,37 @@ export class AnimationManager extends BaseService {
           }
         }
       } else if (finalAnimDef.target) {
-        // Single target specified (string)
-        let el = null;
+        // Single target specified (string selector or element)
 
-        if (overlayInstance && typeof overlayInstance.getAnimationTarget === 'function') {
-          // Pass the overlay element to the instance for querying
-          // (overlay instance might not have this.element set during animation)
-          overlayInstance.element = overlayElement;
-          el = overlayInstance.getAnimationTarget(finalAnimDef.target);
-        }
-
-        // Fallback to CSS selector if overlay doesn't resolve it
-        if (!el && overlayElement) {
-          el = overlayElement.querySelector(finalAnimDef.target);
-        }
-
-        if (el) {
-          targetElements.push(el);
+        // If it's already an Element, use it directly
+        if (finalAnimDef.target instanceof Element) {
+          targetElements.push(finalAnimDef.target);
         } else {
-          lcardsLog.warn(`[AnimationManager] Target not found: "${finalAnimDef.target}" for overlay ${overlayId}`);
+          // It's a selector string - query for all matching elements
+          const selector = finalAnimDef.target;
+          let elements = null;
+
+          if (overlayInstance && typeof overlayInstance.getAnimationTarget === 'function') {
+            // Pass the overlay element to the instance for querying
+            overlayInstance.element = overlayElement;
+            elements = overlayInstance.getAnimationTarget(selector);
+            // Convert single element to array
+            if (elements && !Array.isArray(elements)) {
+              elements = [elements];
+            }
+          }
+
+          // Fallback to CSS selector if overlay doesn't resolve it
+          if (!elements && overlayElement) {
+            // Use querySelectorAll to find all matching elements
+            elements = Array.from(overlayElement.querySelectorAll(selector));
+          }
+
+          if (elements && elements.length > 0) {
+            targetElements.push(...elements);
+          } else {
+            lcardsLog.warn(`[AnimationManager] Target not found: "${selector}" for overlay ${overlayId}`);
+          }
         }
       } else {
         // No target specified - use overlay's smart default

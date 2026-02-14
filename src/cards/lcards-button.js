@@ -4467,7 +4467,9 @@ export class LCARdSButton extends LCARdSCard {
             const startX = topLeft > 0 ? topLeft : 0;
             const endX = topRight > 0 ? w - topRight : w;
             borderMarkup += `
-                <path d="M ${startX} ${inset} L ${endX} ${inset}"
+                <path class="button-border button-border-top"
+                      id="border-top"
+                      d="M ${startX} ${inset} L ${endX} ${inset}"
                       stroke="${topColor}"
                       stroke-width="${topWidth}"
                       stroke-linecap="${lineCap}"
@@ -4487,7 +4489,9 @@ export class LCARdSButton extends LCARdSCard {
             // When endY <= startY, corners meet or overlap - skip the line
             if (endY > startY && (endY - startY) > rightWidth) {
                 borderMarkup += `
-                    <path d="M ${w - inset} ${startY} L ${w - inset} ${endY}"
+                    <path class="button-border button-border-right"
+                          id="border-right"
+                          d="M ${w - inset} ${startY} L ${w - inset} ${endY}"
                           stroke="${rightColor}"
                           stroke-width="${rightWidth}"
                           stroke-linecap="${lineCap}"
@@ -4502,7 +4506,9 @@ export class LCARdSButton extends LCARdSCard {
             const startX = bottomRight > 0 ? w - bottomRight : w;
             const endX = bottomLeft > 0 ? bottomLeft : 0;
             borderMarkup += `
-                <path d="M ${startX} ${h - inset} L ${endX} ${h - inset}"
+                <path class="button-border button-border-bottom"
+                      id="border-bottom"
+                      d="M ${startX} ${h - inset} L ${endX} ${h - inset}"
                       stroke="${bottomColor}"
                       stroke-width="${bottomWidth}"
                       stroke-linecap="${lineCap}"
@@ -4522,7 +4528,9 @@ export class LCARdSButton extends LCARdSCard {
             // When startY <= endY, corners meet or overlap - skip the line
             if (startY > endY && (startY - endY) > leftWidth) {
                 borderMarkup += `
-                    <path d="M ${inset} ${startY} L ${inset} ${endY}"
+                    <path class="button-border button-border-left"
+                          id="border-left"
+                          d="M ${inset} ${startY} L ${inset} ${endY}"
                           stroke="${leftColor}"
                           stroke-width="${leftWidth}"
                           stroke-linecap="${lineCap}"
@@ -4583,7 +4591,9 @@ export class LCARdSButton extends LCARdSCard {
             // Reduce arc radius by inset to keep stroke centered on the inset path
             const arcRadius = Math.max(topLeft - inset, inset);
             arcMarkup += `
-                <path d="M ${inset} ${arcRadius + inset} A ${arcRadius} ${arcRadius} 0 0 1 ${arcRadius + inset} ${inset}"
+                <path class="button-border button-corner button-corner-top-left"
+                      id="corner-top-left"
+                      d="M ${inset} ${arcRadius + inset} A ${arcRadius} ${arcRadius} 0 0 1 ${arcRadius + inset} ${inset}"
                       stroke="${cornerColor}"
                       stroke-width="${cornerWidth}"
                       stroke-linecap="square"
@@ -4597,7 +4607,9 @@ export class LCARdSButton extends LCARdSCard {
             const inset = cornerWidth / 2;
             const arcRadius = Math.max(topRight - inset, inset);
             arcMarkup += `
-                <path d="M ${w - arcRadius - inset} ${inset} A ${arcRadius} ${arcRadius} 0 0 1 ${w - inset} ${arcRadius + inset}"
+                <path class="button-border button-corner button-corner-top-right"
+                      id="corner-top-right"
+                      d="M ${w - arcRadius - inset} ${inset} A ${arcRadius} ${arcRadius} 0 0 1 ${w - inset} ${arcRadius + inset}"
                       stroke="${cornerColor}"
                       stroke-width="${cornerWidth}"
                       stroke-linecap="square"
@@ -4611,7 +4623,9 @@ export class LCARdSButton extends LCARdSCard {
             const inset = cornerWidth / 2;
             const arcRadius = Math.max(bottomRight - inset, inset);
             arcMarkup += `
-                <path d="M ${w - inset} ${h - arcRadius - inset} A ${arcRadius} ${arcRadius} 0 0 1 ${w - arcRadius - inset} ${h - inset}"
+                <path class="button-border button-corner button-corner-bottom-right"
+                      id="corner-bottom-right"
+                      d="M ${w - inset} ${h - arcRadius - inset} A ${arcRadius} ${arcRadius} 0 0 1 ${w - arcRadius - inset} ${h - inset}"
                       stroke="${cornerColor}"
                       stroke-width="${cornerWidth}"
                       stroke-linecap="square"
@@ -4625,7 +4639,9 @@ export class LCARdSButton extends LCARdSCard {
             const inset = cornerWidth / 2;
             const arcRadius = Math.max(bottomLeft - inset, inset);
             arcMarkup += `
-                <path d="M ${arcRadius + inset} ${h - inset} A ${arcRadius} ${arcRadius} 0 0 1 ${inset} ${h - arcRadius - inset}"
+                <path class="button-border button-corner button-corner-bottom-left"
+                      id="corner-bottom-left"
+                      d="M ${arcRadius + inset} ${h - inset} A ${arcRadius} ${arcRadius} 0 0 1 ${inset} ${h - arcRadius - inset}"
                       stroke="${cornerColor}"
                       stroke-width="${cornerWidth}"
                       stroke-linecap="square"
