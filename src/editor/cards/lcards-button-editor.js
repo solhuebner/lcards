@@ -27,6 +27,7 @@ import '../components/editors/lcards-multi-action-editor.js';
 // Import animation and filter components
 import '../components/lcards-animation-editor.js';
 import '../components/lcards-filter-editor.js';
+import '../components/lcards-background-animation-editor.js';
 // Import dashboard components
 import '../components/dashboard/lcards-rules-dashboard.js';
 // Import datasource components
@@ -834,6 +835,22 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                             this._updateConfig({ filters: e.detail.value });
                         }}>
                     </lcards-filter-editor>
+                </lcards-form-section>
+
+                <!-- Background Animation Section -->
+                <lcards-form-section
+                    header="Background Animation"
+                    description="Animated canvas backgrounds (grids, hexagons, diagonals, etc.)"
+                    icon="mdi:grid"
+                    ?expanded=${true}>
+
+                    <lcards-background-animation-editor
+                        .hass=${this.hass}
+                        .effects=${this.config.background_animation || []}
+                        @effects-changed=${(e) => {
+                            this._updateConfig({ background_animation: e.detail.value });
+                        }}>
+                    </lcards-background-animation-editor>
                 </lcards-form-section>
 
             </div>
