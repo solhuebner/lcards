@@ -241,7 +241,7 @@ export const BACKGROUND_PRESETS = {
         maxOpacity: config.max_opacity ?? resolveToken('components.backgroundAnimation.nebula.cloud.maxOpacity', 0.8),
 
         // Support both 'colors' (array) and 'color' (single)
-        colors: config.colors ?? (config.color ? [config.color] : [resolveToken('components.backgroundAnimation.nebula.cloud.color', '#FF00FF')]),
+        colors: config.colors ?? (config.color ? [config.color] : resolveToken('components.backgroundAnimation.nebula.cloud.colors', ['#FF00FF'])),
 
         // Turbulence
         turbulence: config.turbulence ?? resolveToken('components.backgroundAnimation.nebula.turbulence.intensity', 0.5),

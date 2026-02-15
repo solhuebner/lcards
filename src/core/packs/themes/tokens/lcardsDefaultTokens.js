@@ -536,7 +536,11 @@ export const lcardsDefaultTokens = {
           maxRadius: 0.4,
           minOpacity: 0.3,
           maxOpacity: 0.8,
-          color: 'var(--lcars-purple, #FF00FF)'
+          colors: [
+            'var(--lcards-blue-medium)',
+            'var(--lcards-orange)',
+            'var(--lcards-blue-light)'
+          ]
         },
         turbulence: {
           intensity: 0.5,

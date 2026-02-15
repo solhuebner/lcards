@@ -553,7 +553,7 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
         ?expanded=${true}>
         <lcards-color-list
           .hass=${this.hass}
-          .colors=${config.colors || (config.color ? [config.color] : ['#ffffff'])}
+          .colors=${config.colors || (config.color ? [config.color] : [])}
           .label=${'Star Colors'}
           .description=${'Stars will randomly use one of these colors'}
           @colors-changed=${(e) => this._updateEffectConfig(index, 'colors', e.detail.colors)}
@@ -595,7 +595,7 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
         ?expanded=${true}>
         <lcards-color-list
           .hass=${this.hass}
-          .colors=${config.colors || (config.color ? [config.color] : ['#FF00FF'])}
+          .colors=${config.colors || (config.color ? [config.color] : [])}
           .label=${'Cloud Colors'}
           .description=${'Clouds will randomly use one of these colors'}
           @colors-changed=${(e) => this._updateEffectConfig(index, 'colors', e.detail.colors)}
@@ -913,14 +913,7 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
   _addEffect() {
     const newEffect = {
       preset: 'grid',
-      config: {
-        line_spacing: 40,
-        color: 'rgba(255, 153, 102, 0.3)',
-        scroll_speed_x: 20,
-        scroll_speed_y: 20,
-        pattern: 'both',
-        show_border_lines: true
-      }
+      config: {}
     };
 
     const updatedEffects = [...this.effects, newEffect];
@@ -1020,72 +1013,25 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
   }
 
   _getDefaultConfig(preset) {
+    // Minimal configs - rely on theme tokens for defaults
+    // Only set values that MUST be different from theme defaults
     switch (preset) {
       case 'grid':
-        return {
-          line_spacing: 40,
-          color: 'rgba(255, 153, 102, 0.3)',
-          scroll_speed_x: 20,
-          scroll_speed_y: 20,
-          pattern: 'both',
-          show_border_lines: true
-        };
       case 'grid-diagonal':
-        return {
-          line_spacing: 60,
-          line_width: 1,
-          color: 'rgba(255, 153, 102, 0.4)',
-          scroll_speed_x: 30,
-          scroll_speed_y: 0,
-          show_border_lines: true
-        };
       case 'grid-hexagonal':
-        return {
-          hex_radius: 30,
-          color: 'rgba(255, 153, 102, 0.3)',
-          scroll_speed_x: 10,
-          scroll_speed_y: 10,
-          show_border_lines: true
-        };
       case 'grid-filled':
-        return {
-          line_spacing: 50,
-          line_width: 1,
-          color: 'rgba(255, 153, 102, 0.4)',
-          fill_color: 'rgba(255, 153, 102, 0.1)',
-          scroll_speed_x: 20,
-          scroll_speed_y: 20,
-          pattern: 'both',
-          show_border_lines: true
-        };
+        return {}; // All values come from theme tokens
+
       case 'starfield':
         return {
-          seed: Math.floor(Math.random() * 1e9),
-          count: 150,
-          min_radius: 0.5,
-          max_radius: 2,
-          min_opacity: 0.3,
-          max_opacity: 1.0,
-          colors: ['#ffffff'],
-          scroll_speed_x: 30,
-          scroll_speed_y: 0,
-          parallax_layers: 3,
-          depth_factor: 0.5
+          seed: Math.floor(Math.random() * 1e9) // Generate unique seed
         };
+
       case 'nebula':
         return {
-          seed: Math.floor(Math.random() * 1e9),
-          cloud_count: 4,
-          min_radius: 0.15,
-          max_radius: 0.4,
-          min_opacity: 0.3,
-          max_opacity: 0.8,
-          colors: ['#FF00FF'],
-          turbulence: 0.5,
-          noise_scale: 0.003,
-          scroll_speed_x: 5,
-          scroll_speed_y: 5
+          seed: Math.floor(Math.random() * 1e9) // Generate unique seed
         };
+
       default:
         return {};
     }
