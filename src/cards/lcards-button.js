@@ -62,6 +62,7 @@ import { TemplateParser } from '../core/templates/TemplateParser.js';
 import { RendererUtils } from '../msd/renderer/RendererUtils.js';
 import { sanitizeSvg, extractViewBox, extractDataUriContent, escapeXmlAttribute } from '../utils/lcards-svg-helpers.js';
 import { applyBaseSvgFilters } from '../msd/utils/BaseSvgFilters.js';
+import { BackgroundAnimationRenderer } from '../core/packs/backgrounds/BackgroundAnimationRenderer.js';
 
 // Import unified schema
 import { getButtonSchema } from './schemas/button-schema.js';
@@ -140,6 +141,9 @@ export class LCARdSButton extends LCARdSCard {
         this._segmentElements = new Map(); // Stores segment ID → { element, segment config }
         this._segmentEntityStates = new Map(); // Stores entity ID → last known state
         this._registeredSegmentAnimations = new Set(); // Tracks which segments have animations registered
+
+        // Background animation support
+        this._backgroundRenderer = null;
     }
 
     /**
@@ -1571,6 +1575,13 @@ export class LCARdSButton extends LCARdSCard {
             lcardsLog.debug(`[LCARdSButton] Processing initial templates after firstUpdated`);
             this._scheduleTemplateUpdate();
             this._needsInitialTemplateProcessing = false;
+        }
+
+        // Initialize background animation if configured
+        if (this.config.background_animation) {
+            this.updateComplete.then(() => {
+                this._initializeBackgroundAnimation();
+            });
         }
     }
 
@@ -4738,6 +4749,61 @@ export class LCARdSButton extends LCARdSCard {
     }
 
     /**
+     * Initialize background animation renderer
+     * @private
+     */
+    _initializeBackgroundAnimation() {
+        // Get the button container element
+        const container = this.shadowRoot?.querySelector('.button-container');
+        if (!container) {
+            lcardsLog.warn('[LCARdSButton] Cannot initialize background - container not found');
+            return;
+        }
+
+        // Log container state
+        lcardsLog.debug('[LCARdSButton] Container dimensions:', {
+            clientWidth: container.clientWidth,
+            clientHeight: container.clientHeight,
+            offsetWidth: container.offsetWidth,
+            offsetHeight: container.offsetHeight
+        });
+
+        // Create a wrapper div for the background layer
+        const backgroundLayer = document.createElement('div');
+        backgroundLayer.style.position = 'absolute';
+        backgroundLayer.style.top = '0';
+        backgroundLayer.style.left = '0';
+        backgroundLayer.style.width = '100%';
+        backgroundLayer.style.height = '100%';
+        backgroundLayer.style.zIndex = '-1';
+        backgroundLayer.style.pointerEvents = 'none'; // Don't block button interactions
+
+        // Insert at the beginning of container
+        container.insertBefore(backgroundLayer, container.firstChild);
+
+        // Log background layer dimensions after insertion
+        lcardsLog.debug('[LCARdSButton] Background layer dimensions:', {
+            clientWidth: backgroundLayer.clientWidth,
+            clientHeight: backgroundLayer.clientHeight,
+            offsetWidth: backgroundLayer.offsetWidth,
+            offsetHeight: backgroundLayer.offsetHeight
+        });
+
+        // Initialize renderer
+        this._backgroundRenderer = new BackgroundAnimationRenderer(
+            backgroundLayer,
+            this.config.background_animation
+        );
+
+        const success = this._backgroundRenderer.init();
+        if (success) {
+            lcardsLog.info('[LCARdSButton] Background animation initialized');
+        } else {
+            lcardsLog.error('[LCARdSButton] Background animation initialization failed');
+        }
+    }
+
+    /**
      * Cleanup on disconnect
      */
     disconnectedCallback() {
@@ -4785,6 +4851,12 @@ export class LCARdSButton extends LCARdSCard {
 
         // Clear element reference
         this._lastActionElement = null;
+
+        // Clean up background animation
+        if (this._backgroundRenderer) {
+            this._backgroundRenderer.destroy();
+            this._backgroundRenderer = null;
+        }
 
         super.disconnectedCallback();
     }
