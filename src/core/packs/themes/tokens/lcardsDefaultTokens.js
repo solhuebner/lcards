@@ -528,6 +528,24 @@ export const lcardsDefaultTokens = {
           layers: 3,
           depthFactor: 0.5
         }
+      },
+      nebula: {
+        cloud: {
+          count: 4,
+          minRadius: 0.15,
+          maxRadius: 0.4,
+          minOpacity: 0.3,
+          maxOpacity: 0.8,
+          color: 'var(--lcars-purple, #FF00FF)'
+        },
+        turbulence: {
+          intensity: 0.5,
+          noiseScale: 0.003
+        },
+        scroll: {
+          speedX: 5,
+          speedY: 5
+        }
       }
     }
   }

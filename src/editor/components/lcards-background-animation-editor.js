@@ -429,6 +429,14 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
       `;
     }
 
+    // Nebula uses different sections
+    if (preset === 'nebula') {
+      return html`
+        ${this._renderNebulaSection(config, index)}
+        ${this._renderScrollingSection(config, index)}
+      `;
+    }
+
     // Grid presets use pattern/major-minor/scrolling/color sections
     return html`
       ${this._renderPatternSection(preset, config, index)}
@@ -560,6 +568,48 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
         <div class="param-grid">
           ${this._renderField({ key: 'parallax_layers', label: 'Parallax Layers', type: 'number', min: 1, max: 5, step: 1, default: 3, helper: 'More layers = more depth' }, config, index)}
           ${this._renderField({ key: 'depth_factor', label: 'Depth Factor', type: 'number', min: 0, max: 1, step: 0.1, default: 0.5, helper: 'Speed variation between layers' }, config, index)}
+        </div>
+      </lcards-form-section>
+    `;
+  }
+
+  _renderNebulaSection(config, index) {
+    return html`
+      <lcards-form-section
+        header="Cloud Properties"
+        icon="mdi:cloud"
+        ?expanded=${true}>
+        <div class="param-grid">
+          ${this._renderField({ key: 'seed', label: 'Random Seed', type: 'number', min: 1, max: 1000000000, step: 1, default: Math.floor(Math.random() * 1e9), helper: 'Change for different cloud patterns' }, config, index)}
+          ${this._renderField({ key: 'cloud_count', label: 'Cloud Count', type: 'number', min: 1, max: 10, step: 1, default: 4 }, config, index)}
+          ${this._renderField({ key: 'min_radius', label: 'Min Cloud Radius', type: 'number', min: 0.05, max: 0.5, step: 0.05, default: 0.15, helper: 'Fraction of canvas size (0-1)' }, config, index)}
+          ${this._renderField({ key: 'max_radius', label: 'Max Cloud Radius', type: 'number', min: 0.1, max: 1, step: 0.05, default: 0.4, helper: 'Fraction of canvas size (0-1)' }, config, index)}
+          ${this._renderField({ key: 'min_opacity', label: 'Min Cloud Opacity', type: 'number', min: 0, max: 1, step: 0.1, default: 0.3 }, config, index)}
+          ${this._renderField({ key: 'max_opacity', label: 'Max Cloud Opacity', type: 'number', min: 0, max: 1, step: 0.1, default: 0.8 }, config, index)}
+        </div>
+      </lcards-form-section>
+
+      <lcards-form-section
+        header="Color"
+        icon="mdi:palette"
+        ?expanded=${true}>
+        <lcards-color-list
+          .hass=${this.hass}
+          .colors=${config.colors || (config.color ? [config.color] : ['#FF00FF'])}
+          .label=${'Cloud Colors'}
+          .description=${'Clouds will randomly use one of these colors'}
+          @colors-changed=${(e) => this._updateEffectConfig(index, 'colors', e.detail.colors)}
+        ></lcards-color-list>
+      </lcards-form-section>
+
+      <lcards-form-section
+        header="Turbulence"
+        icon="mdi:waves"
+        description="Perlin noise creates organic cloud movement"
+        ?expanded=${true}>
+        <div class="param-grid">
+          ${this._renderField({ key: 'turbulence', label: 'Turbulence Intensity', type: 'number', min: 0, max: 1, step: 0.1, default: 0.5, helper: 'How much clouds distort (0=none, 1=max)' }, config, index)}
+          ${this._renderField({ key: 'noise_scale', label: 'Noise Scale', type: 'number', min: 0.001, max: 0.01, step: 0.001, default: 0.003, helper: 'Smaller = larger noise features' }, config, index)}
         </div>
       </lcards-form-section>
     `;
@@ -706,7 +756,8 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
       'grid-diagonal': 'mdi:grid-large',
       'grid-hexagonal': 'mdi:hexagon-multiple',
       'grid-filled': 'mdi:grid',
-      'starfield': 'mdi:star-circle'
+      'starfield': 'mdi:star-circle',
+      'nebula': 'mdi:cloud'
     };
     return icons[preset] || 'mdi:blur';
   }
@@ -782,6 +833,20 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
           { key: 'color', label: 'Star Color', type: 'color', default: '#ffffff', fullWidth: true },
           { key: 'parallax_layers', label: 'Parallax Layers', type: 'number', min: 1, max: 5, step: 1, default: 3, helper: 'More layers = more depth' },
           { key: 'depth_factor', label: 'Depth Factor', type: 'number', min: 0, max: 1, step: 0.1, default: 0.5, helper: 'Speed variation between layers' },
+          ...commonFields.scrolling
+        ];
+
+      case 'nebula':
+        return [
+          { key: 'seed', label: 'Random Seed', type: 'number', min: 1, max: 1000000000, step: 1, default: Math.floor(Math.random() * 1e9), helper: 'Change for different cloud patterns' },
+          { key: 'cloud_count', label: 'Cloud Count', type: 'number', min: 1, max: 10, step: 1, default: 4 },
+          { key: 'min_radius', label: 'Min Cloud Radius', type: 'number', min: 0.05, max: 0.5, step: 0.05, default: 0.15, helper: 'Fraction of canvas size (0-1)' },
+          { key: 'max_radius', label: 'Max Cloud Radius', type: 'number', min: 0.1, max: 1, step: 0.05, default: 0.4, helper: 'Fraction of canvas size (0-1)' },
+          { key: 'min_opacity', label: 'Min Cloud Opacity', type: 'number', min: 0, max: 1, step: 0.1, default: 0.3 },
+          { key: 'max_opacity', label: 'Max Cloud Opacity', type: 'number', min: 0, max: 1, step: 0.1, default: 0.8 },
+          { key: 'color', label: 'Cloud Color', type: 'color', default: '#FF00FF', fullWidth: true },
+          { key: 'turbulence', label: 'Turbulence Intensity', type: 'number', min: 0, max: 1, step: 0.1, default: 0.5, helper: 'How much clouds distort (0=none, 1=max)' },
+          { key: 'noise_scale', label: 'Noise Scale', type: 'number', min: 0.001, max: 0.01, step: 0.001, default: 0.003, helper: 'Smaller = larger noise features' },
           ...commonFields.scrolling
         ];
 
@@ -992,6 +1057,34 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
           scroll_speed_y: 20,
           pattern: 'both',
           show_border_lines: true
+        };
+      case 'starfield':
+        return {
+          seed: Math.floor(Math.random() * 1e9),
+          count: 150,
+          min_radius: 0.5,
+          max_radius: 2,
+          min_opacity: 0.3,
+          max_opacity: 1.0,
+          colors: ['#ffffff'],
+          scroll_speed_x: 30,
+          scroll_speed_y: 0,
+          parallax_layers: 3,
+          depth_factor: 0.5
+        };
+      case 'nebula':
+        return {
+          seed: Math.floor(Math.random() * 1e9),
+          cloud_count: 4,
+          min_radius: 0.15,
+          max_radius: 0.4,
+          min_opacity: 0.3,
+          max_opacity: 0.8,
+          colors: ['#FF00FF'],
+          turbulence: 0.5,
+          noise_scale: 0.003,
+          scroll_speed_x: 5,
+          scroll_speed_y: 5
         };
       default:
         return {};

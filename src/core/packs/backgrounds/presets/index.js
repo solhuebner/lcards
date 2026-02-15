@@ -11,6 +11,7 @@
  */
 import { GridEffect } from '../effects/GridEffect.js';
 import { StarfieldEffect } from '../effects/StarfieldEffect.js';
+import { NebulaEffect } from '../effects/NebulaEffect.js';
 import { lcardsLog } from '../../../../utils/lcards-logging.js';
 
 /**
@@ -210,10 +211,52 @@ export const BACKGROUND_PRESETS = {
 
       return [new StarfieldEffect(starfieldConfig)];
     }
+  },
+
+  /**
+   * Nebula clouds with Perlin noise turbulence
+   */
+  'nebula': {
+    name: 'Nebula',
+    description: 'Layered nebula clouds with organic turbulence',
+
+    createEffects(config, cardInstance = null) {
+      lcardsLog.debug('[Preset:nebula] Creating nebula effect');
+
+      // Helper function to resolve theme token or use fallback
+      const resolveToken = (tokenPath, fallback) => {
+        if (cardInstance && cardInstance.getThemeToken) {
+          return cardInstance.getThemeToken(tokenPath, fallback);
+        }
+        return fallback;
+      };
+
+      const nebulaConfig = {
+        // Cloud generation
+        seed: config.seed ?? Math.floor(Math.random() * 1e9), // Random seed by default
+        cloudCount: config.cloud_count ?? resolveToken('components.backgroundAnimation.nebula.cloud.count', 4),
+        minRadius: config.min_radius ?? resolveToken('components.backgroundAnimation.nebula.cloud.minRadius', 0.15),
+        maxRadius: config.max_radius ?? resolveToken('components.backgroundAnimation.nebula.cloud.maxRadius', 0.4),
+        minOpacity: config.min_opacity ?? resolveToken('components.backgroundAnimation.nebula.cloud.minOpacity', 0.3),
+        maxOpacity: config.max_opacity ?? resolveToken('components.backgroundAnimation.nebula.cloud.maxOpacity', 0.8),
+
+        // Support both 'colors' (array) and 'color' (single)
+        colors: config.colors ?? (config.color ? [config.color] : [resolveToken('components.backgroundAnimation.nebula.cloud.color', '#FF00FF')]),
+
+        // Turbulence
+        turbulence: config.turbulence ?? resolveToken('components.backgroundAnimation.nebula.turbulence.intensity', 0.5),
+        noiseScale: config.noise_scale ?? resolveToken('components.backgroundAnimation.nebula.turbulence.noiseScale', 0.003),
+        scrollSpeedX: config.scroll_speed_x ?? resolveToken('components.backgroundAnimation.nebula.scroll.speedX', 5),
+        scrollSpeedY: config.scroll_speed_y ?? resolveToken('components.backgroundAnimation.nebula.scroll.speedY', 5),
+
+        opacity: config.opacity ?? 1
+      };
+
+      return [new NebulaEffect(nebulaConfig)];
+    }
   }
 
   // Future presets will be added here:
-  // 'nebula': { ... },
   // 'geometric-array': { ... },
   // etc.
 };
