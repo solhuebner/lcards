@@ -1296,6 +1296,22 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                         }}>
                     </lcards-filter-editor>
                 </lcards-form-section>
+
+                <!-- Background Animation Section -->
+                <lcards-form-section
+                    header="Background Animation"
+                    description="Animated canvas backgrounds (grids, hexagons, diagonals, nebulas, starfields, etc.)"
+                    icon="mdi:grid"
+                    ?expanded=${true}>
+
+                    <lcards-background-animation-editor
+                        .hass=${this.hass}
+                        .effects=${this.config.background_animation || []}
+                        @effects-changed=${(e) => {
+                            this._updateConfig({ background_animation: e.detail.value });
+                        }}>
+                    </lcards-background-animation-editor>
+                </lcards-form-section>
             </div>
         `;
     }

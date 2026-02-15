@@ -493,6 +493,9 @@ export class LCARdSElbow extends LCARdSButton {
      * @protected
      */
     _handleFirstUpdate(changedProps) {
+        // CRITICAL: Call parent implementation first to enable auto-sizing and background animations
+        super._handleFirstUpdate(changedProps);
+
         // Register this elbow with RulesEngine with 'elbow' type
         const tags = ['elbow'];
         if (this.config.preset) {
@@ -511,12 +514,6 @@ export class LCARdSElbow extends LCARdSButton {
         const overlayId = this.config.id || this._cardGuid;
 
         this._registerOverlayForRules(overlayId, 'elbow', tags);
-
-        // Setup actions after DOM is ready
-        this.updateComplete.then(() => {
-            this._setupButtonActions();
-            this._actionsInitialized = true;
-        });
 
         // Subscribe to theme input_number entities if configured to use them
         this._subscribeToThemeEntities();
