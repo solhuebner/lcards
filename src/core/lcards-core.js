@@ -151,7 +151,7 @@ class LCARdSCore {
             lcardsLog.debug('[LCARdSCore] ✅ ThemeManager created (awaiting pack loading)');
 
             // Initialize AnimationManager (Phase 2a)
-            this.animationManager = new AnimationManager(null); // No systemsManager in core
+            this.animationManager = new AnimationManager(this.systemsManager);
             await this.animationManager.initialize([], { suppressMountWarning: true }); // Suppress mount warning during core init
             lcardsLog.debug('[LCARdSCore] ✅ AnimationManager initialized');
 

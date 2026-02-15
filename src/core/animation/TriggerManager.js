@@ -36,7 +36,11 @@ export class TriggerManager {
     // Maps trigger type to cleanup function
     this.listeners = new Map(); // trigger -> cleanup function
 
-    lcardsLog.debug(`[TriggerManager] Created for overlay: ${overlayId}`);
+    lcardsLog.debug(`[TriggerManager] Created for overlay: ${overlayId}`, {
+      hasAnimationManager: !!animationManager,
+      hasSystemsManager: !!animationManager?.systemsManager,
+      animationManagerType: animationManager?.constructor?.name
+    });
   }
 
   /**
@@ -46,18 +50,21 @@ export class TriggerManager {
    * @param {Object} animDef - Animation definition
    */
   register(trigger, animDef) {
-    // Initialize registration array for this trigger if needed
-    if (!this.registrations.has(trigger)) {
-      this.registrations.set(trigger, []);
+    // Track if this is the first animation for this trigger
+    const isFirstForTrigger = !this.registrations.has(trigger);
 
-      // Setup trigger listener (except for on_load which is handled immediately)
-      if (trigger !== 'on_load') {
-        this.setupTriggerListener(trigger);
-      }
+    // Initialize registration array for this trigger if needed
+    if (isFirstForTrigger) {
+      this.registrations.set(trigger, []);
     }
 
     // Add animation definition to this trigger
     this.registrations.get(trigger).push(animDef);
+
+    // Setup trigger listener after adding animation (except for on_load which is handled immediately)
+    if (isFirstForTrigger && trigger !== 'on_load') {
+      this.setupTriggerListener(trigger);
+    }
 
     lcardsLog.debug(`[TriggerManager] Registered animation for ${this.overlayId} on trigger: ${trigger}`);
   }
@@ -103,10 +110,15 @@ export class TriggerManager {
    * @private
    */
   _setupEntityChangeListeners() {
+    lcardsLog.debug(`[TriggerManager] 🔍 _setupEntityChangeListeners called for overlay: ${this.overlayId}`);
+
     const animations = this.registrations.get('on_entity_change');
     if (!animations || animations.length === 0) {
+      lcardsLog.debug(`[TriggerManager] No on_entity_change animations to setup for: ${this.overlayId}`);
       return;
     }
+
+    lcardsLog.debug(`[TriggerManager] Found ${animations.length} on_entity_change animations for ${this.overlayId}`);
 
     // Get SystemsManager from AnimationManager
     const systemsManager = this.animationManager?.systemsManager;
@@ -122,10 +134,19 @@ export class TriggerManager {
 
     // Subscribe to each unique entity
     const subscribedEntities = new Set();
-    
+
+    lcardsLog.debug(`[TriggerManager] Processing ${animations.length} animations for subscriptions`);
+
     animations.forEach(animDef => {
       const entityId = animDef.entity;
-      
+
+      lcardsLog.debug(`[TriggerManager] Animation definition:`, {
+        hasEntity: !!entityId,
+        entityId: entityId,
+        trigger: animDef.trigger,
+        preset: animDef.preset
+      });
+
       if (!entityId) {
         lcardsLog.warn(`[TriggerManager] on_entity_change animation missing entity_id for overlay: ${this.overlayId}`);
         return;
@@ -138,12 +159,13 @@ export class TriggerManager {
       subscribedEntities.add(entityId);
 
       // Subscribe to entity state changes
-      const unsubscribe = systemsManager.subscribeToEntity(entityId, (newState, oldState) => {
-        lcardsLog.debug(`[TriggerManager] Entity change detected: ${entityId} (overlay: ${this.overlayId})`);
-        
+      // SystemsManager callback signature: (entityId, newState, oldState)
+      const unsubscribe = systemsManager.subscribeToEntity(entityId, (changedEntityId, newState, oldState) => {
+        lcardsLog.debug(`[TriggerManager] Entity change detected: ${changedEntityId} (overlay: ${this.overlayId})`);
+
         // Filter animations by state transition if specified
         animations.forEach(anim => {
-          if (anim.entity !== entityId) {
+          if (anim.entity !== changedEntityId) {
             return;
           }
 
@@ -163,7 +185,7 @@ export class TriggerManager {
           }
 
           // State transition matches - trigger animation
-          lcardsLog.debug(`[TriggerManager] 🎬 Triggering animation for ${this.overlayId} on entity change: ${entityId}`);
+          lcardsLog.debug(`[TriggerManager] 🎬 Triggering animation for ${this.overlayId} on entity change: ${changedEntityId}`);
           this.animationManager.playAnimation(this.overlayId, anim);
         });
       });

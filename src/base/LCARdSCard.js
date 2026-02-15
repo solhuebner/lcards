@@ -1723,7 +1723,7 @@ export class LCARdSCard extends BackgroundAnimationMixin(LCARdSNativeCard) {
 
     /**
      * Extract and track entities from Jinja2 templates
-     * Base implementation only tracks primary entity.
+     * Base implementation tracks primary entity and animation trigger entities.
      * Subclasses should override to add their specific template sources.
      * @private
      */
@@ -1733,6 +1733,15 @@ export class LCARdSCard extends BackgroundAnimationMixin(LCARdSNativeCard) {
         // Add primary entity
         if (this.config.entity) {
             trackedEntities.add(this.config.entity);
+        }
+
+        // Add animation trigger entities (for on_entity_change animations)
+        if (this.config.animations && Array.isArray(this.config.animations)) {
+            this.config.animations.forEach(anim => {
+                if (anim.trigger === 'on_entity_change' && anim.entity) {
+                    trackedEntities.add(anim.entity);
+                }
+            });
         }
 
         this._trackedEntities = Array.from(trackedEntities);

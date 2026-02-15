@@ -100,7 +100,12 @@ export class CoreSystemsManager {
     const oldHass = this._hass;
     this._hass = hass;
 
-    // Detect entity state changes
+    // Initialize old state tracking if needed
+    if (!this._oldEntityStates) {
+      this._oldEntityStates = new Map();
+    }
+
+    // Detect entity state changes and preserve old states
     const changedEntities = new Set();
 
     if (hass.states) {
@@ -110,6 +115,14 @@ export class CoreSystemsManager {
         if (!oldState || oldState.state !== newState.state ||
             oldState.last_changed !== newState.last_changed) {
           changedEntities.add(entityId);
+          // Debug log for subscribed entities
+          if (this._entitySubscriptions.has(entityId)) {
+            lcardsLog.debug(`[CoreSystemsManager] 🔍 Tracked entity changed: ${entityId} (${oldState?.state} → ${newState.state})`);
+          }
+          // Save old state before updating
+          if (oldState) {
+            this._oldEntityStates.set(entityId, oldState);
+          }
           this._entityStates.set(entityId, newState);
         }
       });
@@ -118,6 +131,13 @@ export class CoreSystemsManager {
     // Notify subscribers of changes
     if (changedEntities.size > 0) {
       this._notifyEntityChanges(Array.from(changedEntities));
+
+      // Clear old states after notification to avoid memory leak
+      setTimeout(() => {
+        changedEntities.forEach(entityId => {
+          this._oldEntityStates.delete(entityId);
+        });
+      }, 100);
     }
 
     lcardsLog.debug(`[CoreSystemsManager] HASS updated, ${changedEntities.size} entities changed`);
@@ -416,14 +436,18 @@ export class CoreSystemsManager {
   _notifyEntityChanges(entityIds) {
     if (entityIds.length === 0) return;
 
+    lcardsLog.debug(`[CoreSystemsManager] 🔔 Notifying ${entityIds.length} entity changes:`, entityIds.slice(0, 5));
+
     // Notify individual entity subscribers
     entityIds.forEach(entityId => {
       const subscribers = this._entitySubscriptions.get(entityId);
       if (subscribers && subscribers.size > 0) {
         const newState = this.getEntityState(entityId);
+        const oldState = this._oldEntityStates?.get(entityId) || null;
+        lcardsLog.debug(`[CoreSystemsManager] 📢 Entity ${entityId} changed: ${oldState?.state} → ${newState?.state}, notifying ${subscribers.size} subscribers`);
         subscribers.forEach(callback => {
           try {
-            callback(entityId, newState, null); // TODO: Track old state
+            callback(entityId, newState, oldState);
           } catch (error) {
             lcardsLog.error(`[CoreSystemsManager] Error in entity subscription callback for ${entityId}:`, error);
           }
