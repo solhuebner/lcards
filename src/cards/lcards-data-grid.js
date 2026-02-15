@@ -286,7 +286,7 @@ export class LCARdSDataGrid extends LCARdSCard {
 
     // Register with RulesEngine
     const overlayId = this.config.id || `data-grid-${this._cardGuid}`;
-    this._registerOverlayForRules(overlayId, this.config.tags || []);
+    this._registerOverlayForRules(overlayId, 'data-grid', this.config.tags || []);
 
     // Setup auto-sizing
     this._setupAutoSizing((width, height) => {

@@ -489,14 +489,49 @@ export class LCARdSElbow extends LCARdSButton {
     }
 
     /**
-     * First update lifecycle hook - subscribe to theme input_number entities
+     * First update lifecycle hook - register as elbow type and subscribe to theme entities
      * @protected
      */
     _handleFirstUpdate(changedProps) {
-        super._handleFirstUpdate?.(changedProps);
+        // Register this elbow with RulesEngine with 'elbow' type
+        const tags = ['elbow'];
+        if (this.config.preset) {
+            tags.push(this.config.preset);
+        }
+        if (this._entity) {
+            tags.push('entity-based');
+        }
+
+        // Merge custom tags from config for bulk rule targeting
+        if (this.config.tags && Array.isArray(this.config.tags)) {
+            tags.push(...this.config.tags);
+        }
+
+        // Use card GUID for overlay registration
+        const overlayId = this.config.id || this._cardGuid;
+
+        this._registerOverlayForRules(overlayId, 'elbow', tags);
+
+        // Setup actions after DOM is ready
+        this.updateComplete.then(() => {
+            this._setupButtonActions();
+            this._actionsInitialized = true;
+        });
 
         // Subscribe to theme input_number entities if configured to use them
         this._subscribeToThemeEntities();
+    }
+
+    /**
+     * Override animation setup to specify 'elbow' type
+     * @protected
+     */
+    _getAnimationSetup() {
+        return {
+            overlayId: `elbow-${this._cardGuid}`,
+            type: 'elbow',
+            elementSelector: '[data-overlay-id="button"]'
+        };
     }
 
     /**

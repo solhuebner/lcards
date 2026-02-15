@@ -479,9 +479,9 @@ export class LCARdSSlider extends LCARdSButton {
 
         // Register for rules
         if (this.config.id) {
-            this._registerOverlayForRules(`slider-${this.config.id}`, ['slider']);
+            this._registerOverlayForRules(`slider-${this.config.id}`, 'slider', ['slider']);
         } else {
-            this._registerOverlayForRules(`slider-${this._cardGuid}`, ['slider']);
+            this._registerOverlayForRules(`slider-${this._cardGuid}`, 'slider', ['slider']);
         }
     }
 

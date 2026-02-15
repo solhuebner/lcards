@@ -191,7 +191,7 @@ export class LCARdSChart extends LCARdSCard {
 
     // Register with RulesEngine
     const overlayId = this.config.id || `chart-${this._cardGuid}`;
-    this._registerOverlayForRules(overlayId, this.config.tags || []);
+    this._registerOverlayForRules(overlayId, 'chart', this.config.tags || []);
 
     // Skip data source subscription and chart init in preview mode UNLESS in studio dialog (live preview)
     if (isPreview && !isInStudioDialog) {
