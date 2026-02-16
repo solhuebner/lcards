@@ -31,20 +31,37 @@ export const HELPER_REGISTRY = {
     icon: 'mdi:alarm-light',
     category: 'alert_system',
     ws_create_params: {
-      options: ['default', 'red_alert', 'yellow_alert', 'blue_alert', 'white_alert']
+      options: ['green_alert', 'red_alert', 'yellow_alert', 'blue_alert', 'gray_alert', 'black_alert']
     },
-    default_value: 'default',
+    default_value: 'green_alert',
     yaml_config: `input_select:
   lcards_alert_mode:
     name: LCARdS Alert Mode
     options:
-      - default
+      - green_alert
       - red_alert
       - yellow_alert
       - blue_alert
-      - white_alert
-    initial: default
+      - gray_alert
+      - black_alert
+    initial: green_alert
     icon: mdi:alarm-light`
+  },
+
+  alert_mode_auto_switch: {
+    entity_id: 'input_boolean.lcards_alert_mode_auto_switch',
+    domain: 'input_boolean',
+    name: 'LCARdS Auto Alert Switch',
+    description: 'Automatically activate alert mode when input_select changes',
+    icon: 'mdi:auto-mode',
+    category: 'alert_system',
+    ws_create_params: {},
+    default_value: false,
+    yaml_config: `input_boolean:
+  lcards_alert_mode_auto_switch:
+    name: LCARdS Auto Alert Switch
+    initial: false
+    icon: mdi:auto-mode`
   },
 
   // ===== RED ALERT HSL =====

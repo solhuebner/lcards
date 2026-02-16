@@ -50,6 +50,7 @@ export class LCARdSConfigPanel extends LitElement {
     this._initialLoadDone = false;
     this._selectedCategory = 'all';
     this._expandedCategories = new Set();
+    this._helperSubscriptions = []; // Track subscriptions for cleanup
   }
 
   /**
@@ -513,7 +514,48 @@ export class LCARdSConfigPanel extends LitElement {
     }
 
     this._loadHelperStatus();
+    this._subscribeToHelperChanges();
     lcardsLog.debug('[ConfigPanel] Panel connected');
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+
+    // Cleanup all helper subscriptions
+    this._helperSubscriptions.forEach(unsubscribe => unsubscribe());
+    this._helperSubscriptions = [];
+    lcardsLog.debug('[ConfigPanel] Panel disconnected, cleaned up subscriptions');
+  }
+
+  /**
+   * Subscribe to all helper state changes to update UI
+   */
+  _subscribeToHelperChanges() {
+    if (!window.lcards?.core?.helperManager) {
+      return;
+    }
+
+    const helperManager = window.lcards.core.helperManager;
+
+    // Subscribe to each helper's state changes
+    this._helpers.forEach(helper => {
+      const unsubscribe = helperManager.subscribeToHelper(helper.key, (newValue) => {
+        // Update the helper's current value in our list
+        const helperIndex = this._helpers.findIndex(h => h.key === helper.key);
+        if (helperIndex >= 0) {
+          this._helpers[helperIndex] = {
+            ...this._helpers[helperIndex],
+            currentValue: newValue
+          };
+          // Trigger re-render to update UI controls
+          this.requestUpdate();
+        }
+      });
+
+      this._helperSubscriptions.push(unsubscribe);
+    });
+
+    lcardsLog.debug(`[ConfigPanel] Subscribed to ${this._helperSubscriptions.length} helper state changes`);
   }
 
   async _loadHelperStatus() {
@@ -537,6 +579,11 @@ export class LCARdSConfigPanel extends LitElement {
       total: this._helpers.length,
       missing: this._missingHelpers.length
     });
+
+    // Resubscribe to helper changes (in case helpers were created/changed)
+    this._helperSubscriptions.forEach(unsubscribe => unsubscribe());
+    this._helperSubscriptions = [];
+    this._subscribeToHelperChanges();
   }
 
   async _createAllHelpers() {
@@ -1003,6 +1050,9 @@ export class LCARdSConfigPanel extends LitElement {
 
   _renderValueControl(helper) {
     if (helper.domain === 'input_select') {
+      // Get fresh value from HASS state to ensure dropdown shows current selection
+      const currentValue = this.hass?.states?.[helper.entity_id]?.state || helper.currentValue;
+
       return html`
         <ha-selector
           .hass=${this.hass}
@@ -1010,7 +1060,7 @@ export class LCARdSConfigPanel extends LitElement {
             options: helper.ws_create_params.options.map(o => ({ value: o, label: o })),
             mode: 'dropdown'
           }}}
-          .value=${helper.currentValue}
+          .value=${currentValue}
           @value-changed=${(e) => this._setHelperValue(helper.key, e.detail.value)}
         ></ha-selector>
       `;

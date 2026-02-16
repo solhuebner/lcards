@@ -44,6 +44,9 @@ export class LCARdSHelperManager extends BaseService {
     /** @type {Object|null} Home Assistant instance */
     this.hass = hass;
 
+    /** @type {boolean} Track if auto-switch has been initialized */
+    this._autoSwitchInitialized = false;
+
     /** @type {Map<string, Array<Function>>} Subscriptions by helper key */
     this._subscriptions = new Map();
 
@@ -63,13 +66,15 @@ export class LCARdSHelperManager extends BaseService {
    * @param {Object} hass - New Home Assistant instance
    */
   updateHass(hass) {
-    const wasInitialized = !!this.hass;
     this.hass = hass;
 
-    if (!wasInitialized) {
+    // Only setup auto-switch once when HASS is available
+    if (hass && !this._autoSwitchInitialized) {
       lcardsLog.debug('[HelperManager] HASS instance set, manager ready');
       this._setupStateListeners();
-    } else {
+      this._setupAlertModeAutoSwitch();
+      this._autoSwitchInitialized = true;
+    } else if (hass) {
       // Update value cache with new state
       this._updateValueCache();
     }
@@ -170,6 +175,61 @@ export class LCARdSHelperManager extends BaseService {
       const state = this.hass.states[helper.entity_id];
       if (state) {
         this._valueCache.set(helper.key, state.state);
+      }
+    });
+  }
+
+  /**
+   * Setup automatic alert mode switching based on helper values
+   * Monitors alert_mode_auto_switch and alert_mode helpers
+   * @private
+   */
+  _setupAlertModeAutoSwitch() {
+    lcardsLog.debug('[HelperManager] Setting up alert mode auto-switch');
+
+    // Subscribe to alert mode changes
+    this.subscribeToHelper('alert_mode', (newMode, oldMode) => {
+      // Check if auto-switch is enabled
+      const autoSwitchEnabled = this.getHelperValue('alert_mode_auto_switch');
+
+      if (autoSwitchEnabled === 'on' || autoSwitchEnabled === true) {
+        lcardsLog.info(`[HelperManager] Auto-switching to alert mode: ${newMode}`);
+
+        // Ensure HASS is available (critical for green_alert)
+        if (this.hass && window.lcards?.core) {
+          window.lcards.core.ingestHass(this.hass);
+        }
+
+        // Trigger the alert mode change via window.lcards API
+        if (window.lcards?.setAlertMode) {
+          window.lcards.setAlertMode(newMode).catch(error => {
+            lcardsLog.error('[HelperManager] Failed to auto-switch alert mode:', error);
+          });
+        } else {
+          lcardsLog.warn('[HelperManager] window.lcards.setAlertMode not available');
+        }
+      } else {
+        lcardsLog.debug(`[HelperManager] Alert mode changed to ${newMode} but auto-switch is disabled`);
+      }
+    });
+
+    // Also subscribe to auto_switch toggle to apply current mode when enabled
+    this.subscribeToHelper('alert_mode_auto_switch', (newValue, oldValue) => {
+      if ((newValue === 'on' || newValue === true) && (oldValue === 'off' || oldValue === false)) {
+        // Auto-switch just got enabled - apply current alert mode
+        const currentMode = this.getHelperValue('alert_mode');
+        lcardsLog.info(`[HelperManager] Auto-switch enabled, applying current mode: ${currentMode}`);
+
+        // Ensure HASS is available (critical for green_alert)
+        if (this.hass && window.lcards?.core) {
+          window.lcards.core.ingestHass(this.hass);
+        }
+
+        if (window.lcards?.setAlertMode) {
+          window.lcards.setAlertMode(currentMode).catch(error => {
+            lcardsLog.error('[HelperManager] Failed to apply current alert mode:', error);
+          });
+        }
       }
     });
   }
