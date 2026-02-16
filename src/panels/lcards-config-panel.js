@@ -3,7 +3,7 @@
  *
  * Tabbed interface for managing LCARdS persistent configuration:
  * - Helpers tab: View status, create, and edit helper values
- * - Alert Lab tab: HSL color pickers for alert mode customization
+ * - Theme Browser tab: Theme tokens and alert mode configuration
  * - YAML Export tab: Copyable YAML for manual setup
  *
  * This panel must be registered manually in Home Assistant's configuration.yaml:
@@ -32,7 +32,6 @@ export class LCARdSConfigPanel extends LitElement {
     _selectedTab: { type: Number, state: true },
     _helpers: { type: Array, state: true },
     _missingHelpers: { type: Array, state: true },
-    _alertLabParams: { type: Object, state: true },
     _createInProgress: { type: Boolean, state: true },
     _filterText: { type: String, state: true },
     _initialLoadDone: { type: Boolean, state: true }
@@ -43,12 +42,6 @@ export class LCARdSConfigPanel extends LitElement {
     this._selectedTab = 0;
     this._helpers = [];
     this._missingHelpers = [];
-    this._alertLabParams = {
-      red_alert: { hue: 0, saturation: 140, lightness: 90 },
-      yellow_alert: { hue: 45, saturation: 150, lightness: 105 },
-      blue_alert: { hue: 210, saturation: 150, lightness: 100 },
-      white_alert: { hue: 0, saturation: 10, lightness: 120 }
-    };
     this._createInProgress = false;
     this._filterText = '';
     this._initialLoadDone = false;
@@ -301,82 +294,6 @@ export class LCARdSConfigPanel extends LitElement {
       margin-bottom: 16px;
     }
 
-    .alert-mode-section {
-      margin-bottom: 24px;
-    }
-
-    .alert-mode-title {
-      font-size: 1.1em;
-      font-weight: 600;
-      margin-bottom: 12px;
-      color: var(--primary-text-color);
-    }
-
-    .hsl-controls {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 16px;
-    }
-
-    .slider-control {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .slider-label {
-      display: flex;
-      justify-content: space-between;
-      color: var(--primary-text-color);
-      font-weight: 500;
-    }
-
-    .slider-value {
-      color: var(--primary-color);
-    }
-
-    input[type="range"] {
-      width: 100%;
-      height: 6px;
-      border-radius: 3px;
-      background: var(--divider-color);
-      outline: none;
-      -webkit-appearance: none;
-    }
-
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: var(--primary-color);
-      cursor: pointer;
-    }
-
-    input[type="range"]::-moz-range-thumb {
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: var(--primary-color);
-      cursor: pointer;
-      border: none;
-    }
-
-    .color-preview {
-      width: 100%;
-      height: 60px;
-      border-radius: 4px;
-      margin-top: 12px;
-      border: 2px solid var(--divider-color);
-    }
-
-    .alert-actions {
-      display: flex;
-      gap: 12px;
-      margin-top: 16px;
-    }
-
     .yaml-output {
       background: var(--code-editor-background-color, #1e1e1e);
       color: var(--code-editor-text-color, #d4d4d4);
@@ -542,25 +459,9 @@ export class LCARdSConfigPanel extends LitElement {
 
     this._missingHelpers = helperManager.getMissingHelpers();
 
-    // Load Alert Lab parameters from helpers
-    this._loadAlertLabFromHelpers();
-
     lcardsLog.debug('[ConfigPanel] Loaded helper status:', {
       total: this._helpers.length,
       missing: this._missingHelpers.length
-    });
-  }
-
-  _loadAlertLabFromHelpers() {
-    const helperManager = window.lcards.core.helperManager;
-
-    ['red_alert', 'yellow_alert', 'blue_alert', 'white_alert'].forEach(mode => {
-      const modeKey = mode.replace('_alert', '');
-      this._alertLabParams[mode] = {
-        hue: parseFloat(helperManager.getHelperValue(`alert_lab_${modeKey}_hue`) || this._alertLabParams[mode].hue),
-        saturation: parseFloat(helperManager.getHelperValue(`alert_lab_${modeKey}_saturation`) || this._alertLabParams[mode].saturation),
-        lightness: parseFloat(helperManager.getHelperValue(`alert_lab_${modeKey}_lightness`) || this._alertLabParams[mode].lightness)
-      };
     });
   }
 
@@ -631,35 +532,6 @@ export class LCARdSConfigPanel extends LitElement {
     }
   }
 
-  async _saveAlertLabToHelpers(mode) {
-    const params = this._alertLabParams[mode];
-    const modeKey = mode.replace('_alert', '');
-
-    try {
-      await this._setHelperValue(`alert_lab_${modeKey}_hue`, params.hue);
-      await this._setHelperValue(`alert_lab_${modeKey}_saturation`, params.saturation);
-      await this._setHelperValue(`alert_lab_${modeKey}_lightness`, params.lightness);
-
-      this._showSuccess(`Saved ${mode} parameters to helpers`);
-    } catch (error) {
-      this._showError(`Failed to save ${mode}: ${error.message}`);
-    }
-  }
-
-  async _applyAlertMode(mode) {
-    if (!window.lcards?.core?.themeManager) {
-      this._showError('Theme Manager not available');
-      return;
-    }
-
-    try {
-      await window.lcards.core.themeManager.setAlertMode(mode);
-      this._showSuccess(`Applied ${mode} alert mode`);
-    } catch (error) {
-      this._showError(`Failed to apply alert mode: ${error.message}`);
-    }
-  }
-
   _copyYAMLToClipboard() {
     const yaml = this._generateYAML();
 
@@ -722,11 +594,6 @@ export class LCARdSConfigPanel extends LitElement {
     }));
   }
 
-  _getColorFromHSL(h, s, l) {
-    // Convert HSL to CSS string
-    return `hsl(${h}, ${s}%, ${l}%)`;
-  }
-
   render() {
     return html`
       <div class="panel-container">
@@ -741,14 +608,10 @@ export class LCARdSConfigPanel extends LitElement {
             Helpers
           </ha-tab-group-tab>
           <ha-tab-group-tab value="1" ?active=${this._selectedTab === 1}>
-            <ha-icon icon="mdi:palette"></ha-icon>
-            Alert Lab
-          </ha-tab-group-tab>
-          <ha-tab-group-tab value="2" ?active=${this._selectedTab === 2}>
             <ha-icon icon="mdi:palette-swatch"></ha-icon>
             Theme Browser
           </ha-tab-group-tab>
-          <ha-tab-group-tab value="3" ?active=${this._selectedTab === 3}>
+          <ha-tab-group-tab value="2" ?active=${this._selectedTab === 2}>
             <ha-icon icon="mdi:code-braces"></ha-icon>
             YAML Export
           </ha-tab-group-tab>
@@ -775,10 +638,8 @@ export class LCARdSConfigPanel extends LitElement {
       case 0:
         return this._renderHelpersTab();
       case 1:
-        return this._renderAlertLabTab();
-      case 2:
         return this._renderThemeBrowserTab();
-      case 3:
+      case 2:
         return this._renderYAMLTab();
       default:
         return html`<div>Unknown tab</div>`;
@@ -804,6 +665,7 @@ export class LCARdSConfigPanel extends LitElement {
 
     const categoryLabels = {
       alert_system: 'Alert Lab Configuration',
+      ha_lcars_theme: 'HA-LCARS Theme Settings',
       other: 'Other'
     };
 
@@ -968,91 +830,6 @@ export class LCARdSConfigPanel extends LitElement {
     }
 
     return helper.currentValue;
-  }
-
-  _renderAlertLabTab() {
-    return html`
-      ${['red_alert', 'yellow_alert', 'blue_alert', 'white_alert'].map(mode => html`
-        <div class="card alert-mode-section">
-          <h2 class="alert-mode-title">${mode.replace('_', ' ').toUpperCase()}</h2>
-
-          <div class="hsl-controls">
-            <div class="slider-control">
-              <div class="slider-label">
-                <span>Hue</span>
-                <span class="slider-value">${this._alertLabParams[mode].hue}°</span>
-              </div>
-              <ha-selector
-                .hass=${this.hass}
-                .selector=${{ number: { min: 0, max: 360, step: 1, mode: 'slider' } }}
-                .value=${this._alertLabParams[mode].hue}
-                @value-changed=${(e) => {
-                  this._alertLabParams[mode].hue = e.detail.value;
-                  this.requestUpdate();
-                }}
-              ></ha-selector>
-            </div>
-
-            <div class="slider-control">
-              <div class="slider-label">
-                <span>Saturation</span>
-                <span class="slider-value">${this._alertLabParams[mode].saturation}%</span>
-              </div>
-              <ha-selector
-                .hass=${this.hass}
-                .selector=${{ number: { min: 0, max: 200, step: 1, mode: 'slider' } }}
-                .value=${this._alertLabParams[mode].saturation}
-                @value-changed=${(e) => {
-                  this._alertLabParams[mode].saturation = e.detail.value;
-                  this.requestUpdate();
-                }}
-              ></ha-selector>
-            </div>
-
-            <div class="slider-control">
-              <div class="slider-label">
-                <span>Lightness</span>
-                <span class="slider-value">${this._alertLabParams[mode].lightness}%</span>
-              </div>
-              <ha-selector
-                .hass=${this.hass}
-                .selector=${{ number: { min: 0, max: 200, step: 1, mode: 'slider' } }}
-                .value=${this._alertLabParams[mode].lightness}
-                @value-changed=${(e) => {
-                  this._alertLabParams[mode].lightness = e.detail.value;
-                  this.requestUpdate();
-                }}
-              ></ha-selector>
-            </div>
-          </div>
-
-          <div
-            class="color-preview"
-            style="background: ${this._getColorFromHSL(
-              this._alertLabParams[mode].hue,
-              this._alertLabParams[mode].saturation,
-              this._alertLabParams[mode].lightness
-            )}"
-          ></div>
-
-          <div class="alert-actions">
-            <ha-button
-              raised
-              @click=${() => this._saveAlertLabToHelpers(mode)}
-            >
-              <ha-icon icon="mdi:content-save"></ha-icon>
-              Save to Helpers
-            </ha-button>
-            <ha-button
-              @click=${() => this._applyAlertMode(mode)}
-            >
-              <ha-icon icon="mdi:palette"></ha-icon>
-              Apply Theme
-            </ha-button>
-          </div>
-        </div>
-      `)}
-    `;
   }
 
   _renderThemeBrowserTab() {

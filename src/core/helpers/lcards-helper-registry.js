@@ -873,6 +873,130 @@ export const HELPER_REGISTRY = {
     step: 0.01
     mode: slider
     icon: mdi:contrast-box`
+  },
+
+  // ===== HA-LCARS THEME SETTINGS =====
+  // These helpers control the HA-LCARS theme (not part of LCARdS, but we help users create them)
+
+  lcars_sound: {
+    entity_id: 'input_boolean.lcars_sound',
+    domain: 'input_boolean',
+    name: 'LCARS Sound',
+    description: 'Toggles button and tap sounds in HA-LCARS theme',
+    icon: 'mdi:volume-high',
+    category: 'ha_lcars_theme',
+    ws_create_params: {},
+    default_value: false,
+    yaml_config: `input_boolean:
+  lcars_sound:
+    name: LCARS Sound
+    icon: mdi:volume-high`
+  },
+
+  lcars_texture: {
+    entity_id: 'input_boolean.lcars_texture',
+    domain: 'input_boolean',
+    name: 'LCARS Texture',
+    description: 'Toggles grain pattern and backlight effect in HA-LCARS theme',
+    icon: 'mdi:texture',
+    category: 'ha_lcars_theme',
+    ws_create_params: {},
+    default_value: false,
+    yaml_config: `input_boolean:
+  lcars_texture:
+    name: LCARS Texture
+    icon: mdi:texture`
+  },
+
+  lcars_vertical: {
+    entity_id: 'input_number.lcars_vertical',
+    domain: 'input_number',
+    name: 'LCARS Vertical',
+    description: 'Sets the width of vertical borders in HA-LCARS theme',
+    icon: 'mdi:arrow-expand-vertical',
+    category: 'ha_lcars_theme',
+    ws_create_params: {
+      min: 26,
+      max: 60,
+      step: 1,
+      mode: 'slider'
+    },
+    default_value: 40,
+    yaml_config: `input_number:
+  lcars_vertical:
+    name: LCARS Vertical
+    min: 26
+    max: 60
+    step: 1
+    mode: slider
+    icon: mdi:arrow-expand-vertical`
+  },
+
+  lcars_horizontal: {
+    entity_id: 'input_number.lcars_horizontal',
+    domain: 'input_number',
+    name: 'LCARS Horizontal',
+    description: 'Sets the width of horizontal borders in HA-LCARS theme',
+    icon: 'mdi:arrow-expand-horizontal',
+    category: 'ha_lcars_theme',
+    ws_create_params: {
+      min: 6,
+      max: 60,
+      step: 1,
+      mode: 'slider'
+    },
+    default_value: 30,
+    yaml_config: `input_number:
+  lcars_horizontal:
+    name: LCARS Horizontal
+    min: 6
+    max: 60
+    step: 1
+    mode: slider
+    icon: mdi:arrow-expand-horizontal`
+  },
+
+  lcars_menu_font: {
+    entity_id: 'input_number.lcars_menu_font',
+    domain: 'input_number',
+    name: 'LCARS Menu Font',
+    description: 'Sets the font size (in px) of the sidebar menu in HA-LCARS theme',
+    icon: 'mdi:format-font-size-increase',
+    category: 'ha_lcars_theme',
+    ws_create_params: {
+      min: 8,
+      max: 24,
+      step: 1,
+      mode: 'slider',
+      unit_of_measurement: 'px'
+    },
+    default_value: 14,
+    yaml_config: `input_number:
+  lcars_menu_font:
+    name: LCARS Menu Font
+    min: 8
+    max: 24
+    step: 1
+    mode: slider
+    unit_of_measurement: "px"
+    icon: mdi:format-font-size-increase`
+  },
+
+  lcars_header: {
+    entity_id: 'sensor.lcars_header',
+    domain: 'sensor',
+    name: 'LCARS Header',
+    description: 'Add text to the clock area of the header in HA-LCARS theme. Example: {{ "LCARS " + states("sensor.time") }}',
+    icon: 'mdi:text-box',
+    category: 'ha_lcars_theme',
+    ws_create_params: null, // Sensors can't be created via WebSocket, must be template sensor
+    default_value: '',
+    yaml_config: `template:
+  - sensor:
+      - name: LCARS Header
+        state: >-
+          {{ "LCARS " + states("sensor.time") }}
+        icon: mdi:text-box`
   }
 };
 
