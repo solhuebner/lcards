@@ -251,6 +251,21 @@ window.lcards.setAlertMode = async (mode) => {
     lcardsLog.warn('⚠️ [LCARdS] ThemeManager not initialized');
     return;
   }
+
+  // Ensure ThemeManager has HASS reference (critical for green_alert theme reload)
+  const hass = window.lcards.core._currentHass;
+
+  if (hass && typeof hass.callService === 'function') {
+    window.lcards.core.themeManager.updateHass(hass);
+  } else if (mode === 'green_alert') {
+    lcardsLog.warn('⚠️ [LCARdS] HASS connection not available - green alert theme reload may fail', {
+      hasHass: !!hass,
+      hassType: hass ? typeof hass : 'undefined',
+      hasCallService: !!(hass && hass.callService),
+      callServiceType: hass && hass.callService ? typeof hass.callService : 'undefined'
+    });
+  }
+
   await window.lcards.core.themeManager.setAlertMode(mode);
 };
 

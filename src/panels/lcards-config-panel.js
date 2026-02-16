@@ -62,6 +62,12 @@ export class LCARdSConfigPanel extends LitElement {
     super.willUpdate(changedProps);
 
     if (changedProps.has('hass') && this.hass) {
+      // Propagate hass to core (critical for alert mode commands to work)
+      if (window.lcards?.core) {
+        lcardsLog.debug('[ConfigPanel] Propagating hass to Core');
+        window.lcards.core.ingestHass(this.hass);
+      }
+
       // Propagate hass to helper manager
       if (window.lcards?.core?.helperManager) {
         lcardsLog.debug('[ConfigPanel] Propagating hass to HelperManager');

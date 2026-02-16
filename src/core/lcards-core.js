@@ -441,6 +441,9 @@ class LCARdSCore {
         lcardsLog.debug(`[Core] ingestHass called`, {
             hassAvailable: !!hass,
             statesCount: Object.keys(hass?.states || {}).length,
+            hasCallService: !!(hass && typeof hass.callService === 'function'),
+            hassKeys: hass ? Object.keys(hass) : [],
+            hassType: hass ? typeof hass : 'undefined',
             hasRulesManager: !!this.rulesManager
         });
 
@@ -768,7 +771,7 @@ class LCARdSCore {
         if (this.validationService) {
             this.validationService.updateHass(hass);
         }
-        
+
         if (this.helperManager) {
             this.helperManager.updateHass(hass);
         }

@@ -58,7 +58,8 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       _originalLcarsColors: { type: Object, state: true }, // Store baseline colors
       _showFullPreview: { type: Boolean, state: true }, // Toggle for full color grid
       _activeVizTab: { type: String, state: true }, // Active visualization tab (preview/wheel/comparison)
-      _packExplorerOpen: { type: Boolean, state: true } // Pack Explorer dialog state
+      _packExplorerOpen: { type: Boolean, state: true }, // Pack Explorer dialog state
+      _helperSaveMessage: { type: Object, state: true } // Message for helper save operations
     };
   }
 
@@ -91,6 +92,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
     this._showFullPreview = false; // Full color grid collapsed by default
     this._activeVizTab = 'preview'; // Default to live preview tab
     this._packExplorerOpen = false; // Pack Explorer closed by default
+    this._helperSaveMessage = null; // No message by default
     this._handleKeydown = this._handleKeydown.bind(this);
   }
 
@@ -680,6 +682,9 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         flex-direction: column;
         gap: 12px;
         align-self: start;
+        overflow-y: auto;
+        overflow-x: hidden;
+        max-height: 100%;
       }
 
       .alert-lab-right-column {
@@ -2001,11 +2006,19 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
               <ha-icon icon="mdi:content-save" slot="start"></ha-icon>
               Save to Helpers
             </ha-button>
-            <ha-button @click="${this._exportAlertConfig}">
-              <ha-icon icon="mdi:export" slot="start"></ha-icon>
-              Export Config
-            </ha-button>
           </div>
+
+          <!-- Helper Save Feedback Message -->
+          ${this._helperSaveMessage ? html`
+            <lcards-message
+              .type=${this._helperSaveMessage.type}
+              .message=${this._helperSaveMessage.message}
+              @dismissed=${() => {
+                this._helperSaveMessage = null;
+                this.requestUpdate();
+              }}
+            ></lcards-message>
+          ` : ''}
         </div>
 
         <!-- RIGHT COLUMN: Visualizations -->
@@ -3442,16 +3455,24 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
   async _applyAlertMode() {
     lcardsLog.info('[AlertLab] Applying alert mode:', this._selectedAlertMode);
 
-    if (!this.hass) {
+    // Use core HASS as fallback if local hass is unavailable or incomplete
+    const hass = this.hass || window.lcards?.core?._currentHass;
+
+    if (!hass) {
       lcardsLog.warn('[AlertLab] No hass instance available');
       return;
     }
 
     try {
-      // Use the window.lcards API to apply
-      if (window.lcards?.setAlertMode) {
-        await window.lcards.setAlertMode(this._selectedAlertMode);
+      // Ensure ThemeManager has HASS reference with callService method
+      if (window.lcards?.core?.themeManager) {
+        // Update HASS reference in ThemeManager
+        window.lcards.core.themeManager.updateHass(hass);
+
+        // Apply alert mode via ThemeManager directly
+        await window.lcards.core.themeManager.setAlertMode(this._selectedAlertMode);
         lcardsLog.info('[AlertLab] Alert mode applied successfully');
+
         // Force preview update
         this.requestUpdate();
       }
@@ -3481,13 +3502,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
   async _saveToHelpers() {
     if (!window.lcards?.core?.helperManager) {
       lcardsLog.error('[AlertLab] HelperManager not available');
-      if (this.hass?.callService) {
-        await this.hass.callService('persistent_notification', 'create', {
-          title: 'Helper Manager Unavailable',
-          message: 'Helper Manager is not initialized. Cannot save parameters.',
-          notification_id: 'lcards_alert_lab_error'
-        });
-      }
+      this._showSaveError('Helper Manager is not initialized. Cannot save parameters.');
       return;
     }
 
@@ -3500,14 +3515,39 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
     // Cannot save green_alert (it's baseline)
     if (modeKey === 'green') {
       lcardsLog.warn('[AlertLab] Cannot save green_alert parameters');
+      this._showSaveError('Green Alert is the baseline mode and cannot be saved.');
       return;
     }
 
     try {
+      // Check if helpers exist first
+      const hueHelper = `alert_lab_${modeKey}_hue`;
+      const satHelper = `alert_lab_${modeKey}_saturation`;
+      const lightHelper = `alert_lab_${modeKey}_lightness`;
+
+      const helpersExist =
+        helperManager.helperExists(hueHelper) &&
+        helperManager.helperExists(satHelper) &&
+        helperManager.helperExists(lightHelper);
+
+      if (!helpersExist) {
+        const missingHelpers = [];
+        if (!helperManager.helperExists(hueHelper)) missingHelpers.push(hueHelper);
+        if (!helperManager.helperExists(satHelper)) missingHelpers.push(satHelper);
+        if (!helperManager.helperExists(lightHelper)) missingHelpers.push(lightHelper);
+
+        lcardsLog.warn('[AlertLab] Missing helpers:', missingHelpers);
+        this._showSaveError(
+          `Required helpers not found: ${missingHelpers.join(', ')}. ` +
+          'Please create these input_number helpers in Home Assistant first.'
+        );
+        return;
+      }
+
       // Save hue, saturation, lightness to helpers
-      await helperManager.setHelperValue(`alert_lab_${modeKey}_hue`, transform.hueShift);
-      await helperManager.setHelperValue(`alert_lab_${modeKey}_saturation`, transform.saturationMultiplier * 100);
-      await helperManager.setHelperValue(`alert_lab_${modeKey}_lightness`, transform.lightnessMultiplier * 100);
+      await helperManager.setHelperValue(hueHelper, transform.hueShift);
+      await helperManager.setHelperValue(satHelper, transform.saturationMultiplier * 100);
+      await helperManager.setHelperValue(lightHelper, transform.lightnessMultiplier * 100);
 
       lcardsLog.info('[AlertLab] Saved parameters to helpers:', {
         mode: this._selectedAlertMode,
@@ -3517,45 +3557,36 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       });
 
       // Show success notification
-      if (this.hass?.callService) {
-        await this.hass.callService('persistent_notification', 'create', {
-          title: 'Alert Lab Saved',
-          message: `Parameters for ${this._selectedAlertMode} saved to helpers successfully.`,
-          notification_id: 'lcards_alert_lab_saved'
-        });
-      }
+      this._showSaveSuccess();
     } catch (error) {
       lcardsLog.error('[AlertLab] Failed to save to helpers:', error);
-      if (this.hass?.callService) {
-        await this.hass.callService('persistent_notification', 'create', {
-          title: 'Save Failed',
-          message: `Failed to save parameters: ${error.message}`,
-          notification_id: 'lcards_alert_lab_error'
-        });
-      }
+      this._showSaveError(`Failed to save parameters: ${error.message}`);
     }
   }
 
-  async _exportAlertConfig() {
-    try {
-      const config = await window.lcards.alertConfig.export();
-      const json = JSON.stringify(config, null, 2);
+  /**
+   * Show save success message
+   * @private
+   */
+  _showSaveSuccess() {
+    this._helperSaveMessage = {
+      type: 'info',
+      message: `Successfully saved ${this._getModeName(this._selectedAlertMode)} parameters to helpers.`
+    };
+    this.requestUpdate();
+  }
 
-      // Copy to clipboard
-      await navigator.clipboard.writeText(json);
-
-      lcardsLog.info('[AlertLab] Configuration copied to clipboard');
-
-      // Show notification (if available)
-      if (this.hass?.callService) {
-        this.hass.callService('persistent_notification', 'create', {
-          message: `Alert mode configuration copied to clipboard!\n\n\`\`\`json\n${json}\n\`\`\``,
-          title: 'LCARdS Alert Config Exported'
-        });
-      }
-    } catch (error) {
-      lcardsLog.error('[AlertLab] Error exporting config:', error);
-    }
+  /**
+   * Show save error message
+   * @private
+   * @param {string} message - Error message
+   */
+  _showSaveError(message) {
+    this._helperSaveMessage = {
+      type: 'error',
+      message: message
+    };
+    this.requestUpdate();
   }
 
   /**
