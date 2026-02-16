@@ -40,22 +40,22 @@ import {
 export class LCARdSHelperManager extends BaseService {
   constructor(hass = null) {
     super();
-    
+
     /** @type {Object|null} Home Assistant instance */
     this.hass = hass;
-    
+
     /** @type {Map<string, Array<Function>>} Subscriptions by helper key */
     this._subscriptions = new Map();
-    
+
     /** @type {Map<string, Function>} Unsubscribe functions for state changes */
     this._stateUnsubscribers = new Map();
-    
+
     /** @type {Map<string, *>} Cached helper values */
     this._valueCache = new Map();
-    
+
     lcardsLog.debug('[HelperManager] Service created');
   }
-  
+
   /**
    * Update HASS instance (BaseService override)
    * Called when HASS is updated
@@ -65,7 +65,7 @@ export class LCARdSHelperManager extends BaseService {
   updateHass(hass) {
     const wasInitialized = !!this.hass;
     this.hass = hass;
-    
+
     if (!wasInitialized) {
       lcardsLog.debug('[HelperManager] HASS instance set, manager ready');
       this._setupStateListeners();
@@ -74,7 +74,7 @@ export class LCARdSHelperManager extends BaseService {
       this._updateValueCache();
     }
   }
-  
+
   /**
    * Setup state change listeners for all registered helpers
    * @private
@@ -84,13 +84,13 @@ export class LCARdSHelperManager extends BaseService {
       lcardsLog.warn('[HelperManager] Cannot setup state listeners - HASS not ready');
       return;
     }
-    
+
     // Subscribe to state changes for all helpers
     getAllHelpers().forEach(helper => {
       this._subscribeToHelperState(helper.key, helper.entity_id);
     });
   }
-  
+
   /**
    * Subscribe to state changes for a specific helper
    * @private
@@ -99,26 +99,26 @@ export class LCARdSHelperManager extends BaseService {
     if (!this.hass || !this.hass.connection) {
       return;
     }
-    
+
     // If already subscribed, skip
     if (this._stateUnsubscribers.has(key)) {
       return;
     }
-    
+
     // Subscribe to state changes
     try {
       const unsubscribe = this.hass.connection.subscribeEvents(
         (event) => this._handleStateChange(key, entityId, event),
         'state_changed'
       );
-      
+
       this._stateUnsubscribers.set(key, unsubscribe);
       lcardsLog.debug(`[HelperManager] Subscribed to state changes: ${entityId}`);
     } catch (error) {
       lcardsLog.error(`[HelperManager] Failed to subscribe to ${entityId}:`, error);
     }
   }
-  
+
   /**
    * Handle state change event for a helper
    * @private
@@ -128,20 +128,20 @@ export class LCARdSHelperManager extends BaseService {
     if (event.data.entity_id !== entityId) {
       return;
     }
-    
+
     const newState = event.data.new_state;
     const oldState = event.data.old_state;
-    
+
     if (!newState) {
       return;
     }
-    
+
     const newValue = newState.state;
     const oldValue = oldState ? oldState.state : null;
-    
+
     // Update cache
     this._valueCache.set(key, newValue);
-    
+
     // Notify subscribers
     if (this._subscriptions.has(key)) {
       const callbacks = this._subscriptions.get(key);
@@ -153,10 +153,10 @@ export class LCARdSHelperManager extends BaseService {
         }
       });
     }
-    
+
     lcardsLog.debug(`[HelperManager] State changed: ${entityId} = ${newValue}`);
   }
-  
+
   /**
    * Update value cache from current HASS state
    * @private
@@ -165,7 +165,7 @@ export class LCARdSHelperManager extends BaseService {
     if (!this.hass || !this.hass.states) {
       return;
     }
-    
+
     getAllHelpers().forEach(helper => {
       const state = this.hass.states[helper.entity_id];
       if (state) {
@@ -173,9 +173,9 @@ export class LCARdSHelperManager extends BaseService {
       }
     });
   }
-  
+
   // ===== PUBLIC API: LIFECYCLE =====
-  
+
   /**
    * Get list of helpers that don't exist in Home Assistant
    *
@@ -186,10 +186,10 @@ export class LCARdSHelperManager extends BaseService {
       lcardsLog.warn('[HelperManager] Cannot check missing helpers - HASS not available');
       return getAllHelpers();
     }
-    
+
     return getAllHelpers().filter(helper => !apiHelperExists(this.hass, helper.entity_id));
   }
-  
+
   /**
    * Ensure all helpers exist, creating missing ones
    *
@@ -200,9 +200,17 @@ export class LCARdSHelperManager extends BaseService {
     if (!this.hass) {
       throw new Error('[HelperManager] Cannot ensure helpers - HASS not available');
     }
-    
+
+    // Verify API availability first
+    const { verifyHelperAPIAvailable } = await import('./lcards-helper-api.js');
+    const apiAvailable = await verifyHelperAPIAvailable(this.hass);
+
+    if (!apiAvailable) {
+      lcardsLog.warn('[HelperManager] Helper API may not be available, attempting anyway...');
+    }
+
     lcardsLog.info('[HelperManager] Ensuring all helpers exist...');
-    
+
     const results = {
       total: 0,
       existing: 0,
@@ -210,14 +218,14 @@ export class LCARdSHelperManager extends BaseService {
       failed: 0,
       errors: []
     };
-    
+
     const allHelpers = getAllHelpers();
     results.total = allHelpers.length;
-    
+
     for (const helper of allHelpers) {
       try {
         const result = await ensureHelper(this.hass, helper);
-        
+
         if (result.exists) {
           results.existing++;
         } else if (result.created) {
@@ -232,12 +240,12 @@ export class LCARdSHelperManager extends BaseService {
         lcardsLog.error(`[HelperManager] Failed to ensure ${helper.key}:`, error);
       }
     }
-    
+
     lcardsLog.info(`[HelperManager] Ensure complete: ${results.created} created, ${results.existing} existing, ${results.failed} failed`);
-    
+
     return results;
   }
-  
+
   /**
    * Ensure a single helper exists by registry key
    *
@@ -249,17 +257,17 @@ export class LCARdSHelperManager extends BaseService {
     if (!this.hass) {
       throw new Error('[HelperManager] Cannot ensure helper - HASS not available');
     }
-    
+
     const definition = getHelperDefinition(key);
     if (!definition) {
       throw new Error(`[HelperManager] Helper not found in registry: ${key}`);
     }
-    
+
     return await ensureHelper(this.hass, definition);
   }
-  
+
   // ===== PUBLIC API: STATE ACCESS =====
-  
+
   /**
    * Get current value of a helper
    *
@@ -272,23 +280,23 @@ export class LCARdSHelperManager extends BaseService {
       lcardsLog.warn(`[HelperManager] Unknown helper key: ${key}`);
       return null;
     }
-    
+
     // Try cache first
     if (this._valueCache.has(key)) {
       return this._valueCache.get(key);
     }
-    
+
     // Fall back to API
     if (this.hass) {
       const value = apiGetHelperValue(this.hass, definition.entity_id, definition.default_value);
       this._valueCache.set(key, value);
       return value;
     }
-    
+
     // Return default if no HASS
     return definition.default_value;
   }
-  
+
   /**
    * Set helper value via service call
    *
@@ -301,18 +309,18 @@ export class LCARdSHelperManager extends BaseService {
     if (!this.hass) {
       throw new Error('[HelperManager] Cannot set helper value - HASS not available');
     }
-    
+
     const definition = getHelperDefinition(key);
     if (!definition) {
       throw new Error(`[HelperManager] Helper not found in registry: ${key}`);
     }
-    
+
     await apiSetHelperValue(this.hass, definition.entity_id, value);
-    
+
     // Update cache immediately (will be confirmed by state change event)
     this._valueCache.set(key, value);
   }
-  
+
   /**
    * Check if a helper exists in Home Assistant
    *
@@ -324,16 +332,16 @@ export class LCARdSHelperManager extends BaseService {
     if (!definition) {
       return false;
     }
-    
+
     if (!this.hass) {
       return false;
     }
-    
+
     return apiHelperExists(this.hass, definition.entity_id);
   }
-  
+
   // ===== PUBLIC API: REACTIVITY =====
-  
+
   /**
    * Subscribe to helper state changes
    *
@@ -345,26 +353,26 @@ export class LCARdSHelperManager extends BaseService {
     if (!this._subscriptions.has(key)) {
       this._subscriptions.set(key, []);
     }
-    
+
     const callbacks = this._subscriptions.get(key);
     callbacks.push(callback);
-    
+
     lcardsLog.debug(`[HelperManager] Subscribed to helper: ${key}`);
-    
+
     // Return unsubscribe function
     return () => {
       const index = callbacks.indexOf(callback);
       if (index !== -1) {
         callbacks.splice(index, 1);
       }
-      
+
       // Clean up empty subscription arrays
       if (callbacks.length === 0) {
         this._subscriptions.delete(key);
       }
     };
   }
-  
+
   /**
    * Unsubscribe from helper state changes
    *
@@ -373,9 +381,9 @@ export class LCARdSHelperManager extends BaseService {
   unsubscribeFromHelper(key) {
     this._subscriptions.delete(key);
   }
-  
+
   // ===== PUBLIC API: INTEGRATION =====
-  
+
   /**
    * Resolve helper bindings in a config object
    * Future use for card schema integration
@@ -386,19 +394,19 @@ export class LCARdSHelperManager extends BaseService {
    */
   resolveHelperBindings(config, bindings) {
     const resolved = { ...config };
-    
+
     for (const [configKey, helperKey] of Object.entries(bindings)) {
       const value = this.getHelperValue(helperKey);
       if (value !== null) {
         resolved[configKey] = value;
       }
     }
-    
+
     return resolved;
   }
-  
+
   // ===== PUBLIC API: EXPORT =====
-  
+
   /**
    * Generate YAML configuration for helpers
    *
@@ -408,7 +416,7 @@ export class LCARdSHelperManager extends BaseService {
   generateYAML(category = null) {
     return generateHelpersYAML(category);
   }
-  
+
   /**
    * Get helpers by category
    *
@@ -418,7 +426,7 @@ export class LCARdSHelperManager extends BaseService {
   getHelpersByCategory(category) {
     return getHelpersByCategory(category);
   }
-  
+
   /**
    * Get all helper definitions
    *
@@ -427,13 +435,13 @@ export class LCARdSHelperManager extends BaseService {
   getAllHelpers() {
     return getAllHelpers();
   }
-  
+
   /**
    * Cleanup - unsubscribe from all state listeners
    */
   destroy() {
     lcardsLog.debug('[HelperManager] Destroying service, cleaning up subscriptions');
-    
+
     // Unsubscribe from all state listeners
     for (const [key, unsubscribe] of this._stateUnsubscribers.entries()) {
       try {
@@ -442,7 +450,7 @@ export class LCARdSHelperManager extends BaseService {
         lcardsLog.error(`[HelperManager] Error unsubscribing from ${key}:`, error);
       }
     }
-    
+
     this._stateUnsubscribers.clear();
     this._subscriptions.clear();
     this._valueCache.clear();

@@ -7,14 +7,14 @@
  * - YAML Export tab: Copyable YAML for manual setup
  *
  * This panel must be registered manually in Home Assistant's configuration.yaml:
- * 
+ *
  * ```yaml
  * panel_custom:
- *   - name: lcards-config
+ *   - name: lcards-config-panel
  *     sidebar_title: LCARdS Config
  *     sidebar_icon: mdi:cog
- *     url_path: lcards-config
- *     module_url: /hacsfiles/lcards/lcards-config-panel.js
+ *     url_path: lcards-config-panel
+ *     module_url: /hacsfiles/lcards/lcards.js
  * ```
  *
  * @element lcards-config-panel
@@ -47,6 +47,22 @@ export class LCARdSConfigPanel extends LitElement {
       white_alert: { hue: 0, saturation: 10, lightness: 120 }
     };
     this._createInProgress = false;
+  }
+
+  /**
+   * Called when properties change
+   * Propagate hass to helper manager when it becomes available
+   */
+  willUpdate(changedProps) {
+    super.willUpdate(changedProps);
+
+    if (changedProps.has('hass') && this.hass) {
+      // Propagate hass to helper manager
+      if (window.lcards?.core?.helperManager) {
+        lcardsLog.debug('[ConfigPanel] Propagating hass to HelperManager');
+        window.lcards.core.helperManager.updateHass(this.hass);
+      }
+    }
   }
 
   static styles = css`
@@ -359,6 +375,17 @@ export class LCARdSConfigPanel extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+
+    // Check if LCARdS core is loaded
+    if (!window.lcards?.core?.helperManager) {
+      lcardsLog.warn('[ConfigPanel] LCARdS core not yet loaded');
+      setTimeout(() => {
+        if (!window.lcards?.core?.helperManager) {
+          this._showWarning('LCARdS core not detected. Please ensure at least one LCARdS card is added to a dashboard.');
+        }
+      }, 2000); // Give core time to initialize
+    }
+
     this._loadHelperStatus();
     lcardsLog.debug('[ConfigPanel] Panel connected');
   }
@@ -370,7 +397,7 @@ export class LCARdSConfigPanel extends LitElement {
     }
 
     const helperManager = window.lcards.core.helperManager;
-    
+
     // Get all helpers and their status
     this._helpers = helperManager.getAllHelpers().map(helper => ({
       ...helper,
@@ -391,7 +418,7 @@ export class LCARdSConfigPanel extends LitElement {
 
   _loadAlertLabFromHelpers() {
     const helperManager = window.lcards.core.helperManager;
-    
+
     ['red_alert', 'yellow_alert', 'blue_alert', 'white_alert'].forEach(mode => {
       const modeKey = mode.replace('_alert', '');
       this._alertLabParams[mode] = {
@@ -413,11 +440,11 @@ export class LCARdSConfigPanel extends LitElement {
 
     try {
       const results = await helperManager.ensureAllHelpers();
-      
+
       if (results.created > 0) {
         this._showSuccess(`Created ${results.created} helper(s)`);
       }
-      
+
       if (results.failed > 0) {
         this._showError(`Failed to create ${results.failed} helper(s)`);
       }
@@ -442,7 +469,11 @@ export class LCARdSConfigPanel extends LitElement {
     try {
       await helperManager.ensureHelper(key);
       this._showSuccess(`Created helper: ${key}`);
+
+      // Wait a moment for HA to register the entity, then reload
+      await new Promise(resolve => setTimeout(resolve, 500));
       await this._loadHelperStatus();
+      this.requestUpdate();
     } catch (error) {
       lcardsLog.error(`[ConfigPanel] Failed to create helper ${key}:`, error);
       this._showError(`Failed to create ${key}: ${error.message}`);
@@ -473,7 +504,7 @@ export class LCARdSConfigPanel extends LitElement {
       await this._setHelperValue(`alert_lab_${modeKey}_hue`, params.hue);
       await this._setHelperValue(`alert_lab_${modeKey}_saturation`, params.saturation);
       await this._setHelperValue(`alert_lab_${modeKey}_lightness`, params.lightness);
-      
+
       this._showSuccess(`Saved ${mode} parameters to helpers`);
     } catch (error) {
       this._showError(`Failed to save ${mode}: ${error.message}`);
@@ -496,7 +527,7 @@ export class LCARdSConfigPanel extends LitElement {
 
   _copyYAMLToClipboard() {
     const yaml = this._generateYAML();
-    
+
     if (navigator.clipboard) {
       navigator.clipboard.writeText(yaml).then(() => {
         this._showSuccess('YAML copied to clipboard');
@@ -524,16 +555,36 @@ export class LCARdSConfigPanel extends LitElement {
   }
 
   _showSuccess(message) {
-    // TODO: Implement toast notification
     lcardsLog.info(`[ConfigPanel] Success: ${message}`);
-    // For now, use alert (will be replaced with proper toast)
-    alert(message);
+
+    // Use HA's built-in notification system
+    this.dispatchEvent(new CustomEvent('hass-notification', {
+      detail: { message },
+      bubbles: true,
+      composed: true
+    }));
   }
 
   _showError(message) {
-    // TODO: Implement toast notification
     lcardsLog.error(`[ConfigPanel] Error: ${message}`);
-    alert(`Error: ${message}`);
+
+    // Use HA's built-in notification system
+    this.dispatchEvent(new CustomEvent('hass-notification', {
+      detail: { message: `Error: ${message}` },
+      bubbles: true,
+      composed: true
+    }));
+  }
+
+  _showWarning(message) {
+    lcardsLog.warn(`[ConfigPanel] Warning: ${message}`);
+
+    // Use HA's built-in notification system
+    this.dispatchEvent(new CustomEvent('hass-notification', {
+      detail: { message: `Warning: ${message}` },
+      bubbles: true,
+      composed: true
+    }));
   }
 
   _getColorFromHSL(h, s, l) {
@@ -581,7 +632,7 @@ export class LCARdSConfigPanel extends LitElement {
     return html`
       <div class="card">
         <h2>Helper Status</h2>
-        
+
         ${this._missingHelpers.length > 0 ? html`
           <button
             class="action-button create-all-button"
@@ -619,7 +670,7 @@ export class LCARdSConfigPanel extends LitElement {
     return html`
       <tr>
         <td>
-          <span class="helper-icon">${helper.icon || '📝'}</span>
+          <ha-icon class="helper-icon" icon="${helper.icon || 'mdi:cog'}"></ha-icon>
         </td>
         <td>
           <div class="helper-name">${helper.name}</div>
@@ -684,7 +735,7 @@ export class LCARdSConfigPanel extends LitElement {
         />
       `;
     }
-    
+
     return helper.currentValue;
   }
 
@@ -693,24 +744,22 @@ export class LCARdSConfigPanel extends LitElement {
       ${['red_alert', 'yellow_alert', 'blue_alert', 'white_alert'].map(mode => html`
         <div class="card alert-mode-section">
           <h2 class="alert-mode-title">${mode.replace('_', ' ').toUpperCase()}</h2>
-          
+
           <div class="hsl-controls">
             <div class="slider-control">
               <div class="slider-label">
                 <span>Hue</span>
                 <span class="slider-value">${this._alertLabParams[mode].hue}°</span>
               </div>
-              <input
-                type="range"
-                min="0"
-                max="360"
-                step="1"
+              <ha-selector
+                .hass=${this.hass}
+                .selector=${{ number: { min: 0, max: 360, step: 1, mode: 'slider' } }}
                 .value=${this._alertLabParams[mode].hue}
-                @input=${(e) => {
-                  this._alertLabParams[mode].hue = parseFloat(e.target.value);
+                @value-changed=${(e) => {
+                  this._alertLabParams[mode].hue = e.detail.value;
                   this.requestUpdate();
                 }}
-              />
+              ></ha-selector>
             </div>
 
             <div class="slider-control">
@@ -718,17 +767,15 @@ export class LCARdSConfigPanel extends LitElement {
                 <span>Saturation</span>
                 <span class="slider-value">${this._alertLabParams[mode].saturation}%</span>
               </div>
-              <input
-                type="range"
-                min="0"
-                max="200"
-                step="1"
+              <ha-selector
+                .hass=${this.hass}
+                .selector=${{ number: { min: 0, max: 200, step: 1, mode: 'slider' } }}
                 .value=${this._alertLabParams[mode].saturation}
-                @input=${(e) => {
-                  this._alertLabParams[mode].saturation = parseFloat(e.target.value);
+                @value-changed=${(e) => {
+                  this._alertLabParams[mode].saturation = e.detail.value;
                   this.requestUpdate();
                 }}
-              />
+              ></ha-selector>
             </div>
 
             <div class="slider-control">
@@ -736,17 +783,15 @@ export class LCARdSConfigPanel extends LitElement {
                 <span>Lightness</span>
                 <span class="slider-value">${this._alertLabParams[mode].lightness}%</span>
               </div>
-              <input
-                type="range"
-                min="0"
-                max="200"
-                step="1"
+              <ha-selector
+                .hass=${this.hass}
+                .selector=${{ number: { min: 0, max: 200, step: 1, mode: 'slider' } }}
                 .value=${this._alertLabParams[mode].lightness}
-                @input=${(e) => {
-                  this._alertLabParams[mode].lightness = parseFloat(e.target.value);
+                @value-changed=${(e) => {
+                  this._alertLabParams[mode].lightness = e.detail.value;
                   this.requestUpdate();
                 }}
-              />
+              ></ha-selector>
             </div>
           </div>
 
@@ -785,7 +830,7 @@ export class LCARdSConfigPanel extends LitElement {
       <div class="card">
         <h2>YAML Configuration</h2>
         <p>Copy this YAML to your Home Assistant <code>configuration.yaml</code> to manually create helpers:</p>
-        
+
         <button class="action-button copy-button" @click=${this._copyYAMLToClipboard}>
           📋 Copy to Clipboard
         </button>

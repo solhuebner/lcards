@@ -31,6 +31,7 @@ import { LCARdSChart } from './cards/lcards-chart.js';
 import { LCARdSSlider } from './cards/lcards-slider.js';
 import { LCARdSDataGrid } from './cards/lcards-data-grid.js';
 import { LCARdSMSDCard } from './cards/lcards-msd.js';
+import { LCARdSConfigPanel } from './panels/lcards-config-panel.js';
 
 // Unified API system removed - legacy architecture
 // Use DOM queries: document.querySelector('lcards-msd')._msdPipeline
@@ -164,6 +165,7 @@ initializeCustomCard()
         customElements.define('lcards-slider', LCARdSSlider);
         customElements.define('lcards-data-grid', LCARdSDataGrid);
         customElements.define('lcards-msd-card', LCARdSMSDCard);
+        //customElements.define('lcards-config-panel', LCARdSConfigPanel);
 
         lcardsLog.debug('[lcards.js] All custom elements registered after core initialization');
 

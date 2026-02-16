@@ -15,6 +15,28 @@
 import { lcardsLog } from '../../utils/lcards-logging.js';
 
 /**
+ * Verify that the Helper WebSocket API is available
+ *
+ * @param {Object} hass - Home Assistant instance
+ * @returns {Promise<boolean>} True if API is available
+ */
+export async function verifyHelperAPIAvailable(hass) {
+  if (!hass || !hass.callWS) {
+    return false;
+  }
+
+  try {
+    // Try to list input_number entities to verify API is accessible
+    await hass.callWS({ type: 'input_number/list' });
+    lcardsLog.debug('[HelperAPI] WebSocket API verified available');
+    return true;
+  } catch (error) {
+    lcardsLog.warn('[HelperAPI] WebSocket API may be unavailable:', error);
+    return false;
+  }
+}
+
+/**
  * Create a new input helper via WebSocket API
  *
  * @param {Object} hass - Home Assistant instance
@@ -175,7 +197,7 @@ export async function ensureHelper(hass, definition) {
 
     // If the created entity_id doesn't match our desired one, rename it
     const createdEntityId = result.id ? `${domain}.${result.id}` : null;
-    
+
     if (createdEntityId && createdEntityId !== entity_id) {
       lcardsLog.debug(`[HelperAPI] Entity ID mismatch, renaming: ${createdEntityId} -> ${entity_id}`);
       await updateHelperEntityId(hass, createdEntityId, entity_id);
@@ -245,7 +267,7 @@ export async function setHelperValue(hass, entityId, value) {
 
   // Extract domain from entity_id
   const [domain] = entityId.split('.');
-  
+
   if (!['input_number', 'input_select', 'input_boolean'].includes(domain)) {
     throw new Error(`[HelperAPI] Unsupported domain: ${domain}`);
   }
@@ -253,10 +275,20 @@ export async function setHelperValue(hass, entityId, value) {
   lcardsLog.debug(`[HelperAPI] Setting ${entityId} = ${value}`);
 
   try {
-    await hass.callService(domain, 'set_value', {
-      entity_id: entityId,
-      value: value
-    });
+    // Use correct service based on domain
+    const service = domain === 'input_select' ? 'select_option' : 'set_value';
+    const serviceData = {
+      entity_id: entityId
+    };
+
+    // input_select uses 'option' parameter, others use 'value'
+    if (domain === 'input_select') {
+      serviceData.option = value;
+    } else {
+      serviceData.value = value;
+    }
+
+    await hass.callService(domain, service, serviceData);
 
     lcardsLog.debug(`[HelperAPI] ✅ Set helper value: ${entityId} = ${value}`);
   } catch (error) {
