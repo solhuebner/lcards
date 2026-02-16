@@ -22,7 +22,7 @@
  */
 export const HELPER_REGISTRY = {
   // ===== ALERT SYSTEM =====
-  
+
   alert_mode: {
     entity_id: 'input_select.lcards_alert_mode',
     domain: 'input_select',
@@ -46,9 +46,9 @@ export const HELPER_REGISTRY = {
     initial: default
     icon: mdi:alarm-light`
   },
-  
+
   // ===== RED ALERT HSL =====
-  
+
   alert_lab_red_hue: {
     entity_id: 'input_number.lcards_alert_lab_red_hue',
     domain: 'input_number',
@@ -74,7 +74,31 @@ export const HELPER_REGISTRY = {
     unit_of_measurement: "°"
     icon: mdi:palette`
   },
-  
+
+  alert_lab_red_hue_strength: {
+    entity_id: 'input_number.lcards_alert_lab_red_hue_strength',
+    domain: 'input_number',
+    name: 'Alert Lab Red Hue Strength',
+    description: 'Hue rotation strength for red alert mode (0-1)',
+    icon: 'mdi:palette',
+    category: 'alert_system',
+    ws_create_params: {
+      min: 0,
+      max: 1,
+      step: 0.01,
+      mode: 'slider'
+    },
+    default_value: 0.8,
+    yaml_config: `input_number:
+  lcards_alert_lab_red_hue_strength:
+    name: Alert Lab Red Hue Strength
+    min: 0
+    max: 1
+    step: 0.01
+    mode: slider
+    icon: mdi:palette`
+  },
+
   alert_lab_red_saturation: {
     entity_id: 'input_number.lcards_alert_lab_red_saturation',
     domain: 'input_number',
@@ -100,7 +124,7 @@ export const HELPER_REGISTRY = {
     unit_of_measurement: "%"
     icon: mdi:palette`
   },
-  
+
   alert_lab_red_lightness: {
     entity_id: 'input_number.lcards_alert_lab_red_lightness',
     domain: 'input_number',
@@ -126,9 +150,87 @@ export const HELPER_REGISTRY = {
     unit_of_measurement: "%"
     icon: mdi:palette`
   },
-  
+
+  // ===== RED ALERT HUE ANCHOR =====
+
+  alert_lab_red_center_hue: {
+    entity_id: 'input_number.lcards_alert_lab_red_center_hue',
+    domain: 'input_number',
+    name: 'Alert Lab Red Center Hue',
+    description: 'Center hue for red alert hue anchoring (0-360°)',
+    icon: 'mdi:anchor',
+    category: 'alert_system',
+    ws_create_params: {
+      min: 0,
+      max: 360,
+      step: 1,
+      mode: 'slider',
+      unit_of_measurement: '°'
+    },
+    default_value: 0,
+    yaml_config: `input_number:
+  lcards_alert_lab_red_center_hue:
+    name: Alert Lab Red Center Hue
+    min: 0
+    max: 360
+    step: 1
+    mode: slider
+    unit_of_measurement: "°"
+    icon: mdi:anchor`
+  },
+
+  alert_lab_red_range: {
+    entity_id: 'input_number.lcards_alert_lab_red_range',
+    domain: 'input_number',
+    name: 'Alert Lab Red Range',
+    description: 'Hue range for red alert anchoring (±degrees)',
+    icon: 'mdi:anchor',
+    category: 'alert_system',
+    ws_create_params: {
+      min: 0,
+      max: 180,
+      step: 1,
+      mode: 'slider',
+      unit_of_measurement: '°'
+    },
+    default_value: 60,
+    yaml_config: `input_number:
+  lcards_alert_lab_red_range:
+    name: Alert Lab Red Range
+    min: 0
+    max: 180
+    step: 1
+    mode: slider
+    unit_of_measurement: "°"
+    icon: mdi:anchor`
+  },
+
+  alert_lab_red_strength: {
+    entity_id: 'input_number.lcards_alert_lab_red_strength',
+    domain: 'input_number',
+    name: 'Alert Lab Red Strength',
+    description: 'Pull strength for red alert hue anchoring (0-1)',
+    icon: 'mdi:anchor',
+    category: 'alert_system',
+    ws_create_params: {
+      min: 0,
+      max: 1,
+      step: 0.01,
+      mode: 'slider'
+    },
+    default_value: 0.9,
+    yaml_config: `input_number:
+  lcards_alert_lab_red_strength:
+    name: Alert Lab Red Strength
+    min: 0
+    max: 1
+    step: 0.01
+    mode: slider
+    icon: mdi:anchor`
+  },
+
   // ===== YELLOW ALERT HSL =====
-  
+
   alert_lab_yellow_hue: {
     entity_id: 'input_number.lcards_alert_lab_yellow_hue',
     domain: 'input_number',
@@ -154,7 +256,31 @@ export const HELPER_REGISTRY = {
     unit_of_measurement: "°"
     icon: mdi:palette`
   },
-  
+
+  alert_lab_yellow_hue_strength: {
+    entity_id: 'input_number.lcards_alert_lab_yellow_hue_strength',
+    domain: 'input_number',
+    name: 'Alert Lab Yellow Hue Strength',
+    description: 'Hue rotation strength for yellow alert mode (0-1)',
+    icon: 'mdi:palette',
+    category: 'alert_system',
+    ws_create_params: {
+      min: 0,
+      max: 1,
+      step: 0.01,
+      mode: 'slider'
+    },
+    default_value: 0.9,
+    yaml_config: `input_number:
+  lcards_alert_lab_yellow_hue_strength:
+    name: Alert Lab Yellow Hue Strength
+    min: 0
+    max: 1
+    step: 0.01
+    mode: slider
+    icon: mdi:palette`
+  },
+
   alert_lab_yellow_saturation: {
     entity_id: 'input_number.lcards_alert_lab_yellow_saturation',
     domain: 'input_number',
@@ -180,7 +306,7 @@ export const HELPER_REGISTRY = {
     unit_of_measurement: "%"
     icon: mdi:palette`
   },
-  
+
   alert_lab_yellow_lightness: {
     entity_id: 'input_number.lcards_alert_lab_yellow_lightness',
     domain: 'input_number',
@@ -206,9 +332,87 @@ export const HELPER_REGISTRY = {
     unit_of_measurement: "%"
     icon: mdi:palette`
   },
-  
+
+  // ===== YELLOW ALERT HUE ANCHOR =====
+
+  alert_lab_yellow_center_hue: {
+    entity_id: 'input_number.lcards_alert_lab_yellow_center_hue',
+    domain: 'input_number',
+    name: 'Alert Lab Yellow Center Hue',
+    description: 'Center hue for yellow alert hue anchoring (0-360°)',
+    icon: 'mdi:anchor',
+    category: 'alert_system',
+    ws_create_params: {
+      min: 0,
+      max: 360,
+      step: 1,
+      mode: 'slider',
+      unit_of_measurement: '°'
+    },
+    default_value: 45,
+    yaml_config: `input_number:
+  lcards_alert_lab_yellow_center_hue:
+    name: Alert Lab Yellow Center Hue
+    min: 0
+    max: 360
+    step: 1
+    mode: slider
+    unit_of_measurement: "°"
+    icon: mdi:anchor`
+  },
+
+  alert_lab_yellow_range: {
+    entity_id: 'input_number.lcards_alert_lab_yellow_range',
+    domain: 'input_number',
+    name: 'Alert Lab Yellow Range',
+    description: 'Hue range for yellow alert anchoring (±degrees)',
+    icon: 'mdi:anchor',
+    category: 'alert_system',
+    ws_create_params: {
+      min: 0,
+      max: 180,
+      step: 1,
+      mode: 'slider',
+      unit_of_measurement: '°'
+    },
+    default_value: 50,
+    yaml_config: `input_number:
+  lcards_alert_lab_yellow_range:
+    name: Alert Lab Yellow Range
+    min: 0
+    max: 180
+    step: 1
+    mode: slider
+    unit_of_measurement: "°"
+    icon: mdi:anchor`
+  },
+
+  alert_lab_yellow_strength: {
+    entity_id: 'input_number.lcards_alert_lab_yellow_strength',
+    domain: 'input_number',
+    name: 'Alert Lab Yellow Strength',
+    description: 'Pull strength for yellow alert hue anchoring (0-1)',
+    icon: 'mdi:anchor',
+    category: 'alert_system',
+    ws_create_params: {
+      min: 0,
+      max: 1,
+      step: 0.01,
+      mode: 'slider'
+    },
+    default_value: 0.9,
+    yaml_config: `input_number:
+  lcards_alert_lab_yellow_strength:
+    name: Alert Lab Yellow Strength
+    min: 0
+    max: 1
+    step: 0.01
+    mode: slider
+    icon: mdi:anchor`
+  },
+
   // ===== BLUE ALERT HSL =====
-  
+
   alert_lab_blue_hue: {
     entity_id: 'input_number.lcards_alert_lab_blue_hue',
     domain: 'input_number',
@@ -234,7 +438,31 @@ export const HELPER_REGISTRY = {
     unit_of_measurement: "°"
     icon: mdi:palette`
   },
-  
+
+  alert_lab_blue_hue_strength: {
+    entity_id: 'input_number.lcards_alert_lab_blue_hue_strength',
+    domain: 'input_number',
+    name: 'Alert Lab Blue Hue Strength',
+    description: 'Hue rotation strength for blue alert mode (0-1)',
+    icon: 'mdi:palette',
+    category: 'alert_system',
+    ws_create_params: {
+      min: 0,
+      max: 1,
+      step: 0.01,
+      mode: 'slider'
+    },
+    default_value: 0.85,
+    yaml_config: `input_number:
+  lcards_alert_lab_blue_hue_strength:
+    name: Alert Lab Blue Hue Strength
+    min: 0
+    max: 1
+    step: 0.01
+    mode: slider
+    icon: mdi:palette`
+  },
+
   alert_lab_blue_saturation: {
     entity_id: 'input_number.lcards_alert_lab_blue_saturation',
     domain: 'input_number',
@@ -260,7 +488,7 @@ export const HELPER_REGISTRY = {
     unit_of_measurement: "%"
     icon: mdi:palette`
   },
-  
+
   alert_lab_blue_lightness: {
     entity_id: 'input_number.lcards_alert_lab_blue_lightness',
     domain: 'input_number',
@@ -286,14 +514,92 @@ export const HELPER_REGISTRY = {
     unit_of_measurement: "%"
     icon: mdi:palette`
   },
-  
-  // ===== WHITE ALERT HSL =====
-  
-  alert_lab_white_hue: {
-    entity_id: 'input_number.lcards_alert_lab_white_hue',
+
+  // ===== BLUE ALERT HUE ANCHOR =====
+
+  alert_lab_blue_center_hue: {
+    entity_id: 'input_number.lcards_alert_lab_blue_center_hue',
     domain: 'input_number',
-    name: 'Alert Lab White Hue',
-    description: 'Hue offset for white alert mode (0-360°)',
+    name: 'Alert Lab Blue Center Hue',
+    description: 'Center hue for blue alert hue anchoring (0-360°)',
+    icon: 'mdi:anchor',
+    category: 'alert_system',
+    ws_create_params: {
+      min: 0,
+      max: 360,
+      step: 1,
+      mode: 'slider',
+      unit_of_measurement: '°'
+    },
+    default_value: 210,
+    yaml_config: `input_number:
+  lcards_alert_lab_blue_center_hue:
+    name: Alert Lab Blue Center Hue
+    min: 0
+    max: 360
+    step: 1
+    mode: slider
+    unit_of_measurement: "°"
+    icon: mdi:anchor`
+  },
+
+  alert_lab_blue_range: {
+    entity_id: 'input_number.lcards_alert_lab_blue_range',
+    domain: 'input_number',
+    name: 'Alert Lab Blue Range',
+    description: 'Hue range for blue alert anchoring (±degrees)',
+    icon: 'mdi:anchor',
+    category: 'alert_system',
+    ws_create_params: {
+      min: 0,
+      max: 180,
+      step: 1,
+      mode: 'slider',
+      unit_of_measurement: '°'
+    },
+    default_value: 70,
+    yaml_config: `input_number:
+  lcards_alert_lab_blue_range:
+    name: Alert Lab Blue Range
+    min: 0
+    max: 180
+    step: 1
+    mode: slider
+    unit_of_measurement: "°"
+    icon: mdi:anchor`
+  },
+
+  alert_lab_blue_strength: {
+    entity_id: 'input_number.lcards_alert_lab_blue_strength',
+    domain: 'input_number',
+    name: 'Alert Lab Blue Strength',
+    description: 'Pull strength for blue alert hue anchoring (0-1)',
+    icon: 'mdi:anchor',
+    category: 'alert_system',
+    ws_create_params: {
+      min: 0,
+      max: 1,
+      step: 0.01,
+      mode: 'slider'
+    },
+    default_value: 0.85,
+    yaml_config: `input_number:
+  lcards_alert_lab_blue_strength:
+    name: Alert Lab Blue Strength
+    min: 0
+    max: 1
+    step: 0.01
+    mode: slider
+    icon: mdi:anchor`
+  },
+
+  // ===== GRAY ALERT =====
+
+  alert_lab_gray_hue: {
+    entity_id: 'input_number.lcards_alert_lab_gray_hue',
+    domain: 'input_number',
+    name: 'Alert Lab Gray Hue',
+    description: 'Hue offset for gray alert mode (0-360°)',
     icon: 'mdi:palette',
     category: 'alert_system',
     ws_create_params: {
@@ -305,8 +611,8 @@ export const HELPER_REGISTRY = {
     },
     default_value: 0,
     yaml_config: `input_number:
-  lcards_alert_lab_white_hue:
-    name: Alert Lab White Hue
+  lcards_alert_lab_gray_hue:
+    name: Alert Lab Gray Hue
     min: 0
     max: 360
     step: 1
@@ -314,12 +620,36 @@ export const HELPER_REGISTRY = {
     unit_of_measurement: "°"
     icon: mdi:palette`
   },
-  
-  alert_lab_white_saturation: {
-    entity_id: 'input_number.lcards_alert_lab_white_saturation',
+
+  alert_lab_gray_hue_strength: {
+    entity_id: 'input_number.lcards_alert_lab_gray_hue_strength',
     domain: 'input_number',
-    name: 'Alert Lab White Saturation',
-    description: 'Saturation multiplier for white alert mode (0-200%)',
+    name: 'Alert Lab Gray Hue Strength',
+    description: 'Hue rotation strength for gray alert mode (0-1)',
+    icon: 'mdi:palette',
+    category: 'alert_system',
+    ws_create_params: {
+      min: 0,
+      max: 1,
+      step: 0.01,
+      mode: 'slider'
+    },
+    default_value: 0,
+    yaml_config: `input_number:
+  lcards_alert_lab_gray_hue_strength:
+    name: Alert Lab Gray Hue Strength
+    min: 0
+    max: 1
+    step: 0.01
+    mode: slider
+    icon: mdi:palette`
+  },
+
+  alert_lab_gray_saturation: {
+    entity_id: 'input_number.lcards_alert_lab_gray_saturation',
+    domain: 'input_number',
+    name: 'Alert Lab Gray Saturation',
+    description: 'Saturation multiplier for gray alert mode (0-200%)',
     icon: 'mdi:palette',
     category: 'alert_system',
     ws_create_params: {
@@ -329,10 +659,10 @@ export const HELPER_REGISTRY = {
       mode: 'slider',
       unit_of_measurement: '%'
     },
-    default_value: 10,
+    default_value: 0,
     yaml_config: `input_number:
-  lcards_alert_lab_white_saturation:
-    name: Alert Lab White Saturation
+  lcards_alert_lab_gray_saturation:
+    name: Alert Lab Gray Saturation
     min: 0
     max: 200
     step: 1
@@ -340,12 +670,12 @@ export const HELPER_REGISTRY = {
     unit_of_measurement: "%"
     icon: mdi:palette`
   },
-  
-  alert_lab_white_lightness: {
-    entity_id: 'input_number.lcards_alert_lab_white_lightness',
+
+  alert_lab_gray_lightness: {
+    entity_id: 'input_number.lcards_alert_lab_gray_lightness',
     domain: 'input_number',
-    name: 'Alert Lab White Lightness',
-    description: 'Lightness multiplier for white alert mode (0-200%)',
+    name: 'Alert Lab Gray Lightness',
+    description: 'Lightness multiplier for gray alert mode (0-200%)',
     icon: 'mdi:palette',
     category: 'alert_system',
     ws_create_params: {
@@ -355,16 +685,194 @@ export const HELPER_REGISTRY = {
       mode: 'slider',
       unit_of_measurement: '%'
     },
-    default_value: 120,
+    default_value: 100,
     yaml_config: `input_number:
-  lcards_alert_lab_white_lightness:
-    name: Alert Lab White Lightness
+  lcards_alert_lab_gray_lightness:
+    name: Alert Lab Gray Lightness
     min: 0
     max: 200
     step: 1
     mode: slider
     unit_of_measurement: "%"
     icon: mdi:palette`
+  },
+
+  // ===== BLACK ALERT =====
+
+  alert_lab_black_hue: {
+    entity_id: 'input_number.lcards_alert_lab_black_hue',
+    domain: 'input_number',
+    name: 'Alert Lab Black Hue',
+    description: 'Hue offset for black alert mode (0-360°)',
+    icon: 'mdi:palette',
+    category: 'alert_system',
+    ws_create_params: {
+      min: 0,
+      max: 360,
+      step: 1,
+      mode: 'slider',
+      unit_of_measurement: '°'
+    },
+    default_value: 0,
+    yaml_config: `input_number:
+  lcards_alert_lab_black_hue:
+    name: Alert Lab Black Hue
+    min: 0
+    max: 360
+    step: 1
+    mode: slider
+    unit_of_measurement: "°"
+    icon: mdi:palette`
+  },
+
+  alert_lab_black_hue_strength: {
+    entity_id: 'input_number.lcards_alert_lab_black_hue_strength',
+    domain: 'input_number',
+    name: 'Alert Lab Black Hue Strength',
+    description: 'Hue rotation strength for black alert mode (0-1)',
+    icon: 'mdi:palette',
+    category: 'alert_system',
+    ws_create_params: {
+      min: 0,
+      max: 1,
+      step: 0.01,
+      mode: 'slider'
+    },
+    default_value: 0,
+    yaml_config: `input_number:
+  lcards_alert_lab_black_hue_strength:
+    name: Alert Lab Black Hue Strength
+    min: 0
+    max: 1
+    step: 0.01
+    mode: slider
+    icon: mdi:palette`
+  },
+
+  alert_lab_black_saturation: {
+    entity_id: 'input_number.lcards_alert_lab_black_saturation',
+    domain: 'input_number',
+    name: 'Alert Lab Black Saturation',
+    description: 'Saturation multiplier for black alert mode (0-200%)',
+    icon: 'mdi:palette',
+    category: 'alert_system',
+    ws_create_params: {
+      min: 0,
+      max: 200,
+      step: 1,
+      mode: 'slider',
+      unit_of_measurement: '%'
+    },
+    default_value: 0,
+    yaml_config: `input_number:
+  lcards_alert_lab_black_saturation:
+    name: Alert Lab Black Saturation
+    min: 0
+    max: 200
+    step: 1
+    mode: slider
+    unit_of_measurement: "%"
+    icon: mdi:palette`
+  },
+
+  alert_lab_black_lightness: {
+    entity_id: 'input_number.lcards_alert_lab_black_lightness',
+    domain: 'input_number',
+    name: 'Alert Lab Black Lightness',
+    description: 'Lightness multiplier for black alert mode (0-200%)',
+    icon: 'mdi:palette',
+    category: 'alert_system',
+    ws_create_params: {
+      min: 0,
+      max: 200,
+      step: 1,
+      mode: 'slider',
+      unit_of_measurement: '%'
+    },
+    default_value: 30,
+    yaml_config: `input_number:
+  lcards_alert_lab_black_lightness:
+    name: Alert Lab Black Lightness
+    min: 0
+    max: 200
+    step: 1
+    mode: slider
+    unit_of_measurement: "%"
+    icon: mdi:palette`
+  },
+
+  // ===== BLACK ALERT CONTRAST ENHANCEMENT =====
+
+  alert_lab_black_threshold: {
+    entity_id: 'input_number.lcards_alert_lab_black_threshold',
+    domain: 'input_number',
+    name: 'Alert Lab Black Threshold',
+    description: 'Contrast threshold for black alert (0-100)',
+    icon: 'mdi:contrast-box',
+    category: 'alert_system',
+    ws_create_params: {
+      min: 0,
+      max: 100,
+      step: 1,
+      mode: 'slider'
+    },
+    default_value: 50,
+    yaml_config: `input_number:
+  lcards_alert_lab_black_threshold:
+    name: Alert Lab Black Threshold
+    min: 0
+    max: 100
+    step: 1
+    mode: slider
+    icon: mdi:contrast-box`
+  },
+
+  alert_lab_black_dark_multiplier: {
+    entity_id: 'input_number.lcards_alert_lab_black_dark_multiplier',
+    domain: 'input_number',
+    name: 'Alert Lab Black Dark Multiplier',
+    description: 'Dark color multiplier for black alert contrast (0-2)',
+    icon: 'mdi:contrast-box',
+    category: 'alert_system',
+    ws_create_params: {
+      min: 0,
+      max: 2,
+      step: 0.01,
+      mode: 'slider'
+    },
+    default_value: 0.6,
+    yaml_config: `input_number:
+  lcards_alert_lab_black_dark_multiplier:
+    name: Alert Lab Black Dark Multiplier
+    min: 0
+    max: 2
+    step: 0.01
+    mode: slider
+    icon: mdi:contrast-box`
+  },
+
+  alert_lab_black_light_multiplier: {
+    entity_id: 'input_number.lcards_alert_lab_black_light_multiplier',
+    domain: 'input_number',
+    name: 'Alert Lab Black Light Multiplier',
+    description: 'Light color multiplier for black alert contrast (0-2)',
+    icon: 'mdi:contrast-box',
+    category: 'alert_system',
+    ws_create_params: {
+      min: 0,
+      max: 2,
+      step: 0.01,
+      mode: 'slider'
+    },
+    default_value: 1.4,
+    yaml_config: `input_number:
+  lcards_alert_lab_black_light_multiplier:
+    name: Alert Lab Black Light Multiplier
+    min: 0
+    max: 2
+    step: 0.01
+    mode: slider
+    icon: mdi:contrast-box`
   }
 };
 
@@ -433,11 +941,11 @@ export function getAllHelpers() {
  */
 export function generateHelpersYAML(category = null) {
   let helpers = getAllHelpers();
-  
+
   if (category) {
     helpers = helpers.filter(h => h.category === category);
   }
-  
+
   // Group by domain
   const byDomain = {};
   helpers.forEach(helper => {
@@ -446,13 +954,13 @@ export function generateHelpersYAML(category = null) {
     }
     byDomain[helper.domain].push(helper);
   });
-  
+
   // Generate YAML sections
   const sections = [];
-  
+
   for (const [domain, domainHelpers] of Object.entries(byDomain)) {
     const lines = [`${domain}:`];
-    
+
     domainHelpers.forEach(helper => {
       if (helper.yaml_config) {
         // Extract just the helper part (without the domain line)
@@ -460,10 +968,10 @@ export function generateHelpersYAML(category = null) {
         lines.push(...yamlLines);
       }
     });
-    
+
     sections.push(lines.join('\n'));
   }
-  
+
   return sections.join('\n\n');
 }
 
@@ -477,11 +985,11 @@ export function findHelperByEntityId(entityId) {
   const entry = Object.entries(HELPER_REGISTRY).find(
     ([_, def]) => def.entity_id === entityId
   );
-  
+
   if (entry) {
     const [key, def] = entry;
     return { key, ...def };
   }
-  
+
   return null;
 }

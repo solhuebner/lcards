@@ -2383,24 +2383,74 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
     const helperManager = window.lcards.core.helperManager;
 
     // Load parameters for each alert mode
-    ['red', 'yellow', 'blue', 'white'].forEach(mode => {
+    ['red', 'yellow', 'blue', 'gray', 'black'].forEach(mode => {
       const hueKey = `alert_lab_${mode}_hue`;
+      const hueStrengthKey = `alert_lab_${mode}_hue_strength`;
       const satKey = `alert_lab_${mode}_saturation`;
       const lightKey = `alert_lab_${mode}_lightness`;
 
       // Check if helpers exist
       if (helperManager.helperExists(hueKey)) {
         const hue = parseFloat(helperManager.getHelperValue(hueKey));
+        const hueStrength = helperManager.helperExists(hueStrengthKey)
+          ? parseFloat(helperManager.getHelperValue(hueStrengthKey))
+          : 0;
         const saturation = parseFloat(helperManager.getHelperValue(satKey)) / 100; // Convert % to multiplier
         const lightness = parseFloat(helperManager.getHelperValue(lightKey)) / 100; // Convert % to multiplier
 
         // Apply to alert mode transform
         const modeKey = `${mode}_alert`;
         setAlertModeTransformParameter(modeKey, 'hueShift', hue);
+        setAlertModeTransformParameter(modeKey, 'hueStrength', hueStrength);
         setAlertModeTransformParameter(modeKey, 'saturationMultiplier', saturation);
         setAlertModeTransformParameter(modeKey, 'lightnessMultiplier', lightness);
 
-        lcardsLog.debug(`[AlertLab] Loaded ${modeKey} from helpers:`, { hue, saturation, lightness });
+        lcardsLog.debug(`[AlertLab] Loaded ${modeKey} from helpers:`, { hue, hueStrength, saturation, lightness });
+      }
+
+      // Load hue anchor parameters if they exist (for red, yellow, blue)
+      if (['red', 'yellow', 'blue'].includes(mode)) {
+        const centerHueKey = `alert_lab_${mode}_center_hue`;
+        const rangeKey = `alert_lab_${mode}_range`;
+        const strengthKey = `alert_lab_${mode}_strength`;
+
+        if (helperManager.helperExists(centerHueKey)) {
+          const centerHue = parseFloat(helperManager.getHelperValue(centerHueKey));
+          const range = parseFloat(helperManager.getHelperValue(rangeKey));
+          const strength = parseFloat(helperManager.getHelperValue(strengthKey));
+
+          // Apply to alert mode transform
+          const modeKey = `${mode}_alert`;
+          setAlertModeTransformParameter(modeKey, 'hueAnchor', {
+            centerHue,
+            range,
+            strength
+          });
+
+          lcardsLog.debug(`[AlertLab] Loaded ${modeKey} hue anchor from helpers:`, { centerHue, range, strength });
+        }
+      }
+
+      // Load contrast enhancement for black alert
+      if (mode === 'black') {
+        const thresholdKey = 'alert_lab_black_threshold';
+        const darkMultKey = 'alert_lab_black_dark_multiplier';
+        const lightMultKey = 'alert_lab_black_light_multiplier';
+
+        if (helperManager.helperExists(thresholdKey)) {
+          const threshold = parseFloat(helperManager.getHelperValue(thresholdKey));
+          const darkMultiplier = parseFloat(helperManager.getHelperValue(darkMultKey));
+          const lightMultiplier = parseFloat(helperManager.getHelperValue(lightMultKey));
+
+          setAlertModeTransformParameter('black_alert', 'contrastEnhancement', {
+            enabled: true,
+            threshold,
+            darkMultiplier,
+            lightMultiplier
+          });
+
+          lcardsLog.debug('[AlertLab] Loaded black_alert contrast enhancement from helpers:', { threshold, darkMultiplier, lightMultiplier });
+        }
       }
     });
 
@@ -3257,8 +3307,9 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       return html`<tr><td colspan="6">Error: Unknown mode ${mode}</td></tr>`;
     }
 
-    // Format additional settings for black_alert
+    // Format additional settings for black_alert and hue anchor modes
     let additionalSettings = '—';
+
     if (mode === 'black_alert' && transform.contrastEnhancement) {
       const ce = transform.contrastEnhancement;
       additionalSettings = html`
@@ -3267,6 +3318,16 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
           <div>Threshold: ${ce.threshold}</div>
           <div>Dark ×: ${ce.darkMultiplier}</div>
           <div>Light ×: ${ce.lightMultiplier}</div>
+        </div>
+      `;
+    } else if (transform.hueAnchor) {
+      const ha = transform.hueAnchor;
+      additionalSettings = html`
+        <div style="font-size: 0.9em; line-height: 1.4;">
+          <div><strong>Hue Anchor:</strong></div>
+          <div>Center: ${ha.centerHue}°</div>
+          <div>Range: ±${ha.range}°</div>
+          <div>Strength: ${ha.strength}</div>
         </div>
       `;
     }
@@ -3509,7 +3570,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
     const helperManager = window.lcards.core.helperManager;
     const transform = getAlertModeTransform(this._selectedAlertMode);
 
-    // Extract mode key (red, yellow, blue, white)
+    // Extract mode key (red, yellow, blue, gray, black)
     const modeKey = this._selectedAlertMode.replace('_alert', '');
 
     // Cannot save green_alert (it's baseline)
@@ -3520,19 +3581,22 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
     }
 
     try {
-      // Check if helpers exist first
+      // Check if base helpers exist first
       const hueHelper = `alert_lab_${modeKey}_hue`;
+      const hueStrengthHelper = `alert_lab_${modeKey}_hue_strength`;
       const satHelper = `alert_lab_${modeKey}_saturation`;
       const lightHelper = `alert_lab_${modeKey}_lightness`;
 
       const helpersExist =
         helperManager.helperExists(hueHelper) &&
+        helperManager.helperExists(hueStrengthHelper) &&
         helperManager.helperExists(satHelper) &&
         helperManager.helperExists(lightHelper);
 
       if (!helpersExist) {
         const missingHelpers = [];
         if (!helperManager.helperExists(hueHelper)) missingHelpers.push(hueHelper);
+        if (!helperManager.helperExists(hueStrengthHelper)) missingHelpers.push(hueStrengthHelper);
         if (!helperManager.helperExists(satHelper)) missingHelpers.push(satHelper);
         if (!helperManager.helperExists(lightHelper)) missingHelpers.push(lightHelper);
 
@@ -3544,14 +3608,70 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         return;
       }
 
-      // Save hue, saturation, lightness to helpers
+      // Save base parameters
       await helperManager.setHelperValue(hueHelper, transform.hueShift);
+      await helperManager.setHelperValue(hueStrengthHelper, transform.hueStrength);
       await helperManager.setHelperValue(satHelper, transform.saturationMultiplier * 100);
       await helperManager.setHelperValue(lightHelper, transform.lightnessMultiplier * 100);
+
+      // Save hue anchor properties if they exist (for red, yellow, blue alerts)
+      if (transform.hueAnchor) {
+        const centerHueHelper = `alert_lab_${modeKey}_center_hue`;
+        const rangeHelper = `alert_lab_${modeKey}_range`;
+        const strengthHelper = `alert_lab_${modeKey}_strength`;
+
+        // Check if hue anchor helpers exist
+        const hueAnchorHelpersExist =
+          helperManager.helperExists(centerHueHelper) &&
+          helperManager.helperExists(rangeHelper) &&
+          helperManager.helperExists(strengthHelper);
+
+        if (hueAnchorHelpersExist) {
+          await helperManager.setHelperValue(centerHueHelper, transform.hueAnchor.centerHue);
+          await helperManager.setHelperValue(rangeHelper, transform.hueAnchor.range);
+          await helperManager.setHelperValue(strengthHelper, transform.hueAnchor.strength);
+
+          lcardsLog.info('[AlertLab] Saved hue anchor parameters:', {
+            centerHue: transform.hueAnchor.centerHue,
+            range: transform.hueAnchor.range,
+            strength: transform.hueAnchor.strength
+          });
+        } else {
+          lcardsLog.debug('[AlertLab] Hue anchor helpers not found, skipping');
+        }
+      }
+
+      // Save contrast enhancement for black alert
+      if (modeKey === 'black' && transform.contrastEnhancement) {
+        const thresholdHelper = 'alert_lab_black_threshold';
+        const darkMultHelper = 'alert_lab_black_dark_multiplier';
+        const lightMultHelper = 'alert_lab_black_light_multiplier';
+
+        const contrastHelpersExist =
+          helperManager.helperExists(thresholdHelper) &&
+          helperManager.helperExists(darkMultHelper) &&
+          helperManager.helperExists(lightMultHelper);
+
+        if (contrastHelpersExist) {
+          const ce = transform.contrastEnhancement;
+          await helperManager.setHelperValue(thresholdHelper, ce.threshold);
+          await helperManager.setHelperValue(darkMultHelper, ce.darkMultiplier);
+          await helperManager.setHelperValue(lightMultHelper, ce.lightMultiplier);
+
+          lcardsLog.info('[AlertLab] Saved contrast enhancement parameters:', {
+            threshold: ce.threshold,
+            darkMultiplier: ce.darkMultiplier,
+            lightMultiplier: ce.lightMultiplier
+          });
+        } else {
+          lcardsLog.debug('[AlertLab] Contrast enhancement helpers not found, skipping');
+        }
+      }
 
       lcardsLog.info('[AlertLab] Saved parameters to helpers:', {
         mode: this._selectedAlertMode,
         hue: transform.hueShift,
+        hueStrength: transform.hueStrength,
         saturation: transform.saturationMultiplier,
         lightness: transform.lightnessMultiplier
       });
