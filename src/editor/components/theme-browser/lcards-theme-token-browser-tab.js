@@ -33,6 +33,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       editor: { type: Object },
       config: { type: Object },
       hass: { type: Object },
+      _inlineMode: { type: Boolean }, // When true, render content directly without dialog wrapper
       _tokens: { type: Array, state: true },
       _filteredTokens: { type: Array, state: true },
       _searchQuery: { type: String, state: true },
@@ -97,6 +98,28 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
     super.connectedCallback();
     // Use capture phase to intercept before browser's find
     document.addEventListener('keydown', this._handleKeydown, true);
+
+    // If in inline mode, initialize immediately
+    if (this._inlineMode) {
+      this._initializeInlineMode();
+    }
+  }
+
+  _initializeInlineMode() {
+    lcardsLog.debug('[ThemeTokenBrowser] Initializing inline mode');
+    this._scanCssVariables();
+    this._scanAllCssVariables();
+    this._detectHaTheme();
+    this._applyFilters();
+
+    // Capture original LCARS colors for side-by-side comparison
+    this._originalLcarsColors = captureOriginalColors(document.documentElement);
+
+    // Initialize Alert Lab with current running alert mode
+    if (window.lcards?.getAlertMode) {
+      this._selectedAlertMode = window.lcards.getAlertMode();
+      lcardsLog.debug('[AlertLab] Initialized with current mode:', this._selectedAlertMode);
+    }
   }
 
   disconnectedCallback() {
@@ -132,6 +155,18 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
     return [
       editorStyles,
       css`
+        /* Studio Layout Container (inline mode) */
+        .studio-layout {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          background: var(--primary-background-color);
+          min-height: 0;
+          border-radius: var(--ha-card-border-radius, 12px);
+          padding: 16px;
+        }
+
         /* Dialog styles */
         ha-dialog {
           --mdc-dialog-min-width: 90vw;
@@ -143,6 +178,12 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         flex-direction: column;
         min-height: 60vh;
         max-height: 80vh;
+      }
+
+      .dialog-content.inline-mode {
+        flex: 1;
+        min-height: 0;
+        max-height: none;
       }
 
       .dialog-header {
@@ -177,6 +218,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       ha-tab-group {
         display: block;
         margin-bottom: 12px;
+        padding: 0;
       }
 
       .theme-info {
@@ -189,7 +231,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
 
       .theme-info-badge {
         padding: 8px 16px;
-        background: var(--card-background-color);
+        background: var(--secondary-background-color);
         border: 1px solid var(--divider-color);
         border-radius: 4px;
         font-size: 13px;
@@ -281,6 +323,13 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         padding: 0;
       }
 
+      /* Alert Lab: dialog-body becomes flex container without scroll */
+      .dialog-body:has(.alert-lab-container) {
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
       .css-vars-columns {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -300,7 +349,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       .css-vars-column h4 {
         position: sticky;
         top: 0;
-        background: var(--card-background-color);
+        background: var(--primary-background-color);
         padding: 16px 24px 8px;
         margin: 0;
         color: var(--primary-text-color);
@@ -311,12 +360,13 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       .token-table {
         width: 100%;
         border-collapse: collapse;
+        background: var(--primary-background-color);
       }
 
       .token-table thead {
         position: sticky;
         top: 0;
-        background: var(--card-background-color);
+        background: var(--primary-background-color);
         z-index: 1;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       }
@@ -487,7 +537,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       /* HSL Formula Table */
       .hsl-formula-table {
         margin-top: 12px;
-        background: var(--card-background-color);
+        background: var(--secondary-background-color);
         border-radius: 8px;
         overflow: hidden;
         border: 1px solid var(--divider-color);
@@ -556,7 +606,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       }
 
       .hsl-formula-info code {
-        background: var(--card-background-color);
+        background: var(--secondary-background-color);
         padding: 2px 6px;
         border-radius: 3px;
         font-family: 'Roboto Mono', monospace;
@@ -617,7 +667,8 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         display: grid;
         grid-template-columns: 450px 1fr;
         gap: 32px;
-        align-items: start;
+        min-height: 0;
+        flex: 1;
       }
 
       @media (max-width: 1200px) {
@@ -627,22 +678,46 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       }
 
       .alert-lab-left-column {
-        position: sticky;
-        top: 20px;
         display: flex;
         flex-direction: column;
         gap: 12px;
+        align-self: start;
       }
 
       .alert-lab-right-column {
         display: flex;
         flex-direction: column;
+        min-height: 0;
+        flex: 1;
+        overflow: hidden;
       }
 
       /* Alert Lab: HA native tab styling for visualization tabs (Issue #82) */
       .alert-lab-right-column ha-tab-group {
         display: block;
         margin-bottom: 12px;
+        flex-shrink: 0;
+      }
+
+      /* Alert Lab: Scrollable visualization content container (like main dialog-body) */
+      .alert-lab-viz-content {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 0;
+        min-height: 0;
+      }
+
+      /* Alert Lab: Scrollable content containers */
+      .preview-section,
+      .visualization-section,
+      .comparison-section {
+        padding: 16px;
+      }
+
+      .preview-section h4,
+      .visualization-section h4 {
+        margin-top: 0;
       }
 
       .alert-lab-header {
@@ -675,7 +750,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         padding: 8px 12px;
         border: 1px solid var(--divider-color);
         border-radius: 4px;
-        background: var(--card-background-color);
+        background: var(--secondary-background-color);
         color: var(--primary-text-color);
         font-size: 14px;
         flex: 1;
@@ -792,9 +867,9 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       }
 
       .preview-section {
-        background: var(--card-background-color);
+        background: rgba(60,60,60,0.5);
         border: 1px solid var(--divider-color);
-        border-radius: 8px;
+        border-radius: var(--ha-card-border-radius, 12px);
         padding: 20px;
       }
 
@@ -868,11 +943,9 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       .comparison-grid-container {
         display: flex;
         flex-direction: column;
-        max-height: 600px;
-        overflow-y: auto;
         border: 1px solid var(--divider-color);
         border-radius: 4px;
-        background: var(--card-background-color);
+        overflow: auto;
       }
 
       .comparison-grid-header {
@@ -880,11 +953,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         grid-template-columns: 200px 1fr 1fr;
         gap: 12px;
         padding: 12px 16px;
-        background: var(--secondary-background-color);
         border-bottom: 2px solid var(--divider-color);
-        position: sticky;
-        top: 0;
-        z-index: 1;
         font-weight: 600;
         font-size: 13px;
       }
@@ -918,7 +987,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
 
       .comparison-var-name code {
         font-size: 11px;
-        color: var(--primary-text-color);
+        color: var(--primary-color);
         word-break: break-all;
       }
 
@@ -950,10 +1019,9 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
 
       /* Color Wheel Visualization Styles */
       .visualization-section {
-        margin-top: 24px;
         padding: 20px;
-        border-radius: 8px;
-        background: var(--card-background-color);
+        border-radius: var(--ha-card-border-radius, 12px);
+        background: rgba(60,60,60,0.5);
         border: 1px solid var(--divider-color);
       }
 
@@ -1053,10 +1121,33 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
   }
 
   render() {
+    // If in inline mode, render dialog content directly without ha-dialog wrapper
+    if (this._inlineMode) {
+      return html`
+        ${this._renderInlineContent()}
+        ${this._renderPackExplorer()}
+      `;
+    }
+
     return html`
       ${this._renderTabContent()}
       ${this._renderDialog()}
       ${this._renderPackExplorer()}
+    `;
+  }
+
+  _renderInlineContent() {
+    lcardsLog.debug('[ThemeTokenBrowser] Rendering inline content');
+
+    return html`
+      <div class="studio-layout">
+        <div class="dialog-content inline-mode">
+          ${this._renderDialogHeader()}
+          ${this._activeView === 'tokens' ? this._renderCategoryFilters() : ''}
+          ${this._activeView === 'all-vars' ? this._renderAllVarsCategoryFilters() : ''}
+          ${this._renderDialogBody()}
+        </div>
+      </div>
     `;
   }
 
@@ -1163,16 +1254,6 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
               <ha-icon icon="mdi:${this._alertModePreview ? 'eye' : 'eye-off'}"></ha-icon>
               <span class="alert-mode-toggle-label">Alert Mode Preview</span>
             </div>
-            ${this._alertModePreview ? html`
-              <div class="hsl-formula-info">
-                <strong>--lcars-*:</strong>
-                <span>HSL transform</span>
-              </div>
-              <div class="hsl-formula-info">
-                <strong>--lcards-*:</strong>
-                <span>Pre-defined palettes</span>
-              </div>
-            ` : ''}
           </div>
           ${this._alertModePreview ? html`
             <div class="hsl-formula-table">
@@ -1984,35 +2065,39 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
             </ha-tab-group-tab>
           </ha-tab-group>
 
-          <!-- Tab Content -->
-          ${this._activeVizTab === 'preview' ? html`
-            <div class="preview-section">
-              <h4>Live Preview</h4>
-              <p class="preview-hint">Key LCARS colors in selected alert mode:</p>
-              ${this._renderAlertModePreviewSwatches()}
-            </div>
-          ` : ''}
+          <!-- Tab Content - Wrapped in scrollable container like main tabs -->
+          <div class="alert-lab-viz-content">
+            ${this._activeVizTab === 'preview' ? html`
+              <div class="preview-section">
+                <h4>Live Preview</h4>
+                <p class="preview-hint">Key LCARS colors in selected alert mode:</p>
+                ${this._renderAlertModePreviewSwatches()}
+              </div>
+            ` : ''}
 
-          ${this._activeVizTab === 'wheel' ? html`
-            <div class="visualization-section">
-              <h4>🎨 HSL Color Wheel Transformation</h4>
-              <p class="preview-hint">Visual representation of how colors shift in HSL space.</p>
-              <p class="preview-hint" style="font-size: 12px; margin-top: -8px; color: var(--secondary-text-color);">
-                <em>Showing the same 12 variables as above. Click legend items to toggle visibility.</em>
-              </p>
-              ${this._renderColorWheel()}
-            </div>
-          ` : ''}
+            ${this._activeVizTab === 'wheel' ? html`
+              <div class="visualization-section">
+                <h4>🎨 HSL Color Wheel Transformation</h4>
+                <p class="preview-hint">Visual representation of how colors shift in HSL space.</p>
+                <p class="preview-hint" style="font-size: 12px; margin-top: -8px; color: var(--secondary-text-color);">
+                  <em>Showing the same 12 variables as above. Click legend items to toggle visibility.</em>
+                </p>
+                ${this._renderColorWheel()}
+              </div>
+            ` : ''}
 
-          ${this._activeVizTab === 'comparison' ? html`
-            <lcards-form-section
-              .header=${'Full Color Comparison'}
-              .description=${'Side-by-side comparison of all LCARS color variables'}
-              ?expanded=${true}
-            >
-              ${this._renderColorComparisonGrid()}
-            </lcards-form-section>
-          ` : ''}
+            ${this._activeVizTab === 'comparison' ? html`
+              <div class="comparison-section">
+                <lcards-form-section
+                  .header=${'Full Color Comparison'}
+                  .description=${'Side-by-side comparison of all LCARS color variables'}
+                  ?expanded=${true}
+                >
+                  ${this._renderColorComparisonGrid()}
+                </lcards-form-section>
+              </div>
+            ` : ''}
+          </div>
         </div>
       </div>
     `;
@@ -2215,7 +2300,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         <div class="color-wheel-explanation">
           <h5>📖 Understanding the Visualization</h5>
 
-          <div class="explanation-section">
+          <div class="explanation-tip">
             <h6>What You're Seeing:</h6>
             <ul>
               <li><strong>⭕ Circles (black border):</strong> Original colors from Green Alert baseline</li>
@@ -2229,21 +2314,21 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
           </div>
 
           ${transform.hueAnchor ? html`
-            <div class="explanation-section">
+            <div class="explanation-tip">
               <h6>🎯 Hue Anchor:</h6>
               <p>The <strong>shaded arc</strong> shows the target hue range (${transform.hueAnchor.centerHue - transform.hueAnchor.range}° - ${transform.hueAnchor.centerHue + transform.hueAnchor.range}°). Colors are "pulled" toward this range with ${Math.round(transform.hueAnchor.strength * 100)}% strength.</p>
             </div>
           ` : ''}
 
           ${transform.hueShift !== undefined ? html`
-            <div class="explanation-section">
+            <div class="explanation-tip">
               <h6>🎨 Hue Shift:</h6>
               <p>Primary target: <strong>${transform.hueShift}°</strong> (${this._getHueName(transform.hueShift)})</p>
               <p>Colors shift toward this hue with ${Math.round(transform.hueStrength * 100)}% strength.</p>
             </div>
           ` : ''}
 
-          <div class="explanation-section">
+          <div class="explanation-tip">
             <h6>💡 Transform Parameters:</h6>
             <ul>
               <li><strong>Saturation:</strong> ${transform.saturationMultiplier}× (${transform.saturationMultiplier > 1 ? 'more vivid' : 'more muted'})</li>
@@ -2309,11 +2394,11 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       this._selectedAlertMode = window.lcards.getAlertMode();
       lcardsLog.debug('[AlertLab] Initialized with current mode:', this._selectedAlertMode);
     }
-    
+
     // Load helper values if available
     this._loadAlertLabFromHelpers();
   }
-  
+
   /**
    * Load Alert Lab parameters from helpers (if they exist)
    * @private
@@ -2323,31 +2408,31 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       lcardsLog.debug('[AlertLab] HelperManager not available, skipping helper load');
       return;
     }
-    
+
     const helperManager = window.lcards.core.helperManager;
-    
+
     // Load parameters for each alert mode
     ['red', 'yellow', 'blue', 'white'].forEach(mode => {
       const hueKey = `alert_lab_${mode}_hue`;
       const satKey = `alert_lab_${mode}_saturation`;
       const lightKey = `alert_lab_${mode}_lightness`;
-      
+
       // Check if helpers exist
       if (helperManager.helperExists(hueKey)) {
         const hue = parseFloat(helperManager.getHelperValue(hueKey));
         const saturation = parseFloat(helperManager.getHelperValue(satKey)) / 100; // Convert % to multiplier
         const lightness = parseFloat(helperManager.getHelperValue(lightKey)) / 100; // Convert % to multiplier
-        
+
         // Apply to alert mode transform
         const modeKey = `${mode}_alert`;
         setAlertModeTransformParameter(modeKey, 'hueShift', hue);
         setAlertModeTransformParameter(modeKey, 'saturationMultiplier', saturation);
         setAlertModeTransformParameter(modeKey, 'lightnessMultiplier', lightness);
-        
+
         lcardsLog.debug(`[AlertLab] Loaded ${modeKey} from helpers:`, { hue, saturation, lightness });
       }
     });
-    
+
     this.requestUpdate();
   }
 
@@ -3389,7 +3474,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       await this._applyAlertMode();
     }
   }
-  
+
   /**
    * Save current Alert Lab parameters to helpers
    * @private
@@ -3406,32 +3491,32 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       }
       return;
     }
-    
+
     const helperManager = window.lcards.core.helperManager;
     const transform = getAlertModeTransform(this._selectedAlertMode);
-    
+
     // Extract mode key (red, yellow, blue, white)
     const modeKey = this._selectedAlertMode.replace('_alert', '');
-    
+
     // Cannot save green_alert (it's baseline)
     if (modeKey === 'green') {
       lcardsLog.warn('[AlertLab] Cannot save green_alert parameters');
       return;
     }
-    
+
     try {
       // Save hue, saturation, lightness to helpers
       await helperManager.setHelperValue(`alert_lab_${modeKey}_hue`, transform.hueShift);
       await helperManager.setHelperValue(`alert_lab_${modeKey}_saturation`, transform.saturationMultiplier * 100);
       await helperManager.setHelperValue(`alert_lab_${modeKey}_lightness`, transform.lightnessMultiplier * 100);
-      
+
       lcardsLog.info('[AlertLab] Saved parameters to helpers:', {
         mode: this._selectedAlertMode,
         hue: transform.hueShift,
         saturation: transform.saturationMultiplier,
         lightness: transform.lightnessMultiplier
       });
-      
+
       // Show success notification
       if (this.hass?.callService) {
         await this.hass.callService('persistent_notification', 'create', {
