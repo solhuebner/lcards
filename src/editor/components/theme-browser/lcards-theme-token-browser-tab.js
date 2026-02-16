@@ -74,7 +74,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
     this._dialogOpen = false;
     this._sortColumn = 'path';
     this._sortDirection = 'asc';
-    this._activeView = 'tokens'; // Default to tokens view
+    this._activeView = 'alert-lab'; // Default to alert-lab view
     this._cssVariables = [];
     this._filteredCssVars = [];
     this._haThemeName = 'Unknown';
@@ -1235,6 +1235,9 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       <div class="dialog-header">
         <!-- Using HA native tab components (Issue #82) -->
         <ha-tab-group @wa-tab-show=${this._handleTabChange}>
+          <ha-tab-group-tab value="alert-lab" ?active=${this._activeView === 'alert-lab'}>
+            Alert Mode Lab
+          </ha-tab-group-tab>
           <ha-tab-group-tab value="tokens" ?active=${this._activeView === 'tokens'}>
             LCARdS Theme Tokens (${this._tokens.length})
           </ha-tab-group-tab>
@@ -1243,9 +1246,6 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
           </ha-tab-group-tab>
           <ha-tab-group-tab value="all-vars" ?active=${this._activeView === 'all-vars'}>
             All CSS Variables (${this._allCssVariables.length})
-          </ha-tab-group-tab>
-          <ha-tab-group-tab value="alert-lab" ?active=${this._activeView === 'alert-lab'}>
-            Alert Mode Lab
           </ha-tab-group-tab>
         </ha-tab-group>
         ${this._activeView === 'css-vars' ? html`

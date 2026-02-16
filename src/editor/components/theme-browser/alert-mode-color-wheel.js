@@ -44,12 +44,13 @@ export class AlertModeColorWheel extends LitElement {
     }
 
     .hsl-wheel-segment {
-      opacity: 0.3;
+      opacity: 0.7;
       transition: opacity 0.2s;
     }
 
     .hsl-wheel-segment:hover {
-      opacity: 0.5;
+      opacity: 1;
+      filter: brightness(1.1);
     }
 
     .anchor-range {

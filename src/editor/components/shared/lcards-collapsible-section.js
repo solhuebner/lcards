@@ -164,12 +164,13 @@ export class LCARdSCollapsibleSection extends LitElement {
             </div>
             <ha-assist-chip
               .label=${`${this.count} ${this.countLabel}`}
+              .filled=${true}
               style="
-                --md-assist-chip-outline-color: var(--primary-color);
-                --md-sys-color-primary: var(--primary-text-color);
-                --md-sys-color-on-surface: var(--primary-text-color);
-                opacity: 0.9;
-              ">
+                --ha-assist-chip-filled-container-color: var(--primary-color);
+                --md-assist-chip-label-text-color: white;
+                --md-sys-color-on-surface: white;
+              "
+            >
             </ha-assist-chip>
           </div>
         </div>
