@@ -96,9 +96,9 @@ export const rendererStyles = css`
   .preset-preview,
   .animation-preview,
   .svg-preview {
-    background: var(--secondary-background-color);
+    background: rgba(60,60,60,0.5);
     border: 1px solid var(--divider-color);
-    border-radius: 6px;
+    border-radius: var(--ha-card-border-radius, 12px);
     padding: 16px;
     margin: 12px 0;
   }
@@ -117,9 +117,9 @@ export const rendererStyles = css`
   }
 
   .preview-placeholder {
-    background: var(--card-background-color);
+    background: rgba(255,255,255,0.5);
     border: 2px dashed var(--divider-color);
-    border-radius: 4px;
+    border-radius: var(--ha-card-border-radius, 12px);
     padding: 24px;
     text-align: center;
     color: var(--secondary-text-color);

@@ -32,7 +32,6 @@ export class LCARdSPackExplorerTab extends LitElement {
       _selectedNode: { type: Object, state: true },
       _expandedNodes: { state: true, attribute: false },
       _treeData: { type: Array, state: true },
-      _searchQuery: { type: String, state: true },
       _loadingSvg: { type: Boolean, state: true },
       _svgContent: { type: String, state: true }
     };
@@ -44,7 +43,6 @@ export class LCARdSPackExplorerTab extends LitElement {
     this._selectedNode = null;
     this._expandedNodes = new Set();
     this._treeData = [];
-    this._searchQuery = '';
     this._loadingSvg = false;
     this._svgContent = null;
   }
@@ -119,42 +117,25 @@ export class LCARdSPackExplorerTab extends LitElement {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 12px 16px;
+        padding: 14px 24px;
         border-bottom: 1px solid var(--divider-color);
-        background: var(--secondary-background-color);
+        background: rgba(60,60,60,0.5);
         flex-shrink: 0;
+        border-top-left-radius: var(--ha-card-border-radius, 12px);
       }
 
       .tree-pane-header span {
         font-weight: 500;
-        font-size: 14px;
+        font-size: 18px;
         color: var(--primary-text-color);
-      }
-
-      .search-box {
-        padding: 12px 16px;
-        border-bottom: 1px solid var(--divider-color);
-        background: var(--secondary-background-color);
-        flex-shrink: 0;
-      }
-
-      .search-box input {
-        width: 100%;
-        padding: 8px 12px;
-        border: 1px solid var(--divider-color);
-        border-radius: 4px;
-        background: var(--card-background-color);
-        color: var(--primary-text-color);
-        font-family: inherit;
-        font-size: 14px;
       }
 
       .tree-container {
         flex: 1;
         overflow-y: auto;
         padding: 12px;
-        background: var(--code-background-color, #1e1e1e);
-        border-radius: 8px;
+        background: rgba(60,60,60,0.5);
+        border-bottom-left-radius: var(--ha-card-border-radius, 12px);
       }
 
       /* Tree nodes */
@@ -242,8 +223,6 @@ export class LCARdSPackExplorerTab extends LitElement {
         align-items: center;
         gap: 12px;
         padding: 16px;
-        background: var(--secondary-background-color);
-        border-radius: 8px;
         margin-bottom: 12px;
       }
 
@@ -290,8 +269,6 @@ export class LCARdSPackExplorerTab extends LitElement {
         justify-content: space-between;
         align-items: center;
         padding: 4px 10px;
-        background: var(--secondary-background-color);
-        border-radius: 4px;
       }
 
       .detail-label {
@@ -318,16 +295,16 @@ export class LCARdSPackExplorerTab extends LitElement {
       }
 
       .stat-card {
-        background: var(--secondary-background-color);
+        background: var(--primary-color);
         padding: 12px;
         border-radius: 6px;
         text-align: center;
+        color: var(--primary-text-color, white);
       }
 
       .stat-value {
         font-size: 24px;
         font-weight: 600;
-        color: var(--primary-color);
       }
 
       .stat-label {
@@ -337,8 +314,8 @@ export class LCARdSPackExplorerTab extends LitElement {
       }
 
       .svg-preview-container {
-        background: var(--code-background-color, #1e1e1e);
-        border-radius: 8px;
+        background: rgba(60,60,60,0.5);
+        border-radius: var(--ha-card-border-radius, 12px);
         padding: 16px;
         display: flex;
         align-items: center;
@@ -377,9 +354,9 @@ export class LCARdSPackExplorerTab extends LitElement {
       }
 
       .preview-placeholder {
-        background: var(--secondary-background-color);
+        background: rgba(60,60,60,0.5);
         border: 2px dashed var(--divider-color);
-        border-radius: 8px;
+        border-radius: var(--ha-card-border-radius, 12px);
         padding: 24px;
         text-align: center;
       }
@@ -421,8 +398,8 @@ export class LCARdSPackExplorerTab extends LitElement {
       }
 
       .audio-preview-container {
-        background: var(--secondary-background-color);
-        border-radius: 8px;
+        background: rgba(60,60,60,0.5);
+        border-radius: var(--ha-card-border-radius, 12px);
         padding: 16px;
         display: flex;
         justify-content: center;
@@ -434,9 +411,9 @@ export class LCARdSPackExplorerTab extends LitElement {
       }
 
       .preset-preview-container {
-        background: var(--card-background-color);
+        background: rgba(60,60,60,0.5);
         border: 1px solid var(--divider-color);
-        border-radius: 8px;
+        border-radius: var(--ha-card-border-radius, 12px);
         padding: 24px;
         display: flex;
         justify-content: center;
@@ -1469,14 +1446,6 @@ export class LCARdSPackExplorerTab extends LitElement {
           <div class="split-pane-container">
             <!-- Left Pane: Tree View -->
             <div class="tree-pane">
-              <div class="search-box">
-                <input
-                  type="text"
-                  placeholder="Search packs, themes, presets..."
-                  .value=${this._searchQuery}
-                  @input=${(e) => { this._searchQuery = e.target.value; }}
-                />
-              </div>
               <div class="tree-pane-header">
                 <span>Packs (${this._treeData.length})</span>
               </div>
