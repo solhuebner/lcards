@@ -23,6 +23,7 @@
 import { LitElement, html, css } from 'lit';
 import { lcardsLog } from '../utils/lcards-logging.js';
 import '../editor/components/theme-browser/lcards-theme-token-browser-tab.js';
+import '../editor/components/pack-explorer/lcards-pack-explorer-tab.js';
 import '../editor/components/shared/lcards-collapsible-section.js';
 
 export class LCARdSConfigPanel extends LitElement {
@@ -97,7 +98,7 @@ export class LCARdSConfigPanel extends LitElement {
       margin: 0 auto;
     }
 
-    /* Studio Layout Container (matching theme browser) */
+    /* Helpers tab container */
     .studio-layout {
       flex: 1;
       display: flex;
@@ -109,6 +110,7 @@ export class LCARdSConfigPanel extends LitElement {
       padding: 16px;
     }
 
+    /* Helpers tab layout (used only in Helpers tab) */
     .dialog-content {
       display: flex;
       flex-direction: column;
@@ -335,23 +337,6 @@ export class LCARdSConfigPanel extends LitElement {
       overflow-y: auto;
       margin-top: 12px;
       border: 1px solid var(--divider-color);
-    }
-
-    /* Embedded Theme Browser styling */
-    .embedded-theme-browser {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      min-height: 0;
-      background: var(--primary-background-color);
-      border-radius: var(--ha-card-border-radius, 12px);
-    }
-
-    .embedded-theme-browser lcards-theme-token-browser-tab {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
     }
 
     /* Empty State */
@@ -758,6 +743,10 @@ export class LCARdSConfigPanel extends LitElement {
             Alert Lab & Theme Browser
           </ha-tab-group-tab>
           <ha-tab-group-tab value="2" ?active=${this._selectedTab === 2}>
+            <ha-icon icon="mdi:package-variant"></ha-icon>
+            Pack Explorer
+          </ha-tab-group-tab>
+          <ha-tab-group-tab value="3" ?active=${this._selectedTab === 3}>
             <ha-icon icon="mdi:code-braces"></ha-icon>
             YAML Export
           </ha-tab-group-tab>
@@ -786,6 +775,8 @@ export class LCARdSConfigPanel extends LitElement {
       case 1:
         return this._renderThemeBrowserTab();
       case 2:
+        return this._renderPackExplorerTab();
+      case 3:
         return this._renderYAMLTab();
       default:
         return html`<div>Unknown tab</div>`;
@@ -1106,13 +1097,21 @@ export class LCARdSConfigPanel extends LitElement {
   _renderThemeBrowserTab() {
     // Create an instance with dialogOpen forced to true and render inline
     return html`
-      <div class="embedded-theme-browser">
-        <lcards-theme-token-browser-tab
-          .hass=${this.hass}
-          ._dialogOpen=${true}
-          ._inlineMode=${true}
-        ></lcards-theme-token-browser-tab>
-      </div>
+      <lcards-theme-token-browser-tab
+        .hass=${this.hass}
+        ._dialogOpen=${true}
+        ._inlineMode=${true}
+      ></lcards-theme-token-browser-tab>
+    `;
+  }
+
+  _renderPackExplorerTab() {
+    // Embed Pack Explorer with inline mode
+    return html`
+      <lcards-pack-explorer-tab
+        .hass=${this.hass}
+        ._inlineMode=${true}
+      ></lcards-pack-explorer-tab>
     `;
   }
 

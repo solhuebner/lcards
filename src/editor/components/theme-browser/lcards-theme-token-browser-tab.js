@@ -157,7 +157,15 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
     return [
       editorStyles,
       css`
-        /* Studio Layout Container (inline mode) */
+        :host {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+          overflow: hidden;
+        }
+
+        /* Studio Layout Container */
         .studio-layout {
           flex: 1;
           display: flex;
@@ -173,28 +181,16 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         ha-dialog {
           --mdc-dialog-min-width: 90vw;
           --mdc-dialog-max-width: 1400px;
+          --mdc-dialog-min-height: 80vh;
+          --mdc-dialog-max-height: 80vh;
         }
 
       .dialog-content {
         display: flex;
         flex-direction: column;
-        min-height: 60vh;
-        max-height: 80vh;
-      }
-
-      .dialog-content.inline-mode {
         flex: 1;
         min-height: 0;
-        max-height: none;
-      }
-
-      .dialog-header {
-        padding: 0;
-        border-bottom: none;
-        display: flex;
-        flex-direction: column;
-        gap: 0;
-      }
+        overflow: hidden;
 
       .tabs-container {
         display: flex;
@@ -1144,7 +1140,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
 
     return html`
       <div class="studio-layout">
-        <div class="dialog-content inline-mode">
+        <div class="dialog-content">
           ${this._renderDialogHeader()}
           ${this._activeView === 'tokens' ? this._renderCategoryFilters() : ''}
           ${this._activeView === 'all-vars' ? this._renderAllVarsCategoryFilters() : ''}
@@ -1208,12 +1204,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         open
         @closed=${this._closeDialog}
         .heading=${this._renderDialogTitle()}>
-        <div class="dialog-content">
-          ${this._renderDialogHeader()}
-          ${this._activeView === 'tokens' ? this._renderCategoryFilters() : ''}
-          ${this._activeView === 'all-vars' ? this._renderAllVarsCategoryFilters() : ''}
-          ${this._renderDialogBody()}
-        </div>
+        ${this._renderInlineContent()}
         <ha-button
           slot="primaryAction"
           variant="brand"
