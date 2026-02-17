@@ -102,7 +102,7 @@ export const HELPER_REGISTRY = {
     ws_create_params: {
       min: 0,
       max: 1,
-      step: 0.01,
+      step: 0.05,
       mode: 'slider'
     },
     default_value: 0.8,
@@ -111,7 +111,7 @@ export const HELPER_REGISTRY = {
     name: Alert Lab Red Hue Strength
     min: 0
     max: 1
-    step: 0.01
+    step: 0.05
     mode: slider
     icon: mdi:palette`
   },
@@ -120,12 +120,12 @@ export const HELPER_REGISTRY = {
     entity_id: 'input_number.lcards_alert_lab_red_saturation',
     domain: 'input_number',
     name: 'Alert Lab Red Saturation',
-    description: 'Saturation multiplier for red alert mode (0-200%)',
+    description: 'Saturation multiplier for red alert mode (0-300%)',
     icon: 'mdi:palette',
     category: 'alert_system',
     ws_create_params: {
       min: 0,
-      max: 200,
+      max: 300,
       step: 1,
       mode: 'slider',
       unit_of_measurement: '%'
@@ -135,7 +135,7 @@ export const HELPER_REGISTRY = {
   lcards_alert_lab_red_saturation:
     name: Alert Lab Red Saturation
     min: 0
-    max: 200
+    max: 300
     step: 1
     mode: slider
     unit_of_measurement: "%"
@@ -206,7 +206,7 @@ export const HELPER_REGISTRY = {
     ws_create_params: {
       min: 0,
       max: 180,
-      step: 1,
+      step: 5,
       mode: 'slider',
       unit_of_measurement: '°'
     },
@@ -216,7 +216,7 @@ export const HELPER_REGISTRY = {
     name: Alert Lab Red Range
     min: 0
     max: 180
-    step: 1
+    step: 5
     mode: slider
     unit_of_measurement: "°"
     icon: mdi:anchor`
@@ -232,7 +232,7 @@ export const HELPER_REGISTRY = {
     ws_create_params: {
       min: 0,
       max: 1,
-      step: 0.01,
+      step: 0.05,
       mode: 'slider'
     },
     default_value: 0.9,
@@ -241,7 +241,7 @@ export const HELPER_REGISTRY = {
     name: Alert Lab Red Strength
     min: 0
     max: 1
-    step: 0.01
+    step: 0.05
     mode: slider
     icon: mdi:anchor`
   },
@@ -284,7 +284,7 @@ export const HELPER_REGISTRY = {
     ws_create_params: {
       min: 0,
       max: 1,
-      step: 0.01,
+      step: 0.05,
       mode: 'slider'
     },
     default_value: 0.9,
@@ -293,7 +293,7 @@ export const HELPER_REGISTRY = {
     name: Alert Lab Yellow Hue Strength
     min: 0
     max: 1
-    step: 0.01
+    step: 0.05
     mode: slider
     icon: mdi:palette`
   },
@@ -302,12 +302,12 @@ export const HELPER_REGISTRY = {
     entity_id: 'input_number.lcards_alert_lab_yellow_saturation',
     domain: 'input_number',
     name: 'Alert Lab Yellow Saturation',
-    description: 'Saturation multiplier for yellow alert mode (0-200%)',
+    description: 'Saturation multiplier for yellow alert mode (0-300%)',
     icon: 'mdi:palette',
     category: 'alert_system',
     ws_create_params: {
       min: 0,
-      max: 200,
+      max: 300,
       step: 1,
       mode: 'slider',
       unit_of_measurement: '%'
@@ -317,7 +317,7 @@ export const HELPER_REGISTRY = {
   lcards_alert_lab_yellow_saturation:
     name: Alert Lab Yellow Saturation
     min: 0
-    max: 200
+    max: 300
     step: 1
     mode: slider
     unit_of_measurement: "%"
@@ -388,7 +388,7 @@ export const HELPER_REGISTRY = {
     ws_create_params: {
       min: 0,
       max: 180,
-      step: 1,
+      step: 5,
       mode: 'slider',
       unit_of_measurement: '°'
     },
@@ -398,7 +398,7 @@ export const HELPER_REGISTRY = {
     name: Alert Lab Yellow Range
     min: 0
     max: 180
-    step: 1
+    step: 5
     mode: slider
     unit_of_measurement: "°"
     icon: mdi:anchor`
@@ -414,7 +414,7 @@ export const HELPER_REGISTRY = {
     ws_create_params: {
       min: 0,
       max: 1,
-      step: 0.01,
+      step: 0.05,
       mode: 'slider'
     },
     default_value: 0.9,
@@ -423,7 +423,7 @@ export const HELPER_REGISTRY = {
     name: Alert Lab Yellow Strength
     min: 0
     max: 1
-    step: 0.01
+    step: 0.05
     mode: slider
     icon: mdi:anchor`
   },
@@ -466,7 +466,7 @@ export const HELPER_REGISTRY = {
     ws_create_params: {
       min: 0,
       max: 1,
-      step: 0.01,
+      step: 0.05,
       mode: 'slider'
     },
     default_value: 0.85,
@@ -475,7 +475,7 @@ export const HELPER_REGISTRY = {
     name: Alert Lab Blue Hue Strength
     min: 0
     max: 1
-    step: 0.01
+    step: 0.05
     mode: slider
     icon: mdi:palette`
   },
@@ -484,12 +484,12 @@ export const HELPER_REGISTRY = {
     entity_id: 'input_number.lcards_alert_lab_blue_saturation',
     domain: 'input_number',
     name: 'Alert Lab Blue Saturation',
-    description: 'Saturation multiplier for blue alert mode (0-200%)',
+    description: 'Saturation multiplier for blue alert mode (0-300%)',
     icon: 'mdi:palette',
     category: 'alert_system',
     ws_create_params: {
       min: 0,
-      max: 200,
+      max: 300,
       step: 1,
       mode: 'slider',
       unit_of_measurement: '%'
@@ -499,7 +499,7 @@ export const HELPER_REGISTRY = {
   lcards_alert_lab_blue_saturation:
     name: Alert Lab Blue Saturation
     min: 0
-    max: 200
+    max: 300
     step: 1
     mode: slider
     unit_of_measurement: "%"
@@ -570,7 +570,7 @@ export const HELPER_REGISTRY = {
     ws_create_params: {
       min: 0,
       max: 180,
-      step: 1,
+      step: 5,
       mode: 'slider',
       unit_of_measurement: '°'
     },
@@ -580,7 +580,7 @@ export const HELPER_REGISTRY = {
     name: Alert Lab Blue Range
     min: 0
     max: 180
-    step: 1
+    step: 5
     mode: slider
     unit_of_measurement: "°"
     icon: mdi:anchor`
@@ -596,7 +596,7 @@ export const HELPER_REGISTRY = {
     ws_create_params: {
       min: 0,
       max: 1,
-      step: 0.01,
+      step: 0.05,
       mode: 'slider'
     },
     default_value: 0.85,
@@ -605,7 +605,7 @@ export const HELPER_REGISTRY = {
     name: Alert Lab Blue Strength
     min: 0
     max: 1
-    step: 0.01
+    step: 0.05
     mode: slider
     icon: mdi:anchor`
   },
