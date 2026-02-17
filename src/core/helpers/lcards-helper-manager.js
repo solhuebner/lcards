@@ -232,6 +232,48 @@ export class LCARdSHelperManager extends BaseService {
         }
       }
     });
+
+    // Initial check: If auto-switch is already enabled on startup, apply current mode
+    // Use setTimeout to ensure HASS is ingested and helper states are populated
+    setTimeout(() => {
+      lcardsLog.debug('[HelperManager] Checking initial alert mode state...');
+
+      // Read directly from HASS state (cached values may not be populated yet)
+      const autoSwitchEntity = this.hass?.states['input_boolean.lcards_alert_mode_auto_switch'];
+      const modeEntity = this.hass?.states['input_select.lcards_alert_mode'];
+
+      const autoSwitchEnabled = autoSwitchEntity?.state;
+      const currentMode = modeEntity?.state;
+
+      lcardsLog.info('[HelperManager] Initial state check:', {
+        autoSwitchEnabled,
+        currentMode,
+        hassAvailable: !!this.hass,
+        lcardsCoreAvailable: !!window.lcards?.core,
+        setAlertModeAvailable: !!window.lcards?.setAlertMode
+      });
+
+      if ((autoSwitchEnabled === 'on' || autoSwitchEnabled === true) && currentMode) {
+        lcardsLog.info(`[HelperManager] ✓ Auto-switch is enabled on initial load, will apply mode: ${currentMode}`);
+
+        // Ensure HASS is available (critical for green_alert)
+        if (this.hass && window.lcards?.core) {
+          window.lcards.core.ingestHass(this.hass);
+        }
+
+        // Apply the mode
+        if (window.lcards?.setAlertMode) {
+          lcardsLog.info(`[HelperManager] Calling setAlertMode('${currentMode}') on initial load`);
+          window.lcards.setAlertMode(currentMode).catch(error => {
+            lcardsLog.error('[HelperManager] Failed to apply initial alert mode:', error);
+          });
+        } else {
+          lcardsLog.warn('[HelperManager] window.lcards.setAlertMode not yet available on initial load');
+        }
+      } else {
+        lcardsLog.debug('[HelperManager] Auto-switch not enabled or no current mode set, skipping initial application');
+      }
+    }, 100);
   }
 
   // ===== PUBLIC API: LIFECYCLE =====

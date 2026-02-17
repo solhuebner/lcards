@@ -148,6 +148,11 @@ export class LCARdSNativeCard extends LitElement {
         if (hass && oldHass !== hass) {
             lcardsLog.debug(`[LCARdSNativeCard] HASS object changed for ${this._cardGuid} - calling _onHassChanged`);
 
+            // Propagate HASS to HelperManager (ensures auto-switch works on any page with cards)
+            if (window.lcards?.core?.helperManager) {
+                window.lcards.core.helperManager.ingestHass(hass);
+            }
+
             // Determine if this HASS change is relevant to this card
             const shouldUpdate = this._shouldUpdateOnHassChange(hass, oldHass);
 
