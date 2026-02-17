@@ -189,6 +189,43 @@ export class TriggerManager {
       this._entitySubscriptions.push(unsubscribe);
       lcardsLog.debug(`[TriggerManager] ✅ Subscribed to entity: ${entityId} for overlay: ${this.overlayId}`);
     });
+
+    // Check initial state for animations with check_on_load flag
+    animations.forEach(anim => {
+      if (!anim.check_on_load) {
+        return;
+      }
+
+      const entityId = anim.entity;
+      if (!entityId) {
+        return;
+      }
+
+      // Get current entity state from SystemsManager
+      const currentState = systemsManager.getEntityState?.(entityId);
+      if (!currentState) {
+        lcardsLog.debug(`[TriggerManager] check_on_load: No current state for ${entityId}`);
+        return;
+      }
+
+      lcardsLog.debug(`[TriggerManager] check_on_load: Checking initial state for ${entityId}`, {
+        currentState: currentState.state,
+        fromState: anim.from_state,
+        toState: anim.to_state
+      });
+
+      // Apply same filters as change handler
+      // For initial check, from_state is not applicable (there's no "old" state)
+      // Only check to_state filter
+      if (anim.to_state && currentState.state !== anim.to_state) {
+        lcardsLog.debug(`[TriggerManager] check_on_load: State mismatch for ${entityId} - expected ${anim.to_state}, got ${currentState.state}`);
+        return;
+      }
+
+      // State matches - trigger animation as if it just changed to this state
+      lcardsLog.debug(`[TriggerManager] 🎬 check_on_load: Triggering initial animation for ${this.overlayId} - ${entityId} is in state ${currentState.state}`);
+      this.animationManager.playAnimation(this.overlayId, anim);
+    });
   }
 
   /**

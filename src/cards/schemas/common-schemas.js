@@ -281,6 +281,11 @@ export const animationSchema = {
             description: 'Filter: Only trigger when transitioning TO this state (on_entity_change only)',
             examples: ['on', 'off', 'home', 'unavailable']
         },
+        check_on_load: {
+            type: 'boolean',
+            default: false,
+            description: 'Check entity state immediately when card loads and trigger if it matches to_state filter (on_entity_change only)'
+        },
         color: {
             type: 'string',
             pattern: '^(#[0-9A-Fa-f]{6}|#[0-9A-Fa-f]{8}|theme:|rgb\\(|rgba\\(|var\\(--)',

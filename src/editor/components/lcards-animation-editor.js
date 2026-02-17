@@ -445,7 +445,7 @@ export class LCARdSAnimationEditor extends LitElement {
                 { value: 'on_leave', label: 'On Leave (Exit Hover)' },
                 { value: 'on_tap', label: 'On Tap' },
                 { value: 'on_datasource_change', label: 'On Data Change' },
-                { value: 'on_entity_change', label: '\u2728 On Entity Change (PR#235)' }
+                { value: 'on_entity_change', label: 'On Entity Change' }
               ]
             }
           }}
@@ -1918,7 +1918,17 @@ export class LCARdSAnimationEditor extends LitElement {
           style="width: 100%; margin-bottom: 12px;">
         </ha-textfield>
 
-        <lcards-message type="info" .message=${'Example: Monitor light.bedroom, animate only when changing from "off" to "on"'}></lcards-message>
+        <ha-selector
+          .hass=${this.hass}
+          .selector=${{ boolean: {} }}
+          .value=${anim.check_on_load || false}
+          .label=${'Check on Load'}
+          .helper=${'Also trigger if entity is already in target state when card loads'}
+          @value-changed=${(e) => this._updateAnimation(index, 'check_on_load', e.detail.value)}
+          style="margin-bottom: 12px;">
+        </ha-selector>
+
+        <lcards-message type="info" .message=${'Example: Monitor light.bedroom, animate when changing from "off" to "on", and also check on load if already "on"'}></lcards-message>
       </div>
     `;
   }
