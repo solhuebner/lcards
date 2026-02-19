@@ -126,32 +126,59 @@ export const alertComponents = {
         },
 
         // ---------------------------------------------------------------------------
-        // Default text field configs (button text overlay system).
-        // _processComponentPresetFromMergedConfig injects these into this.config.text
-        // as defaults; user YAML values always take precedence.
+        // text_areas — named map of interior cavities, in viewBox coordinate space
+        // (viewBox: 0 0 100 85.56).  _buildComponentTextMarkup() uses these directly
+        // to position text in viewBox units so it scales 1:1 with the shape.
         //
-        // Positions are percentages of the button dimensions:
-        //   alert_text  →  y=35 / viewBox-h=85.56 * 100 ≈ 41 %
-        //   sub_text    →  y=44 / viewBox-h=85.56 * 100 ≈ 51 %
+        // Each text field declares which area it lives in via its `text_area` key.
+        // Position / x_percent / y_percent are resolved relative to that area.
+        // font_size is in viewBox units; font_size_percent (% of area height) is
+        // an alternative that is independent of the viewBox scale.
+        //
+        // 'center' cavity — between the two bar-cap sections, clear of side panels:
+        //   Top wing join:    y = 25.26  (where diagonals meet the centre section)
+        //   Bottom wing join: y = 48.37
+        //   Left side panel:  x = 15.10  (inner edge of left slab)
+        //   Right side panel: x = 84.77  (inner edge of right slab)
+        // ---------------------------------------------------------------------------
+        text_areas: {
+            center: {
+                x:      15.10,
+                y:      25.26,
+                width:  69.67,   // 84.77 - 15.10
+                height: 23.11    // 48.37 - 25.26
+            }
+        },
+
+        // ---------------------------------------------------------------------------
+        // Default text field configs.
+        // font_size is in viewBox units (same coordinate space as x/y).
+        // The text_area height is 23.11 vb-units, so:
+        //   font_size 14 ≈ 61 % of area height  (dominant label)
+        //   font_size  8 ≈ 35 % of area height  (sub-label)
+        // Alternatively use font_size_percent: 55 / 30 for size relative to the area.
         // ---------------------------------------------------------------------------
         text: {
             alert_text: {
+                text_area:   'center',
                 content:     'ALERT',
                 show:        true,
-                x_percent:   50,
-                y_percent:   41,
-                anchor:      'middle',
+                position:    'top-center',
                 font_size:   14,
-                font_weight: '500'
+                font_weight: '500',
+                // padding is in viewBox units here (not pixels).
+                // Default to 0 so named positions land at the exact text_area edge;
+                // users can override with e.g. padding: 1 for a small inset.
+                padding:     0
             },
             sub_text: {
+                text_area:   'center',
                 content:     'CONDITION',
                 show:        true,
-                x_percent:   50,
-                y_percent:   51,
-                anchor:      'middle',
+                position:    'bottom-center',
                 font_size:   8,
-                font_weight: '200'
+                font_weight: '200',
+                padding:     0
             }
         },
 

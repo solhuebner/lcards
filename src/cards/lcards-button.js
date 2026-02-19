@@ -396,6 +396,19 @@ export class LCARdSButton extends LCARdSCard {
         });
 
         this._finalizeSvgProcessing(svgConfig.content, svgConfig);
+
+        // Store the component's text area map onto _processedSvg so that
+        // _buildComponentTextMarkup can resolve per-field areas at render time.
+        // Supports both:
+        //   text_areas: { areaId: { x, y, width, height }, ... }  (new, multi-area)
+        //   text_area:  { x, y, width, height }                    (old, wrapped as { default: ... })
+        if (this._processedSvg) {
+            if (componentDef.text_areas && Object.keys(componentDef.text_areas).length > 0) {
+                this._processedSvg.componentTextAreas = componentDef.text_areas;
+            } else if (componentDef.text_area) {
+                this._processedSvg.componentTextAreas = { default: componentDef.text_area };
+            }
+        }
     }
 
     /**
@@ -757,7 +770,7 @@ export class LCARdSButton extends LCARdSCard {
      * @param {number} buttonHeight - Button height
      * @returns {string} SVG markup
      */
-    _renderSvgBackground(processedSvg, buttonWidth, buttonHeight) {
+    _renderSvgBackground(processedSvg, buttonWidth, buttonHeight, extraMarkup = '') {
         const { content, viewBox, preserveAspectRatio } = processedSvg;
 
         // Extract inner SVG content (strip outer <svg> tag if present)
@@ -767,9 +780,11 @@ export class LCARdSButton extends LCARdSCard {
             innerContent = svgMatch[1];
         }
 
-        // Wrap in a nested SVG with proper scaling
-        // The outer button SVG has viewBox matching button dimensions
-        // The inner SVG scales the custom content to fit
+        // Wrap in a nested SVG with proper scaling.
+        // The outer button SVG has viewBox matching button dimensions;
+        // the inner SVG scales the custom content to fit.
+        // extraMarkup (e.g. component text elements) is injected at the end of
+        // the inner <svg> so it shares the same viewBox coordinate space.
         return `
             <g class="button-bg-svg" style="pointer-events: all;">
                 <svg x="0" y="0"
@@ -778,6 +793,7 @@ export class LCARdSButton extends LCARdSCard {
                      viewBox="${viewBox}"
                      preserveAspectRatio="${preserveAspectRatio}">
                     ${innerContent}
+                    ${extraMarkup}
                 </svg>
             </g>
         `;
@@ -3672,18 +3688,37 @@ export class LCARdSButton extends LCARdSCard {
         // Check if we're in icon-only mode (hide text when icon is shown)
         const iconOnly = this._processedIcon?.iconOnly && this._processedIcon?.show;
 
-        // Generate text markup using multi-text system
+        // Generate text markup using multi-text system.
+        //
+        // For components with a text_area, text is embedded inside the component's
+        // nested <svg> (viewBox coordinate space) so it scales 1:1 with the shape
+        // at any button size.  font_size is therefore in viewBox units.
+        // A <clipPath> using the text_area rect prevents overflow at small sizes.
+        //
+        // For all other modes, text lives in the outer button SVG (pixel space).
         let textMarkup = '';
         if (!iconOnly) {
-            // Resolve text configuration (handles legacy label and new text object)
             const textFields = this._resolveTextConfiguration();
 
-            // Process text fields (resolve positions, colors, etc.)
-            const processedFields = this._processTextFields(textFields, width, height, this._processedIcon);
-
-            // Generate SVG text elements normally
-            // For bar labels, the filled background + text background creates the "break" effect
-            textMarkup = this._generateTextElements(processedFields);
+            if (this._processedSvg?.componentTextAreas) {
+                // Component mode: build text in viewBox space and inject into
+                // the nested <svg> via _renderSvgBackground (cheap string op).
+                // backgroundMarkup is re-generated here so the <clipPath> ids are
+                // scoped inside the same <svg> element as the shape content.
+                const componentTextSvg = this._buildComponentTextMarkup(
+                    textFields, this._processedSvg.componentTextAreas
+                );
+                if (componentTextSvg) {
+                    backgroundMarkup = this._renderSvgBackground(
+                        this._processedSvg, width, height, componentTextSvg
+                    );
+                }
+                // textMarkup stays '' — text already embedded in backgroundMarkup
+            } else {
+                // Standard mode: text in outer button SVG (pixel space)
+                const processedFields = this._processTextFields(textFields, width, height, this._processedIcon);
+                textMarkup = this._generateTextElements(processedFields);
+            }
         }
 
         const svgString = `
@@ -3987,6 +4022,14 @@ export class LCARdSButton extends LCARdSCard {
                 rotation: fieldConfig.rotation !== undefined ? fieldConfig.rotation : (presetFieldConfig.rotation !== undefined ? presetFieldConfig.rotation : 0),
                 show: fieldConfig.show !== undefined ? fieldConfig.show : (presetFieldConfig.show !== undefined ? presetFieldConfig.show : true),
                 template: fieldConfig.template !== undefined ? fieldConfig.template : (presetFieldConfig.template !== undefined ? presetFieldConfig.template : true),
+
+                // Component text-area routing and relative font sizing
+                // text_area: which named area in componentDef.text_areas this field lives in
+                // font_size_percent: font size as % of the text_area height (alternative to
+                //   absolute viewBox-unit font_size; independent of viewBox coordinate scale)
+                text_area: fieldConfig.text_area || presetFieldConfig.text_area || null,
+                font_size_percent: fieldConfig.font_size_percent !== undefined ? fieldConfig.font_size_percent
+                    : (presetFieldConfig.font_size_percent !== undefined ? presetFieldConfig.font_size_percent : null),
 
                 // Text background properties for "bar label" effect
                 // Priority: field-specific config > text.default (config) > preset field config > text.default (preset) > null
@@ -4441,6 +4484,173 @@ export class LCARdSButton extends LCARdSCard {
         }
 
         return textElements.join('\n        ');
+    }
+
+    /**
+     * Build SVG text markup for a component in viewBox coordinate space.
+     *
+     * Text is injected *inside* the component's nested <svg> element so it
+     * shares the viewBox coordinate system — font_size is in viewBox units and
+     * everything scales 1:1 with the shape at any button size.
+     *
+     * Components declare one or more named text areas via `text_areas` in their
+     * definition.  Each text field references its area via a `text_area` key;
+     * if omitted, the first area in the map is used as the default.
+     *
+     * font_size is in viewBox units.  font_size_percent (% of the area's height)
+     * is an alternative that is independent of the viewBox coordinate scale and
+     * lets you express "fill N % of this container" naturally.
+     *
+     * One SVG <clipPath> per referenced text_area prevents overflow beyond the
+     * shape interior at any button size.
+     *
+     * @private
+     * @param {Object} textFields  Output of _resolveTextConfiguration()
+     * @param {Object.<string,{x,y,width,height}>} componentTextAreas
+     *   Named text-area rectangles in viewBox coordinate space.
+     * @returns {string} SVG fragment (<clipPath>s + <text> elements) to inject
+     *   inside the component's nested <svg>.
+     */
+    _buildComponentTextMarkup(textFields, componentTextAreas) {
+        if (!textFields || !componentTextAreas) return '';
+
+        const areaKeys = Object.keys(componentTextAreas);
+        if (areaKeys.length === 0) return '';
+        const defaultAreaKey = areaKeys[0];
+
+        // Determine which areas are actually referenced (to generate clipPaths)
+        const usedAreaIds = new Set();
+        for (const [, field] of Object.entries(textFields)) {
+            if (!field.show || !(field.content || '')) continue;
+            const areaId = (field.text_area && componentTextAreas[field.text_area])
+                ? field.text_area : defaultAreaKey;
+            if (componentTextAreas[areaId]) usedAreaIds.add(areaId);
+        }
+
+        if (usedAreaIds.size === 0) return '';
+
+        // One <clipPath> per referenced text_area, id scoped to this card instance
+        const clipPaths = [];
+        for (const areaId of usedAreaIds) {
+            const ta = componentTextAreas[areaId];
+            if (!ta) continue;
+            const clipId = `comp-clip-${this._cardGuid}-${areaId}`;
+            clipPaths.push(
+                `<clipPath id="${clipId}">` +
+                `<rect x="${ta.x}" y="${ta.y}" width="${ta.width}" height="${ta.height}"/>` +
+                `</clipPath>`
+            );
+        }
+
+        // Color resolution context
+        const entityState       = this._getButtonState();
+        const actualEntityState = this._entity?.state;
+
+        const textElements = [];
+
+        for (const [fieldId, field] of Object.entries(textFields)) {
+            if (!field.show) continue;
+
+            let content = field.content || '';
+            if (!content) continue;
+
+            // Text transform
+            if (field.text_transform) {
+                switch (field.text_transform) {
+                    case 'uppercase':  content = content.toUpperCase();                                break;
+                    case 'lowercase':  content = content.toLowerCase();                                break;
+                    case 'capitalize': content = content.replace(/\b\w/g, c => c.toUpperCase()); break;
+                }
+            }
+
+            // Resolve which text_area this field belongs to
+            const areaId = (field.text_area && componentTextAreas[field.text_area])
+                ? field.text_area : defaultAreaKey;
+            const ta = componentTextAreas[areaId];
+            if (!ta) continue;
+
+            const clipId   = `comp-clip-${this._cardGuid}-${areaId}`;
+            const taBounds = { left: ta.x, top: ta.y, width: ta.width, height: ta.height };
+
+            // Font size: font_size_percent (% of area height) takes priority over
+            // absolute viewBox-unit font_size so users can say "fill 55 % of this area"
+            // without needing to know the viewBox scale.
+            const fontSize = (field.font_size_percent != null)
+                ? (ta.height * field.font_size_percent / 100)
+                : field.font_size;
+
+            // ── Position in viewBox coordinate space ──────────────────────────
+            let x, y, anchor, baseline;
+
+            if (field.position) {
+                // 9-point named position within the text_area (viewBox coords)
+                const pos = this._calculateNamedPosition(field.position, taBounds, field.padding);
+                x        = pos.x;  y        = pos.y;
+                anchor   = field.anchor   || pos.anchor;
+                baseline = field.baseline || pos.baseline;
+            } else if (field.x_percent != null && field.y_percent != null) {
+                // Percentage within the text_area (viewBox units)
+                x        = ta.x + ta.width  * field.x_percent / 100;
+                y        = ta.y + ta.height * field.y_percent / 100;
+                anchor   = field.anchor   || 'middle';
+                baseline = field.baseline || 'middle';
+            } else if (field.x != null && field.y != null) {
+                // Explicit viewBox-unit coordinates
+                x        = field.x;  y        = field.y;
+                anchor   = field.anchor   || 'middle';
+                baseline = field.baseline || 'middle';
+            } else {
+                // Default: centre of the text_area
+                x        = ta.x + ta.width  / 2;
+                y        = ta.y + ta.height / 2;
+                anchor   = 'middle';
+                baseline = 'middle';
+            }
+
+            // ── Color resolution ──────────────────────────────────────────────
+            let resolvedColor;
+            if (field.color) {
+                resolvedColor = resolveStateColor({
+                    actualState:     actualEntityState,
+                    classifiedState: entityState,
+                    colorConfig:     field.color,
+                    fallback:        null
+                });
+            }
+            if (!resolvedColor) {
+                resolvedColor = resolveStateColor({
+                    actualState:     actualEntityState,
+                    classifiedState: entityState,
+                    colorConfig:     this._buttonStyle?.text?.default?.color,
+                    fallback:        'white'
+                });
+            }
+
+            // ── Build <text> element ──────────────────────────────────────────
+            const textAttrs = [
+                `x="${x}"`,
+                `y="${y}"`,
+                `font-size="${fontSize}"`,
+                `fill="${escapeXmlAttribute(resolvedColor)}"`,
+                `text-anchor="${anchor}"`,
+                `dominant-baseline="${baseline}"`,
+                `clip-path="url(#${clipId})"`,
+                `pointer-events="none"`,
+                `data-field-id="${fieldId}"`
+            ];
+
+            if (field.font_weight) textAttrs.push(`font-weight="${field.font_weight}"`);
+            if (field.font_family) textAttrs.push(`font-family="${escapeXmlAttribute(field.font_family)}"`);
+            if (field.rotation && field.rotation !== 0) {
+                textAttrs.push(`transform="rotate(${field.rotation} ${x} ${y})"`);
+            }
+
+            textElements.push(`<text ${textAttrs.join(' ')}>${escapeHtml(content)}</text>`);
+        }
+
+        if (textElements.length === 0) return '';
+
+        return [...clipPaths, ...textElements].join('\n            ');
     }
 
     /**
