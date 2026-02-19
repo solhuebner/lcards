@@ -124,12 +124,12 @@ export const lcardsDefaultTokens = {
 
     // Alert colors (LCARS alert symbol component)
     alert: {
-      red: 'var(--lcars-red, var(--lcards-orange-dark))',         // Critical/Emergency
-      blue: 'var(--lcars-blue, var(--lcards-blue-medium))',       // Security/Tactical
-      green: 'var(--lcars-green, var(--lcards-green-medium))',    // Normal/All Clear
-      yellow: 'var(--lcars-yellow, var(--lcards-yellow-medium))', // Caution/Warning
-      grey: 'var(--lcars-gray, var(--lcards-gray-medium))',       // Standby/Inactive
-      black: 'var(--lcars-black, var(--lcards-gray-dark))'        // System Critical
+      red: 'var(--lcards-orange-dark)',         // Critical/Emergency
+      blue: 'var(--lcards-blue-medium)',       // Security/Tactical
+      green: 'var(--lcards-green-medium)',    // Normal/All Clear
+      yellow: 'var(--lcards-yellow-medium)', // Caution/Warning
+      gray: 'var(--lcards-gray)',       // Standby/Inactive
+      black: 'var(--lcards-gray-dark)'        // System Critical
     }
   },
 
@@ -329,66 +329,30 @@ export const lcardsDefaultTokens = {
 
     // ------------------------------------------------------------------------
     // ALERT COMPONENT
+    // Flat structure (v2): shape fill, bars stroke, text fills.
+    // Color-keyed overrides come from the preset system (condition_red, etc.)
+    // — these are the theme defaults (gray/standby state).
     // ------------------------------------------------------------------------
     alert: {
-      segment: {
-        shape: {
-          fill: {
-            default: 'colors.alert.grey',
-            active: 'colors.alert.red',
-            inactive: 'colors.alert.grey',
-            hover: 'lighten(colors.alert.red, 0.15)',
-            pressed: 'darken(colors.alert.red, 0.15)',
-            unavailable: 'colors.alert.grey',
-            unknown: 'colors.alert.grey'
-          },
-          stroke: {
-            default: 'colors.alert.grey',
-            active: 'colors.alert.red',
-            inactive: 'colors.alert.grey',
-            hover: 'lighten(colors.alert.red, 0.15)',
-            pressed: 'darken(colors.alert.red, 0.15)',
-            unavailable: 'colors.alert.grey',
-            unknown: 'colors.alert.grey'
-          },
-          'stroke-width': {
-            default: 3,
-            active: 3,
-            inactive: 2,
-            hover: 3.5,
-            pressed: 4,
-            unavailable: 1,
-            unknown: 1
-          }
+      shape: {
+        fill: {
+          default: 'colors.ui.primary',
+          active: 'lighten(colors.ui.primary, 0.1)',
+          inactive: 'darken(colors.ui.primary, 0.25)',
+          unavailable: 'darken(colors.ui.primary, 0.45)',
+          hover: 'lighten(colors.ui.primary, 0.15)',
+          pressed: 'darken(colors.ui.primary, 0.1)'
+        }
+      },
+      bars: {
+        stroke: { default: 'colors.ui.primary' }
+      },
+      text: {
+        alert_text: {
+          fill: { default: 'colors.status.error' }
         },
-        bar: {
-          fill: {
-            default: 'colors.alert.grey',
-            active: 'colors.alert.red',
-            inactive: 'colors.alert.grey',
-            hover: 'lighten(colors.alert.red, 0.15)',
-            pressed: 'darken(colors.alert.red, 0.15)',
-            unavailable: 'colors.alert.grey',
-            unknown: 'colors.alert.grey'
-          },
-          stroke: {
-            default: 'none',
-            active: 'none',
-            inactive: 'none',
-            hover: 'none',
-            pressed: 'none',
-            unavailable: 'none',
-            unknown: 'none'
-          },
-          'stroke-width': {
-            default: 0,
-            active: 0,
-            inactive: 0,
-            hover: 0,
-            pressed: 0,
-            unavailable: 0,
-            unknown: 0
-          }
+        sub_text: {
+          fill: { default: 'colors.text.onDark' }
         }
       }
     },

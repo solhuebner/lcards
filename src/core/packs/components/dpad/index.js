@@ -160,6 +160,20 @@ export const dpadComponents = {
             },
         },
 
+        // Preset support (backward-compatible stub so validatePreset / getPresetNames
+        // are available on all components without special-casing in the button card)
+        presets: {
+            default: {}
+        },
+
+        validatePreset(presetName) {
+            return presetName in this.presets;
+        },
+
+        getPresetNames() {
+            return Object.keys(this.presets);
+        },
+
         // Metadata for discovery and documentation
         metadata: {
             type: 'dpad',  // Explicit type for ComponentManager

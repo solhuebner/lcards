@@ -144,6 +144,12 @@ export class LCARdSButton extends LCARdSCard {
 
         // Background animation support
         this._backgroundRenderer = null;
+
+        // Component preset tracking
+        this._activePreset = null;          // Currently applied preset name
+        this._componentAnimations = null;   // Component-level animations (not segment-level)
+        this._componentAnimationsRegistered = false; // Guard against double-registration
+        this._rawUserComponentSegments = {};  // Raw user segment overrides (pre-CoreConfigManager)
     }
 
     /**
@@ -151,6 +157,24 @@ export class LCARdSButton extends LCARdSCard {
      * @protected
      */
     _onConfigSet(config) {
+        // Capture raw user segment overrides BEFORE super processes them with CoreConfigManager.
+        // After super._onConfigSet, this.config[component] has already merged component defaults
+        // into the user config, so we can no longer tell the two apart. Saving raw overrides here
+        // lets _processComponentPresetFromMergedConfig apply the correct merge order:
+        //   componentDefault ← presetSegments ← rawUserOverrides
+        if (config?.component) {
+            this._rawUserComponentSegments = config[config.component]?.segments || {};
+        } else {
+            this._rawUserComponentSegments = {};
+        }
+
+        // Capture raw user text config BEFORE CoreConfigManager processing.
+        // _processComponentPresetFromMergedConfig always merges component text defaults UNDER
+        // the user’s original values. Using the raw capture (rather than this.config.text which
+        // accumulates injected preset values) prevents stale preset content winning on preset
+        // switches (e.g. range-driven condition_red → condition_green).
+        this._rawUserComponentText = config?.text ? JSON.parse(JSON.stringify(config.text)) : {};
+
         super._onConfigSet(config);
 
         // Process SVG configuration if present (Phase 1)
@@ -205,6 +229,19 @@ export class LCARdSButton extends LCARdSCard {
                 // Schedule template processing AFTER style resolution
                 this._scheduleTemplateUpdate();
 
+                // Range-based preset switching: if config.ranges is defined, re-evaluate which
+                // preset applies to the new state and rebuild the SVG segments if it changed.
+                if (this.config?.component && this.config?.ranges) {
+                    const newPreset = this._evaluateRangePreset(this.config.ranges);
+                    if (newPreset !== this._activePreset) {
+                        lcardsLog.debug(`[LCARdSButton] Range preset changed: ${this._activePreset} -> ${newPreset}`);
+                        this._activePreset = newPreset;
+                        this._componentAnimationsRegistered = false; // Force re-registration
+                        this._processSvgConfig();
+                        this.requestUpdate();
+                    }
+                }
+
                 // Trigger card-level on_entity_change animations AFTER render completes
                 // Use requestAnimationFrame to ensure DOM is updated first
                 if (this.config.animations) {
@@ -226,31 +263,32 @@ export class LCARdSButton extends LCARdSCard {
     // ============================================================================
 
     /**
-     * Process component preset from merged configuration
+     * Process component preset from configuration.
      *
-     * CoreConfigManager has already merged component defaults with user config,
-     * so this.config[componentName] contains the final merged segments.
-     * We just need to load the shape SVG and convert to segment array format.
+     * Merge hierarchy (low → high priority):
+     *   1. componentDef.segments  — component author's defaults
+     *   2. preset.segments        — named preset overrides (condition_red, etc.)
+     *   3. _rawUserComponentSegments — user's explicit YAML overrides
+     *
+     * Active preset is determined by:
+     *   - this._activePreset (range-driven, set by _evaluateRangePreset)
+     *   - this.config.preset   (static name in YAML)
+     *   - 'default'            (fallback — no overrides applied)
+     *
+     * Component-level animations (componentDef.animations) are stored in
+     * this._componentAnimations and registered via _setupComponentAnimations()
+     * AFTER the DOM is rendered (uses SVG container as scope so that target
+     * selectors like '[id^="bar-"]' resolve via querySelectorAll).
      *
      * @private
-     * @param {string} componentName - Name of component preset (e.g., 'dpad')
+     * @param {string} componentName
      */
     _processComponentPresetFromMergedConfig(componentName) {
-        lcardsLog.debug(`[LCARdSButton] Processing component from merged config`, { componentName });
+        lcardsLog.debug(`[LCARdSButton] Processing component preset`, { componentName });
 
-        // Get merged component config from this.config (already processed by CoreConfigManager)
-        const mergedComponentConfig = this.config[componentName];
-        if (!mergedComponentConfig?.segments) {
-            lcardsLog.warn(`[LCARdSButton] No segments found in merged config for component: ${componentName}`);
-            this._processedSvg = null;
-            this._processedSegments = null;
-            return;
-        }
-
-        // Load component preset metadata to get shape reference
+        // ── 1. Resolve component definition ──────────────────────────────────
         const core = window.lcards?.core;
         const componentManager = core?.getComponentManager?.();
-
         if (!componentManager) {
             lcardsLog.error(`[LCARdSButton] ComponentManager not available`);
             this._processedSvg = null;
@@ -258,116 +296,162 @@ export class LCARdSButton extends LCARdSCard {
             return;
         }
 
-        const componentPreset = componentManager.getComponent(componentName);
-        if (!componentPreset) {
-            lcardsLog.error(`[LCARdSButton] Component preset not found: ${componentName}`);
+        const componentDef = componentManager.getComponent(componentName);
+        if (!componentDef) {
+            lcardsLog.error(`[LCARdSButton] Component not found: ${componentName}`);
             this._processedSvg = null;
             this._processedSegments = null;
             return;
         }
 
-        // Get SVG content from component (unified format uses inline svg property)
-        let svgContent;
-        if (componentPreset.svg) {
-            // Unified format - inline SVG
-            svgContent = componentPreset.svg;
-            lcardsLog.debug(`[LCARdSButton] Loaded component SVG (unified format)`, {
-                id: componentPreset.metadata?.id || componentName,
-                hasSegments: !!componentPreset.segments
+        // ── 2. Determine active preset name ───────────────────────────────────
+        // Range-driven preset takes priority, then static YAML preset, then 'default'.
+        const requestedPreset = this._activePreset || this.config.preset || 'default';
+
+        let resolvedPreset = requestedPreset;
+        if (componentDef.validatePreset) {
+            if (!componentDef.validatePreset(resolvedPreset)) {
+                lcardsLog.warn(`[LCARdSButton] Unknown preset "${resolvedPreset}" on component "${componentName}", falling back to "default"`);
+                resolvedPreset = 'default';
+            }
+        }
+        // Synchronise _activePreset with what actually resolved
+        this._activePreset = resolvedPreset;
+
+        lcardsLog.debug(`[LCARdSButton] Using preset: ${resolvedPreset}`, {
+            requestedPreset,
+            availablePresets: componentDef.getPresetNames?.() ?? []
+        });
+
+        // ── 3. Build effective segments ───────────────────────────────────────
+        // Start from component defaults (immutable — never mutate the registry).
+        let effectiveSegments = componentDef.segments
+            ? JSON.parse(JSON.stringify(componentDef.segments))  // deep clone
+            : {};
+
+        // Resolve the named preset with full extends-chain support, then apply its
+        // segment overrides on top of the component defaults.
+        const rawPresetData = componentDef.presets?.[resolvedPreset];
+        const presetData = rawPresetData
+            ? this._resolveComponentPreset(rawPresetData, componentDef.presets)
+            : null;
+
+        if (presetData?.segments) {
+            effectiveSegments = deepMergeImmutable(effectiveSegments, presetData.segments);
+        }
+
+        // Apply raw user overrides on top (highest priority).
+        if (this._rawUserComponentSegments && Object.keys(this._rawUserComponentSegments).length > 0) {
+            effectiveSegments = deepMergeImmutable(effectiveSegments, this._rawUserComponentSegments);
+        }
+
+        // ── 3b. Inject component/preset text field defaults into this.config.text ─────────────────
+        // Component text fields (positions, fonts, default content) are merged with the active
+        // preset's text overrides (preset wins over component). The combined defaults are then
+        // injected into this.config.text UNDER the raw user YAML values so the user always wins.
+        //
+        // Using _rawUserComponentText (captured in _onConfigSet before CoreConfigManager) as the
+        // dominant layer prevents accumulated preset values from winning on repeated calls (e.g.
+        // range-driven preset switches).
+        const componentTextDefaults = deepMergeImmutable(
+            componentDef.text || {},
+            presetData?.text  || {}
+        );
+        if (Object.keys(componentTextDefaults).length > 0) {
+            this.config.text = deepMergeImmutable(componentTextDefaults, this._rawUserComponentText || {});
+            lcardsLog.debug(`[LCARdSButton] Injected component text defaults`, {
+                preset:          resolvedPreset,
+                textFields:      Object.keys(componentTextDefaults),
+                userOverrides:   Object.keys(this._rawUserComponentText || {})
             });
-        } else if (componentPreset.shape) {
-            // Legacy format - external shape reference (should not happen with new unified d-pad)
-            lcardsLog.warn(`[LCARdSButton] Component uses legacy shape reference: ${componentPreset.shape}`);
-            lcardsLog.error(`[LCARdSButton] Legacy shape format no longer supported`);
-            this._processedSvg = null;
-            this._processedSegments = null;
-            return;
-        } else {
-            lcardsLog.error(`[LCARdSButton] Component has no SVG content or shape reference`);
-            this._processedSvg = null;
-            this._processedSegments = null;
-            return;
         }
 
+        // ── 4. Get SVG content ────────────────────────────────────────────────
+        const svgContent = componentDef.svg;
         if (!svgContent) {
-            lcardsLog.error(`[LCARdSButton] No SVG content found for component: ${componentName}`);
+            lcardsLog.error(`[LCARdSButton] Component "${componentName}" has no SVG content`);
             this._processedSvg = null;
             this._processedSegments = null;
             return;
         }
 
-        // Create SVG config from merged segments
+        // ── 5. Store component-level animations for post-render registration ──
+        this._componentAnimations = componentDef.animations ?? null;
+
+        // ── 6. Build segment array and hand off to the SVG pipeline ───────────
         const svgConfig = {
             content: svgContent,
             enable_tokens: true,
-            segments: []
+            segments: Object.entries(effectiveSegments).map(([id, segCfg]) => ({
+                id,
+                selector: segCfg.selector || `#${id}`,
+                ...segCfg
+            }))
         };
 
-        // Convert merged segments object to array format expected by _finalizeSvgProcessing
-        // CRITICAL: Apply 'default' segment config to each segment with array replacement behavior
-        const mergedSegments = mergedComponentConfig.segments;
-        const defaultSegment = mergedSegments.default || {};
-
-        lcardsLog.debug(`[LCARdSButton] Processing segments with defaults`, {
-            segmentIds: Object.keys(mergedSegments),
-            hasDefault: !!mergedSegments.default,
-            defaultAnimations: defaultSegment.animations?.length || 0
+        lcardsLog.debug(`[LCARdSButton] Component segments ready`, {
+            preset: resolvedPreset,
+            segmentIds: svgConfig.segments.map(s => s.id),
+            hasComponentAnimations: !!this._componentAnimations
         });
 
-        svgConfig.segments = Object.entries(mergedSegments)
-            .filter(([id]) => id !== 'default')  // Exclude 'default' - it's a template
-            .map(([id, segmentConfig]) => {
-                // Manually merge default with segment
-                // CRITICAL: Arrays must REPLACE (not concat)
-                const merged = {};
-
-                // Step 1: Copy all properties from default
-                for (const [key, defaultValue] of Object.entries(defaultSegment)) {
-                    if (Array.isArray(defaultValue)) {
-                        merged[key] = [...defaultValue];  // Clone array
-                    } else if (defaultValue && typeof defaultValue === 'object' && defaultValue.constructor === Object) {
-                        merged[key] = { ...defaultValue };  // Clone object
-                    } else {
-                        merged[key] = defaultValue;  // Copy primitive
-                    }
-                }
-
-                // Step 2: Override with segment-specific properties
-                for (const [key, segmentValue] of Object.entries(segmentConfig)) {
-                    if (Array.isArray(segmentValue)) {
-                        // Arrays from segment REPLACE default (no merge/concat)
-                        merged[key] = [...segmentValue];
-                        lcardsLog.debug(`[LCARdSButton] Segment ${id}: Replacing ${key} array`, {
-                            defaultLength: defaultSegment[key]?.length || 0,
-                            segmentLength: segmentValue.length
-                        });
-                    } else if (segmentValue && typeof segmentValue === 'object' && segmentValue.constructor === Object) {
-                        // Objects get deep merged
-                        merged[key] = { ...(merged[key] || {}), ...segmentValue };
-                    } else {
-                        merged[key] = segmentValue;
-                    }
-                }
-
-                lcardsLog.debug(`[LCARdSButton] Segment ${id} final config`, {
-                    hasAnimations: !!merged.animations,
-                    animationCount: merged.animations?.length || 0,
-                    animationTriggers: merged.animations?.map(a => a.trigger).join(', ') || 'none'
-                });
-
-                return {
-                    id,
-                    selector: merged.selector || `#${id}`,
-                    ...merged
-                };
-            });
-
-        lcardsLog.debug(`[LCARdSButton] Component segments ready for processing`, {
-            segmentCount: svgConfig.segments.length
-        });
-
-        // Process through normal SVG pipeline
         this._finalizeSvgProcessing(svgConfig.content, svgConfig);
+    }
+
+    /**
+     * Resolve a single component preset, following any `extends` chain.
+     *
+     * Mirrors StylePresetManager._resolvePreset / _resolveExtends:
+     * - `extends` is a sibling preset name (just the key, e.g. `'condition_red'`)
+     * - Base preset is fully resolved first (recursive, handles deep chains)
+     * - Child is then deep-merged on top of base (deepMergeImmutable)
+     * - Circular references are detected and broken with a warning
+     *
+     * @private
+     * @param {Object} preset      - Raw preset object (may contain `extends`)
+     * @param {Object} presetsMap  - The full `componentDef.presets` object
+     * @param {string[]} [_stack]  - Internal recursion guard
+     * @returns {Object} Fully merged preset (no `extends` key)
+     */
+    _resolveComponentPreset(preset, presetsMap, _stack = []) {
+        if (!preset) return {};
+
+        if (!preset.extends) {
+            // Nothing to resolve — return a clean copy without the extends key
+            const { extends: _, ...rest } = preset;
+            return rest;
+        }
+
+        const parentName = preset.extends;
+
+        // Circular reference guard
+        if (_stack.includes(parentName)) {
+            lcardsLog.warn(`[LCARdSButton] Circular component preset extends detected: ${[..._stack, parentName].join(' → ')}`);
+            const { extends: _, ...rest } = preset;
+            return rest;
+        }
+
+        const parentRaw = presetsMap?.[parentName];
+        if (!parentRaw) {
+            lcardsLog.warn(`[LCARdSButton] Component preset extends unknown parent: "${parentName}"`);
+            const { extends: _, ...rest } = preset;
+            return rest;
+        }
+
+        // Recursively resolve the parent first
+        const resolvedParent = this._resolveComponentPreset(parentRaw, presetsMap, [..._stack, parentName]);
+
+        // Strip extends from child, then merge: parent ← child
+        const { extends: _, ...childWithoutExtends } = preset;
+        const merged = deepMergeImmutable(resolvedParent, childWithoutExtends);
+
+        lcardsLog.debug(`[LCARdSButton] Component preset extends resolved`, {
+            parent: parentName,
+            childKeys: Object.keys(childWithoutExtends),
+            mergedSegments: Object.keys(merged.segments ?? {})
+        });
+
+        return merged;
     }
 
     /**
@@ -785,6 +869,10 @@ export class LCARdSButton extends LCARdSCard {
                 // Entity-driven state (optional)
                 entity: segment.entity,  // Different entity per segment
 
+                // Text content for text-bearing segments (e.g. alert_text, sub_text).
+                // May be a static string or a template token evaluated later.
+                text: segment.text ?? null,
+
                 // Animation config (optional)
                 animations: segment.animations
             };
@@ -1020,6 +1108,162 @@ export class LCARdSButton extends LCARdSCard {
 
         const cardId = this._getAnimationCardId();
         animationManager.stopSegmentAnimations(cardId, segmentId, trigger);
+    }
+
+    // ============================================================================
+    // COMPONENT ANIMATION + TEXT SUPPORT
+    // ============================================================================
+
+    /**
+     * Evaluate numeric / equality ranges to determine which preset name applies
+     * to the current entity state.  Returns null when no range matches (i.e. the
+     * static `this.config.preset` or 'default' should be used instead).
+     *
+     * YAML example:
+     *   ranges:
+     *     - preset: condition_red
+     *       above: 80
+     *     - preset: condition_yellow
+     *       above: 50
+     *       below: 80
+     *     - preset: condition_green
+     *       equals: "ok"
+     *
+     * Ranges are evaluated in order; the FIRST match wins.
+     *
+     * @private
+     * @param {Array<{preset:string, above?:number, below?:number, equals?:*}>} rangesConfig
+     * @returns {string|null} Matching preset name, or null if none match
+     */
+    _evaluateRangePreset(rangesConfig) {
+        if (!rangesConfig || !Array.isArray(rangesConfig) || !this._entity) {
+            return null;
+        }
+
+        const strVal = String(this._entity.state);
+        const numVal = parseFloat(this._entity.state);
+
+        for (const range of rangesConfig) {
+            if (!range.preset) continue;
+
+            // Equality check (string comparison)
+            if (range.equals !== undefined) {
+                if (strVal === String(range.equals)) {
+                    return range.preset;
+                }
+                continue;
+            }
+
+            // Numeric range check
+            if (!isNaN(numVal)) {
+                const aboveOk = range.above === undefined || numVal >= parseFloat(range.above);
+                const belowOk = range.below === undefined || numVal <  parseFloat(range.below);
+                if (aboveOk && belowOk) {
+                    return range.preset;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Register component-level animations with AnimationManager, using the SVG
+     * *container* element (not an individual segment element) as the scope.
+     * This lets target selectors like '[id^="bar-"]' resolve all matching
+     * elements via querySelectorAll when an animation fires.
+     *
+     * Must be called AFTER the SVG is in the DOM (from updated() / requestAnimationFrame).
+     *
+     * @private
+     */
+    _setupComponentAnimations() {
+        if (!this._componentAnimations || this._componentAnimations.length === 0) {
+            return;
+        }
+
+        const animationManager = this._singletons?.animationManager;
+        if (!animationManager) {
+            lcardsLog.debug('[LCARdSButton] AnimationManager not available, skipping component animations');
+            return;
+        }
+
+        const cardId = this._getAnimationCardId();
+
+        requestAnimationFrame(() => {
+            const svgContainer = this.shadowRoot?.querySelector('.button-bg-svg svg');
+            if (!svgContainer) {
+                lcardsLog.warn('[LCARdSButton] SVG container not found for component animations');
+                return;
+            }
+
+            const compAnimKey = `${cardId}:component-0`;
+
+            // If already registered with the same element, nothing to do.
+            const existingScope = animationManager.scopes?.get(compAnimKey);
+            if (this._componentAnimationsRegistered && existingScope?.element === svgContainer) {
+                return;
+            }
+
+            // Register each animation as a named component-N segment so
+            // AnimationManager can manage triggers, scoping, and on_load firing.
+            this._componentAnimations.forEach((anim, index) => {
+                animationManager.registerSegmentAnimations(
+                    cardId,
+                    `component-${index}`,
+                    [anim],
+                    svgContainer
+                );
+            });
+
+            this._componentAnimationsRegistered = true;
+
+            lcardsLog.debug(`[LCARdSButton] Registered ${this._componentAnimations.length} component animation(s)`, {
+                cardId,
+                targets: this._componentAnimations.map(a => a.target ?? 'self')
+            });
+        });
+    }
+
+    /**
+     * Apply text content to text-bearing segments (e.g. alert_text, sub_text).
+     * The text property supports template tokens via processTemplate(), so entity
+     * state changes automatically update the displayed label.
+     *
+     * Safe to call multiple times; silently no-ops if DOM is not ready.
+     *
+     * @private
+     * @returns {Promise<void>}
+     */
+    async _applySegmentText() {
+        if (!this._processedSegments || this._processedSegments.length === 0) {
+            return;
+        }
+
+        const svgContainer = this.shadowRoot?.querySelector('.button-bg-svg svg');
+        if (!svgContainer) {
+            return;
+        }
+
+        for (const segment of this._processedSegments) {
+            if (segment.text == null) continue;
+
+            const elements = svgContainer.querySelectorAll(segment.selector);
+            if (elements.length === 0) continue;
+
+            // Evaluate template (handles [[[JS]]], {token}, Jinja2, plain strings)
+            let resolvedText;
+            try {
+                resolvedText = await this.processTemplate(String(segment.text));
+            } catch (err) {
+                lcardsLog.warn(`[LCARdSButton] Failed to evaluate text template for segment "${segment.id}"`, err);
+                resolvedText = String(segment.text);
+            }
+
+            elements.forEach(el => {
+                el.textContent = resolvedText ?? '';
+            });
+        }
     }
 
     /**
@@ -1737,11 +1981,19 @@ export class LCARdSButton extends LCARdSCard {
     _onConfigUpdated() {
         lcardsLog.debug(`[LCARdSButton] Config updated by CoreConfigManager, re-resolving button style and SVG`);
 
-        // Re-process SVG configuration (in case config was replaced by CoreConfigManager)
+        // Re-process SVG configuration (in case config was replaced by CoreConfigManager).
+        // For component cards this also re-injects component/preset text field defaults into
+        // this.config.text so that subsequent template processing picks them up.
         this._processSvgConfig();
 
         // Re-resolve button style with the new merged config
         this._resolveButtonStyleSync();
+
+        // Re-schedule template processing so component text field defaults (injected above)
+        // are processed through processTemplate() and stored in _processedTemplates.
+        if (this._initialized) {
+            this._scheduleTemplateUpdate();
+        }
     }
 
     /**
@@ -1808,6 +2060,10 @@ export class LCARdSButton extends LCARdSCard {
 
             // Setup segment animations after interactivity
             this._setupSegmentAnimations();
+
+            // Setup component-level animations (e.g. stagger-grid on all bars)
+            // These use the SVG container as scope so multi-element selectors work.
+            this._setupComponentAnimations();
         }
 
         // Setup base button interactivity (hover/pressed states)

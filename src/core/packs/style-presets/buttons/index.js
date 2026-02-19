@@ -10,7 +10,6 @@
  * @module core/packs/style-presets/buttons
  */
 
-import { ALERT_PRESETS } from './alert-presets.js';
 
 /**
  * Button presets object
@@ -740,9 +739,4 @@ export const BUTTON_PRESETS = {
       }
     }
   },
-  
-  // =====================================
-  // ALERT PRESETS - LCARS Alert Symbol
-  // =====================================
-  ...ALERT_PRESETS
 };

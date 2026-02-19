@@ -251,6 +251,43 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
     }
 
     /**
+     * Render a preset dropdown populated from the active component's preset list.
+     * Reads available presets via ComponentManager so the options are always in sync
+     * with the component definition — no hardcoded lists.
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderComponentPresetSelector() {
+        const componentType = this.config?.component;
+        if (!componentType) return html``;
+
+        const componentDef = window.lcards?.core?.getComponentManager?.()?.getComponent?.(componentType);
+        const presetNames = componentDef?.getPresetNames?.() || [];
+
+        if (presetNames.length === 0) return html``;
+
+        const options = presetNames.map(name => ({
+            value: name,
+            label: name
+                .replace(/_/g, ' ')
+                .replace(/\b\w/g, c => c.toUpperCase())
+        }));
+
+        const currentPreset = this.config?.preset || 'default';
+
+        return html`
+            <ha-selector
+                .hass=${this.hass}
+                .label=${'Component Preset'}
+                .helper=${`Choose the condition/state preset for this ${componentType} component`}
+                .selector=${{ select: { mode: 'dropdown', options } }}
+                .value=${currentPreset}
+                @value-changed=${(e) => this._setConfigValue('preset', e.detail.value)}>
+            </ha-selector>
+        `;
+    }
+
+    /**
      * Get current editor mode
      * @returns {'preset'|'component'|'svg'}
      * @private
@@ -276,6 +313,13 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                 { label: 'Card & Border', content: () => this._renderFromConfig(this._getCardBorderTabConfig()) },
                 { label: 'Text', content: () => this._renderTextTab() },
                 { label: 'Icon', content: () => this._renderIconTab() }
+            );
+        }
+
+        // Text tab is also available in component mode (for component text overlay fields)
+        if (mode === 'component') {
+            tabs.push(
+                { label: 'Text', content: () => this._renderTextTab() }
             );
         }
 
@@ -355,6 +399,19 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                                 render: () => keyed(mode, FormField.renderField(this, 'component', {
                                     label: 'Component Type'
                                 }))
+                            },
+                            {
+                                type: 'custom',
+                                render: () => this._renderComponentPresetSelector()
+                            },
+                            {
+                                type: 'custom',
+                                render: () => html`
+                                    <lcards-message
+                                        type="info"
+                                        message="Use the Segments tab to colour the component segments. Use the Text tab to override label content.">
+                                    </lcards-message>
+                                `
                             }
                         ] : []),
                         ...(mode === 'svg' ? [
@@ -526,7 +583,7 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
         const mode = this._getMode();
 
         if (mode === 'component') {
-            // Component mode (e.g., dpad): predefined segments
+            // Component mode: predefined segments from component definition
             const componentType = this.config.component || 'dpad';
 
             if (componentType === 'dpad') {
@@ -547,11 +604,47 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                 `;
             }
 
-            // Other component types
+            if (componentType === 'alert') {
+                return html`
+                    <lcards-message
+                        type="info"
+                        message="Override the default segment colours for the alert shape and bars. Text labels are configured in the Text tab.">
+                    </lcards-message>
+                    <lcards-unified-segment-editor
+                        .editor=${this}
+                        mode="dpad"
+                        componentType="alert"
+                        .segments=${this.config.alert?.segments || {}}
+                        .predefinedSegmentIds=${['shape', 'bars']}
+                        ?showDefaults=${false}
+                        .hass=${this.hass}>
+                    </lcards-unified-segment-editor>
+                `;
+            }
+
+            // Generic fallback: try to read segment IDs from the component definition
+            const componentDef = window.lcards?.core?.getComponentManager?.()?.getComponent?.(componentType);
+            const segmentIds = componentDef ? Object.keys(componentDef.segments || {}) : [];
+
+            if (segmentIds.length > 0) {
+                return html`
+                    <lcards-unified-segment-editor
+                        .editor=${this}
+                        mode="dpad"
+                        componentType=${componentType}
+                        .segments=${this.config[componentType]?.segments || {}}
+                        .predefinedSegmentIds=${segmentIds}
+                        ?showDefaults=${false}
+                        .hass=${this.hass}>
+                    </lcards-unified-segment-editor>
+                `;
+            }
+
+            // No segment definition available yet
             return html`
                 <lcards-message
                     type="info"
-                    message="Segment editor for ${componentType} is not yet implemented.">
+                    message="Segment editor for '${componentType}' is not yet available.">
                 </lcards-message>
             `;
         } else if (mode === 'svg') {
@@ -690,7 +783,7 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
             modeSpecificConfig.preset = 'lozenge';
         } else if (newMode === 'component') {
             // Component mode: keep component-related keys
-            validKeys = ['component', 'dpad'];
+            validKeys = ['component', 'dpad', 'alert', 'preset', 'text', 'entity'];
             modeSpecificConfig.component = 'dpad';
             modeSpecificConfig.dpad = { segments: {} }; // Initialize with empty segments
         } else if (newMode === 'svg') {

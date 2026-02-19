@@ -9,8 +9,10 @@
  *
  * @property {Object} editor - Parent editor instance
  * @property {'dpad'|'custom'} mode - Editor mode
+ * @property {string|null} componentType - For non-dpad predefined components (e.g. 'alert').
+ *   When set, overrides the config path prefix from 'dpad' or 'svg' to the component name.
  * @property {Object} segments - Segment configurations (keyed by ID)
- * @property {Array<string>} predefinedSegmentIds - For dpad mode (segment IDs to display)
+ * @property {Array<string>} predefinedSegmentIds - For dpad/component mode (segment IDs to display)
  * @property {Array<string>} discoveredSegmentIds - For custom mode (IDs found in SVG)
  * @property {Boolean} showDefaults - Show "Default" section
  */
@@ -27,9 +29,10 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
     static get properties() {
         return {
             editor: { type: Object },
-            mode: { type: String },  // 'dpad' | 'custom'
-            segments: { type: Object },  // Always object, keyed by segment ID
-            predefinedSegmentIds: { type: Array },  // For dpad: ['center', 'up', 'down', ...]
+            mode: { type: String },          // 'dpad' | 'custom'
+            componentType: { type: String }, // e.g. 'alert' — overrides config path prefix
+            segments: { type: Object },      // Always object, keyed by segment ID
+            predefinedSegmentIds: { type: Array },  // For dpad/component: ['center', 'up', ...]
             discoveredSegmentIds: { type: Array },  // For custom: IDs found in SVG
             showDefaults: { type: Boolean },
             hass: { type: Object },
@@ -40,11 +43,24 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
     constructor() {
         super();
         this.mode = 'custom';
+        this.componentType = null;
         this.segments = {};
         this.predefinedSegmentIds = [];
         this.discoveredSegmentIds = [];
         this.showDefaults = false;
         this._expandedSegments = new Set();
+    }
+
+    /**
+     * Return the config path prefix used for this segment editor.
+     * When componentType is set (e.g. 'alert'), that is used verbatim.
+     * Otherwise falls back to 'dpad' or 'svg' depending on mode.
+     * @private
+     * @returns {string}
+     */
+    _getBasePrefix() {
+        if (this.componentType) return this.componentType;
+        return this.mode === 'dpad' ? 'dpad' : 'svg';
     }
 
     static get styles() {
@@ -163,9 +179,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
      * @private
      */
     _getBasePath(segmentId) {
-        return this.mode === 'dpad'
-            ? `dpad.segments.${segmentId}`
-            : `svg.segments.${segmentId}`;
+        return `${this._getBasePrefix()}.segments.${segmentId}`;
     }
 
     /**
@@ -176,9 +190,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
     _deleteSegment(segmentId) {
         const newSegments = { ...this.segments };
         delete newSegments[segmentId];
-
-        const basePath = this.mode === 'dpad' ? 'dpad.segments' : 'svg.segments';
-        this.editor._setConfigValue(basePath, newSegments);
+        this.editor._setConfigValue(`${this._getBasePrefix()}.segments`, newSegments);
     }
 
     /**
@@ -223,7 +235,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
      * @private
      */
     _renderDefaultSection() {
-        const basePath = this.mode === 'dpad' ? 'dpad.segments.default' : 'svg.segments.default';
+        const basePath = `${this._getBasePrefix()}.segments.default`;
         const defaultConfig = this.segments?.default || {};
 
         return html`
@@ -331,7 +343,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
      */
     _handleDefaultActionsChange(event) {
         const actions = event.detail.value;
-        const basePath = this.mode === 'dpad' ? 'dpad.segments.default' : 'svg.segments.default';
+        const basePath = `${this._getBasePrefix()}.segments.default`;
 
         // Update each action
         ['tap_action', 'hold_action', 'double_tap_action'].forEach(key => {
@@ -358,7 +370,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
         const icon = this._getSegmentIcon(segmentId);
         const label = this._formatSegmentLabel(segmentId);
         const isExpanded = this._expandedSegments.has(segmentId);
-        const isPredefined = this.mode === 'dpad';
+        const isPredefined = this.mode === 'dpad' || !!this.componentType;
         const isDiscovered = this.discoveredSegmentIds.includes(segmentId);
 
         return html`
