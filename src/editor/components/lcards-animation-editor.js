@@ -1607,6 +1607,7 @@ export class LCARdSAnimationEditor extends LitElement {
               .value=${params.delay ?? 100}
               .label=${'Stagger Delay (ms)'}
               @value-changed=${(e) => this._updateParam(index, 'delay', e.detail.value)}>
+            </ha-selector>
             <ha-textfield
               label="Property"
               .value=${params.property ?? 'scale'}
