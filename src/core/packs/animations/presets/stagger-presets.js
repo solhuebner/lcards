@@ -204,5 +204,118 @@ export const STAGGER_PRESETS = {
         transformBox: 'fill-box'
       }
     };
+  },
+
+  /**
+   * Stagger Flash - Chasing "flash bar" effect (LCARS alert style)
+   *
+   * Replicates the legacy CB-LCARS alert bar animation: a bright "lead" color
+   * chases across elements, followed by a slow fade to the dim "trail" color.
+   *
+   * Directly mirrors the legacy @keyframes flashLine CSS animation:
+   *   0%        → lead_color,  opacity 1           (snap)
+   *   lead_pct% → trail_color, opacity 1           (ease-in-out)
+   *   100%      → trail_color, opacity trail_opacity (ease-in-out, stays dim)
+   *
+   * KEY DESIGN: uses the Web Animations API (element.animate()) inside setup()
+   * instead of anime.js for the actual looping. WAAPI loops each element
+   * independently — exactly like CSS animation-iteration-count:infinite — so
+   * there is NO group-restart synchronisation point and NO periodic jerk.
+   *
+   * The anime: block carries delay._stagger:true so animateElement routes
+   * through the stagger-batch path (calling setup() once per element from a
+   * single shared preset invocation). Anime.js runs as a harmless 1ms no-op.
+   *
+   * Parameters:
+   * - lead_color   (default: 'var(--primary-color)') - Bright flash color (0%)
+   * - trail_color  (default: '#444444')               - Dim trailing color (20%–100%)
+   * - lead_pct     (default: 20)     - % of cycle spent snapping to trail (1–50)
+   * - delay        (default: duration/12) - Stagger step between elements in ms
+   * - grid         (optional)        - Grid dimensions [cols, rows] for position
+   * - from         (default: 'first')- Stagger origin: 'first', 'last', 'center'
+   * - property     (default: 'stroke')- CSS/SVG property to animate
+   * - with_opacity (default: true)   - Also fade opacity to trail_opacity
+   * - trail_opacity(default: 0.25)   - Opacity at 100% of cycle
+   * - duration     (default: 2000)   - Total cycle duration in ms
+   * - loop         (default: true)
+   */
+  'stagger-flash': (def) => {
+    const p = def.params || def;
+    const leadColor    = p.lead_color  || 'var(--primary-color)';
+    const trailColor   = p.trail_color || '#444444';
+    const leadPct      = Math.min(50, Math.max(1, p.lead_pct !== undefined ? p.lead_pct : 20));
+    const duration     = p.duration || 2000;
+    // Stagger step = duration/12, matching legacy flashLine delay formula:
+    //   delays[i] = i * (animation_duration / 12)
+    const step         = p.delay !== undefined ? p.delay : Math.round(duration / 12);
+    const from         = p.from || 'first';
+    const property     = p.property || 'stroke';
+    const withOpacity  = p.with_opacity !== undefined ? p.with_opacity : true;
+    const trailOpacity = p.trail_opacity !== undefined ? p.trail_opacity : 0.25;
+    const loop         = p.loop !== undefined ? p.loop : true;
+
+    // Resolve theme: tokens and CSS vars at registration time so WAAPI gets hex values.
+    const resolveColor = (c) => {
+      if (typeof c !== 'string') return c;
+      let out = c;
+      if (out.startsWith('theme:')) {
+        out = window.lcards?.core?.themeManager?.getToken(out.replace('theme:', ''), out) ?? out;
+      }
+      if (typeof out === 'string' && out.includes('var(')) {
+        out = window.lcards?.utils?.ColorUtils?.resolveCssVariable?.(out) ?? out;
+      }
+      return out;
+    };
+
+    const rLead  = resolveColor(leadColor);
+    const rTrail = resolveColor(trailColor);
+
+    // WAAPI keyframes — per-keyframe easing matches CSS animation-timing-function
+    // applying to each keyframe-to-keyframe segment (0→lead_pct and lead_pct→100).
+    const wapiKeyframes = [
+      { [property]: rLead,  ...(withOpacity ? { opacity: 1            } : {}), offset: 0,            easing: 'ease-in-out' },
+      { [property]: rTrail, ...(withOpacity ? { opacity: 1            } : {}), offset: leadPct / 100, easing: 'ease-in-out' },
+      { [property]: rTrail, ...(withOpacity ? { opacity: trailOpacity } : {}), offset: 1 }
+    ];
+
+    // Collect elements synchronously, then apply WAAPI after all setup() calls
+    // complete (deferred so we know N for 'from:last'/'center' reversal).
+    const _pending = [];
+    let _timer = null;
+
+    const _applyWapi = () => {
+      const N = _pending.length;
+      _pending.splice(0).forEach((el, i) => {
+        let idx;
+        if      (from === 'last')   idx = N - 1 - i;
+        else if (from === 'center') idx = Math.abs(i - Math.floor((N - 1) / 2));
+        else                        idx = i; // 'first' or default
+        el.animate(wapiKeyframes, {
+          duration,
+          delay:      idx * step,
+          iterations: loop ? Infinity : 1,
+          fill:       'both',
+          easing:     'linear'  // overall composite; per-keyframe easing handles the shape
+        });
+      });
+    };
+
+    return {
+      // Trigger stagger-batch path so setup() is called once per element from a
+      // single shared invocation (correct _pending closure). duration:1 + loop:false
+      // makes the anime.js call a harmless 1ms no-op; WAAPI does all visual work.
+      anime: {
+        delay: { _stagger: true, value: step, from, ...(Array.isArray(p.grid) ? { grid: p.grid } : {}) },
+        duration: 1,
+        loop: false
+      },
+      // Called per-element (DOM order) by the stagger-batch path.
+      setup: (element) => {
+        _pending.push(element);
+        clearTimeout(_timer);
+        _timer = setTimeout(_applyWapi, 0);
+      },
+      styles: {}
+    };
   }
 };

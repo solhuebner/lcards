@@ -16,6 +16,12 @@ const _LCARDS_META_PARAMS = new Set([
   'trigger',      // AnimationManager: when to fire (on_load, on_tap…) — not anime.js
   'easing',       // v3 alias: anime.js v4 uses 'ease' not 'easing'
   'amplitude',    // stagger-wave preset meta-param (converted to property value by preset)
+  // stagger-flash meta-params — consumed by preset / WAAPI setup, not anime.js
+  'lead_color',
+  'trail_color',
+  'lead_pct',
+  'with_opacity',
+  'trail_opacity',
 ]);
 
 /**
@@ -88,6 +94,25 @@ function resolveAnimationCssVariables(params) {
       }
     }
   });
+
+  // Recurse into keyframes array so presets like stagger-flash (which embed colors
+  // directly in per-keyframe objects) also have their theme: tokens and CSS vars resolved.
+  if (Array.isArray(resolved.keyframes)) {
+    resolved.keyframes = resolved.keyframes.map(kf => {
+      if (!kf || typeof kf !== 'object') return kf;
+      const resolvedKf = { ...kf };
+      colorProperties.forEach(prop => {
+        if (resolvedKf[prop] !== undefined) {
+          if (Array.isArray(resolvedKf[prop])) {
+            resolvedKf[prop] = resolvedKf[prop].map(v => resolveColorValue(v));
+          } else if (typeof resolvedKf[prop] === 'string') {
+            resolvedKf[prop] = resolveColorValue(resolvedKf[prop]);
+          }
+        }
+      });
+      return resolvedKf;
+    });
+  }
 
   return resolved;
 }

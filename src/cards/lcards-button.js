@@ -336,12 +336,19 @@ export class LCARdSButton extends LCARdSCard {
         const requestedPreset = this._activePreset || this.config.preset || 'default';
 
         // Build effective presets by merging user custom_presets over built-in ones.
-        // This allows: (a) creating new named presets, (b) overriding built-in colors/text.
-        // The component registry (componentDef.presets) is NEVER mutated — local copy only.
+        // This allows: (a) creating new named presets, (b) partially overriding built-in ones.
+        // Same-named entries are deep-merged so the user only needs to specify what changes;
+        // brand-new names are added as-is.  The component registry is NEVER mutated.
         const componentCustomPresets = this.config[componentName]?.custom_presets || {};
-        const effectivePresets = Object.keys(componentCustomPresets).length > 0
-            ? { ...componentDef.presets, ...componentCustomPresets }
-            : componentDef.presets;
+        let effectivePresets = componentDef.presets;
+        if (Object.keys(componentCustomPresets).length > 0) {
+            effectivePresets = { ...componentDef.presets };
+            for (const [key, customVal] of Object.entries(componentCustomPresets)) {
+                effectivePresets[key] = effectivePresets[key]
+                    ? deepMergeImmutable(effectivePresets[key], customVal)
+                    : customVal;
+            }
+        }
 
         let resolvedPreset = requestedPreset;
         // Validate against effectivePresets (includes user custom presets)

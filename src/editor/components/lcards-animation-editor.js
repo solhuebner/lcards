@@ -614,7 +614,7 @@ export class LCARdSAnimationEditor extends LitElement {
 
       ${isCustom ? this._renderCustomForm(anim, index) : html`
         ${isPlaceholder ? this._renderPlaceholderWarning(preset) : ''}
-        ${this._renderPresetForm(anim, index)}
+        ${this._renderPresetForm(anim, index, isSystem)}
       `}
 
       ${!isSystem ? this._renderDeleteSection(index) : ''}
@@ -650,7 +650,7 @@ export class LCARdSAnimationEditor extends LitElement {
     `;
   }
 
-  _renderPresetForm(anim, index) {
+  _renderPresetForm(anim, index, isSystem = false) {
     const params = anim.params || {};
     const preset = anim.preset || 'pulse';
 
@@ -659,23 +659,26 @@ export class LCARdSAnimationEditor extends LitElement {
       <lcards-form-section
         header="Animation Preset"
         icon="mdi:animation"
-        ?expanded=${true}>
-        <ha-selector
-          .hass=${this.hass}
-          .selector=${{
-            select: {
-              mode: 'dropdown',
-              options: this._getPresetOptions()
-            }
-          }}
-          .value=${preset}
-          .label=${'Select animation type'}
-          @value-changed=${(e) => this._updateAnimation(index, 'preset', e.detail.value)}
-        ></ha-selector>
-
-        ${this._getPresetHelp(preset) ? html`
-          <lcards-message type="info" .message=${this._getPresetHelp(preset)}></lcards-message>
-        ` : ''}
+        ?expanded=${!isSystem}>
+        ${isSystem ? html`
+          <lcards-message type="info" .message=${'Preset type is fixed for component animations. Edit parameters below.'}></lcards-message>
+        ` : html`
+          <ha-selector
+            .hass=${this.hass}
+            .selector=${{
+              select: {
+                mode: 'dropdown',
+                options: this._getPresetOptions()
+              }
+            }}
+            .value=${preset}
+            .label=${'Select animation type'}
+            @value-changed=${(e) => this._updateAnimation(index, 'preset', e.detail.value)}
+          ></ha-selector>
+          ${this._getPresetHelp(preset) ? html`
+            <lcards-message type="info" .message=${this._getPresetHelp(preset)}></lcards-message>
+          ` : ''}
+        `}
       </lcards-form-section>
 
       <lcards-form-section
@@ -689,7 +692,11 @@ export class LCARdSAnimationEditor extends LitElement {
 
   _renderPresetParams(preset, params, index) {
     // Common timing parameters shown for all presets
-    const commonParams = this._renderCommonParams(params, index);
+    // Pass preset-specific hide options so irrelevant fields are suppressed.
+    const commonParamOpts = preset === 'stagger-flash'
+      ? { hideStartDelay: true, hideAlternate: true, hideEasing: true }
+      : {};
+    const commonParams = this._renderCommonParams(params, index, commonParamOpts);
 
     // Preset-specific parameters
     let specificParams = '';
@@ -1506,6 +1513,90 @@ export class LCARdSAnimationEditor extends LitElement {
         `;
         break;
 
+      case 'stagger-flash':
+        specificParams = html`
+          <div class="param-grid">
+            <div class="param-full">
+              <label class="field-label">Lead Color (Flash)</label>
+              <lcards-color-picker
+                .value=${params.lead_color ?? 'var(--primary-color)'}
+                @value-changed=${(e) => this._updateParam(index, 'lead_color', e.detail.value)}>
+              </lcards-color-picker>
+            </div>
+            <div class="param-full">
+              <label class="field-label">Trail Color (Dim)</label>
+              <lcards-color-picker
+                .value=${params.trail_color ?? '#444444'}
+                @value-changed=${(e) => this._updateParam(index, 'trail_color', e.detail.value)}>
+              </lcards-color-picker>
+            </div>
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ number: { min: 5, max: 50, step: 1, mode: 'slider' } }}
+              .value=${params.lead_pct ?? 20}
+              .label=${'Flash Phase (% of cycle)'}
+              .helper=${'How much of each cycle the bar spends snapping to the trail color (legacy: 20%)'}
+              @value-changed=${(e) => this._updateParam(index, 'lead_pct', e.detail.value)}>
+            </ha-selector>
+            <ha-textfield
+              type="number"
+              label="Stagger Delay (ms)"
+              .value=${params.delay ?? ''}
+              .helper=${'Delay between consecutive elements. Leave blank to auto-compute (duration÷12). Legacy 2 s default = 167 ms.'}
+              @input=${(e) => {
+                const v = e.target.value.trim();
+                if (!v) { this._updateParam(index, 'delay', undefined); return; }
+                this._updateParam(index, 'delay', Number(v));
+              }}>
+            </ha-textfield>
+            <ha-textfield
+              label="Grid Layout"
+              .value=${params.grid ? JSON.stringify(params.grid) : ''}
+              .helper=${'Optional: [cols, rows] e.g. [6,1] for 6 horizontal bars. Leave empty for linear.'}
+              @input=${(e) => {
+                const v = e.target.value.trim();
+                if (!v) { this._updateParam(index, 'grid', undefined); return; }
+                try { this._updateParam(index, 'grid', JSON.parse(v)); } catch (_) {}
+              }}>
+            </ha-textfield>
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ select: { mode: 'dropdown', options: [
+                { value: 'first',  label: 'First → Last (forward chase)' },
+                { value: 'last',   label: 'Last → First (reverse chase)' },
+                { value: 'center', label: 'Center outward' }
+              ]}}}
+              .value=${params.from ?? 'first'}
+              .label=${'Chase Direction'}
+              @value-changed=${(e) => this._updateParam(index, 'from', e.detail.value)}>
+            </ha-selector>
+            <ha-textfield
+              label="SVG/CSS Property"
+              .value=${params.property ?? 'stroke'}
+              .helper=${'stroke (SVG lines), fill (SVG shapes), color (text/HTML)'}
+              @input=${(e) => this._updateParam(index, 'property', e.target.value)}>
+            </ha-textfield>
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ boolean: {} }}
+              .value=${params.with_opacity !== undefined ? params.with_opacity : true}
+              .label=${'Fade Opacity in Trail'}
+              .helper=${'Also fade opacity during trail phase (legacy fades to 0.25)'}
+              @value-changed=${(e) => this._updateParam(index, 'with_opacity', e.detail.value)}>
+            </ha-selector>
+            ${(params.with_opacity !== undefined ? params.with_opacity : true) ? html`
+              <ha-selector
+                .hass=${this.hass}
+                .selector=${{ number: { min: 0, max: 1, step: 0.05, mode: 'slider' } }}
+                .value=${params.trail_opacity ?? 0.25}
+                .label=${'Trail End Opacity'}
+                @value-changed=${(e) => this._updateParam(index, 'trail_opacity', e.detail.value)}>
+              </ha-selector>
+            ` : ''}
+          </div>
+        `;
+        break;
+
       case 'stagger-wave':
       case 'stagger-radial':
         specificParams = html`
@@ -1516,7 +1607,6 @@ export class LCARdSAnimationEditor extends LitElement {
               .value=${params.delay ?? 100}
               .label=${'Stagger Delay (ms)'}
               @value-changed=${(e) => this._updateParam(index, 'delay', e.detail.value)}>
-            </ha-selector>
             <ha-textfield
               label="Property"
               .value=${params.property ?? 'scale'}
@@ -1590,7 +1680,7 @@ export class LCARdSAnimationEditor extends LitElement {
     `;
   }
 
-  _renderCommonParams(params, index) {
+  _renderCommonParams(params, index, options = {}) {
     return html`
       <lcards-form-section
         header="Timing & Duration"
@@ -1606,7 +1696,7 @@ export class LCARdSAnimationEditor extends LitElement {
             @input=${(e) => this._updateParam(index, 'duration', Number(e.target.value))}>
           </ha-textfield>
 
-          <ha-textfield
+          ${!options.hideStartDelay ? html`<ha-textfield
             type="number"
             label="Start Delay (ms)"
             .value=${params.delay ?? 0}
@@ -1614,7 +1704,7 @@ export class LCARdSAnimationEditor extends LitElement {
             step="100"
             helper="Delay before animation starts"
             @input=${(e) => this._updateParam(index, 'delay', Number(e.target.value))}>
-          </ha-textfield>
+          </ha-textfield>` : ''}
 
           <ha-selector
             .hass=${this.hass}
@@ -1633,18 +1723,18 @@ export class LCARdSAnimationEditor extends LitElement {
             @value-changed=${(e) => this._updateParam(index, 'loop', e.detail.value || false)}>
           </ha-selector>
 
-          <ha-selector
+          ${!options.hideAlternate ? html`<ha-selector
             .hass=${this.hass}
             .selector=${{ boolean: {} }}
             .value=${params.alternate ?? false}
             .label=${'Alternate Direction'}
             .helper=${'Reverse animation direction on each loop'}
             @value-changed=${(e) => this._updateParam(index, 'alternate', e.detail.value)}>
-          </ha-selector>
+          </ha-selector>` : ''}
         </div>
       </lcards-form-section>
 
-      <lcards-form-section
+      ${!options.hideEasing ? html`<lcards-form-section
         header="Easing Function"
         icon="mdi:chart-bell-curve"
         ?expanded=${true}>
@@ -1741,7 +1831,7 @@ export class LCARdSAnimationEditor extends LitElement {
         </div>
 
         ${this._renderParametricEasingFields(params, index)}
-      </lcards-form-section>
+      </lcards-form-section>` : ''}
     `;
   }
 
@@ -2131,7 +2221,11 @@ export class LCARdSAnimationEditor extends LitElement {
       'border-pulse': 'Border Pulse',
       'skew': 'Skew',
       'scan-line': 'Scan Line',
-      'glitch': 'Glitch'
+      'glitch': 'Glitch',
+      'stagger-flash': 'Stagger Flash',
+      'stagger-grid': 'Stagger Grid',
+      'stagger-wave': 'Stagger Wave',
+      'stagger-radial': 'Stagger Radial'
     };
     return names[preset] || preset;
   }
@@ -2205,6 +2299,7 @@ export class LCARdSAnimationEditor extends LitElement {
       { value: 'text-glitch', label: '✨ Text Glitch - Rapid jitter' },
 
       // Stagger Animations (NEW - PR#233)
+      { value: 'stagger-flash', label: '⚡ Stagger Flash - LCARS chasing bar effect' },
       { value: 'stagger-grid', label: '⚡ Stagger Grid - Grid-based stagger' },
       { value: 'stagger-wave', label: '⚡ Stagger Wave - Wave pattern' },
       { value: 'stagger-radial', label: '⚡ Stagger Radial - Radial burst' },
@@ -2250,6 +2345,7 @@ export class LCARdSAnimationEditor extends LitElement {
       'text-scramble': 'Matrix-style scramble with random character replacement',
       'text-wave': 'Sinusoidal wave motion across text characters',
       'text-glitch': 'Rapid position and opacity jitter for malfunction effect',
+      'stagger-flash': 'Replicates legacy LCARS alert bar chase: bright lead color chases across elements, fading to gray trail. Set property to "stroke" for SVG bars.',
       'stagger-grid': 'Grid-based stagger - animate elements in grid pattern with directional wave',
       'stagger-wave': 'Wave pattern stagger - creates ripple effect across elements',
       'stagger-radial': 'Radial burst stagger - animates outward from center point',
