@@ -270,6 +270,148 @@ export class ColorUtils {
     return value;
   }
 
+  // ─── Public primitives ────────────────────────────────────────────────────
+
+  /**
+   * Parse color string to RGB array
+   *
+   * @param {string} color - Color string (hex, rgb, rgba)
+   * @returns {Array<number>|null} [r, g, b] or null if unparseable
+   *
+   * @example
+   * ColorUtils.parseColor('#FF9900') // Returns [255, 153, 0]
+   */
+  static parseColor(color) {
+    return this._parseColor(color);
+  }
+
+  /**
+   * Convert RGB values to hex string
+   *
+   * @param {number} r - Red (0-255)
+   * @param {number} g - Green (0-255)
+   * @param {number} b - Blue (0-255)
+   * @returns {string} Hex color (#RRGGBB)
+   *
+   * @example
+   * ColorUtils.rgbToHex(255, 153, 0) // Returns '#ff9900'
+   */
+  static rgbToHex(r, g, b) {
+    return this._rgbToHex(r, g, b);
+  }
+
+  /**
+   * Convert RGB values to HSL array
+   *
+   * @param {number} r - Red (0-255)
+   * @param {number} g - Green (0-255)
+   * @param {number} b - Blue (0-255)
+   * @returns {Array<number>} [h, s, l] where h=0-360, s=0-100, l=0-100
+   *
+   * @example
+   * ColorUtils.rgbToHsl(255, 153, 0) // Returns approximately [36, 100, 50]
+   */
+  static rgbToHsl(r, g, b) {
+    return this._rgbToHsl([r, g, b]);
+  }
+
+  /**
+   * Convert HSL values to hex color string
+   *
+   * @param {number} h - Hue (0-360)
+   * @param {number} s - Saturation (0-100)
+   * @param {number} l - Lightness (0-100)
+   * @returns {string} Hex color (#RRGGBB)
+   *
+   * @example
+   * ColorUtils.hslToRgb(36, 100, 50) // Returns '#ff8000'
+   */
+  static hslToRgb(h, s, l) {
+    return this._hslToRgbHex([h, s, l]);
+  }
+
+  /**
+   * Convert HS (Hue/Saturation) + brightness to RGB
+   *
+   * Used for converting Home Assistant light entity hs_color attributes.
+   * This is an HSV-style conversion where the third parameter is brightness (value),
+   * not HSL lightness.
+   *
+   * @param {number} h - Hue (0-360)
+   * @param {number} s - Saturation (0-100)
+   * @param {number} [brightness=255] - Brightness / Value (0-255)
+   * @returns {Array<number>} [r, g, b]
+   *
+   * @example
+   * ColorUtils.hsToRgb(30, 100, 255) // Returns [255, 128, 0]
+   */
+  static hsToRgb(h, s, brightness = 255) {
+    h = h / 360;
+    s = s / 100;
+    const v = brightness / 255;
+
+    let r, g, b;
+
+    const i = Math.floor(h * 6);
+    const f = h * 6 - i;
+    const p = v * (1 - s);
+    const q = v * (1 - f * s);
+    const t = v * (1 - (1 - f) * s);
+
+    switch (i % 6) {
+      case 0: r = v; g = t; b = p; break;
+      case 1: r = q; g = v; b = p; break;
+      case 2: r = p; g = v; b = t; break;
+      case 3: r = p; g = q; b = v; break;
+      case 4: r = t; g = p; b = v; break;
+      case 5: r = v; g = p; b = q; break;
+    }
+
+    return [
+      Math.round(r * 255),
+      Math.round(g * 255),
+      Math.round(b * 255)
+    ];
+  }
+
+  /**
+   * Calculate relative luminance (WCAG formula)
+   *
+   * @param {string} color - Color value (hex, rgb, rgba)
+   * @returns {number} Luminance value (0-1), or 0.5 if unparseable
+   *
+   * @example
+   * ColorUtils.luminance('#ffffff') // Returns 1
+   * ColorUtils.luminance('#000000') // Returns 0
+   */
+  static luminance(color) {
+    const rgb = this._parseColor(color);
+    if (!rgb) return 0.5;
+
+    const [r, g, b] = rgb.map(val => {
+      val = val / 255;
+      return val <= 0.03928
+        ? val / 12.92
+        : Math.pow((val + 0.055) / 1.055, 2.4);
+    });
+
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  }
+
+  /**
+   * Get high-contrast text color for a given background
+   *
+   * @param {string} bgColor - Background color
+   * @returns {string} 'black' or 'white'
+   *
+   * @example
+   * ColorUtils.contrastColor('#ffffff') // Returns 'black'
+   * ColorUtils.contrastColor('#000000') // Returns 'white'
+   */
+  static contrastColor(bgColor) {
+    return this.luminance(bgColor) > 0.5 ? 'black' : 'white';
+  }
+
   /**
    * Check if value is a CSS variable reference
    *

@@ -439,21 +439,7 @@ export class LCARdSColorPicker extends LitElement {
      * @private
      */
     _calculateLuminance(color) {
-        if (!color) return 0.5;
-
-        // Parse RGB values
-        const rgb = this._parseColor(color);
-        if (!rgb) return 0.5;
-
-        // Convert to relative luminance
-        const [r, g, b] = rgb.map(val => {
-            val = val / 255;
-            return val <= 0.03928
-                ? val / 12.92
-                : Math.pow((val + 0.055) / 1.055, 2.4);
-        });
-
-        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        return ColorUtils.luminance(color);
     }
 
     /**
@@ -463,38 +449,7 @@ export class LCARdSColorPicker extends LitElement {
      * @private
      */
     _parseColor(color) {
-        if (!color) return null;
-
-        // Hex format
-        if (color.startsWith('#')) {
-            const hex = color.slice(1);
-            if (hex.length === 3) {
-                return [
-                    parseInt(hex[0] + hex[0], 16),
-                    parseInt(hex[1] + hex[1], 16),
-                    parseInt(hex[2] + hex[2], 16)
-                ];
-            }
-            if (hex.length === 6) {
-                return [
-                    parseInt(hex.slice(0, 2), 16),
-                    parseInt(hex.slice(2, 4), 16),
-                    parseInt(hex.slice(4, 6), 16)
-                ];
-            }
-        }
-
-        // RGB/RGBA format
-        const rgbMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-        if (rgbMatch) {
-            return [
-                parseInt(rgbMatch[1]),
-                parseInt(rgbMatch[2]),
-                parseInt(rgbMatch[3])
-            ];
-        }
-
-        return null;
+        return ColorUtils.parseColor(color);
     }
 
     /**
@@ -504,18 +459,9 @@ export class LCARdSColorPicker extends LitElement {
      * @private
      */
     _rgbToHex(rgb) {
-        if (!rgb) return null;
-
-        const rgbValues = this._parseColor(rgb);
+        const rgbValues = ColorUtils.parseColor(rgb);
         if (!rgbValues) return null;
-
-        const [r, g, b] = rgbValues;
-        const toHex = (n) => {
-            const hex = n.toString(16);
-            return hex.length === 1 ? '0' + hex : hex;
-        };
-
-        return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+        return ColorUtils.rgbToHex(rgbValues[0], rgbValues[1], rgbValues[2]);
     }
 
     /**
@@ -525,8 +471,7 @@ export class LCARdSColorPicker extends LitElement {
      * @private
      */
     _getContrastColor(bgColor) {
-        const luminance = this._calculateLuminance(bgColor);
-        return luminance > 0.5 ? 'black' : 'white';
+        return ColorUtils.contrastColor(bgColor);
     }
 
     render() {

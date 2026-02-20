@@ -321,15 +321,15 @@ export function transformColorToAlertMode(color, alertMode) {
     alphaChannel = color.slice(7, 9); // Extract AA
   }
 
-  // Parse to RGB (using ColorUtils internal API)
-  const rgb = ColorUtils._parseColor(color);
+  // Parse to RGB
+  const rgb = ColorUtils.parseColor(color);
   if (!rgb) {
     // Not parseable, return as-is
     return color;
   }
 
-  // Convert to HSL (using ColorUtils internal API)
-  const hsl = ColorUtils._rgbToHsl(rgb);
+  // Convert to HSL
+  const hsl = ColorUtils.rgbToHsl(rgb[0], rgb[1], rgb[2]);
   if (!hsl) return color;
 
   let [h, s, l] = hsl;
@@ -373,8 +373,8 @@ export function transformColorToAlertMode(color, alertMode) {
     }
   }
 
-  // Convert back to hex (using ColorUtils internal API)
-  let result = ColorUtils._hslToRgbHex([h, s, l]);
+  // Convert back to hex
+  let result = ColorUtils.hslToRgb(h, s, l);
 
   // Re-append alpha channel if it was present
   if (alphaChannel) {
