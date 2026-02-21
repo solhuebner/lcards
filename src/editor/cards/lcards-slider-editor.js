@@ -372,7 +372,12 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
             { label: 'Slider Track', content: () => this._renderTrackTab() },
             { label: 'Borders', content: () => this._renderBordersTab() },
             { label: 'Text Fields', content: () => this._renderTextTab() },
-            { label: 'Actions', content: () => this._renderActionsTab() }
+            { label: 'Actions', content: () => this._renderActionsTab() },
+            // Sound tab: per-card mute + slider & action event overrides
+            { label: 'Sound', content: () => this._renderSoundTab([
+                'slider_drag_start', 'slider_change', 'slider_drag_end',
+                'card_tap', 'card_hold', 'card_double_tap'
+            ]) }
         );
 
         return [

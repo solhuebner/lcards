@@ -1636,6 +1636,8 @@ export class LCARdSButton extends LCARdSCard {
                 if (hasAnimations) {
                     this._triggerSegmentAnimation(segment.id, 'on_hover');
                 }
+
+                this._playSound('card_hover');
             }
             e.stopPropagation(); // Prevent button-level hover
         };
@@ -1670,6 +1672,7 @@ export class LCARdSButton extends LCARdSCard {
                         this._triggerSegmentAnimation(segment.id, 'on_hold');
                     }
 
+                    this._playSound('card_hold');
                     this._executeSegmentAction(segment.hold_action, segment);
                     holdTimer = null;
                 }, 500); // 500ms hold threshold
@@ -1720,6 +1723,7 @@ export class LCARdSButton extends LCARdSCard {
                 this._triggerSegmentAnimation(segment.id, 'on_tap');
             }
 
+            this._playSound('card_tap');
             if (segment.tap_action) {
                 this._executeSegmentAction(segment.tap_action, segment);
             }

@@ -387,6 +387,11 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
             );
         }
 
+        // Show Segments tab for component (dpad) and svg modes
+        if (mode === 'component' || mode === 'svg') {
+            tabs.push({ label: 'Segments', content: () => this._renderSegmentsTab() });
+        }
+
         // Text tab is also available in component mode (for component text overlay fields)
         if (mode === 'component') {
             tabs.push(
@@ -399,13 +404,11 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
             tabs.push({ label: 'Actions', content: () => this._renderActionsTab() });
         }
 
-        // Show Segments tab for component (dpad) and svg modes
-        if (mode === 'component' || mode === 'svg') {
-            tabs.push({ label: 'Segments', content: () => this._renderSegmentsTab() });
-        }
-
         // Effects tab is relevant for all modes
         tabs.push({ label: 'Effects', content: () => this._renderEffectsTab() });
+
+        // Sound tab: per-card mute + event overrides
+        tabs.push({ label: 'Sound', content: () => this._renderSoundTab() });
 
         return [...tabs, ...this._getUtilityTabs()];
     }
@@ -618,15 +621,16 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
 
         // Resolve component text areas so the editor can show area selectors and
         // font_size_percent fields when this card uses a component with named text areas.
-        let componentTextAreas = null;
-        let componentTextFields = null;
+        // Always provide arrays (possibly empty) to satisfy downstream prop types.
+        let componentTextAreas = [];
+        let componentTextFields = [];
         if (this.config?.component) {
             const componentDef = window.lcards?.core?.getComponentManager?.()?.getComponent?.(this.config.component);
-            componentTextAreas  = componentDef?.text_areas || null;
+            componentTextAreas  = componentDef?.text_areas || [];
             // Preset field names (excluding 'default') so the editor can offer them as
             // one-click "add" suggestions styled differently from generic quick-add fields.
             const allComponentFields = Object.keys(componentDef?.text || {}).filter(k => k !== 'default');
-            componentTextFields = allComponentFields.length > 0 ? allComponentFields : null;
+            componentTextFields = allComponentFields.length > 0 ? allComponentFields : [];
         }
 
         return html`

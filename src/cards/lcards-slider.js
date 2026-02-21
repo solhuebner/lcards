@@ -2020,12 +2020,11 @@ export class LCARdSSlider extends LCARdSButton {
      * @private
      */
     _handleSliderInput(event) {
-        const sm = window.lcards?.core?.soundManager;
-        if (!this._isHorizontalDragging) {
+                if (!this._isHorizontalDragging) {
             this._isHorizontalDragging = true;
-            sm?.play('slider_drag_start');
+            this._playSound('slider_drag_start');
         } else {
-            sm?.play('slider_change');
+            this._playSound('slider_change');
         }
 
         let value = parseFloat(event.target.value);
@@ -2061,7 +2060,7 @@ export class LCARdSSlider extends LCARdSButton {
      * @private
      */
     async _handleSliderChange(event) {
-        window.lcards?.core?.soundManager?.play('slider_drag_end');
+        this._playSound('slider_drag_end');
         this._isHorizontalDragging = false;
 
         let value = parseFloat(event.target.value);
@@ -2092,7 +2091,7 @@ export class LCARdSSlider extends LCARdSButton {
         event.preventDefault();
         this._isDragging = true;
         this._verticalSliderOverlay = event.currentTarget; // Store reference
-        window.lcards?.core?.soundManager?.play('slider_drag_start');
+        this._playSound('slider_drag_start');
         this._updateVerticalSliderValue(event);
 
         // Add global listeners for drag
@@ -2107,7 +2106,7 @@ export class LCARdSSlider extends LCARdSButton {
     _handleVerticalSliderMouseMove(event) {
         if (!this._isDragging) return;
         event.preventDefault();
-        window.lcards?.core?.soundManager?.play('slider_change');
+        this._playSound('slider_change');
         this._updateVerticalSliderValue(event);
     }
 
@@ -2123,7 +2122,7 @@ export class LCARdSSlider extends LCARdSButton {
         window.removeEventListener('mousemove', this._handleVerticalSliderMouseMove);
         window.removeEventListener('mouseup', this._handleVerticalSliderMouseUp);
 
-        window.lcards?.core?.soundManager?.play('slider_drag_end');
+        this._playSound('slider_drag_end');
 
         // Call service to update entity
         await this._setEntityValue(this._sliderValue);
@@ -2137,7 +2136,7 @@ export class LCARdSSlider extends LCARdSButton {
         event.preventDefault();
         this._isDragging = true;
         this._verticalSliderOverlay = event.currentTarget; // Store reference
-        window.lcards?.core?.soundManager?.play('slider_drag_start');
+        this._playSound('slider_drag_start');
         this._updateVerticalSliderValueFromTouch(event);
 
         // Add global listeners for drag
@@ -2152,7 +2151,7 @@ export class LCARdSSlider extends LCARdSButton {
     _handleVerticalSliderTouchMove(event) {
         if (!this._isDragging) return;
         event.preventDefault();
-        window.lcards?.core?.soundManager?.play('slider_change');
+        this._playSound('slider_change');
         this._updateVerticalSliderValueFromTouch(event);
     }
 
@@ -2168,7 +2167,7 @@ export class LCARdSSlider extends LCARdSButton {
         window.removeEventListener('touchmove', this._handleVerticalSliderTouchMove);
         window.removeEventListener('touchend', this._handleVerticalSliderTouchEnd);
 
-        window.lcards?.core?.soundManager?.play('slider_drag_end');
+        this._playSound('slider_drag_end');
 
         // Call service to update entity
         await this._setEntityValue(this._sliderValue);

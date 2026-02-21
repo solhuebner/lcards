@@ -634,7 +634,6 @@ export class LCARdSSoundConfigTab extends LitElement {
     .overrides-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.85em;
     }
     .overrides-table th {
       text-align: left;

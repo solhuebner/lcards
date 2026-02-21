@@ -12,6 +12,7 @@ import { configToYaml, yamlToConfig, validateYaml } from '../utils/yaml-utils.js
 import { deepMerge } from '../../core/config-manager/merge-helpers.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import { LCARdSFormFieldHelper as FormField } from '../components/shared/lcards-form-field.js';
+import '../components/sound/lcards-card-sound-tab.js';
 
 export class LCARdSBaseEditor extends LitElement {
 
@@ -1317,6 +1318,27 @@ export class LCARdSBaseEditor extends LitElement {
             { label: '🖖 Main Engineering', content: () => this._renderDeveloperTab() },
             { label: 'YAML', content: () => this._renderYamlTab() }
         ];
+    }
+
+    /**
+     * Render per-card sound configuration tab.
+     *
+     * Shows a master card-level mute toggle and per-event asset override dropdowns.
+     * The events list is card-type-specific — pass only the events that are relevant
+     * for the card being edited.
+     *
+     * @param {string[]} [events] - Event keys to show (defaults to card tap/hold/hover set)
+     * @returns {TemplateResult}
+     * @protected
+     */
+    _renderSoundTab(events = ['card_tap', 'card_hold', 'card_double_tap', 'card_hover']) {
+        return html`
+            <lcards-card-sound-tab
+                .editor=${this}
+                .hass=${this.hass}
+                .events=${events}
+            ></lcards-card-sound-tab>
+        `;
     }
 
     /**

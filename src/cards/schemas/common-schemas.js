@@ -1090,3 +1090,90 @@ export function getTextSchema(options = {}) {
         }
     };
 }
+// ============================================================================
+// SOUNDS SCHEMA - Per-card sound configuration
+// ============================================================================
+
+/**
+ * Per-card sound override block.
+ *
+ * Lets each card independently control whether it participates in the global
+ * sound system, and override individual event sounds without touching the global
+ * scheme or localStorage overrides.
+ *
+ * Resolution order inside SoundManager.play():
+ *   1. sounds.enabled === false  → card is completely silent
+ *   2. sounds[eventType]         → card-level asset override (null = mute event)
+ *   3. localStorage overrides    → global per-event override
+ *   4. Active scheme             → scheme mapping
+ *   5. Silence
+ *
+ * @example
+ *   sounds:
+ *     enabled: false        # mute this card entirely
+ *
+ * @example
+ *   sounds:
+ *     card_tap: null        # silence tap only
+ *     card_hold: 'my_sfx'  # custom hold sound
+ */
+export const soundsSchema = {
+    type: 'object',
+    description: 'Per-card sound configuration. Overrides global sound settings for this card.',
+    properties: {
+        enabled: {
+            type: 'boolean',
+            description: 'Whether this card fires sounds. Set to false to completely silence this card. Default: true (omit to keep default).',
+            'x-ui-hints': {
+                label: 'Card Sounds Enabled',
+                helper: 'When off, this card makes no sounds regardless of global settings'
+            }
+        },
+        card_tap: {
+            type: ['string', 'null'],
+            description: 'Asset key for card tap, or null to mute. Omit to use global scheme.',
+            'x-ui-hints': { label: 'Card Tap' }
+        },
+        card_hold: {
+            type: ['string', 'null'],
+            description: 'Asset key for card hold, or null to mute. Omit to use global scheme.',
+            'x-ui-hints': { label: 'Card Hold' }
+        },
+        card_double_tap: {
+            type: ['string', 'null'],
+            description: 'Asset key for card double-tap, or null to mute. Omit to use global scheme.',
+            'x-ui-hints': { label: 'Card Double-Tap' }
+        },
+        card_hover: {
+            type: ['string', 'null'],
+            description: 'Asset key for card hover (desktop), or null to mute. Omit to use global scheme.',
+            'x-ui-hints': { label: 'Card Hover (Desktop)' }
+        },
+        slider_drag_start: {
+            type: ['string', 'null'],
+            description: 'Asset key for slider grab, or null to mute. Omit to use global scheme.',
+            'x-ui-hints': { label: 'Slider Grab' }
+        },
+        slider_change: {
+            type: ['string', 'null'],
+            description: 'Asset key for slider value change, or null to mute. Omit to use global scheme.',
+            'x-ui-hints': { label: 'Slider Value Change' }
+        },
+        slider_drag_end: {
+            type: ['string', 'null'],
+            description: 'Asset key for slider release, or null to mute. Omit to use global scheme.',
+            'x-ui-hints': { label: 'Slider Release' }
+        },
+        toggle_on: {
+            type: ['string', 'null'],
+            description: 'Asset key for toggle-on, or null to mute. Omit to use global scheme.',
+            'x-ui-hints': { label: 'Toggle → On' }
+        },
+        toggle_off: {
+            type: ['string', 'null'],
+            description: 'Asset key for toggle-off, or null to mute. Omit to use global scheme.',
+            'x-ui-hints': { label: 'Toggle → Off' }
+        }
+    },
+    additionalProperties: false
+};

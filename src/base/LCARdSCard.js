@@ -2620,13 +2620,26 @@ export class LCARdSCard extends LCARdSNativeCard {
             return () => {};
         }
 
+        // Build card-level sound overrides from config.sounds
+        const sounds = this.config?.sounds ?? {};
+        const CARD_SOUND_EVENTS = ['card_tap', 'card_hold', 'card_double_tap', 'card_hover'];
+        const soundOverride = {};
+        if (sounds.enabled === false) {
+            for (const evt of CARD_SOUND_EVENTS) soundOverride[evt] = null;
+        } else {
+            for (const evt of CARD_SOUND_EVENTS) {
+                if (evt in sounds) soundOverride[evt] = sounds[evt];
+            }
+        }
+
         // Prepare options for unified action handler
         const actionOptions = {
             ...options,
             animations: this.config.animations,
             getAnimationSetup: () => this._getAnimationSetup(),
             shadowRoot: this.shadowRoot,
-            entity: this.config.entity // Pass card's entity as default for actions
+            entity: this.config.entity, // Pass card's entity as default for actions
+            ...(Object.keys(soundOverride).length > 0 && { soundOverride })
         };
 
         // Delegate to unified action handler
@@ -2649,6 +2662,32 @@ export class LCARdSCard extends LCARdSNativeCard {
             overlayId: `lcards-card-${this._cardGuid}`,
             elementSelector: '[data-overlay-id]'
         };
+    }
+
+    /**
+     * Play a sound for the given event type, respecting card-level sounds config.
+     *
+     * Resolution order:
+     *   1. sounds.enabled === false  → silent (card fully muted)
+     *   2. sounds[eventType]         → card-level override (null = mute, string = asset)
+     *   3. Fall through to SoundManager global resolution
+     *
+     * Use this for direct play call sites (sliders, toggles). ActionHandler uses
+     * the soundOverride option from setupActions() for tap/hold/hover events.
+     *
+     * @param {string} eventType - Sound event type key (e.g. 'slider_drag_start')
+     * @protected
+     */
+    _playSound(eventType) {
+        const sm = window.lcards?.core?.soundManager;
+        if (!sm) return;
+        const sounds = this.config?.sounds ?? {};
+        if (sounds.enabled === false) return;
+        if (eventType in sounds) {
+            sm.play(eventType, { cardOverride: sounds[eventType] });
+        } else {
+            sm.play(eventType);
+        }
     }
 
     // ============================================================================
