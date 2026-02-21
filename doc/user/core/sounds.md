@@ -129,3 +129,10 @@ In the overrides table, set the event's asset to **Silence** (the explicit silen
 - Volume is shared across all events — there's no per-event volume.
 - Overrides are per-browser. If you use multiple devices, configure each separately.
 - The sound scheme helper's option list updates automatically as you install sound packs — no manual YAML edits needed.
+
+---
+
+## Related
+
+- [Config Panel](../config-panel.md) — manage schemes and per-event overrides
+- [User Docs Index](../README.md)

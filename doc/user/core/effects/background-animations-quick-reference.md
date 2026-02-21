@@ -287,11 +287,11 @@ background_animation:
 
 ---
 
-## 📚 Related Docs
+## Related
 
-- **[Full Documentation](./background-animations.md)** - Complete reference
-- **[Architecture](../../../architecture/subsystems/background-animation-system.md)** - System internals
-- **[Pack System](../../../architecture/subsystems/pack-system.md)** - Background pack architecture
+- [Full Documentation](./background-animations.md) — complete reference
+- [User Docs Index](../../README.md)
+- [Button Card](../../cards/button/README.md) — applies background animations
 
 ---
 

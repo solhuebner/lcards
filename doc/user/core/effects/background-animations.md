@@ -803,11 +803,13 @@ background_animation:
 
 ---
 
-## 📚 Related Documentation
+## Related Documentation
 
-- **[Pack System](../../../architecture/subsystems/pack-system.md)** - Background rendering architecture
-- **[Theme System](../themes/themes.md)** - Color token system
-- **[Template System](../templates/)** - Dynamic value resolution
+- [User Docs Index](../../README.md)
+- [Button Card](../../cards/button/README.md) — applies background animations to buttons
+- [Animations](../animations.md) — card element animations
+- [Theme System](../themes/README.md) — colour token system
+- [Template System](../templates/README.md) — dynamic value resolution
 
 ---
 

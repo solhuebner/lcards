@@ -1,0 +1,57 @@
+# LCARdS User Documentation
+
+> **LCARS-inspired custom cards for Home Assistant**
+
+---
+
+## Cards
+
+The LCARdS fleet. Each card is independent but shares the same core systems.
+
+| Card | Type | Purpose |
+|------|------|---------|
+| [Button](cards/button/README.md) | `custom:lcards-button` | Buttons, labels, D-pad, multi-segment SVG |
+| [Elbow](cards/elbow/README.md) | `custom:lcards-elbow` | LCARS corner/cap decorations |
+| [Slider](cards/slider/README.md) | `custom:lcards-slider` | Interactive sliders and gauge displays |
+| [Chart](cards/chart/README.md) | `custom:lcards-chart` | Data visualization (ApexCharts) |
+| [Data Grid](cards/data-grid/README.md) | `custom:lcards-data-grid` | Tabular entity data with cascade animations |
+| [MSD](cards/msd/README.md) | `custom:lcards-msd` | Master Systems Display with routing lines |
+
+---
+
+## Core Features
+
+Features shared across all cards.
+
+| Topic | What it covers |
+|-------|---------------|
+| [Animations](core/animations.md) | Per-card animations triggered by taps, hover, and state changes |
+| [Background Animations](core/effects/background-animations.md) | Canvas-based animated backgrounds (grid, zoom, starfield) |
+| [Sound Effects](core/sounds.md) | LCARS-style audio feedback for interactions and alerts |
+| [Rules Engine](core/rules/README.md) | Conditional styling applied across cards based on entity state |
+| [DataSources](core/datasources/README.md) | Entity subscriptions, history, and processing pipelines |
+| [Templates](core/templates/README.md) | Dynamic content: JS, Jinja2, token, and DataSource templates |
+| [Themes](core/themes/README.md) | Built-in themes and token-based color/sizing system |
+
+---
+
+## Config Panel
+
+[LCARdS Config Panel](config-panel.md) — Central hub for managing helpers, themes, sounds, and packs.
+
+---
+
+## Quick Example
+
+```yaml
+type: custom:lcards-button
+entity: light.living_room
+preset: lozenge
+text:
+  name:
+    content: Living Room
+tap_action:
+  action: toggle
+```
+
+All cards support [templates](core/templates/README.md), [state-based colors](core/themes/README.md), [rules](core/rules/README.md), and [animations](core/animations.md).
