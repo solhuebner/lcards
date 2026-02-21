@@ -143,7 +143,7 @@ export class LCARdSSoundConfigTab extends LitElement {
           h.key === key ? { ...h, currentValue: newValue } : h
         );
         this.requestUpdate();
-        lcardsLog.debug(`[SoundConfigTab] Helper updated: ${key} = ${newValue}`);
+        lcardsLog.trace(`[SoundConfigTab] Helper updated: ${key} = ${newValue}`);
       });
       this._helperSubscriptions.push(unsub);
     });

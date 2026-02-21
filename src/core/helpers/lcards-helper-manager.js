@@ -578,21 +578,6 @@ export class LCARdSHelperManager extends BaseService {
   }
 
   /**
-   * Update the max-length of an input_text helper.
-   * Used to migrate existing helpers that were created with a smaller max.
-   * Non-fatal if helper doesn't exist yet.
-   *
-   * @param {string} key - Helper registry key (e.g., 'sound_overrides')
-   * @param {number} newMax - New maximum character length
-   * @returns {Promise<boolean>} true if the update was actually sent to HA
-   * @deprecated Sound overrides moved to localStorage — this method is no longer used.
-   */
-  async updateInputTextMax(key, newMax) {
-    lcardsLog.warn('[HelperManager] updateInputTextMax() is deprecated — sound overrides use localStorage now');
-    return false;
-  }
-
-  /**
    * Cleanup - unsubscribe from all state listeners
    */
   destroy() {

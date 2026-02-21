@@ -1090,17 +1090,6 @@ export const HELPER_REGISTRY = {
     yaml_config: `input_select:\n  lcards_sound_scheme:\n    name: LCARdS Sound Scheme\n    options:\n      - none\n    icon: mdi:music-box-multiple`
   },
 
-  sound_overrides: {
-    entity_id: 'input_text.lcards_sound_overrides',
-    domain: 'input_text',
-    name: 'LCARdS Sound Overrides',
-    description: 'JSON map of per-event sound overrides (managed by Config Panel — do not edit manually)',
-    icon: 'mdi:tune',
-    category: 'sound',
-    ws_create_params: { max: 255 },
-    default_value: '{}',
-    yaml_config: `input_text:\n  lcards_sound_overrides:\n    name: LCARdS Sound Overrides\n    max: 255\n    icon: mdi:tune`
-  }
 };
 
 /**

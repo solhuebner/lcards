@@ -12,7 +12,7 @@
  *   input_boolean.lcards_sound_alerts     — Alert/system event sounds
  *   input_number.lcards_sound_volume      — Master volume (0.0–1.0)
  *   input_select.lcards_sound_scheme      — Active sound scheme name
- *   input_text.lcards_sound_overrides     — JSON per-event asset key overrides
+ *   localStorage 'lcards_sound_overrides'  — JSON per-event asset key overrides
  *
  * Sound schemes are registered from pack definitions via PackManager.registerPack().
  * Audio asset URLs are resolved directly from AssetManager's internal registry.
@@ -39,11 +39,14 @@ const EVENT_CATEGORY = {
   slider_drag_end:   'cards',
   slider_change:     'cards',
   more_info_open:    'cards',
-  nav_sidebar:       'ui',
-  menu_expand:       'ui',
-  nav_page:          'ui',
-  dialog_open:       'ui',
-  alert_activate:    'alerts',
+  nav_sidebar:            'ui',
+  menu_expand:            'ui',
+  nav_page:               'ui',
+  dialog_open:            'ui',
+  dashboard_edit_start:   'ui',
+  dashboard_edit_save:    'ui',
+  dialog_close:           'ui',
+  alert_activate:         'alerts',
   alert_clear:       'alerts',
   alert_escalate:    'alerts',
   system_ready:      'alerts',
@@ -67,11 +70,14 @@ export const SOUND_EVENT_LABELS = {
   slider_drag_end:   'Slider Release',
   slider_change:     'Slider Value Change',
   more_info_open:    'More Info Open',
-  nav_sidebar:       'Sidebar Navigation',
-  menu_expand:       'Menu Expand / Collapse',
-  nav_page:          'Page / View Navigation',
-  dialog_open:       'Dialog Open',
-  alert_activate:    'Alert Activated',
+  nav_sidebar:            'Sidebar Navigation',
+  menu_expand:            'Menu Expand / Collapse',
+  nav_page:               'Page / View Navigation',
+  dialog_open:            'Dialog Open',
+  dashboard_edit_start:   'Dashboard Edit Start',
+  dashboard_edit_save:    'Dashboard Edit Save / Done',
+  dialog_close:           'Dialog Close',
+  alert_activate:         'Alert Activated',
   alert_clear:       'Alert Cleared',
   alert_escalate:    'Alert Escalated',
   system_ready:      'System Ready',
@@ -103,6 +109,24 @@ export class SoundManager extends BaseService {
 
     /** @type {Function|null} First-interaction tracker (for cleanup) */
     this._interactionHandler = null;
+
+    /** @type {Function|null} hass-action event listener (for non-LCARdS HA cards) */
+    this._hassActionHandler = null;
+
+    /** @type {Function|null} show-dialog listener (general dialog open sounds) */
+    this._showDialogHandler = null;
+
+    /** @type {Function|null} hass-more-info listener (more-info panel sounds) */
+    this._hassMoreInfoHandler = null;
+
+    /** @type {Function|null} Original history.replaceState (restored on destroy) */
+    this._historyReplaceStateOrig = null;
+
+    /** @type {boolean} Last known lovelace edit mode state (for replaceState patch dedup) */
+    this._lastEditMode = false;
+
+    /** @type {Function|null} dialog-closed listener (dialog save/cancel sounds) */
+    this._dialogClosedHandler = null;
 
     /** @type {boolean} Whether the user has interacted (browser autoplay policy) */
     this._userInteracted = false;
@@ -142,7 +166,7 @@ export class SoundManager extends BaseService {
    * @param {Object} hass - Home Assistant instance
    */
   updateHass(hass) {
-    lcardsLog.debug('[SoundManager] updateHass received');
+    lcardsLog.trace('[SoundManager] updateHass received');
     if (!this._schemesOptionsSynced && this._soundSchemes.size > 0) {
       this._syncSchemeHelperOptions();
     }
@@ -206,6 +230,69 @@ export class SoundManager extends BaseService {
 
     document.addEventListener('click', this._globalClickHandler, { capture: true, passive: true });
     window.addEventListener('location-changed', this._navHandler);
+
+    // hass-action listener — catches taps/holds on any standard HA card that fires
+    // the 'hass-action' composed event (Mushroom, HA built-in cards, etc.).
+    // LCARdS cards that already handle their own sounds via setupActions() do NOT fire
+    // hass-action, so there is no double-firing. As a belt-and-suspenders guard we
+    // also skip events whose composedPath passes through a LCARdS custom element.
+    this._hassActionHandler = (e) => {
+      if (!this._isCategoryEnabled('cards')) return;
+      // Skip if the event originated inside a LCARdS card shadow DOM
+      const path = e.composedPath?.() || [];
+      if (path.some(el => el?.tagName?.startsWith?.('LCARDS-'))) return;
+      const action = e.detail?.action;
+      if (action === 'tap') this.play('card_tap');
+      else if (action === 'hold') this.play('card_hold');
+      else if (action === 'double_tap') this.play('card_double_tap');
+    };
+    document.addEventListener('hass-action', this._hassActionHandler, { passive: true });
+
+    // show-dialog → dialog_open for any HA dialog EXCEPT more-info (handled separately below)
+    this._showDialogHandler = (e) => {
+      if (!this._isCategoryEnabled('ui')) return;
+      const tag = e.detail?.dialogTag;
+      // Skip more-info — hass-more-info listener handles it with its own event type
+      if (tag === 'ha-more-info-dialog') return;
+      this.play('dialog_open');
+    };
+    document.addEventListener('show-dialog', this._showDialogHandler, { passive: true });
+
+    // hass-more-info → more_info_open (fired by both LCARdS and native HA cards)
+    this._hassMoreInfoHandler = () => {
+      this.play('more_info_open');
+    };
+    document.addEventListener('hass-more-info', this._hassMoreInfoHandler, { passive: true });
+
+    // Dashboard edit mode detection — HA uses history.replaceState (not a DOM event)
+    // to toggle ?edit=1 in the URL when entering/exiting dashboard edit mode.
+    // Patch replaceState to detect the param change; restore the original in destroy().
+    this._lastEditMode = window.location.search.includes('edit=1');
+    const _origReplaceState = window.history.replaceState.bind(window.history);
+    this._historyReplaceStateOrig = _origReplaceState;
+    window.history.replaceState = (...args) => {
+      _origReplaceState(...args);
+      const url = args[2] != null ? String(args[2]) : window.location.href;
+      const nowEditing = url.includes('edit=1');
+      if (nowEditing !== this._lastEditMode) {
+        this._lastEditMode = nowEditing;
+        if (!this._isCategoryEnabled('ui')) return;
+        this.play(nowEditing ? 'dashboard_edit_start' : 'dashboard_edit_save');
+      }
+    };
+
+    // dialog-closed → fires when any HA dialog is dismissed (save or cancel)
+    // Detail: { dialog: element.localName } e.g. 'hui-dialog-edit-card'
+    // Covers card edit, view edit, badge edit, more-info, etc.
+    // Skip LCARdS-own elements to avoid double-sounds.
+    this._dialogClosedHandler = (e) => {
+      if (!this._isCategoryEnabled('ui')) return;
+      const dialog = e.detail?.dialog || '';
+      if (!dialog || dialog.startsWith('lcards-')) return;
+      this.play('dialog_close');
+    };
+    document.addEventListener('dialog-closed', this._dialogClosedHandler, { passive: true });
+
     lcardsLog.info('[SoundManager] Global UI listeners mounted');
   }
 
@@ -255,6 +342,26 @@ export class SoundManager extends BaseService {
     if (this._navHandler) {
       window.removeEventListener('location-changed', this._navHandler);
       this._navHandler = null;
+    }
+    if (this._hassActionHandler) {
+      document.removeEventListener('hass-action', this._hassActionHandler);
+      this._hassActionHandler = null;
+    }
+    if (this._showDialogHandler) {
+      document.removeEventListener('show-dialog', this._showDialogHandler);
+      this._showDialogHandler = null;
+    }
+    if (this._hassMoreInfoHandler) {
+      document.removeEventListener('hass-more-info', this._hassMoreInfoHandler);
+      this._hassMoreInfoHandler = null;
+    }
+    if (this._historyReplaceStateOrig) {
+      window.history.replaceState = this._historyReplaceStateOrig;
+      this._historyReplaceStateOrig = null;
+    }
+    if (this._dialogClosedHandler) {
+      document.removeEventListener('dialog-closed', this._dialogClosedHandler);
+      this._dialogClosedHandler = null;
     }
     if (this._alertUnsubscribe) {
       this._alertUnsubscribe();
@@ -320,7 +427,7 @@ export class SoundManager extends BaseService {
    *
    * Resolution order:
    * 1. context.cardOverride (null = silence, string = use that asset key)
-   * 2. Per-event override from sound_overrides helper
+   * 2. Per-event override from localStorage ('lcards_sound_overrides')
    * 3. Active scheme mapping
    * 4. Silence (no sound registered)
    *
@@ -512,7 +619,7 @@ export class SoundManager extends BaseService {
     // Enforce browser autoplay policy — skip until user has interacted with the page.
     // Preview calls (force=true) bypass this so the Config Panel can test sounds.
     if (!force && !this._userInteracted) {
-      lcardsLog.debug('[SoundManager] Audio skipped — awaiting first user interaction (browser autoplay policy)');
+      lcardsLog.trace('[SoundManager] Audio skipped — awaiting first user interaction (browser autoplay policy)');
       return;
     }
 

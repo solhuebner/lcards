@@ -116,10 +116,13 @@ const LCARDS_DEFAULT_SCHEME = {
   more_info_open:    'lcards_default_dialog_open',
 
   // UI navigation
-  nav_sidebar:       'lcards_default_nav',
-  menu_expand:       'lcards_default_nav',
-  nav_page:          'lcards_default_nav',
-  dialog_open:       'lcards_default_dialog_open',
+  nav_sidebar:          'lcards_default_nav',
+  menu_expand:          'lcards_default_nav',
+  nav_page:             'lcards_default_nav',
+  dialog_open:          'lcards_default_dialog_open',
+  dashboard_edit_start: 'lcards_default_nav',
+  dashboard_edit_save:  'lcards_default_nav',
+  dialog_close:         'lcards_default_nav',
 
   // Alerts & system
   alert_activate:    'lcards_default_alert_activate',
