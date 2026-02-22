@@ -1,8 +1,8 @@
 {
   "name": "lcards",
-  "version": "1.35.98",
+  "version": "2026.02.01-alpha",
   "type": "module",
-  "description": "LCARdS - Modern LCARS card system for Home Assistant",
+  "description": "LCARdS - LCARS card system for Home Assistant",
   "main": "index.js",
   "author": "Jason Weyermars",
   "license": "MIT",
@@ -24,12 +24,10 @@
     "analyze": "webpack --profile --json > stats.json && webpack-bundle-analyzer stats.json"
   },
   "devDependencies": {
-    "@types/three": "^0.160.0",
     "clean-webpack-plugin": "^4.0.0",
     "inquirer": "^13.1.0",
     "js-yaml": "^4.1.0",
     "jsdom": "^27.1.0",
-    "rimraf": "^6.0.1",
     "webpack": "^5.94.0",
     "webpack-bundle-analyzer": "^4.10.2",
     "webpack-cli": "^5.1.4",
@@ -52,7 +50,6 @@
     "custom-card-helpers": "^1.9.0",
     "d3-selection": "^3.0.0",
     "d3-zoom": "^3.0.0",
-    "lit": "^3.3.2",
-    "three": "^0.160.0"
+    "lit": "^3.3.2"
   }
 }
