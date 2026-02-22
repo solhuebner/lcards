@@ -7,7 +7,7 @@
  * @module core/packs/themes/builtin-themes
  */
 
-import { lcardsDefaultTokens } from './tokens/lcardsDefaultTokens.js';
+import { lcardsDefaultTokens } from './themes/tokens/lcardsDefaultTokens.js';
 
 /**
  * Builtin Themes Pack

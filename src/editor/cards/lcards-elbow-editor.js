@@ -19,7 +19,6 @@ import { LCARdSBaseEditor } from '../base/LCARdSBaseEditor.js';
 import { editorComponentStyles } from '../base/editor-component-styles.js';
 import { configToYaml } from '../utils/yaml-utils.js';
 import { getElbowSchema } from '../../cards/schemas/elbow-schema.js';
-import { elbowComponents } from '../../core/packs/components/elbows/index.js';
 import '../components/shared/lcards-message.js';
 import '../components/yaml/lcards-yaml-editor.js';
 // Import shared form components
@@ -69,6 +68,32 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
         ];
     }
 
+    // ──────────────────────────────────────────────────────────────
+    // Component Lookup Helpers
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * Get an elbow component by type via ComponentManager.
+     * @param {string} type
+     * @returns {Object|undefined}
+     * @private
+     */
+    _getElbowComponent(type) {
+        return window.lcards?.core?.componentManager?.getComponent(type);
+    }
+
+    /**
+     * Return all elbow component entries as [[name, definition], ...] pairs.
+     * @returns {Array<[string, Object]>}
+     * @private
+     */
+    _getElbowComponentEntries() {
+        const cm = window.lcards?.core?.componentManager;
+        if (!cm) return [];
+        return cm.getComponentsByType('elbow')
+            .map(name => [name, cm.getComponent(name)]);
+    }
+
     /**
      * Config tab - Elbow configuration and basic settings
      * @returns {Array} Config tab definition
@@ -79,7 +104,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
         const elbowStyle = this._getElbowStyle();
 
         // Get supported styles from component features
-        const component = elbowComponents[elbowType];
+        const component = this._getElbowComponent(elbowType);
         const supportedFeatures = component?.features || ['simple'];
         const supportsSegmented = supportedFeatures.includes('segmented');
 
@@ -113,7 +138,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                                     .selector=${{
                                         select: {
                                             mode: 'dropdown',
-                                            options: Object.entries(elbowComponents).map(([key, component]) => ({
+                                            options: this._getElbowComponentEntries().map(([key, component]) => ({
                                                 value: key,
                                                 label: component.metadata?.name || key
                                             }))
@@ -918,7 +943,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
         this._setConfigValue('elbow.type', newType);
 
         // Check if new component supports current style
-        const component = elbowComponents[newType];
+        const component = this._getElbowComponent(newType);
         const supportedFeatures = component?.features || ['simple'];
         const currentStyle = this._getElbowStyle();
 

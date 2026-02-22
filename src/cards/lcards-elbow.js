@@ -67,7 +67,6 @@ import { LCARdSButton } from './lcards-button.js';
 import { lcardsLog } from '../utils/lcards-logging.js';
 import { resolveStateColor } from '../utils/state-color-resolver.js';
 import { getElbowSchema } from './schemas/elbow-schema.js';
-import { getElbowComponent, getElbowTypeNames, hasElbowComponent } from '../core/packs/components/elbows/index.js';
 
 // Import editor component for getConfigElement()
 import '../editor/cards/lcards-elbow-editor.js';
@@ -293,7 +292,7 @@ export class LCARdSElbow extends LCARdSButton {
         }
 
         // Get component metadata
-        const component = getElbowComponent(this._elbowConfig.type);
+        const component = this._getElbowComponent(this._elbowConfig.type);
         const position = component?.layout?.position || 'header';
         const componentType = this._elbowConfig.type; // e.g., 'diagonal-cap-left', 'header-left'
 
@@ -749,6 +748,43 @@ export class LCARdSElbow extends LCARdSButton {
         super.disconnectedCallback();
     }
 
+    // ──────────────────────────────────────────────────────────────
+    // Component Lookup Helpers
+    //
+    // Use ComponentManager (single source of truth) so that
+    // third-party packs with custom elbow types work automatically.
+    // Fall back to the static registry if core is not yet ready.
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * Get an elbow component by type via ComponentManager.
+     * @param {string} type - Elbow type name (e.g. 'header-left')
+     * @returns {Object|undefined}
+     * @private
+     */
+    _getElbowComponent(type) {
+        const cm = window.lcards?.core?.componentManager;
+        if (!cm) {
+            lcardsLog.warn('[LCARdSElbow] ComponentManager not ready — component lookup failed for:', type);
+            return undefined;
+        }
+        return cm.getComponent(type);
+    }
+
+    /**
+     * Get all registered elbow type names via ComponentManager.
+     * @returns {string[]}
+     * @private
+     */
+    _getElbowTypeNames() {
+        const cm = window.lcards?.core?.componentManager;
+        if (!cm) {
+            lcardsLog.warn('[LCARdSElbow] ComponentManager not ready — defaulting elbow type to header-left');
+            return ['header-left'];
+        }
+        return cm.getComponentsByType('elbow');
+    }
+
     /**
      * Validate and normalize elbow configuration
      * @param {Object} elbowConfig - Raw elbow config from card config
@@ -757,7 +793,7 @@ export class LCARdSElbow extends LCARdSButton {
      */
     _validateElbowConfig(elbowConfig) {
         // Get valid types from core component registry
-        const validTypes = getElbowTypeNames();
+        const validTypes = this._getElbowTypeNames();
         const type = validTypes.includes(elbowConfig.type)
             ? elbowConfig.type
             : 'header-left';
@@ -767,7 +803,7 @@ export class LCARdSElbow extends LCARdSButton {
         }
 
         // Get valid styles from the component's features
-        const component = getElbowComponent(type);
+        const component = this._getElbowComponent(type);
         const validStyles = component?.features || ['simple'];
         const style = validStyles.includes(elbowConfig.style) ? elbowConfig.style : validStyles[0];
 
@@ -1034,7 +1070,7 @@ export class LCARdSElbow extends LCARdSButton {
         }
 
         // Get position and side from component layout metadata
-        const component = getElbowComponent(type);
+        const component = this._getElbowComponent(type);
         const position = component?.layout?.position || 'header';
         const side = component?.layout?.side || 'left';
 
@@ -1097,7 +1133,7 @@ export class LCARdSElbow extends LCARdSButton {
         if (!this._elbowConfig || !this._elbowConfig.type) return;
 
         // Get position and side from component layout metadata
-        const component = getElbowComponent(this._elbowConfig.type);
+        const component = this._getElbowComponent(this._elbowConfig.type);
         const position = component?.layout?.position || 'header';
         const side = component?.layout?.side || 'left';
 
@@ -1404,7 +1440,7 @@ export class LCARdSElbow extends LCARdSButton {
 
         // Get component from registry using the full type
         const elbowType = g.type;
-        const component = getElbowComponent(elbowType);
+        const component = this._getElbowComponent(elbowType);
 
         if (!component || !component.pathGenerator) {
             lcardsLog.error(`[LCARdSElbow] No path generator for type: ${elbowType}`);
@@ -1680,7 +1716,7 @@ export class LCARdSElbow extends LCARdSButton {
 
         // Now adjust positions based on elbow content area
         // Get position and side from component layout metadata
-        const component = getElbowComponent(g.type);
+        const component = this._getElbowComponent(g.type);
         const position = component?.layout?.position || 'header';
         const side = component?.layout?.side || 'left';
 

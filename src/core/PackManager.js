@@ -116,6 +116,12 @@ export class PackManager {
     // ✅ 6. Animations - AnimationRegistry is a cache, no registration needed
     // Animation definitions in packs are used on-demand via getOrCreateInstance()
 
+    // ✅ 7. Register structural components to ComponentManager
+    if (pack.components && this.core.componentManager) {
+      this.core.componentManager.registerComponentsFromPack(pack);
+      lcardsLog.debug(`[PackManager] Registered components from pack: ${pack.id}`);
+    }
+
     // Store pack reference
     this.loadedPacks.set(pack.id, {
       id: pack.id,

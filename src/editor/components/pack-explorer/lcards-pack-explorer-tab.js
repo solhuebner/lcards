@@ -18,7 +18,6 @@
 import { LitElement, html, css } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { lcardsLog } from '../../../utils/lcards-logging.js';
-import { components } from '../../../core/packs/components/index.js';
 import {
   renderThemePreview,
   rendererStyles
@@ -279,6 +278,7 @@ export class LCARdSPackExplorerTab extends LitElement {
       .detail-value {
         font-family: 'Courier New', monospace;
         color: var(--primary-text-color);
+        text-align: right;
       }
 
       .empty-state {
@@ -289,28 +289,44 @@ export class LCARdSPackExplorerTab extends LitElement {
 
       .stats-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-        gap: 12px;
+        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+        gap: 8px;
         margin-bottom: 16px;
       }
 
       .stat-card {
         background: var(--primary-color);
-        padding: 12px;
+        padding: 10px 8px;
         border-radius: 6px;
         text-align: center;
         color: var(--primary-text-color, white);
+        opacity: 0.9;
+        transition: opacity 0.15s;
+      }
+
+      .stat-card.zero {
+        opacity: 0.35;
+      }
+
+      .stat-card .stat-icon {
+        font-size: 18px;
+        line-height: 1;
+        margin-bottom: 4px;
       }
 
       .stat-value {
-        font-size: 24px;
+        font-size: 22px;
         font-weight: 600;
+        line-height: 1;
       }
 
       .stat-label {
-        font-size: 12px;
+        font-size: 11px;
         color: var(--secondary-text-color);
         margin-top: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       .svg-preview-container {
@@ -713,15 +729,23 @@ export class LCARdSPackExplorerTab extends LitElement {
 
   /**
    * Get components associated with a pack.
-   * Reads `definition.metadata.pack` — no separate mapping needed.
-   * New components are picked up automatically as long as their metadata
-   * declares the correct pack ID.
+   * Queries ComponentManager, which has pack provenance set by PackManager
+   * when each pack's components key is registered.
    * @private
    */
   _getComponentsForPack(packId) {
-    return Object.entries(components)
-      .filter(([, definition]) => (definition?.metadata?.pack ?? 'core') === packId)
-      .map(([name, definition]) => ({ name, definition, pack: packId }));
+    const componentManager = window.lcards?.core?.componentManager;
+    if (!componentManager) return [];
+
+    return componentManager.getAllComponentNames()
+      .map(name => ({ name, definition: componentManager.getComponent(name) }))
+      .filter(({ definition }) => {
+        // PackManager sets top-level `pack` when registering via registerComponentsFromPack.
+        // Fall back to metadata.pack for externally-defined components, then 'core'.
+        const pack = definition?.pack || definition?.metadata?.pack || 'core';
+        return pack === packId;
+      })
+      .map(({ name, definition }) => ({ name, definition, pack: packId }));
   }
 
   /**
@@ -923,25 +947,41 @@ export class LCARdSPackExplorerTab extends LitElement {
       <div class="detail-section">
         <h4>Statistics</h4>
         <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-value">${pack.themeCount || 0}</div>
-            <div class="stat-label">Themes</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value">${pack.presetCount || 0}</div>
-            <div class="stat-label">Presets</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value">${pack.ruleCount || 0}</div>
-            <div class="stat-label">Rules</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value">${this._getAssetCountForPack(pack.id)}</div>
-            <div class="stat-label">Assets</div>
-          </div>
+          ${this._renderStatCard('🎨', pack.themeCount || 0, 'Themes')}
+          ${this._renderStatCard('🎛️', pack.presetCount || 0, 'Presets')}
+          ${this._renderStatCard('🧩', this._getComponentsForPack(pack.id).length, 'Components')}
+          ${this._renderStatCard('📋', pack.ruleCount || 0, 'Rules')}
+          ${this._renderStatCard('🎬', this._getAnimationCountForPack(pack.id), 'Animations')}
+          ${this._renderStatCard('🖼️', this._getAssetsForPack('svg', pack.id).length, 'SVG')}
+          ${this._renderStatCard('🔤', this._getAssetsForPack('font', pack.id).length, 'Fonts')}
+          ${this._renderStatCard('🔊', this._getAssetsForPack('audio', pack.id).length, 'Audio')}
         </div>
       </div>
     `;
+  }
+
+  /**
+   * Render a single stat tile.
+   * Tiles with a count of zero are rendered dimmed but still visible.
+   * @private
+   */
+  _renderStatCard(icon, count, label) {
+    return html`
+      <div class="stat-card ${count === 0 ? 'zero' : ''}">
+        <div class="stat-icon">${icon}</div>
+        <div class="stat-value">${count}</div>
+        <div class="stat-label">${label}</div>
+      </div>
+    `;
+  }
+
+  /**
+   * Get animation count for a pack from AnimationRegistry.
+   * @private
+   */
+  _getAnimationCountForPack(packId) {
+    const animations = window.lcards?.core?.animationRegistry?.getAnimationsWithMetadata() || [];
+    return animations.filter(a => a.pack === packId).length;
   }
 
   _renderThemeDetail(theme) {

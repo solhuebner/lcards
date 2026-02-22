@@ -7,7 +7,7 @@
  * @module core/packs/themes
  */
 
-export { BUILTIN_THEMES_PACK } from './builtin-themes.js';
+export { BUILTIN_THEMES_PACK } from '../builtin-themes.js';
 
 // Re-export theme tokens for convenience
 export { lcardsDefaultTokens } from './tokens/lcardsDefaultTokens.js';

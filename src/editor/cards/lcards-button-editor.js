@@ -13,7 +13,6 @@ import { editorComponentStyles } from '../base/editor-component-styles.js';
 import { configToYaml } from '../utils/yaml-utils.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import { getComponentNames, getComponentsForCard } from '../../core/packs/components/index.js';
-import { BUTTON_COMPONENTS } from '../../core/packs/components/buttons/index.js';
 import '../components/shared/lcards-message.js';
 import '../components/yaml/lcards-yaml-editor.js';
 // Import shared form components
@@ -46,6 +45,23 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
         super();
         this.cardType = 'button';
         this._cardElement = null;
+    }
+
+    /**
+     * Build dropdown options for the button preset selector.
+     * Queries StylePresetManager so third-party pack presets appear automatically.
+     * Labels are derived from the preset key (e.g. 'bar-label-left' → 'Bar Label Left').
+     *
+     * @returns {Array<{value: string, label: string}>}
+     * @private
+     */
+    _getButtonPresetOptions() {
+        const spm = window.lcards?.core?.stylePresetManager;
+        if (!spm) return [];
+        return spm.getAvailablePresets('button').map(name => ({
+            value: name,
+            label: name.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+        }));
     }
 
     static get styles() {
@@ -465,7 +481,7 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                                 render: () => keyed(mode, html`
                                     <ha-selector
                                         .hass=${this.hass}
-                                        .selector=${{ select: { mode: 'dropdown', options: Object.entries(BUTTON_COMPONENTS).map(([k, v]) => ({ value: k, label: v.name || k })) } }}
+                                        .selector=${{ select: { mode: 'dropdown', options: this._getButtonPresetOptions() } }}
                                         .value=${this.config.preset || 'lozenge'}
                                         .label=${'Preset Style'}
                                         @value-changed=${(e) => this._setConfigValue('preset', e.detail.value)}>
