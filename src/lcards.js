@@ -33,15 +33,9 @@ import { LCARdSDataGrid } from './cards/lcards-data-grid.js';
 import { LCARdSMSDCard } from './cards/lcards-msd.js';
 import { LCARdSConfigPanel } from './panels/lcards-config-panel.js';
 
-// Unified API system removed - legacy architecture
-// Use DOM queries: document.querySelector('lcards-msd')._msdPipeline
-
-// Component registration imports removed - components accessed via Component Registry directly
 
 // Ensure global namespace
 window.lcards = window.lcards || {};
-
-window.lcards.loadFont = loadFont;
 
 
 async function initializeCustomCard() {
