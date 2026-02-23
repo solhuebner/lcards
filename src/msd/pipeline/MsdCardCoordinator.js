@@ -4,15 +4,8 @@ import { DataSourceManager } from '../../core/data-sources/DataSourceManager.js'
 import { RouterCore } from '../routing/RouterCore.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import { lcardsCore } from '../../core/lcards-core.js';
-import { AnimationRegistry } from '../../core/animation/AnimationRegistry.js';
-import { ThemeManager } from '../../core/themes/ThemeManager.js';
 import { deepMerge } from '../../core/config-manager/merge-helpers.js';
 import { DebugManager } from '../debug/DebugManager.js';
-
-import { StylePresetManager } from '../../core/presets/StylePresetManager.js';
-
-// Import theme system initialization
-import { initializeThemeSystem } from '../../core/themes/initializeThemeSystem.js';
 
 // Import animation system components
 // AnimationManager now imported as shared singleton from lcardsCore
@@ -115,6 +108,7 @@ export class MsdCardCoordinator extends BaseService {
     // Store in global namespace for access by overlays
     if (typeof window !== 'undefined') {
       window.lcards = window.lcards || {};
+      // Compatibility shim — renderers that predate core.themeManager read from here. Remove when all callers migrated.
       window.lcards.theme = this.themeManager;
       window.lcards.debug.msd.themeProvenance = mergedConfig.__provenance?.theme;
     }

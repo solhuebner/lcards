@@ -13,7 +13,6 @@
  */
 
 import { lcardsLog } from '../utils/lcards-logging.js';
-import { MsdIntrospection } from '../msd/introspection/MsdIntrospection.js';
 
 export class MsdRuntimeAPI {
   /**
@@ -48,10 +47,10 @@ export class MsdRuntimeAPI {
           
           if (cardId) {
             // Get specific card by ID
-            card = document.querySelector(`lcards-msd[id="${cardId}"]`);
+            card = document.querySelector(`lcards-msd-card[id="${cardId}"]`);
           } else {
             // Get first MSD card
-            card = document.querySelector('lcards-msd');
+            card = document.querySelector('lcards-msd-card');
           }
 
           if (!card) {
@@ -98,7 +97,7 @@ export class MsdRuntimeAPI {
        */
       getAllInstances() {
         try {
-          const cards = document.querySelectorAll('lcards-msd');
+          const cards = document.querySelectorAll('lcards-msd-card');
           const instances = [];
           
           cards.forEach(card => {
@@ -299,7 +298,7 @@ export class MsdRuntimeAPI {
 
           try {
             // Get theme manager from global namespace
-            const themeManager = window.lcards?.theme;
+            const themeManager = window.lcards?.core?.themeManager ?? window.lcards?.theme;
 
             if (!themeManager) {
               lcardsLog.error('[RuntimeAPI] ThemeManager not available');
@@ -349,7 +348,7 @@ export class MsdRuntimeAPI {
          */
         getCurrent(cardId = null) {
           try {
-            const themeManager = window.lcards?.theme;
+            const themeManager = window.lcards?.core?.themeManager ?? window.lcards?.theme;
 
             if (!themeManager) {
               lcardsLog.warn('[RuntimeAPI] ThemeManager not available');
@@ -390,7 +389,7 @@ export class MsdRuntimeAPI {
          */
         list() {
           try {
-            const themeManager = window.lcards?.theme;
+            const themeManager = window.lcards?.core?.themeManager ?? window.lcards?.theme;
 
             if (!themeManager) {
               lcardsLog.warn('[RuntimeAPI] ThemeManager not available');
@@ -569,15 +568,8 @@ export class MsdRuntimeAPI {
               return false;
             }
 
-            // Check if MsdIntrospection.highlight is available
-            if (typeof MsdIntrospection?.highlight === 'function') {
-              MsdIntrospection.highlight([overlayId], { root: mountEl, duration });
-              lcardsLog.debug('[RuntimeAPI] Highlighted overlay:', overlayId, 'for', duration, 'ms');
-              return true;
-            }
-
-            // Fallback if MsdIntrospection not available
-            lcardsLog.warn('[RuntimeAPI] MsdIntrospection.highlight not available');
+            // Overlay highlighting via visual debug layer is not available in this build
+            lcardsLog.warn('[RuntimeAPI] Overlay highlighting not available');
             lcardsLog.debug('[RuntimeAPI] Would highlight:', overlayId, 'for', duration, 'ms');
             return false;
 
