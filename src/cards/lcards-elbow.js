@@ -81,9 +81,9 @@ export class LCARdSElbow extends LCARdSButton {
             ...super.properties,
             _elbowConfig: { type: Object, state: true },
             _elbowGeometry: { type: Object, state: true },
-            _themeBarDimensions: { type: Object, state: true }, // Track input_number values
-            _symbiotElement: { type: Object, state: true },
-            _symbiotMounted: { type: Boolean, state: true }
+            _themeBarDimensions: { type: Object, state: true } // Track input_number values
+            // _symbiotElement and _symbiotMounted are plain instance properties (not Lit reactive)
+            // to avoid triggering re-renders on imperative DOM reference changes
         };
     }
 
@@ -134,9 +134,11 @@ export class LCARdSElbow extends LCARdSButton {
         this._themeBarDimensions = { horizontal: null, vertical: null, angle: null };
         this._themeEntityUnsubscribes = []; // Track subscriptions for cleanup
 
-        // Symbiont state
+        // Symbiont state (plain instance properties — not Lit reactive to avoid update loops)
         this._symbiotElement = null;
         this._symbiotMounted = false;
+        this._lastSymbiontConfigJson = null; // Dirty-check for symbiont config changes
+        this._lastImprintCss = null;         // Cache last injected imprint CSS
 
         // Interaction states (hover/pressed)
         // Simple elbow (single segment)
@@ -191,12 +193,17 @@ export class LCARdSElbow extends LCARdSButton {
         this._initializeElbowDefaultColors();
 
         // Handle symbiont enable/disable when card is already initialized
+        // Use dirty-check to avoid remounting on every non-symbiont property change from the editor
         if (this._initialized) {
-            if (config.symbiont?.enabled) {
-                this._unmountSymbiontCard();
-                this._mountSymbiontCard();
-            } else {
-                this._unmountSymbiontCard();
+            const newSymbiontJson = JSON.stringify(config.symbiont);
+            if (newSymbiontJson !== this._lastSymbiontConfigJson) {
+                this._lastSymbiontConfigJson = newSymbiontJson;
+                if (config.symbiont?.enabled) {
+                    this._unmountSymbiontCard();
+                    this._mountSymbiontCard();
+                } else {
+                    this._unmountSymbiontCard();
+                }
             }
         }
     }
@@ -1949,6 +1956,8 @@ export class LCARdSElbow extends LCARdSButton {
         }
 
         // Strategy 2: document.createElement with upgrade wait
+        // Creating element detached before mounting — document.createElement is acceptable here
+        // per the same pattern used in MsdControlsRenderer._createHomeAssistantCard()
         if (!cardElement) {
             try {
                 cardElement = document.createElement(normalizedType);
@@ -2124,6 +2133,7 @@ export class LCARdSElbow extends LCARdSButton {
             this._symbiotElement = null;
         }
         this._symbiotMounted = false;
+        this._lastImprintCss = null; // Reset cache so next mount re-injects fresh styles
     }
 
     /**
@@ -2156,6 +2166,10 @@ export class LCARdSElbow extends LCARdSButton {
         const css = this._buildImprintStyle();
         const customCss = this.config?.symbiont?.custom_style || '';
         const fullCss = [css, customCss].filter(Boolean).join('\n\n');
+
+        // Skip DOM mutation if styles haven't changed (called on every HASS update)
+        if (fullCss === this._lastImprintCss) return;
+        this._lastImprintCss = fullCss;
 
         if (!fullCss) return;
 
@@ -2271,9 +2285,16 @@ export class LCARdSElbow extends LCARdSButton {
             // Auto-derive from elbow inner arc geometry
             if (!this._elbowGeometry) return {};
 
+            // Simple geometry: { innerRadius } directly on the object
+            // Segmented geometry: { outer: {...}, inner: { innerRadius } }
             const innerRadius = this._elbowGeometry.innerRadius ||
                                this._elbowGeometry.inner?.innerRadius ||
                                0;
+
+            lcardsLog.debug('[LCARdSElbow] Symbiont border-radius: innerRadius resolved', {
+                innerRadius,
+                geometryKeys: Object.keys(this._elbowGeometry)
+            });
 
             const component = this._getElbowComponent(this._elbowConfig?.type);
             const position = component?.layout?.position || 'header';

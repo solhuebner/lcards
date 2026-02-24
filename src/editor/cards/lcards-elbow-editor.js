@@ -17,7 +17,7 @@
 import { html } from 'lit';
 import { LCARdSBaseEditor } from '../base/LCARdSBaseEditor.js';
 import { editorComponentStyles } from '../base/editor-component-styles.js';
-import { configToYaml } from '../utils/yaml-utils.js';
+import { configToYaml, yamlToConfig } from '../utils/yaml-utils.js';
 import { getElbowSchema } from '../../cards/schemas/elbow-schema.js';
 import '../components/shared/lcards-message.js';
 import '../components/yaml/lcards-yaml-editor.js';
@@ -922,7 +922,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                             autofocus
                             @value-changed=${(e) => {
                                 try {
-                                    const parsed = window.jsyaml?.load(e.detail.value);
+                                    const parsed = yamlToConfig(e.detail.value);
                                     if (parsed && typeof parsed === 'object') {
                                         this._setConfigValue('symbiont.card', parsed);
                                     }
@@ -943,6 +943,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
 
                         <lcards-padding-editor
                             .editor=${this}
+                            .config=${this.config}
                             path="symbiont.position"
                             label="Content Area Padding"
                             helper="Distance from each edge of the elbow content area">
