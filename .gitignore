@@ -407,3 +407,4 @@ doc-staging/
 test-temp/
 hacsfiles/
 hacsfiles/lcards/msd/
+dist/*
