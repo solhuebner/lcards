@@ -408,3 +408,5 @@ test-temp/
 hacsfiles/
 hacsfiles/lcards/msd/
 dist/*
+dist/lcards.js
+dist/lcards.js.map
