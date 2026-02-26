@@ -960,7 +960,7 @@ export class LCARdSMSDCard extends LCARdSCard {
      * Get layout options
      * @protected
      */
-    _getLayoutOptions() {
+    _getGridOptions() {
         return {
             grid_rows: 8,
             grid_columns: 4

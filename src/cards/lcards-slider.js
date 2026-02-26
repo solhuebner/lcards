@@ -3209,25 +3209,24 @@ export class LCARdSSlider extends LCARdSButton {
      * Get layout options
      * @returns {Object}
      */
-    getLayoutOptions() {
+    getGridOptions() {
         const orientation = this._sliderStyle?.track?.orientation || 'horizontal';
         const isVertical = orientation === 'vertical';
+        const go = this.config.grid_options || {};
 
-        // Vertical sliders should be narrow (1-2 columns wide, tall)
-        // Horizontal sliders should be short (1 row tall, wide)
         if (isVertical) {
             return {
-                grid_columns: this.config.grid_columns ?? 2,
-                grid_rows: this.config.grid_rows,
-                grid_min_columns: this.config.grid_min_columns ?? 1,
-                grid_min_rows: this.config.grid_min_rows ?? 4
+                grid_columns:     go.columns     ?? 1,
+                grid_rows:        go.rows,
+                grid_min_columns: go.min_columns ?? 1,
+                grid_min_rows:    go.min_rows    ?? 4
             };
         } else {
             return {
-                grid_columns: this.config.grid_columns,
-                grid_rows: this.config.grid_rows ?? 1,
-                grid_min_columns: this.config.grid_min_columns ?? 4,
-                grid_min_rows: this.config.grid_min_rows ?? 1
+                grid_columns:     go.columns,
+                grid_rows:        go.rows        ?? 1,
+                grid_min_columns: go.min_columns ?? 4,
+                grid_min_rows:    go.min_rows    ?? 1
             };
         }
     }

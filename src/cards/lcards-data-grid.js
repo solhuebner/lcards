@@ -1736,7 +1736,7 @@ export class LCARdSDataGrid extends LCARdSCard {
    * Get layout options for HA grid system
    * @returns {Object} Layout configuration
    */
-  getLayoutOptions() {
+  getGridOptions() {
     return {
       grid_columns: this.config.grid_columns !== undefined ? this.config.grid_columns : 'full',
       grid_rows: this.config.grid_rows || 'auto'

@@ -5586,7 +5586,7 @@ export class LCARdSButton extends LCARdSCard {
      * This method provides defaults if not specified.
      * @returns {Object} Layout configuration
      */
-    getLayoutOptions() {
+    getGridOptions() {
         // HA uses grid_options.columns and grid_options.rows
         // Provide sensible defaults if not configured
         const gridOptions = this.config.grid_options || {};

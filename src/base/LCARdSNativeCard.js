@@ -188,8 +188,8 @@ export class LCARdSNativeCard extends LitElement {
      * Get layout options for the card
      * @returns {Object} Layout options
      */
-    getLayoutOptions() {
-        return this._getLayoutOptions();
+    getGridOptions() {
+        return this._getGridOptions();
     }
 
     // ============================================================================
@@ -379,7 +379,7 @@ export class LCARdSNativeCard extends LitElement {
      * Get layout options - override in subclasses
      * @protected
      */
-    _getLayoutOptions() {
+    _getGridOptions() {
         return {};
     }
 

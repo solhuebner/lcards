@@ -2279,7 +2279,7 @@ export class LCARdSElbow extends LCARdSButton {
      * Get layout options for Home Assistant grid system
      * @returns {Object} Layout configuration
      */
-    getLayoutOptions() {
+    getGridOptions() {
         // HA uses grid_options.columns and grid_options.rows
         // Provide sensible defaults for elbow cards
         const gridOptions = this.config.grid_options || {};
