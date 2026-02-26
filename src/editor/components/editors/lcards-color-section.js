@@ -253,6 +253,8 @@ export class LCARdSColorSection extends LitElement {
                         .value=${value || ''}
                         .variablePrefixes=${this.variablePrefixes}
                         ?showPreview=${this.showPreview}
+                        ?allowMatchLight=${this.editor?._isLightEntity}
+                        .entityId=${this.editor?.config?.entity || ''}
                         @value-changed=${(e) => this._handleColorChange(this.basePath, e)}>
                     </lcards-color-picker>
                 </div>
@@ -281,6 +283,8 @@ export class LCARdSColorSection extends LitElement {
                         .value=${this._getValueAtPath(colorPath.path) || ''}
                         ?showPreview=${this.showPreview}
                         .variablePrefixes=${this.variablePrefixes}
+                        ?allowMatchLight=${this.editor?._isLightEntity}
+                        .entityId=${this.editor?.config?.entity || ''}
                         @value-changed=${(e) => this._handleColorPathChange(colorPath.path, e)}>
                     </lcards-color-picker>
                     ${colorPath.helper ? html`
@@ -324,6 +328,8 @@ export class LCARdSColorSection extends LitElement {
                         .value=${value || ''}
                         .variablePrefixes=${this.variablePrefixes}
                         ?showPreview=${this.showPreview}
+                        ?allowMatchLight=${this.editor?._isLightEntity}
+                        .entityId=${this.editor?.config?.entity || ''}
                         @value-changed=${(e) => this._handleColorChange(path, e)}>
                     </lcards-color-picker>
                 </div>

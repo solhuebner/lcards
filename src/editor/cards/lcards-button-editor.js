@@ -1271,6 +1271,8 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                                         .hass=${this.hass}
                                         .value=${range.color?.shape || ''}
                                         ?showPreview=${true}
+                                        ?allowMatchLight=${this._isLightEntity}
+                                        .entityId=${this.config?.entity || ''}
                                         @value-changed=${(e) => this._updateRangeColor(idx, 'shape', e.detail.value)}>
                                     </lcards-color-picker>
                                 </div>
@@ -1286,6 +1288,8 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                                         .hass=${this.hass}
                                         .value=${range.color?.bars || ''}
                                         ?showPreview=${true}
+                                        ?allowMatchLight=${this._isLightEntity}
+                                        .entityId=${this.config?.entity || ''}
                                         @value-changed=${(e) => this._updateRangeColor(idx, 'bars', e.detail.value)}>
                                     </lcards-color-picker>
                                 </div>
@@ -1336,6 +1340,8 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                                 .hass=${this.hass}
                                 .value=${shapeVal}
                                 ?showPreview=${true}
+                                ?allowMatchLight=${this._isLightEntity}
+                                .entityId=${this.config?.entity || ''}
                                 @value-changed=${(e) => {
                                     if (e.detail.value) this._setConfigValue('alert.color.shape', e.detail.value);
                                     else this._removeConfigPath('alert.color.shape');
@@ -1357,6 +1363,8 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                                 .hass=${this.hass}
                                 .value=${barsVal}
                                 ?showPreview=${true}
+                                ?allowMatchLight=${this._isLightEntity}
+                                .entityId=${this.config?.entity || ''}
                                 @value-changed=${(e) => {
                                     if (e.detail.value) this._setConfigValue('alert.color.bars', e.detail.value);
                                     else this._removeConfigPath('alert.color.bars');
@@ -1471,6 +1479,8 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                                     .hass=${this.hass}
                                     .value=${shapeVal}
                                     ?showPreview=${true}
+                                    ?allowMatchLight=${this._isLightEntity}
+                                    .entityId=${this.config?.entity || ''}
                                     @value-changed=${(e) => this._setCustomPresetColor(name, 'shape', e.detail.value)}>
                                 </lcards-color-picker>
                             </div>
@@ -1486,6 +1496,8 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                                     .hass=${this.hass}
                                     .value=${barsVal}
                                     ?showPreview=${true}
+                                    ?allowMatchLight=${this._isLightEntity}
+                                    .entityId=${this.config?.entity || ''}
                                     @value-changed=${(e) => this._setCustomPresetColor(name, 'bars', e.detail.value)}>
                                 </lcards-color-picker>
                             </div>
@@ -1504,6 +1516,8 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                                     .hass=${this.hass}
                                     .value=${text1Val}
                                     ?showPreview=${true}
+                                    ?allowMatchLight=${this._isLightEntity}
+                                    .entityId=${this.config?.entity || ''}
                                     @value-changed=${(e) => this._setCustomPresetTextColor(name, 'alert_text', e.detail.value)}>
                                 </lcards-color-picker>
                             </div>
@@ -1522,6 +1536,8 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                                     .hass=${this.hass}
                                     .value=${text2Val}
                                     ?showPreview=${true}
+                                    ?allowMatchLight=${this._isLightEntity}
+                                    .entityId=${this.config?.entity || ''}
                                     @value-changed=${(e) => this._setCustomPresetTextColor(name, 'sub_text', e.detail.value)}>
                                 </lcards-color-picker>
                             </div>

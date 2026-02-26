@@ -39,6 +39,7 @@ export class LCARdSColorSectionV2 extends LitElement {
             header: { type: String },           // Section header
             description: { type: String },      // Section description
             expanded: { type: Boolean },        // Expanded state
+            allowMatchLight: { type: Boolean }, // Show "Match Light Colour" option
 
             // NEW: Suggested states for quick-add
             suggestedStates: { type: Array },
@@ -65,6 +66,7 @@ export class LCARdSColorSectionV2 extends LitElement {
         this.header = 'Colors';
         this.description = '';
         this.expanded = false;
+        this.allowMatchLight = false;
         this.suggestedStates = ['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed'];
         this.allowCustomStates = true;
         this.showPreview = true;
@@ -349,6 +351,8 @@ export class LCARdSColorSectionV2 extends LitElement {
                             .value=${color || ''}
                             .variablePrefixes=${this.variablePrefixes}
                             ?showPreview=${true}
+                            ?allowMatchLight=${this.allowMatchLight || this.editor?._isLightEntity}
+                            .entityId=${this.editor?.config?.entity || ''}
                             @value-changed=${(e) => this._handleColorChange(state, e)}>
                         </lcards-color-picker>
                     </div>

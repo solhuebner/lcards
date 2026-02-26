@@ -795,6 +795,8 @@ export class LCARdSSlider extends LCARdSButton {
     _resolveColorValue(rawValue, fallback = '') {
         if (!rawValue) return fallback;
         let value = rawValue;
+        // Step 0: 'match-light' special token → per-card CSS variable
+        value = this._resolveMatchLightColor(value);
         // Step 1: computed tokens and theme: tokens
         const resolver = window.lcards?.core?.themeManager?.resolver;
         if (resolver) {

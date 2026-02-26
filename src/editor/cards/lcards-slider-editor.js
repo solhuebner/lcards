@@ -1551,6 +1551,8 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                         .hass=${this.hass}
                         .value=${String(currentValue || '')}
                         .showPreview=${true}
+                        ?allowMatchLight=${this._isLightEntity}
+                        .entityId=${this.config?.entity || ''}
                         @value-changed=${(e) => this._handleComponentOptionChanged(key, e.detail.value)}>
                     </lcards-color-picker>
                     ${helper ? html`

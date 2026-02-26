@@ -37,6 +37,7 @@ export class LCARdSColorPicker extends LitElement {
             variablePrefixes: { type: Array },  // Array of CSS variable prefixes to scan
             showPreview: { type: Boolean },      // Show live preview with computed color
             allowMatchLight: { type: Boolean },  // Allow "Match Light Colour" option
+            entityId: { type: String },          // Entity ID — used to resolve match-light in preview
             showBuilder: { type: Boolean },      // Show computed token builder UI
             _cssVariables: { type: Array, state: true },
             _computedColor: { type: String, state: true },
@@ -55,6 +56,7 @@ export class LCARdSColorPicker extends LitElement {
         this.variablePrefixes = ['--lcards-', '--lcars-', '--cblcars-'];
         this.showPreview = true;
         this.allowMatchLight = false;
+        this.entityId = '';
         this.showBuilder = true;  // Enable builder by default
         this._cssVariables = [];
         this._computedColor = '';
@@ -372,18 +374,21 @@ export class LCARdSColorPicker extends LitElement {
             return;
         }
 
+        // Resolve match-light before any further processing
+        const resolvedValue = this._resolveMatchLightForPreview(this.value);
+
         // Check if value is a computed token expression
         const validFunctions = ['lighten', 'darken', 'alpha', 'saturate', 'desaturate', 'mix'];
-        const isComputedToken = validFunctions.some(fn => this.value.startsWith(`${fn}(`));
+        const isComputedToken = validFunctions.some(fn => resolvedValue.startsWith(`${fn}(`));
 
         if (isComputedToken) {
             // Approximate the computed color for preview
-            this._computedColor = this._approximateComputedColor(this.value);
-        } else if (this.value.includes('var(')) {
+            this._computedColor = this._approximateComputedColor(resolvedValue);
+        } else if (resolvedValue.includes('var(')) {
             // For CSS variables, compute the actual color via DOM
             try {
                 const temp = document.createElement('div');
-                temp.style.color = this.value;
+                temp.style.color = resolvedValue;
                 document.body.appendChild(temp);
                 const computed = getComputedStyle(temp).color;
                 document.body.removeChild(temp);
@@ -393,8 +398,39 @@ export class LCARdSColorPicker extends LitElement {
             }
         } else {
             // Plain color value
-            this._computedColor = this.value;
+            this._computedColor = resolvedValue;
         }
+    }
+
+    /**
+     * Resolve 'match-light' to an actual colour string using the hass entity state.
+     * Only used for editor preview — the card runtime uses _resolveMatchLightColor().
+     * @param {string} value - May equal 'match-light' or contain it
+     * @returns {string} Resolved colour, or the original string if unavailable
+     * @private
+     */
+    _resolveMatchLightForPreview(value) {
+        if (!value || !value.includes('match-light')) return value;
+        const entity = this.hass?.states?.[this.entityId];
+        if (!entity || entity.state !== 'on') return value;
+
+        let color = null;
+        if (entity.attributes.rgb_color) {
+            const [r, g, b] = entity.attributes.rgb_color;
+            color = `rgb(${r}, ${g}, ${b})`;
+        } else if (entity.attributes.hs_color) {
+            const [h, s] = entity.attributes.hs_color;
+            const v = (entity.attributes.brightness ?? 255) / 255;
+            color = ColorUtils.hsToRgb ? (() => {
+                const [r, g, b] = ColorUtils.hsToRgb(h, s, (entity.attributes.brightness ?? 255));
+                return `rgb(${r}, ${g}, ${b})`;
+            })() : null;
+        } else if (entity.attributes.color_temp) {
+            color = '#ffd89b';
+        }
+
+        if (!color) return value;
+        return value.replace(/match-light/g, color);
     }
 
     /**
@@ -405,6 +441,9 @@ export class LCARdSColorPicker extends LitElement {
      */
     _computeColor(colorValue) {
         if (!colorValue) return '';
+
+        // Resolve match-light token for preview via hass entity
+        colorValue = this._resolveMatchLightForPreview(colorValue);
 
         // Check if it's a computed token
         const validFunctions = ['lighten', 'darken', 'alpha', 'saturate', 'desaturate', 'mix'];

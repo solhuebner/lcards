@@ -2827,6 +2827,28 @@ export class LCARdSCard extends LCARdSNativeCard {
     }
 
     /**
+     * Resolve the 'match-light' special color token to this card's light CSS variable.
+     *
+     * When a user chooses "Match Light Colour" in the editor the config stores the
+     * literal string 'match-light'.  At render time that token must be translated to
+     * the per-card CSS variable (`--lcards-light-color-{guid}`) set by
+     * `_updateLightColorVariable()`.  All other values are returned unchanged.
+     *
+     * @param {string} value - Raw color value (may be 'match-light' or any other string)
+     * @returns {string} Resolved CSS variable reference, or the original value
+     * @protected
+     */
+    _resolveMatchLightColor(value) {
+        if (typeof value === 'string' && value.includes('match-light')) {
+            // Replace all occurrences so it works both as a bare value ('match-light')
+            // and as an argument inside a computed expression
+            // e.g. 'darken(match-light, 0.5)' → 'darken(var(--lcards-light-color-{guid}), 0.5)'
+            return value.replace(/match-light/g, `var(--lcards-light-color-${this._cardGuid})`);
+        }
+        return value;
+    }
+
+    /**
      * Convert HS color to RGB
      * @param {number} h - Hue (0-360)
      * @param {number} s - Saturation (0-100)

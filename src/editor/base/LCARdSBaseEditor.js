@@ -323,6 +323,16 @@ export class LCARdSBaseEditor extends LitElement {
     }
 
     /**
+     * Whether the current card's entity is a light entity.
+     * Used to conditionally show the "Match Light Colour" option in color pickers.
+     * @returns {boolean}
+     * @protected
+     */
+    get _isLightEntity() {
+        return typeof this.config?.entity === 'string' && this.config.entity.startsWith('light.');
+    }
+
+    /**
      * Get JSON schema for this card type from CoreConfigManager
      * @returns {Object} JSON Schema object from registered card schema
      */
