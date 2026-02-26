@@ -14,10 +14,10 @@
  *   track-zone content by `_generateShapedContent()` on the card side.
  * - Colors are always resolved by the card, never by the component.
  *
- * Label bands:
- * - Vertical:   topLabel / lozenge body / bottomLabel
- * - Horizontal: leftLabel / lozenge body / rightLabel
- * Band sizes are driven by `style.shaped.label.*` (pixels).
+ * Text bands — pixel space reserved outside the shape body for text fields:
+ * - Vertical:   top band / shaped body / bottom band
+ * - Horizontal: left band / shaped body / right band
+ * Band sizes are driven by `style.shaped.text_bands.*` (pixels).
  *
  * Orientation: Auto (driven by style.track.orientation).
  *
@@ -37,8 +37,8 @@ let _uidCounter = 0;
  * Calculate zone bounds for the shaped component.
  *
  * The card area is split into three bands:
- *   - **Vertical**:   top-label / shaped-body / bottom-label
- *   - **Horizontal**: left-label / shaped-body / right-label
+ *   - **Vertical**:   top band / shaped-body / bottom band
+ *   - **Horizontal**: left band / shaped-body / right band
  *
  * An `_shaped` key is included in the return value to pass lozenge body
  * geometry directly to `render()` without recalculating.
@@ -56,8 +56,8 @@ export function calculateZones(width, height, context) {
     let bodyX, bodyY, bodyW, bodyH;
 
     if (orientation === 'horizontal') {
-        const leftW  = shapedStyle?.label?.left?.size  ?? 60;
-        const rightW = shapedStyle?.label?.right?.size ?? 60;
+        const leftW  = shapedStyle?.text_bands?.left?.size  ?? 60;
+        const rightW = shapedStyle?.text_bands?.right?.size ?? 60;
 
         bodyX = leftW;
         bodyY = 0;
@@ -65,8 +65,8 @@ export function calculateZones(width, height, context) {
         bodyH = height;
     } else {
         // Vertical (default)
-        const topH = shapedStyle?.label?.top?.size    ?? 36;
-        const botH = shapedStyle?.label?.bottom?.size ?? 36;
+        const topH = shapedStyle?.text_bands?.top?.size    ?? 36;
+        const botH = shapedStyle?.text_bands?.bottom?.size ?? 36;
 
         bodyX = 0;
         bodyY = topH;
@@ -207,7 +207,7 @@ export function getMetadata() {
         pack:               'lcards_sliders',
         id:                 'shaped',
         name:               'Shaped',
-        description:        'Generic clip-path slider with exterior label bands. Shape is configurable via style.shaped.type (lozenge, rect, rounded, diamond, hexagon, polygon, path).',
+        description:        'Generic clip-path slider with exterior text bands. Shape is configurable via style.shaped.type (lozenge, rect, rounded, diamond, hexagon, polygon, path). Band widths/heights are set via style.shaped.text_bands.*.',
         orientation:        'auto',
         supportsOrientation: ['horizontal', 'vertical'],
         defaultOrientation:  'vertical',
@@ -242,7 +242,8 @@ export function getMetadata() {
                             default: '#93e1ff'
                         }
                     },
-                    label: {
+                    text_bands: {
+                        description: 'Pixel space reserved outside the shape body on each side, used by text.* fields for their position zones',
                         top:    { size: { type: 'number', default: 36 } },
                         bottom: { size: { type: 'number', default: 36 } },
                         left:   { size: { type: 'number', default: 60 } },

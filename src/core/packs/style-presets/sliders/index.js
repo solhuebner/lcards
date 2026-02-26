@@ -223,14 +223,17 @@ export const SLIDER_PRESETS = {
   // =====================================
   // SHAPED PRESETS — Generic clip-path fill
   // =====================================
+  //
+  // Both presets default to shape type 'lozenge' but the user can override
+  // style.shaped.type to any supported shape (rect, rounded, diamond, etc.).
 
   /**
-   * lozenge-basic: Vertical pill-shaped lozenge, fill rises from bottom.
-   * Use with: component: shaped  (set automatically by this preset).
+   * shaped-vertical: Vertical shaped slider.  Fill rises from the bottom.
+   * Text: state value at top-center, entity name at bottom-center.
    */
-  'lozenge-basic': {
+  'shaped-vertical': {
     extends: 'slider.base',
-    description: 'Pill-shaped lozenge slider with exterior text labels. Set track.orientation to switch between vertical and horizontal.',
+    description: 'Vertical shaped slider with exterior text labels. Change style.shaped.type for different shapes (lozenge, rounded, diamond…).',
     compatibleComponents: ['shaped'],
 
     component: 'shaped',
@@ -238,17 +241,17 @@ export const SLIDER_PRESETS = {
     track: {
       type:        'shaped',
       orientation: 'vertical',
-      invert_fill: false,   // fill rises from bottom (vertical) / left (horizontal)
-      margin:      0        // no margin — clip path handles the shape boundary
+      invert_fill: false,   // fill rises from bottom
+      margin:      0        // clip path handles the shape boundary
     },
 
     shaped: {
-      type: 'lozenge',
-      label: {
-        top:    { size: 36 },
-        bottom: { size: 28 },
-        left:   { size: 60 },
-        right:  { size: 60 }
+      type: 'lozenge',      // default shape — override with style.shaped.type
+      text_bands: {
+        top:    { size: 36 },   // reserve 36px above shape for state readout
+        bottom: { size: 28 },   // reserve 28px below shape for entity name
+        left:   { size: 0 },
+        right:  { size: 0 }
       },
       track: {
         background: 'theme:components.slider.track.background'
@@ -256,14 +259,45 @@ export const SLIDER_PRESETS = {
     },
 
     text: {
-      name: {
-        position: 'bottom-center',
-        show: true
+      name:  { position: 'bottom-center', show: true },
+      state: { position: 'top-center',    show: true }
+    }
+  },
+
+  /**
+   * shaped-horizontal: Horizontal shaped slider.  Fill grows from the left.
+   * Text: entity name at left-center, state value at right-center.
+   */
+  'shaped-horizontal': {
+    extends: 'slider.base',
+    description: 'Horizontal shaped slider with exterior text labels. Change style.shaped.type for different shapes (lozenge, rounded, diamond…).',
+    compatibleComponents: ['shaped'],
+
+    component: 'shaped',
+
+    track: {
+      type:        'shaped',
+      orientation: 'horizontal',
+      invert_fill: false,   // fill grows from left
+      margin:      0
+    },
+
+    shaped: {
+      type: 'lozenge',      // default shape — override with style.shaped.type
+      text_bands: {
+        top:    { size: 0 },
+        bottom: { size: 0 },
+        left:   { size: 80 },   // reserve 80px left of shape for entity name
+        right:  { size: 60 }    // reserve 60px right of shape for state readout
       },
-      state: {
-        position: 'top-center',
-        show: true
+      track: {
+        background: 'theme:components.slider.track.background'
       }
+    },
+
+    text: {
+      name:  { position: 'left-center',  show: true },
+      state: { position: 'right-center', show: true }
     }
   },
 

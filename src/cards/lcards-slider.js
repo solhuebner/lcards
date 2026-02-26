@@ -693,7 +693,7 @@ export class LCARdSSlider extends LCARdSButton {
      */
     async _loadSliderComponent() {
         // Default to 'default' component if not specified.
-        // Also check style.component set by presets (e.g. lozenge-basic sets component: shaped).
+        // Also check style.component set by presets (e.g. shaped-vertical / shaped-horizontal sets component: shaped).
         const componentName = this.config.component || this._sliderStyle?.component || 'default';
 
         lcardsLog.debug(`[LCARdSSlider] Loading component: ${componentName}`);

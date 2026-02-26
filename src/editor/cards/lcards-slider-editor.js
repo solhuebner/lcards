@@ -77,10 +77,10 @@ class SliderConfigState {
             return 'shaped';
         }
 
-        // 3. Infer from preset name (gauge-* = gauge, lozenge-* = shaped, otherwise pills)
+        // 3. Infer from preset name (gauge-* = gauge, shaped-* = shaped, otherwise pills)
         if (this.preset) {
-            if (this.preset.includes('gauge'))   return 'gauge';
-            if (this.preset.includes('lozenge')) return 'shaped';
+            if (this.preset.includes('gauge'))  return 'gauge';
+            if (this.preset.includes('shaped')) return 'shaped';
             return 'pills';
         }
 
@@ -1184,7 +1184,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
 
     /**
      * Shaped Configuration — shape type, fill colour, track background, and label band sizes.
-     * Used when the shaped component is active (e.g. lozenge-basic preset).
+     * Used when the shaped component is active (e.g. shaped-vertical / shaped-horizontal preset).
      * @returns {TemplateResult}
      * @private
      */
@@ -1254,22 +1254,22 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
 
                 ${isVertical ? html`
                     <lcards-grid-layout columns="2">
-                        ${FormField.renderField(this, 'style.shaped.label.top.size', {
+                        ${FormField.renderField(this, 'style.shaped.text_bands.top.size', {
                             label: 'Top Band (px)',
                             helper: 'Space above shape — typically for value label'
                         })}
-                        ${FormField.renderField(this, 'style.shaped.label.bottom.size', {
+                        ${FormField.renderField(this, 'style.shaped.text_bands.bottom.size', {
                             label: 'Bottom Band (px)',
                             helper: 'Space below shape — typically for name label'
                         })}
                     </lcards-grid-layout>
                 ` : html`
                     <lcards-grid-layout columns="2">
-                        ${FormField.renderField(this, 'style.shaped.label.left.size', {
+                        ${FormField.renderField(this, 'style.shaped.text_bands.left.size', {
                             label: 'Left Band (px)',
                             helper: 'Space to the left of the shape'
                         })}
-                        ${FormField.renderField(this, 'style.shaped.label.right.size', {
+                        ${FormField.renderField(this, 'style.shaped.text_bands.right.size', {
                             label: 'Right Band (px)',
                             helper: 'Space to the right of the shape'
                         })}

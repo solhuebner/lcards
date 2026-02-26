@@ -3,7 +3,7 @@
  *
  * Builds SVG `<clipPath>` elements for the `shaped` slider component.
  * Each shape type produces a different clip geometry; all other rendering
- * (fill, ranges, zones, label bands) is handled by the component and card.
+ * (fill, ranges, zones, text bands) is handled by the component and card.
  *
  * Adding a new shape: add a case to `SHAPE_BUILDERS` and export its name
  * in `SUPPORTED_SHAPES`. No other files need changing.
