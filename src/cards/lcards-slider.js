@@ -927,6 +927,178 @@ export class LCARdSSlider extends LCARdSButton {
     }
 
     /**
+     * Resolve a radius value to a pixel number.
+     * Supports:
+     *   - number         → returned directly
+     *   - "12px"         → 12
+     *   - "0.75rem"      → value * 16 (assumes 16px root font-size)
+     *   - "var(--prop)"  → resolved via getComputedStyle on this element, then
+     *                       recursed so the resolved string is also normalised
+     *   - "var(--prop, 12px)" → fallback used when the property is unset / empty
+     * @param {string|number} v - Raw radius value
+     * @returns {number} Pixel value (0 when unresolvable)
+     * @private
+     */
+    _resolveRadiusValue(v) {
+        if (typeof v === 'number') return Math.max(0, v);
+        if (typeof v !== 'string') return 0;
+
+        const str = v.trim();
+        if (!str) return 0;
+
+        // CSS custom property: var(--foo) or var(--foo, fallback)
+        if (str.startsWith('var(')) {
+            // Extract property name
+            const propMatch = str.match(/^var\(\s*(--[^,)\s]+)/);
+            if (propMatch) {
+                const propName = propMatch[1].trim();
+                try {
+                    const resolved = getComputedStyle(this).getPropertyValue(propName).trim();
+                    if (resolved) {
+                        return this._resolveRadiusValue(resolved);
+                    }
+                } catch (_e) { /* element not yet in DOM */ }
+            }
+            // No resolved value → try declared fallback: var(--prop, 12px)
+            const fallbackMatch = str.match(/^var\([^,]+,\s*(.+)\)\s*$/);
+            if (fallbackMatch) {
+                return this._resolveRadiusValue(fallbackMatch[1].trim());
+            }
+            return 0;
+        }
+
+        // Pixel value: "12px"
+        if (str.endsWith('px')) {
+            const n = parseFloat(str);
+            return isNaN(n) ? 0 : Math.max(0, n);
+        }
+
+        // Rem value: "0.75rem" — convert assuming 16px root
+        if (str.endsWith('rem')) {
+            const n = parseFloat(str);
+            return isNaN(n) ? 0 : Math.max(0, n * 16);
+        }
+
+        // Plain number string: "12"
+        const n = parseFloat(str);
+        return isNaN(n) ? 0 : Math.max(0, n);
+    }
+
+    /**
+     * Normalise style.border.radius into a per-corner object {tl, tr, br, bl}.
+     * Each value is run through _resolveRadiusValue() so CSS variables and
+     * 'px'/'rem' strings are supported alongside plain numbers.
+     * Returns null when radius is absent or all corners resolve to zero.
+     * @returns {{ tl: number, tr: number, br: number, bl: number } | null}
+     * @private
+     */
+    _getCornerRadii() {
+        const r = this._sliderStyle?.border?.radius;
+        if (r === undefined || r === null) return null;
+
+        if (typeof r === 'number' || typeof r === 'string') {
+            const v = this._resolveRadiusValue(r);
+            if (v <= 0) return null;
+            return { tl: v, tr: v, br: v, bl: v };
+        }
+        if (typeof r === 'object') {
+            const tl = this._resolveRadiusValue(r.top_left     ?? 0);
+            const tr = this._resolveRadiusValue(r.top_right    ?? 0);
+            const br = this._resolveRadiusValue(r.bottom_right ?? 0);
+            const bl = this._resolveRadiusValue(r.bottom_left  ?? 0);
+            if (tl === 0 && tr === 0 && br === 0 && bl === 0) return null;
+            return { tl, tr, br, bl };
+        }
+        return null;
+    }
+
+    /**
+     * Build an SVG path string for a rounded rectangle with independent per-corner radii.
+     * Handles radius=0 corners as sharp corners (no arc emitted).
+     * Each radius is clamped to min(w,h)/2 to prevent degenerate paths.
+     * @param {number} x - Left edge offset
+     * @param {number} y - Top edge offset
+     * @param {number} w - Rectangle width
+     * @param {number} h - Rectangle height
+     * @param {{ tl: number, tr: number, br: number, bl: number }} radii - Per-corner radii
+     * @returns {string} SVG path d-attribute value
+     * @private
+     */
+    _buildRoundedRectPath(x, y, w, h, radii) {
+        const maxR = Math.min(w, h) / 2;
+        const tl = Math.min(Math.max(radii.tl || 0, 0), maxR);
+        const tr = Math.min(Math.max(radii.tr || 0, 0), maxR);
+        const br = Math.min(Math.max(radii.br || 0, 0), maxR);
+        const bl = Math.min(Math.max(radii.bl || 0, 0), maxR);
+
+        const parts = [];
+        // Start just right of the top-left arc start point
+        parts.push(`M ${x + tl},${y}`);
+        // Top edge → into top-right corner
+        parts.push(`H ${x + w - tr}`);
+        if (tr > 0) parts.push(`A ${tr},${tr} 0 0,1 ${x + w},${y + tr}`);
+        // Right edge → into bottom-right corner
+        parts.push(`V ${y + h - br}`);
+        if (br > 0) parts.push(`A ${br},${br} 0 0,1 ${x + w - br},${y + h}`);
+        // Bottom edge → into bottom-left corner
+        parts.push(`H ${x + bl}`);
+        if (bl > 0) parts.push(`A ${bl},${bl} 0 0,1 ${x},${y + h - bl}`);
+        // Left edge → into top-left corner
+        parts.push(`V ${y + tl}`);
+        if (tl > 0) parts.push(`A ${tl},${tl} 0 0,1 ${x + tl},${y}`);
+        parts.push('Z');
+
+        return parts.join(' ');
+    }
+
+    /**
+     * Apply a corner clip-path to the SVG element so the rendered card has rounded corners.
+     * Reads style.border.radius (uniform number or per-corner object).
+     * Wraps all visible SVG content in a <g clip-path="..."> keyed to _cardGuid.
+     * Safe to call on a freshly-parsed SVG shell (no stale-state issues).
+     * Must be called AFTER all other injection methods so every element is clipped.
+     * @param {SVGElement} svgElement - Parsed SVG root element
+     * @param {number} width  - Container width in pixels
+     * @param {number} height - Container height in pixels
+     * @private
+     */
+    _applyCornerClip(svgElement, width, height) {
+        if (!svgElement) return;
+
+        const radii = this._getCornerRadii();
+        if (!radii) return;
+
+        const clipId = `corner-clip-${this._cardGuid || 'slider'}`;
+
+        // Ensure <defs> exists (insert as first child if absent)
+        let defs = svgElement.querySelector('defs');
+        if (!defs) {
+            defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            svgElement.insertBefore(defs, svgElement.firstChild);
+        }
+
+        // Build the clip-path element
+        const clipPath = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
+        clipPath.setAttribute('id', clipId);
+        const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        pathEl.setAttribute('d', this._buildRoundedRectPath(0, 0, width, height, radii));
+        clipPath.appendChild(pathEl);
+        defs.appendChild(clipPath);
+
+        // Wrap all non-defs children in a clip group
+        // (SVG is freshly parsed so there is no pre-existing wrapper to remove)
+        const wrapper = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        wrapper.setAttribute('id', 'card-clip-wrapper');
+        wrapper.setAttribute('clip-path', `url(#${clipId})`);
+
+        const children = Array.from(svgElement.childNodes).filter(n => n !== defs);
+        children.forEach(child => wrapper.appendChild(child));
+        svgElement.appendChild(wrapper);
+
+        lcardsLog.trace(`[LCARdSSlider] Applied corner clip ${clipId} (tl=${radii.tl} tr=${radii.tr} br=${radii.br} bl=${radii.bl})`);
+    }
+
+    /**
      * Inject range backgrounds with optional inset borders (Picard mode)
      * Creates outer border rects (black) and inner colored rects for each range.
      * Ranges are positioned based on display min/max and stack bottom-to-top in vertical mode.
@@ -2530,6 +2702,9 @@ export class LCARdSSlider extends LCARdSButton {
 
         // Inject text fields if configured
         this._injectTextFieldsToElement(shellElement, width, height);
+
+        // Apply corner clip-path for rounded card corners (must be last — clips everything)
+        this._applyCornerClip(shellElement, width, height);
 
         // Step 7: Serialize back to string
         const serializer = new XMLSerializer();

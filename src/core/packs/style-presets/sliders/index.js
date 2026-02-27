@@ -221,6 +221,42 @@ export const SLIDER_PRESETS = {
   },
 
   // =====================================
+  // PILLS PRESET - Pills with rounded corners (LCARS end-cap style)
+  // =====================================
+  'pills-left-border-rounded': {
+    extends: 'slider.pills-left-border',
+    description: 'Pills slider with left border and rounded free-end corners. The left (bordered) end stays flat; only the right end is rounded — classic LCARS end-cap look. Override style.border.radius for a different radius or per-corner control.',
+    compatibleComponents: ['default'],
+
+    border: {
+      radius: {
+        top_left:     0,
+        bottom_left:  0,
+        top_right:    12,
+        bottom_right: 12
+      }
+    }
+  },
+
+  // =====================================
+  // GAUGE PRESET - Gauge with rounded corners (LCARS end-cap style)
+  // =====================================
+  'gauge-left-border-rounded': {
+    extends: 'slider.gauge-left-border',
+    description: 'Gauge slider with left border and rounded free-end corners. The left (bordered) end stays flat; only the right end is rounded. Override style.border.radius for a different radius or per-corner control.',
+    compatibleComponents: ['default'],
+
+    border: {
+      radius: {
+        top_left:     0,
+        bottom_left:  0,
+        top_right:    12,
+        bottom_right: 12
+      }
+    }
+  },
+
+  // =====================================
   // SHAPED PRESETS — Generic clip-path fill
   // =====================================
   //

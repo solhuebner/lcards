@@ -704,8 +704,50 @@ export function getSliderSchema(options = {}) {
                     },
                     border: {
                         type: 'object',
-                        description: 'Per-side border configuration (left/top/right/bottom caps)',
+                        description: 'Per-side border configuration with optional corner radius',
                         properties: {
+                            radius: {
+                                oneOf: [
+                                    {
+                                        type: 'number',
+                                        minimum: 0,
+                                        description: 'Uniform corner radius in pixels applied to all four card corners',
+                                        examples: [12, 8, 0]
+                                    },
+                                    {
+                                        type: 'string',
+                                        description: 'CSS variable or px/rem value for uniform corner radius — resolved at render time',
+                                        examples: [
+                                            'var(--ha-card-border-radius)',
+                                            'var(--ha-card-border-radius, 12px)',
+                                            '12px',
+                                            '0.75rem'
+                                        ]
+                                    },
+                                    {
+                                        type: 'object',
+                                        description: 'Per-corner radius — use to round only specific corners (e.g. only the free end on a bordered LCARS slider). Each corner also accepts a CSS variable string.',
+                                        properties: {
+                                            top_left:     { oneOf: [ { type: 'number', minimum: 0 }, { type: 'string' } ] },
+                                            top_right:    { oneOf: [ { type: 'number', minimum: 0 }, { type: 'string' } ] },
+                                            bottom_right: { oneOf: [ { type: 'number', minimum: 0 }, { type: 'string' } ] },
+                                            bottom_left:  { oneOf: [ { type: 'number', minimum: 0 }, { type: 'string' } ] }
+                                        }
+                                    }
+                                ],
+                                description: 'Corner radius — number or CSS variable string for uniform rounding, or per-corner object. Supports var(--ha-card-border-radius), px values, and rem values.',
+                                examples: [
+                                    12,
+                                    'var(--ha-card-border-radius)',
+                                    'var(--ha-card-border-radius, 12px)',
+                                    { top_left: 0, bottom_left: 0, top_right: 'var(--ha-card-border-radius)', bottom_right: 'var(--ha-card-border-radius)' }
+                                ],
+                                'x-ui-hints': {
+                                    label: 'Corner Radius',
+                                    helper: 'Round the card corners. Accepts a pixel number, a CSS variable (e.g. var(--ha-card-border-radius)), or YAML per-corner object for individual corner control.',
+                                    selector: { number: { min: 0, max: 200, mode: 'box', unit_of_measurement: 'px' } }
+                                }
+                            },
                             left: {
                                 type: 'object',
                                 description: 'Left border cap configuration',
