@@ -537,7 +537,7 @@ export class LCARdSColorPicker extends LitElement {
                     appearance=${!this._builderMode ? 'accent' : 'filled'}
                     .disabled=${this.disabled}
                     @click=${() => this._setMode(false)}>
-                    Text Entry
+                    Picker/Text
                 </ha-button>
                 <ha-button
                     appearance=${this._builderMode ? 'accent' : 'filled'}
