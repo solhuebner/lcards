@@ -38,7 +38,8 @@ export const lcardsDefaultTokens = {
       base: 14,
       lg: 16,
       xl: 18,
-      '2xl': 24
+      '2xl': 22,
+      '3xl': 24
     },
     fontWeight: {
       normal: 'normal',

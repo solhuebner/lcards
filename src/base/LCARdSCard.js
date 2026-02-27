@@ -307,13 +307,16 @@ export class LCARdSCard extends LCARdSNativeCard {
                 mergeOrder: result.provenance?.merge_order
             });
 
-            // Update with processed config if valid
-            if (result.valid && result.mergedConfig) {
+            // Update with processed config if available (apply regardless of validation errors)
+            // Validation errors are already logged above; a merged config with minor
+            // schema issues is still far better than falling back to the raw user config
+            if (result.mergedConfig) {
                 lcardsLog.trace(`[LCARdSCard] Updating config with merged result`, {
                     hasMergedConfig: !!result.mergedConfig,
                     hasProvenanceInMerged: !!result.mergedConfig.__provenance,
                     mergedConfigKeys: Object.keys(result.mergedConfig),
-                    cardType: this.constructor.CARD_TYPE
+                    cardType: this.constructor.CARD_TYPE,
+                    valid: result.valid
                 });
 
                 // Update internal config

@@ -310,7 +310,7 @@ export const BUTTON_PRESETS = {
     // Text styling - left aligned for outline style
     text: {
       default: {
-        font_size: 'theme:typography.fontSize.2xl',
+        font_size: 'theme:typography.fontSize.3xl',
       },
       name: {
         position: 'right',
@@ -332,7 +332,7 @@ export const BUTTON_PRESETS = {
     icon_area: 'right',
     text: {
       default: {
-        font_size: 'theme:typography.fontSize.2xl',
+        font_size: 'theme:typography.fontSize.3xl',
       },
       name: {
         position: 'left',
@@ -386,7 +386,7 @@ export const BUTTON_PRESETS = {
     text: {
 
       default: {
-        font_size: 'theme:typography.fontSize.2xl',
+        font_size: 'theme:typography.fontSize.3xl',
         color: {
           default: 'theme:components.button.background.active',
           active: 'theme:components.button.background.active',

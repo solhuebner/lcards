@@ -822,7 +822,7 @@ export class ApexChartsAdapter {
                 },
                 value: {
                   show: true,
-                  fontSize: resolveToken('typography.fontSize.2xl', '24px'),
+                  fontSize: resolveToken('typography.fontSize.3xl', '24px'),
                   fontFamily: resolveToken('typography.fontFamily.primary', 'Antonio, Helvetica Neue, sans-serif'),
                   color: resolveToken('colors.accent.primary', 'var(--lcars-orange, #FF9900)'),
                   offsetY: 5,

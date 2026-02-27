@@ -594,8 +594,17 @@ export class CoreConfigManager {
 
     this.stats.presetsResolved++;
 
-    // Presets can have nested 'style' or be flat
-    return preset.style ? preset : { style: preset };
+    // Presets are structured exactly like card config (same schema).
+    // e.g. style properties live under `style:`, root fields (text, component)
+    //      stay at the top level — just like a user would write it in YAML.
+    //
+    // Strip registry-only metadata fields that should never appear in merged config.
+    const METADATA_FIELDS = new Set(['extends', 'description', 'compatibleComponents']);
+    const result = {};
+    for (const [key, value] of Object.entries(preset)) {
+      if (!METADATA_FIELDS.has(key)) result[key] = value;
+    }
+    return result;
   }
 
   /**

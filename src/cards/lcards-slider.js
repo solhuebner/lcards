@@ -2621,7 +2621,7 @@ export class LCARdSSlider extends LCARdSButton {
             trackBackground: this._resolveColorValue(
                 this._sliderStyle?.shaped?.track?.background
                     ?? this._sliderStyle?.track?.background,
-                'var(--lcards-black-medium, #12121c)'
+                'var(--lcards-gray-dark, #12121c)'
             )
         };
 

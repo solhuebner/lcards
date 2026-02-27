@@ -76,9 +76,11 @@ export function getSliderSchema(options = {}) {
 
             component: {
                 type: 'string',
-                enum: availableComponents,
+                // Only enforce enum when components are actually registered;
+                // if availableComponents is empty the enum would reject all values
+                ...(availableComponents.length > 0 ? { enum: availableComponents } : {}),
                 description: 'Advanced SVG component name (provides the SVG shell)',
-                examples: ['horizontal', 'vertical', 'picard-vertical']
+                examples: ['default', 'horizontal', 'vertical', 'picard-vertical']
             },
 
             // ============================================================================
