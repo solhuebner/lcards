@@ -2800,13 +2800,6 @@ export class LCARdSCard extends LCARdSNativeCard {
             color = '#ffd89b';
         }
 
-        // Apply brightness if available
-        if (color && this._entity.attributes.brightness) {
-            const brightness = this._entity.attributes.brightness / 255;
-            // Adjust color brightness
-            color = ColorUtils.alpha(color, brightness);
-        }
-
         // Set the CSS variable
         if (color) {
             document.documentElement.style.setProperty(varName, color);

@@ -249,7 +249,7 @@ export const SLIDER_PRESETS = {
       type: 'lozenge',      // default shape — override with style.shaped.type
       text_bands: {
         top:    { size: 36 },   // reserve 36px above shape for state readout
-        bottom: { size: 28 },   // reserve 28px below shape for entity name
+        bottom: { size: 36 },   // reserve 36px below shape for entity name
         left:   { size: 0 },
         right:  { size: 0 }
       },
@@ -287,7 +287,7 @@ export const SLIDER_PRESETS = {
       text_bands: {
         top:    { size: 0 },
         bottom: { size: 0 },
-        left:   { size: 80 },   // reserve 80px left of shape for entity name
+        left:   { size: 60 },   // reserve 80px left of shape for entity name
         right:  { size: 60 }    // reserve 60px right of shape for state readout
       },
       track: {

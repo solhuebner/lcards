@@ -2396,6 +2396,9 @@ export class LCARdSSlider extends LCARdSButton {
         lcardsLog.debug('[LCARdSSlider] Stored component zones in _zones Map:', this._zones);
 
         // Step 1.5: Adjust zones to account for borders and margins (inset content from edges)
+        // NOTE: Skip for 'shaped' component — it manages its own geometry entirely through
+        // style.shaped.text_bands (left/right/top/bottom band sizes).  Applying additional
+        // border/margin insets on top of the text_band offset would double-shift the track.
         const borderConfig = this._sliderStyle?.border;
         // Track margins are under style.track.margin
         const margins = this._sliderStyle?.track?.margin || { top: 0, right: 0, bottom: 0, left: 0 };
@@ -2407,7 +2410,7 @@ export class LCARdSSlider extends LCARdSButton {
         const rightInset = (borderConfig?.right?.enabled ? getBorderSize(borderConfig.right) : 0) + (margins.right || 0);
         const bottomInset = (borderConfig?.bottom?.enabled ? getBorderSize(borderConfig.bottom) : 0) + (margins.bottom || 0);
 
-        if (leftInset > 0 || topInset > 0 || rightInset > 0 || bottomInset > 0) {
+        if (componentName !== 'shaped' && (leftInset > 0 || topInset > 0 || rightInset > 0 || bottomInset > 0)) {
             // Inset zones that should not overlap borders/margins (track, progress, control, range)
             const zonesToInset = ['track', 'progress', 'control', 'range', 'solidBar'];
             zonesToInset.forEach(zoneName => {
