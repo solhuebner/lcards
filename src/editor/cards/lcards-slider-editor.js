@@ -749,6 +749,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
 
                         <lcards-color-section
                             .editor=${this}
+                            .entityId=${this.config?.entity || ''}
                             basePath="${basePath}.color"
                             header="Range Color"
                             description="Background color for this range"
@@ -862,6 +863,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                 <!-- INLINE COLORS: Gradient colors appear right here with pills settings -->
                 <lcards-color-section
                     .editor=${this}
+                    .entityId=${this.config?.entity || ''}
                     header="Gradient Colors"
                     description="Start and end colors for pill gradient"
                     .colorPaths=${[
@@ -967,6 +969,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                 <!-- INLINE: Progress bar color -->
                 <lcards-color-section
                     .editor=${this}
+                    .entityId=${this.config?.entity || ''}
                     basePath="style.gauge.progress_bar.color"
                     header="Progress Bar Color"
                     description="Color of the filled progress bar"
@@ -1045,6 +1048,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                 <!-- State-aware color sections for ticks -->
                 <lcards-color-section-v2
                     .editor=${this}
+                    .entityId=${this.config?.entity || ''}
                     basePath="style.gauge.scale.tick_marks.major.color"
                     header="Major Tick Colors"
                     description="State-based colors for major tick marks - supports custom states"
@@ -1055,6 +1059,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
 
                 <lcards-color-section-v2
                     .editor=${this}
+                    .entityId=${this.config?.entity || ''}
                     basePath="style.gauge.scale.tick_marks.minor.color"
                     header="Minor Tick Colors"
                     description="State-based colors for minor tick marks - supports custom states"
@@ -1101,6 +1106,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     <!-- State-aware label colors -->
                     <lcards-color-section-v2
                         .editor=${this}
+                        .entityId=${this.config?.entity || ''}
                         basePath="style.gauge.scale.labels.color"
                         header="Label Colors"
                         description="State-based colors for scale numeric labels - supports custom states"
@@ -1168,6 +1174,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                 <!-- INLINE: Indicator colors -->
                 <lcards-color-section
                     .editor=${this}
+                    .entityId=${this.config?.entity || ''}
                     header="Indicator Colors"
                     description="Colors for value indicator marker"
                     .colorPaths=${[
@@ -1231,6 +1238,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
 
                 <lcards-color-section
                     .editor=${this}
+                    .entityId=${this.config?.entity || ''}
                     basePath="style.shaped.fill.color"
                     header="Fill Color"
                     description="Color of the value fill (the filled portion)"
@@ -1241,6 +1249,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
 
                 <lcards-color-section
                     .editor=${this}
+                    .entityId=${this.config?.entity || ''}
                     basePath="style.shaped.track.background"
                     header="Background Color"
                     description="Color of the empty (unfilled) interior of the shape"
@@ -1481,6 +1490,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
 
                 <lcards-color-section-v2
                     .editor=${this}
+                    .entityId=${this.config?.entity || ''}
                     basePath="style.border.left.color"
                     header="Left Border Colors"
                     description="State-based colors for left border - supports custom states"
@@ -1513,6 +1523,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
 
                 <lcards-color-section-v2
                     .editor=${this}
+                    .entityId=${this.config?.entity || ''}
                     basePath="style.border.top.color"
                     header="Top Border Colors"
                     description="State-based colors for top border - supports custom states"
@@ -1545,6 +1556,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
 
                 <lcards-color-section-v2
                     .editor=${this}
+                    .entityId=${this.config?.entity || ''}
                     basePath="style.border.right.color"
                     header="Right Border Colors"
                     description="State-based colors for right border - supports custom states"
@@ -1577,6 +1589,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
 
                 <lcards-color-section-v2
                     .editor=${this}
+                    .entityId=${this.config?.entity || ''}
                     basePath="style.border.bottom.color"
                     header="Bottom Border Colors"
                     description="State-based colors for bottom border - supports custom states"

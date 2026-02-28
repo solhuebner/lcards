@@ -40,6 +40,9 @@ export class LCARdSColorSectionV2 extends LitElement {
             description: { type: String },      // Section description
             expanded: { type: Boolean },        // Expanded state
             allowMatchLight: { type: Boolean }, // Show "Match Light Colour" option
+            // Explicit entity ID — passing this as a string prop ensures the component
+            // re-renders when the entity changes (object-ref editor prop won't trigger it).
+            entityId: { type: String },
 
             // NEW: Suggested states for quick-add
             suggestedStates: { type: Array },
@@ -67,6 +70,7 @@ export class LCARdSColorSectionV2 extends LitElement {
         this.description = '';
         this.expanded = false;
         this.allowMatchLight = false;
+        this.entityId = '';          // Explicit entity ID for reactivity
         this.suggestedStates = ['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed'];
         this.allowCustomStates = true;
         this.showPreview = true;
@@ -351,8 +355,8 @@ export class LCARdSColorSectionV2 extends LitElement {
                             .value=${color || ''}
                             .variablePrefixes=${this.variablePrefixes}
                             ?showPreview=${true}
-                            ?allowMatchLight=${this.allowMatchLight || this.editor?._isLightEntity}
-                            .entityId=${this.editor?.config?.entity || ''}
+                            ?allowMatchLight=${this.entityId ? this.entityId.startsWith('light.') : (this.allowMatchLight || (this.editor?._isLightEntity ?? false))}
+                            .entityId=${this.entityId || this.editor?.config?.entity || ''}
                             @value-changed=${(e) => this._handleColorChange(state, e)}>
                         </lcards-color-picker>
                     </div>

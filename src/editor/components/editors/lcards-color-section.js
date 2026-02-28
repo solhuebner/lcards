@@ -34,7 +34,10 @@ export class LCARdSColorSection extends LitElement {
             showPreview: { type: Boolean },    // Show color preview
             useColorPicker: { type: Boolean }, // Use enhanced color picker vs basic form-field
             singleColor: { type: Boolean },    // NEW: Treat as single color (not state-based)
-            colorPaths: { type: Array }        // NEW: Array of {path, label, helper} for multiple single colors
+            colorPaths: { type: Array },       // NEW: Array of {path, label, helper} for multiple single colors
+            // Explicit entity ID — passing this as a string prop ensures the component
+            // re-renders when the entity changes (object-ref editor prop won't trigger it).
+            entityId: { type: String }
         };
     }
 
@@ -51,6 +54,7 @@ export class LCARdSColorSection extends LitElement {
         this.useColorPicker = true; // Default to enhanced picker
         this.singleColor = false;   // NEW
         this.colorPaths = [];        // NEW
+        this.entityId = '';          // Explicit entity ID for reactivity
     }
 
     static get styles() {
@@ -253,8 +257,8 @@ export class LCARdSColorSection extends LitElement {
                         .value=${value || ''}
                         .variablePrefixes=${this.variablePrefixes}
                         ?showPreview=${this.showPreview}
-                        ?allowMatchLight=${this.editor?._isLightEntity}
-                        .entityId=${this.editor?.config?.entity || ''}
+                        ?allowMatchLight=${this.entityId ? this.entityId.startsWith('light.') : (this.editor?._isLightEntity ?? false)}
+                        .entityId=${this.entityId || this.editor?.config?.entity || ''}
                         @value-changed=${(e) => this._handleColorChange(this.basePath, e)}>
                     </lcards-color-picker>
                 </div>
@@ -283,8 +287,8 @@ export class LCARdSColorSection extends LitElement {
                         .value=${this._getValueAtPath(colorPath.path) || ''}
                         ?showPreview=${this.showPreview}
                         .variablePrefixes=${this.variablePrefixes}
-                        ?allowMatchLight=${this.editor?._isLightEntity}
-                        .entityId=${this.editor?.config?.entity || ''}
+                        ?allowMatchLight=${this.entityId ? this.entityId.startsWith('light.') : (this.editor?._isLightEntity ?? false)}
+                        .entityId=${this.entityId || this.editor?.config?.entity || ''}
                         @value-changed=${(e) => this._handleColorPathChange(colorPath.path, e)}>
                     </lcards-color-picker>
                     ${colorPath.helper ? html`
@@ -328,8 +332,8 @@ export class LCARdSColorSection extends LitElement {
                         .value=${value || ''}
                         .variablePrefixes=${this.variablePrefixes}
                         ?showPreview=${this.showPreview}
-                        ?allowMatchLight=${this.editor?._isLightEntity}
-                        .entityId=${this.editor?.config?.entity || ''}
+                        ?allowMatchLight=${this.entityId ? this.entityId.startsWith('light.') : (this.editor?._isLightEntity ?? false)}
+                        .entityId=${this.entityId || this.editor?.config?.entity || ''}
                         @value-changed=${(e) => this._handleColorChange(path, e)}>
                     </lcards-color-picker>
                 </div>
