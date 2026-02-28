@@ -819,23 +819,10 @@ export function getTextSchema(options = {}) {
                     },
                     color: stateColorSchema,
                     font_weight: {
-                        type: 'string',
-                        enum: ['normal', 'bold', '100', '200', '300', '400', '500', '600', '700', '800', '900'],
+                        type: ['string', 'number'],
                         default: 'normal',
-                        description: 'Font weight (normal=400, bold=700)',
-                        enumDescriptions: [
-                            'Normal weight (400)',
-                            'Bold weight (700)',
-                            'Thin (100)',
-                            'Extra Light (200)',
-                            'Light (300)',
-                            'Normal (400)',
-                            'Medium (500)',
-                            'Semi Bold (600)',
-                            'Bold (700)',
-                            'Extra Bold (800)',
-                            'Black (900)'
-                        ]
+                        description: 'Font weight — CSS keyword (normal, bold) or numeric value (100–900)',
+                        examples: ['normal', 'bold', 100, 300, 400, 700, 900]
                     },
                     font_family: {
                         type: 'string',
@@ -974,23 +961,10 @@ export function getTextSchema(options = {}) {
                 },
                 color: stateColorSchema,
                 font_weight: {
-                    type: 'string',
-                    enum: ['normal', 'bold', '100', '200', '300', '400', '500', '600', '700', '800', '900'],
+                    type: ['string', 'number'],
                     default: 'normal',
-                    description: 'Font weight (normal=400, bold=700)',
-                    enumDescriptions: [
-                        'Normal weight (400)',
-                        'Bold weight (700)',
-                        'Thin (100)',
-                        'Extra Light (200)',
-                        'Light (300)',
-                        'Normal (400)',
-                        'Medium (500)',
-                        'Semi Bold (600)',
-                        'Bold (700)',
-                        'Extra Bold (800)',
-                        'Black (900)'
-                    ]
+                    description: 'Font weight — CSS keyword (normal, bold) or numeric value (100–900)',
+                    examples: ['normal', 'bold', 100, 300, 400, 700, 900]
                 },
                 font_family: {
                     type: 'string',

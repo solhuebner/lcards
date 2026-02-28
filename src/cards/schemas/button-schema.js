@@ -462,7 +462,7 @@ export function getButtonSchema(options = {}) {
                                             { type: 'string', description: 'CSS value or theme token (e.g., "14px", "var(--lcars-text-size)")' }
                                         ]
                                     },
-                                    font_weight: { type: 'string' },
+                                    font_weight: { type: ['string', 'number'] },
                                     font_family: { type: 'string', format: 'font-family' }
                                 }
                             }
