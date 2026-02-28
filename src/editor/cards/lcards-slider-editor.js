@@ -579,7 +579,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                 header="Range & Direction"
                 description="Interactive visual configuration for slider ranges and direction"
                 icon="mdi:tune-variant"
-                ?expanded=${true}
+                ?expanded=${false}
                 ?outlined=${true}
                 headerLevel="4">
 
@@ -1198,7 +1198,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                 header="Shape"
                 description="Geometry used to clip the slider fill"
                 icon="mdi:shape"
-                ?expanded=${true}
+                ?expanded=${false}
                 ?outlined=${true}
                 headerLevel="4">
 
@@ -1218,7 +1218,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                 header="Colors"
                 description="Fill and background colours for the shape interior"
                 icon="mdi:water"
-                ?expanded=${true}
+                ?expanded=${false}
                 ?outlined=${true}
                 headerLevel="4">
 

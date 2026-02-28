@@ -280,7 +280,8 @@ export const SLIDER_PRESETS = {
           left:   { size: 0 },
           right:  { size: 0 }
         },
-        track: { background: 'theme:components.slider.track.background' }
+        fill: { color: 'var(--primary-color)' },
+        track: { background: 'alpha(colors.card.buttonOff,0.2)' }
       }
     },
 
@@ -338,7 +339,8 @@ export const SLIDER_PRESETS = {
           left:   { size: 60 },
           right:  { size: 60 }
         },
-        track: { background: 'theme:components.slider.track.background' }
+        fill: { color: 'var(--primary-color)' },
+        track: { background: 'alpha(colors.card.buttonOff,0.2)' }
       }
     },
 

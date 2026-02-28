@@ -911,9 +911,9 @@ export function getSliderSchema(options = {}) {
                                     }
                                 }
                             },
-                            label: {
+                            text_bands: {
                                 type: 'object',
-                                description: 'Label band sizes (pixels reserved outside the shape body for text fields)',
+                                description: 'Band sizes (pixels reserved outside the shape body for text fields)',
                                 properties: {
                                     top: {
                                         type: 'object',
