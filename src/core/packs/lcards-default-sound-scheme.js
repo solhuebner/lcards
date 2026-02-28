@@ -77,8 +77,24 @@ const AUDIO_ASSETS = {
   },
 
   // ── Alerts ──
-  lcards_default_alert_activate: {
-    url: `${BASE_URL}/alert_activate.mp3`,
+  lcards_default_alert_red: {
+    url: `${BASE_URL}/alert_red.mp3`,
+    description: 'Alert activation klaxon',
+  },
+  lcards_default_alert_yellow: {
+    url: `${BASE_URL}/alert_yellow.mp3`,
+    description: 'Alert activation klaxon',
+  },
+  lcards_default_alert_blue: {
+    url: `${BASE_URL}/alert_blue.mp3`,
+    description: 'Alert activation klaxon',
+  },
+  lcards_default_alert_gray: {
+    url: `${BASE_URL}/alert_gray.mp3`,
+    description: 'Alert activation klaxon',
+  },
+  lcards_default_alert_black: {
+    url: `${BASE_URL}/alert_black.mp3`,
     description: 'Alert activation klaxon',
   },
   lcards_default_alert_clear: {
@@ -124,11 +140,11 @@ const LCARDS_DEFAULT_SCHEME = {
   dialog_close:         'lcards_default_nav',
 
   // Alerts & system — per alert level
-  alert_red:         'lcards_default_alert_activate',
-  alert_yellow:      'lcards_default_alert_activate',
-  alert_blue:        'lcards_default_alert_activate',
-  alert_gray:        'lcards_default_alert_activate',
-  alert_black:       'lcards_default_alert_activate',
+  alert_red:         'lcards_default_alert_red',
+  alert_yellow:      'lcards_default_alert_yellow',
+  alert_blue:        'lcards_default_alert_blue',
+  alert_gray:        'lcards_default_alert_gray',
+  alert_black:       'lcards_default_alert_black',
   alert_clear:       'lcards_default_alert_clear',
   system_ready:      'lcards_default_system_ready',
   error:             'lcards_default_error',

@@ -29,60 +29,188 @@ const BASE_URL = '/hacsfiles/lcards/sounds/lcards_beeps';
 // No scheme mapping required.
 // ──────────────────────────────────────────────────────────────
 const AUDIO_ASSETS = {
-  // ── Short beeps ──
-  beeps_short: {
+  // ── Generic ──
+  short: {
     url: `${BASE_URL}/short.mp3`,
     description: 'Short single beep',
   },
-  beeps_short_high: {
-    url: `${BASE_URL}/short_high.mp3`,
-    description: 'Short high-pitched beep',
+
+  // ── Computer / Interface ──
+  astrometrics_controls: {
+    url: `${BASE_URL}/astrometrics_controls.mp3`,
+    description: 'Astrometrics controls',
   },
-  beeps_short_low: {
-    url: `${BASE_URL}/short_low.mp3`,
-    description: 'Short low-pitched beep',
+  computer_activate: {
+    url: `${BASE_URL}/computer_activate.mp3`,
+    description: 'Computer activate',
+  },
+  computer_beep_sequence_1: {
+    url: `${BASE_URL}/computer_beep_sequence_1.mp3`,
+    description: 'Computer beep sequence 1',
+  },
+  computer_beep_sequence_2: {
+    url: `${BASE_URL}/computer_beep_sequence_2.mp3`,
+    description: 'Computer beep sequence 2',
+  },
+  computer_beep_sequence_3: {
+    url: `${BASE_URL}/computer_beep_sequence_3.mp3`,
+    description: 'Computer beep sequence 3',
+  },
+  computer_beep_sequence_4: {
+    url: `${BASE_URL}/computer_beep_sequence_4.mp3`,
+    description: 'Computer beep sequence 4',
+  },
+  computer_beep_sequence_5: {
+    url: `${BASE_URL}/computer_beep_sequence_5.mp3`,
+    description: 'Computer beep sequence 5',
+  },
+  computer_screen_off_button_push: {
+    url: `${BASE_URL}/computer_screen_off_button_push.mp3`,
+    description: 'Computer screen off / button push',
+  },
+  ops_beep_sequence: {
+    url: `${BASE_URL}/ops_beep_sequence.mp3`,
+    description: 'Ops beep sequence',
+  },
+  tactical_beep_sequence: {
+    url: `${BASE_URL}/tactical_beep_sequence.mp3`,
+    description: 'Tactical beep sequence',
   },
 
-  // ── Double / multi beeps ──
-  beeps_double: {
-    url: `${BASE_URL}/double.mp3`,
-    description: 'Two quick beeps',
+  // ── Keys / PADD ──
+  key_ok_1: {
+    url: `${BASE_URL}/key_ok_1.mp3`,
+    description: 'Key OK 1',
   },
-  beeps_triple: {
-    url: `${BASE_URL}/triple.mp3`,
-    description: 'Three quick beeps',
+  key_ok_2: {
+    url: `${BASE_URL}/key_ok_2.mp3`,
+    description: 'Key OK 2',
+  },
+  key_ok_3: {
+    url: `${BASE_URL}/key_ok_3.mp3`,
+    description: 'Key OK 3',
+  },
+  key_ok_4: {
+    url: `${BASE_URL}/key_ok_4.mp3`,
+    description: 'Key OK 4',
+  },
+  key_ok_5: {
+    url: `${BASE_URL}/key_ok_5.mp3`,
+    description: 'Key OK 5',
+  },
+  key_ok_6: {
+    url: `${BASE_URL}/key_ok_6.mp3`,
+    description: 'Key OK 6',
+  },
+  padd_1: {
+    url: `${BASE_URL}/padd_1.mp3`,
+    description: 'PADD 1',
+  },
+  padd_2: {
+    url: `${BASE_URL}/padd_2.mp3`,
+    description: 'PADD 2',
+  },
+  padd_3: {
+    url: `${BASE_URL}/padd_3.mp3`,
+    description: 'PADD 3',
+  },
+  padd_button_sequence: {
+    url: `${BASE_URL}/padd_button_sequence.mp3`,
+    description: 'PADD button sequence',
   },
 
-  // ── Tones / chirps ──
-  beeps_chirp: {
-    url: `${BASE_URL}/chirp.mp3`,
-    description: 'Rising chirp',
+  // ── Screen / Scroll ──
+  screen_scroll_1: {
+    url: `${BASE_URL}/screen_scroll_1.mp3`,
+    description: 'Screen scroll 1',
   },
-  beeps_chirp_descend: {
-    url: `${BASE_URL}/chirp_descend.mp3`,
-    description: 'Falling chirp',
+  screen_scroll_2: {
+    url: `${BASE_URL}/screen_scroll_2.mp3`,
+    description: 'Screen scroll 2',
   },
-  beeps_tone_soft: {
-    url: `${BASE_URL}/tone_soft.mp3`,
-    description: 'Soft mid-range tone',
-  },
-  beeps_tone_confirm: {
-    url: `${BASE_URL}/tone_confirm.mp3`,
-    description: 'Confirmation tone — rising two-note',
-  },
-  beeps_tone_deny: {
-    url: `${BASE_URL}/tone_deny.mp3`,
-    description: 'Denial tone — falling two-note',
+  screen_scroll_3: {
+    url: `${BASE_URL}/screen_scroll_3.mp3`,
+    description: 'Screen scroll 3',
   },
 
-  // ── Clicks ──
-  beeps_click: {
-    url: `${BASE_URL}/click.mp3`,
-    description: 'Crisp mechanical click',
+  // ── Helm / Navigation ──
+  helm_beep_sequence_1: {
+    url: `${BASE_URL}/helm_beep_sequence_1.mp3`,
+    description: 'Helm beep sequence 1',
   },
-  beeps_click_soft: {
-    url: `${BASE_URL}/click_soft.mp3`,
-    description: 'Soft muted click',
+  helm_beep_sequence_2: {
+    url: `${BASE_URL}/helm_beep_sequence_2.mp3`,
+    description: 'Helm beep sequence 2',
+  },
+  helm_beep_sequence_3: {
+    url: `${BASE_URL}/helm_beep_sequence_3.mp3`,
+    description: 'Helm beep sequence 3',
+  },
+  sensors_1: {
+    url: `${BASE_URL}/sensors_1.mp3`,
+    description: 'Sensors 1',
+  },
+
+  // ── Doors / Chimes ──
+  ds9_doorchime: {
+    url: `${BASE_URL}/ds9_doorchime.mp3`,
+    description: 'DS9 door chime',
+  },
+  ent_doorchime: {
+    url: `${BASE_URL}/ent_doorchime.mp3`,
+    description: 'ENT door chime',
+  },
+  tng_chime_clean: {
+    url: `${BASE_URL}/tng_chime_clean.mp3`,
+    description: 'TNG chime (clean)',
+  },
+  voy_door_chime_1: {
+    url: `${BASE_URL}/voy_door_chime_1.mp3`,
+    description: 'Voyager door chime 1',
+  },
+  voy_door_chime_2: {
+    url: `${BASE_URL}/voy_door_chime_2.mp3`,
+    description: 'Voyager door chime 2',
+  },
+  ten_forward_doors: {
+    url: `${BASE_URL}/ten_forward_doors.mp3`,
+    description: 'Ten Forward doors',
+  },
+  jefferies_tube: {
+    url: `${BASE_URL}/jefferies_tube.mp3`,
+    description: "Jefferies tube",
+  },
+  forcefield_powering_down: {
+    url: `${BASE_URL}/forcefield_powering_down.mp3`,
+    description: 'Forcefield powering down',
+  },
+
+  // ── Chirps / Swooshes ──
+  tng_chirp_1: {
+    url: `${BASE_URL}/tng_chirp_1.mp3`,
+    description: 'TNG chirp 1',
+  },
+  tng_chirp_2: {
+    url: `${BASE_URL}/tng_chirp_2.mp3`,
+    description: 'TNG chirp 2',
+  },
+  tng_chirp_3: {
+    url: `${BASE_URL}/tng_chirp_3.mp3`,
+    description: 'TNG chirp 3',
+  },
+  tng_swoosh_clean: {
+    url: `${BASE_URL}/tng_swoosh_clean.mp3`,
+    description: 'TNG swoosh (clean)',
+  },
+  ent_b_swoosh_clean: {
+    url: `${BASE_URL}/ent_b_swoosh_clean.mp3`,
+    description: 'ENT-B swoosh (clean)',
+  },
+
+  // ── Misc Series ──
+  ds9_bajoran_comm: {
+    url: `${BASE_URL}/ds9_bajoran_comm.mp3`,
+    description: 'DS9 Bajoran comm',
   },
 };
 

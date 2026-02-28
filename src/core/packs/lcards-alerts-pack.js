@@ -29,14 +29,52 @@ const BASE_URL = '/hacsfiles/lcards/sounds/lcards_alerts';
 // No scheme mapping required.
 // ──────────────────────────────────────────────────────────────
 const AUDIO_ASSETS = {
-  // ── Alerts ──
-  red_alert: {
+  // ── Generic Klaxons ──
+  alert_klaxon_1: {
+    url: `${BASE_URL}/alert_klaxon_1.mp3`,
+    description: 'Alert Klaxon 1',
+  },
+  alert_klaxon_2: {
+    url: `${BASE_URL}/alert_klaxon_2.mp3`,
+    description: 'Alert Klaxon 2',
+  },
+  // ── TNG ──
+  tng_nemesis_intruder_alert: {
+    url: `${BASE_URL}/tng_nemesis_intruder_alert.mp3`,
+    description: 'TNG Nemesis Intruder Alert',
+  },
+  tng_red_alert_1: {
+    url: `${BASE_URL}/tng_red_alert_1.mp3`,
+    description: 'TNG Red Alert 1',
+  },
+  tng_red_alert_2: {
+    url: `${BASE_URL}/tng_red_alert_2.mp3`,
+    description: 'TNG Red Alert 2',
+  },
+  tng_red_alert_3: {
     url: `${BASE_URL}/tng_red_alert_3.mp3`,
     description: 'TNG Red Alert 3',
   },
-  blue_alert: {
+  tng_red_alert_4: {
+    url: `${BASE_URL}/tng_red_alert_4.mp3`,
+    description: 'TNG Red Alert 4',
+  },
+  // ── Voyager ──
+  voy_blue_alert: {
     url: `${BASE_URL}/voy_blue_alert.mp3`,
     description: 'Voyager Blue Alert',
+  },
+  voy_intruder_alert: {
+    url: `${BASE_URL}/voy_intruder_alert.mp3`,
+    description: 'Voyager Intruder Alert',
+  },
+  voy_red_alert_1: {
+    url: `${BASE_URL}/voy_red_alert_1.mp3`,
+    description: 'Voyager Red Alert 1',
+  },
+  voy_red_alert_2: {
+    url: `${BASE_URL}/voy_red_alert_2.mp3`,
+    description: 'Voyager Red Alert 2',
   },
 };
 
