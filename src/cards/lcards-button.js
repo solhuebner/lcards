@@ -2521,7 +2521,7 @@ export class LCARdSButton extends LCARdSCard {
         }
 
         // Get icon style config
-        // Priority: config.icon_style > resolvedStyle.icon
+        // Priority: config.icon_style > resolvedStyle.icon_style (from preset)
         const iconStyle = this.config.icon_style || {};
 
         // Determine icon_area (where the icon's reserved space is)
@@ -2541,7 +2541,7 @@ export class LCARdSButton extends LCARdSCard {
         }
 
         // Determine icon position WITHIN the icon area (or absolute if icon_area is 'none')
-        // Priority: explicit x/y > explicit x_percent/y_percent > iconStyle.position > resolvedStyle.icon.position > 'center' (default)
+        // Priority: explicit x/y > explicit x_percent/y_percent > iconStyle.position > resolvedStyle.icon_style.position > 'center' (default)
         let iconPosition = 'center'; // default - centered within area
         let explicitX = null, explicitY = null;
         let explicitXPercent = null, explicitYPercent = null;
@@ -2558,8 +2558,8 @@ export class LCARdSButton extends LCARdSCard {
         }
 
         // Check resolved style (includes preset) if no explicit positioning
-        if (!explicitX && !explicitXPercent && iconPosition === 'center' && resolvedStyle.icon?.position) {
-            iconPosition = resolvedStyle.icon.position;
+        if (!explicitX && !explicitXPercent && iconPosition === 'center' && resolvedStyle.icon_style?.position) {
+            iconPosition = resolvedStyle.icon_style.position;
         }
 
         // Normalize position names (e.g., 'left' -> 'left-center', 'top' -> 'top-center')
@@ -2576,9 +2576,9 @@ export class LCARdSButton extends LCARdSCard {
                 iconPadding = iconStyle.padding;
             }
             // If it's an object, iconPadding stays at default; directional values extracted below
-        } else if (resolvedStyle.icon?.padding !== undefined) {
-            if (typeof resolvedStyle.icon.padding === 'number') {
-                iconPadding = resolvedStyle.icon.padding;
+        } else if (resolvedStyle.icon_style?.padding !== undefined) {
+            if (typeof resolvedStyle.icon_style.padding === 'number') {
+                iconPadding = resolvedStyle.icon_style.padding;
             }
         }
 
@@ -2597,11 +2597,11 @@ export class LCARdSButton extends LCARdSCard {
             iconPaddingBottom = iconStyle.padding.bottom ?? 0;
         }
         // Fall back to preset if not in config
-        else if (resolvedStyle.icon?.padding && typeof resolvedStyle.icon.padding === 'object') {
-            iconPaddingLeft = resolvedStyle.icon.padding.left ?? 0;
-            iconPaddingRight = resolvedStyle.icon.padding.right ?? 0;
-            iconPaddingTop = resolvedStyle.icon.padding.top ?? 0;
-            iconPaddingBottom = resolvedStyle.icon.padding.bottom ?? 0;
+        else if (resolvedStyle.icon_style?.padding && typeof resolvedStyle.icon_style.padding === 'object') {
+            iconPaddingLeft = resolvedStyle.icon_style.padding.left ?? 0;
+            iconPaddingRight = resolvedStyle.icon_style.padding.right ?? 0;
+            iconPaddingTop = resolvedStyle.icon_style.padding.top ?? 0;
+            iconPaddingBottom = resolvedStyle.icon_style.padding.bottom ?? 0;
         }
 
         // Resolve icon rotation (same as text fields)
@@ -2609,8 +2609,8 @@ export class LCARdSButton extends LCARdSCard {
         let iconRotation = 0; // default
         if (iconStyle.rotation !== undefined) {
             iconRotation = iconStyle.rotation;
-        } else if (resolvedStyle.icon?.rotation !== undefined) {
-            iconRotation = resolvedStyle.icon.rotation;
+        } else if (resolvedStyle.icon_style?.rotation !== undefined) {
+            iconRotation = resolvedStyle.icon_style.rotation;
         }
 
         // Store processed icon configuration
@@ -2663,12 +2663,12 @@ export class LCARdSButton extends LCARdSCard {
                 lcardsLog.trace('[LCARdSButton] Icon color from config:', iconColor);
             }
             // 2. Check preset/resolvedStyle color
-            else if (resolvedStyle.icon?.color) {
+            else if (resolvedStyle.icon_style?.color) {
                 iconColor = resolveStateColor({
                     actualState: actualEntityState,
                     classifiedState: buttonState,
-                    colorConfig: resolvedStyle.icon.color,
-                    fallback: resolvedStyle.icon.color.active  // Legacy fallback
+                    colorConfig: resolvedStyle.icon_style.color,
+                    fallback: resolvedStyle.icon_style.color.active  // Legacy fallback
                 });
                 lcardsLog.trace('[LCARdSButton] Icon color from preset:', iconColor);
             }
@@ -2703,13 +2703,16 @@ export class LCARdSButton extends LCARdSCard {
                 iconColor = 'var(--lcars-color-text, #FFFFFF)';
             }
 
+            // Resolve match-light token → CSS variable
+            iconColor = this._resolveMatchLightColor(iconColor);
+
             // Resolve icon size
             // Priority: iconStyle > preset > theme token > hardcoded
             let iconSize;
             if (iconStyle.size) {
                 iconSize = iconStyle.size;
-            } else if (resolvedStyle.icon?.size && typeof resolvedStyle.icon.size === 'number') {
-                iconSize = resolvedStyle.icon.size;
+            } else if (resolvedStyle.icon_style?.size && typeof resolvedStyle.icon_style.size === 'number') {
+                iconSize = resolvedStyle.icon_style.size;
             } else if (iconTokens.size && typeof iconTokens.size === 'number') {
                 iconSize = iconTokens.size;
             } else {
@@ -2721,8 +2724,8 @@ export class LCARdSButton extends LCARdSCard {
             let iconSpacing;
             if (this.config.icon_style?.spacing !== undefined) {
                 iconSpacing = this.config.icon_style.spacing;
-            } else if (resolvedStyle.icon?.spacing !== undefined) {
-                iconSpacing = resolvedStyle.icon.spacing;
+            } else if (resolvedStyle.icon_style?.spacing !== undefined) {
+                iconSpacing = resolvedStyle.icon_style.spacing;
             } else if (iconTokens.spacing !== undefined) {
                 iconSpacing = iconTokens.spacing;
             } else {
@@ -2734,8 +2737,8 @@ export class LCARdSButton extends LCARdSCard {
             let layoutSpacing;
             if (this.config.icon_style?.layout_spacing !== undefined) {
                 layoutSpacing = this.config.icon_style.layout_spacing;
-            } else if (resolvedStyle.icon?.layout_spacing !== undefined) {
-                layoutSpacing = resolvedStyle.icon.layout_spacing;
+            } else if (resolvedStyle.icon_style?.layout_spacing !== undefined) {
+                layoutSpacing = resolvedStyle.icon_style.layout_spacing;
             } else if (iconTokens.layout_spacing !== undefined) {
                 layoutSpacing = iconTokens.layout_spacing;
             } else {
@@ -2751,9 +2754,9 @@ export class LCARdSButton extends LCARdSCard {
             } else if (resolvedStyle.icon_area_size !== undefined) {
                 // Preset top-level icon_area_size
                 iconAreaSize = resolvedStyle.icon_area_size;
-            } else if (resolvedStyle.icon?.area_size && typeof resolvedStyle.icon.area_size === 'number') {
-                // Preset nested icon.area_size
-                iconAreaSize = resolvedStyle.icon.area_size;
+            } else if (resolvedStyle.icon_style?.area_size && typeof resolvedStyle.icon_style.area_size === 'number') {
+                // Preset nested icon_style.area_size
+                iconAreaSize = resolvedStyle.icon_style.area_size;
             }
             // If not specified, will be auto-calculated in _generateIconMarkup based on size + spacing + divider
 
@@ -2764,11 +2767,11 @@ export class LCARdSButton extends LCARdSCard {
             // Divider width
             if (this.config.divider?.width !== undefined) {
                 dividerWidth = this.config.divider.width;
-            } else if (resolvedStyle.icon?.divider?.width !== undefined) {
-                dividerWidth = resolvedStyle.icon.divider.width;
-            } else if (resolvedStyle.icon?.interior?.width !== undefined) {
+            } else if (resolvedStyle.icon_style?.divider?.width !== undefined) {
+                dividerWidth = resolvedStyle.icon_style.divider.width;
+            } else if (resolvedStyle.icon_style?.interior?.width !== undefined) {
                 // Legacy preset support for "interior" name
-                dividerWidth = resolvedStyle.icon.interior.width;
+                dividerWidth = resolvedStyle.icon_style.interior.width;
             } else if (iconTokens.interior?.width !== undefined) {
                 dividerWidth = iconTokens.interior.width;
             } else {
@@ -2778,11 +2781,11 @@ export class LCARdSButton extends LCARdSCard {
             // Divider color
             if (this.config.divider?.color) {
                 dividerColor = this.config.divider.color;
-            } else if (resolvedStyle.icon?.divider?.color) {
-                dividerColor = resolvedStyle.icon.divider.color;
-            } else if (resolvedStyle.icon?.interior?.color) {
+            } else if (resolvedStyle.icon_style?.divider?.color) {
+                dividerColor = resolvedStyle.icon_style.divider.color;
+            } else if (resolvedStyle.icon_style?.interior?.color) {
                 // Legacy preset support for "interior" name
-                dividerColor = resolvedStyle.icon.interior.color;
+                dividerColor = resolvedStyle.icon_style.interior.color;
             } else if (iconTokens.interior?.color) {
                 dividerColor = iconTokens.interior.color;
             } else {
@@ -2806,6 +2809,9 @@ export class LCARdSButton extends LCARdSCard {
                     colorConfig: resolvedStyle.icon_area_background,
                     fallback: resolvedStyle.icon_area_background.active || null  // Legacy fallback
                 });
+            }
+            if (iconAreaBackground) {
+                iconAreaBackground = this._resolveMatchLightColor(iconAreaBackground);
             }
 
             this._processedIcon = {
@@ -3740,28 +3746,28 @@ export class LCARdSButton extends LCARdSCard {
 
         // Background color: card.color.background.{state}
         // Try actual entity state first (e.g., "heat"), then fall back to classified state (e.g., "inactive")
-        const backgroundColor = resolveStateColor({
+        const backgroundColor = this._resolveMatchLightColor(resolveStateColor({
             actualState: actualEntityState,
             classifiedState: buttonState,
             colorConfig: this._buttonStyle?.card?.color?.background,
             fallback: 'var(--lcars-orange, #FF9900)'
-        });
+        }));
 
         // Text color: text.default.color.{state}
-        const textColor = resolveStateColor({
+        const textColor = this._resolveMatchLightColor(resolveStateColor({
             actualState: actualEntityState,
             classifiedState: buttonState,
             colorConfig: this._buttonStyle?.text?.default?.color,
             fallback: 'var(--lcars-color-text, #FFFFFF)'
-        });
+        }));
 
         // Border color: border.color.{state} or border.color (plain string)
-        const borderColor = resolveStateColor({
+        const borderColor = this._resolveMatchLightColor(resolveStateColor({
             actualState: actualEntityState,
             classifiedState: buttonState,
             colorConfig: this._buttonStyle?.border?.color,
             fallback: 'var(--lcars-color-secondary, #000000)'
-        });
+        }));
 
         // Font properties: text.default.font_*
         const fontSize = this._buttonStyle?.text?.default?.font_size || '14px';
@@ -4001,12 +4007,12 @@ export class LCARdSButton extends LCARdSCard {
 
         // Color: border.color.{state} or border.color (plain string)
         const actualEntityState = this._entity?.state;
-        const globalColor = resolveStateColor({
+        const globalColor = this._resolveMatchLightColor(resolveStateColor({
             actualState: actualEntityState,
             classifiedState: state,
             colorConfig: this._buttonStyle?.border?.color,
             fallback: 'var(--lcars-color-secondary, #000000)'
-        });
+        }));
 
         // Radius: border.radius (can be object for per-corner or single value)
         let globalRadius = 20;
@@ -4548,6 +4554,8 @@ export class LCARdSButton extends LCARdSCard {
                 });
             }
 
+            resolvedColor = this._resolveMatchLightColor(resolvedColor);
+
             processedFields.push({
                 id: fieldId,
                 content: content,
@@ -4859,6 +4867,7 @@ export class LCARdSButton extends LCARdSCard {
                     fallback:        'white'
                 });
             }
+            resolvedColor = this._resolveMatchLightColor(resolvedColor);
 
             // ── Build <text> element ──────────────────────────────────────────
             const textAttrs = [

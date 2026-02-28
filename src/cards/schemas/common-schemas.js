@@ -840,9 +840,8 @@ export function getTextSchema(options = {}) {
                     font_family: {
                         type: 'string',
                         format: 'font-family',
-                        pattern: '^[a-zA-Z0-9_ -]+(,\\s*[a-zA-Z0-9_ "-]+)*$',
-                        description: 'CSS font-family (single font or comma-separated stack)',
-                        examples: ['Arial', 'lcards_title', 'Antonio, sans-serif', '"Roboto Mono", monospace']
+                        description: 'CSS font-family (single font, comma-separated stack, or CSS variable)',
+                        examples: ['Arial', 'lcards_title', 'Antonio, sans-serif', '"Roboto Mono", monospace', 'var(--lcars-font), Antonio, sans-serif']
                     },
                     text_transform: {
                         type: 'string',
@@ -996,9 +995,8 @@ export function getTextSchema(options = {}) {
                 font_family: {
                     type: 'string',
                     format: 'font-family',
-                    pattern: '^[a-zA-Z0-9_ -]+(,\\s*[a-zA-Z0-9_ "-]+)*$',
-                    description: 'CSS font-family (single font or comma-separated stack)',
-                    examples: ['Arial', 'lcards_title', 'Antonio, sans-serif', '"Roboto Mono", monospace']
+                    description: 'CSS font-family (single font, comma-separated stack, or CSS variable)',
+                    examples: ['Arial', 'lcards_title', 'Antonio, sans-serif', '"Roboto Mono", monospace', 'var(--lcars-font), Antonio, sans-serif']
                 },
                 text_transform: {
                     type: 'string',

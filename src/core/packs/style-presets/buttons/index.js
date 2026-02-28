@@ -86,7 +86,7 @@ export const BUTTON_PRESETS = {
     },
 
     // Icon styling (nested structure)
-    icon: {
+    icon_style: {
       size: 'theme:components.button.icon.size',
       layout_spacing: 'theme:components.button.icon.layout_spacing',
       position: 'center',
@@ -124,7 +124,7 @@ export const BUTTON_PRESETS = {
         bottom_right: 'theme:components.button.radius.full'
       }
     },
-    icon: {
+    icon_style: {
       position: 'center',  // Icon centered within left area
       padding: {
         right: 0,
@@ -155,7 +155,7 @@ export const BUTTON_PRESETS = {
         position: 'left-center'  // Text on left when icon is on right
       }
     },
-    icon: {
+    icon_style: {
       position: 'center',  // Icon centered within left area
       padding: {
         right: 2,
@@ -194,7 +194,7 @@ export const BUTTON_PRESETS = {
         bottom_right: 'theme:components.button.radius.full'
       }
     },
-    icon: {
+    icon_style: {
       position: 'center',  // Icon centered within left area
       padding: 0
     }
@@ -211,7 +211,7 @@ export const BUTTON_PRESETS = {
         bottom_right: 'theme:components.button.radius.none'
       }
     },
-    icon: {
+    icon_style: {
       position: 'center',  // Icon centered within left area
       padding: 0
     }
@@ -408,7 +408,7 @@ export const BUTTON_PRESETS = {
     },
 
     // Icon styled by state
-    icon: {
+    icon_style: {
       color: {
         default: 'theme:components.button.border.color.active',
         active: 'theme:components.button.border.color.active',
@@ -465,7 +465,7 @@ export const BUTTON_PRESETS = {
     // Icon-only layout (center everything)
     show_icon: true,
 
-    icon: {
+    icon_style: {
       size: 30,
       border: {
         left: {

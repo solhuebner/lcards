@@ -755,6 +755,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
 
                 <lcards-color-section-v2
                     .editor=${this}
+                    .entityId=${this.config?.entity || ''}
                     basePath="elbow.segment.color"
                     header="Segment Colors"
                     description="Elbow segment color for each state - supports custom states"
@@ -819,6 +820,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
 
                 <lcards-color-section-v2
                     .editor=${this}
+                    .entityId=${this.config?.entity || ''}
                     basePath="elbow.segments.outer_segment.color"
                     header="Outer Segment Color"
                     description="Color states for outer frame segment - supports custom states like 'heat', 'cool', etc."
@@ -950,6 +952,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
 
                 <lcards-color-section-v2
                     .editor=${this}
+                    .entityId=${this.config?.entity || ''}
                     basePath="elbow.segments.inner_segment.color"
                     header="Inner Segment Color"
                     description="Color states for inner content segment - supports custom states like 'heat', 'cool', etc."
@@ -1255,6 +1258,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
 
                                 <lcards-color-section-v2
                                     .editor=${this}
+                                    .entityId=${this.config?.entity || ''}
                                     basePath="symbiont.imprint.background"
                                     header="Background"
                                     description="Background color for each state — null = transparent (do not imprint)"
@@ -1274,6 +1278,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
 
                                 <lcards-color-section-v2
                                     .editor=${this}
+                                    .entityId=${this.config?.entity || ''}
                                     basePath="symbiont.imprint.text.color"
                                     header="Text Color"
                                     description="Text color for each state — null = do not imprint"

@@ -1794,6 +1794,13 @@ export class LCARdSCard extends LCARdSNativeCard {
             return null;
         }
 
+        // Defensive guard: value must be a string — object icon configs must be
+        // resolved to a plain string before being passed here
+        if (typeof iconString !== 'string') {
+            lcardsLog.warn('[LCARdSCard] _parseIconString received non-string value, ignoring:', typeof iconString, iconString);
+            return null;
+        }
+
         // Handle 'entity' keyword
         if (iconString === 'entity' && this._entity?.attributes?.icon) {
             return {
