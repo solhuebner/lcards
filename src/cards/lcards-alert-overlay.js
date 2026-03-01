@@ -111,10 +111,42 @@ export class LCARdSAlertOverlay extends LitElement {
     }
 
     // -------------------------------------------------------------------------
+    // Edit mode detection
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns true when the dashboard is currently in edit mode so the overlay
+     * can suppress itself and avoid stacking on top of the card editor UI.
+     * Uses the same three-heuristic approach as LCARdSNativeCard._detectPreviewMode().
+     */
+    _isInEditMode() {
+        // 1. Dashboard element property (most reliable)
+        const dashboardEl = this.closest?.('hui-root, ha-panel-lovelace') ??
+            document.querySelector('hui-root, ha-panel-lovelace');
+        if (dashboardEl?.editMode) return true;
+
+        // 2. Inside the card picker / preview (editor context)
+        if (this.closest?.('hui-card-picker, hui-card-preview')) return true;
+
+        // 3. URL flag
+        if (window.location.href.includes('edit=1')) return true;
+
+        return false;
+    }
+
+    // -------------------------------------------------------------------------
     // Alert mode handling
     // -------------------------------------------------------------------------
 
     _handleAlertModeChange(newMode) {
+        // Never show the overlay while the dashboard is being edited — multiple
+        // component instances would all activate, stacking overlays on top of the
+        // card editor and making it impossible to interact with.
+        if (this._isInEditMode()) {
+            lcardsLog.debug('[LCARdSAlertOverlay] Dashboard in edit mode — suppressing overlay');
+            return;
+        }
+
         const isInactive = !newMode || newMode === 'green_alert' || newMode === 'default';
 
         if (isInactive) {
@@ -273,7 +305,7 @@ export class LCARdSAlertOverlay extends LitElement {
     // -------------------------------------------------------------------------
 
     render() {
-        if (!this._isActive || this._isDismissed) {
+        if (!this._isActive || this._isDismissed || this._isInEditMode()) {
             return html``;
         }
 
@@ -283,14 +315,32 @@ export class LCARdSAlertOverlay extends LitElement {
 
         return html`
             <div class="alert-overlay-host" style="position:fixed;inset:0;z-index:9000;">
+                <!--
+                    Backdrop is intentionally split into two layers so that backdrop-filter
+                    and opacity never appear on the same element.  When opacity < 1 is on
+                    the same element as backdrop-filter, CSS composites the blurred result
+                    at that opacity and lets the original unblurred content show through,
+                    effectively neutralising the blur regardless of the px value set.
+
+                    Layer 1 (blur) — backdrop-filter only, full opacity so the filter runs
+                                     at maximum strength.
+                    Layer 2 (tint) — background colour + opacity overlay, no filter.
+                -->
                 <div
-                    class="alert-overlay-backdrop"
-                    @click=${this._handleDismiss}
+                    class="alert-overlay-blur"
                     style="
                         position:absolute;
                         inset:0;
                         backdrop-filter: blur(${backdrop.blur});
                         -webkit-backdrop-filter: blur(${backdrop.blur});
+                    "
+                ></div>
+                <div
+                    class="alert-overlay-tint"
+                    @click=${this._handleDismiss}
+                    style="
+                        position:absolute;
+                        inset:0;
                         background: ${backdrop.color};
                         opacity: ${backdrop.opacity};
                         cursor: pointer;
@@ -334,6 +384,17 @@ export class LCARdSAlertOverlay extends LitElement {
                 position: fixed;
                 inset: 0;
                 z-index: 9000;
+            }
+
+            .alert-overlay-blur {
+                position: absolute;
+                inset: 0;
+            }
+
+            .alert-overlay-tint {
+                position: absolute;
+                inset: 0;
+                cursor: pointer;
             }
 
             .alert-overlay-backdrop {
