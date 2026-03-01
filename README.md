@@ -16,6 +16,15 @@ File: docs/assets/lcards-banner.gif
 
 <br>
 
+> [!WARNING]
+> Greetings.
+>
+> If you have come across this repo feel free to have a look around!
+>
+> **But please note: this code is not yet complete and is not ready for general usage.**
+
+<br>
+
 > [!IMPORTANT]
 > **LCARdS** is a work in progress and not a fully commissioned Starfleet product — expect some tribbles!
 >
@@ -29,11 +38,13 @@ File: docs/assets/lcards-banner.gif
 
 LCARdS is the evolution of dedicated LCARS-inspired cards for Home Assistant.
 <br>It originates from, and supercedes the  [CB-LCARS](https://github.com/snootched/cb-lcars) project - and is meant to accompany [**HA-LCARS themes**](https://github.com/th3jesta/ha-lcars).
-<br>Although deployed and used as individual custom cards - it's built upon common core components that aim to provide a **more complete and cohesive LCARS-like dashboard experience.**
+<br>Although deployed and used as individual custom cards - it's built upon common core components that aim to provide a more complete and cohesive LCARS-like dashboard experience.
 
-- **Unified architecture** - Every card has access to centralized data sources with entity subcription and notification, cross-card rules, and unified actions.
-- **Studio editors** - Most cards now have dedicated editing studio interfaces with live previews - augmented with schema-backed yaml editors for context-aware autocomplete and validation.
-- **Extensible design** - Content can be enhanced and distrbuted (future) via content packs - adding button types, sliders styles, animation definitions, and more.
+- **Unified architecture** — Every card shares centralized data sources, a cross-card rules engine, theme tokens, and a coordinated animation framework through a common core.
+- **Living data** — Entities can be subscribed, buffered, and processed (moving averages, min/max, history) and referenced in any card field using a flexible four-syntax template system.
+- **State-aware styling** — Cards respond dynamically to entity states via a rules engine that hot-patches styles across multiple cards simultaneously — including coordinated alert modes.
+- **Built to animate** — Embedded Anime.js v4 enables per-element animations on any SVG shape, line, or text — driven by entity state or triggered globally.
+- **Extensible by design** — Themes, button presets, animations, and assets can be distributed and shared via a content pack system.
 
 <br>
 
@@ -46,8 +57,8 @@ Legend:  ✅ Present | ❌ Not present | ⚠️ Partial
 
 | Feature | CB-LCARS | LCARdS | Notes |
 |---|:---:|:---:|---|
-| Buttons | ✅ <br>`cb-lcars-button-card` | ✅ <br>`lcards-button` | Builtin `preset` collection provides the standard LCARS buttons which are completely configurable. |
-| Multi-Segment Buttons | ❌ | ✅ <br>`lcards-button` | Allows for complex card designs (`component`) to be used as advanced multi-segment/multi-touch controls.  The controls are configured with use of new `segements` configurations. |
+| Buttons | ✅ <br>`cb-lcars-button-card` | ✅ <br>`lcards-button` | Builtin `preset` collection provides the standard LCARS button styles which are completely configurable. |
+| Multi-Segment Buttons | ❌ | ✅ <br>`lcards-button` | Allows for complex button designs (known as `component`) to be used as advanced multi-segment/multi-touch controls.<br>The controls are configured with use of new `segements` configurations. |
 | DPAD  | ✅ <br>`cb-lcars-dpad-card` | ✅ <br>`lcards-button` | First advanced button to use `component` feature of `lcards-button` card. |
 | ALERT | ⚠️ <br>background animation | ✅ <br>`lcards-button` | Promoted to a button card component - allows full interactive configurations. |
 | Labels | ✅ <br>`cb-lcars-label-card` | ✅ <br>`lcards-button` | Label functionality can by used with `lcards-button`.  Addional presets available for text labels with or without decoration. |
@@ -57,10 +68,10 @@ Legend:  ✅ Present | ❌ Not present | ⚠️ Partial
 | Cascade Data Grid | ⚠️ <br>background animation | ✅ `lcards-data-grid` | CB-LCARS provided decorative only version as background animation.  <br><br>In LCARdS, `lcards-data-grid` is full featured tabular/cell-based grid that can show real entity data, text, etc.  It still supports a decorative mode (generated data) equivalent to CB-LCARS version if desired.  |
 | Charts / Graphs | ❌ | ✅ <br>`lcards-chart` | Embedded ApexCharts library providing access to a variety of charts/graphs types to plot entity/data against. |
 | MSD (Master Systems Display) Card | ❌ | ✅ <br>`lcards-msd` | Full MSD system in a card.  Embed controls (other HA cards), connect and route lines, add animations to reflect statuses, etc. |
-| Background Animations | ✅ <br>GRID, ALERT, GEO Array, Pulsewave| ⚠️ |GRID (enhanced)<br><br>ALERT (now a button card component like DPAD)<br><br>GEO Array, Pulsewave (pending) |
+| Background Animations | ✅ <br>GRID, ALERT, GEO Array, Pulsewave| ⚠️✅ | Background animations have been split out into *stackable layers* <br>You can now mix and match various animation building blocks to create your desired effect.  ie. Add a starfield and a grid layer.<br><br>✅ **GRID** enhanced version<br><br>✅ **ALERT** now a button card component like DPAD<br><br>✅ **Starfield** & **Nebula** Enhanced with some new options.<br><br>⚠️ GEO Array, Pulsewave (pending) |
 | Element Animations | ❌ | ✅ | Embedded Anime.js v4 library enabling capability to animate any SVG element (cards, lines/stroke, text, etc.) |
-| Symbiont (embedded cards) | ✅ | ❌ | Not yet implmented. |
-| State-based Styling / Custom States | ✅ | ✅✅ | CB-LCARS has a limited set of states to control styles.  LCARdS uses both common state groupings [`default`|`active`|`inactive`|`unavailable`] and the ability to definte any state to the list for customized styling.  Integrates with core rules engine for hot-patching card styles. |
+| Symbiont (embedded cards) | ✅ | ✅ | Available in Elbow card - attempts native card injection for basic style imprinting.  Add your own `card_mod` config for advanced styling. |
+| State-based Styling / Custom States | ✅ | ✅✅ | CB-LCARS has a limited set of states to control styles.  LCARdS uses both common state groupings [`default`\|`active`\|`inactive`\|`unavailable`] and the ability to definte ***any state*** to the list for customized styling.  Integrates with core rules engine for hot-patching card styles. |
 | Sounds | ❌ | ✅ | Customizable sounds enabled for many UI and Card event types (tap, double tap, hold, hover, sidebar expand/collapse, and more...) |
 
 <br>
@@ -85,7 +96,7 @@ Legend:  ✅ Present | ❌ Not present | ⚠️ Partial
 
 <br>
 
-The LCARdS Config Panel adds a dedicated sidebar entry in Home Assistant for managing themes, sounds, helpers, and packs — accessible outside of any card editor.
+The **LCARdS Config Panel** adds a dedicated sidebar entry in Home Assistant giving access to a dedicated area for managing alert modes, sounds, helpers, and more.
 
 Add the following to your `configuration.yaml` and restart Home Assistant:
 
