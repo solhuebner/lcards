@@ -495,6 +495,28 @@ export class SoundManager extends BaseService {
     if (assetKey) this._playAsset(assetKey, true);
   }
 
+  /**
+   * Preview the effective sound for a given event type, resolving:
+   *   1. Per-event override (helper)
+   *   2. Active scheme default
+   * Bypasses all enable/disable checks (same as preview()).
+   * @param {string} eventType - Event type key (e.g., 'card_tap')
+   */
+  previewEvent(eventType) {
+    // 1. Per-event override
+    const overrides = this._getOverrides();
+    let assetKey = overrides[eventType] || null;
+
+    // 2. Active scheme
+    if (!assetKey) {
+      const scheme = this._getActiveScheme();
+      assetKey = scheme[eventType] || null;
+    }
+
+    if (assetKey) this._playAsset(assetKey, true);
+    else lcardsLog.debug(`[SoundManager] previewEvent: no asset found for "${eventType}"`);
+  }
+
   // ============================================================================
   // OVERRIDES
   // ============================================================================

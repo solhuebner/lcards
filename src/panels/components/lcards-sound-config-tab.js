@@ -229,6 +229,11 @@ export class LCARdSSoundConfigTab extends LitElement {
     window.lcards?.core?.soundManager?.preview(assetKey);
   }
 
+  /** Preview the effective sound for an event (resolves override → scheme). */
+  _previewEvent(eventType) {
+    window.lcards?.core?.soundManager?.previewEvent(eventType);
+  }
+
   async _setOverride(eventType, value) {
     const sm = window.lcards?.core?.soundManager;
     if (!sm) return;
@@ -471,10 +476,12 @@ export class LCARdSSoundConfigTab extends LitElement {
                           ></ha-selector>
                         </td>
                         <td>
-                          ${overrideValue !== '__scheme__' && overrideValue !== '__mute__' ? html`
+                          ${overrideValue !== '__mute__' ? html`
                             <ha-icon-button
                               .label=${'Preview'}
-                              @click=${() => this._previewAsset(overrideValue)}
+                              @click=${() => overrideValue === '__scheme__'
+                                ? this._previewEvent(evt.key)
+                                : this._previewAsset(overrideValue)}
                               ?disabled=${!masterEnabled}
                             >
                               <ha-icon icon="mdi:play"></ha-icon>
