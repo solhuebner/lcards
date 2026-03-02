@@ -538,10 +538,11 @@ config:
   font_family: "'Antonio', monospace"
 
   # Colour cycling (start → text hold → end)
+  # Defaults match CB-LCARS: bright LCARS blue → dark navy snap → pale moonlight
   colors:
-    start: "#99ccff"       # Cycle start colour
-    text:  "#4466aa"       # Mid/text hold colour
-    end:   "#aaccff"       # Cycle end colour
+    start: "var(--lcars-blue, #2266ff)"       # Cycle start colour (bright dominant hold)
+    text:  "var(--lcards-blue-darkest, #112244)"  # Mid/text snap colour (dark navy)
+    end:   "var(--lcars-moonlight, #e7f3f7)"  # Cycle end colour (pale fade-out)
 
   # Timing
   pattern: default         # default | niagara | fast | custom
@@ -562,9 +563,9 @@ config:
 | `refresh_interval` | number | 0 | Milliseconds between random data regeneration (0 = static). |
 | `font_size` | number | 10 | Font size in pixels. |
 | `font_family` | string | `"'Antonio', monospace"` | CSS font-family string. |
-| `colors.start` | string | `'#99ccff'` | Colour at cycle start (hold phase, 0–75%). Supports CSS variables. |
-| `colors.text` | string | `'#4466aa'` | Colour at mid-cycle hold (80–90%). Supports CSS variables. |
-| `colors.end` | string | `'#aaccff'` | Colour at cycle end (90–100% fade). Supports CSS variables. |
+| `colors.start` | string | `'var(--lcars-blue, #2266ff)'` | Colour at cycle start (hold phase, 0–75%). Supports CSS variables. |
+| `colors.text` | string | `'var(--lcards-blue-darkest, #112244)'` | Colour at mid-cycle snap (dark navy, 75–90%). Supports CSS variables. |
+| `colors.end` | string | `'var(--lcars-moonlight, #e7f3f7)'` | Colour at cycle end (90–100% fade). Supports CSS variables. |
 | `pattern` | string | `'default'` | Timing pattern: `default` (authentic LCARS rhythm), `niagara` (uniform waterfall), `fast` (rapid cycling), `custom` (user-supplied array). |
 | `timing` | array | — | Custom timing: array of `{ duration, delay }` objects (used when `pattern: custom`). |
 | `speed_multiplier` | number | 1.0 | Speed multiplier applied to all row durations (2.0 = twice as fast). |
@@ -614,9 +615,9 @@ The colour cycle for each row follows the CB-LCARS / data-grid keyframe structur
     format: hex
     pattern: default
     colors:
-      start: "#99ccff"
-      text: "#224488"
-      end: "#aaccff"
+      start: "var(--lcars-blue, #2266ff)"
+      text: "var(--lcards-blue-darkest, #112244)"
+      end: "var(--lcars-moonlight, #e7f3f7)"
     opacity: 0.5
 - preset: grid
   config:

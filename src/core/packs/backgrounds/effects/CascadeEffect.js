@@ -45,9 +45,9 @@ export class CascadeEffect extends BaseEffect {
    *
    * Colour cycling:
    * @param {Object} [config.colors] - Colour configuration
-   * @param {string} [config.colors.start='#99ccff'] - Animation start colour
-   * @param {string} [config.colors.text='#4466aa'] - Mid/text colour (hold phase)
-   * @param {string} [config.colors.end='#aaccff'] - Animation end colour
+   * @param {string} [config.colors.start='var(--lcars-blue, #2266ff)'] - Animation start colour (bright dominant hold colour)
+   * @param {string} [config.colors.text='var(--lcards-blue-darkest, #112244)'] - Mid/text colour (dark snap-to colour)
+   * @param {string} [config.colors.end='var(--lcars-moonlight, #e7f3f7)'] - Animation end colour (pale fade-out colour)
    *
    * Timing:
    * @param {string} [config.pattern='default'] - Timing pattern: 'default'|'niagara'|'fast'|'custom'
@@ -75,9 +75,10 @@ export class CascadeEffect extends BaseEffect {
     this.refreshInterval = config.refreshInterval ?? 0;
 
     // Colour config (raw values; resolved in draw())
-    this.colorStart = config.colors?.start ?? '#99ccff';
-    this.colorText  = config.colors?.text  ?? '#4466aa';
-    this.colorEnd   = config.colors?.end   ?? '#aaccff';
+    // Defaults match CB-LCARS cascade: bright blue (hold) → dark navy (snap) → pale moonlight (end)
+    this.colorStart = config.colors?.start ?? 'var(--lcars-blue, #2266ff)';
+    this.colorText  = config.colors?.text  ?? 'var(--lcards-blue-darkest, #112244)';
+    this.colorEnd   = config.colors?.end   ?? 'var(--lcars-moonlight, #e7f3f7)';
 
     // Timing
     this.pattern         = config.pattern         ?? 'default';
@@ -365,10 +366,10 @@ export class CascadeEffect extends BaseEffect {
    *
    * Keyframe structure (matches CB-LCARS / data-grid cascade):
    *
-   *   0%–75%:  colorStart  (hold)
-   *   75%–80%: colorStart → colorText  (fast fade in)
-   *   80%–90%: colorText   (hold)
-   *   90%–100%: colorText → colorEnd  (fast fade out, loops back to colorStart)
+   *   0%–75%:  colorStart  (hold — the bright dominant LCARS blue)
+   *   75%–80%: colorStart → colorText  (fast snap to dark navy)
+   *   80%–90%: colorText   (hold — dark navy)
+   *   90%–100%: colorText → colorEnd  (fade to pale moonlight, loops back to colorStart)
    *
    * Falls back to returning the start colour string if the colours cannot be
    * parsed (e.g., CSS variable not yet resolved).
@@ -384,7 +385,7 @@ export class CascadeEffect extends BaseEffect {
 
     // Fallback: if colours can't be parsed just return start colour string
     if (!cStart || !cText || !cEnd) {
-      return this._resolvedStart || '#99ccff';
+      return this._resolvedStart || '#2266ff';
     }
 
     if (t < 0.75) {
@@ -470,7 +471,7 @@ export class CascadeEffect extends BaseEffect {
       // Compute normalised cycle position for this row
       const dur    = this._rowDurations[row];
       const phase  = this._rowPhaseOffsets[row];
-      const rowTime = ((elapsed + phase) % dur + dur) % dur;  // positive modulo
+      const rowTime = ((elapsed - phase) % dur + dur) % dur;  // positive modulo; subtract phase so row 0 (smallest delay) leads
       const t      = rowTime / dur;
 
       // Colour for this row at this moment
