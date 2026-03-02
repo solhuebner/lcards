@@ -625,8 +625,28 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
       <!-- Grid Sizing -->
       <lcards-form-section header="Grid" icon="mdi:grid" ?expanded=${true}>
         <div class="param-grid">
-          ${this._renderField({ key: 'num_rows', label: 'Rows (blank = auto)', type: 'number', min: 1, max: 50, step: 1, default: null, helper: 'Leave empty to fill card height automatically' }, config, index)}
-          ${this._renderField({ key: 'num_cols', label: 'Columns (blank = auto)', type: 'number', min: 1, max: 100, step: 1, default: null, helper: 'Leave empty to fill card width automatically' }, config, index)}
+          <ha-textfield
+            type="number"
+            label="Rows (blank = auto)"
+            helper="Leave empty to fill card height automatically"
+            min="1"
+            max="50"
+            step="1"
+            .value=${config.num_rows ?? ''}
+            placeholder="auto"
+            @input=${(e) => this._updateEffectConfig(index, 'num_rows', e.target.value ? Number(e.target.value) : null)}
+          ></ha-textfield>
+          <ha-textfield
+            type="number"
+            label="Columns (blank = auto)"
+            helper="Leave empty to fill card width automatically"
+            min="1"
+            max="100"
+            step="1"
+            .value=${config.num_cols ?? ''}
+            placeholder="auto"
+            @input=${(e) => this._updateEffectConfig(index, 'num_cols', e.target.value ? Number(e.target.value) : null)}
+          ></ha-textfield>
           ${this._renderField({ key: 'gap', label: 'Cell Gap (px)', type: 'number', min: 0, max: 20, step: 1, default: 4 }, config, index)}
         </div>
       </lcards-form-section>
@@ -685,6 +705,9 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
           .label=${'Timing Pattern'}
           @value-changed=${(e) => this._updateEffectConfig(index, 'pattern', e.detail.value)}
         ></ha-selector>
+        ${(config.pattern ?? 'default') === 'custom' ? html`
+          <lcards-message type="info" .message=${'Custom timing requires a YAML-supplied "timing" array of { duration, delay } objects — one per row. Edit this card\'s YAML directly to set the timing property.'}></lcards-message>
+        ` : ''}
         <div class="param-grid">
           ${this._renderField({ key: 'speed_multiplier', label: 'Speed Multiplier (1.0 = normal)', type: 'number', min: 0.1, max: 10, step: 0.1, default: 1.0, helper: '2.0 = twice as fast, 0.5 = half speed' }, config, index)}
           ${this._renderField({ key: 'duration', label: 'Duration Override (ms, 0 = use pattern)', type: 'number', min: 0, max: 30000, step: 100, default: 0, helper: 'Overrides all row durations if > 0' }, config, index)}

@@ -94,9 +94,8 @@ export class CascadeEffect extends BaseEffect {
     this._cellData        = null;   // 2D array [row][col] of text strings
     this._lastRefreshTime = 0;      // timestamp for refresh tracking
 
-    // Layout cache (invalidated when canvas size changes)
-    this._lastCanvasW  = 0;
-    this._lastCanvasH  = 0;
+    // Layout cache (invalidated when canvas size or relevant config changes)
+    this._lastLayoutKey = '';
     this._computedRows = 0;
     this._computedCols = 0;
     this._cellWidth    = 0;
@@ -128,7 +127,8 @@ export class CascadeEffect extends BaseEffect {
   // ============================================================================
 
   /**
-   * Generate a single cell value according to the configured format
+   * Generate a single cell value according to the configured format.
+   * The 'mixed' case inlines all sub-generators to avoid mutating this.format.
    * @private
    * @returns {string}
    */
@@ -146,12 +146,19 @@ export class CascadeEffect extends BaseEffect {
       case 'hex':
         return Math.floor(Math.random() * 65535).toString(16).toUpperCase().padStart(4, '0');
       case 'mixed': {
-        const types = ['digit', 'float', 'alpha', 'hex'];
-        const saved = this.format;
-        this.format = types[Math.floor(Math.random() * types.length)];
-        const val = this._generateCell();
-        this.format = saved;
-        return val;
+        // Inline all sub-cases to avoid mutating this.format (re-entrancy risk)
+        const pick = Math.floor(Math.random() * 4);
+        if (pick === 0) {
+          return Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+        } else if (pick === 1) {
+          return (Math.random() * 100).toFixed(2);
+        } else if (pick === 2) {
+          const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+          return chars.charAt(Math.floor(Math.random() * chars.length)) +
+                 chars.charAt(Math.floor(Math.random() * chars.length));
+        } else {
+          return Math.floor(Math.random() * 65535).toString(16).toUpperCase().padStart(4, '0');
+        }
       }
       default:
         return Math.floor(Math.random() * 65535).toString(16).toUpperCase().padStart(4, '0');
@@ -176,21 +183,21 @@ export class CascadeEffect extends BaseEffect {
   // ============================================================================
 
   /**
-   * Compute (or retrieve cached) grid layout for the current canvas size.
-   * Invalidates cache when canvas dimensions change.
+   * Compute (or retrieve cached) grid layout.
+   * Cache is keyed on canvas size AND the layout-affecting config properties
+   * (numRows, numCols, fontSize, gap) so live editor edits recompute correctly.
    *
    * @private
    * @param {number} canvasW
    * @param {number} canvasH
    */
   _computeLayout(canvasW, canvasH) {
-    if (canvasW === this._lastCanvasW && canvasH === this._lastCanvasH &&
-        this._cellData !== null) {
+    const layoutKey = `${canvasW}x${canvasH}|r${this.numRows}|c${this.numCols}|f${this.fontSize}|g${this.gap}`;
+    if (layoutKey === this._lastLayoutKey && this._cellData !== null) {
       return; // Cache still valid
     }
 
-    this._lastCanvasW = canvasW;
-    this._lastCanvasH = canvasH;
+    this._lastLayoutKey = layoutKey;
 
     // Cell size derived from font metrics + gap
     // Approximate column width: about 2.5× font size (matches CB-LCARS column_width)
@@ -440,6 +447,13 @@ export class CascadeEffect extends BaseEffect {
     this._resolvedStart = ColorUtils.resolveCssVariable(this.colorStart);
     this._resolvedText  = ColorUtils.resolveCssVariable(this.colorText);
     this._resolvedEnd   = ColorUtils.resolveCssVariable(this.colorEnd);
+
+    // Early-exit if colours are not yet parseable (e.g., DOM not ready for CSS var resolution)
+    if (!this._parseColor(this._resolvedStart) ||
+        !this._parseColor(this._resolvedText)  ||
+        !this._parseColor(this._resolvedEnd)) {
+      return;
+    }
 
     ctx.save();
 
