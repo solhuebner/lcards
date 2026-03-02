@@ -1,3 +1,12 @@
+> [!WARNING]
+> Greetings.
+>
+> If you have come across this repo feel free to have a look around!
+>
+> **But please note: this code is not yet complete and is not ready for general usage.**
+
+<br>
+
 # LCARdS
 *A STAR TREK FAN PRODUCTION*
 
@@ -14,15 +23,6 @@ File: docs/assets/lcards-banner.gif
 [![GitHub release](https://img.shields.io/github/v/release/snootched/LCARdS?display_name=release&logo=startrek&color=37a6d1")](https://github.com/snootched/LCARdS/releases)
 [![License](https://img.shields.io/github/license/snootched/LCARdS?logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![Last commit](https://img.shields.io/github/last-commit/snootched/LCARdS?style=default&logo=git&logoColor=white&color=37a6d1)](https://github.com/snootched/LCARdS/commits/main)
-
-<br>
-
-> [!WARNING]
-> Greetings.
->
-> If you have come across this repo feel free to have a look around!
->
-> **But please note: this code is not yet complete and is not ready for general usage.**
 
 <br>
 
@@ -49,13 +49,15 @@ LCARdS is the evolution of dedicated LCARS-inspired cards for Home Assistant.
 
 <br>
 
-## Feature Parity with CB-LCARS
+## Coming from CB-LCARS
 
 If coming from CB-LCARS, use this table to quickly see what the equivalent card/feature is in LCARdS.  Not all features and functions may be available yet, but will be added over time.
 
 > [!TIP]
 > You may run CB-LCARS and LCARdS together while transitioning over to LCARdS.  All new features and fixes will be made in LCARdS only going forward.
 
+<details>
+<summary><b>Feature Comparison</b></summary>
 
 ✅ Present | ❌ Not present | ⚠️ Partial
 
@@ -78,6 +80,8 @@ If coming from CB-LCARS, use this table to quickly see what the equivalent card/
 | State-based Styling / Custom States | ✅ | ✅✅ | CB-LCARS has a limited set of states to control styles.  LCARdS uses both common state groupings [`default`\|`active`\|`inactive`\|`unavailable`] and the ability to definte ***any state*** to the list for customized styling.  Integrates with core rules engine for hot-patching card styles. |
 | Sounds | ❌ | ✅ | Customizable sounds enabled for many UI and Card event types (tap, double tap, hold, hover, sidebar expand/collapse, and more...) |
 | Alert Overlay | ❌ | ✅ <br>`lcards-alert-overlay` | New dashboard-level card that reacts to `input_select.lcards_alert_mode` and displays a full-screen configurable backdrop (blur + tint) with an embedded content card.  By default the ALERT button is overlaid and configured for the alert level triggered. |
+
+</details>
 
 <br>
 
