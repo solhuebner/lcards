@@ -12,6 +12,7 @@
 import { GridEffect } from '../effects/GridEffect.js';
 import { StarfieldEffect } from '../effects/StarfieldEffect.js';
 import { NebulaEffect } from '../effects/NebulaEffect.js';
+import { CascadeEffect } from '../effects/CascadeEffect.js';
 import { lcardsLog } from '../../../../utils/lcards-logging.js';
 
 /**
@@ -259,4 +260,41 @@ export const BACKGROUND_PRESETS = {
   // Future presets will be added here:
   // 'geometric-array': { ... },
   // etc.
+};
+
+// Register cascade preset
+BACKGROUND_PRESETS['cascade'] = {
+  name: 'Data Cascade',
+  description: 'LCARS waterfall colour-cycling data grid (decorative)',
+
+  createEffects(config = {}, cardInstance = null) {
+    lcardsLog.debug('[Preset:cascade] Creating cascade effect');
+
+    const resolveToken = (tokenPath, fallback) => {
+      if (cardInstance?.getThemeToken) return cardInstance.getThemeToken(tokenPath, fallback);
+      return fallback;
+    };
+
+    const cascadeConfig = {
+      numRows:          config.num_rows        ?? null,
+      numCols:          config.num_cols        ?? null,
+      format:           config.format          ?? 'hex',
+      pattern:          config.pattern         ?? 'default',
+      timing:           config.timing,
+      duration:         config.duration        ?? null,
+      speedMultiplier:  config.speed_multiplier ?? 1.0,
+      colors: {
+        start: config.colors?.start ?? resolveToken('colors.grid.cascadeStart', '#99ccff'),
+        text:  config.colors?.text  ?? resolveToken('colors.grid.cascadeMid',   '#4466aa'),
+        end:   config.colors?.end   ?? resolveToken('colors.grid.cascadeEnd',   '#aaccff')
+      },
+      fontSize:        config.font_size    ?? resolveToken('components.backgroundAnimation.cascade.font.size', 10),
+      fontFamily:      config.font_family  ?? resolveToken('components.backgroundAnimation.cascade.font.family', "'Antonio', monospace"),
+      gap:             config.gap          ?? 4,
+      refreshInterval: config.refresh_interval ?? 0,
+      opacity:         config.opacity      ?? 1
+    };
+
+    return [new CascadeEffect(cascadeConfig)];
+  }
 };
