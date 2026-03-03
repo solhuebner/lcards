@@ -63,9 +63,9 @@ export class ShapeTextureRenderer {
                 style="pointer-events: none; mix-blend-mode: ${safeBlend};"
             />`;
         } else {
-            // Rect shape — use per-corner radii if available
-            const rx = border?.radius ?? 0;
-            const ry = border?.radius ?? 0;
+            // Rect shape — use minimum per-corner radius as conservative clip approximation
+            const rx = _computeClipRadius(border);
+            const ry = rx;
             clipShapeMarkup = `<rect x="0" y="0" width="${width}" height="${height}" rx="${rx}" ry="${ry}"/>`;
             textureShapeMarkup = `<rect x="0" y="0" width="${width}" height="${height}"
                 rx="${rx}" ry="${ry}"
@@ -88,8 +88,8 @@ export class ShapeTextureRenderer {
                     style="pointer-events: none; mix-blend-mode: ${safeBlend};"
                 />`;
             } else {
-                const rx = border?.radius ?? 0;
-                const ry = border?.radius ?? 0;
+                const rx = _computeClipRadius(border);
+                const ry = rx;
                 textureShapeMarkup = `<rect x="0" y="0" width="${width}" height="${height}"
                     rx="${rx}" ry="${ry}"
                     fill="white"
@@ -117,4 +117,34 @@ export class ShapeTextureRenderer {
         return `${defsBlock}
         ${textureShapeMarkup}`;
     }
+}
+
+// ─── Internal helper ──────────────────────────────────────────────────────────
+
+/**
+ * Compute a safe conservative clip radius from a border config object.
+ *
+ * When per-corner radii are present (topLeft, topRight, bottomRight, bottomLeft),
+ * returns the minimum of all four corners so the clip rect never extends beyond
+ * any corner of the actual rendered shape. Falls back to border.radius or 0
+ * when individual corner values are absent.
+ *
+ * @param {Object|null|undefined} border
+ * @returns {number}
+ */
+function _computeClipRadius(border) {
+    if (!border) return 0;
+    const hasCorners =
+        border.topLeft !== undefined ||
+        border.topRight !== undefined ||
+        border.bottomRight !== undefined ||
+        border.bottomLeft !== undefined;
+    if (hasCorners) {
+        const tl = Number(border.topLeft ?? 0);
+        const tr = Number(border.topRight ?? 0);
+        const br = Number(border.bottomRight ?? 0);
+        const bl = Number(border.bottomLeft ?? 0);
+        return Math.min(tl, tr, br, bl);
+    }
+    return Number(border.radius ?? 0);
 }
