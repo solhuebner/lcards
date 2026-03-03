@@ -7084,40 +7084,42 @@
         ${e.map((e,t)=>this._renderEffectItem(e,t))}
       </div>
     `}_renderCanvasSettings(){const{inset:e}=this._normalizedConfig,t=this._insetEnabled||null!=e,i="auto"===e,r=e&&"object"==typeof e?e:{top:0,right:0,bottom:0,left:0};return nn`
-      <lcards-form-section label="Canvas Settings" .collapsible=${!0} .collapsed=${!t}>
-        <div class="section">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-            <ha-switch
-              .checked=${t}
-              @change=${e=>{this._insetEnabled=e.target.checked,e.target.checked?this._emitChange(this._normalizedConfig.effects,i?"auto":{top:0,right:0,bottom:0,left:0}):this._emitChange(this._normalizedConfig.effects,null)}}
-            ></ha-switch>
-            <span>Enable canvas inset</span>
-          </div>
-          ${t?nn`
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-              <ha-switch
-                .checked=${i}
-                @change=${e=>{e.target.checked?this._emitChange(this._normalizedConfig.effects,"auto"):this._emitChange(this._normalizedConfig.effects,{top:0,right:0,bottom:0,left:0})}}
-              ></ha-switch>
-              <span>Auto (elbow cards)</span>
-            </div>
-            ${i?"":nn`
-              ${["top","right","bottom","left"].map(e=>nn`
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                  <span style="width:50px;text-transform:capitalize;">${e}</span>
-                  <input
-                    type="range" min="0" max="500" step="1"
-                    .value=${String(r[e]??0)}
-                    @input=${t=>{const i={...r,[e]:Number(t.target.value)};this._emitChange(this._normalizedConfig.effects,i)}}
-                  />
-                  <span style="min-width:36px;">${r[e]??0}px</span>
-                </div>
-              `)}
-            `}
-          `:""}
-        </div>
+      <lcards-form-section
+        header="Canvas Settings"
+        icon="mdi:crop"
+        ?expanded=${t}>
+
+        <ha-selector
+          .hass=${this.hass}
+          .selector=${{boolean:{}}}
+          .value=${t}
+          .label=${"Enable canvas inset"}
+          .helper=${"Offset the animation canvas from card edges"}
+          @value-changed=${e=>{this._insetEnabled=e.detail.value,e.detail.value?this._emitChange(this._normalizedConfig.effects,i?"auto":{top:0,right:0,bottom:0,left:0}):this._emitChange(this._normalizedConfig.effects,null)}}
+        ></ha-selector>
+
+        ${t?nn`
+          <ha-selector
+            .hass=${this.hass}
+            .selector=${{boolean:{}}}
+            .value=${i}
+            .label=${"Auto inset (elbow cards)"}
+            .helper=${"Automatically offset canvas to avoid elbow card bars"}
+            @value-changed=${e=>{e.detail.value?this._emitChange(this._normalizedConfig.effects,"auto"):this._emitChange(this._normalizedConfig.effects,{top:0,right:0,bottom:0,left:0})}}
+          ></ha-selector>
+
+          ${i?"":this._renderManualInsetControls(r)}
+        `:""}
       </lcards-form-section>
-    `}_renderInfoBanner(){return nn`
+    `}_renderManualInsetControls(e){return[["top","Top"],["right","Right"],["bottom","Bottom"],["left","Left"]].map(([t,i])=>nn`
+      <ha-selector
+        .hass=${this.hass}
+        .selector=${{number:{min:0,max:500,step:1,mode:"slider"}}}
+        .value=${e[t]??0}
+        .label=${i}
+        @value-changed=${i=>{const r={...e,[t]:i.detail.value};this._emitChange(this._normalizedConfig.effects,r)}}
+      ></ha-selector>
+    `)}_renderInfoBanner(){return nn`
       <div class="info-banner">
         <ha-icon icon="mdi:information"></ha-icon>
         <div>
