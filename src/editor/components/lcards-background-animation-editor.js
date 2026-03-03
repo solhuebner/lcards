@@ -324,56 +324,69 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
     const insetObj = (inset && typeof inset === 'object') ? inset : { top: 0, right: 0, bottom: 0, left: 0 };
 
     return html`
-      <lcards-form-section label="Canvas Settings" .collapsible=${true} .collapsed=${!insetEnabled}>
-        <div class="section">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-            <ha-switch
-              .checked=${insetEnabled}
-              @change=${(e) => {
-                this._insetEnabled = e.target.checked;
-                if (!e.target.checked) {
-                  this._emitChange(this._normalizedConfig.effects, null);
-                } else {
-                  this._emitChange(this._normalizedConfig.effects, isAuto ? 'auto' : { top: 0, right: 0, bottom: 0, left: 0 });
-                }
-              }}
-            ></ha-switch>
-            <span>Enable canvas inset</span>
-          </div>
-          ${insetEnabled ? html`
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-              <ha-switch
-                .checked=${isAuto}
-                @change=${(e) => {
-                  if (e.target.checked) {
-                    this._emitChange(this._normalizedConfig.effects, 'auto');
-                  } else {
-                    this._emitChange(this._normalizedConfig.effects, { top: 0, right: 0, bottom: 0, left: 0 });
-                  }
-                }}
-              ></ha-switch>
-              <span>Auto (elbow cards)</span>
-            </div>
-            ${!isAuto ? html`
-              ${['top', 'right', 'bottom', 'left'].map(side => html`
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                  <span style="width:50px;text-transform:capitalize;">${side}</span>
-                  <input
-                    type="range" min="0" max="500" step="1"
-                    .value=${String(insetObj[side] ?? 0)}
-                    @input=${(e) => {
-                      const updated = { ...insetObj, [side]: Number(e.target.value) };
-                      this._emitChange(this._normalizedConfig.effects, updated);
-                    }}
-                  />
-                  <span style="min-width:36px;">${insetObj[side] ?? 0}px</span>
-                </div>
-              `)}
-            ` : ''}
-          ` : ''}
-        </div>
+      <lcards-form-section
+        header="Canvas Settings"
+        icon="mdi:crop"
+        ?expanded=${insetEnabled}>
+
+        <ha-selector
+          .hass=${this.hass}
+          .selector=${{ boolean: {} }}
+          .value=${insetEnabled}
+          .label=${'Enable canvas inset'}
+          .helper=${'Offset the animation canvas from card edges'}
+          @value-changed=${(e) => {
+            this._insetEnabled = e.detail.value;
+            if (!e.detail.value) {
+              this._emitChange(this._normalizedConfig.effects, null);
+            } else {
+              this._emitChange(this._normalizedConfig.effects, isAuto ? 'auto' : { top: 0, right: 0, bottom: 0, left: 0 });
+            }
+          }}
+        ></ha-selector>
+
+        ${insetEnabled ? html`
+          <ha-selector
+            .hass=${this.hass}
+            .selector=${{ boolean: {} }}
+            .value=${isAuto}
+            .label=${'Auto inset (elbow cards)'}
+            .helper=${'Automatically offset canvas to avoid elbow card bars'}
+            @value-changed=${(e) => {
+              if (e.detail.value) {
+                this._emitChange(this._normalizedConfig.effects, 'auto');
+              } else {
+                this._emitChange(this._normalizedConfig.effects, { top: 0, right: 0, bottom: 0, left: 0 });
+              }
+            }}
+          ></ha-selector>
+
+          ${!isAuto ? this._renderManualInsetControls(insetObj) : ''}
+        ` : ''}
       </lcards-form-section>
     `;
+  }
+
+  /** @private */
+  _renderManualInsetControls(insetObj) {
+    const sides = [
+      ['top', 'Top'],
+      ['right', 'Right'],
+      ['bottom', 'Bottom'],
+      ['left', 'Left'],
+    ];
+    return sides.map(([side, label]) => html`
+      <ha-selector
+        .hass=${this.hass}
+        .selector=${{ number: { min: 0, max: 500, step: 1, mode: 'slider' } }}
+        .value=${insetObj[side] ?? 0}
+        .label=${label}
+        @value-changed=${(e) => {
+          const updated = { ...insetObj, [side]: e.detail.value };
+          this._emitChange(this._normalizedConfig.effects, updated);
+        }}
+      ></ha-selector>
+    `);
   }
 
   _renderInfoBanner() {
