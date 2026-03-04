@@ -187,7 +187,9 @@ export class LCARdSRuleEditorDialog extends LitElement {
             Object.entries(ruleRaw).filter(([, v]) => v !== undefined)
         );
 
-        // Warn (but don't block) if apply is effectively empty
+        // Warn when apply is effectively empty. On the first Save click we show the
+        // inline warning and return early so the user can see it. On the second click
+        // (warning already visible) we proceed — treating it as a confirmed save.
         const hasApplyContent = rule.apply && (
             Object.keys(rule.apply.overlays || {}).length > 0 ||
             (rule.apply.tags && rule.apply.tags.length > 0) ||
@@ -195,9 +197,10 @@ export class LCARdSRuleEditorDialog extends LitElement {
             (rule.apply.profiles_add && rule.apply.profiles_add.length > 0) ||
             (rule.apply.profiles_remove && rule.apply.profiles_remove.length > 0)
         );
-        if (!hasApplyContent) {
-            lcardsLog.warn('[RuleEditorDialog] Saving rule with empty apply section — rule will fire but do nothing:', rule.id);
+        if (!hasApplyContent && !this._applyWarning) {
+            lcardsLog.warn('[RuleEditorDialog] Apply section is empty — showing warning before save:', rule.id);
             this._applyWarning = true;
+            return;  // First click — show warning, don't save yet
         }
 
         lcardsLog.debug('[RuleEditorDialog] Saving rule:', rule.id);

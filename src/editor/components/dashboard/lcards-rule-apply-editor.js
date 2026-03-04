@@ -270,7 +270,9 @@ export class LCARdSRuleApplyEditor extends LitElement {
     _handleAddOverlay() {
         if (!this._newOverlayId || !this._newOverlayId.trim()) return;
         const id = this._newOverlayId.trim();
-        if (this._overlayTargets.includes(id)) return;
+        // Reject group-header sentinel values that may be selected from the dropdown
+        if (id.startsWith(OVERLAY_GROUP_PREFIX)) return;
+        if (this._overlayTargets?.includes(id)) return;
         const current = { ...(this.value || {}) };
         const overlays = { ...(current.overlays || {}), [id]: {} };
         this._newOverlayId = '';

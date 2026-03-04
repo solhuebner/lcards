@@ -542,9 +542,11 @@ export class LCARdSRulesDashboard extends LitElement {
      */
     _applyRulesChange(updatedRules) {
         if (!this.editor) return;
+        // Note: we update editor.config directly here (replacement semantics, not deep merge)
+        // because we always want to replace the rules array as a whole.
+        // The fireEvent call causes HA to re-call setConfig, which handles validation/YAML sync.
         this.editor.config = { ...this.editor.config, rules: updatedRules };
         fireEvent(this.editor, 'config-changed', { config: this.editor.config });
-        this._loadRules();
         this.requestUpdate();
     }
 
