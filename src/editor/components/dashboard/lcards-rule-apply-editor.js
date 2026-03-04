@@ -345,7 +345,7 @@ export class LCARdSRuleApplyEditor extends LitElement {
         const availableTags = this._getAvailableTags();
 
         return html`
-            <div>
+            <div @value-changed=${(e) => e.stopPropagation()}>
                 <!-- Overlay Targets Section -->
                 <lcards-form-section
                     class="section-gap"

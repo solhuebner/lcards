@@ -465,7 +465,7 @@ export class LCARdSConditionGroupEditor extends LitElement {
         ];
 
         return html`
-            <div>
+            <div @value-changed=${(e) => e.stopPropagation()}>
                 <div class="group-header">
                     <ha-selector
                         .hass=${this.hass}
