@@ -3813,6 +3813,15 @@ export class LCARdSButton extends LCARdSCard {
             resolvedConfig = resolveThemeTokensRecursive(rawConfig, themeManager);
         }
 
+        // Resolve any remaining CSS variables (var(--name)) in color fields so presets
+        // always receive a concrete color string — consistent with ColorUtils usage elsewhere.
+        const colorKeys = ['color', 'color_a', 'color_b'];
+        for (const key of colorKeys) {
+            if (resolvedConfig[key] && typeof resolvedConfig[key] === 'string') {
+                resolvedConfig = { ...resolvedConfig, [key]: ColorUtils.resolveCssVariable(resolvedConfig[key], resolvedConfig[key]) };
+            }
+        }
+
         // Resolve state-based color on the 'color' field
         if (resolvedConfig.color && typeof resolvedConfig.color === 'object') {
             resolvedConfig = {
@@ -3853,6 +3862,28 @@ export class LCARdSButton extends LCARdSCard {
             if (resolvedConfig.scroll_speed_x !== undefined) resolvedConfig = { ...resolvedConfig, scroll_speed_x: resolvedConfig.scroll_speed_x * speed };
             if (resolvedConfig.scroll_speed_y !== undefined) resolvedConfig = { ...resolvedConfig, scroll_speed_y: resolvedConfig.scroll_speed_y * speed };
             if (resolvedConfig.speed !== undefined) resolvedConfig = { ...resolvedConfig, speed: resolvedConfig.speed * speed };
+        }
+
+        // Resolve state-based fill_pct for the 'level' preset
+        if (resolvedConfig.fill_pct !== undefined && typeof resolvedConfig.fill_pct === 'object') {
+            const raw = resolveStateColor({
+                actualState: actualEntityState,
+                classifiedState: buttonState,
+                colorConfig: resolvedConfig.fill_pct,
+                fallback: 50
+            }) ?? 50;
+            resolvedConfig = { ...resolvedConfig, fill_pct: parseFloat(raw) };
+        } else if (texConfig.preset === 'level' && this._entity) {
+            // Auto-derive fill_pct from numeric entity state (e.g. a light brightness 0-255 or sensor 0-100)
+            const autoFill = resolvedConfig.fill_pct;
+            if (autoFill === undefined || autoFill === null) {
+                const numState = parseFloat(actualEntityState);
+                if (!isNaN(numState)) {
+                    // If state looks like 0-255 range (e.g. brightness), normalise; else treat as 0-100
+                    const normalised = numState > 100 ? (numState / 255) * 100 : numState;
+                    resolvedConfig = { ...resolvedConfig, fill_pct: Math.max(0, Math.min(100, normalised)) };
+                }
+            }
         }
 
         const blendMode = texConfig.mix_blend_mode || 'normal';

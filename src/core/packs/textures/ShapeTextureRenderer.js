@@ -43,8 +43,9 @@ export class ShapeTextureRenderer {
         const safeBlend = blendMode || 'normal';
 
         // Generate preset-specific defs content
-        // For 'solid' preset getFillRef accepts cfg too
-        const defsContent = preset.createDefs(id, cfg);
+        // Pass { width, height } as context so dimension-aware presets (pulse, level, etc.) can use them
+        const ctx = { width, height };
+        const defsContent = preset.createDefs(id, cfg, ctx);
         const fillRef = typeof preset.getFillRef === 'function'
             ? preset.getFillRef(id, cfg)
             : `url(#stex-pattern-${id})`;
