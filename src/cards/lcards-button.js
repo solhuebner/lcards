@@ -65,8 +65,8 @@ import { RendererUtils } from '../msd/renderer/RendererUtils.js';
 import { sanitizeSvg, extractViewBox, extractDataUriContent, escapeXmlAttribute } from '../utils/lcards-svg-helpers.js';
 import { applyBaseSvgFilters } from '../msd/utils/BaseSvgFilters.js';
 import { BackgroundAnimationRenderer } from '../core/packs/backgrounds/BackgroundAnimationRenderer.js';
-import { SHAPE_TEXTURE_PRESETS } from '../core/packs/textures/presets/index.js';
-import { ShapeTextureRenderer } from '../core/packs/textures/ShapeTextureRenderer.js';
+import { CANVAS_TEXTURE_PRESETS } from '../core/packs/textures/presets/index.js';
+import { CanvasTextureRenderer } from '../core/packs/textures/CanvasTextureRenderer.js';
 
 // Import unified schema
 import { getButtonSchema } from './schemas/button-schema.js';
@@ -107,6 +107,7 @@ export class LCARdSButton extends LCARdSCard {
                     align-items: center;
                     justify-content: center;
                     background: transparent;
+                    position: relative;
                 }
 
                 .button-svg {
@@ -2325,6 +2326,9 @@ export class LCARdSButton extends LCARdSCard {
         if (this._buttonHoverStyle || this._buttonPressedStyle) {
             this._setupButtonInteractivity();
         }
+
+        // Sync canvas texture overlay (create or hot-update after each render)
+        this._syncCanvasTexture();
     }
 
     /**
@@ -3821,7 +3825,7 @@ export class LCARdSButton extends LCARdSCard {
         if (!texConfig || !texConfig.preset) return null;
         if (!this._supportsShapeTexture()) return null;
 
-        const presetDef = SHAPE_TEXTURE_PRESETS[texConfig.preset];
+        const presetDef = CANVAS_TEXTURE_PRESETS[texConfig.preset];
         if (!presetDef) {
             lcardsLog.warn(`[LCARdSButton] Unknown shape_texture preset: ${texConfig.preset}`);
             return null;
@@ -3974,24 +3978,68 @@ export class LCARdSButton extends LCARdSCard {
     }
 
     /**
-     * Generate the SVG shape texture layer markup string.
-     * Returns empty string if texture is not configured or not supported.
+     * Store shape path/border info for canvas texture overlay and return empty string.
+     * Canvas texture is managed via _syncCanvasTexture() in updated().
      * @param {number} width
      * @param {number} height
      * @param {Object} border - Resolved border config
      * @param {string|null} shapePath - SVG path d= string for complex shapes, null for rect
-     * @returns {string} SVG markup string
+     * @returns {string} Always returns '' — canvas is managed separately
      * @private
      */
     _generateTextureMarkup(width, height, border, shapePath = null) {
+        this._currentShapePath = shapePath || null;
+        this._resolvedBorder   = border   || null;
+        return '';
+    }
+
+    /**
+     * Sync (create or hot-update) the canvas texture overlay.
+     * Called at the end of updated() after every render.
+     * @private
+     */
+    _syncCanvasTexture() {
+        const texConfig = this.config?.shape_texture;
+        if (!texConfig?.preset || !this._supportsShapeTexture()) {
+            this._destroyCanvasTexture();
+            return;
+        }
+        const hostEl = this.renderRoot?.querySelector('.button-container') ?? this.renderRoot;
+        if (!hostEl) return;
+
+        const svgEl  = this.renderRoot?.querySelector('svg');
+        const width  = svgEl?.clientWidth  || hostEl.clientWidth  || 200;
+        const height = svgEl?.clientHeight || hostEl.clientHeight || 60;
+
         const resolved = this._resolveShapeTextureConfig();
-        if (!resolved) return '';
+        if (!resolved) { this._destroyCanvasTexture(); return; }
 
-        const { presetDef, resolvedConfig, opacity, blendMode } = resolved;
-        const id = this._getTextureInstanceId();
+        const { resolvedConfig, opacity, blendMode } = resolved;
+        const shapePath = this._currentShapePath ?? null;
+        const border    = this._resolvedBorder   ?? null;
 
-        const renderer = new ShapeTextureRenderer(presetDef, resolvedConfig, id);
-        return renderer.render(shapePath, width, height, border, blendMode, opacity);
+        if (!this._canvasTextureRenderer) {
+            this._canvasTextureRenderer = new CanvasTextureRenderer(hostEl, texConfig, this._getTextureInstanceId());
+            this._canvasTextureRenderer.init(width, height, shapePath, border);
+        } else {
+            this._canvasTextureRenderer.update({
+                ...texConfig,
+                config:        resolvedConfig,
+                opacity,
+                mix_blend_mode: blendMode,
+            });
+        }
+    }
+
+    /**
+     * Destroy the canvas texture overlay if present.
+     * @private
+     */
+    _destroyCanvasTexture() {
+        if (this._canvasTextureRenderer) {
+            this._canvasTextureRenderer.destroy();
+            this._canvasTextureRenderer = null;
+        }
     }
 
     /**
@@ -5879,6 +5927,9 @@ export class LCARdSButton extends LCARdSCard {
             this._backgroundRenderer.destroy();
             this._backgroundRenderer = null;
         }
+
+        // Clean up canvas texture overlay
+        this._destroyCanvasTexture();
 
         super.disconnectedCallback();
     }
