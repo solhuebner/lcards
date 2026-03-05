@@ -1,105 +1,128 @@
 /**
- * @fileoverview PlasmaTextureEffect - Dual-nebula plasma texture
+ * @fileoverview PlasmaTextureEffect - Two-colour Perlin plasma texture
  *
- * Composites two NebulaEffect instances using 'screen' blend mode to create a
- * vivid plasma effect inside the shape boundary.
+ * Renders a vivid alternating two-colour plasma field using a shared fBm
+ * value-noise source.  For each grid cell the noise value is mapped through
+ * sin/cos to derive independent alpha values for color_a and color_b,
+ * producing the characteristic interleaved colour bands of classic plasma —
+ * completely independent of NebulaEffect.
  *
  * @module core/packs/textures/effects/PlasmaTextureEffect
  */
 
-import { NebulaEffect } from '../../backgrounds/effects/NebulaEffect.js';
 import { BaseTextureEffect } from './BaseTextureEffect.js';
 
+// ---------------------------------------------------------------------------
+// Inline value-noise helpers (shared with FluidTextureEffect pattern)
+// ---------------------------------------------------------------------------
+
+function _hash(ix, iy) {
+    return (Math.sin(ix * 127.1 + iy * 311.7) * 43758.5453) % 1 * 2;
+}
+
+function _smoothNoise(x, y) {
+    const ix = Math.floor(x);
+    const iy = Math.floor(y);
+    const fx = x - ix;
+    const fy = y - iy;
+    const ux = fx * fx * (3 - 2 * fx);
+    const uy = fy * fy * (3 - 2 * fy);
+    const a  = _hash(ix,     iy);
+    const b  = _hash(ix + 1, iy);
+    const c  = _hash(ix,     iy + 1);
+    const d  = _hash(ix + 1, iy + 1);
+    return a + (b - a) * ux + (c - a) * uy + (a + d - b - c) * ux * uy;
+}
+
+function _fbm(x, y, octaves) {
+    let value = 0;
+    let amplitude = 0.5;
+    let frequency = 1;
+    for (let i = 0; i < octaves; i++) {
+        value     += amplitude * _smoothNoise(x * frequency, y * frequency);
+        amplitude *= 0.5;
+        frequency *= 2;
+    }
+    return value;
+}
+
+function _parseRgba(str) {
+    const m = str.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)/);
+    if (!m) return { r: 128, g: 0, b: 255, a: 0.9 };
+    return { r: +m[1], g: +m[2], b: +m[3], a: m[4] !== undefined ? +m[4] : 1 };
+}
+
+// ---------------------------------------------------------------------------
+
+const CELL = 4; // px — grid tile size
+
 /**
- * PlasmaTextureEffect - Two-colour plasma blobs composited via screen blending
+ * PlasmaTextureEffect - Vivid alternating two-colour plasma bands
  *
  * @extends BaseTextureEffect
  */
 export class PlasmaTextureEffect extends BaseTextureEffect {
     /**
      * @param {Object} config
-     * @param {string} [config.color_a='rgba(80,0,255,0.9)']   - First cloud colour
-     * @param {string} [config.color_b='rgba(255,40,120,0.9)'] - Second cloud colour
-     * @param {number} [config.base_frequency=0.012]           - Controls noiseScale
-     * @param {number} [config.scroll_speed_x=8]               - Horizontal drift (px/s)
-     * @param {number} [config.scroll_speed_y=5]               - Vertical drift (px/s)
-     * @param {number} [config.speed=1]                        - Speed multiplier
+     * @param {string} [config.color_a='rgba(80,0,255,0.9)']   - First plasma colour (RGBA)
+     * @param {string} [config.color_b='rgba(255,40,120,0.9)'] - Second plasma colour (RGBA)
+     * @param {number} [config.base_frequency=0.012]           - Noise frequency (lower = wider bands)
+     * @param {number} [config.num_octaves=3]                  - fBm octave count
+     * @param {number} [config.scroll_speed_x=8]               - Horizontal scroll speed (px/s)
+     * @param {number} [config.scroll_speed_y=5]               - Vertical scroll speed (px/s)
+     * @param {number} [config.speed=1]                        - Global speed multiplier
      */
     constructor(config = {}) {
         super(config);
-        const noiseScale = config.base_frequency ? config.base_frequency * 800 : 10;
-        this._nebulaA = new NebulaEffect({
-            colors:       [config.color_a ?? 'rgba(80,0,255,0.9)'],
-            noiseScale,
-            cloudCount:   3,
-            scrollSpeedX: config.scroll_speed_x ?? 8,
-            scrollSpeedY: config.scroll_speed_y ?? 5,
-            speed:        config.speed ?? 1,
-            opacity:      1,
-        });
-        this._nebulaB = new NebulaEffect({
-            colors:       [config.color_b ?? 'rgba(255,40,120,0.9)'],
-            noiseScale,
-            cloudCount:   3,
-            scrollSpeedX: -(config.scroll_speed_x ?? 8),
-            scrollSpeedY: -(config.scroll_speed_y ?? 5),
-            speed:        config.speed ?? 1,
-            opacity:      1,
-        });
-        // Cached offscreen canvas for plasma compositing — avoids per-frame allocation
-        this._offscreen    = null;
-        this._offscreenW   = 0;
-        this._offscreenH   = 0;
+        this._colorA  = _parseRgba(config.color_a ?? 'rgba(80,0,255,0.9)');
+        this._colorB  = _parseRgba(config.color_b ?? 'rgba(255,40,120,0.9)');
+        this._freq    = config.base_frequency ?? 0.012;
+        this._octaves = config.num_octaves    ?? 3;
+        this._speedX  = config.scroll_speed_x ?? 8;
+        this._speedY  = config.scroll_speed_y ?? 5;
+        this._offsetX = 0;
+        this._offsetY = 0;
     }
 
     update(dt, w, h) {
         super.update(dt, w, h);
-        this._nebulaA.speed = this.speed;
-        this._nebulaB.speed = this.speed;
-        this._nebulaA.update(dt, w, h);
-        this._nebulaB.update(dt, w, h);
+        const s = this.speed;
+        this._offsetX += this._speedX * s * dt;
+        this._offsetY += this._speedY * s * dt;
     }
 
     _draw(ctx, w, h) {
-        // Both nebulae must be composited together on an offscreen canvas before
-        // being drawn to the clipped context.  Setting globalCompositeOperation
-        // inside _draw() would be reset by BaseTextureEffect's save()/restore()
-        // wrapper between the two nebula draw calls (issue #6).
-        //
-        // Re-use a cached offscreen canvas; only recreate when dimensions change
-        // to avoid per-frame canvas allocation overhead.
-        if (!this._offscreen || this._offscreenW !== w || this._offscreenH !== h) {
-            this._offscreen  = document.createElement('canvas');
-            this._offscreenW = w;
-            this._offscreenH = h;
+        const { r: rA, g: gA, b: bA, a: baseA } = this._colorA;
+        const { r: rB, g: gB, b: bB, a: baseB } = this._colorB;
+        const freq    = this._freq;
+        const octaves = this._octaves;
+        const ox      = this._offsetX;
+        const oy      = this._offsetY;
+        const k       = octaves; // band-density constant
+
+        for (let y = 0; y < h; y += CELL) {
+            for (let x = 0; x < w; x += CELL) {
+                const raw    = _fbm(x * freq + ox * freq, y * freq + oy * freq, octaves);
+                const n      = (raw + 1) * 0.5; // normalise to [0, 1]
+                const alphaA = Math.abs(Math.sin(n * Math.PI * k)) * baseA;
+                const alphaB = Math.abs(Math.cos(n * Math.PI * k)) * baseB;
+
+                ctx.fillStyle = `rgba(${rA},${gA},${bA},${alphaA.toFixed(3)})`;
+                ctx.fillRect(x, y, CELL, CELL);
+
+                ctx.fillStyle = `rgba(${rB},${gB},${bB},${alphaB.toFixed(3)})`;
+                ctx.fillRect(x, y, CELL, CELL);
+            }
         }
-        this._offscreen.width  = w;
-        this._offscreen.height = h;
-        const offCtx = this._offscreen.getContext('2d');
-
-        // Draw first nebula normally
-        this._nebulaA.draw(offCtx, w, h);
-
-        // Draw second nebula using screen blend on the offscreen context
-        offCtx.globalCompositeOperation = 'screen';
-        this._nebulaB.draw(offCtx, w, h);
-        offCtx.globalCompositeOperation = 'source-over';
-
-        // Blit the composited result to the main (clipped) context
-        ctx.drawImage(this._offscreen, 0, 0);
     }
 
     updateConfig(cfg) {
         super.updateConfig(cfg);
-        if (cfg.color_a        !== undefined) this._nebulaA.colors       = [cfg.color_a];
-        if (cfg.color_b        !== undefined) this._nebulaB.colors       = [cfg.color_b];
-        if (cfg.scroll_speed_x !== undefined) {
-            this._nebulaA.scrollSpeedX =  cfg.scroll_speed_x;
-            this._nebulaB.scrollSpeedX = -cfg.scroll_speed_x;
-        }
-        if (cfg.scroll_speed_y !== undefined) {
-            this._nebulaA.scrollSpeedY =  cfg.scroll_speed_y;
-            this._nebulaB.scrollSpeedY = -cfg.scroll_speed_y;
-        }
+        if (cfg.color_a        !== undefined) this._colorA  = _parseRgba(cfg.color_a);
+        if (cfg.color_b        !== undefined) this._colorB  = _parseRgba(cfg.color_b);
+        if (cfg.base_frequency !== undefined) this._freq    = cfg.base_frequency;
+        if (cfg.num_octaves    !== undefined) this._octaves = cfg.num_octaves;
+        if (cfg.scroll_speed_x !== undefined) this._speedX  = cfg.scroll_speed_x;
+        if (cfg.scroll_speed_y !== undefined) this._speedY  = cfg.scroll_speed_y;
     }
 }
