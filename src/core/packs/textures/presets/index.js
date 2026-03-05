@@ -97,7 +97,7 @@ export const CANVAS_TEXTURE_PRESETS = {
 
     'fluid': {
         name:        'Fluid',
-        description: 'Organic drifting nebula blobs',
+        description: 'Swirling noise field — organic, continuously morphing colour wash',
         effectClass: FluidTextureEffect,
         defaults: {
             color:          'rgba(100,180,255,0.8)',
@@ -110,7 +110,7 @@ export const CANVAS_TEXTURE_PRESETS = {
 
     'plasma': {
         name:        'Plasma',
-        description: 'Dual-colour plasma composited via screen blend',
+        description: 'Two-colour plasma bands — vivid alternating colour field',
         effectClass: PlasmaTextureEffect,
         defaults: {
             color_a:        'rgba(80,0,255,0.9)',
