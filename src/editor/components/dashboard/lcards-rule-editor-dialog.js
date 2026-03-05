@@ -210,9 +210,6 @@ export class LCARdSRuleEditorDialog extends LitElement {
             bubbles: true,
             composed: true
         }));
-
-        // Self-close so the dialog hides immediately even before the parent updates
-        this.open = false;
     }
 
     _handleCancel() {
@@ -223,7 +220,13 @@ export class LCARdSRuleEditorDialog extends LitElement {
     }
 
     _ignoreKeydown(e) {
-        e.stopPropagation();
+        // Prevent bare single-character HA keyboard shortcuts (e.g. 'e', 'n') from
+        // firing while the user is typing in dialog form fields.
+        // Navigation keys (Tab, Enter, Escape, Backspace, Arrow*) are NOT blocked so
+        // that focus traversal and component keyboard handling work normally.
+        if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+            e.stopPropagation();
+        }
     }
 
     // ─── Render ────────────────────────────────────────────────────────────────

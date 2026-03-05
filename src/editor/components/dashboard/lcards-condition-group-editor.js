@@ -120,45 +120,10 @@ export class LCARdSConditionGroupEditor extends LitElement {
 
             .condition-row .delete-btn {
                 flex: 0 0 auto;
-                background: none;
-                border: none;
-                cursor: pointer;
-                padding: 4px;
-                border-radius: 4px;
-                color: var(--error-color, #f44336);
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                width: 32px;
-                height: 32px;
-                margin-top: 4px;
             }
 
-            .condition-row .delete-btn:hover {
-                background: var(--error-color, #f44336);
-                color: white;
-            }
-
-            .add-btn {
-                display: flex;
-                align-items: center;
-                gap: 4px;
+            .add-condition-row {
                 margin-top: 8px;
-                background: none;
-                border: 1px dashed var(--primary-color, #03a9f4);
-                border-radius: 8px;
-                color: var(--primary-color, #03a9f4);
-                cursor: pointer;
-                padding: 8px 16px;
-                width: 100%;
-                justify-content: center;
-                font-size: 13px;
-                transition: all 0.2s;
-            }
-
-            .add-btn:hover {
-                background: var(--primary-color, #03a9f4);
-                color: white;
             }
 
             .inline-grid {
@@ -175,11 +140,6 @@ export class LCARdSConditionGroupEditor extends LitElement {
 
             ha-selector {
                 display: block;
-            }
-
-            ha-entity-picker {
-                display: block;
-                width: 100%;
             }
         `;
     }
@@ -409,7 +369,20 @@ export class LCARdSConditionGroupEditor extends LitElement {
 
     _handleConditionTypeChange(index, newType) {
         const updated = [...this._conditions];
-        updated[index] = { _type: newType };
+        const prev = updated[index];
+        const prevType = this._getConditionType(prev);
+        // Preserve entity, operator and value when switching between entity/entity_attr
+        if ((prevType === 'entity' || prevType === 'entity_attr') &&
+            (newType === 'entity' || newType === 'entity_attr')) {
+            updated[index] = {
+                _type: newType,
+                entity: prev.entity || '',
+                operator: prev.operator || 'equals',
+                value: prev.value
+            };
+        } else {
+            updated[index] = { _type: newType };
+        }
         this._conditions = updated;
         this._emit();
     }
@@ -480,12 +453,12 @@ export class LCARdSConditionGroupEditor extends LitElement {
                     ${this._conditions.map((cond, idx) => this._renderConditionRow(cond, idx))}
                 </div>
 
-                ${(this._operator !== 'single' || this._conditions.length === 0) ? html`
-                    <button class="add-btn" @click=${this._handleAddCondition}>
-                        <ha-icon icon="mdi:plus"></ha-icon>
+                <div class="add-condition-row">
+                    <ha-button @click=${this._handleAddCondition}>
+                        <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
                         Add Condition
-                    </button>
-                ` : ''}
+                    </ha-button>
+                </div>
             </div>
         `;
     }
@@ -507,9 +480,12 @@ export class LCARdSConditionGroupEditor extends LitElement {
                 <div class="condition-fields">
                     ${this._renderConditionFields(cond, type, index)}
                 </div>
-                <button class="delete-btn" @click=${() => this._handleDeleteCondition(index)} title="Remove condition">
-                    <ha-icon icon="mdi:delete"></ha-icon>
-                </button>
+                <ha-icon-button
+                    .label=${'Remove condition'}
+                    .path=${'M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z'}
+                    style="color: var(--error-color, #f44336); flex: 0 0 auto; align-self: flex-start; margin-top: 4px;"
+                    @click=${() => this._handleDeleteCondition(index)}>
+                </ha-icon-button>
             </div>
         `;
     }
@@ -651,13 +627,13 @@ export class LCARdSConditionGroupEditor extends LitElement {
                 `;
             case 'map_range_cond':
                 return html`
-                    <ha-entity-picker
+                    <ha-selector
                         .hass=${this.hass}
+                        .label=${'Entity'}
+                        .selector=${{ entity: {} }}
                         .value=${cond.entity || ''}
-                        label="Entity"
-                        allow-custom-entity
                         @value-changed=${(e) => set('entity', e.detail.value)}>
-                    </ha-entity-picker>
+                    </ha-selector>
                     <div class="inline-grid">
                         <ha-selector
                             .hass=${this.hass}
@@ -688,13 +664,6 @@ export class LCARdSConditionGroupEditor extends LitElement {
                             @value-changed=${(e) => set('output_max', e.detail.value)}>
                         </ha-selector>
                     </div>
-                    <ha-selector
-                        .hass=${this.hass}
-                        .label=${'Comparison Operator'}
-                        .selector=${{ select: { mode: 'dropdown', options: ENTITY_OPERATORS } }}
-                        .value=${cond.operator || 'equals'}
-                        @value-changed=${(e) => set('operator', e.detail.value)}>
-                    </ha-selector>
                 `;
             case 'all':
             case 'any': {
@@ -731,13 +700,13 @@ export class LCARdSConditionGroupEditor extends LitElement {
     _renderEntityFields(cond, index, showAttr) {
         const set = (field, val) => this._handleConditionFieldChange(index, field, val);
         return html`
-            <ha-entity-picker
+            <ha-selector
                 .hass=${this.hass}
+                .label=${'Entity'}
+                .selector=${{ entity: {} }}
                 .value=${cond.entity || ''}
-                label="Entity"
-                allow-custom-entity
                 @value-changed=${(e) => set('entity', e.detail.value)}>
-            </ha-entity-picker>
+            </ha-selector>
             ${showAttr ? html`
                 <ha-selector
                     .hass=${this.hass}

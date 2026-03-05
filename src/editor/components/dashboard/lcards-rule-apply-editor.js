@@ -33,7 +33,8 @@ export class LCARdSRuleApplyEditor extends LitElement {
             _yamlError:          { type: String, state: true },
             _yamlExpanded:       { type: Boolean, state: true },
             _addOverlayPending:  { type: Boolean, state: true },
-            _newOverlayId:       { type: String, state: true }
+            _newOverlayId:       { type: String, state: true },
+            _yamlFromUser:       { type: Boolean, state: true }
         };
     }
 
@@ -47,6 +48,8 @@ export class LCARdSRuleApplyEditor extends LitElement {
         this._yamlExpanded = false;
         this._addOverlayPending = false;
         this._newOverlayId = '';
+        this._yamlFromUser = false;
+        this._yamlTimer = null;
     }
 
     static get styles() {
@@ -95,23 +98,6 @@ export class LCARdSRuleApplyEditor extends LitElement {
                 gap: 8px;
             }
 
-            .remove-btn {
-                background: none;
-                border: none;
-                cursor: pointer;
-                padding: 4px;
-                border-radius: 4px;
-                color: var(--error-color, #f44336);
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .remove-btn:hover {
-                background: var(--error-color, #f44336);
-                color: white;
-            }
-
             .add-overlay-row {
                 display: flex;
                 gap: 8px;
@@ -124,45 +110,15 @@ export class LCARdSRuleApplyEditor extends LitElement {
                 margin-bottom: 0;
             }
 
-            .add-btn {
-                display: flex;
-                align-items: center;
-                gap: 4px;
-                background: none;
-                border: 1px dashed var(--primary-color, #03a9f4);
-                border-radius: 8px;
-                color: var(--primary-color, #03a9f4);
-                cursor: pointer;
-                padding: 8px 16px;
+            .add-overlay-full {
+                display: block;
                 width: 100%;
-                justify-content: center;
-                font-size: 13px;
-                transition: all 0.2s;
                 margin-top: 4px;
-            }
-
-            .add-btn:hover {
-                background: var(--primary-color, #03a9f4);
-                color: white;
             }
 
             ha-selector {
                 display: block;
                 margin-bottom: 8px;
-            }
-
-            .yaml-area {
-                width: 100%;
-                min-height: 150px;
-                font-family: 'Roboto Mono', monospace;
-                font-size: 12px;
-                padding: 8px;
-                border: 1px solid var(--divider-color, #e0e0e0);
-                border-radius: 4px;
-                background: var(--secondary-background-color, #f5f5f5);
-                color: var(--primary-text-color);
-                resize: vertical;
-                box-sizing: border-box;
             }
 
             .yaml-error {
@@ -196,12 +152,14 @@ export class LCARdSRuleApplyEditor extends LitElement {
             this._overlayTargets = [];
         }
         this._tags = v.tags || [];
-        // Sync YAML
-        try {
-            this._yamlText = configToYaml(v);
-            this._yamlError = '';
-        } catch (err) {
-            this._yamlError = String(err);
+        // Sync YAML — skip if user is currently editing the YAML panel to avoid cursor reset
+        if (!this._yamlFromUser) {
+            try {
+                this._yamlText = configToYaml(v);
+                this._yamlError = '';
+            } catch (err) {
+                this._yamlError = String(err);
+            }
         }
     }
 
@@ -329,15 +287,21 @@ export class LCARdSRuleApplyEditor extends LitElement {
     }
 
     _handleYamlChange(e) {
-        const text = e.target.value;
+        const text = e.detail.value;
         this._yamlText = text;
-        try {
-            const parsed = yamlToConfig(text);
-            this._yamlError = '';
-            this._emit(parsed || {});
-        } catch (err) {
-            this._yamlError = `YAML error: ${err.message}`;
-        }
+        // Flag that the change came from the user — prevents _syncFromValue from resetting the editor
+        this._yamlFromUser = true;
+        clearTimeout(this._yamlTimer);
+        this._yamlTimer = setTimeout(() => {
+            this._yamlFromUser = false;
+            try {
+                const parsed = yamlToConfig(text);
+                this._yamlError = '';
+                this._emit(parsed || {});
+            } catch (err) {
+                this._yamlError = `YAML error: ${err.message}`;
+            }
+        }, 750);
     }
 
     render() {
@@ -398,10 +362,12 @@ export class LCARdSRuleApplyEditor extends LitElement {
                             </ha-button>
                         </div>
                     ` : html`
-                        <button class="add-btn" @click=${() => this._addOverlayPending = true}>
-                            <ha-icon icon="mdi:plus"></ha-icon>
+                        <ha-button
+                            class="add-overlay-full"
+                            @click=${() => this._addOverlayPending = true}>
+                            <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
                             Add Overlay Target
-                        </button>
+                        </ha-button>
                     `}
                 </lcards-form-section>
 
@@ -436,13 +402,12 @@ export class LCARdSRuleApplyEditor extends LitElement {
                     ?outlined=${false}
                     @expanded-changed=${(e) => this._yamlExpanded = e.detail.expanded}>
 
-                    <textarea
-                        class="yaml-area"
+                    <ha-code-editor
+                        .hass=${this.hass}
                         .value=${this._yamlText}
-                        @input=${this._handleYamlChange}
-                        spellcheck="false"
-                        placeholder="overlays:\n  my_overlay:\n    style:\n      card:\n        color:\n          background:\n            active: 'var(--lcars-green)'">
-                    </textarea>
+                        mode="yaml"
+                        @value-changed=${this._handleYamlChange}>
+                    </ha-code-editor>
                     ${this._yamlError ? html`<div class="yaml-error">${this._yamlError}</div>` : ''}
                 </lcards-form-section>
             </div>
@@ -459,9 +424,12 @@ export class LCARdSRuleApplyEditor extends LitElement {
             <div class="overlay-item">
                 <div class="overlay-item-header">
                     <span class="overlay-id">${overlayId}</span>
-                    <button class="remove-btn" @click=${() => this._handleRemoveOverlay(overlayId)} title="Remove overlay target">
-                        <ha-icon icon="mdi:close"></ha-icon>
-                    </button>
+                    <ha-icon-button
+                        .label=${'Remove overlay target'}
+                        .path=${'M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z'}
+                        style="color: var(--error-color, #f44336);"
+                        @click=${() => this._handleRemoveOverlay(overlayId)}>
+                    </ha-icon-button>
                 </div>
                 <div class="overlay-item-content">
                     <div class="quick-patches-grid">
