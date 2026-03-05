@@ -13,6 +13,7 @@ import { GridEffect } from '../effects/GridEffect.js';
 import { StarfieldEffect } from '../effects/StarfieldEffect.js';
 import { NebulaEffect } from '../effects/NebulaEffect.js';
 import { CascadeEffect } from '../effects/CascadeEffect.js';
+import { LevelTextureEffect } from '../../textures/effects/LevelTextureEffect.js';
 import { lcardsLog } from '../../../../utils/lcards-logging.js';
 
 /**
@@ -294,9 +295,29 @@ export const BACKGROUND_PRESETS = {
 
       return [new CascadeEffect(cascadeConfig)];
     }
-  }
+  },
 
   // Future presets will be added here:
   // 'geometric-array': { ... },
   // etc.
+
+  'level': {
+    name: 'Level',
+    description: 'Animated fill-bar level indicator with optional wavy top edge',
+
+    createEffects(config, cardInstance = null) {
+      lcardsLog.debug('[Preset:level] Creating level effect');
+
+      return [new LevelTextureEffect({
+        color:       config.color       ?? 'rgba(0,200,100,0.7)',
+        fill_pct:    config.fill_pct    ?? 50,
+        direction:   config.direction   ?? 'up',
+        edge_glow:   config.edge_glow   ?? true,
+        wave_height: config.wave_height ?? 4,
+        wave_speed:  config.wave_speed  ?? 20,
+        wave_count:  config.wave_count  ?? 4,
+        opacity:     config.opacity     ?? 1
+      })];
+    }
+  },
 };

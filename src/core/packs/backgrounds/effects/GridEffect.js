@@ -85,6 +85,10 @@ export class GridEffect extends BaseEffect {
     // Hexagonal pattern config
     this.hexRadius = config.hexRadius ?? 40;
 
+    // Dot grid pattern config (pattern='dots')
+    this.dotRadius = config.dotRadius ?? config.dot_radius ?? 2;
+    this.dotSpacing = config.spacing ?? config.lineSpacing ?? 20;
+
     // Scrolling state
     this.scrollX = config.scrollX ?? 0;
     this.scrollY = config.scrollY ?? 0;
@@ -122,6 +126,13 @@ export class GridEffect extends BaseEffect {
       this._totalCols = this.numCols;
       this._rowHeight = canvasHeight / this.numRows;
       this._colWidth = canvasWidth / this.numCols;
+    } else if (this.pattern === 'dots') {
+      // Dot mode uses dotSpacing for grid dimensions
+      const spacing = this.dotSpacing ?? this.lineSpacing;
+      this._rowHeight = spacing;
+      this._colWidth = spacing;
+      this._totalRows = Math.ceil(canvasHeight / spacing) + 1;
+      this._totalCols = Math.ceil(canvasWidth / spacing) + 1;
     } else {
       // Spacing-based mode: use fixed spacing between lines
       this._rowHeight = this.lineSpacing;
@@ -221,6 +232,7 @@ export class GridEffect extends BaseEffect {
     const shouldDrawVertical = this.pattern === 'both' || this.pattern === 'vertical';
     const shouldDrawDiagonal = this.pattern === 'diagonal';
     const shouldDrawHexagonal = this.pattern === 'hexagonal';
+    const shouldDrawDots = this.pattern === 'dots';
 
     if (shouldDrawDiagonal) {
       this._drawDiagonalPattern(ctx, offsetX, offsetY, patternWidth, patternHeight);
@@ -229,6 +241,11 @@ export class GridEffect extends BaseEffect {
 
     if (shouldDrawHexagonal) {
       this._drawHexagonalPattern(ctx, offsetX, offsetY, patternWidth, patternHeight);
+      return;
+    }
+
+    if (shouldDrawDots) {
+      this._drawDotsPattern(ctx, offsetX, offsetY, patternWidth, patternHeight);
       return;
     }
 
@@ -380,6 +397,33 @@ export class GridEffect extends BaseEffect {
         }
         ctx.closePath();
         ctx.stroke();
+      }
+    }
+  }
+
+  /**
+   * Draw dot grid pattern
+   * Renders filled circles at each grid intersection point.
+   * @private
+   */
+  _drawDotsPattern(ctx, offsetX, offsetY, patternWidth, patternHeight) {
+    const spacing = this.dotSpacing ?? this.lineSpacing;
+    const radius  = this.dotRadius ?? 2;
+
+    if (this.fillColor && this.fillColor !== 'transparent') {
+      ctx.fillStyle = this.fillColor;
+      ctx.fillRect(offsetX, offsetY, patternWidth, patternHeight);
+    }
+
+    ctx.fillStyle = this.color;
+
+    for (let row = 0; row < this._totalRows; row++) {
+      for (let col = 0; col < this._totalCols; col++) {
+        const x = offsetX + col * spacing;
+        const y = offsetY + row * spacing;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
       }
     }
   }

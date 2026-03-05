@@ -111,6 +111,7 @@ export class LCARdSElbow extends LCARdSButton {
                     align-items: center;
                     justify-content: center;
                     background: transparent;
+                    position: relative;
                 }
 
                 .elbow-svg {
@@ -853,6 +854,34 @@ export class LCARdSElbow extends LCARdSButton {
         }
 
         super.disconnectedCallback();
+    }
+
+    /**
+     * Returns the elbow container element as the host for the canvas texture overlay.
+     * Overrides LCARdSButton._getTextureHostEl() to target `.elbow-container`
+     * instead of `.button-container`.
+     *
+     * @returns {HTMLElement|null}
+     * @protected
+     */
+    _getTextureHostEl() {
+        return this.renderRoot?.querySelector('.elbow-container') ?? null;
+    }
+
+    /**
+     * Elbow cards always support shape_texture, regardless of whether a `component:`
+     * key appears in the config.  LCARdSButton._supportsShapeTexture() blocks textures
+     * when `config.component` is truthy (because button components provide their own
+     * SVG rendering pipeline).  For the elbow card, texture markup is injected explicitly
+     * via `_generateTextureMarkup(width, height, {}, elbowPath)` in the elbow renderer,
+     * so the `component:` restriction does not apply here.
+     *
+     * @override
+     * @returns {boolean}
+     * @protected
+     */
+    _supportsShapeTexture() {
+        return !this._processedSvg && !this.config?.svg;
     }
 
     // ──────────────────────────────────────────────────────────────
