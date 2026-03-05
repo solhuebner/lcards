@@ -44,6 +44,17 @@ export class FlowTextureEffect extends BaseTextureEffect {
         const dt_s = dt / 1000;
         this._offsetX += this._scrollSpeedX * this.speed * dt_s;
         this._offsetY += this._scrollSpeedY * this.speed * dt_s;
+
+        // Normalize accumulators modulo their visual tile size to prevent
+        // float-precision drift over long sessions (e.g. multi-hour dashboards).
+        // Use the positive-modulo pattern because scroll speeds can be negative,
+        // which would otherwise produce a negative accumulator value.
+        // Only normalize when we have valid canvas dimensions (w/h > 0).
+        if (w > 0) this._offsetX = ((this._offsetX % w) + w) % w;
+        if (h > 0) {
+            const streakH = h / this._streakCount;
+            this._offsetY = ((this._offsetY % streakH) + streakH) % streakH;
+        }
     }
 
     _draw(ctx, w, h) {

@@ -3994,6 +3994,17 @@ export class LCARdSButton extends LCARdSCard {
     }
 
     /**
+     * Returns the host element that the canvas texture overlay should be appended to.
+     * Subclasses with a different container element should override this method.
+     *
+     * @returns {HTMLElement|null}
+     * @protected
+     */
+    _getTextureHostEl() {
+        return this.renderRoot?.querySelector('.button-container') ?? null;
+    }
+
+    /**
      * Sync (create or hot-update) the canvas texture overlay.
      * Called at the end of updated() after every render.
      * @private
@@ -4005,9 +4016,9 @@ export class LCARdSButton extends LCARdSCard {
             return;
         }
 
-        // Guard: require the .button-container element — do NOT fall back to renderRoot
-        // (issue #2: falling back to renderRoot appends canvas to shadow root, breaking layout)
-        const hostEl = this.renderRoot?.querySelector('.button-container');
+        // Resolve the host element for this card type via the override point.
+        // Subclasses (e.g. LCARdSElbow) return their own container selector.
+        const hostEl = this._getTextureHostEl();
         if (!hostEl) return;
 
         const resolved = this._resolveShapeTextureConfig();

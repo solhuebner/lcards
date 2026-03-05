@@ -111,6 +111,7 @@ export class LCARdSElbow extends LCARdSButton {
                     align-items: center;
                     justify-content: center;
                     background: transparent;
+                    position: relative;
                 }
 
                 .elbow-svg {
@@ -853,6 +854,18 @@ export class LCARdSElbow extends LCARdSButton {
         }
 
         super.disconnectedCallback();
+    }
+
+    /**
+     * Returns the elbow container element as the host for the canvas texture overlay.
+     * Overrides LCARdSButton._getTextureHostEl() to target `.elbow-container`
+     * instead of `.button-container`.
+     *
+     * @returns {HTMLElement|null}
+     * @protected
+     */
+    _getTextureHostEl() {
+        return this.renderRoot?.querySelector('.elbow-container') ?? null;
     }
 
     // ──────────────────────────────────────────────────────────────
