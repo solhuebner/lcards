@@ -1808,6 +1808,9 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                         .hass=${this.hass}
                         .config=${this.config.background_animation ?? []}
                         @effects-changed=${(e) => {
+                            const cleaned = { ...this.config };
+                            delete cleaned.background_animation;
+                            this.config = cleaned;
                             this._updateConfig({ background_animation: e.detail.value });
                         }}>
                     </lcards-background-animation-editor>

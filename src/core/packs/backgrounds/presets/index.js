@@ -13,7 +13,12 @@ import { GridEffect } from '../effects/GridEffect.js';
 import { StarfieldEffect } from '../effects/StarfieldEffect.js';
 import { NebulaEffect } from '../effects/NebulaEffect.js';
 import { CascadeEffect } from '../effects/CascadeEffect.js';
-import { LevelTextureEffect } from '../../textures/effects/LevelTextureEffect.js';
+import { LevelTextureEffect }    from '../../textures/effects/LevelTextureEffect.js';
+import { FluidTextureEffect }    from '../../textures/effects/FluidTextureEffect.js';
+import { PlasmaTextureEffect }   from '../../textures/effects/PlasmaTextureEffect.js';
+import { FlowTextureEffect }     from '../../textures/effects/FlowTextureEffect.js';
+import { ShimmerTextureEffect }  from '../../textures/effects/ShimmerTextureEffect.js';
+import { ScanlineTextureEffect } from '../../textures/effects/ScanlineTextureEffect.js';
 import { lcardsLog } from '../../../../utils/lcards-logging.js';
 
 /**
@@ -303,20 +308,105 @@ export const BACKGROUND_PRESETS = {
 
   'level': {
     name: 'Level',
-    description: 'Animated fill-bar level indicator with optional wavy top edge',
+    description: 'Animated fill-bar with gradient, dual wave, sloshing physics and bloom glow',
 
     createEffects(config, cardInstance = null) {
       lcardsLog.debug('[Preset:level] Creating level effect');
 
       return [new LevelTextureEffect({
-        color:       config.color       ?? 'rgba(0,200,100,0.7)',
-        fill_pct:    config.fill_pct    ?? 50,
-        direction:   config.direction   ?? 'up',
-        edge_glow:   config.edge_glow   ?? true,
-        wave_height: config.wave_height ?? 4,
-        wave_speed:  config.wave_speed  ?? 20,
-        wave_count:  config.wave_count  ?? 4,
-        opacity:     config.opacity     ?? 1
+        color:              config.color              ?? 'rgba(0,200,100,0.7)',
+        color_a:            config.color_a            ?? config.color ?? 'rgba(0,200,100,0.7)',
+        color_b:            config.color_b            ?? null,
+        gradient_crossover: config.gradient_crossover ?? 80,
+        fill_pct:           config.fill_pct           ?? 50,
+        direction:          config.direction          ?? 'up',
+        edge_glow:          config.edge_glow          ?? true,
+        edge_glow_color:    config.edge_glow_color    ?? 'rgba(255,255,255,0.7)',
+        edge_glow_width:    config.edge_glow_width    ?? 6,
+        wave_height:        config.wave_height        ?? 4,
+        wave_speed:         config.wave_speed         ?? 20,
+        wave_count:         config.wave_count         ?? 4,
+        wave2_height:       config.wave2_height       ?? 0,
+        wave2_count:        config.wave2_count        ?? 5,
+        wave2_speed:        config.wave2_speed        ?? -15,
+        slosh_amount:       config.slosh_amount       ?? 0,
+        slosh_period:       config.slosh_period       ?? 3,
+        opacity:            config.opacity            ?? 1,
+      })];
+    }
+  },
+
+  'fluid': {
+    name: 'Fluid',
+    description: 'Swirling noise field — organic, continuously morphing colour wash',
+    createEffects(config) {
+      return [new FluidTextureEffect({
+        color:          config.color          ?? 'rgba(100,180,255,0.8)',
+        base_frequency: config.base_frequency ?? 0.010,
+        num_octaves:    config.num_octaves    ?? 4,
+        scroll_speed_x: config.scroll_speed_x ?? 7,
+        scroll_speed_y: config.scroll_speed_y ?? 10,
+        opacity:        config.opacity        ?? 1,
+      })];
+    }
+  },
+
+  'plasma': {
+    name: 'Plasma',
+    description: 'Two-colour plasma bands — vivid alternating colour field',
+    createEffects(config) {
+      return [new PlasmaTextureEffect({
+        color_a:        config.color_a        ?? 'rgba(80,0,255,0.9)',
+        color_b:        config.color_b        ?? 'rgba(255,40,120,0.9)',
+        base_frequency: config.base_frequency ?? 0.012,
+        scroll_speed_x: config.scroll_speed_x ?? 8,
+        scroll_speed_y: config.scroll_speed_y ?? 5,
+        opacity:        config.opacity        ?? 1,
+      })];
+    }
+  },
+
+  'flow': {
+    name: 'Flow',
+    description: 'Directional streaming streaks',
+    createEffects(config) {
+      return [new FlowTextureEffect({
+        color:          config.color          ?? 'rgba(0,200,255,0.7)',
+        base_frequency: config.base_frequency ?? 0.012,
+        wave_scale:     config.wave_scale     ?? 8,
+        scroll_speed_x: config.scroll_speed_x ?? 50,
+        scroll_speed_y: config.scroll_speed_y ?? 0,
+        opacity:        config.opacity        ?? 1,
+      })];
+    }
+  },
+
+  'shimmer': {
+    name: 'Shimmer',
+    description: 'Sweeping highlight band across the full background',
+    createEffects(config) {
+      return [new ShimmerTextureEffect({
+        color:           config.color           ?? 'rgba(255,255,255,0.55)',
+        highlight_width: config.highlight_width ?? 0.35,
+        speed:           config.speed           ?? 2.5,
+        angle:           config.angle           ?? 30,
+        opacity:         config.opacity         ?? 1,
+      })];
+    }
+  },
+
+  'scanlines': {
+    name: 'Scanlines',
+    description: 'CRT-style scanline overlay',
+    createEffects(config) {
+      return [new ScanlineTextureEffect({
+        color:          config.color          ?? 'rgba(0,0,0,0.25)',
+        line_spacing:   config.line_spacing   ?? 4,
+        line_width:     config.line_width     ?? 1.5,
+        direction:      config.direction      ?? 'horizontal',
+        scroll_speed_x: config.scroll_speed_x ?? 0,
+        scroll_speed_y: config.scroll_speed_y ?? 0,
+        opacity:        config.opacity        ?? 1,
       })];
     }
   },

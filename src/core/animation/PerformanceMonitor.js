@@ -11,7 +11,7 @@ export class AnimationPerformanceMonitor {
     this.isMonitoring = false;
     this.currentFPS = 60;
     this._startTime = null;
-    this._settleMs = 3000;       // Ignore readings for first 3s (startup jank)
+    this._settleMs = 5000;       // Ignore readings for first 5s (startup jank + page load)
     this._consecutiveLow = 0;   // Consecutive checks below disable3D threshold
     this._lowRequiredCount = 3; // Require 3 consecutive low-FPS checks before triggering disable
     this._refCount = 0;          // Number of active subscribers (Canvas2DRenderer instances)
@@ -26,13 +26,20 @@ export class AnimationPerformanceMonitor {
    * Safe to call multiple times from different Canvas2DRenderer instances — the
    * internal loop starts only once and stops only when all subscribers have
    * called stop().
+   *
+   * Every call resets the settle window so that late-joining renderers (e.g.
+   * background animations that start after initial page load) always get a
+   * fresh stabilization period rather than inheriting one started by the very
+   * first 1×1 texture renderer.
    */
   start() {
     this._refCount++;
-    if (this.isMonitoring) return; // loop already running
-    this.isMonitoring = true;
+    // Reset settle window on every join — prevents late subscribers from
+    // inheriting an already-expired settle period measured during page load.
     this._startTime = performance.now();
     this._consecutiveLow = 0;
+    if (this.isMonitoring) return; // loop already running, settle was just reset
+    this.isMonitoring = true;
     this._measure();
   }
 

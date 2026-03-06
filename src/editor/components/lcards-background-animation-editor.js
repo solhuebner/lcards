@@ -536,6 +536,16 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
       return html`${this._renderCascadeSection(config, index)}`;
     }
 
+    // Level preset uses dedicated level section
+    if (preset === 'level') {
+      return html`${this._renderLevelSection(config, index)}`;
+    }
+
+    // Texture presets use dedicated texture section
+    if (['fluid', 'plasma', 'flow', 'shimmer', 'scanlines'].includes(preset)) {
+      return html`${this._renderTexturePresetSection(preset, config, index)}`;
+    }
+
     // Grid presets use pattern/major-minor/scrolling/color sections
     return html`
       ${this._renderPatternSection(preset, config, index)}
@@ -860,8 +870,192 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
     `;
   }
 
+  _renderLevelSection(config, index) {
+    return html`
+      <lcards-form-section header="Fill" icon="mdi:water" ?expanded=${true}>
+        <div class="param-grid">
+          ${this._renderField({ key: 'fill_pct', label: 'Fill %', type: 'number', min: 0, max: 100, step: 1, default: 50 }, config, index)}
+          <ha-selector
+            .hass=${this.hass}
+            .selector=${{ select: { mode: 'dropdown', options: [
+              { value: 'up', label: 'Up' },
+              { value: 'down', label: 'Down' },
+              { value: 'left', label: 'Left' },
+              { value: 'right', label: 'Right' }
+            ]}}}
+            .value=${config.direction ?? 'up'}
+            .label=${'Fill Direction'}
+            @value-changed=${(e) => this._updateEffectConfig(index, 'direction', e.detail.value)}
+          ></ha-selector>
+          ${this._renderField({ key: 'opacity', label: 'Opacity', type: 'number', min: 0, max: 1, step: 0.05, default: 1 }, config, index)}
+        </div>
+      </lcards-form-section>
+
+      <lcards-form-section header="Colours" icon="mdi:palette" ?expanded=${true}>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:14px;font-weight:500;margin-bottom:8px;padding:2px 8px;">Primary Colour</div>
+          <lcards-color-picker
+            .hass=${this.hass}
+            .value=${config.color_a ?? config.color ?? 'rgba(0,200,100,0.7)'}
+            .variablePrefixes=${['--lcards-', '--lcars-', '--cblcars-']}
+            ?showPreview=${true}
+            @value-changed=${(e) => this._updateEffectConfig(index, 'color_a', e.detail.value)}
+          ></lcards-color-picker>
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:14px;font-weight:500;margin-bottom:8px;padding:2px 8px;">Secondary Colour (gradient, optional)</div>
+          <lcards-color-picker
+            .hass=${this.hass}
+            .value=${config.color_b ?? ''}
+            .variablePrefixes=${['--lcards-', '--lcars-', '--cblcars-']}
+            ?showPreview=${true}
+            @value-changed=${(e) => this._updateEffectConfig(index, 'color_b', e.detail.value || null)}
+          ></lcards-color-picker>
+        </div>
+        <div class="param-grid">
+          ${this._renderField({ key: 'gradient_crossover', label: 'Gradient Crossover %', type: 'number', min: 0, max: 100, step: 5, default: 80, helper: 'Where colour A blends into colour B' }, config, index)}
+        </div>
+      </lcards-form-section>
+
+      <lcards-form-section header="Primary Wave" icon="mdi:sine-wave" ?expanded=${true}>
+        <div class="param-grid">
+          ${this._renderField({ key: 'wave_height', label: 'Wave Height (px)', type: 'number', min: 0, max: 30, step: 1, default: 4 }, config, index)}
+          ${this._renderField({ key: 'wave_count', label: 'Wave Count', type: 'number', min: 1, max: 20, step: 1, default: 4 }, config, index)}
+          ${this._renderField({ key: 'wave_speed', label: 'Wave Speed (px/s)', type: 'number', min: -100, max: 100, step: 5, default: 20 }, config, index)}
+        </div>
+      </lcards-form-section>
+
+      <lcards-form-section header="Secondary Wave" icon="mdi:sine-wave" ?expanded=${false}>
+        <div class="param-grid">
+          ${this._renderField({ key: 'wave2_height', label: 'Wave 2 Height (px)', type: 'number', min: 0, max: 30, step: 1, default: 0 }, config, index)}
+          ${this._renderField({ key: 'wave2_count', label: 'Wave 2 Count', type: 'number', min: 1, max: 20, step: 1, default: 5 }, config, index)}
+          ${this._renderField({ key: 'wave2_speed', label: 'Wave 2 Speed (px/s)', type: 'number', min: -100, max: 100, step: 5, default: -15 }, config, index)}
+        </div>
+      </lcards-form-section>
+
+      <lcards-form-section header="Sloshing" icon="mdi:waves" ?expanded=${false}>
+        <div class="param-grid">
+          ${this._renderField({ key: 'slosh_amount', label: 'Slosh Amount (px)', type: 'number', min: 0, max: 50, step: 1, default: 0, helper: '0 = no sloshing physics' }, config, index)}
+          ${this._renderField({ key: 'slosh_period', label: 'Slosh Period (s)', type: 'number', min: 0.5, max: 10, step: 0.5, default: 3 }, config, index)}
+        </div>
+      </lcards-form-section>
+
+      <lcards-form-section header="Edge Glow" icon="mdi:flare" ?expanded=${false}>
+        <div class="param-grid">
+          <ha-selector
+            .hass=${this.hass}
+            .selector=${{ boolean: {} }}
+            .value=${config.edge_glow ?? true}
+            .label=${'Enable Edge Glow'}
+            @value-changed=${(e) => this._updateEffectConfig(index, 'edge_glow', e.detail.value)}
+          ></ha-selector>
+          ${this._renderField({ key: 'edge_glow_width', label: 'Glow Width (px)', type: 'number', min: 1, max: 30, step: 1, default: 6 }, config, index)}
+        </div>
+        <div style="margin-top:12px;">
+          <div style="font-size:14px;font-weight:500;margin-bottom:8px;padding:2px 8px;">Glow Colour</div>
+          <lcards-color-picker
+            .hass=${this.hass}
+            .value=${config.edge_glow_color ?? 'rgba(255,255,255,0.7)'}
+            .variablePrefixes=${['--lcards-', '--lcars-', '--cblcars-']}
+            ?showPreview=${true}
+            @value-changed=${(e) => this._updateEffectConfig(index, 'edge_glow_color', e.detail.value)}
+          ></lcards-color-picker>
+        </div>
+      </lcards-form-section>
+    `;
+  }
+
+  _renderTexturePresetSection(preset, config, index) {
+    const isTwoColor = preset === 'plasma';
+    const hasScroll = ['fluid', 'plasma', 'flow', 'scanlines'].includes(preset);
+
+    return html`
+      <lcards-form-section header="Colour" icon="mdi:palette" ?expanded=${true}>
+        ${isTwoColor ? html`
+          <div style="margin-bottom:12px;">
+            <div style="font-size:14px;font-weight:500;margin-bottom:8px;padding:2px 8px;">Colour A</div>
+            <lcards-color-picker
+              .hass=${this.hass}
+              .value=${config.color_a ?? 'rgba(80,0,255,0.9)'}
+              .variablePrefixes=${['--lcards-', '--lcars-', '--cblcars-']}
+              ?showPreview=${true}
+              @value-changed=${(e) => this._updateEffectConfig(index, 'color_a', e.detail.value)}
+            ></lcards-color-picker>
+          </div>
+          <div style="margin-bottom:12px;">
+            <div style="font-size:14px;font-weight:500;margin-bottom:8px;padding:2px 8px;">Colour B</div>
+            <lcards-color-picker
+              .hass=${this.hass}
+              .value=${config.color_b ?? 'rgba(255,40,120,0.9)'}
+              .variablePrefixes=${['--lcards-', '--lcars-', '--cblcars-']}
+              ?showPreview=${true}
+              @value-changed=${(e) => this._updateEffectConfig(index, 'color_b', e.detail.value)}
+            ></lcards-color-picker>
+          </div>
+        ` : html`
+          <lcards-color-picker
+            .hass=${this.hass}
+            .value=${config.color ?? 'rgba(100,180,255,0.8)'}
+            .variablePrefixes=${['--lcards-', '--lcars-', '--cblcars-']}
+            ?showPreview=${true}
+            @value-changed=${(e) => this._updateEffectConfig(index, 'color', e.detail.value)}
+          ></lcards-color-picker>
+        `}
+      </lcards-form-section>
+
+      <lcards-form-section header="Parameters" icon="mdi:tune" ?expanded=${true}>
+        <div class="param-grid">
+          ${['fluid', 'plasma', 'flow'].includes(preset) ? this._renderField({ key: 'base_frequency', label: 'Base Frequency', type: 'number', min: 0.001, max: 0.1, step: 0.001, default: 0.01, helper: 'Lower = larger features' }, config, index) : ''}
+          ${preset === 'fluid' ? this._renderField({ key: 'num_octaves', label: 'Noise Octaves', type: 'number', min: 1, max: 8, step: 1, default: 4 }, config, index) : ''}
+          ${preset === 'flow' ? this._renderField({ key: 'wave_scale', label: 'Wave Scale', type: 'number', min: 1, max: 30, step: 1, default: 8 }, config, index) : ''}
+          ${preset === 'shimmer' ? html`
+            ${this._renderField({ key: 'highlight_width', label: 'Highlight Width (fraction)', type: 'number', min: 0.05, max: 0.8, step: 0.05, default: 0.35 }, config, index)}
+            ${this._renderField({ key: 'speed', label: 'Sweep Speed', type: 'number', min: 0.1, max: 10, step: 0.1, default: 2.5 }, config, index)}
+            ${this._renderField({ key: 'angle', label: 'Angle (degrees)', type: 'number', min: -90, max: 90, step: 5, default: 30 }, config, index)}
+          ` : ''}
+          ${preset === 'scanlines' ? html`
+            ${this._renderField({ key: 'line_spacing', label: 'Line Spacing (px)', type: 'number', min: 1, max: 20, step: 1, default: 4 }, config, index)}
+            ${this._renderField({ key: 'line_width', label: 'Line Width (px)', type: 'number', min: 0.5, max: 5, step: 0.5, default: 1.5 }, config, index)}
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ select: { mode: 'dropdown', options: [
+                { value: 'horizontal', label: 'Horizontal' },
+                { value: 'vertical', label: 'Vertical' }
+              ]}}}
+              .value=${config.direction ?? 'horizontal'}
+              .label=${'Direction'}
+              @value-changed=${(e) => this._updateEffectConfig(index, 'direction', e.detail.value)}
+            ></ha-selector>
+          ` : ''}
+          ${this._renderField({ key: 'opacity', label: 'Opacity', type: 'number', min: 0, max: 1, step: 0.05, default: 1 }, config, index)}
+        </div>
+      </lcards-form-section>
+
+      ${hasScroll ? html`
+        <lcards-form-section header="Scrolling" icon="mdi:arrow-all" ?expanded=${false}>
+          <div class="param-grid">
+            ${this._renderField({ key: 'scroll_speed_x', label: 'Scroll Speed X (px/s)', type: 'number', min: -200, max: 200, step: 5, default: 0 }, config, index)}
+            ${this._renderField({ key: 'scroll_speed_y', label: 'Scroll Speed Y (px/s)', type: 'number', min: -200, max: 200, step: 5, default: 0 }, config, index)}
+          </div>
+        </lcards-form-section>
+      ` : ''}
+    `;
+  }
+
   _renderField(field, config, index) {
     const value = config[field.key] ?? field.default;
+
+    if (field.type === 'color') {
+      return html`
+        <lcards-color-picker
+          .hass=${this.hass}
+          .value=${value}
+          .variablePrefixes=${['--lcards-', '--lcars-', '--cblcars-']}
+          ?showPreview=${true}
+          @value-changed=${(e) => this._updateEffectConfig(index, field.key, e.detail.value)}
+        ></lcards-color-picker>
+      `;
+    }
 
     return html`
       <ha-selector
@@ -977,7 +1171,13 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
       'grid-filled': 'mdi:grid',
       'starfield': 'mdi:star-circle',
       'nebula': 'mdi:cloud',
-      'cascade': 'mdi:format-columns'
+      'cascade': 'mdi:format-columns',
+      'level': 'mdi:water',
+      'fluid': 'mdi:water-wave',
+      'plasma': 'mdi:fire',
+      'flow': 'mdi:wave',
+      'shimmer': 'mdi:shimmer',
+      'scanlines': 'mdi:television-scan'
     };
     return icons[preset] || 'mdi:blur';
   }
@@ -1128,6 +1328,16 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
     if (preset === 'cascade') {
       if (config.format) parts.push(`format: ${config.format}`);
       if (config.pattern) parts.push(`pattern: ${config.pattern}`);
+    }
+
+    if (preset === 'level') {
+      if (config.fill_pct !== undefined) parts.push(`fill: ${config.fill_pct}%`);
+      if (config.direction) parts.push(`dir: ${config.direction}`);
+      if (config.edge_glow === false) parts.push('glow: off');
+    }
+
+    if (['fluid', 'plasma', 'flow', 'shimmer', 'scanlines'].includes(preset)) {
+      if (config.opacity !== undefined && config.opacity !== 1) parts.push(`opacity: ${config.opacity}`);
     }
 
     return parts.join(' • ') || 'No configuration';

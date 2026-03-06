@@ -12,6 +12,7 @@ import { lcardsLog } from '../../../utils/lcards-logging.js';
 import { Canvas2DRenderer } from './renderers/Canvas2DRenderer.js';
 import { BACKGROUND_PRESETS } from './presets/index.js';
 import { ZoomEffect } from './effects/ZoomEffect.js';
+import { ColorUtils } from '../../themes/ColorUtils.js';
 
 /**
  * Orchestrates background animation rendering using Canvas2D with modular effects
@@ -145,6 +146,28 @@ export class BackgroundAnimationRenderer {
   }
 
   /**
+   * Resolve any CSS custom property strings (var(--token)) in a config object
+   * to concrete colour values so Canvas2D APIs (gradients, fillStyle) receive
+   * valid input.  Delegates to ColorUtils.resolveCssVariable which handles
+   * fallbacks, recursive var() chains, and tracing.
+   *
+   * @private
+   * @param {Object} config - Raw effect config
+   * @returns {Object} New config object with var() strings resolved
+   */
+  _resolveConfigColors(config) {
+    if (!config || typeof config !== 'object') return config;
+
+    const resolved = { ...config };
+    for (const [key, val] of Object.entries(resolved)) {
+      if (typeof val === 'string' && val.includes('var(')) {
+        resolved[key] = ColorUtils.resolveCssVariable(val, val);
+      }
+    }
+    return resolved;
+  }
+
+  /**
    * Load effects from preset or direct config
    * Supports both single effect and array of effects for stacking
    *
@@ -182,8 +205,8 @@ export class BackgroundAnimationRenderer {
 
         // Preset will provide effect factory functions
         if (preset.createEffects) {
-          // Pass nested config object to preset factory
-          const config = effectConfig.config || {};
+          // Pass nested config object to preset factory (CSS vars resolved first)
+          const config = this._resolveConfigColors(effectConfig.config || {});
 
           // Check if zoom wrapper should be applied
           if (effectConfig.zoom) {
