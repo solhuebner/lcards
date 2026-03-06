@@ -682,6 +682,16 @@ export class LCARdSSoundConfigTab extends LitElement {
     .event-label {
       white-space: nowrap;
     }
+    ha-icon-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    ha-icon-button ha-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
     .overrides-header-row {
       display: flex;
       align-items: center;

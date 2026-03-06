@@ -104,6 +104,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
             { label: 'Symbiont', content: () => this._renderSymbiontTab() },
             { label: 'Actions', content: () => this._renderActionsTab() },
             { label: 'Effects', content: () => this._renderEffectsTab() },
+            { label: 'Sound', content: () => this._renderSoundTab() },
             ...this._getUtilityTabs()
         ];
     }

@@ -170,10 +170,11 @@ export class LCARdSCardSoundTab extends LitElement {
   // ─── Preview ────────────────────────────────────────────────────────────────
 
   _previewAsset(assetKey) {
+    if (!assetKey || assetKey === '__scheme__' || assetKey === '__mute__') return;
     window.lcards?.core?.soundManager?.preview(assetKey);
   }
 
-  /** Preview the effective sound for an event (resolves override → scheme). */
+  /** Preview the effective sound for an event (resolves override → global scheme). */
   _previewEvent(eventType) {
     window.lcards?.core?.soundManager?.previewEvent(eventType);
   }
@@ -391,6 +392,16 @@ export class LCARdSCardSoundTab extends LitElement {
           vertical-align: middle;
           border-bottom: 1px solid
             color-mix(in srgb, var(--divider-color) 40%, transparent);
+        }
+        ha-icon-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        ha-icon-button ha-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
         .overrides-table tr.has-override td {
           background: color-mix(in srgb, var(--primary-color) 8%, transparent);
