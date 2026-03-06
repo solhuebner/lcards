@@ -4001,7 +4001,9 @@ export class LCARdSButton extends LCARdSCard {
      * @protected
      */
     _getTextureHostEl() {
-        return this.renderRoot?.querySelector('.button-container') ?? null;
+        return this.renderRoot?.querySelector('.button-texture-host')
+            ?? this.renderRoot?.querySelector('.button-container')
+            ?? null;
     }
 
     /**
@@ -4255,12 +4257,12 @@ export class LCARdSButton extends LCARdSCard {
             }
         }
 
+        const svgAttrs = `width="${width}" height="${height}" viewBox="${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}" xmlns="http://www.w3.org/2000/svg"`;
+        const gAttrs   = `data-button-id="button" data-overlay-id="button" class="button-group" style="pointer-events: visiblePainted; cursor: pointer;"`;
+
         const svgString = `
-            <svg width="${width}" height="${height}" viewBox="${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}" xmlns="http://www.w3.org/2000/svg">
-                <g data-button-id="button"
-                   data-overlay-id="button"
-                   class="button-group"
-                   style="pointer-events: visiblePainted; cursor: pointer;">
+            <svg ${svgAttrs}>
+                <g ${gAttrs}>
                     ${backgroundMarkup}
                     ${textureMarkup}
                     ${borderMarkup}
