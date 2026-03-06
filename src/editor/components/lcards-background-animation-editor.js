@@ -177,24 +177,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
         opacity: 0.7;
       }
 
-      .info-banner {
-        display: flex;
-        align-items: flex-start;
-        gap: 12px;
-        padding: 12px 16px;
-        background: var(--info-color, #2196f3);
-        color: #fff;
-        border-radius: 6px;
-        margin-bottom: 16px;
-        font-size: 13px;
-        line-height: 1.4;
-      }
-
-      .info-banner ha-icon {
-        flex-shrink: 0;
-        margin-top: 2px;
-      }
-
       .zoom-section {
         background: var(--secondary-background-color, #fafafa);
         border-radius: 8px;
@@ -391,13 +373,10 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
 
   _renderInfoBanner() {
     return html`
-      <div class="info-banner">
-        <ha-icon icon="mdi:information"></ha-icon>
-        <div>
-          <strong>Effect Stacking:</strong> Each effect renders as a layer. First effect = bottom layer, last = top layer.
-          <strong>Drag to reorder!</strong> Use RGBA colors with alpha < 1.0 for transparency.
-        </div>
-      </div>
+      <lcards-message type="info">
+        <strong>Effect Stacking:</strong> Each effect renders as a layer. First effect = bottom layer, last = top layer.
+        <strong>Drag to reorder!</strong>
+      </lcards-message>
     `;
   }
 

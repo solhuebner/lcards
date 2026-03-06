@@ -1738,9 +1738,11 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                 <lcards-message type="info">
                     <strong>Card-Level Effects:</strong>
                     <p style="margin: 8px 0 0 0; font-size: 13px; line-height: 1.4;">
-                        This tab configures effects for the <strong>entire card</strong>. Animations here trigger on any card interaction.
+                        This tab configures effects for the <strong>entire card</strong>.  You can:
+                        <br/>• Apply <strong>animations</strong> that trigger on card-level events (e.g., on_tap, on_load)
+                        <br/>• Apply <strong>filters</strong> that affect the entire card's appearance.
+                        <br/>• Apply <strong>background animations</strong> that render behind all card content.
                         <br/>• For <strong>per-segment animations</strong> (e.g., animate only the "up" button), use the <strong>Segments tab</strong> instead
-                        <br/>• Card-level animations can target specific segments using the "targets" selector
                     </p>
                 </lcards-message>
 
@@ -1749,7 +1751,7 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                     header="Animations"
                     description="Trigger visual animations on user interactions or entity state changes"
                     icon="mdi:animation"
-                    ?expanded=${true}>
+                    ?expanded=${false}>
 
                     <lcards-animation-editor
                         .hass=${this.hass}
@@ -1786,7 +1788,7 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                     header="Filters"
                     description="Apply visual filters to the entire button (CSS and SVG filter primitives)"
                     icon="mdi:auto-fix"
-                    ?expanded=${true}>
+                    ?expanded=${false}>
 
                     <lcards-filter-editor
                         .hass=${this.hass}
@@ -1802,7 +1804,7 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                     header="Background Animation"
                     description="Animated canvas backgrounds (grids, hexagons, diagonals, etc.)"
                     icon="mdi:grid"
-                    ?expanded=${true}>
+                    ?expanded=${false}>
 
                     <lcards-background-animation-editor
                         .hass=${this.hass}
