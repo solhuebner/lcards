@@ -872,7 +872,9 @@ export class LCARdSElbow extends LCARdSButton {
      * @protected
      */
     _getTextureHostEl() {
-        return this.renderRoot?.querySelector('.button-container') ?? null;
+        return this.renderRoot?.querySelector('.button-texture-host')
+            ?? this.renderRoot?.querySelector('.button-container')
+            ?? null;
     }
 
     /**

@@ -3990,6 +3990,17 @@ export class LCARdSButton extends LCARdSCard {
     _generateTextureMarkup(width, height, border, shapePath = null) {
         this._currentShapePath = shapePath || null;
         this._resolvedBorder   = border   || null;
+
+        // When a shape texture is configured, emit a <foreignObject> placeholder.
+        // SVG paints elements in document order, so placing this between the
+        // background fill and the border/text elements gives the correct layering:
+        //   background fill → canvas texture → border → icons/text
+        // No DOM z-index is involved — SVG's own painter's algorithm handles it.
+        // _syncCanvasTexture (called from updated()) appends the canvas to this element.
+        const texConfig = this.config?.shape_texture;
+        if (texConfig?.preset && this._supportsShapeTexture()) {
+            return `<foreignObject class="button-texture-host" x="0" y="0" width="${width}" height="${height}" style="overflow:visible;"></foreignObject>`;
+        }
         return '';
     }
 
@@ -4052,6 +4063,12 @@ export class LCARdSButton extends LCARdSCard {
             this._canvasTextureRenderer = new CanvasTextureRenderer(hostEl, this._getTextureInstanceId());
             this._canvasTextureRenderer.init(rendererConfig, shapePath, border);
         } else {
+            // Re-attach canvas if Lit re-rendered and replaced the foreignObject.
+            // unsafeHTML() substitutes the entire SVG subtree on every render, so
+            // the foreignObject the canvas was appended to on the previous render
+            // is now a detached node.  reattach() moves the live canvas into the
+            // fresh foreignObject without restarting the RAF loop.
+            this._canvasTextureRenderer.reattach(hostEl);
             // Pass the current shapePath and border so the renderer keeps its stored
             // clip geometry in sync across renders (e.g. after layout-driven resizes
             // that produce a new absolute-pixel SVG path from _generateTextureMarkup).

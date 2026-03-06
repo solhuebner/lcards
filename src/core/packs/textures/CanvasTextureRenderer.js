@@ -193,6 +193,37 @@ export class CanvasTextureRenderer {
     }
 
     /**
+     * Move the canvas to a new host element.
+     *
+     * Called when Lit re-renders the button/elbow card and replaces the inner
+     * SVG markup via unsafeHTML().  The previously-created <foreignObject> that
+     * was used as the canvas host is destroyed and a fresh one is inserted;
+     * this method re-parents the live canvas element into the new foreignObject
+     * without interrupting the RAF loop.
+     *
+     * @param {Element} newHostEl - The new host element (fresh foreignObject)
+     */
+    reattach(newHostEl) {
+        if (!this._canvas || !newHostEl) return;
+        if (this._canvas.parentNode === newHostEl) return; // already correct
+
+        // Move canvas
+        if (this._canvas.parentNode) {
+            this._canvas.parentNode.removeChild(this._canvas);
+        }
+        newHostEl.appendChild(this._canvas);
+
+        // Update ResizeObserver target
+        if (this._resizeObserver) {
+            if (this._hostEl) this._resizeObserver.unobserve(this._hostEl);
+            this._resizeObserver.observe(newHostEl);
+        }
+
+        this._hostEl = newHostEl;
+        lcardsLog.debug(`[CanvasTextureRenderer:${this._id}] Canvas reattached to new host`);
+    }
+
+    /**
      * Stop RAF, disconnect ResizeObserver, and remove the canvas from the DOM.
      */
     destroy() {
