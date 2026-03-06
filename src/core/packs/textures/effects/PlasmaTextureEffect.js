@@ -17,53 +17,7 @@
  */
 
 import { BaseTextureEffect } from './BaseTextureEffect.js';
-import { ColorUtils } from '../../../themes/ColorUtils.js';
-
-// ---------------------------------------------------------------------------
-// Inline fBm value-noise helpers (identical to FluidTextureEffect)
-// ---------------------------------------------------------------------------
-
-function _hash(ix, iy) {
-    return (Math.sin(ix * 127.1 + iy * 311.7) * 43758.5453) % 1 * 2;
-}
-
-function _smoothNoise(x, y) {
-    const ix = Math.floor(x);
-    const iy = Math.floor(y);
-    const fx = x - ix;
-    const fy = y - iy;
-    const ux = fx * fx * (3 - 2 * fx);
-    const uy = fy * fy * (3 - 2 * fy);
-    const a  = _hash(ix,     iy);
-    const b  = _hash(ix + 1, iy);
-    const c  = _hash(ix,     iy + 1);
-    const d  = _hash(ix + 1, iy + 1);
-    return a + (b - a) * ux + (c - a) * uy + (a + d - b - c) * ux * uy;
-}
-
-function _fbm(x, y, octaves) {
-    let value = 0;
-    let amplitude = 0.5;
-    let frequency = 1;
-    for (let i = 0; i < octaves; i++) {
-        value     += amplitude * _smoothNoise(x * frequency, y * frequency);
-        amplitude *= 0.5;
-        frequency *= 2;
-    }
-    return value;
-}
-
-/**
- * Resolve any color expression (CSS var, hex, rgb, rgba, named) to {r,g,b,a}.
- * Uses ColorUtils.resolveCssVariable to expand var(--x) tokens before parsing.
- */
-function _parseRgba(str, defaultColor = 'rgba(80,0,255,0.9)') {
-    const resolved = ColorUtils.resolveCssVariable(str ?? defaultColor, defaultColor);
-    const rgb = ColorUtils._parseColor(resolved);
-    if (!rgb) return { r: 128, g: 0, b: 255, a: 0.9 };
-    const am = resolved.match(/rgba?\([^,]+,[^,]+,[^,]+,\s*([\d.]+)/);
-    return { r: rgb[0], g: rgb[1], b: rgb[2], a: am ? +am[1] : 1 };
-}
+import { _fbm, parseColorToRgba } from './noise-helpers.js';
 
 /**
  * PlasmaTextureEffect - Vivid alternating two-colour plasma bands
@@ -83,8 +37,8 @@ export class PlasmaTextureEffect extends BaseTextureEffect {
      */
     constructor(config = {}) {
         super(config);
-        this._colorA  = _parseRgba(config.color_a ?? 'rgba(80,0,255,0.9)');
-        this._colorB  = _parseRgba(config.color_b ?? 'rgba(255,40,120,0.9)');
+        this._colorA  = parseColorToRgba(config.color_a ?? 'rgba(80,0,255,0.9)',  'rgba(80,0,255,0.9)');
+        this._colorB  = parseColorToRgba(config.color_b ?? 'rgba(255,40,120,0.9)', 'rgba(255,40,120,0.9)');
         this._freq    = config.base_frequency ?? 0.012;
         this._octaves = config.num_octaves    ?? 3;
         this._speedX  = config.scroll_speed_x ?? 8;
@@ -182,8 +136,8 @@ export class PlasmaTextureEffect extends BaseTextureEffect {
 
     updateConfig(cfg) {
         super.updateConfig(cfg);
-        if (cfg.color_a        !== undefined) this._colorA  = _parseRgba(cfg.color_a);
-        if (cfg.color_b        !== undefined) this._colorB  = _parseRgba(cfg.color_b);
+        if (cfg.color_a        !== undefined) this._colorA  = parseColorToRgba(cfg.color_a, 'rgba(80,0,255,0.9)');
+        if (cfg.color_b        !== undefined) this._colorB  = parseColorToRgba(cfg.color_b, 'rgba(255,40,120,0.9)');
         if (cfg.base_frequency !== undefined) this._freq    = cfg.base_frequency;
         if (cfg.num_octaves    !== undefined) this._octaves = cfg.num_octaves;
         if (cfg.scroll_speed_x !== undefined) this._speedX  = cfg.scroll_speed_x;

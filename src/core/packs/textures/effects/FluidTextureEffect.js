@@ -10,57 +10,7 @@
  */
 
 import { BaseTextureEffect } from './BaseTextureEffect.js';
-import { ColorUtils } from '../../../themes/ColorUtils.js';
-
-// ---------------------------------------------------------------------------
-// Inline value-noise helpers (hash-based, no look-up table required)
-// ---------------------------------------------------------------------------
-
-/** Pseudo-random hash in [−1, 1] for integer lattice point (ix, iy). */
-function _hash(ix, iy) {
-    return (Math.sin(ix * 127.1 + iy * 311.7) * 43758.5453) % 1 * 2;
-}
-
-/** Smooth value-noise at continuous (x, y) via bilinear interpolation. */
-function _smoothNoise(x, y) {
-    const ix = Math.floor(x);
-    const iy = Math.floor(y);
-    const fx = x - ix;
-    const fy = y - iy;
-    // Smoothstep fade
-    const ux = fx * fx * (3 - 2 * fx);
-    const uy = fy * fy * (3 - 2 * fy);
-    const a  = _hash(ix,     iy);
-    const b  = _hash(ix + 1, iy);
-    const c  = _hash(ix,     iy + 1);
-    const d  = _hash(ix + 1, iy + 1);
-    return a + (b - a) * ux + (c - a) * uy + (a + d - b - c) * ux * uy;
-}
-
-/** fBm: sum of `octaves` octaves of smoothNoise, output in [−1, 1]. */
-function _fbm(x, y, octaves) {
-    let value = 0;
-    let amplitude = 0.5;
-    let frequency = 1;
-    for (let i = 0; i < octaves; i++) {
-        value     += amplitude * _smoothNoise(x * frequency, y * frequency);
-        amplitude *= 0.5;
-        frequency *= 2;
-    }
-    return value;
-}
-
-/**
- * Resolve any color expression (CSS var, hex, rgb, rgba, named) to {r,g,b,a}.
- * Uses ColorUtils.resolveCssVariable to expand var(--x) tokens before parsing.
- */
-function _parseRgba(str, defaultColor = 'rgba(100,180,255,0.8)') {
-    const resolved = ColorUtils.resolveCssVariable(str ?? defaultColor, defaultColor);
-    const rgb = ColorUtils._parseColor(resolved);
-    if (!rgb) return { r: 100, g: 180, b: 255, a: 0.8 };
-    const am = resolved.match(/rgba?\([^,]+,[^,]+,[^,]+,\s*([\d.]+)/);
-    return { r: rgb[0], g: rgb[1], b: rgb[2], a: am ? +am[1] : 1 };
-}
+import { _fbm, parseColorToRgba } from './noise-helpers.js';
 
 // ---------------------------------------------------------------------------
 
@@ -83,7 +33,7 @@ export class FluidTextureEffect extends BaseTextureEffect {
      */
     constructor(config = {}) {
         super(config);
-        this._color    = _parseRgba(config.color ?? 'rgba(100,180,255,0.8)');
+        this._color    = parseColorToRgba(config.color ?? 'rgba(100,180,255,0.8)', 'rgba(100,180,255,0.8)');
         this._freq     = config.base_frequency   ?? 0.010;
         this._octaves  = config.num_octaves      ?? 4;
         this._speedX   = config.scroll_speed_x   ?? 7;
@@ -174,7 +124,7 @@ export class FluidTextureEffect extends BaseTextureEffect {
 
     updateConfig(cfg) {
         super.updateConfig(cfg);
-        if (cfg.color          !== undefined) this._color   = _parseRgba(cfg.color);
+        if (cfg.color          !== undefined) this._color   = parseColorToRgba(cfg.color, 'rgba(100,180,255,0.8)');
         if (cfg.base_frequency !== undefined) this._freq    = cfg.base_frequency;
         if (cfg.num_octaves    !== undefined) this._octaves = cfg.num_octaves;
         if (cfg.scroll_speed_x !== undefined) this._speedX  = cfg.scroll_speed_x;

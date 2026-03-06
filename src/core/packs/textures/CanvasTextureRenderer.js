@@ -78,7 +78,7 @@ export class CanvasTextureRenderer {
         const canvas = document.createElement('canvas');
         canvas.width  = 1;
         canvas.height = 1;
-        canvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1;';
+        canvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;';
         canvas.style.mixBlendMode = resolvedConfig?.mix_blend_mode || 'normal';
 
         this._hostEl.appendChild(canvas);
