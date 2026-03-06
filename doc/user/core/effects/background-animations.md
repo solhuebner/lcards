@@ -862,7 +862,78 @@ color: "orange"
 
 ---
 
-## 📐 Common Patterns
+## � Entity Binding
+
+Effect config parameters can react to live HA entity state or attributes. Works identically in both `background_animation` and `shape_texture`.
+
+### `map_range` — Recommended
+
+Linearly maps an entity attribute (or state) from one numeric range to another. No template knowledge required.
+
+```yaml
+config:
+  scroll_speed_x:
+    map_range:
+      attribute: brightness   # entity attribute to read (omit to use entity.state)
+      input:  [0, 255]        # input range (raw entity value)
+      output: [-200, 200]     # output range (effect param value)
+      # entity_id: light.other  # optional — defaults to the card's config.entity
+      # clamp: true             # optional, default true — clamp output to range
+```
+
+**Full example — plasma speed tracks light brightness:**
+
+```yaml
+entity: light.tv
+background_animation:
+  inset: auto
+  effects:
+    - preset: plasma
+      config:
+        scroll_speed_x:
+          map_range:
+            attribute: brightness
+            input:  [0, 255]
+            output: [-200, 200]
+        scroll_speed_y:
+          map_range:
+            attribute: brightness
+            input:  [0, 255]
+            output: [5, 60]
+```
+
+**`map_range` parameters:**
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `attribute` | string | ❌ | Entity attribute to read. Omit to use `entity.state`. |
+| `input` | `[min, max]` | ✅ | Expected range of the raw entity value. |
+| `output` | `[min, max]` | ✅ | Desired output range for the effect param. |
+| `entity_id` | string | ❌ | Override entity. Defaults to card-bound `entity`. |
+| `clamp` | boolean | ❌ | Clamp output to range (default: `true`). |
+
+### Template string — Advanced
+
+Evaluated on every hass update. Full JavaScript template access.
+
+```yaml
+config:
+  # Direct string template (evaluates to a number)
+  fill_pct: "[[[return entity.attributes.brightness / 2.55]]]"
+
+  # Object form with fallback default
+  wave_speed:
+    template: "[[[return entity.attributes.color_temp / 5]]]"
+    default: 20
+```
+
+**Supported template types:** `[[[JavaScript]]]`, `{token.path}` — both work in any config key.
+
+> **Note:** Both forms are available in `shape_texture.config` and `background_animation` effect `config`. The UI editor does not expose entity binding — use YAML mode to configure it.
+
+---
+
+## �📐 Common Patterns
 
 ### LCARS Grid Background
 

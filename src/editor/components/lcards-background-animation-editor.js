@@ -1018,6 +1018,7 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
           </div>
         </lcards-form-section>
       ` : ''}
+      ${this._renderEntityBindingNote()}
     `;
   }
 
@@ -1045,6 +1046,18 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
         .helper=${field.helper}
         @value-changed=${(e) => this._updateEffectConfig(index, field.key, e.detail.value)}
       ></ha-selector>
+    `;
+  }
+
+  _renderEntityBindingNote() {
+    return html`
+      <lcards-message type="info">
+        <strong>Entity Binding:</strong> To reactively tie any parameter to an entity (e.g. speed to brightness), edit this card’s YAML directly.<br><br>
+        <strong>map_range</strong> (recommended):<br>
+        <code>scroll_speed_x: { map_range: { attribute: brightness, input: [0,255], output: [-200,200] } }</code><br><br>
+        <strong>Template</strong> (advanced):<br>
+        <code>fill_pct: "[[[return entity.attributes.brightness / 2.55]]]"</code>
+      </lcards-message>
     `;
   }
 

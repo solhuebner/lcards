@@ -13,6 +13,9 @@ import { Canvas2DRenderer } from './renderers/Canvas2DRenderer.js';
 import { BACKGROUND_PRESETS } from './presets/index.js';
 import { ZoomEffect } from './effects/ZoomEffect.js';
 import { ColorUtils } from '../../themes/ColorUtils.js';
+import { LCARdSCardTemplateEvaluator } from '../../templates/LCARdSCardTemplateEvaluator.js';
+import { TemplateDetector } from '../../templates/TemplateDetector.js';
+import { linearMap } from '../../../utils/linearMap.js';
 
 /**
  * Orchestrates background animation rendering using Canvas2D with modular effects
@@ -35,6 +38,13 @@ export class BackgroundAnimationRenderer {
     this.effectConfigs = [];
     /** @type {Object|string|null} */
     this._rawInset = null;
+    /**
+     * Pairs of { rawConfig, effects[] } for effects whose config may contain
+     * templates — populated during _loadEffects() so updateHass() can
+     * re-evaluate and push hot-updates via effect.updateConfig().
+     * @type {Array<{ rawConfig: Object, presetId: string, effects: Array }>}
+     */
+    this._reactiveEffects = [];
   }
 
   /**
@@ -146,6 +156,107 @@ export class BackgroundAnimationRenderer {
   }
 
   /**
+   * Resolve a map_range descriptor to a concrete value using hass entity state.
+   *
+   * Descriptor shape:
+   *   map_range:
+   *     entity_id: light.tv      # optional — defaults to card's config.entity
+   *     attribute: brightness    # optional — defaults to entity state
+   *     input:  [0, 255]         # input range
+   *     output: [-200, 200]      # output range (numbers or hex color strings)
+   *     clamp: true              # optional, default true
+   *
+   * @private
+   * @param {Object} descriptor - The full { map_range: {...} } object
+   * @param {Object} hass
+   * @param {Object|null} entity - Card-bound entity state object (fallback)
+   * @param {Object} cardConfig  - Card config (for config.entity fallback)
+   * @returns {number|string|undefined} Resolved value, or undefined on failure
+   */
+  _resolveMapRange(descriptor, hass, entity, cardConfig) {
+    const cfg = descriptor.map_range;
+    if (!cfg) return undefined;
+
+    // Resolve the entity to read from
+    const entityId = cfg.entity_id || cardConfig?.entity || null;
+    let entityObj;
+    if (entityId) {
+      entityObj = hass?.states?.[entityId] ?? null;
+    } else {
+      entityObj = entity ?? null;
+    }
+
+    if (!entityObj) {
+      lcardsLog.warn('[BackgroundAnimation] map_range: entity not found', { entityId, cfg });
+      return undefined;
+    }
+
+    const rawValue = cfg.attribute
+      ? entityObj.attributes?.[cfg.attribute]
+      : entityObj.state;
+
+    const numVal = Number(rawValue);
+    if (!Number.isFinite(numVal)) {
+      lcardsLog.warn(`[BackgroundAnimation] map_range: value "${rawValue}" is not numeric`, cfg);
+      return undefined;
+    }
+
+    if (!Array.isArray(cfg.input) || cfg.input.length !== 2) {
+      lcardsLog.warn('[BackgroundAnimation] map_range: "input" must be a 2-element array', cfg);
+      return undefined;
+    }
+    if (!Array.isArray(cfg.output) || cfg.output.length !== 2) {
+      lcardsLog.warn('[BackgroundAnimation] map_range: "output" must be a 2-element array', cfg);
+      return undefined;
+    }
+
+    const [inMin, inMax]   = cfg.input.map(Number);
+    const [outMin, outMax] = cfg.output;
+    const clamp = cfg.clamp !== false; // default true
+
+    if (typeof outMin === 'number' && typeof outMax === 'number') {
+      return linearMap(numVal, inMin, inMax, outMin, outMax, clamp);
+    }
+
+    // Color string interpolation not needed for animation params but keep consistent
+    lcardsLog.warn('[BackgroundAnimation] map_range: "output" must be [number, number]', cfg);
+    return undefined;
+  }
+
+  /**
+   * Strip config keys whose values are templates (form 1: template string;
+   * form 2: object with a `.template` key) so that effect constructors receive
+   * only concrete values and fall back to their built-in defaults for reactive
+   * params.  updateHass() re-evaluates and pushes the real values on the first
+   * hass update, so there is at most one frame at the preset default.
+   *
+   * @private
+   * @param {Object} config - Effect config potentially containing template values
+   * @returns {Object} New config with template-valued keys removed
+   */
+  _stripTemplateValues(config) {
+    if (!config || typeof config !== 'object') return config;
+    const stripped = {};
+    for (const [key, val] of Object.entries(config)) {
+      if (typeof val === 'string' && (TemplateDetector.hasJavaScript(val) || TemplateDetector.hasTokens(val))) {
+        // Form 1: direct template string — omit so preset uses its default
+        continue;
+      }
+      if (val && typeof val === 'object' && val.template !== undefined &&
+          (TemplateDetector.hasJavaScript(val.template) || TemplateDetector.hasTokens(val.template))) {
+        // Form 2: { template: '...', default: X } — omit key, will be resolved by updateHass()
+        continue;
+      }
+      if (val && typeof val === 'object' && val.map_range !== undefined) {
+        // Form 3: { map_range: { attribute, input, output, ... } } — omit, resolved by updateHass()
+        continue;
+      }
+      stripped[key] = val;
+    }
+    return stripped;
+  }
+
+  /**
    * Resolve any CSS custom property strings (var(--token)) in a config object
    * to concrete colour values so Canvas2D APIs (gradients, fillStyle) receive
    * valid input.  Delegates to ColorUtils.resolveCssVariable which handles
@@ -160,12 +271,45 @@ export class BackgroundAnimationRenderer {
 
     const resolved = { ...config };
     for (const [key, val] of Object.entries(resolved)) {
-      if (typeof val === 'string' && val.includes('var(')) {
+      if (typeof val !== 'string') continue;
+
+      // Plain CSS variable — resolve directly
+      if (val.includes('var(') && !BackgroundAnimationRenderer._COMPUTED_COLOR_RE.test(val)) {
         resolved[key] = ColorUtils.resolveCssVariable(val, val);
+        continue;
+      }
+
+      // Computed color function: lighten/darken/alpha/etc. — resolve any inner var() first,
+      // then evaluate the function against the concrete colour value.
+      // e.g. "lighten(var(--lcards-green), 0.5)" → ColorUtils.lighten('#23c45e', 0.5)
+      if (BackgroundAnimationRenderer._COMPUTED_COLOR_RE.test(val)) {
+        // Replace all var(--name, fallback) occurrences inside the expression
+        const concreteExpr = val.replace(/var\([^)]+\)/g, match =>
+          ColorUtils.resolveCssVariable(match, match)
+        );
+        // Now evaluate the outer function
+        const m = concreteExpr.match(/^(\w+)\((.+),\s*([\d.]+)\s*\)$/);
+        if (m) {
+          const [, fn, colorArg, numArg] = m;
+          const num = parseFloat(numArg);
+          switch (fn) {
+            case 'lighten':   resolved[key] = ColorUtils.lighten(colorArg.trim(), num); break;
+            case 'darken':    resolved[key] = ColorUtils.darken(colorArg.trim(), num); break;
+            case 'alpha':     resolved[key] = ColorUtils.alpha(colorArg.trim(), num); break;
+            case 'saturate':  resolved[key] = ColorUtils.saturate?.(colorArg.trim(), num) ?? val; break;
+            case 'desaturate':resolved[key] = ColorUtils.desaturate?.(colorArg.trim(), num) ?? val; break;
+            default:          resolved[key] = val;
+          }
+        } else {
+          resolved[key] = val;
+        }
       }
     }
     return resolved;
   }
+
+  // Regex matching the supported computed colour functions
+  static _COMPUTED_COLOR_RE = /^(lighten|darken|alpha|saturate|desaturate|mix)\s*\(/;
 
   /**
    * Load effects from preset or direct config
@@ -205,8 +349,28 @@ export class BackgroundAnimationRenderer {
 
         // Preset will provide effect factory functions
         if (preset.createEffects) {
-          // Pass nested config object to preset factory (CSS vars resolved first)
-          const config = this._resolveConfigColors(effectConfig.config || {});
+          // Pass nested config object to preset factory:
+          // 1. Resolve theme tokens and computed colour functions (lighten/darken/alpha/etc.)
+          // 2. Resolve remaining CSS var() strings to concrete colour values
+          // 3. Strip template-valued keys so constructors receive only concrete
+          //    values; updateHass() will push evaluated values on first hass tick.
+          const themeManager = this.cardInstance?._singletons?.themeManager
+            ?? window.lcards?.core?.themeManager
+            ?? null;
+          const rawEffectConfig = effectConfig.config || {};
+          // Resolve theme: token strings to concrete values using themeManager.getToken()
+          // (avoids resolveThemeTokensRecursive which produces color-mix() CSS that Canvas2D can't use)
+          const themeResolved = themeManager
+            ? Object.fromEntries(Object.entries(rawEffectConfig).map(([k, v]) => [
+                k,
+                (typeof v === 'string' && v.startsWith('theme:'))
+                  ? (themeManager.getToken(v.slice(6)) ?? v)
+                  : v
+              ]))
+            : rawEffectConfig;
+          const config = this._stripTemplateValues(
+            this._resolveConfigColors(themeResolved)
+          );
 
           // Check if zoom wrapper should be applied
           if (effectConfig.zoom) {
@@ -255,6 +419,7 @@ export class BackgroundAnimationRenderer {
             } else {
               // Standard zoom handling for other effects (single instance, multiple renders)
               const effects = preset.createEffects(config, this.cardInstance);
+              this._reactiveEffects.push({ rawConfig: effectConfig.config || {}, presetId, effects });
 
               effects.forEach(baseEffect => {
                 const zoomConfig = {
@@ -275,6 +440,7 @@ export class BackgroundAnimationRenderer {
           } else {
             // No zoom - add effects directly
             const effects = preset.createEffects(config, this.cardInstance);
+            this._reactiveEffects.push({ rawConfig: effectConfig.config || {}, presetId, effects });
             effects.forEach(effect => this.renderer.addEffect(effect));
             loadedEffects += effects.length;
           }
@@ -291,6 +457,84 @@ export class BackgroundAnimationRenderer {
 
     lcardsLog.info(`[BackgroundAnimation] Loaded ${loadedEffects} effect(s)`);
     return true;
+  }
+
+  /**
+   * Re-evaluate any template strings in stored effect configs and hot-update
+   * the running effect instances via updateConfig().  Call this from the card's
+   * _handleHassUpdate so reactive params (fill_pct, wave_speed, scroll_speed_x,
+   * etc.) track entity state / attributes in real time.
+   *
+   * Supports the same two forms as _resolveShapeTextureConfig():
+   *   - Direct template string:  scroll_speed_x: "[[[return entity.attributes.brightness / 2.55]]]"
+   *   - Object form:             fill_pct: { template: "[[[ ... ]]]", default: 50 }
+   *
+   * @param {Object} hass
+   * @param {Object|null} entity - Primary card entity state object
+   * @param {Object} cardConfig  - Full card config (for variables, etc.)
+   */
+  updateHass(hass, entity, cardConfig) {
+    if (!this._reactiveEffects || this._reactiveEffects.length === 0) return;
+
+    const evalContext = {
+      entity,
+      config: cardConfig,
+      hass,
+      variables: cardConfig?.variables || {},
+    };
+    const templateEvaluator = new LCARdSCardTemplateEvaluator(evalContext);
+
+    for (const { rawConfig, presetId, effects } of this._reactiveEffects) {
+      const resolvedConfig = {};
+      let hasTemplates = false;
+
+      for (const [key, val] of Object.entries(rawConfig)) {
+        if (typeof val === 'string' && (TemplateDetector.hasJavaScript(val) || TemplateDetector.hasTokens(val))) {
+          // Form 1: direct template string
+          try {
+            const raw = templateEvaluator.evaluate(val);
+            // Coerce to number when the result looks numeric (e.g. fill_pct, speeds)
+            const num = Number(String(raw).trim());
+            resolvedConfig[key] = (String(raw).trim() !== '' && Number.isFinite(num)) ? num : raw;
+          } catch (e) {
+            lcardsLog.warn(`[BackgroundAnimation] Template eval failed for ${presetId}.config.${key}:`, e);
+            resolvedConfig[key] = val;
+          }
+          hasTemplates = true;
+        } else if (val && typeof val === 'object' && val.template !== undefined &&
+                   (TemplateDetector.hasJavaScript(val.template) || TemplateDetector.hasTokens(val.template))) {
+          // Form 2: { template: "...", default: X }
+          let evaluated = val.default ?? 0;
+          try {
+            const raw = templateEvaluator.evaluate(val.template);
+            const num = parseFloat(raw);
+            evaluated = Number.isFinite(num) ? num : (val.default ?? 0);
+          } catch (e) {
+            lcardsLog.warn(`[BackgroundAnimation] Template eval failed for ${presetId}.config.${key}.template:`, e);
+          }
+          resolvedConfig[key] = evaluated;
+          hasTemplates = true;
+        } else if (val && typeof val === 'object' && val.map_range !== undefined) {
+          // Form 3: { map_range: { entity_id?, attribute?, input, output } }
+          const resolved = this._resolveMapRange(val, hass, entity, cardConfig);
+          if (resolved !== undefined) {
+            resolvedConfig[key] = resolved;
+          }
+          hasTemplates = true;
+        }
+      }
+
+      if (hasTemplates) {
+        // Resolve any CSS var() tokens that may have been produced by the templates
+        const finalConfig = this._resolveConfigColors(resolvedConfig);
+        for (const effect of effects) {
+          if (typeof effect.updateConfig === 'function') {
+            effect.updateConfig(finalConfig);
+            lcardsLog.trace(`[BackgroundAnimation] updateHass pushed config to ${presetId} effect`, finalConfig);
+          }
+        }
+      }
+    }
   }
 
   /**

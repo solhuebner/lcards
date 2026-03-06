@@ -528,7 +528,7 @@ export function getButtonSchema(options = {}) {
                     },
                     config: {
                         type: 'object',
-                        description: 'Preset-specific configuration (color, line_spacing, hex_radius, etc.)',
+                        description: 'Preset-specific configuration. Supports entity-reactive values: map_range descriptor ({ map_range: { attribute, input, output } }) or template strings ([[[...]]]), including { template, default } form for numeric params like fill_pct.',
                         additionalProperties: true
                     }
                 },

@@ -66,6 +66,7 @@ import { sanitizeSvg, extractViewBox, extractDataUriContent, escapeXmlAttribute 
 import { applyBaseSvgFilters } from '../msd/utils/BaseSvgFilters.js';
 import { BackgroundAnimationRenderer } from '../core/packs/backgrounds/BackgroundAnimationRenderer.js';
 import { CANVAS_TEXTURE_PRESETS } from '../core/packs/textures/presets/index.js';
+import { linearMap } from '../utils/linearMap.js';
 import { CanvasTextureRenderer } from '../core/packs/textures/CanvasTextureRenderer.js';
 
 // Import unified schema
@@ -287,6 +288,12 @@ export class LCARdSButton extends LCARdSCard {
                     this.requestUpdate();
                 }
             }
+        }
+
+        // Propagate hass to background animation renderer so template-bound effect
+        // params (fill_pct, wave_speed, scroll_speed_x, etc.) react to entity changes.
+        if (this._backgroundRenderer) {
+            this._backgroundRenderer.updateHass(newHass, this._entity, this.config);
         }
     }
 
@@ -3873,6 +3880,29 @@ export class LCARdSButton extends LCARdSCard {
                     evaluatedConfig[key] = templateEvaluator.evaluate(val);
                 } catch (e) {
                     lcardsLog.warn(`[LCARdSButton] Template evaluation failed for config.${key}:`, e);
+                    evaluatedConfig[key] = val;
+                }
+            } else if (val && typeof val === 'object' && val.map_range !== undefined) {
+                // map_range descriptor: { map_range: { entity_id?, attribute?, input, output, clamp? } }
+                // entity_id defaults to config.entity (card-bound entity)
+                const mrCfg = val.map_range;
+                const entityId = mrCfg.entity_id || this.config?.entity || null;
+                const entityObj = entityId ? (this.hass?.states?.[entityId] ?? null) : this._entity;
+                if (entityObj && Array.isArray(mrCfg.input) && mrCfg.input.length === 2 &&
+                    Array.isArray(mrCfg.output) && mrCfg.output.length === 2) {
+                    const rawValue = mrCfg.attribute ? entityObj.attributes?.[mrCfg.attribute] : entityObj.state;
+                    const numVal = Number(rawValue);
+                    const [inMin, inMax] = mrCfg.input.map(Number);
+                    const [outMin, outMax] = mrCfg.output;
+                    const doClamp = mrCfg.clamp !== false;
+                    if (Number.isFinite(numVal) && typeof outMin === 'number' && typeof outMax === 'number') {
+                        evaluatedConfig[key] = linearMap(numVal, inMin, inMax, outMin, outMax, doClamp);
+                    } else {
+                        lcardsLog.warn(`[LCARdSButton] map_range for config.${key}: non-numeric value or output`, { rawValue, mrCfg });
+                        evaluatedConfig[key] = val;
+                    }
+                } else {
+                    lcardsLog.warn(`[LCARdSButton] map_range for config.${key}: missing entity or invalid range`, mrCfg);
                     evaluatedConfig[key] = val;
                 }
             } else {

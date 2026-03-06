@@ -203,6 +203,35 @@ zoom:
 
 ---
 
+## 🔗 Entity Binding
+
+Any effect config param can track an entity. Works in both `background_animation` and `shape_texture`.
+
+### `map_range` (recommended)
+
+```yaml
+config:
+  scroll_speed_x:
+    map_range:
+      attribute: brightness   # omit for entity.state
+      input:  [0, 255]
+      output: [-200, 200]
+      # entity_id: light.other  # defaults to card entity
+      # clamp: true
+```
+
+### Template string (advanced)
+
+```yaml
+config:
+  fill_pct: "[[[return entity.attributes.brightness / 2.55]]]"
+  wave_speed:
+    template: "[[[return entity.attributes.color_temp / 5]]]"
+    default: 20
+```
+
+---
+
 ## 🎨 Color Formats
 
 | Format | Example | Notes |

@@ -1179,7 +1179,7 @@ const backgroundAnimationEffectSchema = {
         },
         config: {
             type: 'object',
-            description: 'Preset-specific configuration options'
+            description: 'Preset-specific configuration options. Supports entity-reactive values via map_range descriptor ({ map_range: { attribute, input, output } }) or template strings ([[[...]]]). entity_id defaults to the card-bound entity.'
         },
         enabled: {
             type: 'boolean',
