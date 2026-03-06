@@ -1,19 +1,26 @@
 /**
- * @fileoverview PlasmaTextureEffect - Two-colour Perlin plasma texture
+ * @fileoverview PlasmaTextureEffect - Two-colour fBm plasma texture
  *
- * Renders a vivid alternating two-colour plasma field using a shared fBm
- * value-noise source.  For each grid cell the noise value is mapped through
- * sin/cos to derive independent alpha values for color_a and color_b,
- * producing the characteristic interleaved colour bands of classic plasma —
- * completely independent of NebulaEffect.
+ * Renders a vivid two-colour plasma field using the same fractional Brownian
+ * motion (fBm) value-noise as FluidTextureEffect.  This matches the organic
+ * gaseous appearance of the original SVG feTurbulence implementation.
+ *
+ * The fBm noise value is mapped to independent alpha values for color_a and
+ * color_b via sin/cos bands, producing the characteristic interleaved colour
+ * structure of classic plasma without the geometric ring artefacts of
+ * sin-wave interference formulas.
+ *
+ * Per-pixel cost: num_octaves calls to _smoothNoise (≈ 3 ops each).
+ * At LCARS button sizes this is ≈ 1–3 ms/card — within frame budget.
  *
  * @module core/packs/textures/effects/PlasmaTextureEffect
  */
 
 import { BaseTextureEffect } from './BaseTextureEffect.js';
+import { ColorUtils } from '../../../themes/ColorUtils.js';
 
 // ---------------------------------------------------------------------------
-// Inline value-noise helpers (shared with FluidTextureEffect pattern)
+// Inline fBm value-noise helpers (identical to FluidTextureEffect)
 // ---------------------------------------------------------------------------
 
 function _hash(ix, iy) {
@@ -46,15 +53,17 @@ function _fbm(x, y, octaves) {
     return value;
 }
 
-function _parseRgba(str) {
-    const m = str.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)/);
-    if (!m) return { r: 128, g: 0, b: 255, a: 0.9 };
-    return { r: +m[1], g: +m[2], b: +m[3], a: m[4] !== undefined ? +m[4] : 1 };
+/**
+ * Resolve any color expression (CSS var, hex, rgb, rgba, named) to {r,g,b,a}.
+ * Uses ColorUtils.resolveCssVariable to expand var(--x) tokens before parsing.
+ */
+function _parseRgba(str, defaultColor = 'rgba(80,0,255,0.9)') {
+    const resolved = ColorUtils.resolveCssVariable(str ?? defaultColor, defaultColor);
+    const rgb = ColorUtils._parseColor(resolved);
+    if (!rgb) return { r: 128, g: 0, b: 255, a: 0.9 };
+    const am = resolved.match(/rgba?\([^,]+,[^,]+,[^,]+,\s*([\d.]+)/);
+    return { r: rgb[0], g: rgb[1], b: rgb[2], a: am ? +am[1] : 1 };
 }
-
-// ---------------------------------------------------------------------------
-
-const CELL = 4; // px — grid tile size
 
 /**
  * PlasmaTextureEffect - Vivid alternating two-colour plasma bands
@@ -111,15 +120,16 @@ export class PlasmaTextureEffect extends BaseTextureEffect {
     }
 
     /**
-     * Render combined plasma bands into an ImageData buffer, then blit via drawImage.
+     * Render fBm plasma into an ImageData buffer, then blit via drawImage.
      *
-     * The original implementation called fillStyle (string) + fillRect twice per cell
-     * (once per colour), causing N×M×2 string allocations + canvas state flushes per
-     * frame.  This replacement:
-     *   1. Pre-composites color_a and color_b using Porter-Duff source-over directly
-     *      into a Uint8ClampedArray — no strings, no per-cell canvas API calls.
-     *   2. Flushes via one putImageData to an offscreen canvas.
-     *   3. blits via drawImage (clip-safe; putImageData ignores the clip path).
+     * Uses the same fractional Brownian motion noise as FluidTextureEffect to
+     * produce the organic gaseous appearance that matches SVG feTurbulence.
+     * The noise value is mapped to two independent alpha channels (via sin/cos
+     * bands) which are Porter-Duff composited into each pixel — no Canvas API
+     * strings, no per-cell fills, one putImageData + one drawImage per frame.
+     *
+     * Scroll offsets are negated at the sample site so that positive
+     * scroll_speed_x/y moves features rightward/downward.
      */
     _draw(ctx, w, h) {
         const iw = w | 0;
@@ -133,22 +143,22 @@ export class PlasmaTextureEffect extends BaseTextureEffect {
         const { r: rB, g: gB, b: bB, a: baseB } = this._colorB;
         const freq = this._freq;
         const oct  = this._octaves;
-        const ox   = this._offsetX * freq;
-        const oy   = this._offsetY * freq;
-        const k    = oct; // band-density constant
-        const PIk  = Math.PI * k;
+        const PIk  = Math.PI * oct; // band-density: more octaves = tighter colour cycling
+        // Negate offsets: positive speed scrolls features rightward/downward.
+        const ox = -this._offsetX * freq;
+        const oy = -this._offsetY * freq;
 
-        for (let cy = 0; cy < ih; cy += CELL) {
-            const yEnd   = Math.min(cy + CELL, ih);
+        for (let cy = 0; cy < ih; cy++) {
             const noiseY = cy * freq + oy;
-            for (let cx = 0; cx < iw; cx += CELL) {
+            for (let cx = 0; cx < iw; cx++) {
+                // fBm noise at this pixel — same algorithm as FluidTextureEffect
                 const raw    = _fbm(cx * freq + ox, noiseY, oct);
-                const n      = (raw + 1) * 0.5;
+                const n      = (raw + 1) * 0.5; // map [-1,1] → [0,1]
+
                 const alphaA = Math.abs(Math.sin(n * PIk)) * baseA;
                 const alphaB = Math.abs(Math.cos(n * PIk)) * baseB;
 
-                // Porter-Duff source-over: color_b drawn over color_a.
-                // outAlpha = alphaB + alphaA * (1 − alphaB)
+                // Porter-Duff source-over: color_a and color_b blended by their alphas
                 const outA = alphaA + alphaB * (1 - alphaA);
                 let rOut = 0, gOut = 0, bOut = 0;
                 if (outA > 0.001) {
@@ -158,21 +168,11 @@ export class PlasmaTextureEffect extends BaseTextureEffect {
                     bOut = (bA * wa + bB * alphaB) / outA;
                 }
 
-                const aInt = (outA * 255 + 0.5) | 0;
-                const rInt = (rOut  + 0.5) | 0;
-                const gInt = (gOut  + 0.5) | 0;
-                const bInt = (bOut  + 0.5) | 0;
-
-                const xEnd = Math.min(cx + CELL, iw);
-                for (let py = cy; py < yEnd; py++) {
-                    let i = (py * iw + cx) << 2;
-                    for (let px = cx; px < xEnd; px++, i += 4) {
-                        data[i    ] = rInt;
-                        data[i + 1] = gInt;
-                        data[i + 2] = bInt;
-                        data[i + 3] = aInt;
-                    }
-                }
+                const i = (cy * iw + cx) << 2;
+                data[i    ] = (rOut + 0.5) | 0;
+                data[i + 1] = (gOut + 0.5) | 0;
+                data[i + 2] = (bOut + 0.5) | 0;
+                data[i + 3] = (outA * 255 + 0.5) | 0;
             }
         }
 

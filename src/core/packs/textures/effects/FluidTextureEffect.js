@@ -10,6 +10,7 @@
  */
 
 import { BaseTextureEffect } from './BaseTextureEffect.js';
+import { ColorUtils } from '../../../themes/ColorUtils.js';
 
 // ---------------------------------------------------------------------------
 // Inline value-noise helpers (hash-based, no look-up table required)
@@ -49,11 +50,16 @@ function _fbm(x, y, octaves) {
     return value;
 }
 
-/** Parse an rgba/rgb string into {r, g, b, a} (a in 0–1). */
-function _parseRgba(str) {
-    const m = str.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)/);
-    if (!m) return { r: 100, g: 180, b: 255, a: 0.8 };
-    return { r: +m[1], g: +m[2], b: +m[3], a: m[4] !== undefined ? +m[4] : 1 };
+/**
+ * Resolve any color expression (CSS var, hex, rgb, rgba, named) to {r,g,b,a}.
+ * Uses ColorUtils.resolveCssVariable to expand var(--x) tokens before parsing.
+ */
+function _parseRgba(str, defaultColor = 'rgba(100,180,255,0.8)') {
+    const resolved = ColorUtils.resolveCssVariable(str ?? defaultColor, defaultColor);
+    const rgb = ColorUtils._parseColor(resolved);
+    if (!rgb) return { r: 100, g: 180, b: 255, a: 0.8 };
+    const am = resolved.match(/rgba?\([^,]+,[^,]+,[^,]+,\s*([\d.]+)/);
+    return { r: rgb[0], g: rgb[1], b: rgb[2], a: am ? +am[1] : 1 };
 }
 
 // ---------------------------------------------------------------------------
@@ -134,11 +140,12 @@ export class FluidTextureEffect extends BaseTextureEffect {
 
         const data  = this._imgData.data;
         const { r, g, b, a: baseAlpha } = this._color;
-        // Pre-apply freq to offsets so the inner loop only multiplies cx/cy by freq
+        // Negate offsets: positive scroll_speed_x/y scrolls features rightward/downward
+        // (without negation, increasing sample coordinate moves the visible features left).
         const freq  = this._freq;
         const oct   = this._octaves;
-        const ox    = this._offsetX * freq;
-        const oy    = this._offsetY * freq;
+        const ox    = -this._offsetX * freq;
+        const oy    = -this._offsetY * freq;
         const a255  = baseAlpha * 255;
 
         for (let cy = 0; cy < ih; cy += CELL) {

@@ -515,6 +515,27 @@ export class LCARdSShapeTextureEditor extends LitElement {
             case 'flow':
                 return html`
                     <div class="row"><ha-selector .hass=${this.hass}
+                        .selector=${{ number: { min: 2, max: 24, step: 1, mode: 'slider' } }}
+                        .value=${cfg.num_streaks ?? defaults.num_streaks ?? 8}
+                        .label=${'Number of Bands'}
+                        .helper=${'More bands = denser parallel streaks'}
+                        @value-changed=${(e) => this._updatePresetConfig('num_streaks', e.detail.value)}
+                    ></ha-selector></div>
+                    <div class="row"><ha-selector .hass=${this.hass}
+                        .selector=${{ number: { min: 0.1, max: 2.0, step: 0.05, mode: 'slider' } }}
+                        .value=${cfg.streak_width ?? defaults.streak_width ?? 0.8}
+                        .label=${'Band Width'}
+                        .helper=${'Fraction of band slot filled · >1.0 = bands overlap and blend'}
+                        @value-changed=${(e) => this._updatePresetConfig('streak_width', e.detail.value)}
+                    ></ha-selector></div>
+                    <div class="row"><ha-selector .hass=${this.hass}
+                        .selector=${{ number: { min: 0, max: 20, step: 0.5, mode: 'slider' } }}
+                        .value=${cfg.blur ?? defaults.blur ?? 0}
+                        .label=${'Blur (px)'}
+                        .helper=${'Gaussian softness on band edges · 0 = crisp'}
+                        @value-changed=${(e) => this._updatePresetConfig('blur', e.detail.value)}
+                    ></ha-selector></div>
+                    <div class="row"><ha-selector .hass=${this.hass}
                         .selector=${{ number: { min: 0.004, max: 0.08, step: 0.001, mode: 'slider' } }}
                         .value=${cfg.base_frequency ?? defaults.base_frequency ?? 0.015}
                         .label=${'Turbulence Frequency'}
