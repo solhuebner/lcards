@@ -1,0 +1,113 @@
+name: Bug Report
+description: Something isn't working as expected
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out as much as you can — the version numbers, YAML config, and browser console output are especially important for diagnosing issues quickly.
+
+  - type: dropdown
+    id: card_type
+    attributes:
+      label: Affected Card Type
+      description: Which LCARdS card is exhibiting the problem?
+      multiple: true
+      options:
+        - lcards-button
+        - lcards-chart
+        - lcards-slider
+        - lcards-data-grid
+        - lcards-elbow
+        - lcards-msd
+        - lcards-alert-overlay
+        - Multiple / All cards
+        - Not card-specific (core system)
+    validations:
+      required: true
+
+  - type: input
+    id: lcards_version
+    attributes:
+      label: LCARdS Version
+      description: Found in the browser console on load — `window.lcards.version` — or in your HA resource URL.
+      placeholder: "e.g. 2026.03.07-alpha"
+    validations:
+      required: true
+
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant Version
+      description: Settings → About → Version
+      placeholder: "e.g. 2025.12.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      options:
+        - Chrome / Chromium
+        - Firefox
+        - Safari
+        - Edge
+        - Home Assistant Companion App (Android)
+        - Home Assistant Companion App (iOS)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug. Include what you expected to happen vs. what actually happened.
+      placeholder: |
+        Expected: The button color updates when the entity turns on.
+        Actual: The button stays the default color regardless of entity state.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      placeholder: |
+        1. Add an `lcards-button` card with the config below
+        2. Turn on the linked entity
+        3. Observe that the button color does not change
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Card YAML Configuration
+      description: Paste your full card YAML config. Remove any sensitive values (tokens, passwords, etc.). This will be syntax-highlighted automatically.
+      render: yaml
+      placeholder: |
+        type: custom:lcards-button
+        entity_id: light.kitchen
+        name: Kitchen
+        style:
+          background: "{theme:palette.moonlight}"
+    validations:
+      required: true
+
+  - type: textarea
+    id: console_errors
+    attributes:
+      label: Browser Console Errors
+      description: |
+        Open the browser console (F12 → Console tab), reproduce the issue, then paste any errors or warnings here.
+        You can also enable debug logging first: `window.lcards.setGlobalLogLevel('debug')`
+      render: shell
+      placeholder: Paste console output here
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Screenshots, screen recordings, related issues, or anything else that might help.

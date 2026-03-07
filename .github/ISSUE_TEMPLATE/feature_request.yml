@@ -1,0 +1,86 @@
+name: Feature Request
+description: Suggest a new card, capability, or improvement
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement! The more context you can provide about your use case, the better we can evaluate and implement it.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of LCARdS does this relate to?
+      multiple: true
+      options:
+        - New card type
+        - lcards-button
+        - lcards-chart
+        - lcards-slider
+        - lcards-data-grid
+        - lcards-elbow
+        - lcards-msd
+        - lcards-alert-overlay
+        - Theme system
+        - Template / expression engine
+        - DataSource system
+        - Rules engine
+        - Animation system
+        - Visual editor (Configuration Studio)
+        - Documentation
+        - Other / Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the limitation or gap you're running into. Concrete examples help.
+      placeholder: |
+        I want my lcards-button to cycle through three different states (off → dim → bright)
+        on successive taps, but there's no way to define a tap action that depends on
+        the current entity state.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: How would you like this to work? Include example YAML config, UI mockups, or API sketches if you have them.
+      placeholder: |
+        Add a `tap_action_sequence` option that accepts a list of actions. Each tap
+        advances to the next action in the list, cycling back to the first.
+
+        Example:
+          tap_action_sequence:
+            - action: call-service
+              service: light.turn_off
+            - action: call-service
+              service: light.turn_on
+              data: {brightness_pct: 30}
+            - action: call-service
+              service: light.turn_on
+              data: {brightness_pct: 100}
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or Workarounds Considered
+      description: What have you tried, and why does it fall short?
+      placeholder: |
+        I tried using the rules engine to change styles, but it doesn't let me
+        change the action itself. I also looked at using a helper entity to track
+        state, which works but adds maintenance overhead.
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Screenshots, related issues, links to similar implementations in other card systems, or anything else that would help.
