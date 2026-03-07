@@ -1,6 +1,5 @@
-//LCARdS main verson from package.json: modified to work with ES modules
-import packageJson from '../package.json' assert { type: 'json' };
-export const LCARdS_VERSION = packageJson.version;
+// Version and build date are injected by webpack DefinePlugin at build time
+export const LCARdS_VERSION = __LCARDS_VERSION__;
 export const project_url = "https://lcards.unimatrix01.ca";
 
 

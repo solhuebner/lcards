@@ -1,4 +1,5 @@
 const path = require('path');
+const webpack = require('webpack');
 
 module.exports = {
     entry: './src/lcards.js',
@@ -33,6 +34,12 @@ module.exports = {
             },
         },
     },
+    plugins: [
+        new webpack.DefinePlugin({
+            __LCARDS_VERSION__:  JSON.stringify(require('./package.json').version),
+            __LCARDS_BUILD_DATE__: JSON.stringify(new Date().toISOString()),
+        }),
+    ],
     devtool: 'source-map',
     cache: false,
 };

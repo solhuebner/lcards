@@ -38,6 +38,51 @@ import { LCARdSConfigPanel } from './panels/lcards-config-panel.js';
 // Ensure global namespace
 window.lcards = window.lcards || {};
 
+// Version is available immediately at module load (before async init)
+window.lcards.version = LCARdS.LCARdS_VERSION;
+
+/**
+ * window.lcards.info()
+ * Returns a snapshot of the current LCARdS runtime state —
+ * useful for troubleshooting and paste into bug reports.
+ *
+ * Usage (browser console): window.lcards.info()
+ */
+window.lcards.info = function () {
+    const core = window.lcards.core;
+    const info = {
+        version:   LCARdS.LCARdS_VERSION,
+        buildDate: __LCARDS_BUILD_DATE__,
+        homepage:  LCARdS.project_url,
+        logLevel:  lcardsGetGlobalLogLevel(),
+        cards: [
+            'lcards-button',
+            'lcards-elbow',
+            'lcards-chart',
+            'lcards-slider',
+            'lcards-data-grid',
+            'lcards-msd-card',
+            'lcards-alert-overlay',
+        ],
+        core: {
+            initialized: !!core?._initialized,
+            alertMode:   core?.themeManager?.getAlertMode?.() ?? null,
+            theme:       core?.themeManager?.getCurrentTheme?.()?.id ?? null,
+            dataSources: core?.dataSourceManager ? Object.keys(core.dataSourceManager.sources ?? {}).length : null,
+        },
+    };
+    // Pretty-print to console and also return for programmatic use
+    console.group('%c LCARdS Info ', 'background:#1b4f8a;color:#7eb6e8;font-weight:bold;padding:2px 6px;border-radius:4px;');
+    console.log('Version  :', info.version);
+    console.log('Build    :', info.buildDate);
+    console.log('Homepage :', info.homepage);
+    console.log('Log level:', info.logLevel);
+    console.log('Cards    :', info.cards.join(', '));
+    console.log('Core     :', info.core);
+    console.groupEnd();
+    return info;
+};
+
 
 async function initializeCustomCard() {
 

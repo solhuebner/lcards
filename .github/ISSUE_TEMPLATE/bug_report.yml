@@ -30,7 +30,7 @@ body:
     id: lcards_version
     attributes:
       label: LCARdS Version
-      description: Found in the browser console on load — `window.lcards.version` — or in your HA resource URL.
+      description: Run `window.lcards.info()` in the browser console for a full summary, or check `window.lcards.version` directly.
       placeholder: "e.g. 2026.03.07-alpha"
     validations:
       required: true
@@ -99,10 +99,12 @@ body:
   - type: textarea
     id: console_errors
     attributes:
-      label: Browser Console Errors
+      label: Browser Console Output
       description: |
-        Open the browser console (F12 → Console tab), reproduce the issue, then paste any errors or warnings here.
-        You can also enable debug logging first: `window.lcards.setGlobalLogLevel('debug')`
+        Open the browser console (F12 → Console tab) and:
+        1. Run `window.lcards.info()` — paste the output here (it includes version, build date, and core state)
+        2. Enable debug logging: `window.lcards.debug.setLevel('debug')`
+        3. Reproduce the issue and paste any errors or warnings below.
       render: shell
       placeholder: Paste console output here
 
