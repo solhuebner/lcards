@@ -100,6 +100,7 @@ async function initializeCustomCard() {
         stagger: anime.stagger,        // stagger function for animations
         spring: anime.createSpring,    // spring easing generator (v4 API)
         utils: anime.utils,            // CENTRAL canonical utils reference
+        splitText: anime.splitText,    // native text splitter (v4.1+)
         animateElement: animHelpers.animateElement,
         animateWithRoot: animHelpers.animateWithRoot,
         waitForElement: animHelpers.waitForElement,

@@ -1328,7 +1328,7 @@ export class LCARdSAnimationEditor extends LitElement {
         `;
         break;
 
-      // Text Animation Presets (PR#234)
+      // Text Animation Presets
       case 'text-reveal':
         specificParams = html`
           <div class="param-grid">
@@ -1344,16 +1344,23 @@ export class LCARdSAnimationEditor extends LitElement {
                   ]
                 }
               }}
-              .value=${params.split_type ?? 'chars'}
+              .value=${params.split ?? 'chars'}
               .label=${'Split By'}
-              @value-changed=${(e) => this._updateParam(index, 'split_type', e.detail.value)}>
+              @value-changed=${(e) => this._updateParam(index, 'split', e.detail.value)}>
+            </ha-selector>
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ number: { min: 100, max: 3000, step: 50, mode: 'box' } }}
+              .value=${params.duration ?? 800}
+              .label=${'Duration (ms)'}
+              @value-changed=${(e) => this._updateParam(index, 'duration', e.detail.value)}>
             </ha-selector>
             <ha-selector
               .hass=${this.hass}
               .selector=${{ number: { min: 0, max: 500, step: 10, mode: 'box' } }}
-              .value=${params.delay ?? 50}
+              .value=${params.stagger ?? 50}
               .label=${'Stagger Delay (ms)'}
-              @value-changed=${(e) => this._updateParam(index, 'delay', e.detail.value)}>
+              @value-changed=${(e) => this._updateParam(index, 'stagger', e.detail.value)}>
             </ha-selector>
             <ha-selector
               .hass=${this.hass}
@@ -1361,6 +1368,20 @@ export class LCARdSAnimationEditor extends LitElement {
               .value=${params.from_opacity ?? 0}
               .label=${'From Opacity'}
               @value-changed=${(e) => this._updateParam(index, 'from_opacity', e.detail.value)}>
+            </ha-selector>
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ number: { min: -50, max: 50, step: 2, mode: 'box' } }}
+              .value=${params.from_y ?? 20}
+              .label=${'From Y Offset (px)'}
+              @value-changed=${(e) => this._updateParam(index, 'from_y', e.detail.value)}>
+            </ha-selector>
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ boolean: {} }}
+              .value=${params.loop ?? false}
+              .label=${'Loop'}
+              @value-changed=${(e) => this._updateParam(index, 'loop', e.detail.value)}>
             </ha-selector>
           </div>
         `;
@@ -1372,23 +1393,17 @@ export class LCARdSAnimationEditor extends LitElement {
             <ha-selector
               .hass=${this.hass}
               .selector=${{ number: { min: 10, max: 500, step: 10, mode: 'box' } }}
-              .value=${params.delay ?? 80}
-              .label=${'Character Delay (ms)'}
-              @value-changed=${(e) => this._updateParam(index, 'delay', e.detail.value)}>
+              .value=${params.speed ?? 80}
+              .label=${'Speed – ms per character'}
+              @value-changed=${(e) => this._updateParam(index, 'speed', e.detail.value)}>
             </ha-selector>
             <ha-selector
               .hass=${this.hass}
               .selector=${{ boolean: {} }}
-              .value=${params.cursor ?? true}
-              .label=${'Show Cursor'}
-              @value-changed=${(e) => this._updateParam(index, 'cursor', e.detail.value)}>
+              .value=${params.loop ?? false}
+              .label=${'Loop'}
+              @value-changed=${(e) => this._updateParam(index, 'loop', e.detail.value)}>
             </ha-selector>
-            <ha-textfield
-              label="Cursor Character"
-              .value=${params.cursor_char ?? '▊'}
-              maxlength="2"
-              @input=${(e) => this._updateParam(index, 'cursor_char', e.target.value)}>
-            </ha-textfield>
           </div>
         `;
         break;
@@ -1398,51 +1413,44 @@ export class LCARdSAnimationEditor extends LitElement {
           <div class="param-grid">
             <ha-selector
               .hass=${this.hass}
-              .selector=${{ number: { min: 10, max: 500, step: 10, mode: 'box' } }}
-              .value=${params.delay ?? 50}
-              .label=${'Character Delay (ms)'}
+              .selector=${{ number: { min: 200, max: 5000, step: 100, mode: 'box' } }}
+              .value=${params.duration ?? 800}
+              .label=${'Duration – ms each char scrambles'}
+              @value-changed=${(e) => this._updateParam(index, 'duration', e.detail.value)}>
+            </ha-selector>
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ number: { min: 0, max: 300, step: 10, mode: 'box' } }}
+              .value=${params.stagger ?? 40}
+              .label=${'Stagger – ms between chars'}
+              @value-changed=${(e) => this._updateParam(index, 'stagger', e.detail.value)}>
+            </ha-selector>
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ number: { min: 0, max: 3000, step: 50, mode: 'box' } }}
+              .value=${params.delay ?? 0}
+              .label=${'Initial Delay (ms)'}
               @value-changed=${(e) => this._updateParam(index, 'delay', e.detail.value)}>
             </ha-selector>
             <ha-selector
               .hass=${this.hass}
-              .selector=${{ number: { min: 1, max: 20, step: 1, mode: 'slider' } }}
-              .value=${params.scramble_iterations ?? 5}
-              .label=${'Scramble Iterations'}
-              @value-changed=${(e) => this._updateParam(index, 'scramble_iterations', e.detail.value)}>
+              .selector=${{ number: { min: 0.1, max: 1, step: 0.05, mode: 'slider' } }}
+              .value=${params.settle_at ?? 0.85}
+              .label=${'Settle At – fraction scrambling (0–1)'}
+              @value-changed=${(e) => this._updateParam(index, 'settle_at', e.detail.value)}>
+            </ha-selector>
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ boolean: {} }}
+              .value=${params.loop ?? false}
+              .label=${'Loop'}
+              @value-changed=${(e) => this._updateParam(index, 'loop', e.detail.value)}>
             </ha-selector>
             <ha-textfield
-              label="Scramble Characters"
-              .value=${params.chars ?? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'}
-              @input=${(e) => this._updateParam(index, 'chars', e.target.value)}>
+              label="Character Pool"
+              .value=${params.characters ?? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*'}
+              @input=${(e) => this._updateParam(index, 'characters', e.target.value)}>
             </ha-textfield>
-          </div>
-        `;
-        break;
-
-      case 'text-wave':
-        specificParams = html`
-          <div class="param-grid">
-            <ha-selector
-              .hass=${this.hass}
-              .selector=${{ number: { min: 1, max: 50, step: 1, mode: 'slider' } }}
-              .value=${params.amplitude ?? 10}
-              .label=${'Wave Amplitude (px)'}
-              @value-changed=${(e) => this._updateParam(index, 'amplitude', e.detail.value)}>
-            </ha-selector>
-            <ha-selector
-              .hass=${this.hass}
-              .selector=${{ number: { min: 1, max: 20, step: 1, mode: 'slider' } }}
-              .value=${params.wave_length ?? 4}
-              .label=${'Wave Length (characters)'}
-              @value-changed=${(e) => this._updateParam(index, 'wave_length', e.detail.value)}>
-            </ha-selector>
-            <ha-selector
-              .hass=${this.hass}
-              .selector=${{ number: { min: 10, max: 200, step: 10, mode: 'box' } }}
-              .value=${params.delay ?? 50}
-              .label=${'Stagger Delay (ms)'}
-              @value-changed=${(e) => this._updateParam(index, 'delay', e.detail.value)}>
-            </ha-selector>
           </div>
         `;
         break;
@@ -1453,16 +1461,37 @@ export class LCARdSAnimationEditor extends LitElement {
             <ha-selector
               .hass=${this.hass}
               .selector=${{ number: { min: 1, max: 50, step: 1, mode: 'slider' } }}
-              .value=${params.intensity ?? 10}
-              .label=${'Glitch Intensity (px)'}
+              .value=${params.intensity ?? 5}
+              .label=${'Intensity (px / SVG units)'}
               @value-changed=${(e) => this._updateParam(index, 'intensity', e.detail.value)}>
             </ha-selector>
             <ha-selector
               .hass=${this.hass}
-              .selector=${{ number: { min: 10, max: 200, step: 10, mode: 'box' } }}
-              .value=${params.interval ?? 50}
-              .label=${'Glitch Interval (ms)'}
-              @value-changed=${(e) => this._updateParam(index, 'interval', e.detail.value)}>
+              .selector=${{ number: { min: 50, max: 2000, step: 50, mode: 'box' } }}
+              .value=${params.duration ?? 300}
+              .label=${'Duration (ms per glitch)'}
+              @value-changed=${(e) => this._updateParam(index, 'duration', e.detail.value)}>
+            </ha-selector>
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ number: { min: 0, max: 200, step: 10, mode: 'box' } }}
+              .value=${params.stagger ?? 50}
+              .label=${'Stagger Delay (ms)'}
+              @value-changed=${(e) => this._updateParam(index, 'stagger', e.detail.value)}>
+            </ha-selector>
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ boolean: {} }}
+              .value=${params.loop ?? false}
+              .label=${'Loop'}
+              @value-changed=${(e) => this._updateParam(index, 'loop', e.detail.value)}>
+            </ha-selector>
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ boolean: {} }}
+              .value=${params.color_shift ?? false}
+              .label=${'Colour Shift (HTML targets only)'}
+              @value-changed=${(e) => this._updateParam(index, 'color_shift', e.detail.value)}>
             </ha-selector>
           </div>
         `;
@@ -2299,7 +2328,6 @@ export class LCARdSAnimationEditor extends LitElement {
       { value: 'text-reveal', label: '✨ Text Reveal - Character-by-character reveal' },
       { value: 'text-typewriter', label: '✨ Text Typewriter - Typing effect' },
       { value: 'text-scramble', label: '✨ Text Scramble - Matrix-style scramble' },
-      { value: 'text-wave', label: '✨ Text Wave - Sinusoidal motion' },
       { value: 'text-glitch', label: '✨ Text Glitch - Rapid jitter' },
 
       // Stagger Animations (NEW - PR#233)
@@ -2345,9 +2373,8 @@ export class LCARdSAnimationEditor extends LitElement {
       'glitch': 'Digital glitch/distortion effect with rapid transforms',
       'physics-spring': 'Spring physics animation with realistic elasticity',
       'text-reveal': 'Character-by-character reveal with stagger - supports chars/words/lines',
-      'text-typewriter': 'Classic typewriter effect with optional cursor',
+      'text-typewriter': 'Classic typewriter effect – character-by-character reveal',
       'text-scramble': 'Matrix-style scramble with random character replacement',
-      'text-wave': 'Sinusoidal wave motion across text characters',
       'text-glitch': 'Rapid position and opacity jitter for malfunction effect',
       'stagger-flash': 'Replicates legacy LCARS alert bar chase: bright lead color chases across elements, fading to gray trail. Set property to "stroke" for SVG bars.',
       'stagger-grid': 'Grid-based stagger - animate elements in grid pattern with directional wave',

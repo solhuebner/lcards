@@ -2,10 +2,12 @@
  * Text Animation Presets
  *
  * Text-based animations using character/word/line splitting.
- * These presets animate individual text elements for reveal, scramble, and motion effects.
+ * Uses native anime.js v4 splitText() for HTML elements (available since v4.1.0).
+ * For SVG <text> elements falls back to <tspan> children (SVG cannot contain <span>).
  *
- * Since anime.js v4 doesn't have a built-in splitText() function,
- * we implement a simple text splitter that wraps characters/words/lines in spans.
+ * Each preset's setup() stores split targets in element._animTargets.
+ * lcards-anim-helpers.js dispatches these automatically — no `targets:` needed in
+ * the anime config objects.
  *
  * Text presets are ideal for:
  * - Character-by-character reveals
@@ -30,158 +32,162 @@ function getResolvedEasing(params) {
 }
 
 /**
- * Escape HTML special characters to prevent XSS
- * @param {string} text - Text to escape
- * @returns {string} Escaped text
+ * Detect whether an element lives in the SVG namespace.
+ * SVG <text> elements cannot contain HTML <span> children; they require <tspan>.
+ * @param {Element} element
+ * @returns {boolean}
  * @private
  */
-function _escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+function _isSvgElement(element) {
+  return element?.namespaceURI === 'http://www.w3.org/2000/svg';
 }
 
 /**
- * Sanitize element ID to ensure valid CSS identifier (only alphanumeric, dash, underscore)
- * @param {string} id - ID to sanitize
- * @returns {string} Sanitized ID
+ * Split an SVG <text> element into <tspan> children.
+ * Returns an object with the unit array and a revert() method.
+ * @param {Element} element
+ * @param {'chars'|'words'|'lines'} type
+ * @returns {{ units: Element[], revert: function }}
  * @private
  */
-function _sanitizeId(id) {
-  return id.replace(/[^a-zA-Z0-9_-]/g, '_');
-}
-
-/**
- * Simple text splitter utility
- * Splits text into characters, words, or lines and wraps each in a span
- *
- * @param {Element} element - The text element to split
- * @param {Object} options - Split options
- * @param {string} options.type - Split type: 'chars', 'words', or 'lines'
- * @param {string} options.charsClass - CSS class for character spans
- * @returns {Object} Splitter object with revert() method
- * @private
- */
-function _splitText(element, options = {}) {
-  const { type = 'chars', charsClass = 'lcards-char-split' } = options;
-
-  if (!element) {
-    lcardsLog.warn('[_splitText] No element provided');
-    return { revert: () => {} };
-  }
-
-  // Store original content for revert
-  const originalHTML = element.innerHTML;
+function _splitTextSvg(element, type = 'chars') {
+  const svgNS = 'http://www.w3.org/2000/svg';
   const originalText = element.textContent;
 
-  let wrappedHTML = '';
-
-  if (type === 'chars') {
-    // Split into characters (using Array.from for proper Unicode support)
-    const chars = Array.from(originalText);
-    wrappedHTML = chars
-      .map(char => `<span class="${charsClass}">${_escapeHtml(char)}</span>`)
-      .join('');
+  let tokens;
+  if (type === 'lines') {
+    tokens = originalText.split('\n');
   } else if (type === 'words') {
-    // Split into words (preserving spaces)
-    const words = originalText.split(/(\s+)/);
-    wrappedHTML = words
-      .map(word => {
-        if (word.match(/^\s+$/)) {
-          // Preserve whitespace as-is
-          return word;
-        }
-        return `<span class="${charsClass}">${_escapeHtml(word)}</span>`;
-      })
-      .join('');
-  } else if (type === 'lines') {
-    // Split into lines
-    const lines = originalText.split('\n');
-    wrappedHTML = lines
-      .map(line => `<span class="${charsClass}">${_escapeHtml(line)}</span>`)
-      .join('\n');
+    // Include a trailing space in every token except the last so SVG renders
+    // inter-word gaps correctly. SVG <tspan> siblings produce no implicit whitespace.
+    const raw = originalText.trim().split(/\s+/).filter(Boolean);
+    tokens = raw.map((w, i) => i < raw.length - 1 ? w + ' ' : w);
+  } else {
+    tokens = Array.from(originalText); // proper Unicode char split
   }
 
-  element.innerHTML = wrappedHTML;
+  // Clear element and insert <tspan> children
+  while (element.firstChild) element.removeChild(element.firstChild);
+  const tspans = tokens.map(token => {
+    const tspan = document.createElementNS(svgNS, 'tspan');
+    tspan.textContent = token;
+    element.appendChild(tspan);
+    return tspan;
+  });
+
+  lcardsLog.debug('[_splitTextSvg] Split via <tspan>', {
+    tagName: element.tagName, type, count: tspans.length
+  });
 
   return {
-    revert: () => {
-      element.innerHTML = originalHTML;
+    units: tspans,
+    revert() {
+      while (element.firstChild) element.removeChild(element.firstChild);
+      element.appendChild(document.createTextNode(originalText));
     }
   };
 }
 
 /**
- * Text animation presets
- * Each preset returns animation configuration with setup/cleanup functions
+ * Split an HTML element using the native anime.js splitText API (v4.1.0+).
+ * Returns { units: Element[], revert: function } compatible with _splitTextSvg.
+ * @param {Element} element
+ * @param {'chars'|'words'|'lines'} type
+ * @returns {{ units: Element[], revert: function }}
+ * @private
+ */
+function _splitTextHtml(element, type = 'chars') {
+  const splitText = window.lcards?.anim?.splitText;
+  if (!splitText) {
+    lcardsLog.warn('[_splitTextHtml] anime.splitText not available — upgrade animejs >= 4.1.0');
+    return { units: [], revert: () => {} };
+  }
+
+  const splitter = splitText(element, {
+    chars: type === 'chars',
+    words: type === 'words',
+    lines: type === 'lines'
+  });
+
+  const units = Array.from(
+    type === 'chars' ? splitter.chars : type === 'words' ? splitter.words : splitter.lines
+  );
+
+  lcardsLog.debug('[_splitTextHtml] Split via native splitText', {
+    tagName: element.tagName, type, count: units.length
+  });
+
+  return { units, revert: () => splitter.revert() };
+}
+
+/**
+ * Split a text element — dispatches to SVG or HTML path.
+ * @param {Element} element
+ * @param {'chars'|'words'|'lines'} type
+ * @returns {{ units: Element[], revert: function }}
+ * @private
+ */
+function _splitText(element, type = 'chars') {
+  if (!element) {
+    lcardsLog.warn('[_splitText] No element provided');
+    return { units: [], revert: () => {} };
+  }
+  return _isSvgElement(element)
+    ? _splitTextSvg(element, type)
+    : _splitTextHtml(element, type);
+}
+
+/**
+ * Text animation presets.
+ *
+ * Each preset's setup() stores split char/word/line targets in element._animTargets.
+ * lcards-anim-helpers.js picks up element._animTargets after setup() runs and passes
+ * the array directly to anime() — no `targets:` key is needed in the anime config.
+ *
+ * Setting element._animTargets = null in setup() signals that the preset self-managed
+ * the anime call entirely (e.g. text-scramble) and anim-helpers should skip the main
+ * anime() invocation for that element.
  */
 export const TEXT_PRESETS = {
   /**
-   * Text Reveal - Character-by-character reveal
+   * Text Reveal – character-by-character or word/line reveal with stagger.
    *
-   * Splits text into characters/words and reveals them with a stagger effect.
-   * Characters fade in and optionally translate from a Y offset.
-   *
-   * Parameters:
-   * - split (default: 'chars') - Split type: 'chars', 'words', or 'lines'
-   * - direction (default: 'first') - Stagger direction: 'first', 'last', 'center'
-   * - stagger (default: 50) - ms delay between characters
-   * - duration (default: 800) - per-character animation duration
-   * - from_opacity (default: 0) - starting opacity
-   * - from_y (default: 20) - starting Y offset in pixels
-   * - ease (default: 'easeOutQuad')
-   * - loop (default: false)
-   *
-   * Example:
-   * {
-   *   preset: 'text-reveal',
-   *   targets: '.card-title',
-   *   params: { split: 'chars', stagger: 30, from_y: 10 }
-   * }
+   * params: split ('chars'|'words'|'lines'), direction, stagger, duration,
+   *         from_opacity, from_y, ease, loop
    */
   'text-reveal': (def) => {
     const p = def.params || def;
-    const split = p.split || 'chars';
+    const split     = p.split     || 'chars';
     const direction = p.direction || 'first';
-    const stagger = p.stagger !== undefined ? p.stagger : 50;
-    const duration = p.duration || 800;
+    const stagger   = p.stagger   !== undefined ? p.stagger   : 50;
+    const duration  = p.duration  || 800;
     const fromOpacity = p.from_opacity !== undefined ? p.from_opacity : 0;
-    const fromY = p.from_y !== undefined ? p.from_y : 20;
+    const fromY       = p.from_y      !== undefined ? p.from_y      : 20;
     const ease = getResolvedEasing(p) || 'easeOutQuad';
     const loop = p.loop !== undefined ? p.loop : false;
 
     return {
       anime: {
-        targets: '.lcards-char-split',
-        opacity: [fromOpacity, 1],
+        // targets come from element._animTargets (set by setup); no targets: key here
+        opacity:    [fromOpacity, 1],
         translateY: [fromY, 0],
         duration,
         ease,
         loop,
-        delay: {
-          _stagger: true,
-          value: stagger,
-          from: direction
-        }
+        delay: { _stagger: true, value: stagger, from: direction }
       },
       styles: {},
-      setup: (element) => {
+      setup(element) {
         if (!element) return;
-
-        // Split text into characters/words/lines
-        element._textSplitter = _splitText(element, {
-          type: split,
-          charsClass: 'lcards-char-split'
-        });
-
-        lcardsLog.debug('[text-reveal] Text split complete', {
-          element: element.tagName,
-          split,
-          charCount: element.querySelectorAll('.lcards-char-split').length
+        const splitter = _splitText(element, split);
+        element._textSplitter = splitter;
+        element._animTargets  = splitter.units;
+        lcardsLog.debug('[text-reveal] split complete', {
+          tag: element.tagName, split, count: splitter.units.length
         });
       },
-      cleanup: (element) => {
-        if (element && element._textSplitter) {
+      cleanup(element) {
+        if (element?._textSplitter) {
           element._textSplitter.revert();
           delete element._textSplitter;
         }
@@ -190,88 +196,91 @@ export const TEXT_PRESETS = {
   },
 
   /**
-   * Text Scramble - Matrix-style scramble effect
+   * Text Scramble – matrix-style character scramble.
    *
-   * Scrambles characters before revealing the final text.
-   * Each character cycles through random characters before settling on the correct one.
+   * Each character scrambles for `duration` ms, then snaps to its real value.
+   * Characters start staggered by `stagger` ms so the scramble rolls across the text.
+   * Total wall-clock time ≈ delay + duration + (chars - 1) × stagger.
    *
-   * Parameters:
-   * - duration (default: 1000) - total animation duration
-   * - characters (default: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*') - character set for scrambling
-   * - iterations (default: 8) - number of scramble cycles per character
-   * - stagger (default: 30) - delay between starting each character's scramble
-   * - loop (default: false)
+   * To slow the effect down, increase `duration` (time each char spends scrambling)
+   * and/or `stagger` (gap between each character starting).
    *
-   * Example:
-   * {
-   *   preset: 'text-scramble',
-   *   targets: '.status-text',
-   *   params: { iterations: 12, stagger: 20 }
-   * }
+   * setup() self-manages all anime calls and sets element._animTargets = null to
+   * prevent anim-helpers from making an additional redundant anime() call.
+   *
+   * Works for both HTML <span> and SVG <tspan> targets.
+   *
+   * params:
+   *   duration    (default 800)  – ms each character spends scrambling before settling
+   *   stagger     (default 40)   – ms between each character starting
+   *   delay       (default 0)    – ms to wait before the first character begins
+   *   loop        (default false) – replay the scramble indefinitely
+   *   settle_at   (default 0.85) – fraction [0–1] of duration spent scrambling;
+   *                                 remainder is the "settled" hold before loop/end
+   *   characters                 – pool of random chars to cycle through
+   *
+   * Note: `ease`, `alternate`, and `scramble_iterations` are not applicable and are
+   *       silently ignored — the scramble is driven entirely by textContent mutation,
+   *       not by an interpolated CSS/SVG property.
    */
   'text-scramble': (def) => {
     const p = def.params || def;
-    const duration = p.duration || 1000;
-    const characters = p.characters || 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
-    const iterations = p.iterations !== undefined ? p.iterations : 8;
-    const stagger = p.stagger !== undefined ? p.stagger : 30;
-    const loop = p.loop !== undefined ? p.loop : false;
+    const duration  = p.duration  || 800;
+    const stagger   = p.stagger   !== undefined ? p.stagger    : 40;
+    const delay     = p.delay     !== undefined ? p.delay      : 0;
+    const loop      = p.loop      !== undefined ? p.loop       : false;
+    const settleAt  = p.settle_at !== undefined ? p.settle_at  : 0.85;
+    const charSet   = p.characters || 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
 
     return {
-      anime: {
-        targets: '.lcards-char-split',
-        duration,
-        ease: 'linear',
-        loop,
-        delay: {
-          _stagger: true,
-          value: stagger,
-          from: 'first'
-        },
-        // Use keyframes to cycle through random characters
-        innerHTML: (el) => {
-          const originalChar = el.getAttribute('data-original-char') || el.textContent;
-          const keyframes = [];
-
-          // Generate random character keyframes
-          for (let i = 0; i < iterations; i++) {
-            const randomChar = characters[Math.floor(Math.random() * characters.length)];
-            keyframes.push(randomChar);
-          }
-
-          // Final keyframe reveals original character
-          keyframes.push(originalChar);
-
-          return keyframes;
-        }
-      },
+      anime: {}, // empty — setup() drives the animation
       styles: {},
-      setup: (element) => {
+      setup(element) {
         if (!element) return;
 
-        // Store original text content as array for proper Unicode indexing
-        const originalChars = Array.from(element.textContent);
+        const splitter = _splitText(element, 'chars');
+        element._textSplitter = splitter;
+        element._animTargets = null; // self-managed; skip anim-helpers main call
 
-        // Split text into characters
-        element._textSplitter = _splitText(element, {
-          type: 'chars',
-          charsClass: 'lcards-char-split'
+        const units = splitter.units;
+        const anime = window.lcards?.anim?.anime;
+        if (!anime) {
+          lcardsLog.warn('[text-scramble] anime.animate not available');
+          return;
+        }
+
+        const settleThreshold = duration * settleAt;
+
+        units.forEach((unit, i) => {
+          const originalText = unit.textContent;
+            // A tiny imperceptible delta forces a real tween so onUpdate fires every frame.
+            // The scramble IS the textContent mutation — no visible opacity change.
+            anime(unit, {
+              opacity:  [0.9999, 1],
+            duration,
+            delay:    delay + i * stagger,
+            ease:     'linear',
+            loop,
+            onUpdate(anim) {
+              // Scramble random chars for settleAt fraction of duration, then hold original
+              if (anim.currentTime < settleThreshold) {
+                unit.textContent = charSet[Math.floor(Math.random() * charSet.length)];
+              } else {
+                unit.textContent = originalText;
+              }
+            },
+            onComplete() {
+              unit.textContent = originalText;
+            }
+          });
         });
 
-        // Store original character in data attribute for each span
-        const chars = element.querySelectorAll('.lcards-char-split');
-        chars.forEach((char, i) => {
-          char.setAttribute('data-original-char', originalChars[i] || '');
-        });
-
-        lcardsLog.debug('[text-scramble] Text split complete', {
-          element: element.tagName,
-          charCount: chars.length,
-          iterations
+        lcardsLog.debug('[text-scramble] self-managed animation started', {
+          tag: element.tagName, count: units.length, duration, stagger, delay, loop, settleAt
         });
       },
-      cleanup: (element) => {
-        if (element && element._textSplitter) {
+      cleanup(element) {
+        if (element?._textSplitter) {
           element._textSplitter.revert();
           delete element._textSplitter;
         }
@@ -280,173 +289,83 @@ export const TEXT_PRESETS = {
   },
 
   /**
-   * Text Wave - Wave motion through text
+   * Text Glitch – random per-character jitter displacement.
    *
-   * Animates characters in a wave pattern with vertical movement.
-   * Creates a smooth sine wave effect across the text.
+   * HTML path: animates CSS translateX/translateY on inline-block <span> elements.
+   *            Optional color_shift applies a hue-rotate filter.
+   * SVG path:  animates the SVG `dx`/`dy` presentation attributes on <tspan> elements.
+   *            color_shift is not supported on SVG tspan.
    *
-   * Parameters:
-   * - amplitude (default: 20) - wave height in pixels
-   * - wavelength (default: 3) - characters per wave cycle
-   * - duration (default: 2000) - animation duration
-   * - stagger (default: 100) - phase shift between characters
-   * - ease (default: 'easeInOutSine')
-   * - loop (default: true)
-   * - alternate (default: true)
-   *
-   * Example:
-   * {
-   *   preset: 'text-wave',
-   *   targets: '.animated-title',
-   *   params: { amplitude: 30, wavelength: 4, duration: 1500 }
-   * }
-   */
-  'text-wave': (def) => {
-    const p = def.params || def;
-    const amplitude = p.amplitude !== undefined ? p.amplitude : 20;
-    const wavelength = p.wavelength !== undefined ? p.wavelength : 3;
-    const duration = p.duration || 2000;
-    const stagger = p.stagger !== undefined ? p.stagger : 100;
-    const ease = getResolvedEasing(p) || 'easeInOutSine';
-    const loop = p.loop !== undefined ? p.loop : true;
-    const alternate = p.alternate !== undefined ? p.alternate : true;
-
-    return {
-      anime: {
-        targets: '.lcards-char-split',
-        translateY: (el, i) => {
-          // Calculate sine wave based on character position
-          const phase = (i / wavelength) * Math.PI * 2;
-          return [0, Math.sin(phase) * amplitude];
-        },
-        duration,
-        ease,
-        loop,
-        alternate,
-        delay: {
-          _stagger: true,
-          value: stagger,
-          from: 'first'
-        }
-      },
-      styles: {
-        display: 'inline-block'
-      },
-      setup: (element) => {
-        if (!element) return;
-
-        // Split text into characters
-        element._textSplitter = _splitText(element, {
-          type: 'chars',
-          charsClass: 'lcards-char-split'
-        });
-
-        // Apply inline-block to each character for transform
-        const chars = element.querySelectorAll('.lcards-char-split');
-        chars.forEach(char => {
-          char.style.display = 'inline-block';
-        });
-
-        lcardsLog.debug('[text-wave] Text split complete', {
-          element: element.tagName,
-          charCount: chars.length,
-          amplitude,
-          wavelength
-        });
-      },
-      cleanup: (element) => {
-        if (element && element._textSplitter) {
-          element._textSplitter.revert();
-          delete element._textSplitter;
-        }
-      }
-    };
-  },
-
-  /**
-   * Text Glitch - Per-character glitch effect
-   *
-   * Creates random position and color shifts for each character,
-   * simulating a glitch/distortion effect.
-   *
-   * Parameters:
-   * - intensity (default: 5) - max pixel displacement
-   * - duration (default: 300) - animation duration
-   * - stagger (default: 50) - randomize start times
-   * - color_shift (default: false) - enable hue-rotate filter
-   * - loop (default: false)
-   *
-   * Example:
-   * {
-   *   preset: 'text-glitch',
-   *   targets: '.error-message',
-   *   params: { intensity: 8, color_shift: true, loop: true }
-   * }
+   * params:
+   *   intensity    (default 5)    – max displacement in px / SVG units
+   *   duration     (default 300)  – ms per glitch cycle
+   *   stagger      (default 50)   – ms offset between characters
+   *   color_shift  (default false) – hue rotate on each character (HTML only)
+   *   loop         (default false) – repeat
    */
   'text-glitch': (def) => {
     const p = def.params || def;
-    const intensity = p.intensity !== undefined ? p.intensity : 5;
-    const duration = p.duration || 300;
-    const stagger = p.stagger !== undefined ? p.stagger : 50;
+    const intensity  = p.intensity   !== undefined ? p.intensity  : 5;
+    const duration   = p.duration    || 300;
+    const stagger    = p.stagger     !== undefined ? p.stagger    : 50;
     const colorShift = p.color_shift || false;
-    const loop = p.loop !== undefined ? p.loop : false;
+    const loop       = p.loop        !== undefined ? p.loop       : false;
 
-    const animConfig = {
-      targets: '.lcards-char-split',
+    const htmlAnimConfig = {
       duration,
       ease: 'easeInOutQuad',
       loop,
-      delay: {
-        _stagger: true,
-        value: stagger,
-        from: 'first'
-      },
-      // Generate random displacement for each character
-      translateX: () => {
-        return [0, (Math.random() - 0.5) * intensity * 2];
-      },
-      translateY: () => {
-        return [0, (Math.random() - 0.5) * intensity * 2];
-      }
+      delay: { _stagger: true, value: stagger, from: 'first' },
+      // Function form: called once per element, generates unique random displacement per char
+      translateX: () => [0, (Math.random() - 0.5) * intensity * 2],
+      translateY: () => [0, (Math.random() - 0.5) * intensity * 2]
     };
-
-    // Add color shift if enabled
     if (colorShift) {
-      animConfig.filter = () => {
-        const hueShift = Math.random() * 30 - 15; // Random shift between -15 and 15 degrees
-        return [`hue-rotate(0deg)`, `hue-rotate(${hueShift}deg)`];
+      htmlAnimConfig.filter = () => {
+        const hue = Math.random() * 30 - 15;
+        return [`hue-rotate(0deg)`, `hue-rotate(${hue}deg)`];
       };
     }
 
     return {
-      anime: animConfig,
-      styles: {
-        display: 'inline-block'
-      },
-      setup: (element) => {
+      anime: htmlAnimConfig, // used for HTML path only
+      styles: {},
+      setup(element) {
         if (!element) return;
+        const splitter = _splitText(element, 'chars');
+        element._textSplitter = splitter;
+        const units = splitter.units;
 
-        // Split text into characters
-        element._textSplitter = _splitText(element, {
-          type: 'chars',
-          charsClass: 'lcards-char-split'
-        });
+        if (_isSvgElement(element)) {
+          // SVG path: self-manage using dx/dy attributes
+          element._animTargets = null;
+          const anime = window.lcards?.anim?.anime;
+          if (!anime) { lcardsLog.warn('[text-glitch] anime.animate not available'); return; }
 
-        // Apply inline-block to each character for transform
-        const chars = element.querySelectorAll('.lcards-char-split');
-        chars.forEach(char => {
-          char.style.display = 'inline-block';
-        });
+          units.forEach((unit, i) => {
+            const dxVal = (Math.random() - 0.5) * intensity * 2;
+            const dyVal = (Math.random() - 0.5) * intensity * 2;
+            anime(unit, {
+              dx:       [0, dxVal, 0],
+              dy:       [0, dyVal, 0],
+              duration,
+              ease:     'easeInOutQuad',
+              loop,
+              delay:    i * stagger
+            });
+          });
+        } else {
+          // HTML path: hand targets to anim-helpers with CSS transform config
+          units.forEach(u => { u.style.display = 'inline-block'; });
+          element._animTargets = units;
+        }
 
-        lcardsLog.debug('[text-glitch] Text split complete', {
-          element: element.tagName,
-          charCount: chars.length,
-          intensity,
-          colorShift
+        lcardsLog.debug('[text-glitch] split complete', {
+          tag: element.tagName, isSvg: _isSvgElement(element), count: units.length
         });
       },
-      cleanup: (element) => {
-        if (element && element._textSplitter) {
+      cleanup(element) {
+        if (element?._textSplitter) {
           element._textSplitter.revert();
           delete element._textSplitter;
         }
@@ -455,137 +374,43 @@ export const TEXT_PRESETS = {
   },
 
   /**
-   * Text Typewriter - Typewriter reveal effect
+   * Text Typewriter – reveals characters one at a time.
    *
-   * Reveals characters one at a time in sequence, like a typewriter.
-   * Optionally displays a blinking cursor during and after typing.
-   *
-   * Parameters:
-   * - speed (default: 100) - ms per character
-   * - cursor (default: true) - show blinking cursor
-   * - cursor_char (default: '|') - cursor character
-   * - cursor_blink_speed (default: 530) - cursor blink speed in ms
-   * - loop (default: false)
-   *
-   * Example:
-   * {
-   *   preset: 'text-typewriter',
-   *   targets: '.console-output',
-   *   params: { speed: 50, cursor: true, cursor_char: '_' }
-   * }
+   * params: speed, loop
    */
   'text-typewriter': (def) => {
     const p = def.params || def;
     const speed = p.speed !== undefined ? p.speed : 100;
-    const cursor = p.cursor !== undefined ? p.cursor : true;
-    const cursorChar = p.cursor_char || '|';
-    const cursorBlinkSpeed = p.cursor_blink_speed || 530;
-    const loop = p.loop !== undefined ? p.loop : false;
+    const loop  = p.loop  !== undefined ? p.loop  : false;
 
     return {
       anime: {
-        targets: '.lcards-char-split',
         opacity: [0, 1],
-        delay: (el, i) => i * speed,
+        delay:   (_el, i) => i * speed,
         duration: 1,
-        ease: 'linear',
+        ease:    'linear',
         loop
       },
       styles: {},
-      setup: (element) => {
+      setup(element) {
         if (!element) return;
 
-        // Split text into characters
-        element._textSplitter = _splitText(element, {
-          type: 'chars',
-          charsClass: 'lcards-char-split'
-        });
+        const splitter = _splitText(element, 'chars');
+        element._textSplitter = splitter;
+        element._animTargets  = splitter.units;
 
-        // Set all characters to opacity 0 initially
-        const chars = element.querySelectorAll('.lcards-char-split');
-        chars.forEach(char => {
-          char.style.opacity = '0';
-        });
+        // All chars start hidden; anime will fade each in
+        splitter.units.forEach(u => { u.style.opacity = '0'; });
 
-        // Add cursor if enabled
-        if (cursor) {
-          // Sanitize cursor character to prevent CSS injection
-          const sanitizedCursor = cursorChar
-            .replace(/\\/g, '\\\\')  // Escape backslashes
-            .replace(/'/g, "\\'")    // Escape single quotes
-            .replace(/"/g, '\\"');   // Escape double quotes
-
-          // Generate unique element ID if needed
-          // Use crypto.randomUUID() if available, otherwise fallback to timestamp+random
-          if (!element.id) {
-            if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-              element.id = `lcards-typewriter-${crypto.randomUUID()}`;
-            } else {
-              // Fallback for older browsers
-              element.id = `lcards-typewriter-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-            }
-          }
-
-          // Sanitize the element ID for CSS safety (after setting it)
-          const sanitizedElementId = _sanitizeId(element.id);
-
-          // If sanitization changed the ID, update the element's actual ID to match
-          if (sanitizedElementId !== element.id) {
-            element.id = sanitizedElementId;
-          }
-
-          const styleId = `lcards-typewriter-cursor-${sanitizedElementId}`;
-
-          // Check if this specific style already exists
-          let styleEl = document.getElementById(styleId);
-
-          if (!styleEl) {
-            styleEl = document.createElement('style');
-            styleEl.id = styleId;
-            styleEl.textContent = `
-              #${sanitizedElementId}.lcards-typewriter-cursor::after {
-                content: '${sanitizedCursor}';
-                animation: lcards-cursor-blink ${cursorBlinkSpeed}ms step-end infinite;
-                margin-left: 2px;
-              }
-              @keyframes lcards-cursor-blink {
-                0%, 50% { opacity: 1; }
-                51%, 100% { opacity: 0; }
-              }
-            `;
-            document.head.appendChild(styleEl);
-
-            // Store style element reference for cleanup
-            element._cursorStyleEl = styleEl;
-          }
-
-          // Add cursor class to element for styling
-          element.classList.add('lcards-typewriter-cursor');
-        }
-
-        lcardsLog.debug('[text-typewriter] Text split complete', {
-          element: element.tagName,
-          charCount: chars.length,
-          speed,
-          cursor
+        lcardsLog.debug('[text-typewriter] split complete', {
+          tag: element.tagName, count: splitter.units.length, speed
         });
       },
-      cleanup: (element) => {
-        if (element) {
-          // Remove cursor class
-          element.classList.remove('lcards-typewriter-cursor');
-
-          // Remove cursor style element if it exists
-          if (element._cursorStyleEl) {
-            element._cursorStyleEl.remove();
-            delete element._cursorStyleEl;
-          }
-
-          // Revert text split
-          if (element._textSplitter) {
-            element._textSplitter.revert();
-            delete element._textSplitter;
-          }
+      cleanup(element) {
+        if (!element) return;
+        if (element._textSplitter) {
+          element._textSplitter.revert();
+          delete element._textSplitter;
         }
       }
     };

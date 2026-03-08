@@ -766,6 +766,19 @@ export async function animateElement(scope, options, hass = null, onInstanceCrea
           // Remove targets from params since it's passed as first argument
           const { targets: _, ...rest } = processedParams;
           animeParams = rest;
+        } else if (element._animTargets !== undefined) {
+          // Text/split animations: setup() stored per-character targets on the element.
+          // null signals that setup() self-managed the animation entirely (e.g. scramble).
+          const animTargets = element._animTargets;
+          delete element._animTargets;
+          if (animTargets === null) {
+            lcardsLog.debug(`[animateElement] Preset setup() self-managed animation for ${type}, skipping main anime call`);
+            continue;
+          }
+          targetElement = animTargets;
+          // Strip the CSS-selector placeholder 'targets' from params (no longer needed)
+          const { targets: _, ...rest } = animeParams;
+          animeParams = rest;
         }
 
         // Strip LCARdS-internal meta-params before calling anime.animate()
