@@ -1294,10 +1294,12 @@ export class LCARdSElbow extends LCARdSButton {
             horizontalPadding = this._elbowConfig.segment.bar_width + 20;
             verticalPadding = this._elbowConfig.segment.bar_height + 10;
         } else {
-            // For segmented, use outer segment dimensions
-            horizontalPadding = this._elbowConfig.segments.outer_segment.bar_width + 20;
-            verticalPadding = (this._elbowConfig.segments.outer_segment.bar_height ||
-                              this._elbowConfig.segments.outer_segment.bar_width) + 10;
+            // For segmented, account for both bars plus the gap between them
+            const { gap, outer_segment, inner_segment } = this._elbowConfig.segments;
+            horizontalPadding = outer_segment.bar_width + (gap ?? 0) + inner_segment.bar_width + 20;
+            verticalPadding = (outer_segment.bar_height || outer_segment.bar_width) +
+                              (gap ?? 0) +
+                              (inner_segment.bar_height || inner_segment.bar_width) + 10;
         }
 
         // Set defaults for all text fields if not explicitly set
@@ -1887,15 +1889,19 @@ export class LCARdSElbow extends LCARdSButton {
         const position = component?.layout?.position || 'header';
         const side = component?.layout?.side || 'left';
 
-        // For segmented mode, use inner segment dimensions; for simple mode, use direct geometry
-        const horizontal = g.inner ? g.inner.horizontal : g.horizontal;
-        const vertical = g.inner ? g.inner.vertical : g.vertical;
-        const offset = g.offset || { x: 0, y: 0 };
+        // For segmented mode, use TOTAL bar dimensions (outer + gap + inner);
+        // for simple mode, use direct geometry — mirrors _resolveBackgroundAnimationInset.
+        const horizontal = g.inner
+            ? (g.outer.horizontal + (g.gap ?? 0) + g.inner.horizontal)
+            : (g.horizontal ?? 0);
+        const vertical = g.inner
+            ? (g.outer.vertical + (g.gap ?? 0) + g.inner.vertical)
+            : (g.vertical ?? 0);
 
         // Calculate content area (area not occupied by elbow bars)
         let contentArea = {
-            x: offset.x,
-            y: offset.y,
+            x: 0,
+            y: 0,
             width: width,
             height: height
         };
