@@ -1940,9 +1940,7 @@ export class LCARdSSlider extends LCARdSButton {
                               x="0" y="${yStart}"
                               width="${trackWidth}" height="${rangeHeight}"
                               fill="${rangeColor}"
-                              opacity="${rangeOpacity}"
-                              data-range-index="${idx}"
-                              data-range-label="${rangeConfig.label || ''}" />
+                              opacity="${rangeOpacity}" />
                     `;
                 } else {
                     // Horizontal: ranges extend from left to right
@@ -1955,9 +1953,7 @@ export class LCARdSSlider extends LCARdSButton {
                               x="${xStart}" y="0"
                               width="${rangeWidth}" height="${trackHeight}"
                               fill="${rangeColor}"
-                              opacity="${rangeOpacity}"
-                              data-range-index="${idx}"
-                              data-range-label="${rangeConfig.label || ''}" />
+                              opacity="${rangeOpacity}" />
                     `;
                 }
             });
@@ -2824,6 +2820,16 @@ export class LCARdSSlider extends LCARdSButton {
             trackZoneElement.innerHTML = trackContent;
         }
 
+        // Append gauge value-marker indicators into the track zone (on top of ticks).
+        // Markers are rendered here — not in the progress zone — so they always land
+        // on the tick/gauge area regardless of component layout (default vs picard etc.)
+        if (effectiveMode === 'gauge' && trackZoneElement && trackZone) {
+            const markerSvg = this._generateGaugeMarkers(trackZone, orientation);
+            if (markerSvg) {
+                trackZoneElement.innerHTML += markerSvg;
+            }
+        }
+
         // Inject progress bar into the appropriate zone.
         //
         // z-order is controlled by two named zone elements in the component SVG:
@@ -3008,11 +3014,11 @@ export class LCARdSSlider extends LCARdSButton {
             if (isVertical) {
                 const yStart = zoneHeight * (1 - endPercent);
                 const yEnd   = zoneHeight * (1 - startPercent);
-                svg += `<rect class="range-bg" x="0" y="${yStart}" width="${zoneWidth}" height="${yEnd - yStart}" fill="${rangeColor}" opacity="${rangeOpacity}" data-range-index="${idx}" data-range-label="${rangeConfig.label || ''}" />`;
+                svg += `<rect class="range-bg" x="0" y="${yStart}" width="${zoneWidth}" height="${yEnd - yStart}" fill="${rangeColor}" opacity="${rangeOpacity}" />`;
             } else {
                 const xStart = zoneWidth * startPercent;
                 const xEnd   = zoneWidth * endPercent;
-                svg += `<rect class="range-bg" x="${xStart}" y="0" width="${xEnd - xStart}" height="${zoneHeight}" fill="${rangeColor}" opacity="${rangeOpacity}" data-range-index="${idx}" data-range-label="${rangeConfig.label || ''}" />`;
+                svg += `<rect class="range-bg" x="${xStart}" y="0" width="${xEnd - xStart}" height="${zoneHeight}" fill="${rangeColor}" opacity="${rangeOpacity}" />`;
             }
         });
         return svg;
@@ -3322,61 +3328,108 @@ export class LCARdSSlider extends LCARdSButton {
                     );
                 }
             }
-
-            // Render marker indicators for value-based range entries
-            const markerRanges = (this._sliderStyle?.ranges || [])
-                .map((r, i) => ({ range: r, resolvedValue: this._resolvedMarkerValues[i] }))
-                .filter(({ range, resolvedValue }) => 'value' in range && resolvedValue !== null);
-
-            const dMin = this._displayConfig.min;
-            const dMax = this._displayConfig.max;
-
-            for (const { range, resolvedValue } of markerRanges) {
-                // Build indicator config: per-range settings override global indicator defaults
-                const globalIndicator = this._getIndicatorConfig(gaugeConfig);
-                const riCfg = range.indicator || {};
-                const markerColor = this._resolveColorValue(riCfg.color || range.color || 'var(--lcars-white, #ffffff)');
-                const markerIndicator = {
-                    type:         riCfg.type             || globalIndicator?.type        || 'line',
-                    color:        markerColor,
-                    width:        riCfg.size?.width      ?? globalIndicator?.width       ?? 4,
-                    height:       riCfg.size?.height     ?? globalIndicator?.height      ?? 25,
-                    rotation:     riCfg.rotation         ?? globalIndicator?.rotation    ?? 0,
-                    offsetX:      riCfg.offset?.x        ?? 0,
-                    offsetY:      riCfg.offset?.y        ?? 0,
-                    borderEnabled: riCfg.border?.enabled ?? globalIndicator?.borderEnabled ?? true,
-                    borderColor:  this._resolveColorValue(riCfg.border?.color ?? 'var(--lcars-black, #000000)'),
-                    borderWidth:  riCfg.border?.width    ?? globalIndicator?.borderWidth  ?? 1
-                };
-
-                const markerPercent = Math.max(0, Math.min(1, (resolvedValue - dMin) / ((dMax - dMin) || 1)));
-
-                if (isVertical) {
-                    let baseY = height * (1 - markerPercent);
-                    if (this._invertFill) baseY = height * markerPercent;
-                    const mX = x + (width / 2) + markerIndicator.offsetX;
-                    const mY = y + baseY + markerIndicator.offsetY;
-                    svg += this._renderIndicator(
-                        markerIndicator.type, mX, mY,
-                        markerIndicator.width, markerIndicator.height, markerIndicator.rotation,
-                        markerIndicator.color, markerIndicator.borderEnabled,
-                        markerIndicator.borderColor, markerIndicator.borderWidth, true
-                    );
-                } else {
-                    let baseX = width * markerPercent;
-                    if (this._invertFill) baseX = width * (1 - markerPercent);
-                    const mX = x + baseX + markerIndicator.offsetX;
-                    const mY = y + (height / 2) + markerIndicator.offsetY;
-                    svg += this._renderIndicator(
-                        markerIndicator.type, mX, mY,
-                        markerIndicator.width, markerIndicator.height, markerIndicator.rotation,
-                        markerIndicator.color, markerIndicator.borderEnabled,
-                        markerIndicator.borderColor, markerIndicator.borderWidth, false
-                    );
-                }
-            }
         }
 
+        return svg;
+    }
+
+    /**
+     * Generate SVG for value-marker indicators, placed in the track/tick zone.
+     * Markers are always rendered here (not in the progress zone) so they sit on
+     * top of the gauge ticks regardless of component layout (default vs picard, etc.)
+     * @param {Object} zoneSpec - The track zone dimensions {x, y, width, height}
+     * @param {string} orientation - 'vertical' | 'horizontal'
+     * @returns {string} SVG markup
+     * @private
+     */
+    _generateGaugeMarkers(zoneSpec, orientation) {
+        const isVertical = orientation === 'vertical';
+        const zoneWidth  = zoneSpec.width;
+        const zoneHeight = zoneSpec.height;
+        const gaugeConfig = this._sliderStyle?.gauge;
+
+        const markerRanges = (this._sliderStyle?.ranges || [])
+            .map((r, i) => ({ range: r, resolvedValue: this._resolvedMarkerValues[i] }))
+            .filter(({ range, resolvedValue }) => 'value' in range && resolvedValue !== null);
+
+        if (markerRanges.length === 0) return '';
+
+        const dMin = this._displayConfig.min;
+        const dMax = this._displayConfig.max;
+        let svg = '';
+
+        // Hardcoded defaults (bottom of fallback chain — preset and per-range config override these):
+        //   Horizontal: offset.y = 10 (minor tick height). Bordered presets set
+        //               marker_indicator.offset.y = 20 (border + tick height).
+        //   Vertical:   offset.x = 0. Border size varies; each preset that needs it
+        //               (e.g. picard) sets the correct value in its marker_indicator block.
+
+        for (const { range, resolvedValue } of markerRanges) {
+            const globalIndicator = this._getIndicatorConfig(gaugeConfig);
+            const riCfg = range.indicator || {};
+            // Fallback chain: per-range indicator → style.gauge.marker_indicator (preset) → component-aware defaults
+            const presetMarker = gaugeConfig?.marker_indicator || {};
+            // Color lives under indicator.color for value markers, not range.color
+            // (range.color is the band fill — a separate concept)
+            const markerColor = this._resolveColorValue(riCfg.color || presetMarker.color || 'var(--lcars-white, #ffffff)');
+            const markerIndicator = {
+                // type: per-range config first, then triangle default.
+                // Deliberately does NOT inherit globalIndicator.type — the main
+                // indicator shape is a separate concept from a value marker.
+                type:          riCfg.type              || presetMarker.type              || 'triangle',
+                color:         markerColor,
+                width:         riCfg.size?.width       ?? presetMarker.size?.width       ?? 20,
+                height:        riCfg.size?.height      ?? presetMarker.size?.height      ?? 20,
+                rotation:      riCfg.rotation          ?? presetMarker.rotation          ?? 180,
+                // align: cross-axis position within the track zone.
+                //   'start'  → left edge (vertical) / top edge (horizontal)
+                //   'center' → zone centre
+                //   'end'    → right edge (vertical) / bottom edge (horizontal)
+                // Default is 'start' for all components; offset adjusts tip position.
+                align:         riCfg.align             ?? presetMarker.align             ?? 'start',
+                // Vertical: ticks are on x-axis, default offset unknown (preset must set it)
+                // Horizontal: ticks are on y-axis, default offset = 10 (minor tick height)
+                offsetX:       riCfg.offset?.x         ?? presetMarker.offset?.x         ?? 0,
+                offsetY:       riCfg.offset?.y         ?? presetMarker.offset?.y         ?? (isVertical ? 0 : 10),
+                borderEnabled: riCfg.border?.enabled   ?? presetMarker.border?.enabled   ?? false,
+                borderColor:   this._resolveColorValue(riCfg.border?.color ?? presetMarker.border?.color ?? 'var(--lcars-black, #000000)'),
+                borderWidth:   riCfg.border?.width     ?? presetMarker.border?.width     ?? 1
+            };
+
+            const markerPercent = Math.max(0, Math.min(1, (resolvedValue - dMin) / ((dMax - dMin) || 1)));
+
+            if (isVertical) {
+                // Y: value position along zone height
+                let mY = zoneHeight * (1 - markerPercent);
+                if (this._invertFill) mY = zoneHeight * markerPercent;
+                // X: cross-axis position determined by align, then fine-tuned by offsetX
+                const alignX = markerIndicator.align === 'start' ? 0
+                             : markerIndicator.align === 'end'   ? zoneWidth
+                             : zoneWidth / 2; // 'center'
+                const mX = alignX + markerIndicator.offsetX;
+                svg += this._renderIndicator(
+                    markerIndicator.type, mX, mY + markerIndicator.offsetY,
+                    markerIndicator.width, markerIndicator.height, markerIndicator.rotation,
+                    markerIndicator.color, markerIndicator.borderEnabled,
+                    markerIndicator.borderColor, markerIndicator.borderWidth, true
+                );
+            } else {
+                // X: value position along zone width
+                let mX = zoneWidth * markerPercent;
+                if (this._invertFill) mX = zoneWidth * (1 - markerPercent);
+                // Y: cross-axis position determined by align, then fine-tuned by offsetY
+                const alignY = markerIndicator.align === 'start' ? 0
+                             : markerIndicator.align === 'end'   ? zoneHeight
+                             : zoneHeight / 2; // 'center'
+                const mY = alignY + markerIndicator.offsetY;
+                svg += this._renderIndicator(
+                    markerIndicator.type, mX + markerIndicator.offsetX, mY,
+                    markerIndicator.width, markerIndicator.height, markerIndicator.rotation,
+                    markerIndicator.color, markerIndicator.borderEnabled,
+                    markerIndicator.borderColor, markerIndicator.borderWidth, false
+                );
+            }
+        }
         return svg;
     }
 

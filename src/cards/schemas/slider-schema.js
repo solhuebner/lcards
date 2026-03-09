@@ -688,6 +688,66 @@ export function getSliderSchema(options = {}) {
                                         }
                                     }
                                 }
+                            },
+                            marker_indicator: {
+                                type: 'object',
+                                description: 'Default shape for value-marker indicators (ranges with a "value" key). Overrides global defaults for this preset/component. Can still be overridden per-range via the range\'s own "indicator" block. Defaults: type=triangle, size=20×20, rotation=180.',
+                                properties: {
+                                    type: {
+                                        type: 'string',
+                                        enum: ['line', 'round', 'triangle'],
+                                        description: 'Marker indicator shape type (default: triangle)'
+                                    },
+                                    align: {
+                                        type: 'string',
+                                        enum: ['start', 'center', 'end'],
+                                        default: 'center',
+                                        description: 'Cross-axis alignment within the track zone. start=left edge (vertical)/top (horizontal), center=middle, end=right/bottom. Use start on Picard to pin the marker to the tick column regardless of card width.',
+                                        'x-ui-hints': {
+                                            label: 'Cross-axis Align',
+                                            helper: 'Where to pin the marker along the non-value axis (start = tick-edge on Picard)',
+                                            selector: { select: { mode: 'dropdown', options: [
+                                                { value: 'start', label: 'Start (left / top)' },
+                                                { value: 'center', label: 'Center (default)' },
+                                                { value: 'end', label: 'End (right / bottom)' }
+                                            ]}}
+                                        }
+                                    },
+                                    size: {
+                                        type: 'object',
+                                        properties: {
+                                            width: { type: 'number', minimum: 0, description: 'Width in pixels' },
+                                            height: { type: 'number', minimum: 0, description: 'Height in pixels' }
+                                        }
+                                    },
+                                    rotation: {
+                                        type: 'number',
+                                        minimum: -180,
+                                        maximum: 180,
+                                        default: 180,
+                                        description: 'Rotation in degrees (default: 180 — triangle points toward ticks)',
+                                        'x-ui-hints': {
+                                            selector: { number: { mode: 'slider', min: -180, max: 180, step: 1, unit_of_measurement: '°' } }
+                                        }
+                                    },
+                                    offset: {
+                                        type: 'object',
+                                        description: 'Fine-tune position within the track zone after align is applied. offset.x=minorHeight+trimWidth (default 20) places the triangle tip at the outer edge of minor ticks when align=start.',
+                                        properties: {
+                                            x: { type: 'number', description: 'Horizontal offset in pixels' },
+                                            y: { type: 'number', description: 'Vertical offset in pixels' }
+                                        }
+                                    },
+                                    color: stateColorSchema,
+                                    border: {
+                                        type: 'object',
+                                        properties: {
+                                            enabled: { type: 'boolean' },
+                                            width: { type: 'number', minimum: 0 },
+                                            color: stateColorSchema
+                                        }
+                                    }
+                                }
                             }
                         }
                     },
@@ -836,7 +896,7 @@ export function getSliderSchema(options = {}) {
 
                     ranges: {
                         type: 'array',
-                        description: 'Colour-coded value ranges for visual context (backgrounds in gauge mode, gradient overrides in pills mode)',
+                        description: 'Colour-coded value ranges and point markers.\n\nTwo item types:\n• Band range (min+max): coloured background zone — rect in gauge mode, segment overrides in pills mode.\n• Value marker (value): live point indicator — triangle on gauge ticks, highlighted pill in pills mode. Resolves {entity.attributes.x}, {states.id.state}, and [[[JS]]] templates.',
                         items: {
                             type: 'object',
                             properties: {
@@ -855,11 +915,6 @@ export function getSliderSchema(options = {}) {
                                     description: 'Range background colour (hex, rgba, named colour, theme token, or CSS variable)',
                                     examples: ['var(--error-color)', '#ff0000', 'rgba(255,0,0,0.3)', 'theme:palette.danger', 'orange', 'transparent']
                                 },
-                                label: {
-                                    type: 'string',
-                                    description: 'Optional descriptive label for this range (used in future Picard inset borders)',
-                                    examples: ['Cold', 'Normal', 'Hot', 'Critical', 'Standby']
-                                },
                                 opacity: {
                                     type: 'number',
                                     minimum: 0,
@@ -877,9 +932,15 @@ export function getSliderSchema(options = {}) {
                                 },
                                 indicator: {
                                     type: 'object',
-                                    description: 'Gauge mode: indicator shape for this marker (same schema as style.gauge.indicator). Falls back to style.gauge.indicator settings if omitted.',
+                                    description: 'Gauge mode: per-marker indicator shape override. Fallback chain: this block → style.gauge.marker_indicator (preset default) → hardcoded defaults (triangle 20×20, rotation 180, no border). Values not specified here inherit from the next level in the chain.',
                                     properties: {
-                                        type: { type: 'string', enum: ['line', 'round', 'triangle'], description: 'Indicator shape type' },
+                                        type: { type: 'string', enum: ['line', 'round', 'triangle'], description: 'Indicator shape type (default: triangle)' },
+                                        align: {
+                                            type: 'string',
+                                            enum: ['start', 'center', 'end'],
+                                            default: 'center',
+                                            description: 'Cross-axis alignment: start=left/top edge, center=middle, end=right/bottom. Overrides the preset marker_indicator.align for this range only.'
+                                        },
                                         color: { type: 'string', description: 'Indicator fill color (defaults to range color)' },
                                         size: {
                                             type: 'object',
@@ -922,9 +983,9 @@ export function getSliderSchema(options = {}) {
                         },
                         examples: [
                             [
-                                { min: 0, max: 20, color: 'var(--error-color)', label: 'Low', opacity: 0.3 },
-                                { min: 20, max: 80, color: 'var(--success-color)', label: 'Normal', opacity: 0.3 },
-                                { min: 80, max: 100, color: 'var(--warning-color)', label: 'High', opacity: 0.3 }
+                                { min: 0, max: 20, color: 'var(--error-color)', opacity: 0.3 },
+                                { min: 20, max: 80, color: 'var(--success-color)', opacity: 0.3 },
+                                { min: 80, max: 100, color: 'var(--warning-color)', opacity: 0.3 }
                             ]
                         ],
                         'x-ui-hints': {

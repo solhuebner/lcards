@@ -702,8 +702,8 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
         const isMarker = 'value' in range;
 
         const rangeDisplay = isMarker
-            ? (range.label || `Marker: ${String(range.value).substring(0, 40)}`)
-            : (range.label || `Band: ${range.min ?? 0} – ${range.max ?? 100}`);
+            ? `Marker: ${String(range.value).substring(0, 40)}`
+            : `Band: ${range.min ?? 0} – ${range.max ?? 100}`;
 
         const itemStyle = 'background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: var(--ha-card-border-radius, 12px); overflow: hidden;';
         const headerStyle = 'display: flex; align-items: center; gap: 12px; padding: 12px; cursor: pointer; user-select: none; background: var(--secondary-background-color);';
@@ -756,7 +756,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
     }
 
     /**
-     * Render expanded content for band ranges (min/max/color/opacity/label)
+     * Render expanded content for band ranges (min/max/color/opacity)
      * @private
      */
     _renderBandRangeContent(range, basePath, trackType = 'gauge') {
@@ -764,11 +764,6 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
             ? 'Gauge mode only. In pills mode use Track Settings › Appearance › Unfilled Opacity instead.'
             : 'Background opacity (0–1, default: 0.3)';
         return html`
-            ${FormField.renderField(this, `${basePath}.label`, {
-                label: 'Label',
-                helper: 'Optional descriptive name for this range'
-            })}
-
             <lcards-grid-layout columns="2">
                 ${FormField.renderField(this, `${basePath}.min`, {
                     label: 'Min Value',
@@ -821,21 +816,18 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                 </ha-textfield>
             </div>
 
-            ${FormField.renderField(this, `${basePath}.label`, {
-                label: 'Label',
-                helper: 'Optional descriptive name for this marker'
-            })}
-
-            <lcards-color-section
-                .editor=${this}
-                .entityId=${this.config?.entity || ''}
-                basePath="${basePath}.color"
-                header="Marker Colour"
-                description="Colour of the indicator shape (gauge) or highlighted pill (pills)"
-                ?singleColor=${true}
-                ?expanded=${true}
-                ?useColorPicker=${true}>
-            </lcards-color-section>
+            ${isPills ? html`
+                <lcards-color-section
+                    .editor=${this}
+                    .entityId=${this.config?.entity || ''}
+                    basePath="${basePath}.color"
+                    header="Pill Highlight Colour"
+                    description="Colour used to highlight this marker pill"
+                    ?singleColor=${true}
+                    ?expanded=${true}
+                    ?useColorPicker=${true}>
+                </lcards-color-section>
+            ` : ''}
 
             <!-- Indicator shape settings (gauge mode) -->
             <lcards-form-section
@@ -896,10 +888,10 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     .editor=${this}
                     .entityId=${this.config?.entity || ''}
                     basePath="${basePath}.indicator.color"
-                    header="Indicator Colour Override"
-                    description="Leave blank to use the marker colour above"
+                    header="Indicator Colour"
+                    description="Colour of the indicator shape. Fallback: style.gauge.marker_indicator.color → white"
                     ?singleColor=${true}
-                    ?expanded=${false}
+                    ?expanded=${true}
                     ?useColorPicker=${true}>
                 </lcards-color-section>
 

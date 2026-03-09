@@ -211,6 +211,14 @@ export const SLIDER_PRESETS = {
       border: {
         top:  { enabled: true, size: 10 },
         left: { enabled: true, size: 120 }
+      },
+      gauge: {
+        // Horizontal gauge: offset.y = minorHeight(10) + top-border(10) = 20
+        // so the marker tip aligns with the outer edge of the minor ticks.
+        marker_indicator: {
+          align:  'start',
+          offset: { y: 20 }
+        }
       }
     }
   },
@@ -391,6 +399,18 @@ export const SLIDER_PRESETS = {
           size:    { height: 20, width: 52 },
           type:    'round',
           border:  { enabled: true }
+        },
+        // Default shape for value-marker indicators on the Picard component.
+        // align: 'start' pins the marker to the left edge of the track zone (where ticks live).
+        // offset.x = minorHeight + trimWidth (10 + 10 = 20px): shifts the triangle centre
+        // rightward so the tip lands at the outer edge of the minor ticks. Scale-independent.
+        marker_indicator: {
+          type:     'triangle',
+          size:     { width: 20, height: 20 },
+          rotation: 180,
+          align:    'start',
+          border:   { enabled: true },
+          offset:   { x: 20 }
         }
       }
     }
