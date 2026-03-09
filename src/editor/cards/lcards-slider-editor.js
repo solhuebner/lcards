@@ -241,25 +241,6 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
     }
 
     /**
-     * Get entity attribute options for dropdown
-     * @returns {Array} Array of {value, label} options
-     * @private
-     */
-    _getAttributeOptions() {
-        const entityId = this.config?.entity;
-        if (!this.hass?.states?.[entityId]) {
-            return [{ value: '', label: '(State)' }];
-        }
-
-        const state = this.hass.states[entityId];
-        const attributes = Object.keys(state.attributes || {});
-
-        return [
-            { value: '', label: '(State)' },
-            ...attributes.map(attr => ({ value: attr, label: attr }))
-        ];
-    }
-
     /**
      * Render orientation selector with component metadata filtering
      * @returns {TemplateResult}
@@ -380,31 +361,42 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
      * @private
      */
     _renderAttributeSelector() {
-        const options = this._getAttributeOptions();
+        const entityId = this.config?.entity;
         const currentValue = this.config?.control?.attribute || '';
 
-        // Check if current value is valid (exists in entity attributes)
-        const entityId = this.config?.entity;
+        // Build attribute list from entity (no empty/state sentinel — handled by clear button)
         const entity = this.hass?.states?.[entityId];
+        const attributes = entity ? Object.keys(entity.attributes || {}) : [];
+        const options = attributes.map(attr => ({ value: attr, label: attr }));
+
         const isValidAttribute = !currentValue ||
-                                currentValue === '' ||
                                 (entity?.attributes && currentValue in entity.attributes);
 
         return html`
-            <ha-selector
-                .hass=${this.hass}
-                .label=${'Attribute'}
-                .helper=${'Entity attribute to control (e.g., brightness). Leave as (State) to control main entity value.'}
-                .selector=${{
-                    select: {
-                        mode: 'dropdown',
-                        options: options,
-                        custom_value: true
-                    }
-                }}
-                .value=${currentValue}
-                @value-changed=${(e) => this._handleAttributeChange(e)}>
-            </ha-selector>
+            <div style="display:flex; gap:8px; align-items:flex-end;">
+                <ha-selector
+                    style="flex:1;"
+                    .hass=${this.hass}
+                    .label=${'Attribute'}
+                    .helper=${'Entity attribute to control (e.g. brightness). Clear to use entity state.'}
+                    .selector=${{
+                        select: {
+                            mode: 'dropdown',
+                            options: options.length ? options : [{ value: '', label: '— no attributes —' }],
+                            custom_value: true
+                        }
+                    }}
+                    .value=${currentValue}
+                    @value-changed=${(e) => this._handleAttributeChange(e)}>
+                </ha-selector>
+                ${currentValue ? html`
+                    <ha-icon-button
+                        title="Clear — use entity state"
+                        .path=${'M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z'}
+                        @click=${() => this._handleAttributeChange({ detail: { value: '' } })}>
+                    </ha-icon-button>
+                ` : ''}
+            </div>
 
             ${!isValidAttribute && currentValue ? html`
                 <lcards-message
@@ -422,13 +414,18 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
      */
     _handleAttributeChange(event) {
         const value = event.detail?.value;
-        const updates = {
-            control: {
-                ...this.config?.control,
-                attribute: value || undefined
-            }
-        };
-        this._updateConfig(updates);
+        // Empty string, null, or undefined → remove attribute key entirely.
+        // _updateConfig uses deepMerge which cannot delete keys, so we pre-patch
+        // this.config directly then call _updateConfig({}) to trigger the normal
+        // validation / YAML-sync / fireEvent pipeline without any merge interference.
+        const control = { ...this.config?.control };
+        if (value !== null && value !== undefined && value !== '') {
+            control.attribute = value;
+        } else {
+            delete control.attribute;
+        }
+        this.config = { ...this.config, control };
+        this._updateConfig({});
     }
 
     /**
