@@ -2855,9 +2855,11 @@ export class LCARdSSlider extends LCARdSButton {
         }
 
         // Inject gauge band ranges into #range-zone (bottom-most layer, always below ticks /
-        // progress bar / indicators).  Only for the default component — Picard and other
-        // advanced components render their own range zones inside their render() function.
-        if (effectiveMode === 'gauge' && componentName === 'default' && rangeZone) {
+        // progress bar / indicators).  Done for any component that declares a #range-zone —
+        // both 'default' and 'picard' have one; unknown/future components get it too if they
+        // declare the zone.  skipRanges=true was passed to _generateGaugeContent() above so
+        // ranges are never also rendered inside the track-zone SVG.
+        if (effectiveMode === 'gauge' && rangeZone) {
             const rangeZoneEl = shellElement.querySelector('#range-zone');
             if (rangeZoneEl) {
                 rangeZoneEl.innerHTML = this._generateGaugeBandRanges(rangeZone.width, rangeZone.height);
