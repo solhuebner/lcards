@@ -2,8 +2,9 @@
  * LCARdS Slider Card
  *
  * Interactive slider and gauge card using SVG component templates with dynamic
- * zone injection. Supports sliders for lights, covers, fans, climate, and input_number
- * entities, as well as read-only gauge displays for sensors.
+ * zone injection. Supports sliders for lights, covers, fans, climate, media players,
+ * humidifiers, water heaters, valves, and input_number entities, as well as read-only
+ * gauge displays for sensors.
  *
  * Architecture:
  * - SVG Component: Card loads a static SVG file defining the visual shell
@@ -26,7 +27,8 @@
  * Features:
  * - Preset-based styling matching button card pattern
  * - Separate visual style (pills/gauge) from interactivity (locked state)
- * - Support for light, cover, fan, climate, input_number, number, sensor domains
+ * - Support for light, cover, fan, climate, media_player, humidifier, water_heater,
+ *   valve, input_number, number, sensor domains
  * - Configurable control attribute (e.g., brightness, temperature, etc.)
  * - Dynamic pill generation with count, gap, radius, color interpolation
  * - Gauge mode with ruler, ticks, labels, and progress indicator
@@ -534,7 +536,7 @@ export class LCARdSSlider extends LCARdSButton {
             this._mode = trackType;
         } else {
             // Default based on domain (fallback if no preset or style.track.type)
-            const interactiveDomains = ['light', 'cover', 'fan', 'input_number', 'number', 'climate'];
+            const interactiveDomains = ['light', 'cover', 'fan', 'input_number', 'number', 'climate', 'media_player', 'humidifier', 'water_heater', 'valve'];
             this._mode = interactiveDomains.includes(this._domain) ? 'pills' : 'gauge';
         }
 
@@ -560,6 +562,10 @@ export class LCARdSSlider extends LCARdSButton {
             case 'cover': return 'current_position';
             case 'fan': return 'percentage';
             case 'climate': return 'temperature';
+            case 'media_player': return 'volume_level';
+            case 'humidifier': return 'humidity';
+            case 'water_heater': return 'temperature';
+            case 'valve': return 'current_valve_position';
             default: return null;
         }
     }
@@ -574,7 +580,7 @@ export class LCARdSSlider extends LCARdSButton {
         const entity = this._entity;
 
         // Determine if entity is controllable based on domain
-        const controllableDomains = ['light', 'cover', 'fan', 'input_number', 'number', 'climate'];
+        const controllableDomains = ['light', 'cover', 'fan', 'input_number', 'number', 'climate', 'media_player', 'humidifier', 'water_heater', 'valve'];
         const isControllable = controllableDomains.includes(this._domain);
 
         // Value inversion (explicit only, no auto-detection)
@@ -582,10 +588,23 @@ export class LCARdSSlider extends LCARdSButton {
 
         // Domain-specific attribute min/max/step defaults
         let defaultMin, defaultMax, defaultStep;
-        if (this._domain === 'climate') {
+        if (this._domain === 'climate' || this._domain === 'water_heater') {
             defaultMin = entity?.attributes?.min_temp ?? 15;
-            defaultMax = entity?.attributes?.max_temp ?? 30;
+            defaultMax = entity?.attributes?.max_temp ?? (this._domain === 'water_heater' ? 60 : 30);
             defaultStep = entity?.attributes?.target_temp_step ?? 0.5;
+        } else if (this._domain === 'media_player') {
+            // volume_level is a 0.0–1.0 float; expose that range natively
+            defaultMin = 0;
+            defaultMax = 1;
+            defaultStep = 0.01;
+        } else if (this._domain === 'humidifier') {
+            defaultMin = entity?.attributes?.min_humidity ?? 0;
+            defaultMax = entity?.attributes?.max_humidity ?? 100;
+            defaultStep = 1;
+        } else if (this._domain === 'valve') {
+            defaultMin = 0;
+            defaultMax = 100;
+            defaultStep = 1;
         } else {
             defaultMin = entity?.attributes?.min ?? 0;
             defaultMax = entity?.attributes?.max ?? 100;
@@ -2673,6 +2692,26 @@ export class LCARdSSlider extends LCARdSButton {
                 await this.hass.callService('climate', 'set_temperature', {
                     entity_id: entityId,
                     temperature: entityValue
+                });
+            } else if (domain === 'media_player') {
+                await this.hass.callService('media_player', 'volume_set', {
+                    entity_id: entityId,
+                    volume_level: entityValue
+                });
+            } else if (domain === 'humidifier') {
+                await this.hass.callService('humidifier', 'set_humidity', {
+                    entity_id: entityId,
+                    humidity: Math.round(entityValue)
+                });
+            } else if (domain === 'water_heater') {
+                await this.hass.callService('water_heater', 'set_temperature', {
+                    entity_id: entityId,
+                    temperature: entityValue
+                });
+            } else if (domain === 'valve') {
+                await this.hass.callService('valve', 'set_valve_position', {
+                    entity_id: entityId,
+                    position: Math.round(entityValue)
                 });
             } else {
                 lcardsLog.warn(`[LCARdSSlider] Unsupported domain for value setting: ${domain}`);
