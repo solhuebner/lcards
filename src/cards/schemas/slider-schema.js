@@ -8,7 +8,7 @@
  * Editor UI is defined separately in lcards-slider-editor.js config.
  */
 
-import { dataSourcesSchema, simpleColorSchema, stateColorSchema, paddingSchema, getTextSchema, gridOptionsSchema, entitySchema, cardIdSchema, tagsSchema } from './common-schemas.js';
+import { dataSourcesSchema, simpleColorSchema, stateColorSchema, paddingSchema, getTextSchema, gridOptionsSchema, entitySchema, cardIdSchema, tagsSchema, actionSchema } from './common-schemas.js';
 
 /**
  * Get complete slider card schema
@@ -161,79 +161,6 @@ export function getSliderSchema(options = {}) {
             // ============================================================================
 
             text: getTextSchema({ positionEnum }),
-
-            // ============================================================================
-            // ACTIONS CONFIGURATION
-            // ============================================================================
-
-            actions: {
-                type: 'object',
-                description: 'Multi-action tap/hold/double-tap handlers',
-                $comment: 'Actions use arbitrary keys (e.g., "tap", "hold", "custom1"). Each key defines an action configuration.',
-                examples: [
-                    {
-                        tap: {
-                            action: 'toggle',
-                            target: 'entity'
-                        },
-                        hold: {
-                            action: 'more-info',
-                            target: 'entity'
-                        }
-                    }
-                ],
-                additionalProperties: {
-                    type: 'object',
-                    description: 'Named action configuration',
-                    properties: {
-                        action: {
-                            type: 'string',
-                            enum: ['toggle', 'call-service', 'perform-action', 'navigate', 'url', 'more-info', 'assist', 'none'],
-                            description: 'Action type to perform',
-                            enumDescriptions: [
-                                'Toggle entity on/off',
-                                'Call a Home Assistant service',
-                                'Navigate to another dashboard/view',
-                                'Open a URL',
-                                'Show entity more-info dialog',
-                                'Do nothing'
-                            ]
-                        },
-                        target: {
-                            type: 'string',
-                            enum: ['entity', 'service', 'navigation', 'url'],
-                            description: 'Target of the action (controls which additional properties are used)'
-                        },
-                        service: {
-                            type: 'string',
-                            pattern: '^[a-z_]+\\.[a-z0-9_]+$',
-                            description: 'Service to call (format: domain.service_name)',
-                            examples: ['light.turn_on', 'climate.set_temperature', 'script.my_script']
-                        },
-                        service_data: {
-                            type: 'object',
-                            description: 'Data to pass to the service call',
-                            examples: [{ entity_id: 'light.bedroom', brightness: 255 }]
-                        },
-                        navigation_path: {
-                            type: 'string',
-                            description: 'Dashboard path to navigate to',
-                            examples: ['/lovelace/lights', '/lovelace-dashboard/0']
-                        },
-                        url_path: {
-                            type: 'string',
-                            format: 'uri',
-                            description: 'URL to open',
-                            examples: ['https://example.com', '/local/custom.html']
-                        },
-                        confirmation: {
-                            type: 'boolean',
-                            default: false,
-                            description: 'Show confirmation dialog before action'
-                        }
-                    }
-                }
-            },
 
             // ============================================================================
             // STYLE CONFIGURATION
