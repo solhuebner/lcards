@@ -19,7 +19,7 @@ The LCARdS fleet. Each card is independent but shares the same core systems.
 
 ---
 
-## Core Features
+## Common Card Features
 
 Features and concepts shared across all cards.
 
@@ -28,19 +28,19 @@ Features and concepts shared across all cards.
 | [Colours](core/colours.md) | All accepted colour formats, state-based colour maps, resolution order |
 | [Actions](core/actions.md) | `tap_action`, `hold_action`, `double_tap_action` — all action types and options |
 | [Text Fields](core/text-fields.md) | Multi-field text system — placement, fonts, colour, templates |
-| [Templates](core/templates/README.md) | Dynamic content: JS, Jinja2, token, and DataSource templates |
-| [Animations](core/animations.md) | Per-card animations triggered by taps, hover, and state changes |
-| [Background Animations](core/effects/background-animations.md) | Canvas-based animated backgrounds (grid, zoom, starfield) |
+| [Templates](core/templates/README.md) | Dynamic content: JS, Jinja2, LCARdS token datasource templates |
+| [Animations](core/animations.md) | Per-card animations with multiple trigger types |
+| [Background Animations](core/effects/background-animations.md) | Canvas-based animated backgrounds (grid, starfield, nebula, etc.) |
 | [Sound Effects](core/sounds.md) | LCARS-style audio feedback for interactions and alerts |
-| [Rules Engine](core/rules/README.md) | Conditional styling applied across cards based on entity state |
-| [DataSources](core/datasources/README.md) | Entity subscriptions, history, and processing pipelines |
-| [Themes](core/themes/README.md) | Built-in themes and token-based colour/sizing system |
+| [Rules Engine](core/rules/README.md) | Advanced conditional system for styling applied across cards |
+| [DataSources](core/datasources/README.md) | Subscribes to HA Entity to provide history and processing pipelines for cards to consume |
+| [Themes](core/themes/README.md) | Built-in token-based theming for providing colour, sizing etc. |
 
 ---
 
 ## Config Panel
 
-[LCARdS Config Panel](config-panel.md) — Central hub for managing helpers, themes, sounds, and packs.
+[LCARdS Config Panel](config-panel.md) — Central hub for managing helpers, alert settings, sounds, and more.
 
 ---
 
@@ -54,6 +54,7 @@ preset: lozenge
 text:
   label:
     content: Living Room
+    show: true
     position: top-left
     color: "var(--lcards-moonlight)"
   value:
@@ -73,5 +74,3 @@ style:
 tap_action:
   action: toggle
 ```
-
-All cards support [templates](core/templates/README.md), [state-based colours](core/colours.md), [rules](core/rules/README.md), and [animations](core/animations.md).
