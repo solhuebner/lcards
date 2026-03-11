@@ -46,7 +46,6 @@ style:
 | `control` | object | Control behavior |
 | `text` | object | Text label definitions — see [Text Fields](../../core/text-fields.md) |
 | `style` | object | Visual style overrides — see below |
-| `actions` | object | Named action handlers — see below |
 | `tap_action` | object | Tap action on the card border — see [Actions](../../core/actions.md) |
 | `hold_action` | object | Hold action |
 | `double_tap_action` | object | Double-tap action |
@@ -204,28 +203,6 @@ text:
     position: top-right
     font_size: 11
 ```
-
----
-
-## `actions` Object
-
-Sliders use a named `actions` map for custom action handlers. Keys are arbitrary names; each value is a standard action config:
-
-```yaml
-actions:
-  tap:
-    action: more-info
-  hold:
-    action: call-service
-    service: input_number.set_value
-    service_data:
-      entity_id: input_number.brightness
-      value: 50
-```
-
-For standard card tap/hold/double-tap use `tap_action`, `hold_action`, `double_tap_action` at the top level.
-
----
 
 ## `style.card` and `style.border`
 
