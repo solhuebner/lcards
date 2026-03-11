@@ -308,13 +308,6 @@ animations:
     loop: 1
     alternate: true
 ```
-
----
-
-## Alert Mode Animations
-
-Alert mode (`red`, `yellow`) activates coordinated animations across all registered cards automatically — no per-card configuration needed. See [Config Panel](../config-panel.md) for alert mode controls.
-
 ---
 
 ## Related
