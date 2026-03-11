@@ -845,7 +845,7 @@ color: "rgba(255, 153, 102, 0.4)"  # Orange at 40% opacity
 ### Theme Variables
 
 ```yaml
-color: "{theme:palette.moonlight}"
+color: "{theme:colors.text.onDark}"
 ```
 
 ### Hex Colours

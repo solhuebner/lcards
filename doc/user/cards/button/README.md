@@ -88,7 +88,7 @@ style:
         active: "alpha(var(--lcards-orange), 0.08)"
   border:
     color:
-      default: "var(--lcards-inactive)"
+      default: "var(--lcards-gray)"
       active: "var(--lcards-orange)"
     width: 2
     radius: 12          # or per-corner: { top_left: 20, top_right: 4, bottom_left: 4, bottom_right: 20 }
@@ -123,7 +123,7 @@ icon: mdi:thermometer
 icon_area: left
 icon_style:
   color:
-    default: "var(--lcards-inactive)"
+    default: "var(--lcards-gray)"
     active: "var(--lcards-orange)"
   size: 32
   padding: 8
@@ -232,7 +232,7 @@ dpad:
     default:
       style:
         fill:
-          default: "var(--lcards-inactive)"
+          default: "var(--lcards-gray)"
           active: "var(--lcards-orange)"
     center:
       entity: media_player.tv
@@ -384,20 +384,20 @@ text:
     font_weight: bold
     color:
       default: "var(--lcards-moonlight)"
-      inactive: "var(--lcards-inactive)"
+      inactive: "var(--lcards-gray)"
 
 icon: mdi:desk-lamp
 icon_area: left
 icon_style:
   color:
-    default: "var(--lcards-inactive)"
+    default: "var(--lcards-gray)"
     active: "var(--lcards-orange)"
   size: 28
 
 style:
   border:
     color:
-      default: "var(--lcards-inactive)"
+      default: "var(--lcards-gray)"
       active: "var(--lcards-orange)"
     width: 2
 

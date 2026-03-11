@@ -47,7 +47,7 @@ rules:
       types: [button]       # All cards of a type
     style:
       border:
-        color: "{theme:color.ui.active}"
+        color: "{theme:colors.ui.primary}"
       card:
         color:
           background: "#1a1a2e"

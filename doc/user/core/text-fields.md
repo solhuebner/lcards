@@ -119,7 +119,7 @@ text:
     color:
       default: "var(--lcards-moonlight)"
       active: "var(--lcards-orange)"
-      inactive: "var(--lcards-inactive)"
+      inactive: "var(--lcards-gray)"
       unavailable: "var(--lcards-alert-red)"
       heat: "var(--lcards-alert-red)"
 ```
@@ -134,7 +134,7 @@ The `content` field supports all four template syntaxes:
 # Token substitution
 content: "{entity.state}"
 content: "{entity.attributes.brightness}"
-content: "{theme:palette.moonlight}"
+content: "{theme:colors.text.onDark}"
 
 # JavaScript
 content: "[[[return Math.round(entity.attributes.brightness / 255 * 100) + '%']]]"
@@ -181,7 +181,7 @@ text:
     content: "{{ state_attr('sensor.outdoor_temperature', 'friendly_name') }}"
     position: bottom-center
     font_size: 10
-    color: "var(--lcards-inactive)"
+    color: "var(--lcards-gray)"
 ```
 
 ---

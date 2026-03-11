@@ -172,7 +172,7 @@ style:
           height: 12
         minor:
           interval: 5
-          color: "var(--lcards-inactive)"
+          color: "var(--lcards-gray)"
           height: 6
       labels:
         enabled: true
@@ -215,7 +215,7 @@ style:
       background: "var(--ha-card-background)"
   border:
     color:
-      default: "var(--lcards-inactive)"
+      default: "var(--lcards-gray)"
       active: "var(--lcards-orange)"
     width: 2
     radius: 8
@@ -274,7 +274,7 @@ style:
           height: 14
         minor:
           interval: 1
-          color: "var(--lcards-inactive)"
+          color: "var(--lcards-gray)"
           height: 7
       labels:
         enabled: true
@@ -285,7 +285,7 @@ style:
       color: "var(--lcards-orange)"
   border:
     color:
-      default: "var(--lcards-inactive)"
+      default: "var(--lcards-gray)"
       active: "var(--lcards-orange)"
     width: 1
 

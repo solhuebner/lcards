@@ -13,7 +13,7 @@ LCARdS accepts several colour formats wherever a colour value is expected. You c
 | RGB | `rgb(255, 153, 0)` | Standard CSS rgb() |
 | RGBA | `rgba(255, 153, 0, 0.5)` | CSS rgba() with 0–1 alpha |
 | CSS variable | `var(--lcards-orange)` | Any `--lcards-*` or HA CSS variable |
-| Theme token path | `{theme:palette.orange}` | Resolved from active theme |
+| Theme token path | `{theme:colors.ui.primary}` | Resolved from active theme |
 | Computed token | `darken(var(--lcards-orange), 0.2)` | Computed by ThemeTokenResolver |
 
 ### CSS Variables
@@ -25,7 +25,8 @@ var(--lcards-orange)
 var(--lcards-orange-medium)
 var(--lcards-blue)
 var(--lcards-blue-light)
-var(--lcards-moonlight)
+var(--lcards-moonlight)        # Near-white; default text and label colour
+var(--lcards-gray)             # Standby / inactive state colour
 var(--lcards-alert-red)
 var(--lcards-alert-yellow)
 ```
@@ -35,10 +36,10 @@ var(--lcards-alert-yellow)
 Use `{theme:path.to.token}` to reference a value from the active theme's token tree:
 
 ```yaml
-color: "{theme:palette.moonlight}"
-color: "{theme:color.ui.active}"
-color: "{theme:color.ui.inactive}"
-color: "{theme:palette.alert-red}"
+color: "{theme:colors.text.onDark}"
+color: "{theme:colors.ui.primary}"
+color: "{theme:colors.ui.secondary}"
+color: "{theme:colors.alert.red}"
 ```
 
 See [Themes](themes/README.md) for available token paths.
@@ -63,9 +64,9 @@ Instead of a single colour string, you can supply an object whose keys are entit
 style:
   border:
     color:
-      default: "var(--lcards-inactive)"
+      default: "var(--lcards-gray)"
       active: "var(--lcards-orange)"
-      inactive: "var(--lcards-inactive)"
+      inactive: "var(--lcards-gray)"
       unavailable: "var(--lcards-alert-red)"
       heat: "var(--lcards-alert-red)"       # Custom state — exact match
       cool: "var(--lcards-blue)"            # Custom state — exact match
@@ -139,7 +140,7 @@ style:
         active: "alpha(var(--lcards-orange), 0.08)"
   border:
     color:
-      default: "var(--lcards-inactive)"
+      default: "var(--lcards-gray)"
       active: "var(--lcards-orange)"
       heat: "var(--lcards-alert-red)"
       cool: "var(--lcards-blue)"

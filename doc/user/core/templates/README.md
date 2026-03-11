@@ -17,7 +17,7 @@ text:
   sublabel:
     content: "{entity.attributes.brightness}"          # Attribute
   title:
-    content: "{theme:palette.moonlight}"               # Theme token
+    content: "{theme:colors.text.onDark}"              # Theme token
   reading:
     content: "{ds:temp:.1f}°C"                         # DataSource with format
 ```
@@ -134,9 +134,9 @@ Templates are evaluated in most string-valued config properties:
 When a value could match multiple syntaxes, evaluation proceeds in this order:
 
 1. `[[[...]]]` — JavaScript (evaluated first)
-2. `{ds:...}` / `{datasource:...}` — DataSource
-3. `{{...}}` — Jinja2 (HA server-evaluated)
-4. `{token}` — Token substitution (evaluated last)
+2. `{token}` — Token substitution
+3. `{ds:...}` / `{datasource:...}` — DataSource
+4. `{{...}}` — Jinja2 (HA server-evaluated, async)
 
 ---
 
@@ -148,9 +148,9 @@ Colours support state variants without templates. This is the recommended approa
 style:
   border:
     color:
-      default: "var(--lcards-inactive)"
+      default: "var(--lcards-gray)"
       active: "var(--lcards-orange)"
-      inactive: "var(--lcards-inactive)"
+      inactive: "var(--lcards-gray)"
       unavailable: "var(--lcards-alert-red)"
       heat: "var(--lcards-alert-red)"        # Custom state — exact match
       cool: "var(--lcards-blue)"             # Custom state — exact match

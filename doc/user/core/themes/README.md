@@ -8,9 +8,9 @@ To complement the HA-LCARS system theme - LCARdS adds a token-based theme system
 
 | Theme | Description |
 |-------|-------------|
-| `lcars-default` | Standard LCARS look |
+| `lcards-default` | Standard LCARS look |
 
-Themes are provided by content packs. See the [Config Panel](../../config-panel.md) Pack Explorer to view all the tokens that theme provices.
+Themes are provided by content packs. See the [Config Panel](../../config-panel.md) Pack Explorer to view all the tokens that theme provides.
 
 ---
 
@@ -24,7 +24,7 @@ style:
     color: "{theme:colors.ui.primary}"
   card:
     color:
-      background: "{theme:color.ui.active}"
+      background: "{theme:colors.ui.primary}"
 ```
 
 ---
@@ -33,16 +33,16 @@ style:
 
 Tokens are organized into namespaces. Browse all available tokens in the [Config Panel](../../config-panel.md) Theme Browser tab.
 
-### Example: `color.ui.*`
+### Example: `colors.ui.*`
 
 Semantic colours that map to UI roles.  In the default theme, prefer HA-LCARS theme colours but provide LCARdS fallbacks:
 
 | Token | `lcards-default` value |
 |-------|---------|
-| `color.ui.primary` | `var(--lcars-ui-primary, var(--lcards-gray-medium))` |
-| `color.ui.secondary` | `var(--lcars-ui-secondary, var(--lcards-gray-medium-light))` |
-| `color.ui.tertiary` | `var(--lcars-ui-tertiary, var(--lcards-orange-medium-dark))` |
-| `color.ui.quaternary` | `var(--lcars-ui-quaternary, var(--lcards-gray-dark))` |
+| `colors.ui.primary` | `var(--lcars-ui-primary, var(--lcards-gray-medium))` |
+| `colors.ui.secondary` | `var(--lcars-ui-secondary, var(--lcards-gray-medium-light))` |
+| `colors.ui.tertiary` | `var(--lcars-ui-tertiary, var(--lcards-orange-medium-dark))` |
+| `colors.ui.quaternary` | `var(--lcars-ui-quaternary, var(--lcards-gray-dark))` |
 
 ---
 
@@ -165,24 +165,8 @@ color: var(--lcards-orange-medium, #ff6753);
 ```
 ---
 
-## HA-LCARS Theme Integration
-
-If you use the [HA-LCARS theme](https://github.com/th3jesta/ha-lcars), elbow card dimensions can be bound to the HA-LCARS `input_number` helpers:
-
-```yaml
-type: custom:lcards-elbow
-elbow:
-  type: header-left
-  segment:
-    bar_width: theme    # Reads input_number.lcars_vertical
-    bar_height: theme   # Reads input_number.lcars_horizontal
-```
-
-This lets you resize all elbows on your dashboard by changing a single helper value.
-
----
-
 ## Related
 
 - [Config Panel — Theme Browser](../../config-panel.md)
 - [Templates](../templates/README.md)
+- [Elbow card — HA-LCARS binding](../../cards/elbow/README.md#ha-lcars-theme-binding)

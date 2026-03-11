@@ -18,7 +18,7 @@ animations:
     entity: binary_sensor.motion
     to_state: "on"
     params:
-      color: "{theme:palette.alert-red}"
+      color: "{theme:colors.alert.red}"
 ```
 
 ---

@@ -239,7 +239,7 @@ config:
 | RGBA | `"rgba(255, 153, 102, 0.4)"` | Recommended (alpha control) |
 | Hex | `"#FF9966"` | No transparency |
 | Named | `"orange"` | Limited palette |
-| Theme Token | `"{theme:palette.moonlight}"` | Dynamic theme colours |
+| Theme Token | `"{theme:colors.text.onDark}"` | Dynamic theme colours |
 
 ---
 

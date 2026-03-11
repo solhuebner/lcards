@@ -67,7 +67,7 @@ text:
 style:
   border:
     color:
-      default: "var(--lcards-inactive)"
+      default: "var(--lcards-gray)"
       active: "var(--lcards-orange)"
     width: 2
 
