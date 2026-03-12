@@ -283,8 +283,9 @@ export class LCARdSAlertOverlayEditor extends LCARdSBaseEditor {
                     <strong>Per-condition overrides</strong>
                     <p style="margin:8px 0 0 0; font-size:13px; line-height:1.4;">
                         Each section below lets you customise what is shown when that alert mode
-                        is active. <em>Content card</em> — leave empty to use the built-in
-                        LCARdS button default.  All other settings
+                        is active. <strong>Alert Button Overrides</strong> — patch the default LCARdS alert button
+                        text and colours without replacing the full card. <em>Content card</em> — replace the default
+                        entirely with any HA card. All other settings
                         override the global defaults from the <strong>Config</strong> and
                         <strong>Backdrop</strong> tabs.
                     </p>
@@ -322,7 +323,13 @@ export class LCARdSAlertOverlayEditor extends LCARdSBaseEditor {
         return html`
             <lcards-form-section
                 header="${cond.label}"
-                description="${hasContent ? `Custom content: ${condCfg.content?.type}` : 'Using built-in default content'}"
+                description="${
+                    hasContent
+                        ? `Custom content: ${condCfg.content?.type}`
+                        : condCfg.alert_button
+                            ? 'Default button (with overrides)'
+                            : 'Using built-in default content'
+                }"
                 icon="${cond.icon}"
                 ?expanded=${false}
                 ?outlined=${true}>
@@ -377,6 +384,9 @@ export class LCARdSAlertOverlayEditor extends LCARdSBaseEditor {
                         </ha-code-editor>
                     ` : ''}
                 </lcards-form-section>
+
+                <!-- ── Default Alert Button Overrides ── -->
+                ${!hasContent ? this._renderAlertButtonOverridesSection(condKey, condCfg) : ''}
 
                 <!-- ── Backdrop Overrides ── -->
                 <lcards-form-section
@@ -469,6 +479,137 @@ export class LCARdSAlertOverlayEditor extends LCARdSBaseEditor {
     // ─────────────────────────────────────────────────────────────────────────
     // Config helpers — conditions
     // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Render the "Default Alert Button Overrides" collapsible section for a condition.
+     * Only shown when no custom `content:` card is set.
+     * @param {string} condKey
+     * @param {object} condCfg
+     * @returns {TemplateResult}
+     * @private
+     */
+    _renderAlertButtonOverridesSection(condKey, condCfg) {
+        const ab = condCfg.alert_button ?? {};
+        const alertLabel  = ab.text?.alert_text?.content ?? '';
+        const subTextVal  = ab.text?.sub_text?.content ?? '';
+        const isEntityMode = /^\{entity:[^:]+:state\}$/.test(subTextVal);
+
+        // Extract entity ID from token if in entity mode
+        const entityMatch = isEntityMode ? subTextVal.match(/^\{entity:([^:]+):state\}$/) : null;
+        const entityId    = entityMatch ? entityMatch[1] : '';
+
+        const subTextMode = isEntityMode ? 'entity' : 'static';
+        const hasOverrides = Object.keys(ab).length > 0;
+
+        /** Default entity for the alert message helper */
+        const DEFAULT_ALERT_ENTITY = 'input_text.lcards_alert_message';
+
+        return html`
+            <lcards-form-section
+                header="Default Alert Button Overrides"
+                description="Patch the built-in alert button text and colours without replacing the full card"
+                icon="mdi:pencil-box-outline"
+                ?expanded=${hasOverrides}
+                ?outlined=${true}>
+
+                <lcards-message
+                    type="info"
+                    message="These overrides are applied on top of the built-in default alert button. Only specify the fields you want to change — type, component, and preset are inherited automatically. Has no effect when a custom Content Card is set above.">
+                </lcards-message>
+
+                <!-- Alert label -->
+                <ha-selector
+                    .hass=${this.hass}
+                    .label=${'Alert Label (alert_text)'}
+                    .helper=${'Override the top alert label text — leave blank to use the built-in default (e.g. ALERT)'}
+                    .selector=${{ text: {} }}
+                    .value=${alertLabel}
+                    @value-changed=${(e) => this._setAlertButtonProp(condKey, 'text.alert_text.content', e.detail.value)}>
+                </ha-selector>
+
+                <!-- Sub-text mode toggle -->
+                <ha-selector
+                    .hass=${this.hass}
+                    .label=${'Sub-text Source'}
+                    .helper=${'Choose whether the sub-text is a static string or driven by an entity state'}
+                    .selector=${{ select: { mode: 'list', options: [
+                        { value: 'static', label: 'Static text' },
+                        { value: 'entity', label: 'Entity state' },
+                    ]}}}
+                    .value=${subTextMode}
+                    @value-changed=${(e) => {
+                        const mode = e.detail.value;
+                        if (mode === 'entity') {
+                            // Switch to entity mode — pre-fill with default helper entity if blank
+                            const defaultEntity = entityId || DEFAULT_ALERT_ENTITY;
+                            this._setAlertButtonProp(condKey, 'text.sub_text.content', `{entity:${defaultEntity}:state}`);
+                        } else {
+                            // Switch to static mode — clear the token
+                            this._setAlertButtonProp(condKey, 'text.sub_text.content', '');
+                        }
+                    }}>
+                </ha-selector>
+
+                ${subTextMode === 'entity' ? html`
+                    <!-- Entity selector -->
+                    <ha-selector
+                        .hass=${this.hass}
+                        .label=${'Sub-text Entity'}
+                        .helper=${'Entity whose state is shown as the sub-text message (e.g. input_text.lcards_alert_message)'}
+                        .selector=${{ entity: { domain: ['input_text'] } }}
+                        .value=${entityId || DEFAULT_ALERT_ENTITY}
+                        @value-changed=${(e) => {
+                            const eid = e.detail.value;
+                            if (eid) {
+                                this._setAlertButtonProp(condKey, 'text.sub_text.content', `{entity:${eid}:state}`);
+                            }
+                        }}>
+                    </ha-selector>
+                ` : html`
+                    <!-- Static text input -->
+                    <ha-selector
+                        .hass=${this.hass}
+                        .label=${'Sub-text Content'}
+                        .helper=${'Override the sub-text message — leave blank to use the built-in default (e.g. CONDITION: RED)'}
+                        .selector=${{ text: {} }}
+                        .value=${isEntityMode ? '' : subTextVal}
+                        @value-changed=${(e) => this._setAlertButtonProp(condKey, 'text.sub_text.content', e.detail.value)}>
+                    </ha-selector>
+                `}
+
+                ${hasOverrides ? html`
+                    <ha-button @click=${() => this._clearAlertButton(condKey)}>
+                        <ha-icon icon="mdi:restore" slot="start"></ha-icon>
+                        Clear overrides (use built-in defaults)
+                    </ha-button>
+                ` : ''}
+            </lcards-form-section>
+        `;
+    }
+
+    /**
+     * Set a nested property under conditions.<condKey>.alert_button.
+     * @param {string} condKey
+     * @param {string} path  - e.g. 'text.sub_text.content'
+     * @param {*}      value - empty string or undefined removes the key
+     * @private
+     */
+    _setAlertButtonProp(condKey, path, value) {
+        if (value !== undefined && value !== '') {
+            this._setConfigValue(`conditions.${condKey}.alert_button.${path}`, value);
+        } else {
+            this._removeConfigPath(`conditions.${condKey}.alert_button.${path}`);
+        }
+    }
+
+    /**
+     * Remove the entire alert_button block for a condition.
+     * @param {string} condKey
+     * @private
+     */
+    _clearAlertButton(condKey) {
+        this._removeConfigPath(`conditions.${condKey}.alert_button`);
+    }
 
     /**
      * Set a top-level property on a per-condition block.

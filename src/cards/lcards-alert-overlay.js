@@ -20,6 +20,7 @@ import { LitElement, html, css } from 'lit';
 import { lcardsLog } from '../utils/lcards-logging.js';
 import { createCardElement, applyHassToCard, applyCardConfig } from '../utils/ha-card-factory.js';
 import { getAlertOverlaySchema } from './schemas/lcards-alert-overlay-schema.js';
+import { deepMergeImmutable } from '../utils/deepMerge.js';
 
 // Import editor component so getConfigElement() works (bundled together)
 import '../editor/cards/lcards-alert-overlay-editor.js';
@@ -231,7 +232,22 @@ export class LCARdSAlertOverlay extends LitElement {
         this._unmountContentCard();
 
         const conditionConfig = this.config?.conditions?.[condition];
-        const cardConfig      = conditionConfig?.content ?? this._getDefaultContent(condition);
+
+        let cardConfig;
+        if (conditionConfig?.content) {
+            // Full override — existing behaviour, unchanged
+            cardConfig = conditionConfig.content;
+        } else {
+            // Start from the built-in default for this condition
+            // (returns null for unrecognised condition keys)
+            const defaultConfig = this._getDefaultContent(condition);
+            // NEW: deep-merge any alert_button patch on top of the default.
+            // Guard on defaultConfig so unknown conditions fall through to the
+            // existing "no content config" warning path below unchanged.
+            cardConfig = (conditionConfig?.alert_button && defaultConfig)
+                ? deepMergeImmutable(defaultConfig, conditionConfig.alert_button)
+                : defaultConfig;
+        }
 
         if (!cardConfig) {
             lcardsLog.warn(`[LCARdSAlertOverlay] No content config for condition: ${condition}`);
