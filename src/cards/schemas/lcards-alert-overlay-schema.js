@@ -87,6 +87,27 @@ export const alertOverlaySchema = {
                         required: ['type'],
                         additionalProperties: true,
                     },
+                    alert_button: {
+                        type: 'object',
+                        description:
+                            'Patch merged on top of the default lcards-button alert card for this condition. ' +
+                            'Only specify fields to override — type, component, and preset are inherited from the built-in default. ' +
+                            'Supports all lcards-button text and alert config keys. ' +
+                            'Ignored when `content` is also specified (content takes full precedence).',
+                        properties: {
+                            text: {
+                                type: 'object',
+                                description: 'Text field overrides — e.g. text.sub_text.content or text.alert_text.content',
+                                additionalProperties: true,
+                            },
+                            alert: {
+                                type: 'object',
+                                description: 'Alert component config overrides — e.g. alert.color.shape, alert.color.bars',
+                                additionalProperties: true,
+                            },
+                        },
+                        additionalProperties: true,
+                    },
                     backdrop: {
                         type: 'object',
                         description: 'Per-condition backdrop overrides (merged with global backdrop)',
@@ -111,7 +132,7 @@ export const alertOverlaySchema = {
                     width:  { type: 'string', description: 'Per-condition content card width' },
                     height: { type: 'string', description: 'Per-condition content card height' },
                 },
-                additionalProperties: false,
+                additionalProperties: true,
             },
         },
     },

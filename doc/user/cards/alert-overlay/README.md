@@ -134,7 +134,8 @@ Condition keys: `red_alert`, `yellow_alert`, `blue_alert`, `black_alert`, `gray_
 
 | Option | Type | Description |
 |--------|------|-------------|
-| `content` | object | Full HA card config to render inside the overlay. Any card type works. |
+| `content` | object | Full HA card config to render inside the overlay. Any card type works. Overrides `alert_button` entirely. |
+| `alert_button` | object | Patch merged onto the default alert button — override only the fields you need. See [Default Alert Button Overrides](#default-alert-button-overrides). |
 | `backdrop` | object | Backdrop overrides merged on top of the global `backdrop` setting |
 | `position` | string | Position override for this condition |
 | `width` | string | Content card width override |
@@ -169,6 +170,81 @@ If no `content` is specified for a condition, a built-in default is used: the LC
 | `blue_alert` | `condition_blue` |
 | `black_alert` | `condition_black` |
 | `gray_alert` | `condition_gray` |
+
+---
+
+## Default Alert Button Overrides
+
+The `alert_button` key lets you patch specific fields on the built-in default alert button **without having to supply a full `content:` block**. Only specify the fields you want to change — `type`, `component`, and `preset` are inherited from the built-in default automatically.
+
+This is the "middle tier" between no customisation and a full `content:` override:
+
+```
+_getDefaultContent(condition)          ← floor: built-in preset + hardcoded text
+  ↑ deepMerge
+conditions.<key>.alert_button          ← user delta: text, colors, etc.
+  ↑ replaced entirely by
+conditions.<key>.content               ← full card config override (existing)
+```
+
+> **Note**: `alert_button` is ignored when `content` is also present. `content` always takes full precedence.
+
+### Supported `alert_button` sub-keys
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `text` | object | Text field overrides — mirrors the `text` property of `lcards-button` |
+| `text.alert_text.content` | string | Override the top alert label (default: `ALERT`) |
+| `text.sub_text.content` | string | Override the sub-text message. Supports static strings and LCARdS templates. |
+| `alert` | object | Alert component config overrides — e.g. `alert.color.shape`, `alert.color.bars` |
+
+### Static text override
+
+```yaml
+conditions:
+  blue_alert:
+    alert_button:
+      text:
+        sub_text:
+          content: SECURITY LOCKDOWN IN PROGRESS
+```
+
+### Entity-driven message via `input_text.lcards_alert_message`
+
+Wire the sub-text to the `input_text.lcards_alert_message` helper so automations can set the alert message dynamically:
+
+```yaml
+conditions:
+  blue_alert:
+    alert_button:
+      text:
+        sub_text:
+          content: '{entity:input_text.lcards_alert_message:state}'
+```
+
+Set the message from an automation or script:
+
+```yaml
+action: call-service
+service: input_text.set_value
+service_data:
+  entity_id: input_text.lcards_alert_message
+  value: SECURITY LOCKDOWN IN PROGRESS
+```
+
+Or combine with a JS template for a fallback when the message is empty:
+
+```yaml
+conditions:
+  blue_alert:
+    alert_button:
+      text:
+        sub_text:
+          content: '[[[
+            const msg = hass.states["input_text.lcards_alert_message"]?.state;
+            return msg?.trim() || "CONDITION: BLUE";
+          ]]]'
+```
 
 ---
 
