@@ -3151,7 +3151,7 @@ export class LCARdSButton extends LCARdSCard {
 
         // Build action configuration
         const actions = {
-            tap_action: this.config.tap_action || { action: 'toggle' },
+            tap_action: this.config.tap_action || this._getDefaultTapAction(),
             hold_action: this.config.hold_action,
             double_tap_action: this.config.double_tap_action
         };
@@ -3184,6 +3184,18 @@ export class LCARdSButton extends LCARdSCard {
         );
 
         lcardsLog.trace(`[LCARdSButton] Actions attached to button element`);
+    }
+
+    /**
+     * Get the default tap action for this card type.
+     * Subclasses can override to change the default tap behaviour.
+     * Buttons default to toggling the entity; other card types (e.g. elbows)
+     * can override this to return `{ action: 'none' }`.
+     * @returns {Object} Default tap action configuration
+     * @protected
+     */
+    _getDefaultTapAction() {
+        return { action: 'toggle' };
     }
 
     /**

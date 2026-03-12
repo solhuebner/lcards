@@ -580,6 +580,17 @@ export class LCARdSElbow extends LCARdSButton {
     }
 
     /**
+     * Elbows are decorative/structural elements and should not fire any action
+     * by default (unlike buttons which default to toggle). Users can still
+     * configure explicit tap/hold actions in YAML as normal.
+     * @returns {Object} Default tap action configuration
+     * @protected
+     */
+    _getDefaultTapAction() {
+        return { action: 'none' };
+    }
+
+    /**
      * Override animation setup to specify 'elbow' type
      * @protected
      */
