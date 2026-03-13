@@ -454,7 +454,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
             styleOptions.push({ value: 'segmented', label: 'Segmented (Picard-style double)' });
         }
 
-        return this._buildConfigTab({
+        return [...this._buildConfigTab({
             infoMessage: 'Configure your LCARS elbow card. Elbows are positioned borders with rounded corners that create the iconic LCARS interface aesthetic.',
             modeSections: [
                 {
@@ -513,7 +513,26 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                 { path: 'id', label: 'Card ID', helper: '[Optional] Custom ID for targeting with rules and animations' },
                 { path: 'tags', label: 'Tags', helper: 'Select existing tags or type new ones for rule targeting' }
             ]
-        });
+        }),
+        {
+            type: 'section',
+            header: 'Sizing',
+            description: 'Override card dimensions — useful in stacks, overlays, or any auto-height container',
+            icon: 'mdi:resize',
+            expanded: false,
+            outlined: true,
+            children: [
+                {
+                    type: 'grid',
+                    columns: 2,
+                    children: [
+                        { type: 'field', path: 'height' },
+                        { type: 'field', path: 'width' }
+                    ]
+                }
+            ]
+        }
+        ];
     }
 
     /**

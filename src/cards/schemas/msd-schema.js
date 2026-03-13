@@ -13,7 +13,9 @@ import {
     cardIdSchema,
     tagsSchema,
     dataSourcesSchema,
-    rulesSchema
+    rulesSchema,
+    cardHeightSchema,
+    cardWidthSchema
 } from './common-schemas.js';
 
 /**
@@ -619,6 +621,14 @@ export function getMsdSchema(options = {}) {
           examples: ['dashboard-main', 'navigation', 'status']
         }
       },
+
+      // ============================================================================
+      // SIZING
+      // ============================================================================
+
+      height: cardHeightSchema,
+
+      width: cardWidthSchema,
 
       msd: msdConfigSchema,
 

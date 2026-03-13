@@ -145,10 +145,9 @@ export class LCARdSChart extends LCARdSCard {
    * @returns {number} Number of grid rows (50px per row)
    */
   getCardSize() {
-    // Default to 4 rows (200px) for charts
-    // User can override with config.height
-    const configHeight = this.config.height || 200;
-    return Math.ceil(configHeight / 50);
+    // _configPx returns null for relative/viewport units so they don't produce
+    // a wrong row count — those cases fall through to the 200px default.
+    return Math.ceil((this._configPx(this.config.height) || 200) / 50);
   }
 
   constructor() {
@@ -923,12 +922,10 @@ export class LCARdSChart extends LCARdSCard {
       `;
     }
 
-    // Apply config height if set
-    const configHeight = this.config.height || 300;
-    const containerStyle = `height: ${configHeight}px;`;
-
+    // The host element height is set by the base class from config.height (if
+    // present) or by the HA grid/stack slot. The container fills 100% of that.
     return html`
-      <div class="lcards-card-container" style="${containerStyle}">
+      <div class="lcards-card-container">
         <div class="chart-container"></div>
       </div>
     `;
@@ -1049,7 +1046,7 @@ export class LCARdSChart extends LCARdSCard {
    * @protected
    */
   _getCardSize() {
-    return 4; // Chart cards typically need more space
+    return Math.ceil((this._configPx(this.config?.height) || 200) / 50);
   }
 
   /**

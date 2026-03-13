@@ -583,6 +583,25 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
             ]
         });
 
+        baseConfig.push({
+            type: 'section',
+            header: 'Sizing',
+            description: 'Override card dimensions — useful in stacks, overlays, or any auto-height container',
+            icon: 'mdi:resize',
+            expanded: false,
+            outlined: true,
+            children: [
+                {
+                    type: 'grid',
+                    columns: 2,
+                    children: [
+                        { type: 'field', path: 'height' },
+                        { type: 'field', path: 'width' }
+                    ]
+                }
+            ]
+        });
+
         return baseConfig;
     }
 

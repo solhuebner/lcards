@@ -538,6 +538,25 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                         helper: 'Select existing tags or type new ones for rule targeting'
                     }
                 ]
+            },
+
+            {
+                type: 'section',
+                header: 'Sizing',
+                description: 'Override card dimensions — useful in stacks, overlays, or any auto-height container',
+                icon: 'mdi:resize',
+                expanded: false,
+                outlined: true,
+                children: [
+                    {
+                        type: 'grid',
+                        columns: 2,
+                        children: [
+                            { type: 'field', path: 'height' },
+                            { type: 'field', path: 'width' }
+                        ]
+                    }
+                ]
             }
         ];
     }

@@ -12,7 +12,7 @@
  * @see doc/user/configuration/cards/data-grid.md
  */
 
-import { animationSchema, filterSchema } from './common-schemas.js';
+import { animationSchema, filterSchema, cardHeightSchema, cardWidthSchema } from './common-schemas.js';
 
 export const dataGridSchema = {
     "type": "object",
@@ -637,6 +637,14 @@ export const dataGridSchema = {
                     }
                 }
             }
-        }
+        },
+
+        // ====================================================================
+        // SIZING
+        // ====================================================================
+
+        height: cardHeightSchema,
+
+        width: cardWidthSchema
     }
 };

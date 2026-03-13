@@ -8,7 +8,7 @@
  * Editor UI is defined separately in lcards-button-editor.js config.
  */
 
-import { dataSourcesSchema, actionSchema, animationSchema, filterSchema, stateColorSchema, paddingSchema, getTextSchema, gridOptionsSchema, entitySchema, cardIdSchema, tagsSchema, backgroundAnimationSchema } from './common-schemas.js';
+import { dataSourcesSchema, actionSchema, animationSchema, filterSchema, stateColorSchema, paddingSchema, getTextSchema, gridOptionsSchema, entitySchema, cardIdSchema, tagsSchema, backgroundAnimationSchema, cardHeightSchema, cardWidthSchema } from './common-schemas.js';
 
 /**
  * Get complete button card schema
@@ -57,6 +57,15 @@ export function getButtonSchema(options = {}) {
             id: cardIdSchema,
 
             tags: tagsSchema,
+
+            // ============================================================================
+            // SIZING
+            // ============================================================================
+
+            height: cardHeightSchema,
+
+            width: cardWidthSchema,
+
 
             // ============================================================================
             // CONTROL BEHAVIOR
@@ -892,46 +901,7 @@ export function getButtonSchema(options = {}) {
             },
 
             // ============================================================================
-            // LAYOUT (HA Grid System)
-            // ============================================================================
 
-            width: {
-                type: 'number',
-                minimum: 1,
-                maximum: 24,
-                default: 4,
-                description: 'Card width in grid columns (1-24, default: 4)',
-                'x-ui-hints': {
-                    label: 'Width (Grid Columns)',
-                    helper: 'Card width in HA grid columns (1-24)',
-                    selector: {
-                        number: {
-                            mode: 'slider',
-                            step: 1,
-                            unit_of_measurement: 'cols'
-                        }
-                    }
-                }
-            },
-            height: {
-                type: 'number',
-                minimum: 1,
-                maximum: 100,
-                default: 4,
-                description: 'Card height in grid rows (1-100, default: 4)',
-                'x-ui-hints': {
-                    label: 'Height (Grid Rows)',
-                    helper: 'Card height in HA grid rows (1-100)',
-                    selector: {
-                        number: {
-                            mode: 'slider',
-                            step: 1,
-                            unit_of_measurement: 'rows'
-                        }
-                    }
-                }
-            },
-            // ============================================================================
             // RANGES: STATE-DRIVEN PRESET SWITCHING
             // ============================================================================
 

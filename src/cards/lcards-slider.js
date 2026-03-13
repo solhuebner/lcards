@@ -3815,6 +3815,8 @@ export class LCARdSSlider extends LCARdSButton {
      * @returns {number}
      */
     getCardSize() {
+        const px = this._configPx(this.config.height);
+        if (px !== null) return Math.ceil(px / 50);
         return this.config.grid_rows || 1;
     }
 

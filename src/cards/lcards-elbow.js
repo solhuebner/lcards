@@ -2920,6 +2920,8 @@ export class LCARdSElbow extends LCARdSButton {
      * @returns {number} Grid rows
      */
     getCardSize() {
+        const px = this._configPx(this.config.height);
+        if (px !== null) return Math.ceil(px / 50);
         return this.config.grid_rows || 2;
     }
 

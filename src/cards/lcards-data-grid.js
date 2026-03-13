@@ -1722,6 +1722,9 @@ export class LCARdSDataGrid extends LCARdSCard {
    * @returns {number} Height in 50px rows
    */
   getCardSize() {
+    // Allow explicit px override; relative units fall through to auto-calculation.
+    const px = this._configPx(this.config.height);
+    if (px !== null) return Math.ceil(px / 50);
     const grid = this.config.grid || {};
     const fontSize = this.config.font_size || 24;  // Match legacy card
     const gap = grid.gap || 8;

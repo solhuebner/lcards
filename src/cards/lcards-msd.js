@@ -955,6 +955,8 @@ export class LCARdSMSDCard extends LCARdSCard {
      * @protected
      */
     _getCardSize() {
+        const px = this._configPx(this.config?.height);
+        if (px !== null) return Math.ceil(px / 50);
         return 4; // MSD cards are typically larger
     }
 

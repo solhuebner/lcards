@@ -11,6 +11,40 @@ import { LitElement, html, css, unsafeCSS } from 'lit';
 import { lcardsLog } from '../utils/lcards-logging.js';
 
 /**
+ * Normalise a config height/width value to a valid CSS length string.
+ * A bare number or numeric string is treated as pixels.
+ * A string that already contains a non-numeric character (e.g. "400px", "50vh")
+ * is returned as-is. Falsy values return '' which clears any inline style.
+ * @param {number|string} val
+ * @returns {string}
+ */
+function _toCssLength(val) {
+    if (val === null || val === undefined || val === '') return '';
+    const n = Number(val);
+    return Number.isFinite(n) ? `${n}px` : String(val);
+}
+
+/**
+ * Return the pixel integer from a config height/width value, or null if the
+ * value uses relative/viewport units that cannot be converted to px at
+ * declaration time (vh, vw, %, em, rem, vmin, vmax, etc.).
+ *
+ * Used by getCardSize() so that only absolute pixel values contribute to
+ * HA's stack-slot row calculation. Relative units are valid CSS and work
+ * visually, but cannot be meaningfully mapped to 50px grid rows.
+ * @param {number|string} val
+ * @returns {number|null}
+ */
+function _toPxInt(val) {
+    if (val === null || val === undefined || val === '') return null;
+    const n = Number(val);
+    if (Number.isFinite(n)) return n;                          // bare integer
+    const str = String(val).trim();
+    if (/^[\d.]+px$/i.test(str)) return parseFloat(str);      // "400px"
+    return null;   // em, rem, vh, vw, %, vmin, vmax, etc. — not convertible
+}
+
+/**
  * Base class for all LCARdS native cards.
  *
  * @extends LitElement
@@ -318,7 +352,29 @@ export class LCARdSNativeCard extends LitElement {
      * @protected
      */
     _onConfigSet(config) {
-        // Override in subclasses
+        // Apply explicit size overrides to the host element so the card
+        // constrains itself in any container — stacks, overlays, masonry, etc.
+        // Accepts a bare number (treated as px) or a CSS string with units.
+        // Clears the inline style when the property is absent so the host
+        // reverts to 100% × 100% of its grid/stack cell as normal.
+        this.style.height = _toCssLength(config.height ?? '');
+        this.style.width  = _toCssLength(config.width  ?? '');
+    }
+
+    /**
+     * Convert a config height/width value to an integer pixel count, or null
+     * if the value uses relative/viewport units (vh, vw, %, em, rem, …) that
+     * cannot be resolved to px at declaration time.
+     *
+     * Use this in getCardSize() so that relative-unit values fall back to
+     * the card's default row calculation rather than producing a nonsense number.
+     *
+     * @param {number|string} val - e.g. 400, "400", "400px", "50vh"
+     * @returns {number|null}
+     * @protected
+     */
+    _configPx(val) {
+        return _toPxInt(val);
     }
 
     /**

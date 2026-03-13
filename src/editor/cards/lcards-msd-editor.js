@@ -126,6 +126,22 @@ export class LCARdSMSDEditor extends LCARdSBaseEditor {
                     helper: 'Tags for rules engine categorization'
                 })}
             </lcards-form-section>
+
+            <!-- Sizing -->
+            <lcards-form-section
+                header="Sizing"
+                description="Override card dimensions — useful in stacks, overlays, or any auto-height container"
+                icon="mdi:resize"
+                ?expanded=${false}
+                ?outlined=${true}
+                headerLevel="4">
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    ${FormField.renderField(this, 'height')}
+
+                    ${FormField.renderField(this, 'width')}
+                </div>
+            </lcards-form-section>
         `;
     }
 

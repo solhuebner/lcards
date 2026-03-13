@@ -3258,10 +3258,12 @@ export class LCARdSButton extends LCARdSCard {
     _renderButtonContent() {
         lcardsLog.trace(`[LCARdSButton] Rendering button ${this._overlayId}`);
 
-        // ✨ Use container size if available, otherwise config or defaults
-        // This enables auto-sizing for HA grid cards and responsive layouts
-        const width = this.config.width || this._containerSize?.width || 400;
-        const height = this.config.height || this._containerSize?.height || 56;
+        // ✨ Use container size if available, otherwise config or defaults.
+        // config.width/height may be a bare number (px) or a CSS string.
+        // _configPx() returns null for viewport/relative units so sizing falls
+        // back to the measured container size rather than a nonsense px value.
+        const width  = this._configPx(this.config.width)  || this._containerSize?.width  || 400;
+        const height = this._configPx(this.config.height) || this._containerSize?.height || 56;
 
         lcardsLog.trace(`[LCARdSButton] Size resolution:`, {
             'config.width': this.config.width,
@@ -6072,8 +6074,10 @@ export class LCARdSButton extends LCARdSCard {
      * @returns {number} Card height in rows
      */
     getCardSize() {
-        // Calculate based on configured or auto-sized height
-        const height = this.config.height || this._containerSize?.height || 60;
+        // _configPx returns null for relative units so they don't distort row math.
+        const height = this._configPx(this.config.height)
+            || this._containerSize?.height
+            || 60;
         // Convert to HA grid units (each unit is ~50px)
         return Math.ceil(height / 50);
     }

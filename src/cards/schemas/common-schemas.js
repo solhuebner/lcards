@@ -1264,3 +1264,33 @@ export const backgroundAnimationSchema = {
         }
     ]
 };
+
+// ============================================================================
+// CARD SIZING SCHEMAS
+// Shared height/width properties used by all card types.
+// A bare integer is treated as pixels by the base class (_toCssLength).
+// CSS unit strings (e.g. 50vh, 10em) are applied as-is to the host element;
+// note that getCardSize() falls back to the card default for non-px values.
+// ============================================================================
+
+export const cardHeightSchema = {
+    type: 'string',
+    pattern: '^[\\d.]+(\\s*(px|vh|vw|%|em|rem|vmin|vmax))?$',
+    description: 'Card height override. Bare integer = px (e.g. 200 = 200px). CSS units accepted: 200px, 50vh, 10em.',
+    'x-ui-hints': {
+        label: 'Height',
+        helper: 'Bare integer = px (e.g. 200 = 200px). CSS units accepted: 200px, 50vh, 10em.',
+        selector: { text: {} }
+    }
+};
+
+export const cardWidthSchema = {
+    type: 'string',
+    pattern: '^[\\d.]+(\\s*(px|vh|vw|%|em|rem|vmin|vmax))?$',
+    description: 'Card width override. Bare integer = px (e.g. 400 = 400px). CSS units accepted: 400px, 50vw, 10em.',
+    'x-ui-hints': {
+        label: 'Width',
+        helper: 'Bare integer = px (e.g. 400 = 400px). CSS units accepted: 400px, 50vw, 10em.',
+        selector: { text: {} }
+    }
+};
