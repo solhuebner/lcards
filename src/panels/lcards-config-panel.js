@@ -1125,11 +1125,14 @@ export class LCARdSConfigPanel extends LitElement {
         ></ha-selector>
       `;
     } else if (helper.domain === 'input_boolean') {
+      // Read fresh value from HASS state (same pattern as input_select above) to avoid
+      // showing stale cache values; fall back to helper.currentValue if state not yet loaded.
+      const boolState = this.hass?.states?.[helper.entity_id]?.state ?? helper.currentValue;
       return html`
         <ha-selector
           .hass=${this.hass}
           .selector=${{ boolean: {} }}
-          .value=${helper.currentValue === 'on'}
+          .value=${boolState === 'on'}
           @value-changed=${(e) => {
             e.stopPropagation();
             const newValue = e.detail.value;
