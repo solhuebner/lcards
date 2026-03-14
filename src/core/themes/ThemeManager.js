@@ -96,6 +96,14 @@ export class ThemeManager extends BaseService {
 
     // Alert mode tracking
     this.currentAlertMode = 'green_alert';
+
+    /**
+     * Subscribers notified after an alert mode is fully applied.
+     * Fires AFTER CSS variables are written, currentAlertMode is updated,
+     * and the token resolver cache is cleared — safe to re-render immediately.
+     * @type {Set<Function>}
+     */
+    this._alertModeSubscribers = new Set();
   }
 
   /**
@@ -628,7 +636,37 @@ export class ThemeManager extends BaseService {
       this.resolver.clearCache();
     }
 
+    // Notify subscribers — everything is ready: CSS vars written, cache cleared,
+    // currentAlertMode updated.  Safe for components to re-render immediately.
+    if (this._alertModeSubscribers.size > 0) {
+      this._alertModeSubscribers.forEach(cb => {
+        try { cb(mode); } catch (e) {
+          lcardsLog.warn('[ThemeManager] Alert mode subscriber threw:', e);
+        }
+      });
+    }
+
     lcardsLog.info(`[ThemeManager] ✅ Alert mode: ${mode}`);
+  }
+
+  /**
+   * Subscribe to alert mode changes.
+   *
+   * The callback is fired AFTER CSS variables have been written, the token
+   * resolver cache has been cleared, and currentAlertMode has been updated.
+   * This makes it safe to call requestUpdate() directly from the callback
+   * without any additional deferral.
+   *
+   * @param {Function} callback - Called with (newMode: string)
+   * @returns {Function} Unsubscribe function
+   */
+  subscribeToAlertMode(callback) {
+    this._alertModeSubscribers.add(callback);
+    lcardsLog.debug('[ThemeManager] Alert mode subscriber added');
+    return () => {
+      this._alertModeSubscribers.delete(callback);
+      lcardsLog.debug('[ThemeManager] Alert mode subscriber removed');
+    };
   }
 
   /**
@@ -648,6 +686,7 @@ export class ThemeManager extends BaseService {
     this.activeTheme = null;
     this.resolver = null;
     this.initialized = false;
+    this._alertModeSubscribers.clear();
 
     lcardsLog.debug('[ThemeManager] Destroyed');
   }

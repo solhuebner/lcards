@@ -2437,25 +2437,30 @@ export class LCARdSSlider extends LCARdSButton {
     }
 
     /**
-     * Subscribe to alert mode changes via HelperManager.
-     * When the mode changes, the memoized SVG content (which contains resolved
-     * hex colours) must be discarded so the next render picks up the new
-     * CSS-variable values after the hue-shift.
+     * Subscribe to alert mode changes via ThemeManager.
+     *
+     * ThemeManager fires its subscribers AFTER CSS variables have been written,
+     * the token resolver cache has been cleared, and currentAlertMode has been
+     * updated — so it is safe to call requestUpdate() immediately from the
+     * callback without any animation-frame deferral.
+     *
+     * Previous approach subscribed to the HelperManager's alert_mode helper
+     * state change, which fired BEFORE CSS variables were committed, causing
+     * the slider to re-render with stale resolved colours ("one mode behind").
      * @private
      */
     _subscribeToAlertMode() {
         this._alertModeUnsubscribe?.();
         this._alertModeUnsubscribe = null;
 
-        const helperManager = window.lcards?.core?.helperManager;
-        if (helperManager) {
-            this._alertModeUnsubscribe = helperManager.subscribeToHelper(
-                'alert_mode',
+        const themeManager = window.lcards?.core?.themeManager;
+        if (themeManager?.subscribeToAlertMode) {
+            this._alertModeUnsubscribe = themeManager.subscribeToAlertMode(
                 this._handleAlertModeChange.bind(this)
             );
-            lcardsLog.debug('[LCARdSSlider] Subscribed to alert_mode helper');
+            lcardsLog.debug('[LCARdSSlider] Subscribed to ThemeManager alert mode changes');
         } else {
-            lcardsLog.warn('[LCARdSSlider] HelperManager not available — alert mode subscription skipped');
+            lcardsLog.warn('[LCARdSSlider] ThemeManager.subscribeToAlertMode not available — alert mode subscription skipped');
         }
     }
 
@@ -2464,6 +2469,16 @@ export class LCARdSSlider extends LCARdSButton {
      * Busts the memoization cache and triggers a full re-render so all
      * baked-in resolved colours (pills gradient, gauge ticks, etc.) are
      * recomputed from the updated CSS variables.
+     *
+     * This callback is invoked by ThemeManager AFTER:
+     *   - CSS variables (`--lcars-*` and `--lcards-*`) have been written
+     *   - `currentAlertMode` has been updated
+     *   - the ThemeTokenResolver cache has been cleared
+     *
+     * Because all state is already consistent when we are called, it is
+     * correct (and optimal) to call requestUpdate() immediately — no
+     * animation-frame deferral is required.
+     *
      * @param {string} newMode
      * @private
      */
