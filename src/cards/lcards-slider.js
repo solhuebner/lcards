@@ -3057,7 +3057,16 @@ export class LCARdSSlider extends LCARdSButton {
         }
 
         // Horizontal sliders work fine with <input type="range">
-        const inputTransform = this._invertFill ? 'scaleX(-1)' : '';
+        // When invert_fill is true, mirror the input value so the thumb visually aligns with
+        // the fill end.  Using a CSS scaleX(-1) transform is unreliable because browsers
+        // calculate the reported value from the pre-transform coordinate space, causing the
+        // thumb and the fill to move in opposite directions during drag.  Feeding the mirrored
+        // value (max - value + min) is the reliable equivalent: the event handlers already
+        // invert the raw value back to the actual entity value.
+        const { min: ctrlMin, max: ctrlMax } = this._controlConfig;
+        const inputDisplayValue = this._invertFill
+            ? String(ctrlMax - this._sliderValue + ctrlMin)
+            : String(this._sliderValue);
 
         return html`
             <div class="slider-container">
@@ -3066,9 +3075,9 @@ export class LCARdSSlider extends LCARdSButton {
                     <input
                         type="range"
                         class="slider-input-overlay"
-                        .value="${String(this._sliderValue)}"
-                        .min="${String(this._controlConfig.min)}"
-                        .max="${String(this._controlConfig.max)}"
+                        .value="${inputDisplayValue}"
+                        .min="${String(ctrlMin)}"
+                        .max="${String(ctrlMax)}"
                         .step="${String(this._controlConfig.step || 1)}"
                         ?disabled="${this._controlConfig.locked}"
                         @input="${this._handleSliderInput}"
@@ -3078,7 +3087,6 @@ export class LCARdSSlider extends LCARdSButton {
                             top: ${controlZone.y}px;
                             width: ${controlZone.width}px;
                             height: ${controlZone.height}px;
-                            ${inputTransform ? `transform: ${inputTransform};` : ''}
                         "
                     />
                 ` : ''}
