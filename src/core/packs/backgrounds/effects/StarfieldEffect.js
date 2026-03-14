@@ -149,6 +149,44 @@ export class StarfieldEffect extends BaseEffect {
     }
 
     lcardsLog.info(`[StarfieldEffect] Generated ${this.stars.length} stars across ${this.parallaxLayers} layers`);
+
+    // Pre-build draw buckets for batched rendering.
+    // Stars are grouped by (color, quantized-opacity) so that each bucket can
+    // be drawn as a single beginPath → N arcs → fill() call instead of one
+    // fill() per star.  Opacity is quantised to 8 levels (steps of 0.125)
+    // which is visually imperceptible at typical star sizes (0.5–2 px).
+    this._buildDrawBuckets();
+  }
+
+  /**
+   * Pre-group stars into draw buckets to minimise per-frame GPU state changes.
+   *
+   * Each bucket shares the same fillStyle and per-bucket opacity so the entire
+   * group can be drawn with a single fill() call.
+   *
+   * Called once after star generation (star color / opacity never change at
+   * runtime — only position updates).
+   * @private
+   */
+  _buildDrawBuckets() {
+    const OPACITY_LEVELS = 8; // quantise star.opacity to 8 steps
+    const bucketMap = new Map();
+
+    for (const star of this.stars) {
+      // Round to nearest 1/OPACITY_LEVELS to collapse continuous opacity values
+      // into a small set of discrete levels.
+      const quantizedOpacity = Math.round(star.opacity * OPACITY_LEVELS) / OPACITY_LEVELS;
+      const key = `${star.color}|${quantizedOpacity}`;
+
+      if (!bucketMap.has(key)) {
+        bucketMap.set(key, { fillStyle: star.color, baseOpacity: quantizedOpacity, stars: [] });
+      }
+      bucketMap.get(key).stars.push(star);
+    }
+
+    this._drawBuckets = Array.from(bucketMap.values());
+
+    lcardsLog.debug(`[StarfieldEffect] Built ${this._drawBuckets.length} draw buckets from ${this.stars.length} stars`);
   }
 
   /**
@@ -192,26 +230,27 @@ export class StarfieldEffect extends BaseEffect {
     // Save the current globalAlpha (set by ZoomEffect wrapper)
     const parentAlpha = ctx.globalAlpha;
 
-    // Draw each star, scaling from normalized 0-1 space to canvas pixels
-    for (const star of this.stars) {
-      const x = star.x * canvasWidth;
-      const y = star.y * canvasHeight;
+    // Batched draw: one beginPath → N arcs → fill() per (color, opacity) bucket
+    // instead of one fill() per star.  Reduces GPU state changes from
+    // O(stars) to O(buckets) — typically from ~150 down to ~8–24 calls.
+    for (const bucket of this._drawBuckets) {
+      ctx.fillStyle = bucket.fillStyle;
+      ctx.globalAlpha = parentAlpha * bucket.baseOpacity * this.opacity;
 
-      // Set star color and multiply opacity (don't replace parentAlpha)
-      ctx.fillStyle = star.color;
-      ctx.globalAlpha = parentAlpha * star.opacity * this.opacity;
-
-      // Draw star as a filled circle
       ctx.beginPath();
-      ctx.arc(x, y, star.radius, 0, Math.PI * 2);
+      for (const star of bucket.stars) {
+        const x = star.x * canvasWidth;
+        const y = star.y * canvasHeight;
+        // moveTo before arc prevents the canvas from drawing a line from the
+        // previous arc end-point to this arc's start.
+        ctx.moveTo(x + star.radius, y);
+        ctx.arc(x, y, star.radius, 0, Math.PI * 2);
+      }
       ctx.fill();
     }
 
     // Restore parent alpha
     ctx.globalAlpha = parentAlpha;
-
-    // Reset alpha
-    ctx.globalAlpha = 1.0;
 
     // Log first draw for debugging
     if (!this._hasLoggedFirstDraw) {

@@ -60,6 +60,9 @@ export class BackgroundAnimationRenderer {
    * @private
    */
   _resolveConfig(config) {
+    // Default — overridden below when the envelope-object form is used.
+    this._targetFps = 30;
+
     if (Array.isArray(config)) {
       this.inset = { top: 0, right: 0, bottom: 0, left: 0 };
       this._rawInset = null;
@@ -67,6 +70,7 @@ export class BackgroundAnimationRenderer {
     } else if (config && typeof config === 'object' && 'effects' in config) {
       this.effectConfigs = config.effects ?? [];
       this._rawInset = config.inset ?? null;
+      this._targetFps  = config.fps ?? 30;
       // 'auto' is resolved later via updateInset(); default to zero until then
       if (this._rawInset === 'auto' || !this._rawInset) {
         this.inset = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -118,8 +122,8 @@ export class BackgroundAnimationRenderer {
         containerHeight: this.container.offsetHeight
       });
 
-      // Create renderer
-      this.renderer = new Canvas2DRenderer(this.canvas);
+      // Create renderer — forward the per-card FPS cap from config.
+      this.renderer = new Canvas2DRenderer(this.canvas, { targetFps: this._targetFps });
 
       // Load effects from preset or config
       const success = this._loadEffects();

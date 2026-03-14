@@ -261,9 +261,9 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
    */
   get _normalizedConfig() {
     const c = this.config;
-    if (!c) return { inset: null, effects: [] };
-    if (Array.isArray(c)) return { inset: null, effects: c };
-    return { inset: c.inset ?? null, effects: c.effects ?? [] };
+    if (!c) return { inset: null, fps: null, effects: [] };
+    if (Array.isArray(c)) return { inset: null, fps: null, effects: c };
+    return { inset: c.inset ?? null, fps: c.fps ?? null, effects: c.effects ?? [] };
   }
 
   /**
@@ -299,7 +299,7 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
    * @private
    */
   _renderCanvasSettings() {
-    const { inset } = this._normalizedConfig;
+    const { inset, fps } = this._normalizedConfig;
     const insetEnabled = this._insetEnabled || (inset !== null && inset !== undefined);
     const isAuto = inset === 'auto';
     const insetObj = (inset && typeof inset === 'object') ? inset : { top: 0, right: 0, bottom: 0, left: 0 };
@@ -309,6 +309,18 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
         header="Canvas Settings"
         icon="mdi:crop"
         ?expanded=${insetEnabled}>
+
+        <ha-selector
+          .hass=${this.hass}
+          .selector=${{ number: { min: 1, max: 120, step: 1, mode: 'slider' } }}
+          .value=${fps ?? 30}
+          .label=${'Animation FPS'}
+          .helper=${'Max frames per second for the background animation. Default 30 is recommended for most devices. Use 60 for high-refresh displays.'}
+          @value-changed=${(e) => {
+            const newFps = e.detail.value;
+            this._emitChange(this._normalizedConfig.effects, this._normalizedConfig.inset, newFps === 30 ? null : newFps);
+          }}
+        ></ha-selector>
 
         <ha-selector
           .hass=${this.hass}
@@ -1570,10 +1582,17 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
    * @param {Array} effects - Updated effects array
    * @param {Object|string|null} inset - Canvas inset value (null = no inset / bare array form)
    */
-  _emitChange(effects, inset) {
-    const value = (inset !== null && inset !== undefined)
-      ? { inset, effects }
-      : effects; // bare array — no inset configured
+  _emitChange(effects, inset, fps) {
+    // fps arg: explicit value overrides; undefined = preserve whatever is in current config.
+    const fpsValue = fps !== undefined ? fps : this._normalizedConfig.fps;
+    const hasInset = inset !== null && inset !== undefined;
+    const hasFps   = fpsValue !== null && fpsValue !== undefined;
+
+    // Use envelope form whenever either canvas-level setting is present.
+    // Fall back to bare effects array when neither is set (backwards-compatible).
+    const value = (hasInset || hasFps)
+      ? { ...(hasFps && { fps: fpsValue }), ...(hasInset && { inset }), effects }
+      : effects;
     lcardsLog.debug('[BackgroundAnimationEditor] Effects changed', value);
     this.dispatchEvent(new CustomEvent('effects-changed', {
       detail: { value },

@@ -16,6 +16,13 @@ export class Canvas2DRenderer {
    *   Set to false to opt out of the shared PerformanceMonitor.  Use this for
    *   lightweight Canvas2D effects (e.g. shape textures) that should never be
    *   paused by the WebGL/3D performance threshold.
+   * @param {number}            [options.targetFps=30]
+   *   Maximum frames per second the render loop will produce.  The RAF loop
+   *   still runs at the browser's native rate (usually 60fps) but render work
+   *   is skipped when the elapsed time since the last drawn frame is less than
+   *   1000/targetFps ms.  Defaults to 30 to conserve CPU on low-end devices
+   *   such as Android tablets.  Set to 60 (or 0 to disable) for high-refresh
+   *   displays where smoother animation is preferred.
    */
   constructor(canvas, options = {}) {
     this.canvas = canvas;
@@ -33,9 +40,15 @@ export class Canvas2DRenderer {
     this._isSuspended = false;         // true when externally suspended (e.g. IntersectionObserver)
     this._pmPaused = false;            // true when we have decremented the PerformanceMonitor ref count
 
+    // FPS cap: compute the minimum interval between rendered frames.
+    // targetFps=0 disables the cap (render at the native browser rate).
+    this._targetFps = options.targetFps ?? 30;
+    this._minFrameInterval = this._targetFps > 0 ? 1000 / this._targetFps : 0;
+
     lcardsLog.info('[Canvas2DRenderer] Initialized', {
       canvasWidth: canvas.width,
-      canvasHeight: canvas.height
+      canvasHeight: canvas.height,
+      targetFps: this._targetFps
     });
   }
 
@@ -279,6 +292,14 @@ export class Canvas2DRenderer {
     }
 
     const currentTime = performance.now();
+
+    // FPS cap: if not enough time has elapsed since the last rendered frame,
+    // skip this tick but keep the RAF loop alive for the next check.
+    if (this._minFrameInterval > 0 && currentTime - this._lastFrameTime < this._minFrameInterval) {
+      this._animationId = requestAnimationFrame(() => this._animate());
+      return;
+    }
+
     const deltaTime = currentTime - this._lastFrameTime;
     this._lastFrameTime = currentTime;
 

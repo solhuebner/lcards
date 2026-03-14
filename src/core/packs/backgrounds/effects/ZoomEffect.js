@@ -46,6 +46,12 @@ export class ZoomEffect {
     this._elapsedTime = 0;
     this._isActive = true;
 
+    // Off-screen frame buffer: base effect is rendered here once per frame,
+    // then stamped N times (once per zoom layer) via drawImage instead of
+    // re-executing the full baseEffect.draw() for every layer.
+    this._frameCanvas = null;
+    this._frameCtx = null;
+
     lcardsLog.debug('[ZoomEffect] Created zoom effect wrapper', {
       layers: this.layers,
       layerIndex: this.layerIndex,
@@ -93,6 +99,28 @@ export class ZoomEffect {
     const centerX = canvasWidth / 2;
     const centerY = canvasHeight / 2;
 
+    // --- Frame buffer: render base effect ONCE per frame ----------------------
+    // Allocate or resize the off-screen buffer to match the current canvas size.
+    if (!this._frameCanvas) {
+      this._frameCanvas = document.createElement('canvas');
+      this._frameCanvas.width  = canvasWidth;
+      this._frameCanvas.height = canvasHeight;
+      this._frameCtx = this._frameCanvas.getContext('2d');
+    } else if (this._frameCanvas.width !== canvasWidth || this._frameCanvas.height !== canvasHeight) {
+      this._frameCanvas.width  = canvasWidth;
+      this._frameCanvas.height = canvasHeight;
+    }
+
+    // Draw the base effect into the buffer at full opacity.
+    // Each zoom layer will stamp this buffer at its own scale / opacity via
+    // drawImage — a single GPU blit instead of re-executing the full draw path.
+    this._frameCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+    if (this.baseEffect.draw) {
+      this._frameCtx.globalAlpha = 1.0;
+      this.baseEffect.draw(this._frameCtx, canvasWidth, canvasHeight);
+    }
+    // --------------------------------------------------------------------------
+
     // Calculate current progress in animation cycle (0-1)
     const cycleProgress = (this._elapsedTime % this.duration) / this.duration;
 
@@ -132,13 +160,11 @@ export class ZoomEffect {
       ctx.scale(scale, scale);
       ctx.translate(-centerX, -centerY);
 
-      // Apply layer opacity
+      // Apply layer opacity and stamp the pre-rendered frame buffer.
+      // drawImage is a single GPU blit — far cheaper than re-running the
+      // full baseEffect draw path for each layer.
       ctx.globalAlpha = opacity;
-
-      // Draw the base effect
-      if (this.baseEffect.draw) {
-        this.baseEffect.draw(ctx, canvasWidth, canvasHeight);
-      }
+      ctx.drawImage(this._frameCanvas, 0, 0);
 
       ctx.restore();
     }
@@ -151,5 +177,7 @@ export class ZoomEffect {
     if (this.baseEffect && this.baseEffect.destroy) {
       this.baseEffect.destroy();
     }
+    this._frameCanvas = null;
+    this._frameCtx = null;
   }
 }
