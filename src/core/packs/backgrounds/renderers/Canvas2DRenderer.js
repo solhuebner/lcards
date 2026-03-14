@@ -28,6 +28,10 @@ export class Canvas2DRenderer {
     this._frameSkipCounter = 0;
     this._perfCheckHandler = null;
     this._monitorPerformance = options.monitorPerformance !== false; // default true
+    this._visibilityHandler = null;   // document visibilitychange handler
+    this._pausedForVisibility = false; // true when RAF paused because tab is hidden
+    this._isSuspended = false;         // true when externally suspended (e.g. IntersectionObserver)
+    this._pmPaused = false;            // true when we have decremented the PerformanceMonitor ref count
 
     lcardsLog.info('[Canvas2DRenderer] Initialized', {
       canvasWidth: canvas.width,
@@ -96,6 +100,36 @@ export class Canvas2DRenderer {
       window.addEventListener('lcards:performance-check', this._perfCheckHandler);
     }
 
+    // Pause the RAF loop when the browser tab is hidden; resume on visibility restore.
+    this._visibilityHandler = () => {
+      if (document.hidden) {
+        if (this._isRunning && !this._pausedForVisibility) {
+          this._pausedForVisibility = true;
+          if (this._animationId) {
+            cancelAnimationFrame(this._animationId);
+            this._animationId = null;
+          }
+          // Pause the PM so it does not measure FPS while we are not rendering
+          // and then fire shouldDisable3D when the tab comes back.
+          this._pausePerformanceMonitor();
+          lcardsLog.debug('[Canvas2DRenderer] Paused — tab hidden');
+        }
+      } else if (this._pausedForVisibility) {
+        this._pausedForVisibility = false;
+        this._lastFrameTime = performance.now();
+        // Only restart if the element is not genuinely off-screen.
+        // _isSuspended is set by IntersectionObserver only when the tab is visible
+        // (the IO callback is guarded by document.hidden in BackgroundAnimationRenderer),
+        // so if it is true here the element really is scrolled out of the viewport.
+        if (!this._isSuspended) {
+          this._resumePerformanceMonitor();
+          lcardsLog.debug('[Canvas2DRenderer] Resumed — tab visible');
+          this._animate();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', this._visibilityHandler);
+
     this._animate();
 
     lcardsLog.info('[Canvas2DRenderer] Animation started', {
@@ -122,9 +156,18 @@ export class Canvas2DRenderer {
       window.removeEventListener('lcards:performance-check', this._perfCheckHandler);
       this._perfCheckHandler = null;
     }
-    if (this._monitorPerformance && window.lcards?.core?.performanceMonitor) {
+    // Only decrement PM ref count if we haven't already done so via _pausePerformanceMonitor()
+    if (!this._pmPaused && this._monitorPerformance && window.lcards?.core?.performanceMonitor) {
       window.lcards.core.performanceMonitor.stop();
     }
+    this._pmPaused = false;
+
+    // Clean up visibilitychange listener
+    if (this._visibilityHandler) {
+      document.removeEventListener('visibilitychange', this._visibilityHandler);
+      this._visibilityHandler = null;
+    }
+    this._pausedForVisibility = false;
 
     lcardsLog.info('[Canvas2DRenderer] Animation stopped');
   }
@@ -135,6 +178,12 @@ export class Canvas2DRenderer {
    * @private
    */
   _onPerfCheck({ fps, shouldDisable3D, shouldReduceEffects }) {
+    // Ignore performance checks while the animation is intentionally paused.
+    // The PerformanceMonitor's own RAF loop continues running when we suspend,
+    // but with no frames being drawn it measures near-zero FPS.  Acting on those
+    // readings would permanently kill the renderer via stop().
+    if (this._pausedForVisibility || this._isSuspended) return;
+
     this._shouldReduceEffects = shouldReduceEffects;
 
     if (shouldDisable3D && this._isRunning) {
@@ -146,11 +195,77 @@ export class Canvas2DRenderer {
   }
 
   /**
+   * Detach the PerformanceMonitor subscription so its RAF loop does not
+   * accumulate bad FPS readings while our animation is intentionally paused.
+   * Idempotent — safe to call multiple times.
+   * @private
+   */
+  _pausePerformanceMonitor() {
+    if (this._pmPaused) return; // already paused, don't double-decrement PM ref count
+    this._pmPaused = true;
+    if (this._perfCheckHandler) {
+      window.removeEventListener('lcards:performance-check', this._perfCheckHandler);
+    }
+    if (this._monitorPerformance && window.lcards?.core?.performanceMonitor) {
+      window.lcards.core.performanceMonitor.stop();
+    }
+  }
+
+  /**
+   * Re-attach the PerformanceMonitor subscription with a fresh settle window
+   * so stale low-FPS readings from the paused period are discarded.
+   * Idempotent — safe to call multiple times.
+   * @private
+   */
+  _resumePerformanceMonitor() {
+    if (!this._pmPaused) return; // not paused by us, don't double-increment PM ref count
+    this._pmPaused = false;
+    if (this._monitorPerformance && window.lcards?.core?.performanceMonitor) {
+      window.lcards.core.performanceMonitor.start(); // resets settle window
+    }
+    if (this._perfCheckHandler) {
+      window.addEventListener('lcards:performance-check', this._perfCheckHandler);
+    }
+  }
+
+  /**
+   * Suspend the animation loop without fully stopping the renderer.
+   * Used by IntersectionObserver when the card scrolls off-screen.
+   * Has no effect if the renderer is not running or already suspended.
+   */
+  suspendAnimation() {
+    if (!this._isRunning || this._isSuspended) return;
+    this._isSuspended = true;
+    if (this._animationId) {
+      cancelAnimationFrame(this._animationId);
+      this._animationId = null;
+    }
+    this._pausePerformanceMonitor();
+    lcardsLog.debug('[Canvas2DRenderer] Suspended — off-screen');
+  }
+
+  /**
+   * Resume a previously suspended animation loop.
+   * Has no effect if the renderer is not running, not suspended, or the tab
+   * is currently hidden (visibility handler will resume when tab comes back).
+   */
+  resumeAnimation() {
+    if (!this._isRunning || !this._isSuspended) return;
+    this._isSuspended = false;
+    if (!this._pausedForVisibility) {
+      this._lastFrameTime = performance.now();
+      this._resumePerformanceMonitor();
+      lcardsLog.debug('[Canvas2DRenderer] Resumed — back on-screen');
+      this._animate();
+    }
+  }
+
+  /**
    * Animation loop - updates and renders all effects
    * @private
    */
   _animate() {
-    if (!this._isRunning) {
+    if (!this._isRunning || this._isSuspended || this._pausedForVisibility) {
       return;
     }
 

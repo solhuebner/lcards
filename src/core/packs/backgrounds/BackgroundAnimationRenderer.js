@@ -130,6 +130,31 @@ export class BackgroundAnimationRenderer {
       // Start animation
       this.renderer.start();
 
+      // Suspend animation when the card is scrolled off-screen, resume when it returns.
+      // Falls back gracefully if IntersectionObserver is unavailable (SSR, old browsers).
+      if (typeof IntersectionObserver !== 'undefined') {
+        this._intersectionObserver = new IntersectionObserver(
+          (entries) => {
+            // Ignore IO callbacks that fire as a side-effect of the browser tab being
+            // hidden or restored.  When the tab is hidden the browser marks all elements
+            // as non-intersecting; when the tab is restored those notifications may
+            // arrive late and race with the visibilitychange handler.  We let
+            // visibilitychange own the tab-hide/restore lifecycle exclusively and give
+            // IntersectionObserver responsibility only for genuine viewport transitions
+            // (scrolling, HA view switches) while the tab is actually visible.
+            if (document.hidden) return;
+            if (entries[0]?.isIntersecting) {
+              this.renderer?.resumeAnimation();
+            } else {
+              this.renderer?.suspendAnimation();
+            }
+          },
+          { threshold: 0 }
+        );
+        this._intersectionObserver.observe(this.container);
+        lcardsLog.debug('[BackgroundAnimation] IntersectionObserver attached');
+      }
+
       lcardsLog.info('[BackgroundAnimation] Renderer initialized and started');
       return true;
 
@@ -538,6 +563,35 @@ export class BackgroundAnimationRenderer {
   }
 
   /**
+   * Stop the animation loop without destroying the renderer, canvas, or effects.
+   *
+   * Call this when the card's custom element is temporarily removed from the live
+   * DOM (e.g., HA view switch).  The canvas element and all effect state survive
+   * inside the shadow DOM so that resume() can restart exactly where it left off.
+   *
+   * Do NOT call this for permanent card removal — call destroy() instead.
+   */
+  suspend() {
+    if (this.renderer) {
+      this.renderer.stop();
+    }
+    lcardsLog.debug('[BackgroundAnimation] Suspended — card disconnected from DOM');
+  }
+
+  /**
+   * Restart the animation loop after a suspend() caused by a disconnect/reconnect
+   * cycle (e.g., HA view switch).
+   *
+   * Re-attaches the PerformanceMonitor subscription and visibilitychange handler
+   * via Canvas2DRenderer.start(), which is a no-op if the renderer is already running.
+   */
+  resume() {
+    if (!this.renderer) return;
+    this.renderer.start();
+    lcardsLog.debug('[BackgroundAnimation] Resumed — card reconnected to DOM');
+  }
+
+  /**
    * Handle container resize — accounts for current inset values.
    */
   handleResize() {
@@ -563,6 +617,11 @@ export class BackgroundAnimationRenderer {
    * Clean up resources
    */
   destroy() {
+    if (this._intersectionObserver) {
+      this._intersectionObserver.disconnect();
+      this._intersectionObserver = null;
+    }
+
     if (this.renderer) {
       this.renderer.destroy();
       this.renderer = null;

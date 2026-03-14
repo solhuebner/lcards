@@ -160,10 +160,32 @@ export class GridEffect extends BaseEffect {
     // Convert deltaTime from milliseconds to seconds
     const deltaSeconds = deltaTime / 1000;
 
-    // Update scroll position (no modulo - let it accumulate infinitely)
-    // Pattern tiling in draw() handles the infinite repeat
+    // Update scroll position
     this.scrollX += this.scrollSpeedX * this.speed * deltaSeconds;
     this.scrollY += this.scrollSpeedY * this.speed * deltaSeconds;
+
+    // Wrap scroll accumulators to prevent floating-point precision loss over long runtimes.
+    // Threshold of 1e6 px ≈ 14+ hours at 20 px/s — never triggered in normal use.
+    const _wrapThreshold = 1e6;
+    if (Math.abs(this.scrollX) > _wrapThreshold || Math.abs(this.scrollY) > _wrapThreshold) {
+      let pw, ph;
+      if (this.pattern === 'hexagonal') {
+        const hexHeight = Math.sqrt(3) * this.hexRadius;
+        pw = 3 * this.hexRadius;
+        ph = 2 * hexHeight;
+      } else if (this._totalCols && this._colWidth) {
+        pw = this._totalCols * this._colWidth;
+        ph = this._totalRows * this._rowHeight;
+      }
+      if (pw && ph) {
+        if (Math.abs(this.scrollX) > _wrapThreshold) {
+          this.scrollX = ((this.scrollX % pw) + pw) % pw;
+        }
+        if (Math.abs(this.scrollY) > _wrapThreshold) {
+          this.scrollY = ((this.scrollY % ph) + ph) % ph;
+        }
+      }
+    }
   }
 
   /**
@@ -249,58 +271,71 @@ export class GridEffect extends BaseEffect {
       return;
     }
 
-    // Draw cell fills if fillColor is set
+    // Draw cell fill — all cells share the same color so one fillRect covers the whole tile
     if (this.fillColor && this.fillColor !== 'transparent') {
       ctx.fillStyle = this.fillColor;
-      for (let row = 0; row < this._totalRows; row++) {
-        for (let col = 0; col < this._totalCols; col++) {
-          const x = offsetX + (col * this._colWidth);
-          const y = offsetY + (row * this._rowHeight);
-          ctx.fillRect(x, y, this._colWidth, this._rowHeight);
-        }
-      }
+      ctx.fillRect(offsetX, offsetY, patternWidth, patternHeight);
     }
 
-    // Draw horizontal lines - major/minor based on fixed row position
+    // Draw horizontal lines — batch all lines of the same style into a single path,
+    // then stroke once. Reduces draw calls from N → 2 (minor path + major path).
     if (shouldDrawHorizontal) {
+      // Minor lines
+      ctx.beginPath();
       for (let row = 0; row <= this._totalRows; row++) {
+        if (!this.showBorderLines && (row === 0 || row === this._totalRows)) continue;
+        if (this.majorRowInterval > 0 && row % this.majorRowInterval === 0) continue;
         const y = offsetY + (row * this._rowHeight);
-
-        // Skip border lines if disabled
-        if (!this.showBorderLines && (row === 0 || row === this._totalRows)) {
-          continue;
-        }
-
-        // Major line determination based on row index in pattern
-        const isMajor = this.majorRowInterval > 0 && row % this.majorRowInterval === 0;
-        ctx.strokeStyle = isMajor ? this.colorMajor : this.color;
-        ctx.lineWidth = isMajor ? this.lineWidthMajor : this.lineWidthMinor;
-
-        ctx.beginPath();
         ctx.moveTo(offsetX, y);
         ctx.lineTo(offsetX + patternWidth, y);
+      }
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = this.lineWidthMinor;
+      ctx.stroke();
+
+      // Major lines
+      if (this.majorRowInterval > 0) {
+        ctx.beginPath();
+        for (let row = 0; row <= this._totalRows; row++) {
+          if (!this.showBorderLines && (row === 0 || row === this._totalRows)) continue;
+          if (row % this.majorRowInterval !== 0) continue;
+          const y = offsetY + (row * this._rowHeight);
+          ctx.moveTo(offsetX, y);
+          ctx.lineTo(offsetX + patternWidth, y);
+        }
+        ctx.strokeStyle = this.colorMajor;
+        ctx.lineWidth = this.lineWidthMajor;
         ctx.stroke();
       }
     }
 
-    // Draw vertical lines - major/minor based on fixed col position
+    // Draw vertical lines — same batching approach
     if (shouldDrawVertical) {
+      // Minor lines
+      ctx.beginPath();
       for (let col = 0; col <= this._totalCols; col++) {
+        if (!this.showBorderLines && (col === 0 || col === this._totalCols)) continue;
+        if (this.majorColInterval > 0 && col % this.majorColInterval === 0) continue;
         const x = offsetX + (col * this._colWidth);
-
-        // Skip border lines if disabled
-        if (!this.showBorderLines && (col === 0 || col === this._totalCols)) {
-          continue;
-        }
-
-        // Major line determination based on col index in pattern
-        const isMajor = this.majorColInterval > 0 && col % this.majorColInterval === 0;
-        ctx.strokeStyle = isMajor ? this.colorMajor : this.color;
-        ctx.lineWidth = isMajor ? this.lineWidthMajor : this.lineWidthMinor;
-
-        ctx.beginPath();
         ctx.moveTo(x, offsetY);
         ctx.lineTo(x, offsetY + patternHeight);
+      }
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = this.lineWidthMinor;
+      ctx.stroke();
+
+      // Major lines
+      if (this.majorColInterval > 0) {
+        ctx.beginPath();
+        for (let col = 0; col <= this._totalCols; col++) {
+          if (!this.showBorderLines && (col === 0 || col === this._totalCols)) continue;
+          if (col % this.majorColInterval !== 0) continue;
+          const x = offsetX + (col * this._colWidth);
+          ctx.moveTo(x, offsetY);
+          ctx.lineTo(x, offsetY + patternHeight);
+        }
+        ctx.strokeStyle = this.colorMajor;
+        ctx.lineWidth = this.lineWidthMajor;
         ctx.stroke();
       }
     }

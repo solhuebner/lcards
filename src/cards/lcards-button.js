@@ -2155,6 +2155,13 @@ export class LCARdSButton extends LCARdSCard {
     _onConnected() {
         super._onConnected();
 
+        // Restart background animation that was suspended during a disconnect/reconnect
+        // cycle (e.g., HA view switch).  Use updateComplete so the shadow DOM is fully
+        // rendered before we attempt to start the RAF loop.
+        if (this._backgroundRenderer) {
+            this.updateComplete.then(() => this._backgroundRenderer.resume());
+        }
+
         // CRITICAL: Re-resolve styles now that StylePresetManager is available
         // The initial _onTemplatesChanged() call happens before singletons are initialized,
         // so we must re-run style resolution here to pick up presets
@@ -6056,10 +6063,12 @@ export class LCARdSButton extends LCARdSCard {
         // Clear element reference
         this._lastActionElement = null;
 
-        // Clean up background animation
+        // Suspend (not destroy) the background animation — the canvas and effect state
+        // survive inside the shadow DOM across the disconnect/reconnect cycle that HA uses
+        // for view switches.  _onConnected() will call resume() to restart the RAF loop.
+        // destroy() is reserved for permanent card removal or config replacement.
         if (this._backgroundRenderer) {
-            this._backgroundRenderer.destroy();
-            this._backgroundRenderer = null;
+            this._backgroundRenderer.suspend();
         }
 
         // Clean up canvas texture overlay
