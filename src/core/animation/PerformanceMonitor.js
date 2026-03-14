@@ -16,8 +16,8 @@ export class AnimationPerformanceMonitor {
     this._lowRequiredCount = 3; // Require 3 consecutive low-FPS checks before triggering disable
     this._refCount = 0;          // Number of active subscribers (Canvas2DRenderer instances)
     this.thresholds = {
-      disable3D: 20,      // Disable WebGL if FPS < 20
-      reduceEffects: 40   // Reduce particle count if FPS < 40
+      disable3D: 12,      // Stop renderer entirely if FPS < 12 (3 consecutive checks required)
+      reduceEffects: 24   // Skip every other frame if FPS < 24 (below the default 30fps cap)
     };
   }
 
