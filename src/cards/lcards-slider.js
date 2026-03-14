@@ -287,6 +287,9 @@ export class LCARdSSlider extends LCARdSButton {
         this._memoizedGauge = null;
         this._memoizedGaugeConfig = null;
 
+        // Alert mode subscription
+        this._alertModeUnsubscribe = null;
+
         // Resolved numeric values for value-based (marker) range entries
         this._resolvedMarkerValues = [];
 
@@ -504,6 +507,9 @@ export class LCARdSSlider extends LCARdSButton {
         } else {
             this._registerOverlayForRules(`slider-${this._cardGuid}`, 'slider', ['slider']);
         }
+
+        // Subscribe to alert mode changes so hue-shifts bust the memoization cache
+        this._subscribeToAlertMode();
     }
 
     /**
@@ -1564,7 +1570,8 @@ export class LCARdSSlider extends LCARdSButton {
             `${orientation}|${width}|${height}|` +
             `${JSON.stringify(this._sliderStyle?.ranges || [])}|` +
             `${JSON.stringify(this._resolvedMarkerValues)}|` +
-            `${this._lightColorValue || ''}`; // Bust cache when light colour changes
+            `${this._lightColorValue || ''}|` +
+            `${window.lcards?.core?.themeManager?.getAlertMode?.() || 'green_alert'}`; // Bust cache on alert mode change
 
         // Check memoization cache
         if (this._memoizedTrack && this._memoizedTrackConfig === configHash) {
@@ -1950,7 +1957,8 @@ export class LCARdSSlider extends LCARdSButton {
             ranges: skipRanges ? [] : (this._sliderStyle?.ranges || []),
             skipRanges,
             entityState: this._entity?.state,  // Include state for reactive tick colors
-            lightColor: this._lightColorValue || null  // Bust cache when light colour changes
+            lightColor: this._lightColorValue || null,  // Bust cache when light colour changes
+            alertMode: window.lcards?.core?.themeManager?.getAlertMode?.() || 'green_alert'  // Bust cache on alert mode change
         });
 
         if (this._memoizedGauge && this._memoizedGaugeConfig === configHash) {
@@ -2062,7 +2070,7 @@ export class LCARdSSlider extends LCARdSButton {
 
         // Progress bar configuration
         const progressConfig = gaugeConfig?.progress_bar;
-        const progressColor = this._resolveColorValue(progressConfig?.color || 'var(--lcards-blue-light, #aaccff)');
+        const progressColor = this._resolveColorValue(progressConfig?.color || 'var(--lcards-blue-light)');
         const progressHeight = progressConfig?.height || 12;
         const progressRadius = progressConfig?.radius !== undefined ? progressConfig?.radius : 2;
 
@@ -2426,6 +2434,43 @@ export class LCARdSSlider extends LCARdSButton {
         this._memoizedTrackConfig = null;
         this._memoizedGauge = null;
         this._memoizedGaugeConfig = null;
+    }
+
+    /**
+     * Subscribe to alert mode changes via HelperManager.
+     * When the mode changes, the memoized SVG content (which contains resolved
+     * hex colours) must be discarded so the next render picks up the new
+     * CSS-variable values after the hue-shift.
+     * @private
+     */
+    _subscribeToAlertMode() {
+        this._alertModeUnsubscribe?.();
+        this._alertModeUnsubscribe = null;
+
+        const helperManager = window.lcards?.core?.helperManager;
+        if (helperManager) {
+            this._alertModeUnsubscribe = helperManager.subscribeToHelper(
+                'alert_mode',
+                this._handleAlertModeChange.bind(this)
+            );
+            lcardsLog.debug('[LCARdSSlider] Subscribed to alert_mode helper');
+        } else {
+            lcardsLog.warn('[LCARdSSlider] HelperManager not available — alert mode subscription skipped');
+        }
+    }
+
+    /**
+     * Called when alert mode changes (red/yellow/blue/green/gray).
+     * Busts the memoization cache and triggers a full re-render so all
+     * baked-in resolved colours (pills gradient, gauge ticks, etc.) are
+     * recomputed from the updated CSS variables.
+     * @param {string} newMode
+     * @private
+     */
+    _handleAlertModeChange(newMode) {
+        lcardsLog.debug(`[LCARdSSlider] Alert mode changed to ${newMode} — invalidating memoization cache`);
+        this._invalidateMemoization();
+        this.requestUpdate();
     }
 
     /**
@@ -2828,14 +2873,14 @@ export class LCARdSSlider extends LCARdSButton {
             borderLeft: this._resolveStateBorderColor(borderConfig?.left?.color),
             borderRight: this._resolveStateBorderColor(borderConfig?.right?.color),
             // Progress bar color
-            progressBar: this._resolveColorValue(this._sliderStyle?.gauge?.progress_bar?.color) || '#00EDED',
+            progressBar: this._resolveColorValue(this._sliderStyle?.gauge?.progress_bar?.color || 'var(--lcards-blue-light)'),
             // Range frame and borders
             rangeBorder: this._resolveColorValue(this._sliderStyle?.range?.border?.color) || '#000000',
             rangeFrame: this._resolveColorValue(this._sliderStyle?.range?.frame?.color) || this._resolveStateBorderColor(borderConfig?.top?.color),
             // Solid bar (defaults to same as top border)
             solidBar: this._resolveColorValue(this._sliderStyle?.solid_bar?.color) || this._resolveStateBorderColor(borderConfig?.top?.color),
             // Animation indicator
-            animationIndicator: this._resolveColorValue(this._sliderStyle?.animation?.indicator?.color) || '#3AA5D0',
+            animationIndicator: this._resolveColorValue(this._sliderStyle?.animation?.indicator?.color) || 'var(--lcards-blue)',
             // Shaped component: track background (the "empty" portion inside the shape)
             trackBackground: this._resolveColorValue(
                 this._sliderStyle?.shaped?.track?.background
@@ -3137,8 +3182,8 @@ export class LCARdSSlider extends LCARdSButton {
         // Use _resolveColorValue so computed tokens (lighten/darken/alpha/theme:) work.
         const fillColor = this._resolveColorValue(
             this._sliderStyle?.shaped?.fill?.color ||
-            this._sliderStyle?.gauge?.fill?.color?.active,
-            '#93e1ff'
+            this._sliderStyle?.gauge?.fill?.color?.active ||
+            'var(--lcards-blue-light)'
         );
 
         const progress = this._calculateValuePercent();
@@ -3327,7 +3372,7 @@ export class LCARdSSlider extends LCARdSButton {
         const fillColor = this._resolveColorValue(
             progressBarConfig.color ||
             gaugeConfig?.fill?.color?.active ||
-            '#93e1ff'
+            'var(--lcards-blue-light)'
         );
 
         let svg = '';
@@ -3758,6 +3803,10 @@ export class LCARdSSlider extends LCARdSButton {
      */
     disconnectedCallback() {
         super.disconnectedCallback();
+
+        // Unsubscribe from alert mode changes
+        this._alertModeUnsubscribe?.();
+        this._alertModeUnsubscribe = null;
 
         // Clear any pending hover restore timer
         if (this._borderHoverRestoreTimer) {
