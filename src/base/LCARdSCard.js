@@ -844,28 +844,62 @@ export class LCARdSCard extends LCARdSNativeCard {
         this._autoSizingCallback = onResize;
         this._autoSizingEnabled = true;
 
+        // Debounce timer for ResizeObserver — prevents feedback loops on Android WebView
+        // where browser chrome (address bar) sliding in/out causes rapid small height changes.
+        let _roDebounceTimer = null;
+
         this._resizeObserver = new ResizeObserver(entries => {
             if (entries.length === 0) return;
 
-            const { width, height } = entries[0].contentRect;
+            // Capture the latest entry immediately (before the debounce fires).
+            // ResizeObserver may batch multiple entries; we always want the last one.
+            const { width: rawW, height: rawH } = entries[entries.length - 1].contentRect;
 
-            // Only process if size actually changed (avoid thrashing)
-            if (!this._containerSize ||
-                width !== this._containerSize.width ||
-                height !== this._containerSize.height) {
+            // Round to whole pixels.  Android Chrome WebView can report sub-pixel
+            // variations as the browser toolbar slides in/out during scroll; exact
+            // float comparisons react to those 0.x px jitters and cause an infinite
+            // render loop that slowly shrinks the card height.
+            const width  = Math.round(rawW);
+            const height = Math.round(rawH);
 
-                // Update stored size
-                this._containerSize = { width, height };
+            const applySize = () => {
+                if (!this.isConnected) return;
 
-                lcardsLog.trace(`[LCARdSCard] Container resized to ${width}x${height} for ${this._getDisplayId()}`);
+                // Only process if size actually changed (2 px hysteresis to absorb
+                // Android viewport jitter without masking real layout changes).
+                const prevW = this._containerSize ? Math.round(this._containerSize.width)  : null;
+                const prevH = this._containerSize ? Math.round(this._containerSize.height) : null;
 
-                // Call custom callback if provided
-                if (onResize && typeof onResize === 'function') {
-                    onResize(width, height);
-                } else {
-                    // Default: trigger re-render
-                    this.requestUpdate();
+                if (prevW === null ||
+                    Math.abs(width  - prevW) >= 2 ||
+                    Math.abs(height - prevH) >= 2) {
+
+                    // Update stored size
+                    this._containerSize = { width, height };
+
+                    lcardsLog.trace(`[LCARdSCard] Container resized to ${width}x${height} for ${this._getDisplayId()}`);
+
+                    // Call custom callback if provided
+                    if (onResize && typeof onResize === 'function') {
+                        onResize(width, height);
+                    } else {
+                        // Default: trigger re-render
+                        this.requestUpdate();
+                    }
                 }
+            };
+
+            // First measurement: fire immediately so the initial render uses the real
+            // container size without a visible delay.
+            // Subsequent changes: debounce at 150 ms to absorb rapid viewport jitter
+            // (e.g. Android toolbar slide-in/out) that would otherwise produce a
+            // feedback loop of ever-shrinking re-renders.
+            if (!this._containerSize) {
+                clearTimeout(_roDebounceTimer);
+                applySize();
+            } else {
+                clearTimeout(_roDebounceTimer);
+                _roDebounceTimer = setTimeout(applySize, 150);
             }
         });
 
