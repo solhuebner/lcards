@@ -28,12 +28,12 @@ elbow:
 | `entity` | string | Entity to monitor (for state-based styling) |
 | `id` | string | Card ID for rule targeting |
 | `tags` | list | Tags for rule targeting |
-| `text` | object | Text labels — see [Text Fields](../../core/text-fields.md) |
+| `text` | object | Text labels — see [Text Fields](../../../core/text-fields.md) |
 | `style` | object | Card background, border, text styles — see [Button card](../button/README.md#style-object) |
-| `tap_action` | object | Tap action — see [Actions](../../core/actions.md) |
+| `tap_action` | object | Tap action — see [Actions](../../../core/actions.md) |
 | `hold_action` | object | Hold action |
 | `double_tap_action` | object | Double-tap action |
-| `animations` | list | Card animations — see [Animations](../../core/animations.md) |
+| `animations` | list | Card animations — see [Animations](../../../core/animations.md) |
 | `background_animation` | list / object | Canvas background animations — see below |
 | `shape_texture` | object | SVG texture inside the elbow shape fill |
 
@@ -97,7 +97,7 @@ elbow:
 | `bar_height` | number / `"theme"` | `20` | Horizontal bar thickness in px. Use `"theme"` to bind to `input_number.lcars_horizontal` |
 | `outer_curve` | number / `"auto"` | `"auto"` | Corner arc radius. `auto` = `bar_width / 2` |
 | `inner_curve` | number | — | Inner arc radius (omit for LCARS formula: `outer / 2`) |
-| `color` | string / object | — | Fill colour — [state map](../../core/colours.md) supported |
+| `color` | string / object | — | Fill colour — [state map](../../../core/colours.md) supported |
 
 ---
 
@@ -148,7 +148,7 @@ text:
     color: "var(--lcards-moonlight)"
 ```
 
-See [Text Fields](../../core/text-fields.md) for the complete reference.
+See [Text Fields](../../../core/text-fields.md) for the complete reference.
 
 ---
 
@@ -229,7 +229,7 @@ elbow:
 
 ### State-reactive elbow
 
-Changes colour when a sensor is above threshold (using [Rules Engine](../../core/rules/README.md)):
+Changes colour when a sensor is above threshold (using [Rules Engine](../../../core/rules/README.md)):
 
 ```yaml
 type: custom:lcards-elbow

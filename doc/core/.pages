@@ -1,5 +1,6 @@
 title: Core Concepts
 nav:
+  - alert-mode.md
   - colours.md
   - actions.md
   - animations.md

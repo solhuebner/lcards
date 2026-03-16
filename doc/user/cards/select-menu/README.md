@@ -73,7 +73,7 @@ options:
 | `options` | object / list | Option overrides — see [`options`](#options) below |
 | `style` | object | Visual style overrides for all buttons — see [`style`](#style-object) below |
 | `button_template` | object | Advanced base `lcards-button` config applied to every option — see [`button_template`](#button_template) below |
-| `tap_action` | object | Card-level tap action fallback — see [Actions](../../core/actions.md) |
+| `tap_action` | object | Card-level tap action fallback — see [Actions](../../../core/actions.md) |
 | `hold_action` | object | Card-level hold action fallback |
 | `double_tap_action` | object | Card-level double-tap action fallback |
 | `grid_options` | object | HA grid layout (`columns`, `rows`) |
@@ -145,7 +145,7 @@ options:
 | `label` | string | Display text. Defaults to `value` |
 | `icon` | string | MDI icon (e.g. `mdi:home`). Sets `show_icon: true` automatically |
 | `style` | object | Per-option style overrides — same structure as card-level [`style`](#style-object) |
-| `tap_action` | object | Per-option tap action — see [Actions](../../core/actions.md) |
+| `tap_action` | object | Per-option tap action — see [Actions](../../../core/actions.md) |
 | `hold_action` | object | Per-option hold action |
 | `double_tap_action` | object | Per-option double-tap action |
 

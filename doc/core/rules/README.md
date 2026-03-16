@@ -27,7 +27,7 @@ flowchart LR
 
 ## Where Rules Live
 
-Rules are defined in content packs or directly in the LCARdS config helper. You manage them from the **Rules** tab in any card editor, or through the [Config Panel](../../config-panel.md).
+Rules are defined in content packs or directly in the LCARdS config helper. You manage them from the **Rules** tab in any card editor, or through the [Config Panel](../../user/config-panel.md).
 
 ---
 

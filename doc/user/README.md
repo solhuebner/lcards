@@ -27,16 +27,16 @@ Features and concepts shared across all cards.
 | Topic | What it covers |
 |-------|---------------|
 | [Common Card Properties](cards/common.md) | `id`, `tags`, `height`, `width`, `grid_options` — properties shared by every card |
-| [Colours](core/colours.md) | All accepted colour formats, state-based colour maps, resolution order |
-| [Actions](core/actions.md) | `tap_action`, `hold_action`, `double_tap_action` — all action types and options |
-| [Text Fields](core/text-fields.md) | Multi-field text system — placement, fonts, colour, templates |
-| [Templates](core/templates/README.md) | Dynamic content: JS, Jinja2, LCARdS token datasource templates |
-| [Animations](core/animations.md) | Per-card animations with multiple trigger types |
-| [Background Animations](core/effects/background-animations.md) | Canvas-based animated backgrounds (grid, starfield, nebula, etc.) |
-| [Sound Effects](core/sounds.md) | LCARS-style audio feedback for interactions and alerts |
-| [Rules Engine](core/rules/README.md) | Advanced conditional system for styling applied across cards |
-| [DataSources](core/datasources/README.md) | Subscribes to HA Entity to provide history and processing pipelines for cards to consume |
-| [Themes](core/themes/README.md) | Built-in token-based theming for providing colour, sizing etc. |
+| [Colours](../core/colours.md) | All accepted colour formats, state-based colour maps, resolution order |
+| [Actions](../core/actions.md) | `tap_action`, `hold_action`, `double_tap_action` — all action types and options |
+| [Text Fields](../core/text-fields.md) | Multi-field text system — placement, fonts, colour, templates |
+| [Templates](../core/templates/README.md) | Dynamic content: JS, Jinja2, LCARdS token datasource templates |
+| [Animations](../core/animations.md) | Per-card animations with multiple trigger types |
+| [Background Animations](../core/effects/background-animations.md) | Canvas-based animated backgrounds (grid, starfield, nebula, etc.) |
+| [Sound Effects](../core/sounds.md) | LCARS-style audio feedback for interactions and alerts |
+| [Rules Engine](../core/rules/README.md) | Advanced conditional system for styling applied across cards |
+| [DataSources](../core/datasources/README.md) | Subscribes to HA Entity to provide history and processing pipelines for cards to consume |
+| [Themes](../core/themes/README.md) | Built-in token-based theming for providing colour, sizing etc. |
 
 ---
 

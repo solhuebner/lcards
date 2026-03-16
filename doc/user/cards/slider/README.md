@@ -44,14 +44,14 @@ style:
 | `id` | string | Card ID for rule targeting |
 | `tags` | list | Tags for rule targeting |
 | `control` | object | Control behavior |
-| `text` | object | Text label definitions — see [Text Fields](../../core/text-fields.md) |
+| `text` | object | Text label definitions — see [Text Fields](../../../core/text-fields.md) |
 | `style` | object | Visual style overrides — see below |
-| `tap_action` | object | Tap action on the card border — see [Actions](../../core/actions.md) |
+| `tap_action` | object | Tap action on the card border — see [Actions](../../../core/actions.md) |
 | `hold_action` | object | Hold action |
 | `double_tap_action` | object | Double-tap action |
-| `animations` | list | Card animations — see [Animations](../../core/animations.md) |
-| `background_animation` | list / object | Canvas background — see [Background Animations](../../core/effects/background-animations.md) |
-| `data_sources` | object | DataSource definitions — see [DataSources](../../core/datasources/README.md) |
+| `animations` | list | Card animations — see [Animations](../../../core/animations.md) |
+| `background_animation` | list / object | Canvas background — see [Background Animations](../../../core/effects/background-animations.md) |
+| `data_sources` | object | DataSource definitions — see [DataSources](../../../core/datasources/README.md) |
 | `sounds` | object | Per-card sound overrides |
 
 ---
@@ -118,7 +118,7 @@ Set `control.locked: true` to force read-only for any domain.
 
 ### `style.track` colour fields
 
-Colour fields in `style.track` accept plain colour strings or [state-based colour maps](../../core/colours.md):
+Colour fields in `style.track` accept plain colour strings or [state-based colour maps](../../../core/colours.md):
 
 These are set inside the preset or component's colour configuration — consult the active preset's config for exact paths. Common areas:
 
@@ -132,7 +132,7 @@ These are set inside the preset or component's colour configuration — consult 
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `progress_bar.color` | string / object | Filled bar colour — [state map](../../core/colours.md) supported |
+| `progress_bar.color` | string / object | Filled bar colour — [state map](../../../core/colours.md) supported |
 | `progress_bar.height` | number | Bar cross-sectional thickness in px |
 | `progress_bar.layer` | string | `background` (behind ticks) or `foreground` (in front) |
 | `scale.tick_marks.major.interval` | number | Major tick interval (value units) |
@@ -145,7 +145,7 @@ These are set inside the preset or component's colour configuration — consult 
 | `scale.labels.color` | string / object | Label colour |
 | `scale.labels.font_size` | number | Label font size |
 | `indicator.type` | string | `line`, `round`, or `triangle` |
-| `indicator.color` | string / object | Indicator colour — [state map](../../core/colours.md) supported |
+| `indicator.color` | string / object | Indicator colour — [state map](../../../core/colours.md) supported |
 | `indicator.size.width` | number | Indicator width in px |
 | `indicator.size.height` | number | Indicator height in px |
 
@@ -187,7 +187,7 @@ style:
 
 ## Text Labels
 
-Sliders support the full text field system. See [Text Fields](../../core/text-fields.md) for the complete reference.
+Sliders support the full text field system. See [Text Fields](../../../core/text-fields.md) for the complete reference.
 
 ```yaml
 text:

@@ -52,7 +52,7 @@ Use this to:
 - Preview token values before using them in card YAML
 - See which tokens are available across all built-in themes
 
-Tokens are referenced in card config as `{theme:token.path}` — see [Themes](core/themes/README.md) for details.
+Tokens are referenced in card config as `{theme:token.path}` — see [Themes](../core/themes/README.md) for details.
 
 ---
 
@@ -66,7 +66,7 @@ Configure LCARdS audio feedback. From here you can:
 - Override individual events with a specific sound or silence them
 - **Reset all overrides** to scheme defaults (button appears when any overrides are active)
 
-Sound requires helpers to be created first. See [Sound Effects](core/sounds.md) for full setup.
+Sound requires helpers to be created first. See [Sound Effects](../core/sounds.md) for full setup.
 
 ---
 
@@ -111,6 +111,6 @@ Alert mode can be triggered from the Helpers tab or via automations. Six modes a
     option: red_alert
 ```
 
-Each mode fires a dedicated sound event (`alert_red`, `alert_yellow`, etc.) when a sound scheme is active. See [Sound Effects](core/sounds.md) for details.
+Each mode fires a dedicated sound event (`alert_red`, `alert_yellow`, etc.) when a sound scheme is active. See [Sound Effects](../core/sounds.md) for details.
 
 ---

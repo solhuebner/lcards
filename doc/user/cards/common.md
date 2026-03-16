@@ -8,18 +8,18 @@ Every LCARdS card shares a set of universal top-level properties regardless of c
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `id` | string | Custom card ID for [Rules Engine](../core/rules/README.md) targeting (e.g. `my-light-btn`) |
+| `id` | string | Custom card ID for [Rules Engine](../../core/rules/README.md) targeting (e.g. `my-light-btn`) |
 | `tags` | list | One or more string tags for Rules Engine group targeting (e.g. `[nav, lights]`) |
 | `height` | string | CSS height override applied to the card host element (see below) |
 | `width` | string | CSS width override applied to the card host element (see below) |
 | `grid_options` | object | HA grid sizing — `rows` and `columns` for the Lovelace grid (see below) |
-| `data_sources` | object | DataSource definitions — see [DataSources](../core/datasources/README.md) |
+| `data_sources` | object | DataSource definitions — see [DataSources](../../core/datasources/README.md) |
 
 ---
 
 ## Card Identification (`id` and `tags`)
 
-`id` and `tags` are used by the [Rules Engine](../core/rules/README.md) to target cards for conditional style patches.
+`id` and `tags` are used by the [Rules Engine](../../core/rules/README.md) to target cards for conditional style patches.
 
 ```yaml
 type: custom:lcards-button

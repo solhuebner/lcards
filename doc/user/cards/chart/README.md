@@ -35,7 +35,7 @@ series_names: [Temperature, Humidity]
 | `source` | string | Single entity ID (simple mode) |
 | `attribute` | string | Entity attribute to track |
 | `sources` | list | Multiple entities or DataSource references |
-| `data_sources` | object | Named DataSource definitions — see [DataSources](../../core/datasources/README.md) |
+| `data_sources` | object | Named DataSource definitions — see [DataSources](../../../core/datasources/README.md) |
 | `chart_type` | string | Chart type (see table below) |
 | `series_names` | list | Display names for each series |
 | `id` | string | Card ID for rule targeting |
@@ -122,7 +122,7 @@ sources:
     name: Smoothed
 ```
 
-See [DataSources](../../core/datasources/README.md) for full processing options.
+See [DataSources](../../../core/datasources/README.md) for full processing options.
 
 ---
 
@@ -172,7 +172,7 @@ markers:
   size: 0                # 0 = no markers
 ```
 
-Colour values accept all formats supported by [Colours](../../core/colours.md) — `var(--lcards-*)`, `{theme:...}`, hex, and rgba.
+Colour values accept all formats supported by [Colours](../../../core/colours.md) — `var(--lcards-*)`, `{theme:...}`, hex, and rgba.
 
 ---
 

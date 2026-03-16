@@ -42,8 +42,8 @@ msd:
 | `msd` | object | Full MSD configuration (required) |
 | `id` | string | Card ID for rule targeting |
 | `tags` | list | Tags for rule targeting |
-| `rules` | list | Rules for dynamic overlay styling — see [Rules Engine](../../core/rules/README.md) |
-| `data_sources` | object | DataSource definitions — see [DataSources](../../core/datasources/README.md) |
+| `rules` | list | Rules for dynamic overlay styling — see [Rules Engine](../../../core/rules/README.md) |
+| `data_sources` | object | DataSource definitions — see [DataSources](../../../core/datasources/README.md) |
 
 ---
 
@@ -232,7 +232,7 @@ rules:
           loop: true
 ```
 
-See [Rules Engine](../../core/rules/README.md) for the full condition and apply reference.
+See [Rules Engine](../../../core/rules/README.md) for the full condition and apply reference.
 
 ---
 
