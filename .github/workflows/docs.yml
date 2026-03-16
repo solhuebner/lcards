@@ -41,7 +41,8 @@ jobs:
             mkdocs-material \
             mkdocs-glightbox \
             mkdocs-git-revision-date-localized-plugin \
-            mkdocs-awesome-pages-plugin
+            mkdocs-awesome-pages-plugin \
+            mkdocs-minify-plugin
 
       - name: Configure GitHub Pages base URL
         uses: actions/configure-pages@v5

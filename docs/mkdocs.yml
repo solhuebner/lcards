@@ -6,6 +6,10 @@ repo_url: https://github.com/snootched/lcards
 repo_name: snootched/lcards
 edit_uri: blob/main/doc/
 
+site_description: "LCARdS — LCARS-inspired card components for Home Assistant"
+site_author: snootched
+copyright: "&copy; 2026 snootched | LCARdS"
+
 # Downgrade broken cross-reference warnings to INFO so --strict CI passes.
 # Pre-existing broken links in source docs are tracked separately.
 # Nav link errors remain at warning level.
@@ -31,36 +35,63 @@ theme:
         name: Switch to dark mode
   features:
     - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.sections
     - navigation.indexes
     - navigation.instant
     - navigation.instant.progress
     - navigation.tracking
     - navigation.top
+    - navigation.footer
     - header.autohide
     - toc.follow
     - search.suggest
     - search.highlight
+    - search.share
     - content.code.copy
     - content.code.annotation
+    - content.code.select
     - content.action.edit
     - content.action.view
+    - content.tooltips
 
 extra_css:
   - stylesheets/extra.css
 
 extra_javascript:
-  - https://unpkg.com/mermaid@11/dist/mermaid.min.js
   - assets/mermaid-init.js
 
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/snootched/lcards
+      name: LCARdS on GitHub
+
 plugins:
-  - search
+  - search:
+      separator: '[\s\-\.]+'
+      lang: en
   - awesome-pages
-  - glightbox
+  - glightbox:
+      touchNavigation: true
+      loop: false
+      effect: zoom
+      slide_effect: slide
+      width: 100%
+      height: auto
+      zoomable: true
+      draggable: true
   - git-revision-date-localized:
       enable_creation_date: false
       fallback_to_build_date: true
       enable_git_follow: false
+      type: timeago
+  - minify:
+      minify_html: true
+      minify_js: true
+      minify_css: true
+      htmlmin_opts:
+        remove_comments: true
 
 markdown_extensions:
   - admonition
@@ -78,13 +109,23 @@ markdown_extensions:
       line_spans: __span
       pygments_lang_class: true
   - pymdownx.inlinehilite
-  - pymdownx.snippets
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
   - attr_list
   - md_in_html
   - tables
   - footnotes
+  - abbr
   - toc:
       toc_depth: 3
+      permalink: true
+      permalink_title: "Link to this section"
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.critic
