@@ -1,6 +1,6 @@
 # What is LCARdS?
 
-![LCARdS Banner](../img/lcards-banner.gif)
+![LCARdS Banner](/img/lcards-banner.gif)
 
 **A unified card system for Home Assistant inspired by the iconic Star Trek LCARS interfaces.
 Build your own LCARS-style dashboards and Master Systems Display (MSD) with realistic controls, reactivity and animations.**
