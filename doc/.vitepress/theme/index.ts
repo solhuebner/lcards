@@ -1,13 +1,11 @@
 import DefaultTheme from 'vitepress/theme'
 import { enhanceAppWithTabs } from 'vitepress-plugin-tabs/client'
-import { onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { useRoute } from 'vitepress'
-import mediumZoom from 'medium-zoom'
+import { onMounted, onUnmounted } from 'vue'
 import './style.css'
 
 // ── Mermaid SVG lightbox ───────────────────────────────────────────────────
-// medium-zoom only works with real <img> elements in document flow.
-// For inline SVGs we use a native <dialog> lightbox instead.
+// vitepress-plugin-mermaid renders inline SVGs via v-html, so we use a
+// native <dialog> lightbox instead of any img-based zoom library.
 
 let lightboxEl: HTMLDialogElement | null = null
 
@@ -48,17 +46,6 @@ export default {
   },
 
   setup() {
-    const route = useRoute()
-
-    // Images — medium-zoom works natively here
-    const initImageZoom = () => {
-      mediumZoom('.vp-doc img:not([data-mz]):not(.VPImage)', {
-        background: 'var(--mz-bg, #0d1117e6)',
-        margin: 24,
-      })
-      document.querySelectorAll('.vp-doc img:not(.VPImage)').forEach(el => el.setAttribute('data-mz', '1'))
-    }
-
     // Delegated click for mermaid diagrams — no timing issues
     const handleMermaidClick = (e: MouseEvent) => {
       const mermaidDiv = (e.target as Element).closest?.('.vp-doc .mermaid')
@@ -67,12 +54,8 @@ export default {
       if (svg) openSvgLightbox(svg as SVGSVGElement)
     }
 
-    onMounted(() => {
-      initImageZoom()
-      document.addEventListener('click', handleMermaidClick)
-    })
+    onMounted(() => document.addEventListener('click', handleMermaidClick))
     onUnmounted(() => document.removeEventListener('click', handleMermaidClick))
-    watch(() => route.path, () => nextTick(initImageZoom))
   },
 }
 

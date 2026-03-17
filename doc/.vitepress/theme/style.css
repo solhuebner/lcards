@@ -122,31 +122,6 @@
 }
 
 /* --------------------------------------------------------------------------
-   medium-zoom — real <img> elements
-   -------------------------------------------------------------------------- */
-:root {
-  --mz-bg: #0d1117e6;
-}
-
-[data-theme='light'] {
-  --mz-bg: #ffffffd9;
-}
-
-.medium-zoom-overlay {
-  z-index: 9999;
-  backdrop-filter: blur(4px);
-}
-
-.medium-zoom-image {
-  z-index: 10000;
-  border-radius: 4px;
-}
-
-.medium-zoom-image--opened {
-  box-shadow: 0 0 0 1px var(--vp-c-brand-1), 0 24px 64px #000a;
-}
-
-/* --------------------------------------------------------------------------
    Mermaid SVG lightbox (native <dialog>)
    -------------------------------------------------------------------------- */
 .vp-doc .mermaid          { cursor: zoom-in; }
