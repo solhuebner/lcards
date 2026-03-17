@@ -122,6 +122,67 @@
 }
 
 /* --------------------------------------------------------------------------
+   medium-zoom — real <img> elements
+   -------------------------------------------------------------------------- */
+:root {
+  --mz-bg: #0d1117e6;
+}
+
+[data-theme='light'] {
+  --mz-bg: #ffffffd9;
+}
+
+.medium-zoom-overlay {
+  z-index: 9999;
+  backdrop-filter: blur(4px);
+}
+
+.medium-zoom-image {
+  z-index: 10000;
+  border-radius: 4px;
+}
+
+.medium-zoom-image--opened {
+  box-shadow: 0 0 0 1px var(--vp-c-brand-1), 0 24px 64px #000a;
+}
+
+/* --------------------------------------------------------------------------
+   Mermaid SVG lightbox (native <dialog>)
+   -------------------------------------------------------------------------- */
+.vp-doc .mermaid          { cursor: zoom-in; }
+.vp-doc .mermaid svg      { transition: opacity 0.15s; }
+.vp-doc .mermaid:hover svg { opacity: 0.85; }
+
+dialog.mz-svg-lightbox {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(90vw, 1200px);
+  max-height: 90vh;
+  padding: 0;
+  background: var(--vp-c-bg);
+  border: 2px solid var(--lcars-orange, #ff9900);
+  border-radius: 6px;
+  box-shadow: 0 0 0 4px var(--lcars-orange, #ff9900),
+              0 0 60px rgba(255, 153, 0, 0.35);
+  overflow: auto;
+  z-index: 10000;
+}
+
+dialog.mz-svg-lightbox::backdrop {
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(4px);
+}
+
+dialog.mz-svg-lightbox .mz-svg-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  min-height: 120px;
+}
+
+/* --------------------------------------------------------------------------
    Typography — Antonio headings
    -------------------------------------------------------------------------- */
 .vp-doc h1,
@@ -267,6 +328,27 @@
 .VPHero .tagline {
   color: var(--vp-c-text-2);
 }
+
+/* --------------------------------------------------------------------------
+   Home page — hero & feature cards
+   -------------------------------------------------------------------------- */
+.VPHomeHero .name { color: var(--lcars-orange) !important; }
+.VPHomeHero .text { color: var(--vp-c-text-1); }
+
+.VPFeature {
+  border-color: var(--vp-c-brand-1) !important;
+}
+.VPFeature:hover {
+  border-color: var(--lcars-orange) !important;
+}
+
+/* Content slot below features (warning banner + badges) */
+.VPHomeContent {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 24px 24px 48px;
+}
+.VPHomeContent .vp-doc { max-width: 100%; }
 
 /* --------------------------------------------------------------------------
    Footer
