@@ -1,6 +1,7 @@
 import DefaultTheme from 'vitepress/theme'
 import { enhanceAppWithTabs } from 'vitepress-plugin-tabs/client'
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, h } from 'vue'
+import HomeBadges from './HomeBadges.vue'
 import './style.css'
 
 // ── Mermaid SVG lightbox ───────────────────────────────────────────────────
@@ -44,6 +45,13 @@ export default {
   enhanceApp({ app }: { app: any }) {
     enhanceAppWithTabs(app)
   },
+
+  Layout() {
+    return h(DefaultTheme.Layout, null, {
+      'home-hero-actions-after': () => h(HomeBadges),
+    })
+  },
+
 
   setup() {
     // Delegated click for mermaid diagrams — no timing issues
