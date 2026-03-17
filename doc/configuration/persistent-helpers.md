@@ -1,325 +1,131 @@
-# Persistent Configuration via Input Helpers
+# Persistent Helpers
 
-LCARdS now supports persistent configuration through Home Assistant input helpers. This allows your theme customizations, alert mode settings, and other preferences to persist across Home Assistant restarts and be controlled via automations.
+LCARdS uses Home Assistant `input_*` helpers to store settings persistently — alert mode state, sound configuration, and HA-LCARS sizing values. They survive HA restarts and can be used in automations.
 
-## Overview
+::: tip Create helpers from the Config Panel
+The easiest way is the **Config Panel** → **Helpers** tab → **Create All Helpers** — one click creates everything. See [LCARdS Config Panel](config-panel.md) for setup.
+:::
 
-The helper system provides:
-- **Persistent Storage**: Configuration survives restarts
-- **Automation Integration**: Control LCARdS via automations
-- **Central Management**: Dedicated configuration panel
-- **Manual Fallback**: YAML export for manual setup
+---
 
-## Installing the Configuration Panel
+## Helper Reference
 
-The LCARdS configuration panel is a frontend-only component that must be registered manually in your Home Assistant configuration.
+### Alert Mode
 
-### Step 1: Add Panel Configuration
+| Helper | Type | Purpose |
+|--------|------|---------|
+| `input_select.lcards_alert_mode` | `input_select` | Active alert level — `green_alert`, `red_alert`, `yellow_alert`, `blue_alert`, `gray_alert`, `black_alert` |
+| `input_boolean.lcards_alert_mode_auto_switch` | `input_boolean` | Automatically activates alert mode when the `input_select` changes |
+| `input_text.lcards_alert_message` | `input_text` | Custom message displayed in the alert overlay content card |
+| `input_select.lcards_alert_transition_style` | `input_select` | Screen-transition effect when alert mode switches — `off`, `blur_fade`, `fade_only`, `flash`, `color_bleed`, `flicker`, `static`, `wipe` |
 
-Add the following to your Home Assistant `configuration.yaml`:
+### Sound
 
-```yaml
-panel_custom:
-  - name: lcards-config
-    sidebar_title: LCARdS Config
-    sidebar_icon: mdi:cog
-    url_path: lcards-config
-    module_url: /hacsfiles/lcards/lcards-config-panel.js
-```
+| Helper | Type | Purpose |
+|--------|------|---------|
+| `input_boolean.lcards_sound_enabled` | `input_boolean` | Master sound on/off toggle |
+| `input_boolean.lcards_sound_cards` | `input_boolean` | Card interaction sounds (tap, hold, etc.) |
+| `input_boolean.lcards_sound_ui` | `input_boolean` | UI navigation sounds |
+| `input_boolean.lcards_sound_alerts` | `input_boolean` | Alert and system sounds |
+| `input_number.lcards_sound_volume` | `input_number` | Master volume (0–1) |
+| `input_select.lcards_sound_scheme` | `input_select` | Active sound scheme |
 
-**Note**: If you installed LCARdS manually (not via HACS), adjust the path:
-```yaml
-    module_url: /local/community/lcards/lcards-config-panel.js
-```
+### HA-LCARS Theme Helpers (optional)
 
-### Step 2: Restart Home Assistant
+These helpers control dimensions, appearance, and features of the HA-LCARS theme. They are only relevant when using the `ha_lcars` or compatible theme.
 
-After adding the configuration, restart Home Assistant for the panel to appear in the sidebar.
+| Helper | Type | Purpose |
+|--------|------|---------|
+| `input_number.lcars_horizontal` | `input_number` | Dashboard-wide horizontal bar width |
+| `input_number.lcars_vertical` | `input_number` | Dashboard-wide vertical bar height |
+| `input_number.lcars_elbow_angle` | `input_number` | Dashboard-wide elbow corner angle |
+| `input_boolean.lcars_sound` | `input_boolean` | Toggles button/tap sounds within the HA-LCARS theme |
+| `input_boolean.lcars_texture` | `input_boolean` | Toggles the grain pattern and backlight effect in HA-LCARS |
+| `input_number.lcars_menu_font` | `input_number` | Sidebar menu font size (8–24 px) |
+| `sensor.lcars_header` | template sensor | Text displayed in the clock area of the HA-LCARS header. Must be defined manually in `configuration.yaml` as a template sensor |
 
-### Step 3: Verify Installation
+### Alert Mode Lab Parameters (auto-managed)
 
-Once restarted, you should see **"LCARdS Config"** in your Home Assistant sidebar. Click it to access the configuration panel.
+The [Alert Mode Lab](alert-mode-lab.md) creates and manages a set of `input_number` helpers for each alert level — controlling hue, saturation, lightness, and anchor/contrast parameters. These helpers are created automatically when you save from the Lab and **do not need to be created manually**. See [Alert Mode Lab](alert-mode-lab.md) for details.
 
-## Accessing the Configuration Panel
+---
 
-After installation, the panel provides three tabs:
-   - **Helpers**: View, create, and edit helpers
-   - **Alert Lab**: Colour customization for alert modes
-   - **YAML Export**: Copy YAML for manual setup
+## Manual YAML Setup
 
-## Helper Categories
+If you prefer to define helpers manually rather than using the Config Panel, use the **YAML Export** tab in the Config Panel, or add the following to `configuration.yaml`:
 
-### Alert System
-
-**Alert Mode Selector** (`input_select.lcards_alert_mode`)
-- Controls the active alert mode
-- Options: `default`, `red_alert`, `yellow_alert`, `blue_alert`, `white_alert`
-- Can be changed via automations to trigger theme changes
-
-**Alert Lab Parameters** (12 helpers)
-- HSL (Hue, Saturation, Lightness) values for each alert mode
-- Red, Yellow, Blue, and White alert modes each have 3 helpers
-- Example: `input_number.lcards_alert_lab_red_hue`
-
-## Creating Helpers
-
-### Via Configuration Panel (Recommended)
-
-1. Open the **LCARdS Config** panel
-2. Go to the **Helpers** tab
-3. Click "Create All Missing Helpers" to create all helpers at once
-4. Or click "Create" next to individual helpers
-
-### Via YAML
-
-If you prefer manual setup or automation:
-
-1. Go to the **YAML Export** tab in the config panel
-2. Click "Copy to Clipboard"
-3. Paste into your `configuration.yaml`
-4. Restart Home Assistant
-
-Example YAML:
+### Alert Mode
 
 ```yaml
 input_select:
   lcards_alert_mode:
     name: LCARdS Alert Mode
     options:
-      - default
+      - green_alert
       - red_alert
       - yellow_alert
       - blue_alert
-      - white_alert
-    initial: default
-    icon: mdi:alarm-light
+      - gray_alert
+      - black_alert
+    initial: green_alert
+    icon: mdi:alert-circle
+```
+
+### Sound
+
+```yaml
+input_boolean:
+  lcards_sound_enabled:
+    name: LCARdS Sound Effects Enabled
+    icon: mdi:volume-high
+  lcards_sound_cards:
+    name: LCARdS Card Interaction Sounds
+    icon: mdi:gesture-tap
+  lcards_sound_ui:
+    name: LCARdS UI Navigation Sounds
+    icon: mdi:navigation
+  lcards_sound_alerts:
+    name: LCARdS Alert & System Sounds
+    icon: mdi:alert-circle
 
 input_number:
-  lcards_alert_lab_red_hue:
-    name: Alert Lab Red Hue
+  lcards_sound_volume:
+    name: LCARdS Sound Volume
     min: 0
-    max: 360
-    step: 1
+    max: 1
+    step: 0.05
     mode: slider
-    unit_of_measurement: "°"
-    icon: mdi:palette
-  # ... (more helpers)
+    icon: mdi:volume-medium
+
+input_select:
+  lcards_sound_scheme:
+    name: LCARdS Sound Scheme
+    options:
+      - none
+    icon: mdi:music-box-multiple
 ```
 
-## Using the Alert Lab
+---
 
-The Alert Lab provides an interactive interface for customizing alert mode colours.
+## Using Helpers in Automations
 
-### Workflow
-
-1. Open the Theme Browser (any card editor → Theme tab → "Browse Theme Tokens")
-2. Switch to the **Alert Mode Lab** view
-3. Select an alert mode (Red, Yellow, Blue, or White)
-4. Adjust HSL sliders to customize colours
-5. Enable "Auto-apply changes" to see live preview
-6. Click **"Save to Helpers"** to persist your changes
-
-### Parameters
-
-Each alert mode has three adjustable parameters:
-
-- **Hue Shift** (0-360°): Target hue for colour transformation
-- **Hue Strength** (0-1): Intensity of hue shift
-- **Saturation** (0-3×): Saturation multiplier
-- **Lightness** (0-2×): Lightness multiplier
-
-### Saving and Loading
-
-- **Save to Helpers**: Writes current parameters to input helpers
-- **Apply Live**: Applies changes to the theme immediately
-- **Reset to Defaults**: Restores factory defaults
-
-When you reopen the Alert Lab, it automatically loads values from helpers if they exist.
-
-## Automation Integration
-
-### Triggering Alert Modes
-
-Change the alert mode via automation:
+Because LCARdS reads from these helpers at runtime, you can control LCARdS from any HA automation:
 
 ```yaml
-automation:
-  - alias: "Red Alert on Security Breach"
-    trigger:
-      - platform: state
-        entity_id: binary_sensor.security_system
-        to: "on"
-    action:
-      - service: input_select.select_option
-        target:
-          entity_id: input_select.lcards_alert_mode
-        data:
-          option: red_alert
+# Trigger red alert from an automation
+action:
+  - service: input_select.select_option
+    data:
+      entity_id: input_select.lcards_alert_mode
+      option: red_alert
 ```
-
-### Responding to Alert Changes
-
-React when alert mode changes:
 
 ```yaml
-automation:
-  - alias: "Flash Lights on Red Alert"
-    trigger:
-      - platform: state
-        entity_id: input_select.lcards_alert_mode
-        to: red_alert
-    action:
-      - service: light.turn_on
-        target:
-          entity_id: light.living_room
-        data:
-          rgb_color: [255, 0, 0]
-          brightness: 255
+# React when alert mode changes
+trigger:
+  - platform: state
+    entity_id: input_select.lcards_alert_mode
+    to: red_alert
 ```
 
-### Scheduling Alert Modes
-
-Change alert mode based on time or conditions:
-
-```yaml
-automation:
-  - alias: "Blue Alert During Night"
-    trigger:
-      - platform: sun
-        event: sunset
-    action:
-      - service: input_select.select_option
-        target:
-          entity_id: input_select.lcards_alert_mode
-        data:
-          option: blue_alert
-
-  - alias: "Normal Mode at Dawn"
-    trigger:
-      - platform: sun
-        event: sunrise
-    action:
-      - service: input_select.select_option
-        target:
-          entity_id: input_select.lcards_alert_mode
-        data:
-          option: default
-```
-
-## Helper Value Management
-
-### Reading Values
-
-Access helper values in templates:
-
-```yaml
-sensor:
-  - platform: template
-    sensors:
-      current_alert_mode:
-        value_template: "{{ states('input_select.lcards_alert_mode') }}"
-```
-
-### Setting Values
-
-Change helper values programmatically:
-
-```yaml
-# Set red hue to 15°
-service: input_number.set_value
-target:
-  entity_id: input_number.lcards_alert_lab_red_hue
-data:
-  value: 15
-```
-
-### Restoring Defaults
-
-Use the config panel's "Reset to Defaults" button or set values manually:
-
-```yaml
-# Red alert defaults
-service: input_number.set_value
-target:
-  entity_id: input_number.lcards_alert_lab_red_hue
-data:
-  value: 0  # Default hue
-
-service: input_number.set_value
-target:
-  entity_id: input_number.lcards_alert_lab_red_saturation
-data:
-  value: 140  # Default saturation (%)
-```
-
-## Troubleshooting
-
-### Panel Not Appearing in Sidebar
-
-1. Verify the `panel_custom` configuration is in `configuration.yaml`
-2. Check the module path is correct (`/hacsfiles/lcards/lcards-config-panel.js` for HACS)
-3. Restart Home Assistant (required after config changes)
-4. Check Home Assistant logs for panel registration errors
-5. Ensure LCARdS is properly installed and the panel file exists
-
-### Panel Loads But Shows Errors
-
-1. Check browser console for JavaScript errors
-2. Verify `window.lcards.core.helperManager` is available
-3. Ensure main LCARdS card system is loaded (add at least one LCARdS card to a dashboard)
-4. Clear browser cache and reload
-
-### Helper Creation Fails
-
-If WebSocket helper creation fails:
-1. Use the YAML Export tab
-2. Add helpers manually to `configuration.yaml`
-3. Restart Home Assistant
-
-### Alert Lab Changes Not Persisting
-
-1. Ensure helpers exist (Helpers tab shows "Exists")
-2. Click "Save to Helpers" after making changes
-3. Verify helper values updated in HA Developer Tools → States
-
-### Values Not Loading in Alert Lab
-
-1. Confirm helpers exist with correct entity IDs
-2. Check helper values are within valid ranges
-3. Reload the Theme Browser dialog
-
-## Tips and Best Practices
-
-### Performance
-- Helpers add minimal overhead
-- Alert mode changes are instant
-- Helper value updates don't require card reloads
-
-### Organization
-- Use helper groups to organize LCARdS helpers
-- Add to a dedicated Lovelace view for easy access
-- Consider using input_select entities in dashboards
-
-### Backups
-- Helpers are stored in `.storage/` directory
-- Included in Home Assistant backups automatically
-- YAML export provides manual backup option
-
-### Testing
-- Test alert mode changes in a non-production dashboard first
-- Use Developer Tools → Services to test helper changes
-- Monitor browser console for errors during helper operations
-
-## Future Expansion
-
-The helper system is designed to support additional configuration:
-- Card default styling
-- Animation preferences
-- Layout templates
-- More alert mode customizations
-
-## See Also
-
-- [Developer Guide: Helpers API](../development/helpers-api.md)
-- Architecture: Alert Mode System _(documentation coming soon)_
-- See [GitHub Releases](https://github.com/snootched/lcards/releases) for version history
+See [Alert Mode](../core/alert-mode.md) for what all happens when alert mode changes, and how to use it from card actions.

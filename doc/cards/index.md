@@ -34,6 +34,17 @@
 
 [Slider Documentation](slider-card/)
 
+=== Select Menu
+
+**`lcards-select-menu`** — Grid of option buttons built from input_select/select entities or custom options.
+
+- Creates a grid of buttons from an `input_select`|`select` entity for an easy to use options selector
+- Fully customizable layout with CSS grid
+- Ability to re-order options, customize labels, and even add additonal custom options to the list
+- Fully cuztomizable actions with per-entry overrides
+
+[Selct Menu Documentation](select-menu/)
+
 === Data Grid
 
 **`lcards-data-grid`** — LCARS data grids with cascade animations.
@@ -55,17 +66,6 @@
 
 [Chart Documentation](chart/)
 
-=== MSD
-
-**`lcards-msd`** — Master Systems Display canvas.
-
-- Embed any HA card as a positioned **control overlay**
-- **Line overlays** — SVG lines with smart routing and avoid-obstacle algorithms
-- **Studio Editor** — visual configuration with live preview and drag-to-reposition
-- Animate lines independently with rules
-
-[MSD Documentation](msd/)
-
 === Alert Overlay
 
 **`lcards-alert-overlay`** — Full-screen dashboard overlay reacting to alert state.
@@ -77,19 +77,18 @@
 
 [Alert Overlay Documentation](alert-overlay/)
 
+=== MSD
+
+**`lcards-msd`** — Master Systems Display canvas.
+
+- Embed any HA card as a positioned **control overlay**
+- **Line overlays** — SVG lines with smart routing and avoid-obstacle algorithms
+- **Studio Editor** — visual configuration with live preview and drag-to-reposition
+- Animate lines independently with rules
+
+[MSD Documentation](msd/)
+
 ::::
-
-| Card | Type | Purpose |
-|------|------|---------|
-| [Button](button/) | `custom:lcards-button` | Buttons, labels, D-pad, multi-segment SVG |
-| [Elbow](elbow/) | `custom:lcards-elbow` | LCARS corner/cap decorations |
-| [Select Menu](select-menu/) | `custom:lcards-select-menu` | Grid of option buttons for input_select / select entities |
-| [Slider](slider-card/) | `custom:lcards-slider` | Interactive sliders and gauge displays |
-| [Chart](chart/) | `custom:lcards-chart` | Data visualization (ApexCharts) |
-| [Data Grid](data-grid/) | `custom:lcards-data-grid` | Tabular entity data with cascade animations |
-| [MSD](msd/) | `custom:lcards-msd` | Master Systems Display with routing lines |
-
----
 
 ## Common Card Features
 
@@ -108,9 +107,3 @@ Features and concepts shared across all cards.
 | [Rules Engine](../core/rules/) | Advanced conditional system for styling applied across cards |
 | [DataSources](../core/datasources/) | Subscribes to HA Entity to provide history and processing pipelines for cards to consume |
 | [Themes](../core/themes/) | Built-in token-based theming for providing colour, sizing etc. |
-
----
-
-## Config Panel
-
-[LCARdS Config Panel](../configuration/config-panel.md) — Central hub for managing helpers, alert settings, sounds, and more.

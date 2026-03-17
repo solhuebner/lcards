@@ -8,8 +8,6 @@ CB-LCARS and LCARdS can coexist while you transition. All new features and fixes
 
 Use this table to quickly find the LCARdS equivalent for each CB-LCARS card or feature.
 
----
-
 ## Feature Comparison
 
 ✅ Present | ❌ Not present | ⚠️ Partial

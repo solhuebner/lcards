@@ -86,12 +86,114 @@ export default withMermaid(defineConfig({
     siteTitle: 'LCARdS',
 
     nav: [
-      { text: 'Getting Started', link: '/getting-started/what-is-lcards' },
-      { text: 'Cards',           link: '/cards/' },
-      { text: 'Configuration',   link: '/configuration/' },
-      { text: 'Core',            link: '/core/' },
-      { text: 'Architecture',    link: '/architecture/systems-arch' },
-      { text: 'Developer',       link: '/development/' },
+      {
+        text: 'Getting Started',
+        activeMatch: '/getting-started/',
+        items: [
+          { text: 'What is LCARdS?',      link: '/getting-started/what-is-lcards' },
+          { text: 'Installation',          link: '/getting-started/installation' },
+          { text: 'Quick Start',           link: '/getting-started/quick-start' },
+          { text: 'Coming from CB-LCARS', link: '/getting-started/cb-lcars-migration' },
+        ],
+      },
+      {
+        text: 'Cards',
+        activeMatch: '/cards/',
+        items: [
+          {
+            text: 'Cards',
+            items: [
+              { text: 'Overview',          link: '/cards/' },
+              { text: 'Common Properties', link: '/cards/common' },
+              { text: 'Main Engineering',  link: '/cards/main-engineering' },
+            ],
+          },
+          {
+            text: 'Card Reference',
+            items: [
+              { text: 'Button',        link: '/cards/button/' },
+              { text: 'Elbow',         link: '/cards/elbow/' },
+              { text: 'Slider',        link: '/cards/slider-card/' },
+              { text: 'Chart',         link: '/cards/chart/' },
+              { text: 'Data Grid',     link: '/cards/data-grid/' },
+              { text: 'MSD',           link: '/cards/msd/' },
+              { text: 'Select Menu',   link: '/cards/select-menu/' },
+              { text: 'Alert Overlay', link: '/cards/alert-overlay/' },
+            ],
+          },
+        ],
+      },
+      {
+        text: 'Configuration',
+        activeMatch: '/configuration/',
+        items: [
+          { text: 'Overview & Setup', link: '/configuration/' },
+          { text: 'Config Panel',     link: '/configuration/config-panel' },
+          { text: 'Helpers',          link: '/configuration/persistent-helpers' },
+          { text: 'Alert Mode Lab',   link: '/configuration/alert-mode-lab' },
+          { text: 'Sounds',           link: '/core/sounds' },
+        ],
+      },
+      {
+        text: 'Core',
+        activeMatch: '/core/',
+        items: [
+          {
+            text: 'Concepts',
+            items: [
+              { text: 'Overview',    link: '/core/' },
+              { text: 'Alert Mode',  link: '/core/alert-mode' },
+              { text: 'Colours',     link: '/core/colours' },
+              { text: 'Presets',     link: '/core/presets' },
+              { text: 'Styles',      link: '/core/styles' },
+              { text: 'Actions',     link: '/core/actions' },
+              { text: 'Text Fields', link: '/core/text-fields' },
+            ],
+          },
+          {
+            text: 'Systems',
+            items: [
+              { text: 'Templates',    link: '/core/templates/' },
+              { text: 'Data Sources', link: '/core/datasources/' },
+              { text: 'Rules Engine', link: '/core/rules/' },
+              { text: 'Themes',       link: '/core/themes/' },
+            ],
+          },
+          {
+            text: 'Effects',
+            items: [
+              { text: 'Animations',            link: '/core/animations' },
+              { text: 'Filters',               link: '/core/effects/filters' },
+              { text: 'Background Animations', link: '/core/effects/background-animations' },
+            ],
+          },
+        ],
+      },
+      { text: 'Architecture', link: '/architecture/systems-arch' },
+      {
+        text: 'Developer',
+        activeMatch: '/development/',
+        items: [
+          {
+            text: 'Guide',
+            items: [
+              { text: 'Overview',     link: '/development/' },
+              { text: 'Custom Card',  link: '/development/custom-card' },
+              { text: 'Helpers API',  link: '/development/helpers-api' },
+              { text: 'Contributing', link: '/development/contributing' },
+              { text: 'Changelog',    link: '/development/changelog' },
+            ],
+          },
+          {
+            text: 'API Reference',
+            items: [
+              { text: 'Runtime API', link: '/development/runtime-api' },
+              { text: 'Debug API',   link: '/development/debug-api' },
+            ],
+          },
+        ],
+      },
+      { text: 'About', link: '/credits' },
     ],
 
     sidebar: {
@@ -101,7 +203,8 @@ export default withMermaid(defineConfig({
           items: [
             { text: 'What is LCARdS?',           link: '/getting-started/what-is-lcards' },
             { text: 'Installation',               link: '/getting-started/installation' },
-            { text: 'Migrating from CB-LCARS',    link: '/getting-started/cb-lcars-migration' },
+            { text: 'Quick Start',                link: '/getting-started/quick-start' },
+            { text: 'Coming from CB-LCARS',    link: '/getting-started/cb-lcars-migration' },
           ],
         },
       ],
@@ -110,8 +213,9 @@ export default withMermaid(defineConfig({
         {
           text: 'Cards',
           items: [
-            { text: 'Overview',       link: '/cards/' },
+            { text: 'Overview',          link: '/cards/' },
             { text: 'Common Properties', link: '/cards/common' },
+            { text: 'Main Engineering',  link: '/cards/main-engineering' },
           ],
         },
         {
@@ -123,7 +227,18 @@ export default withMermaid(defineConfig({
             { text: 'Slider',         link: '/cards/slider-card/' },
             { text: 'Chart',          link: '/cards/chart/' },
             { text: 'Data Grid',      link: '/cards/data-grid/' },
-            { text: 'MSD',            link: '/cards/msd/' },
+            {
+              text: 'MSD',
+              collapsed: true,
+              items: [
+                { text: 'Overview',         link: '/cards/msd/' },
+                { text: 'Control Overlay',  link: '/cards/msd/control-overlay' },
+                { text: 'Line Overlay',     link: '/cards/msd/line-overlay' },
+                { text: 'Manual Routing',   link: '/cards/msd/manual-routing' },
+                { text: 'Bulk Selectors',   link: '/cards/msd/bulk-selectors' },
+                { text: 'Base SVG Filters', link: '/cards/msd/base-svg-filters' },
+              ],
+            },
             { text: 'Select Menu',    link: '/cards/select-menu/' },
             { text: 'Alert Overlay',  link: '/cards/alert-overlay/' },
           ],
@@ -132,14 +247,13 @@ export default withMermaid(defineConfig({
 
       '/configuration/': [
         {
-          text: 'Configuration',
+          text: 'Config Panel',
           items: [
-            { text: 'Overview',           link: '/configuration/' },
-            { text: 'Config Panel',       link: '/configuration/config-panel' },
-            { text: 'Themes & Colours',   link: '/configuration/themes-colours' },
-            { text: 'Presets',            link: '/configuration/presets' },
-            { text: 'Persistent Helpers', link: '/configuration/persistent-helpers' },
-            { text: 'Validation',         link: '/configuration/validation' },
+            { text: 'Overview & Setup',  link: '/configuration/' },
+            { text: 'Config Panel',      link: '/configuration/config-panel' },
+            { text: 'Helpers',           link: '/configuration/persistent-helpers' },
+            { text: 'Alert Mode Lab',    link: '/configuration/alert-mode-lab' },
+            { text: 'Sounds',            link: '/core/sounds' },
           ],
         },
       ],
@@ -151,26 +265,50 @@ export default withMermaid(defineConfig({
             { text: 'Overview',       link: '/core/' },
             { text: 'Alert Mode',     link: '/core/alert-mode' },
             { text: 'Colours',        link: '/core/colours' },
+            { text: 'Presets',        link: '/core/presets' },
+            { text: 'Styles',         link: '/core/styles' },
             { text: 'Actions',        link: '/core/actions' },
             { text: 'Text Fields',    link: '/core/text-fields' },
             { text: 'Sounds',         link: '/core/sounds' },
           ],
         },
         {
-          text: 'Singleton Systems',
+          text: 'Systems',
           collapsed: false,
           items: [
-            { text: 'Templates',     link: '/core/templates/' },
-            { text: 'Data Sources',  link: '/core/datasources/' },
+            {
+              text: 'Templates',
+              collapsed: true,
+              items: [
+                { text: 'Overview',    link: '/core/templates/' },
+                { text: 'Conditions',  link: '/core/templates/conditions' },
+              ],
+            },
+            {
+              text: 'Data Sources',
+              collapsed: true,
+              items: [
+                { text: 'Overview',             link: '/core/datasources/' },
+                { text: 'Processor Reference',  link: '/core/datasources/processor-reference' },
+              ],
+            },
             { text: 'Rules Engine',  link: '/core/rules/' },
-            { text: 'Themes',        link: '/core/themes/' },
-            { text: 'Animations',    link: '/core/animations' },
+            {
+              text: 'Themes',
+              collapsed: true,
+              items: [
+                { text: 'Overview',         link: '/core/themes/' },
+                { text: 'Creating Themes',  link: '/core/themes/creating-themes' },
+              ],
+            },
           ],
         },
         {
           text: 'Effects',
           collapsed: true,
           items: [
+            { text: 'Animations',            link: '/core/animations' },
+            { text: 'Filters',               link: '/core/effects/filters' },
             { text: 'Background Animations', link: '/core/effects/background-animations' },
           ],
         },
@@ -221,7 +359,15 @@ export default withMermaid(defineConfig({
             { text: 'Helpers API',  link: '/development/helpers-api' },
             { text: 'Contributing', link: '/development/contributing' },
             { text: 'Changelog',    link: '/development/changelog' },
-            { text: 'Credits',      link: '/credits' },
+            { text: 'About',        link: '/credits' },
+          ],
+        },
+        {
+          text: 'API Reference',
+          collapsed: false,
+          items: [
+            { text: 'Runtime API',  link: '/development/runtime-api' },
+            { text: 'Debug API',    link: '/development/debug-api' },
           ],
         },
       ],
@@ -237,8 +383,8 @@ export default withMermaid(defineConfig({
     },
 
     footer: {
-      message: 'Released under the MIT License.',
-      copyright: '© 2026 snootched | LCARdS',
+      message: 'Released under the MIT License. | <a href="/credits">License &amp; Disclaimer</a>',
+      copyright: '© 2026 snootched | LCARdS | <a href="/credits">About &amp; Credits</a>',
     },
 
     search: {

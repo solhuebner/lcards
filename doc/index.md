@@ -5,9 +5,9 @@ title: LCARdS
 hero:
   name: LCARdS
   text: LCARS for Home Assistant
-  tagline: Build Star Trek-style dashboards with reactive controls, animations, and a full Master Systems Display.
+  tagline: Build your own LCARS-style dashboards with realistic controls, reactivity and animations.
   image:
-    src: /img/lcards-banner.gif
+    src: /img/lcards-hero-banner.gif
     alt: LCARdS banner
   actions:
     - theme: brand
@@ -31,7 +31,7 @@ features:
   - icon: ⚙️
     title: Core Concepts
     details: Templates, data sources, rules engine, themes, and action handling.
-    link: /core/datasources/
+    link: /core/
     linkText: Explore core concepts
   - icon: 🗺️
     title: Architecture
@@ -40,11 +40,3 @@ features:
     linkText: Systems overview
 ---
 
-::: warning Work in progress
-LCARdS is a **hobby** project and not a fully commissioned Starfleet product — expect the occasional tribble.
-It is not professional software and should be used for personal use only.
-:::
-
-[![GitHub release](https://img.shields.io/github/v/release/snootched/LCARdS?display_name=release&logo=startrek&color=37a6d1)](https://github.com/snootched/LCARdS/releases)
-[![License](https://img.shields.io/github/license/snootched/LCARdS?logo=opensourceinitiative&logoColor=white)](https://github.com/snootched/lcards/blob/main/LICENSE)
-[![Last commit](https://img.shields.io/github/last-commit/snootched/LCARdS?style=default&logo=git&logoColor=white&color=37a6d1)](https://github.com/snootched/LCARdS/commits/main)

@@ -1,10 +1,8 @@
 # Common Card Properties
 
-Every LCARdS card shares a set of universal top-level properties regardless of card type. This page documents them alongside how sizing interacts with the HA grid system.
+LCARdS share a set of common top-level configuration properties regardless of card type.  This page documents them alongside how sizing interacts with the HA grid system.
 
----
-
-## Universal Properties
+## Common Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
@@ -14,8 +12,6 @@ Every LCARdS card shares a set of universal top-level properties regardless of c
 | `width` | string | CSS width override applied to the card host element (see below) |
 | `grid_options` | object | HA grid sizing — `rows` and `columns` for the Lovelace grid (see below) |
 | `data_sources` | object | DataSource definitions — see [DataSources](../core/datasources/) |
-
----
 
 ## Card Identification (`id` and `tags`)
 

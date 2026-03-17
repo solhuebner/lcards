@@ -2,6 +2,13 @@
 
 LCARdS cards support anime.js-powered animations triggered by user interactions or entity state changes. Each card can have multiple animations with different triggers.
 
+::: info anime.js v4
+LCARdS uses **anime.js v4**, which has a different API from v3. Key differences users should know:
+- The `ease` property uses v4 naming convention: `inOutQuad`, `outElastic`, `inOutSine` (no `ease` prefix). v3-style names like `easeInOutQuad` are passed through as-is and may work, but v4 names are preferred.
+- The `easing` property from v3 is not supported — always use `ease`.
+- Spring physics: `{ type: 'spring', params: { stiffness: 150, damping: 20 } }` syntax is the same.
+:::
+
 ---
 
 ## Basic Structure
@@ -175,6 +182,38 @@ Slide in from a direction.
 | `distance` | `100` | Distance in px (or `%` string) |
 | `duration` | `500` | Duration (ms) |
 
+### `scale`
+
+Simple scale transform animation. Ideal for button feedback.
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `scale` | `1.1` | Target scale factor |
+| `from` | `1` | Starting scale |
+| `duration` | `200` | Duration (ms) |
+| `ease` | `outQuad` | Easing function |
+| `loop` | `false` | Loop continuously |
+
+### `scale-reset`
+
+Returns an element to its original scale (1.0). Pair with `on_leave` to reset hover effects.
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `duration` | `200` | Duration (ms) |
+| `ease` | `outQuad` | Easing function |
+
+```yaml
+# Typical hover + reset pair
+animations:
+  - preset: scale
+    trigger: on_hover
+    params:
+      scale: 1.1
+  - preset: scale-reset
+    trigger: on_leave
+```
+
 ---
 
 ## Text Animation Presets
@@ -229,19 +268,150 @@ Characters appear one at a time at a fixed speed.
 
 ---
 
-## Easing Functions
+## Visual Effect Presets
+
+### `shimmer`
+
+Fill colour and opacity animation for shimmering effects.
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `color_from` | current fill | Starting colour |
+| `color_to` | — | Target colour (required; alias: `shimmer_color`) |
+| `opacity_from` | `1` | Starting opacity |
+| `opacity_to` | `0.5` | Ending opacity |
+| `duration` | `1500` | Duration (ms) |
+| `ease` | `inOutSine` | Easing function |
+| `loop` | `true` | Loop continuously |
+| `alternate` | `true` | Reverse on each loop |
+
+### `flicker`
+
+Randomised opacity animation for flickering effects.
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `max_opacity` | `1` | Maximum opacity |
+| `min_opacity` | `0.3` | Minimum opacity |
+| `duration` | `1000` | Duration (ms) |
+| `ease` | `linear` | Easing function |
+| `loop` | `true` | Loop continuously |
+
+### `cascade`
+
+Staggered animation for multiple target elements.
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `stagger` | `100` | Delay between elements (ms) |
+| `property` | `opacity` | Property to animate |
+| `from` | `0` | Starting value |
+| `to` | `1` | Ending value |
+| `duration` | `1000` | Duration (ms) |
+| `ease` | `outExpo` | Easing function |
+| `loop` | `false` | Loop continuously |
+
+### `ripple`
+
+Expanding scale with opacity fade.
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `scale_max` | `1.5` | Maximum scale |
+| `opacity_min` | `0` | Minimum opacity at peak |
+| `duration` | `1000` | Duration (ms) |
+| `ease` | `outExpo` | Easing function |
+| `loop` | `false` | Loop continuously |
+
+---
+
+## SVG-Specific Presets
+
+### `draw`
+
+SVG path drawing animation using `strokeDashoffset`. Apply to `<path>` elements.
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `reverse` | `false` | Draw in reverse direction |
+| `duration` | `2000` | Duration (ms) |
+| `ease` | `linear` | Easing function |
+| `loop` | `false` | Loop continuously |
+
+### `march`
+
+CSS-based marching dashed line animation. More performant than JS for continuous animations.
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `dash_length` | `10` | Length of each dash |
+| `gap_length` | `5` | Gap between dashes |
+| `speed` | `2` | Seconds per cycle |
+| `direction` | `forward` | `forward` or `reverse` |
+
+---
+
+## Utility Presets
+
+### `set`
+
+Immediately sets properties without animation. Useful for establishing initial state before other animations.
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `properties` | — | Object with CSS properties to set |
 
 ```yaml
-ease: "easeInOutQuad"       # Standard in-out
-ease: "easeOutElastic"      # Elastic bounce out
-ease: "easeInOutSine"       # Smooth sine curve
-ease: "linear"              # Constant speed
-ease:                       # Spring physics
+animations:
+  - preset: set
+    trigger: on_load
+    params:
+      properties:
+        opacity: 0.5
+        fill: red
+```
+
+### `motionpath`
+
+Path-following animation (requires a `<path>` element in the SVG).
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `path_selector` | — | CSS selector for path element (required) |
+| `duration` | `4000` | Duration (ms) |
+| `ease` | `linear` | Easing function |
+| `loop` | `true` | Loop continuously |
+
+---
+
+## Easing Functions
+
+LCARdS uses **anime.js v4** easing names (without the `ease` prefix used in v3):
+
+```yaml
+ease: "inOutQuad"       # Standard in-out (v4) — was easeInOutQuad in v3
+ease: "outElastic"      # Elastic bounce out
+ease: "inOutSine"       # Smooth sine curve
+ease: "linear"          # Constant speed
+ease:                    # Spring physics
   type: spring
   params:
     stiffness: 150
     damping: 20
 ```
+
+**Common easing names (v4):**
+
+| Category | Names |
+|----------|-------|
+| Quad | `inQuad`, `outQuad`, `inOutQuad` |
+| Cubic | `inCubic`, `outCubic`, `inOutCubic` |
+| Sine | `inSine`, `outSine`, `inOutSine` |
+| Expo | `inExpo`, `outExpo`, `inOutExpo` |
+| Elastic | `inElastic`, `outElastic`, `inOutElastic` |
+| Back | `inBack`, `outBack`, `inOutBack` |
+| Bounce | `inBounce`, `outBounce`, `inOutBounce` |
+| Other | `linear`, `steps(N)` |
 
 ---
 

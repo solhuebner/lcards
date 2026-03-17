@@ -1,46 +1,16 @@
 # Credits & Attributions
 
----
+## Star Trek Disclaimer
 
-## Acknowledgements
+**A STAR TREK FAN PRODUCTION**
 
-A very sincere thanks to these projects, their authors, contributors and communities.
-They make tinkering with Home Assistant dashboards genuinely fun.
+This project is a non-commercial fan production.
+Star Trek and all related marks, logos, and characters are solely owned by CBS Studios Inc.
 
-[**ha-lcars theme**](https://github.com/th3jesta/ha-lcars) — the definitive LCARS theme for Home Assistant
+This fan production is not endorsed by, sponsored by, nor affiliated with CBS, Paramount Pictures, or any other Star Trek franchise.
+No commercial exhibition or distribution is permitted. No alleged independent rights will be asserted against CBS or Paramount Pictures.
 
-[**lovelace-layout-card**](https://github.com/thomasloven/lovelace-layout-card)
-
-[**lovelace-card-mod**](https://github.com/thomasloven/lovelace-card-mod)
-
----
-
-## Design References
-
-[**LCARSlad London**](https://twitter.com/lcarslad) — excellent LCARS images and diagrams used as design reference.
-
-[**meWho Titan.DS**](https://www.mewho.com/titan) — interactive LCARS design demo and colour reference.
-
-[**TheLCARS.com**](https://www.thelcars.com) — LCARS design reference, and the original base reference for colours, Data Cascade, and Pulsewave animations.
-
-[**lcars** (joernweissenborn)](https://github.com/joernweissenborn/lcars) — the SVG used inline in the D-pad control.
-
-**All Star Trek & LCARS fans** — your passion drives this project. 🖖
-
----
-
-## Bundled Libraries
-
-| Library | Version | License | Purpose |
-|---------|---------|---------|---------|
-| [Lit](https://lit.dev) | v3 | BSD-3-Clause | Web component base |
-| [Anime.js](https://animejs.com) | v4 | MIT | Animation engine |
-| [ApexCharts](https://apexcharts.com) | latest | MIT | Chart rendering |
-| [@panzoom/panzoom](https://github.com/timmywil/panzoom) | v4 | MIT | Mermaid diagram pan/zoom |
-
-Full third-party license texts are in [`THIRD_PARTY_LICENSES`](https://github.com/snootched/lcards/blob/main/THIRD_PARTY_LICENSES) in the repository.
-
----
+This work is intended for personal and recreational use only.
 
 ## AI-Assisted Development
 
@@ -59,27 +29,47 @@ AI-generated components are reviewed, validated, and refined by human contributo
 
 Different models are used throughout the process to plan, create, and refactor the cards and systems. As experience grows and ideas develop, systems are revisited and further standardised, simplified, and optimised.
 
----
-
 ## License
 
 This project is released under the **MIT License**.
 See [`LICENSE`](https://github.com/snootched/lcards/blob/main/LICENSE) in the repository for the full text.
 
----
+## Acknowledgements
 
-## Star Trek Disclaimer
+A very sincere thanks to these projects, their authors, contributors and communities.
+They make tinkering with Home Assistant dashboards genuinely fun.
 
-**A STAR TREK FAN PRODUCTION**
+[**ha-lcars theme**](https://github.com/th3jesta/ha-lcars) — the definitive LCARS theme for Home Assistant
 
-This project is a non-commercial fan production.
-Star Trek and all related marks, logos, and characters are solely owned by CBS Studios Inc.
+[**HA-LCARS Discord**](https://discord.gg/gGxud6Y6WJ) - Such a great community to share this hobby with!
 
-This fan production is not endorsed by, sponsored by, nor affiliated with CBS, Paramount Pictures, or any other Star Trek franchise.
-No commercial exhibition or distribution is permitted. No alleged independent rights will be asserted against CBS or Paramount Pictures.
+**All Star Trek & LCARS fans** — your passion drives this project. 🖖
 
-This work is intended for personal and recreational use only.
+## Design References
 
----
+[**LCARSlad London**](https://twitter.com/lcarslad) — excellent LCARS images and diagrams used as design reference.
+
+[**meWho Titan.DS**](https://www.mewho.com/titan) — interactive LCARS design demo and colour reference.
+
+[**TheLCARS.com**](https://www.thelcars.com) — LCARS design reference, and the original base reference for colours, Data Cascade, and Pulsewave animations.
+
+[**lcars** (joernweissenborn)](https://github.com/joernweissenborn/lcars) — the SVG used inline in the D-pad control.
+
+## Bundled Libraries
+
+| Library | Version | License | Purpose |
+|---------|---------|---------|---------|
+| [Lit](https://lit.dev) | v3 | BSD-3-Clause | Web component base framework |
+| [Anime.js](https://animejs.com) | v4 | MIT | Animation engine |
+| [ApexCharts](https://apexcharts.com) | v3 | MIT | Chart rendering |
+| [CodeMirror 6](https://codemirror.net) | v6 | MIT | YAML editor in Config Studio (core, state, view, language, autocomplete, lint, search, commands, lang-yaml) |
+| [codemirror-theme-vscode-dark](https://github.com/fsegurai/codemirror-themes) | v6 | MIT | VS Code Dark theme for CodeMirror editor |
+| [codemirror-indentation-markers](https://github.com/replit/codemirror-indentation-markers) | v6 | MIT | Indentation guides in CodeMirror editor |
+| [D3 Zoom](https://github.com/d3/d3-zoom) | v3 | ISC | MSD canvas pan & zoom |
+| [D3 Selection](https://github.com/d3/d3-selection) | v3 | ISC | DOM selection utility (used by D3 Zoom) |
+| [custom-card-helpers](https://github.com/custom-cards/custom-card-helpers) | v1 | MIT | Home Assistant custom card utility functions |
+
+Full third-party license texts are in [`THIRD_PARTY_LICENSES`](https://github.com/snootched/lcards/blob/main/THIRD_PARTY_LICENSES) in the repository.
+
 
 🖖 **Live long and prosper** 🖖

@@ -1,267 +1,115 @@
+::: warning ⚠️ Work in Progress
+LCARdS is a **hobby** project and not a fully commissioned Starfleet product — expect the occasional tribble.
+
+Documentation is under heavy construction - it may not be complete and/or accurate to the current build of the project.
+
+:::
+
 # What is LCARdS?
 
 ![LCARdS Banner](/img/lcards-banner.gif)
 
-**A unified card system for Home Assistant inspired by the iconic Star Trek LCARS interfaces.
-Build your own LCARS-style dashboards and Master Systems Display (MSD) with realistic controls, reactivity and animations.**
+**Build Star Trek LCARS-style dashboards in Home Assistant** — reactive controls, coordinated animations, and a full Master Systems Display, all in one unified card system.
 
----
-
-LCARdS is the evolution of dedicated LCARS-inspired cards for Home Assistant.
-It originates from, and supersedes the [CB-LCARS](https://github.com/snootched/cb-lcars) project. LCARdS is meant to accompany and complement [**HA-LCARS themes**](https://github.com/th3jesta/ha-lcars).
-
-Although deployed and used as individual custom cards, LCARdS is built upon common core components that aim to provide a more complete and cohesive LCARS-like dashboard experience.
-
-- **Unified architecture** — Each LCARd shares core services that centralise data sources, provide a cross-card rules engine, theme tokens, sounds, a coordinated animation framework, and much more.
-- **State-aware styling** — Cards respond dynamically to entity states via a rules engine that hot-patches styles across multiple cards simultaneously — including coordinated alert modes.
-- **Built to animate** — Embedded Anime.js v4 enables per-element animations on any SVG shape, line, or text — driven by entity state or triggered globally.
-- **Living data** — Entities can be subscribed, buffered, and processed (moving averages, min/max, history) and referenced in any card field using a flexible four-syntax template system.
-- **Extensible by design** — Themes, button presets, animations, and other assets can be distributed via a content pack system.
-
----
-
-## Core Architecture
-
-LCARdS is built on **Lit** web components and embeds **[Anime.js v4](https://animejs.com)** for animations and **[ApexCharts](https://apexcharts.com)** for charting. Each LCARd shares a common set of core services that work behind the scenes — the cards do not need to implement any of this themselves:
-
-```mermaid
-graph LR
-    subgraph HA["Home Assistant"]
-        HACore[HA Core]
-    end
-
-    subgraph CORE["LCARdS Core"]
-       subgraph CoreSystems["window.lcards.core.*"]
-            direction LR
-            CoreRules[Rules Engine]:::coreStyle
-            CoreThemes[Theme Manager]:::coreStyle
-            CoreData[Data Source Manager]:::coreStyle
-            CoreSystemsMgr[Systems Manager]:::coreStyle
-            CoreAnim[Animation Manager]:::coreStyle
-            CoreOther[...other core systems]:::coreStyle
-        end
-    end
-
-    subgraph DASHBOARD["Dashboard"]
-        Button([LCARdS Button Card]):::lcardsStyle
-        Elbow(["LCARdS Elbow Card"]):::lcardsStyle
-        Slider([LCARdS Slider Card]):::lcardsStyle
-        Chart([LCARdS Chart Card]):::lcardsStyle
-        Grid([LCARdS Data Grid Card]):::lcardsStyle
-        AlertOverlay([LCARdS Alert Overlay Card]):::lcardsStyle
-        subgraph MSD[LCARdS MSD Card]
-            Card1([HA Cards]):::lcardsStyle
-            MSDLCARdS([LCARdS Cards]):::lcardsStyle
-        end
-    end
-
-    HACore 0@-..-CoreSystems
-    CoreSystems 1@-...- Button
-    CoreSystems 2@-.- Slider
-    CoreSystems 3@-.- Chart
-    CoreSystems 4@-.- Elbow
-    CoreSystems 5@-.- Grid
-    CoreSystems 6@-.- AlertOverlay
-    CoreSystems 7@-.- MSD
-    CoreSystems 8@-.- MSDLCARdS
-
-    0@{ animate: slow }
-    1@{ animate: slow }
-    2@{ animate: slow }
-    3@{ animate: slow }
-    4@{ animate: slow }
-    5@{ animate: slow }
-    6@{ animate: slow }
-    7@{ animate: slow }
-    8@{ animate: slow }
-
-    linkStyle 0,1,2,3,4,5,6,7,8 stroke:#00eeee,stroke-width:3px
-
-    classDef lcardsStyle fill:#ffb399,stroke:#e7442a,color:#000
-    classDef coreStyle fill:#6d748c,stroke:#d2d5df
-
-    style HA fill:#1c3c55,stroke:#37a6d1,color:#fff
-    style HACore fill:#37a6d1,stroke:#93e1ff,color:#fff
-
-    style CORE fill:#1e2229,stroke:#2f3749
-    style CoreSystems fill:#2f3749,stroke:#52596e
-
-    style DASHBOARD fill:#2f3749,stroke:#52596e
-    style MSD fill:#e7442a,stroke:#ffb399,color:#fff
-```
-
----
-
-## Core Services
-
-These core services start on page load and become accessible for use by all LCARdS cards on the dashboard view.
-Interaction is behind the scenes, but all the core systems APIs are accessible via **`window.lcards.core.*`**
-
-| Service | What it does |
-|---|---|
-| **Systems Manager** | Centralised entity state subscriptions; LCARdS cards register interest and receive smart push notifications — no duplicate subscriptions |
-| **DataSource Manager** | Named data buffers tied to entities; records history, runs processing pipelines (moving average, min/max, aggregation) and notifies subscribers |
-| **Rules Engine** | Evaluates conditions and hot-patches LCARd styles at runtime; target any LCARd by tag, type, or ID |
-| **Theme Manager** | Token-based theming (colours, spacing, borders, and more); resolves theme tokens in any LCARd field |
-| **Alert Mode** | Coordinated alert states (green / red / yellow / blue / gray / black); drives visual colour palette shifts and triggers sounds; driven by a HA helper that can be used in automations |
-| **Animation Manager** | Coordinates Anime.js v4 animations used by LCARdS; provides a built-in library of configurable presets, or bring your own anime.js parameters |
-| **Sound Manager** | LCARS-style audio feedback for card interactions and UI events; configurable scheme with per-event overrides |
-| **Style Preset Manager** | Central registry of named style presets for buttons, sliders, elbows, and more; consumed from packs |
-| **Component Manager** | Registry of SVG component definitions (D-pad, Alert, custom shapes) used in button component mode |
-| **Asset Manager** | Loads and caches SVG and font assets for use across cards |
-| **Pack Manager** | Loads and distributes content from packs (themes, presets, animations, assets, etc.) to the appropriate managers at startup |
-| **Helper Manager** | Manages LCARdS and HA-LCARS `input_*` helper entities (alert mode selector, sound config, sizing helpers); auto-create any helper from LCARdS Config Panel |
-
-**Template Support** — any text field in any card supports four syntaxes:
-JavaScript `[[[return ...]]]`, LCARdS tokens `{entity.state}` / `{theme:colors.card.button}`, DataSource `{ds:sensor_name}`, and Jinja2 `{{states("sensor.temp")}}` (Jinja2 is evaluated by HA server).
-
----
-
-## Key Platform Features
+LCARdS originates from, and supersedes, the [CB-LCARS](https://github.com/snootched/cb-lcars) project. It is designed to accompany the [HA-LCARS theme](https://github.com/th3jesta/ha-lcars).
 
 :::: tabs
-=== 🚨 Alert Mode
+=== Button
 
-Coordinated dashboard-wide states — more than a colour change:
+**`lcards-button`** — All standard LCARS buttons, plus advanced multi-segment controls.
 
-- Full palette transform across every dashboard element
-- Sound plays automatically
-- Alert Overlay activates with backdrop and content card
-- Rules-driven per-card animations (opt-in)
-- HA helper stays in sync for automation integration
+- Built-in preset library: lozenge, bullet, capped, outline, pill, text, and more
+- **Component mode** — embed SVG components (D-pad, Alert, custom shapes) with per-segment interactivity
+- Canvas-based **background animations** — stackable layers with zoom and pan
+- Rules Engine integration — styles hot-patched at runtime
 
-Available levels: `green` · `yellow` · `red` · `blue` · `gray` · `black`
+[Button Documentation](button/)
 
-[Alert Mode](../core/alert-mode.md)
+=== Elbow
 
-=== 🔗 Rules Engine
+**`lcards-elbow`** — Classic LCARS corner designs.
 
-Define rules once — apply across many cards simultaneously:
+- Built-in presets: `header-left`, `header-right`, `footer-left`, `footer-right`
+- **Simple** and **segmented** (Picard-style double elbow) styles
+- Authentic LCARS arc geometry or diagonal-cut corners with configurable angle
+- Symbiont support — embed other HA cards inside the elbow area
 
-- Target cards by **type**, **tag**, or **ID**
-- **Patch any style property** — colour, opacity, border, text
-- Changes are **instant and reactive** to entity state
-- Example: turn all `engineering` tagged indicators red when an alarm fires
+[Elbow Documentation](elbow/)
 
-[Rules Engine](../core/rules/)
+=== Slider
 
-=== 📊 DataSource Pipelines
+**`lcards-slider`** — Interactive sliders for display and control.
 
-Richer data than plain entity state:
+- Built-in presets: **pills** (segmented bar) and **gauge** (ruler with tick marks)
+- Horizontal and vertical orientations with independent fill inversion
+- Separate min/max for display range vs. control range
+- Domain auto-detection — interactive for controllable domains, display-only for sensors
 
-- Subscribe to any HA entity and **buffer values over time**
-- **Processing pipelines** — moving average, min/max, aggregation, custom transforms
-- `{ds:name}` template syntax — charts, labels, sliders, and rules all share one source
-- Stored in browser session; no HA server recording required
+[Slider Documentation](slider-card/)
 
-[DataSources](../core/datasources/)
+=== Data Grid
 
-=== 🎨 Configuration Studios
+**`lcards-data-grid`** — LCARS data grids with cascade animations.
 
-Immersive UI-based configuration:
+- **Data mode** — real entity states, attributes, or template values
+- **Decorative mode** — cascading generated data for aesthetics
+- LCARS-style cascade animation with built-in speed presets
+- CSS Grid layout with full style cascading
 
-- **Live WYSIWYG** preview with instant feedback
-- **Schema-backed YAML** tab with inline auto-complete and validation
-- **Main Engineering tab** — data sources, rules browser, theme token browser, provenance tracking
-- **Provenance tracking** — see which system contributed each config value at runtime
+[Data Grid Documentation](data-grid/)
 
-[Config Panel](../configuration/config-panel.md)
+=== Chart
+
+**`lcards-chart`** — LCARdS integrated charting via ApexCharts.
+
+- 15+ chart types: line, area, bar, pie, scatter, heatmap, radar, and more
+- Single entity, multi-entity, or DataSource with processor buffers
+- Moving averages, min/max, rolling statistics from DataSource integration
+
+[Chart Documentation](chart/)
+
+=== MSD
+
+**`lcards-msd`** — Master Systems Display canvas.
+
+- Embed any HA card as a positioned **control overlay**
+- **Line overlays** — SVG lines with smart routing and avoid-obstacle algorithms
+- **Studio Editor** — visual configuration with live preview and drag-to-reposition
+- Animate lines independently with rules
+
+[MSD Documentation](msd/)
+
+=== Alert Overlay
+
+**`lcards-alert-overlay`** — Full-screen dashboard overlay reacting to alert state.
+
+- Activates automatically on `input_select.lcards_alert_mode` change
+- Full-screen backdrop with blur + tint layers
+- Configurable per-condition content card, position, and size
+- Portal rendering — appended to `document.body` above all HA stacking
+
+[Alert Overlay Documentation](alert-overlay/)
 
 ::::
----
 
-## Built to Extend
+## What Makes It Different
 
-LCARdS has an extensible architecture that enables **customisation and community contribution** via a pack system.
+Every card shares a common set of core features — you get these without any extra configuration.
 
-```mermaid
-flowchart TB
-    subgraph BuiltinPacks["<b>Builtin Packs</b>"]
-        P1["lcards_buttons<br/>v2026.x.y<br/><br/><code>- style_presets [buttons]</code>"]:::builtinPacksStyle
-        P2["lcards_sliders<br/>v2026.x.y<br/><br/><code>- style_presets [sliders]</code>"]:::builtinPacksStyle
-        P3["builtin_themes<br/>v2026.x.y<br/><br/><code>- themes</code>"]:::builtinPacksStyle
-        P4["lcars_fx<br/>v2026.x.y<br/><br/><code>- animations<br/>- rules</code>"]:::builtinPacksStyle
-    end
+**State-aware styling** — cards change colour and style in response to HA entity state, individually or in coordinated groups via the [Rules Engine](../core/rules/).
 
-    subgraph ExternalPacks["<b>External/User Packs</b>"]
-        E1["ds9_pack<br/>v2.0.0<br/><br/><code>- themes<br/>- style_presets<br/>- svg_assets<br/>- animations</code>"]:::externalPacksStyle
-        E2["voyager_pack<br/>v1.5.0<br/><br/><code>- themes<br/>- font_assets<br/>- rules</code>"]:::externalPacksStyle
-        E3["msd_collection<br/>v1.0.0<br/><br/><code>- svg_assets<br/>- animations</code>"]:::externalPacksStyle
-    end
+**Templates everywhere** — any text field accepts entity state, attributes, theme tokens, DataSource values, JavaScript expressions, or Jinja2. [Learn more →](../core/templates/)
 
-    subgraph PackMgr["<b>PackManager</b>"]
-        PM[Pack Loader &<br/>Content Distributor]
-    end
+**Alert Mode** — a single helper entity shifts the entire dashboard colour palette, plays sounds, and activates an overlay card simultaneously. [Learn more →](../core/alert-mode.md)
 
-    subgraph CoreSystems["<b>Core Systems</b>"]
-        TM[ThemeManager<br/>Theme tokens]:::coreStyle
-        SPM[StylePresetManager<br/>Button & slider presets]:::coreStyle
-        AR[AnimationRegistry<br/>Animation definitions]:::coreStyle
-        RE[RulesEngine<br/>Conditional rules]:::coreStyle
-        AM[AssetManager<br/>SVG & font assets]:::coreStyle
-    end
+**Animations** — Anime.js v4 is built in; animate any element in response to interactions or entity state changes. [Learn more →](../core/animations.md)
 
-    P1 0@--- PM
-    P2 1@--- PM
-    P3 2@--- PM
-    P4 3@--- PM
-    E1 4@--- PM
-    E2 5@--- PM
-    E3 6@--- PM
+**DataSources** — subscribe to entities, buffer history, run processing pipelines (moving averages, min/max), and use the results in any card field or chart. [Learn more →](../core/datasources/)
 
-    PM 7@---|themes| TM
-    PM 8@---|style_presets| SPM
-    PM 9@---|animations| AR
-    PM 10@---|rules| RE
-    PM 11@---|svg_assets<br/>font_assets| AM
+## Next Steps
 
-    TM 12@-.- Cards([LCARdS Cards])
-    SPM 13@-.- Cards
-    AR 14@-.- Cards
-    RE 15@-.- Cards
-    AM 16@-.- Cards
+→ **[Installation](installation.md)** — install via HACS in under a minute
 
-    0@{ animate: slow }
-    1@{ animate: slow }
-    2@{ animate: slow }
-    3@{ animate: slow }
-    4@{ animate: slow }
-    5@{ animate: slow }
-    6@{ animate: slow }
-    7@{ animate: slow }
-    8@{ animate: slow }
-    9@{ animate: slow }
-    10@{ animate: slow }
-    11@{ animate: slow }
-    12@{ animate: slow }
-    13@{ animate: slow }
-    14@{ animate: slow }
-    15@{ animate: slow }
-    16@{ animate: slow }
+→ **[Quick Start](quick-start.md)** — add your first card and explore the editors
 
-    linkStyle 0,1,2,3 stroke:#67caf0,stroke-width:3px
-    linkStyle 4,5,6 stroke:#f9ef97,stroke-width:3px
-    linkStyle 7,8,9,10,11 stroke:#00eeee,stroke-width:3px,color:#fff
-    linkStyle 12,13,14,15,16 stroke:#ffb399,stroke-width:3px
-
-    style BuiltinPacks fill:#2f3749,stroke:#52596e
-    style ExternalPacks fill:#2f3749,stroke:#52596e
-    style CoreSystems fill:#1e2229,stroke:#2f3749
-    style Cards fill:#e7442a,stroke:#ffb399,color:#fff
-    style PM fill:#1c3c55,stroke:#37a6d1,color:#fff
-    style PackMgr fill:#2f3749,stroke:#52596e
-
-    classDef builtinPacksStyle fill:#2a7193,stroke:#67caf0,color:#fff
-    classDef externalPacksStyle fill:#ac943b,stroke:#f9ef97,color:#fff
-    classDef coreStyle fill:#2f3749,stroke:#52596e
-```
-
-**Key concepts:**
-
-- **Packs are content distribution units** containing any combination of: `themes`, `style_presets`, `animations`, `rules`, `svg_assets`, `font_assets`, and future types.
-- **Single packs can contain multiple content types** (e.g., `lcards_buttons` has both style_presets and components)
-- **PackManager orchestrates the merge and distribution** at core initialisation — registering content to appropriate managers
-- **Cards consume from managers**, not packs directly — enabling clean separation from the cards
-- **Community extensibility** — custom packs will be able to extend LCARdS with new themes, button styles, animations, and more
-
-See [Pack System](../architecture/subsystems/pack-system.md) for technical details.
+→ **[Coming from CB-LCARS?](cb-lcars-migration.md)** — feature mapping table
