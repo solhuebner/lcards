@@ -52,7 +52,7 @@ Use this to:
 - Preview token values before using them in card YAML
 - See which tokens are available across all built-in themes
 
-Tokens are referenced in card config as `{theme:token.path}` — see [Themes](../core/themes/README.md) for details.
+Tokens are referenced in card config as `{theme:token.path}` — see [Themes](../core/themes/) for details.
 
 ---
 

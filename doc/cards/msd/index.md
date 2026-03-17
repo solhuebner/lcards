@@ -42,8 +42,8 @@ msd:
 | `msd` | object | Full MSD configuration (required) |
 | `id` | string | Card ID for rule targeting |
 | `tags` | list | Tags for rule targeting |
-| `rules` | list | Rules for dynamic overlay styling — see [Rules Engine](../../../core/rules/README.md) |
-| `data_sources` | object | DataSource definitions — see [DataSources](../../../core/datasources/README.md) |
+| `rules` | list | Rules for dynamic overlay styling — see [Rules Engine](../../core/rules/) |
+| `data_sources` | object | DataSource definitions — see [DataSources](../../core/datasources/) |
 
 ---
 
@@ -66,7 +66,7 @@ msd:
 |-------|------|-------------|
 | `source` | string | SVG source — `builtin:<name>`, `/local/path.svg`, or `none` |
 | `filter_preset` | string | Named filter preset — see table below |
-| `filters` | list | Additional CSS/SVG filters — see [Button card — Filters](../button/README.md#filters-list) |
+| `filters` | list | Additional CSS/SVG filters — see [Button card — Filters](../button/#filters-list) |
 
 ### Filter Presets
 
@@ -232,7 +232,7 @@ rules:
           loop: true
 ```
 
-See [Rules Engine](../../../core/rules/README.md) for the full condition and apply reference.
+See [Rules Engine](../../core/rules/) for the full condition and apply reference.
 
 ---
 

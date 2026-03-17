@@ -28,7 +28,7 @@ text:
 |-------|-------|
 | `{entity.state}` | Current entity state string |
 | `{entity.attributes.NAME}` | Any entity attribute |
-| `{theme:token.path}` | Theme token value — see [Themes](../themes/README.md) |
+| `{theme:token.path}` | Theme token value — see [Themes](../themes/) |
 | `{ds:source_name}` | DataSource current value |
 | `{datasource:source:.2f}` | DataSource with format specifier |
 | `{datasource:source.processor:.0f}` | Specific processor buffer with format |
@@ -97,7 +97,7 @@ text:
 
 ### 4. DataSource Templates `{ds:...}` / `{datasource:...}`
 
-For values from a named [DataSource](../datasources/README.md). Supports format specifiers and processor buffer access.
+For values from a named [DataSource](../datasources/). Supports format specifiers and processor buffer access.
 
 ```yaml
 data_sources:

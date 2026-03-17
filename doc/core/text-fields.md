@@ -47,7 +47,7 @@ text:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `content` | string | — | Text content; supports all [template syntaxes](templates/README.md) |
+| `content` | string | — | Text content; supports all [template syntaxes](templates/) |
 | `show` | boolean | `true` | Show or hide this field |
 | `position` | string | from `default` | Grid position — see Position Values below |
 | `x` | number | — | Absolute X in pixels (overrides `position`) |
@@ -146,7 +146,7 @@ content: "{{ states('sensor.temperature') }}°C"
 content: "{ds:temp:.1f}°C"
 ```
 
-See [Templates](templates/README.md) for full details.
+See [Templates](templates/) for full details.
 
 ---
 

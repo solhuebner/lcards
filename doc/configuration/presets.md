@@ -12,5 +12,5 @@ Presets are distributed via packs and can be referenced in any compatible card u
 
 ## Related
 
-- [Button Card](../cards/cards/button/README.md)
+- [Button Card](../cards/button/)
 - [Pack System](../architecture/subsystems/pack-system.md)

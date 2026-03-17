@@ -10,7 +10,7 @@
 - Canvas-based **background animations** — stackable layers with zoom and pan
 - Rules Engine integration — styles hot-patched at runtime
 
-[Button Documentation](cards/button/README.md)
+[Button Documentation](button/)
 
 === Elbow
 
@@ -21,7 +21,7 @@
 - Authentic LCARS arc geometry or diagonal-cut corners with configurable angle
 - Symbiont support — embed other HA cards inside the elbow area
 
-[Elbow Documentation](cards/elbow/README.md)
+[Elbow Documentation](elbow/)
 
 === Slider
 
@@ -32,7 +32,7 @@
 - Separate min/max for display range vs. control range
 - Domain auto-detection — interactive for controllable domains, display-only for sensors
 
-[Slider Documentation](cards/slider/README.md)
+[Slider Documentation](slider-card/)
 
 === Data Grid
 
@@ -43,7 +43,7 @@
 - LCARS-style cascade animation with built-in speed presets
 - CSS Grid layout with full style cascading
 
-[Data Grid Documentation](cards/data-grid/README.md)
+[Data Grid Documentation](data-grid/)
 
 === Chart
 
@@ -53,7 +53,7 @@
 - Single entity, multi-entity, or DataSource with processor buffers
 - Moving averages, min/max, rolling statistics from DataSource integration
 
-[Chart Documentation](cards/chart/README.md)
+[Chart Documentation](chart/)
 
 === MSD
 
@@ -64,7 +64,7 @@
 - **Studio Editor** — visual configuration with live preview and drag-to-reposition
 - Animate lines independently with rules
 
-[MSD Documentation](cards/msd/README.md)
+[MSD Documentation](msd/)
 
 === Alert Overlay
 
@@ -75,19 +75,19 @@
 - Configurable per-condition content card, position, and size
 - Portal rendering — appended to `document.body` above all HA stacking
 
-[Alert Overlay Documentation](cards/alert-overlay/README.md)
+[Alert Overlay Documentation](alert-overlay/)
 
 ::::
 
 | Card | Type | Purpose |
 |------|------|---------|
-| [Button](cards/button/README.md) | `custom:lcards-button` | Buttons, labels, D-pad, multi-segment SVG |
-| [Elbow](cards/elbow/README.md) | `custom:lcards-elbow` | LCARS corner/cap decorations |
-| [Select Menu](cards/select-menu/README.md) | `custom:lcards-select-menu` | Grid of option buttons for input_select / select entities |
-| [Slider](cards/slider/README.md) | `custom:lcards-slider` | Interactive sliders and gauge displays |
-| [Chart](cards/chart/README.md) | `custom:lcards-chart` | Data visualization (ApexCharts) |
-| [Data Grid](cards/data-grid/README.md) | `custom:lcards-data-grid` | Tabular entity data with cascade animations |
-| [MSD](cards/msd/README.md) | `custom:lcards-msd` | Master Systems Display with routing lines |
+| [Button](button/) | `custom:lcards-button` | Buttons, labels, D-pad, multi-segment SVG |
+| [Elbow](elbow/) | `custom:lcards-elbow` | LCARS corner/cap decorations |
+| [Select Menu](select-menu/) | `custom:lcards-select-menu` | Grid of option buttons for input_select / select entities |
+| [Slider](slider-card/) | `custom:lcards-slider` | Interactive sliders and gauge displays |
+| [Chart](chart/) | `custom:lcards-chart` | Data visualization (ApexCharts) |
+| [Data Grid](data-grid/) | `custom:lcards-data-grid` | Tabular entity data with cascade animations |
+| [MSD](msd/) | `custom:lcards-msd` | Master Systems Display with routing lines |
 
 ---
 
@@ -101,13 +101,13 @@ Features and concepts shared across all cards.
 | [Colours](../core/colours.md) | All accepted colour formats, state-based colour maps, resolution order |
 | [Actions](../core/actions.md) | `tap_action`, `hold_action`, `double_tap_action` — all action types and options |
 | [Text Fields](../core/text-fields.md) | Multi-field text system — placement, fonts, colour, templates |
-| [Templates](../core/templates/README.md) | Dynamic content: JS, Jinja2, LCARdS token datasource templates |
+| [Templates](../core/templates/) | Dynamic content: JS, Jinja2, LCARdS token datasource templates |
 | [Animations](../core/animations.md) | Per-card animations with multiple trigger types |
 | [Background Animations](../core/effects/background-animations.md) | Canvas-based animated backgrounds (grid, starfield, nebula, etc.) |
 | [Sound Effects](../core/sounds.md) | LCARS-style audio feedback for interactions and alerts |
-| [Rules Engine](../core/rules/README.md) | Advanced conditional system for styling applied across cards |
-| [DataSources](../core/datasources/README.md) | Subscribes to HA Entity to provide history and processing pipelines for cards to consume |
-| [Themes](../core/themes/README.md) | Built-in token-based theming for providing colour, sizing etc. |
+| [Rules Engine](../core/rules/) | Advanced conditional system for styling applied across cards |
+| [DataSources](../core/datasources/) | Subscribes to HA Entity to provide history and processing pipelines for cards to consume |
+| [Themes](../core/themes/) | Built-in token-based theming for providing colour, sizing etc. |
 
 ---
 

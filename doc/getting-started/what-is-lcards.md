@@ -143,7 +143,7 @@ Define rules once — apply across many cards simultaneously:
 - Changes are **instant and reactive** to entity state
 - Example: turn all `engineering` tagged indicators red when an alarm fires
 
-[Rules Engine](../core/rules/README.md)
+[Rules Engine](../core/rules/)
 
 === 📊 DataSource Pipelines
 
@@ -154,7 +154,7 @@ Richer data than plain entity state:
 - `{ds:name}` template syntax — charts, labels, sliders, and rules all share one source
 - Stored in browser session; no HA server recording required
 
-[DataSources](../core/datasources/README.md)
+[DataSources](../core/datasources/)
 
 === 🎨 Configuration Studios
 

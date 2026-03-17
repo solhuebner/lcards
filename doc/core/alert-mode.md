@@ -123,7 +123,7 @@ content_card:
   width: 400px
 ```
 
-See [Alert Overlay Card](../user/cards/alert-overlay/README.md) for the full configuration reference.
+See [Alert Overlay Card](/cards/alert-overlay/) for the full configuration reference.
 
 ### Rules-Driven Animations
 
@@ -140,4 +140,4 @@ rules:
       tags: [status-indicator]
 ```
 
-See [Rules Engine](rules/README.md) for the full condition and apply reference.
+See [Rules Engine](rules/) for the full condition and apply reference.

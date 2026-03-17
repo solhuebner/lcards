@@ -153,7 +153,7 @@ options:
 
 ## `style` Object
 
-Applies to every option button. Same structure as the button card's [`style`](../button/README.md#style-object).
+Applies to every option button. Same structure as the button card's [`style`](../button/#style-object).
 
 The style resolves in this order (last wins): preset defaults → `button_template.style` → card-level `style` → per-option `style`.
 

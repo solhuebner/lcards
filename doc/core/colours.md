@@ -42,7 +42,7 @@ color: "{theme:colors.ui.secondary}"
 color: "{theme:colors.alert.red}"
 ```
 
-See [Themes](themes/README.md) for available token paths.
+See [Themes](themes/) for available token paths.
 
 ### Computed Colour Tokens
 

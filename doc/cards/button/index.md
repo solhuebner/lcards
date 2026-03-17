@@ -2,7 +2,7 @@
 
 `custom:lcards-button`
 
-The Button card covers everything from simple labels and toggle buttons to complex interactive components like D-pads and multi-segment SVG controls. Elbows use the same base so every feature here is also available in the [Elbow card](../elbow/README.md).
+The Button card covers everything from simple labels and toggle buttons to complex interactive components like D-pads and multi-segment SVG controls. Elbows use the same base so every feature here is also available in the [Elbow card](../elbow/).
 
 ---
 
@@ -29,22 +29,22 @@ The card operates in one of three modes, selected by which top-level key is pres
 | `preset` | string | Button shape preset (preset mode) |
 | `component` | string | Component type: `dpad` or `alert` (component mode) |
 | `svg` | object | Custom SVG config (svg mode) |
-| `text` | object | Text field definitions — see [Text Fields](../../../core/text-fields.md) |
+| `text` | object | Text field definitions — see [Text Fields](../../core/text-fields.md) |
 | `icon` | string | MDI icon (e.g. `mdi:lightbulb`) |
 | `icon_area` | string | Icon position: `left`, `right`, `top`, `bottom`, `none` |
 | `icon_area_size` | number | Icon area width/height in px (default: 60) |
 | `icon_style` | object | Advanced icon styling — see below |
 | `divider` | object | Divider between icon area and content area — see below |
 | `style` | object | Visual styles — see below |
-| `tap_action` | object | Tap action — see [Actions](../../../core/actions.md) |
+| `tap_action` | object | Tap action — see [Actions](../../core/actions.md) |
 | `hold_action` | object | Hold action |
 | `double_tap_action` | object | Double-tap action |
-| `animations` | list | Card animations — see [Animations](../../../core/animations.md) |
-| `background_animation` | list / object | Canvas background animations — see [Background Animations](../../../core/effects/background-animations.md) |
+| `animations` | list | Card animations — see [Animations](../../core/animations.md) |
+| `background_animation` | list / object | Canvas background animations — see [Background Animations](../../core/effects/background-animations.md) |
 | `shape_texture` | object | SVG texture inside the button fill — see below |
 | `filters` | list | CSS / SVG filters — see below |
-| `data_sources` | object | DataSource definitions — see [DataSources](../../../core/datasources/README.md) |
-| `sounds` | object | Per-card sound overrides — see [Sound Effects](../../../core/sounds.md) |
+| `data_sources` | object | DataSource definitions — see [DataSources](../../core/datasources/) |
+| `sounds` | object | Per-card sound overrides — see [Sound Effects](../../core/sounds.md) |
 | `grid_options` | object | HA grid layout (`columns`, `rows`) |
 
 ---
@@ -55,13 +55,13 @@ The card operates in one of three modes, selected by which top-level key is pres
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `color.background` | string / object | Card background — [state map](../../../core/colours.md) supported |
+| `color.background` | string / object | Card background — [state map](../../core/colours.md) supported |
 
 ### `style.border`
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `color` | string / object | theme | Border colour — [state map](../../../core/colours.md) supported |
+| `color` | string / object | theme | Border colour — [state map](../../core/colours.md) supported |
 | `width` | number | `0` | Border width in px |
 | `radius` | number / object | theme | Corner radius in px, or `{ top_left, top_right, bottom_left, bottom_right }` |
 | `style` | string | `solid` | CSS border-style (`solid`, `dashed`, `dotted`) |
@@ -72,12 +72,12 @@ Shorthand for setting text styles inside the style block (equivalent to top-leve
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `color` | string / object | Text colour — [state map](../../../core/colours.md) supported |
+| `color` | string / object | Text colour — [state map](../../core/colours.md) supported |
 | `font_size` | number / string | Font size in px or CSS value |
 | `font_weight` | string / number | CSS font-weight |
 | `font_family` | string | CSS font-family |
 
-See [Text Fields](../../../core/text-fields.md) for the full per-field options table.
+See [Text Fields](../../core/text-fields.md) for the full per-field options table.
 
 ```yaml
 style:
@@ -106,7 +106,7 @@ Fine-grained control over the icon appearance and placement within its area.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `color` | string / object | Icon colour — [state map](../../../core/colours.md) supported |
+| `color` | string / object | Icon colour — [state map](../../core/colours.md) supported |
 | `size` | number | Icon size in px |
 | `area_size` | number | Width/height of the icon area in px |
 | `position` | string | Icon position within its area |
@@ -137,7 +137,7 @@ Thin line between the icon area and the content area.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `color` | string / object | theme | Divider colour — [state map](../../../core/colours.md) supported |
+| `color` | string / object | theme | Divider colour — [state map](../../core/colours.md) supported |
 | `width` | number | theme | Divider thickness in px |
 
 ```yaml
@@ -174,7 +174,7 @@ filters:
 
 ## Text Fields
 
-Multiple text labels can be placed anywhere on the card. See [Text Fields](../../../core/text-fields.md) for the full reference.
+Multiple text labels can be placed anywhere on the card. See [Text Fields](../../core/text-fields.md) for the full reference.
 
 ```yaml
 text:
@@ -214,10 +214,10 @@ The `default` key under `segments` applies shared config to all segments.
 | Field | Type | Description |
 |-------|------|-------------|
 | `entity` | string | Entity for this segment (state-based colours, icons) |
-| `tap_action` | object | Action on tap — see [Actions](../../../core/actions.md) |
+| `tap_action` | object | Action on tap — see [Actions](../../core/actions.md) |
 | `hold_action` | object | Action on hold |
 | `double_tap_action` | object | Action on double-tap |
-| `style.fill` | string / object | Segment fill colour — [state map](../../../core/colours.md) supported |
+| `style.fill` | string / object | Segment fill colour — [state map](../../core/colours.md) supported |
 | `style.stroke` | string / object | Segment stroke colour |
 | `style.stroke_width` | number | Stroke width in px |
 | `text` | object | Per-segment text labels |
@@ -347,7 +347,7 @@ For full parameter reference see [Shape Texture System](../../../architecture/su
 
 ## Background Animations
 
-See [Background Animations](../../../core/effects/background-animations.md) for full docs.
+See [Background Animations](../../core/effects/background-animations.md) for full docs.
 
 ```yaml
 background_animation:

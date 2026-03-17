@@ -13,4 +13,4 @@ Theme tokens define colours, spacing, border radii, and other visual properties 
 ## Related
 
 - [Core Concepts — Colours](../core/colours.md)
-- [Core Concepts — Themes](../core/themes/README.md)
+- [Core Concepts — Themes](../core/themes/)
