@@ -1,7 +1,8 @@
 # Changelog & Migration Notes
 
-!!! note "Placeholder"
-    This page is a placeholder. Release notes and migration guides will be published here.
+::: info Placeholder
+This page is a placeholder. Release notes and migration guides will be published here.
+:::
 
 ## Migration from CB-LCARS
 

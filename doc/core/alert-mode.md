@@ -29,45 +29,47 @@ Alert mode is more than a colour change — it shifts the entire dashboard UI to
 
 Alert mode can be triggered from multiple places:
 
-=== "Card Action"
+:::: tabs
+=== Card Action
 
-    Set a tap action on any card to call the `input_select.select_option` service:
+Set a tap action on any card to call the `input_select.select_option` service:
 
-    ```yaml
-    tap_action:
-      action: call-service
-      service: input_select.select_option
-      service_data:
-        entity_id: input_select.lcards_alert_mode
-        option: red_alert
-    ```
+```yaml
+tap_action:
+  action: call-service
+  service: input_select.select_option
+  service_data:
+    entity_id: input_select.lcards_alert_mode
+    option: red_alert
+```
 
-=== "HA Automation"
+=== HA Automation
 
-    Use the helper in any automation:
+Use the helper in any automation:
 
-    ```yaml
-    action:
-      - service: input_select.select_option
-        data:
-          entity_id: input_select.lcards_alert_mode
-          option: yellow_alert
-    ```
+```yaml
+action:
+  - service: input_select.select_option
+    data:
+      entity_id: input_select.lcards_alert_mode
+      option: yellow_alert
+```
 
-=== "Browser Console"
+=== Browser Console
 
-    Trigger directly from the browser dev console:
+Trigger directly from the browser dev console:
 
-    ```javascript
-    window.lcards.alert.red();
-    window.lcards.alert.yellow();
-    window.lcards.alert.off();    // Reset to green
-    ```
+```javascript
+window.lcards.alert.red();
+window.lcards.alert.yellow();
+window.lcards.alert.off();    // Reset to green
+```
 
-=== "Config Panel"
+=== Config Panel
 
-    Click any alert level button in the **Alert Mode Lab** tab of the LCARdS Config Panel.
+Click any alert level button in the **Alert Mode Lab** tab of the LCARdS Config Panel.
 
+::::
 ---
 
 ## Required Helper
@@ -91,8 +93,9 @@ input_select:
     icon: mdi:alert
 ```
 
-!!! tip
-    The **Helpers** tab in the Config Panel creates all LCARdS helpers — including this one — in a single click.
+::: tip
+The **Helpers** tab in the Config Panel creates all LCARdS helpers — including this one — in a single click.
+:::
 
 ---
 

@@ -1,12 +1,83 @@
-# LCARdS User Documentation
+# The Fleet
 
-> **LCARS-inspired custom cards for Home Assistant**
+:::: tabs
+=== Button
 
----
+**`lcards-button`** — All standard LCARS buttons, plus advanced multi-segment controls.
 
-## Cards
+- Built-in preset library: lozenge, bullet, capped, outline, pill, text, and more
+- **Component mode** — embed SVG components (D-pad, Alert, custom shapes) with per-segment interactivity
+- Canvas-based **background animations** — stackable layers with zoom and pan
+- Rules Engine integration — styles hot-patched at runtime
 
-The LCARdS fleet. Each card is independent but shares the same core systems.
+[Button Documentation](cards/button/README.md)
+
+=== Elbow
+
+**`lcards-elbow`** — Classic LCARS corner designs.
+
+- Built-in presets: `header-left`, `header-right`, `footer-left`, `footer-right`
+- **Simple** and **segmented** (Picard-style double elbow) styles
+- Authentic LCARS arc geometry or diagonal-cut corners with configurable angle
+- Symbiont support — embed other HA cards inside the elbow area
+
+[Elbow Documentation](cards/elbow/README.md)
+
+=== Slider
+
+**`lcards-slider`** — Interactive sliders for display and control.
+
+- Built-in presets: **pills** (segmented bar) and **gauge** (ruler with tick marks)
+- Horizontal and vertical orientations with independent fill inversion
+- Separate min/max for display range vs. control range
+- Domain auto-detection — interactive for controllable domains, display-only for sensors
+
+[Slider Documentation](cards/slider/README.md)
+
+=== Data Grid
+
+**`lcards-data-grid`** — LCARS data grids with cascade animations.
+
+- **Data mode** — real entity states, attributes, or template values
+- **Decorative mode** — cascading generated data for aesthetics
+- LCARS-style cascade animation with built-in speed presets
+- CSS Grid layout with full style cascading
+
+[Data Grid Documentation](cards/data-grid/README.md)
+
+=== Chart
+
+**`lcards-chart`** — LCARdS integrated charting via ApexCharts.
+
+- 15+ chart types: line, area, bar, pie, scatter, heatmap, radar, and more
+- Single entity, multi-entity, or DataSource with processor buffers
+- Moving averages, min/max, rolling statistics from DataSource integration
+
+[Chart Documentation](cards/chart/README.md)
+
+=== MSD
+
+**`lcards-msd`** — Master Systems Display canvas.
+
+- Embed any HA card as a positioned **control overlay**
+- **Line overlays** — SVG lines with smart routing and avoid-obstacle algorithms
+- **Studio Editor** — visual configuration with live preview and drag-to-reposition
+- Animate lines independently with rules
+
+[MSD Documentation](cards/msd/README.md)
+
+=== Alert Overlay
+
+**`lcards-alert-overlay`** — Full-screen dashboard overlay reacting to alert state.
+
+- Activates automatically on `input_select.lcards_alert_mode` change
+- Full-screen backdrop with blur + tint layers
+- Configurable per-condition content card, position, and size
+- Portal rendering — appended to `document.body` above all HA stacking
+
+[Alert Overlay Documentation](cards/alert-overlay/README.md)
+
+::::
 
 | Card | Type | Purpose |
 |------|------|---------|
@@ -43,36 +114,3 @@ Features and concepts shared across all cards.
 ## Config Panel
 
 [LCARdS Config Panel](../configuration/config-panel.md) — Central hub for managing helpers, alert settings, sounds, and more.
-
----
-
-## Quick Example
-
-```yaml
-type: custom:lcards-button
-entity: light.living_room
-preset: lozenge
-
-text:
-  label:
-    content: Living Room
-    show: true
-    position: top-left
-    color: "var(--lcards-moonlight)"
-  value:
-    content: "{entity.state}"
-    position: center
-    color:
-      default: "var(--lcards-moonlight)"
-      active: "var(--lcards-orange)"
-
-style:
-  border:
-    color:
-      default: "var(--lcards-gray)"
-      active: "var(--lcards-orange)"
-    width: 2
-
-tap_action:
-  action: toggle
-```

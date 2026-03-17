@@ -15,11 +15,12 @@ There are no external dependencies or prerequisites for LCARdS. For the best vis
 3. Install the repository
 4. Hard-refresh your browser (`Ctrl+Shift+R`) to clear the cache
 
-!!! tip "Quick Start Sequence"
-    - Open HACS — *Clear All Moorings and Open Starbase Doors*
-    - Search for **LCARdS** — *Thrusters Ahead, Take Us Out*
-    - Install and hard-refresh — *Bring Warp Core Online, Engines to Full Power*
-    - Build your first dashboard — *Engage!*
+::: tip Quick Start Sequence
+- Open HACS — *Clear All Moorings and Open Starbase Doors*
+- Search for **LCARdS** — *Thrusters Ahead, Take Us Out*
+- Install and hard-refresh — *Bring Warp Core Online, Engines to Full Power*
+- Build your first dashboard — *Engage!*
+:::
 
 ---
 
@@ -39,11 +40,3 @@ panel_custom:
 ```
 
 See [LCARdS Config Panel](../configuration/config-panel.md) for full details.
-
----
-
-## Next Steps
-
-- [What is LCARdS?](what-is-lcards.md) — understand the architecture
-- [The Cards](../cards/index.md) — start with the Button card
-- [Coming from CB-LCARS](cb-lcars-migration.md) — quick feature mapping if migrating

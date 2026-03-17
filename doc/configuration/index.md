@@ -10,5 +10,6 @@ LCARdS provides several ways to configure and customise its behaviour — from t
 | [Persistent Helpers](persistent-helpers.md) | HA `input_*` helpers used by LCARdS for alert mode, sizing, and sounds |
 | [Validation](validation.md) | Config schema validation and error reporting |
 
-!!! info "Work in progress"
-    Some pages in this section are placeholders and will be updated in a future release.
+::: info Work in progress
+Some pages in this section are placeholders and will be updated in a future release.
+:::

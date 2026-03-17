@@ -1,7 +1,8 @@
 # Validation
 
-!!! note "Placeholder"
-    This page is a placeholder. Full content coming soon.
+::: info Placeholder
+This page is a placeholder. Full content coming soon.
+:::
 
 LCARdS validates card configuration at runtime using the **Validation Service** (`window.lcards.core.validationService`).
 

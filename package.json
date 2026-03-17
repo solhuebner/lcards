@@ -22,14 +22,19 @@
     "build:dev": "webpack --mode development",
     "create-editor": "node tools/create-editor.js",
     "analyze": "webpack --profile --json > stats.json && webpack-bundle-analyzer stats.json",
-    "docs:build": "cd docs && ../.venv/bin/mkdocs build --strict",
-    "docs:serve": "cd docs && ../.venv/bin/mkdocs serve"
+    "docs:build": "vitepress build doc",
+    "docs:serve": "vitepress dev doc",
+    "docs:preview": "vitepress preview doc --base /lcards/"
   },
   "devDependencies": {
     "clean-webpack-plugin": "^4.0.0",
     "inquirer": "^13.1.0",
     "js-yaml": "^4.1.0",
     "jsdom": "^27.1.0",
+    "mermaid": "^11.13.0",
+    "vitepress": "^1.6.4",
+    "vitepress-plugin-mermaid": "^2.0.17",
+    "vitepress-plugin-tabs": "^0.8.0",
     "webpack": "^5.94.0",
     "webpack-bundle-analyzer": "^4.10.2",
     "webpack-cli": "^5.1.4",

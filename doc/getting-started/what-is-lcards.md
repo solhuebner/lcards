@@ -117,6 +117,59 @@ JavaScript `[[[return ...]]]`, LCARdS tokens `{entity.state}` / `{theme:colors.c
 
 ---
 
+## Key Platform Features
+
+:::: tabs
+=== 🚨 Alert Mode
+
+Coordinated dashboard-wide states — more than a colour change:
+
+- Full palette transform across every dashboard element
+- Sound plays automatically
+- Alert Overlay activates with backdrop and content card
+- Rules-driven per-card animations (opt-in)
+- HA helper stays in sync for automation integration
+
+Available levels: `green` · `yellow` · `red` · `blue` · `gray` · `black`
+
+[Alert Mode](../core/alert-mode.md)
+
+=== 🔗 Rules Engine
+
+Define rules once — apply across many cards simultaneously:
+
+- Target cards by **type**, **tag**, or **ID**
+- **Patch any style property** — colour, opacity, border, text
+- Changes are **instant and reactive** to entity state
+- Example: turn all `engineering` tagged indicators red when an alarm fires
+
+[Rules Engine](../core/rules/README.md)
+
+=== 📊 DataSource Pipelines
+
+Richer data than plain entity state:
+
+- Subscribe to any HA entity and **buffer values over time**
+- **Processing pipelines** — moving average, min/max, aggregation, custom transforms
+- `{ds:name}` template syntax — charts, labels, sliders, and rules all share one source
+- Stored in browser session; no HA server recording required
+
+[DataSources](../core/datasources/README.md)
+
+=== 🎨 Configuration Studios
+
+Immersive UI-based configuration:
+
+- **Live WYSIWYG** preview with instant feedback
+- **Schema-backed YAML** tab with inline auto-complete and validation
+- **Main Engineering tab** — data sources, rules browser, theme token browser, provenance tracking
+- **Provenance tracking** — see which system contributed each config value at runtime
+
+[Config Panel](../configuration/config-panel.md)
+
+::::
+---
+
 ## Built to Extend
 
 LCARdS has an extensible architecture that enables **customisation and community contribution** via a pack system.

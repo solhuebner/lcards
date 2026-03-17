@@ -2,8 +2,9 @@
 
 LCARdS originates from, and supersedes, the [CB-LCARS](https://github.com/snootched/cb-lcars) project.
 
-!!! tip "You can run both simultaneously"
-    CB-LCARS and LCARdS can coexist while you transition. All new features and fixes will be made in LCARdS only going forward.
+::: tip You can run both simultaneously
+CB-LCARS and LCARdS can coexist while you transition. All new features and fixes will be made in LCARdS only going forward.
+:::
 
 Use this table to quickly find the LCARdS equivalent for each CB-LCARS card or feature.
 
@@ -33,18 +34,3 @@ Use this table to quickly find the LCARdS equivalent for each CB-LCARS card or f
 | Sounds | ❌ | ✅ | Customisable sounds for many UI and card event types (tap, double tap, hold, hover, sidebar expand/collapse, and more). |
 | Alert Overlay | ❌ | ✅ `lcards-alert-overlay` | Dashboard-level card that reacts to `input_select.lcards_alert_mode` and displays a full-screen configurable backdrop with an embedded content card. |
 
----
-
-## Key Differences
-
-### Unified Core vs. Standalone Cards
-
-CB-LCARS cards are largely independent. LCARdS cards share a **common core** — the Rules Engine, DataSource Manager, Theme Manager, and other services operate once per dashboard and serve all cards together. This enables cross-card coordination that CB-LCARS could not achieve.
-
-### Preset System
-
-LCARdS has a formal **preset system** (via packs) that replaces CB-LCARS's implicit styling approach. Named presets for buttons, sliders, and elbows are loaded once and applied by name.
-
-### Template System
-
-Any text field in any LCARdS card supports four template syntaxes (JavaScript, LCARdS tokens, DataSource, and Jinja2) — far more powerful than CB-LCARS's variable substitution.

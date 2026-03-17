@@ -1,7 +1,8 @@
 # Themes & Colours
 
-!!! note "Placeholder"
-    This page is a placeholder. Full content coming soon.
+::: info Placeholder
+This page is a placeholder. Full content coming soon.
+:::
 
 LCARdS uses a token-based theming system managed by the **Theme Manager** (`window.lcards.core.themeManager`).
 

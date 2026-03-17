@@ -1,7 +1,8 @@
 # Building a Custom Card
 
-!!! note "Placeholder"
-    This page is a placeholder. Full content coming soon.
+::: info Placeholder
+This page is a placeholder. Full content coming soon.
+:::
 
 ## Overview
 

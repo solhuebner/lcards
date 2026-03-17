@@ -1,7 +1,8 @@
 # Presets
 
-!!! note "Placeholder"
-    This page is a placeholder. Full content coming soon.
+::: info Placeholder
+This page is a placeholder. Full content coming soon.
+:::
 
 Style presets are named configurations that apply a complete visual style to a card in one line. They are managed by the **Style Preset Manager** (`window.lcards.core.stylePresetManager`).
 

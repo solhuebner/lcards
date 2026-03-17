@@ -1,0 +1,291 @@
+/* ==========================================================================
+   LCARdS VitePress Theme
+   LCARS colour palette:
+     Orange:    #ff6753 (brand/accent)  darker #e7442a  darkest #ef1d10
+     Blue:      #37a6d1 (secondary/links)  dark #1c3c55  darkest #002241
+     Gray bg:   #0d1117 (page)  #1e2229 (slightly raised)  #2f3749 (surface)
+     Gray mid:  #52596e  #6d748c  #9ea5ba  #d2d5df
+     Text:      #dfe1e8 (moonlight, primary)  #9ea5ba (secondary)
+     Special:   #00eeee (cyan)  #f9ef97 (yellow)
+   ========================================================================== */
+
+/* Antonio — LCARS heading font */
+@import url('https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&display=swap');
+
+/* --------------------------------------------------------------------------
+   Colour tokens — light mode (default)
+   -------------------------------------------------------------------------- */
+:root {
+  /* Brand = LCARS orange */
+  --vp-c-brand-1:    #e7442a;
+  --vp-c-brand-2:    #ff6753;
+  --vp-c-brand-3:    #ff8470;
+  --vp-c-brand-soft: #ff675320;
+
+  /* Default backgrounds */
+  --vp-c-bg:         #f5f5f7;
+  --vp-c-bg-soft:    #ebebee;
+  --vp-c-bg-mute:    #e0e0e5;
+  --vp-c-bg-elv:     #ffffff;
+
+  /* Text */
+  --vp-c-text-1:     #1e2229;
+  --vp-c-text-2:     #52596e;
+  --vp-c-text-3:     #6d748c;
+
+  /* Borders */
+  --vp-c-border:     #d2d5df;
+  --vp-c-divider:    #e0e0e5;
+
+  /* Links = LCARS blue */
+  --vp-c-text-code:  #1c3c55;
+
+  /* Nav */
+  --vp-nav-bg-color: #002241;
+  --lcars-nav-text:  #dfe1e8;
+
+  /* Custom container colours */
+  --vp-c-tip-1:      #ff6753;
+  --vp-c-tip-2:      #ff8470;
+  --vp-c-tip-3:      #e7442a;
+  --vp-c-tip-soft:   #ff675318;
+
+  --vp-c-warning-1:  #c08a00;
+  --vp-c-warning-2:  #e0a800;
+  --vp-c-warning-3:  #f9ef97;
+  --vp-c-warning-soft: #f9ef9718;
+
+  --vp-c-danger-1:   #ef1d10;
+  --vp-c-danger-2:   #ff3d31;
+  --vp-c-danger-3:   #ff6060;
+  --vp-c-danger-soft: #ef1d1018;
+
+  --vp-c-info-1:     #1c3c55;
+  --vp-c-info-2:     #37a6d1;
+  --vp-c-info-3:     #6bbfdf;
+  --vp-c-info-soft:  #37a6d118;
+}
+
+/* --------------------------------------------------------------------------
+   Colour tokens — dark mode
+   -------------------------------------------------------------------------- */
+.dark {
+  /* Brand = LCARS orange */
+  --vp-c-brand-1:    #ff6753;
+  --vp-c-brand-2:    #ff8470;
+  --vp-c-brand-3:    #ffab9e;
+  --vp-c-brand-soft: #ff675318;
+
+  /* Deep dark backgrounds */
+  --vp-c-bg:         #0d1117;
+  --vp-c-bg-soft:    #1e2229;
+  --vp-c-bg-mute:    #2f3749;
+  --vp-c-bg-elv:     #1e2229;
+
+  /* Text — moonlight palette */
+  --vp-c-text-1:     #dfe1e8;
+  --vp-c-text-2:     #9ea5ba;
+  --vp-c-text-3:     #6d748c;
+
+  /* Borders */
+  --vp-c-border:     #52596e;
+  --vp-c-divider:    #2f3749;
+
+  /* Nav */
+  --vp-nav-bg-color: #001528;
+  --lcars-nav-text:  #dfe1e8;
+
+  /* Custom containers */
+  --vp-c-tip-1:      #ff6753;
+  --vp-c-tip-2:      #ff8470;
+  --vp-c-tip-3:      #ffab9e;
+  --vp-c-tip-soft:   #ff675318;
+
+  --vp-c-warning-1:  #f9ef97;
+  --vp-c-warning-2:  #f5e870;
+  --vp-c-warning-3:  #c5b840;
+  --vp-c-warning-soft: #f9ef9718;
+
+  --vp-c-danger-1:   #ff4d44;
+  --vp-c-danger-2:   #ff6b63;
+  --vp-c-danger-3:   #ff8f89;
+  --vp-c-danger-soft: #ff4d4418;
+
+  --vp-c-info-1:     #37a6d1;
+  --vp-c-info-2:     #6bbfdf;
+  --vp-c-info-3:     #9dd6ed;
+  --vp-c-info-soft:  #37a6d118;
+
+  /* Code block */
+  --vp-code-bg:      #000000;
+  --vp-code-color:   #d2d5df;
+}
+
+/* --------------------------------------------------------------------------
+   Typography — Antonio headings
+   -------------------------------------------------------------------------- */
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3,
+.vp-doc h4 {
+  font-family: 'Antonio', sans-serif;
+  letter-spacing: 0.04em;
+}
+
+.vp-doc h1 { color: var(--vp-c-brand-1); font-weight: 700; }
+.vp-doc h2 { color: var(--vp-c-brand-2); font-weight: 600; border-top-color: var(--vp-c-divider); }
+.vp-doc h3 { font-weight: 400; }
+
+/* --------------------------------------------------------------------------
+   Navigation bar — LCARS deep navy
+   -------------------------------------------------------------------------- */
+.VPNav {
+  background-color: var(--vp-nav-bg-color) !important;
+  border-bottom: 1px solid var(--vp-c-brand-1) !important;
+}
+
+.VPNavBar {
+  background-color: var(--vp-nav-bg-color) !important;
+  border-bottom: none !important;
+}
+
+/* Nav bar divider line */
+.VPNavBar .divider {
+  background-color: transparent !important;
+}
+
+/* Nav items */
+.VPNavBarMenuLink,
+.VPNavBarMenuLink.active,
+.VPNavBarAppearance .sun,
+.VPNavBarAppearance .moon {
+  color: var(--lcars-nav-text) !important;
+}
+
+.VPNavBarMenuLink:hover,
+.VPNavBarMenuLink.active {
+  color: var(--vp-c-brand-1) !important;
+}
+
+/* Site title */
+.VPNavBarTitle .title {
+  font-family: 'Antonio', sans-serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--lcars-nav-text) !important;
+  text-transform: uppercase;
+}
+
+/* --------------------------------------------------------------------------
+   Sidebar
+   -------------------------------------------------------------------------- */
+.VPSidebar {
+  background-color: var(--vp-c-bg-soft) !important;
+}
+
+.VPSidebarItem .text {
+  font-size: 0.875rem;
+}
+
+/* Active sidebar item */
+.VPSidebarItem.is-active > .item .link .text,
+.VPSidebarItem.is-active > .item .VPLink .text {
+  color: var(--vp-c-brand-1) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Links
+   -------------------------------------------------------------------------- */
+.vp-doc a {
+  color: #37a6d1;
+  text-decoration-color: #37a6d140;
+}
+
+.vp-doc a:hover {
+  color: var(--vp-c-brand-1);
+  text-decoration-color: var(--vp-c-brand-1);
+}
+
+/* --------------------------------------------------------------------------
+   Code blocks — dark, terminal-style in both modes
+   -------------------------------------------------------------------------- */
+.dark .vp-code-group .tabs label {
+  color: var(--vp-c-text-2);
+}
+
+/* --------------------------------------------------------------------------
+   Mermaid diagrams
+   -------------------------------------------------------------------------- */
+.vp-doc .mermaid {
+  background: transparent;
+}
+
+.dark .vp-doc .mermaid svg {
+  filter: brightness(0.95);
+}
+
+/* --------------------------------------------------------------------------
+   Custom containers — border-left accent style
+   -------------------------------------------------------------------------- */
+.vp-doc .custom-block.tip    { border-color: var(--vp-c-tip-1); }
+.vp-doc .custom-block.info   { border-color: var(--vp-c-info-1); }
+.vp-doc .custom-block.warning { border-color: var(--vp-c-warning-1); }
+.vp-doc .custom-block.danger  { border-color: var(--vp-c-danger-1); }
+
+/* Container title font */
+.vp-doc .custom-block-title {
+  font-family: 'Antonio', sans-serif;
+  letter-spacing: 0.06em;
+  font-size: 0.95em;
+}
+
+/* --------------------------------------------------------------------------
+   Tables
+   -------------------------------------------------------------------------- */
+.vp-doc table {
+  display: table;
+  width: 100%;
+}
+
+.dark .vp-doc table {
+  --vp-c-bg-soft: #1e2229;
+}
+
+.dark .vp-doc tr:nth-child(2n) {
+  background-color: var(--vp-c-bg-mute);
+}
+
+/* --------------------------------------------------------------------------
+   Home page hero — suppress if needed for custom layout
+   -------------------------------------------------------------------------- */
+.VPHero .name {
+  font-family: 'Antonio', sans-serif;
+  letter-spacing: 0.06em;
+}
+
+.VPHero .tagline {
+  color: var(--vp-c-text-2);
+}
+
+/* --------------------------------------------------------------------------
+   Footer
+   -------------------------------------------------------------------------- */
+.VPFooter {
+  border-top-color: var(--vp-c-divider) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Scrollbar — subtle LCARS style (dark mode only)
+   -------------------------------------------------------------------------- */
+.dark ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.dark ::-webkit-scrollbar-track { background: var(--vp-c-bg); }
+.dark ::-webkit-scrollbar-thumb {
+  background: var(--vp-c-brand-1);
+  border-radius: 3px;
+  opacity: 0.6;
+}
+.dark ::-webkit-scrollbar-thumb:hover { opacity: 1; }

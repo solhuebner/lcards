@@ -9,5 +9,6 @@ Reference documentation for developers extending LCARdS, building custom cards, 
 | [Contributing](contributing.md) | How to contribute to LCARdS — PRs, conventions, testing |
 | [Changelog & Migration](changelog.md) | Breaking changes and migration notes between releases |
 
-!!! info "Work in progress"
-    Some pages in this section are placeholders and will be updated in a future release.
+::: info Work in progress
+Some pages in this section are placeholders and will be updated in a future release.
+:::

@@ -674,7 +674,7 @@ Create test HTML file:
 | `subscribeToEntity(entityId, callback)` | entityId: string, callback: Function | Function | Subscribe to entity changes (returns unsubscribe function) |
 | `callService(domain, service, data)` | domain: string, service: string, data?: Object | Promise | Call HA service |
 | `setupActions(element, actions)` | element: HTMLElement, actions: Object | Function | Setup action handlers |
-| `_registerOverlayForRules(overlayId, tags)` | overlayId: string, tags: Array<string> | void | Register overlay with RulesEngine for rule-based styling (tags optional, defaults to []) |
+| `_registerOverlayForRules(overlayId, tags)` | overlayId: string, tags: `Array<string>` | void | Register overlay with RulesEngine for rule-based styling (tags optional, defaults to []) |
 | `_getMergedStyleWithRules(baseStyle)` | baseStyle: Object | Object | Merge base style with active rule patches (rules have highest priority) |
 | `_applyRulePatches(patches)` | patches: Object | void | Internal method to apply rule patches and trigger callback |
 

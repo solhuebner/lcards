@@ -411,5 +411,6 @@ dist/*
 dist/lcards.js
 dist/lcards.js.map
 
-# MkDocs build output
+# VitePress build output & cache
 docs/site/
+doc/.vitepress/cache/
