@@ -154,11 +154,6 @@ jobs:
           body_path: RELEASE_NOTES.md
           draft: false
           prerelease: ${{ github.event.inputs.prerelease == 'true' || contains(needs.build.outputs.version, 'alpha') || contains(needs.build.outputs.version, 'beta') }}
-          files: |
-            dist/lcards.js
-            dist/fonts/**
-            dist/msd/**
-            dist/sounds/**
 
       - name: Summary
         run: |
