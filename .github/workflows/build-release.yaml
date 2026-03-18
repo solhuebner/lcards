@@ -2,7 +2,7 @@ name: Build Release
 
 on:
   push:
-    branches: [ "main", "msd-globalisation" ]
+    branches: [ "main", "dev" ]
     paths:
       - 'package.json'
 
@@ -11,7 +11,7 @@ on:
       branch:
         description: 'Branch to build'
         required: false
-        default: 'msd-globalisation'
+        default: 'main'
         type: string
       prerelease:
         description: 'Publish as pre-release'

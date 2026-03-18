@@ -2,12 +2,12 @@ name: Docs
 
 on:
   push:
-    branches: ["main", "msd-globalisation"]
+    branches: ["main", "dev"]
     paths:
       - "doc/**"
       - "docs/**"
   pull_request:
-    branches: ["main", "msd-globalisation"]
+    branches: ["main", "dev"]
     paths:
       - "doc/**"
       - "docs/**"
