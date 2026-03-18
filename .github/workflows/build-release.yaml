@@ -114,6 +114,10 @@ jobs:
           ref: ${{ github.event.inputs.branch || github.ref }}
           fetch-depth: 0
 
+      - name: Get current SHA
+        id: get_sha
+        run: echo "sha=$(git log -1 --format='%H')" >> $GITHUB_OUTPUT
+
       - name: Download dist artifact
         uses: actions/download-artifact@v4
         with:
@@ -153,7 +157,8 @@ jobs:
           name: "v${{ needs.build.outputs.version }}"
           body_path: RELEASE_NOTES.md
           draft: false
-          prerelease: ${{ github.event.inputs.prerelease == 'true' || contains(needs.build.outputs.version, 'alpha') || contains(needs.build.outputs.version, 'beta') }}
+          prerelease: ${{ contains(needs.build.outputs.version, 'alpha') || contains(needs.build.outputs.version, 'beta') || contains(needs.build.outputs.version, 'rc') }}
+          target_commitish: ${{ steps.get_sha.outputs.sha }}
 
       - name: Summary
         run: |
