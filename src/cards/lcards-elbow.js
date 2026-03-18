@@ -3006,7 +3006,7 @@ export class LCARdSElbow extends LCARdSButton {
         });
 
         // Register JSON schema for validation
-        configManager.registerCardSchema('elbow', elbowSchema, { version: '1.24.0' });
+        configManager.registerCardSchema('elbow', elbowSchema, { version: __LCARDS_VERSION__ });
 
         lcardsLog.debug('[LCARdSElbow] Schema registered with CoreConfigManager');
     }

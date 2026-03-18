@@ -156,7 +156,7 @@ const LCARDS_DEFAULT_SCHEME = {
 // ──────────────────────────────────────────────────────────────
 export const BUILTIN_SOUNDS_PACK = {
   id:          'lcards_sounds_default',
-  version:     '1.0.0',
+  version:     __LCARDS_VERSION__,
   name:        'LCARdS Default Sounds',
   description: 'Default LCARS-inspired sound scheme for LCARdS UI interactions',
 

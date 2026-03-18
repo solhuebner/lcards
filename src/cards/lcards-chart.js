@@ -976,8 +976,8 @@ export class LCARdSChart extends LCARdSCard {
         ]
     });
 
-    configManager.registerCardSchema('chart', schema, { version: '1.18.0' });
-    lcardsLog.debug('[LCARdSChart] Registered nested schema with CoreConfigManager (v1.18.0)');
+    configManager.registerCardSchema('chart', schema, { version: __LCARDS_VERSION__ });
+    lcardsLog.debug('[LCARdSChart] Registered nested schema with CoreConfigManager');
   }
 }
 

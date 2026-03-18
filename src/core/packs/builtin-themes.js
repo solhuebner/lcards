@@ -15,7 +15,7 @@ import { lcardsDefaultTokens } from './themes/tokens/lcardsDefaultTokens.js';
  */
 export const BUILTIN_THEMES_PACK = {
   id: 'builtin_themes',
-  version: '1.0.0',
+  version: __LCARDS_VERSION__,
 
   // Token-based themes
   themes: {

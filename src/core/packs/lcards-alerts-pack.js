@@ -84,7 +84,7 @@ const AUDIO_ASSETS = {
 // ──────────────────────────────────────────────────────────────
 export const LCARDS_ALERTS_PACK = {
   id:          'lcards_alerts',
-  version:     '1.0.0',
+  version:     __LCARDS_VERSION__,
   name:        'LCARdS Alerts',
   description: 'Library of individual alert assets for use as per-event sound overrides',
   /** Registered with AssetManager → available in Config Panel override picker */

@@ -23,7 +23,7 @@ import { BUTTON_PRESETS } from './style-presets/buttons/index.js';
 export const LCARDS_BUTTONS_PACK = {
   id:          'lcards_buttons',
   name:        'LCARdS Buttons',
-  version:     '1.14.18',
+  version:     __LCARDS_VERSION__,
   description: 'Button style presets — all overlay shapes and variants',
 
   style_presets: {

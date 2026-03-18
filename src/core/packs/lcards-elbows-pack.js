@@ -30,7 +30,7 @@ import { elbowComponents } from './components/elbows/index.js';
 export const LCARDS_ELBOWS_PACK = {
   id:          'lcards_elbows',
   name:        'LCARdS Elbows',
-  version:     '1.0.0',
+  version:     __LCARDS_VERSION__,
   description: 'Elbow component definitions — path generators and layout metadata for all elbow orientations',
 
   components: elbowComponents

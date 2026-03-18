@@ -11,7 +11,7 @@
 export const LCARDS_TEXTURES_PACK = {
     id: 'lcards_textures',
     name: 'LCARdS Shape Textures',
-    version: '1.0.0',
+    version: __LCARDS_VERSION__,
     description: 'Canvas-native shape texture presets for button and elbow cards'
     // No style_presets key — textures are consumed directly by render methods
 };

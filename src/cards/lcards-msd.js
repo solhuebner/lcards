@@ -1614,9 +1614,9 @@ export class LCARdSMSDCard extends LCARdSCard {
         const msdSchema = getMsdSchema();
 
         // Register JSON schema for validation
-        configManager.registerCardSchema('msd', msdSchema, { version: '1.22.0' });
+        configManager.registerCardSchema('msd', msdSchema, { version: __LCARDS_VERSION__ });
 
-        lcardsLog.debug('[LCARdSMSDCard] Registered with CoreConfigManager (v1.22.0)');
+        lcardsLog.debug('[LCARdSMSDCard] Registered with CoreConfigManager');
     }
 }
 

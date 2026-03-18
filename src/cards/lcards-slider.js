@@ -3967,7 +3967,7 @@ export class LCARdSSlider extends LCARdSButton {
             availableComponents,
             positionEnum
         });
-        configManager.registerCardSchema('slider', sliderSchema, { version: '1.22.0' });
+        configManager.registerCardSchema('slider', sliderSchema, { version: __LCARDS_VERSION__ });
 
         // Register behavioral defaults ONLY (no styles)
         configManager.registerCardDefaults('slider', {

@@ -6174,7 +6174,7 @@ export class LCARdSButton extends LCARdSCard {
         });
 
         // Register JSON schema for validation
-        configManager.registerCardSchema('button', buttonSchema, { version: '1.14.18' });
+        configManager.registerCardSchema('button', buttonSchema, { version: __LCARDS_VERSION__ });
 
         lcardsLog.debug('[LCARdSButton] Registered with CoreConfigManager');
     }

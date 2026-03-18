@@ -18,7 +18,7 @@
  */
 export const BUILTIN_MSD_SVG_PACK = {
   id: 'builtin_msd_backgrounds',
-  version: '1.25.06',
+  version: __LCARDS_VERSION__,
   description: 'Builtin MSD background graphics - external SVG files for Master Systems Displays',
 
   // External SVG assets (lazy-loaded)

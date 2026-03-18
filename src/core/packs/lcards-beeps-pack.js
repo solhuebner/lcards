@@ -220,7 +220,7 @@ const AUDIO_ASSETS = {
 // ──────────────────────────────────────────────────────────────
 export const LCARDS_BEEPS_PACK = {
   id:          'lcards_beeps',
-  version:     '1.0.0',
+  version:     __LCARDS_VERSION__,
   name:        'LCARdS Beeps',
   description: 'Library of individual beep and tone assets for use as per-event sound overrides',
 

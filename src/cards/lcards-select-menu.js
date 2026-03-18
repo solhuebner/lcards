@@ -816,7 +816,7 @@ export class LCARdSSelectMenu extends LCARdSCard {
         const availablePresets = spm?.getAvailablePresets('button') || [];
 
         const schema = getSelectMenuSchema({ availablePresets });
-        configManager.registerCardSchema('select-menu', schema, { version: '1.0.0' });
+        configManager.registerCardSchema('select-menu', schema, { version: __LCARDS_VERSION__ });
 
         lcardsLog.debug('[LCARdSSelectMenu] Registered schema with CoreConfigManager', {
             presetCount: availablePresets.length,
