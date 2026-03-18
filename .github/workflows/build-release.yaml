@@ -111,8 +111,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.branch || 'msd-globalisation' }}
+          ref: ${{ github.event.inputs.branch || github.ref }}
           fetch-depth: 0
+
+      - name: Get current SHA
+        id: get_sha
+        run: echo "sha=$(git log -1 --format='%H')" >> $GITHUB_OUTPUT
 
       - name: Download dist artifact
         uses: actions/download-artifact@v4
@@ -138,11 +142,6 @@ jobs:
           } > RELEASE_NOTES.md
           cat RELEASE_NOTES.md
 
-      - name: Create zip archive
-        run: |
-          VERSION="${{ needs.build.outputs.version }}"
-          cd dist && zip -r ../lcards-${VERSION}.zip . && cd ..
-
       - name: Create Git tag
         run: |
           VERSION="${{ needs.build.outputs.version }}"
@@ -158,8 +157,8 @@ jobs:
           name: "v${{ needs.build.outputs.version }}"
           body_path: RELEASE_NOTES.md
           draft: false
-          prerelease: ${{ github.event.inputs.prerelease == 'true' || contains(needs.build.outputs.version, 'alpha') || contains(needs.build.outputs.version, 'beta') }}
-          files: lcards-${{ needs.build.outputs.version }}.zip
+          prerelease: ${{ contains(needs.build.outputs.version, 'alpha') || contains(needs.build.outputs.version, 'beta') || contains(needs.build.outputs.version, 'rc') }}
+          target_commitish: ${{ steps.get_sha.outputs.sha }}
 
       - name: Summary
         run: |
