@@ -111,7 +111,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.branch || 'msd-globalisation' }}
+          ref: ${{ github.event.inputs.branch || github.ref }}
           fetch-depth: 0
 
       - name: Download dist artifact
@@ -138,11 +138,6 @@ jobs:
           } > RELEASE_NOTES.md
           cat RELEASE_NOTES.md
 
-      - name: Create zip archive
-        run: |
-          VERSION="${{ needs.build.outputs.version }}"
-          cd dist && zip -r ../lcards-${VERSION}.zip . && cd ..
-
       - name: Create Git tag
         run: |
           VERSION="${{ needs.build.outputs.version }}"
@@ -159,7 +154,11 @@ jobs:
           body_path: RELEASE_NOTES.md
           draft: false
           prerelease: ${{ github.event.inputs.prerelease == 'true' || contains(needs.build.outputs.version, 'alpha') || contains(needs.build.outputs.version, 'beta') }}
-          files: lcards-${{ needs.build.outputs.version }}.zip
+          files: |
+            dist/lcards.js
+            dist/fonts/**
+            dist/msd/**
+            dist/sounds/**
 
       - name: Summary
         run: |
