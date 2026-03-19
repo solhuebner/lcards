@@ -322,24 +322,9 @@ Note: ComponentManager initializes from `components/index.js` at step 1 *before*
    window.lcards.core.componentManager.getComponent('my-variant')
    ```
 
----
 
-## Roadmap
+## See Also
 
-The pack system has one known transitional inconsistency:
-
-### Phase 3 — Eliminate direct component imports in consumers
-
-Currently, `lcards-elbow.js` and `lcards-elbow-editor.js` import elbow functions directly from `elbows/index.js`, bypassing `ComponentManager`. Similarly, `lcards-button-editor.js` imports `BUTTON_COMPONENTS` directly for its preset dropdown instead of querying `StylePresetManager`.
-
-**Plan**:
-- `lcards-elbow.js` → `window.lcards.core.componentManager.getComponent(type)`
-- `lcards-elbow-editor.js` → `window.lcards.core.componentManager.getComponentsByType('elbow')`
-- `lcards-button-editor.js` → `window.lcards.core.stylePresetManager.getAvailablePresets('button')`
-- Remove `BUTTON_COMPONENTS` export from `components/buttons/index.js` once the editor migration is done
-
-After Phase 3, `ComponentManager.initialize()`'s direct import of `components/index.js` can be removed — all components will flow exclusively through PackManager.
-
-### Future — Component packs for sliders, dpad, alert
-
-Sliders, dpad, and alert components are in the components registry but have no corresponding pack files. They should each get a pack wrapper (`lcards-sliders-components-pack.js`, etc.) following the same pattern as `lcards-elbows-pack.js`.
+- [Component Manager](component-manager.md)
+- [Style Preset Manager](style-preset-manager.md)
+- [Asset Manager](asset-manager.md)

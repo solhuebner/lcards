@@ -527,53 +527,6 @@ window.lcards.core.ingestHass(hass) (feed to singletons)
 - **With CoreSystemsManager**: 1 cache update + 10 cache reads = ~10 operations
 - **Result**: ~80-90% performance improvement with multiple cards
 
-## Example: Label Card
-
-```javascript
-import { html, css } from 'lit';
-import { LCARdSCard } from '../base/LCARdSCard.js';
-
-export class LCARdSLabelCard extends LCARdSCard {
-
-    static get properties() {
-        return {
-            ...super.properties,
-            _displayText: { type: String, state: true }
-        };
-    }
-
-    static get styles() {
-        return [
-            super.styles,
-            css`
-                .label-container {
-                    padding: 16px;
-                    font-family: var(--lcars-font-family, 'Antonio', sans-serif);
-                    font-size: 18px;
-                    color: var(--primary-text-color);
-                }
-            `
-        ];
-    }
-
-    _handleHassUpdate(newHass, oldHass) {
-        // Process template when entity changes
-        const template = this.config.text || '{{entity.state}}';
-        this._displayText = this.processTemplate(template);
-    }
-
-    _renderCard() {
-        return html`
-            <div class="label-container">
-                ${this._displayText}
-            </div>
-        `;
-    }
-}
-
-customElements.define('lcards-label', LCARdSLabelCard);
-```
-
 ## Best Practices
 
 ### 1. Minimal State
@@ -627,27 +580,6 @@ disconnectedCallback() {
 }
 ```
 
-## Testing
-
-Create test HTML file:
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Simple Card Test</title>
-    <script type="module" src="/dist/lcards.js"></script>
-</head>
-<body>
-    <lcards-button
-        entity="light.bedroom"
-        label="Test Button"
-        preset="lozenge">
-    </lcards-button>
-</body>
-</html>
-```
-
 ## API Reference
 
 ### LCARdSCard Properties
@@ -687,24 +619,11 @@ Create test HTML file:
 | `_renderCard()` | Every render | Return card content HTML |
 | `_onRulePatchesChanged(patches)` | Rule patches change | React to rule-based style changes (implement in subclass) |
 
-## Summary
 
-LCARdS Card provides exactly what you need:
-- ✅ CoreSystemsManager integration (entity caching + subscriptions)
-- ✅ 80-90% faster entity access with multiple cards
-- ✅ Reactive entity subscription API
-- ✅ Automatic lifecycle management (register, cleanup)
-- ✅ RulesEngine integration (dynamic styling based on state)
-- ✅ Overlay registration and patch system
-- ✅ Singleton access (theme, rules, animations)
-- ✅ Template processing
-- ✅ Style resolution with priority chain
-- ✅ Action handling
-- ✅ Entity management
-- ✅ HASS distribution integration
+## See Also
 
-Nothing more, nothing less.
-
----
-
-**Status:** ✅ RulesEngine fully integrated with LCARdSCard
+- [Rules Engine](../subsystems/rules-engine.md)
+- [Theme System](../subsystems/theme-system.md)
+- [Template System](../subsystems/template-system.md)
+- [Animation Manager](../subsystems/animation-manager.md)
+- [Systems Manager](../subsystems/systems-manager.md)

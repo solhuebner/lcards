@@ -3,7 +3,10 @@
 :::: tabs
 === Button
 
-**`lcards-button`** — All standard LCARS buttons, plus advanced multi-segment controls.
+![Button Card](/img/lcards-button.png)
+
+### **`lcards-button`**
+All standard LCARS buttons, plus advanced multi-segment controls.
 
 - Built-in preset library: lozenge, bullet, capped, outline, pill, text, and more
 - **Component mode** — embed SVG components (D-pad, Alert, custom shapes) with per-segment interactivity
@@ -14,7 +17,8 @@
 
 === Elbow
 
-**`lcards-elbow`** — Classic LCARS corner designs.
+### **`lcards-elbow`**
+Classic LCARS corner designs.
 
 - Built-in presets: `header-left`, `header-right`, `footer-left`, `footer-right`
 - **Simple** and **segmented** (Picard-style double elbow) styles
