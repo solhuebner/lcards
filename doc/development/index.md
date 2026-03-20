@@ -1,12 +1,26 @@
 # Developer Guide
 
-Reference documentation for developers extending LCARdS or building custom cards.
+Documentation for developers extending LCARdS — building custom cards, editors, and packs.
+
+## How-to Guides
 
 | Page | Description |
 |---|---|
-| [Building a Custom Card](custom-card.md) | Step-by-step guide to extending `LCARdSCard` for a new card type |
-| [Helpers API](helpers-api.md) | WebSocket-based HA helper management — create, read, update, delete |
-| [Changelog](changelog.md) | Release notes and breaking changes |
+| [Building a Custom Card](custom-card.md) | Extend `LCARdSCard`, wire lifecycle hooks, register in `lcards.js` |
+| [Building an Editor](building-an-editor.md) | Add a visual editor to your card using `LCARdSBaseEditor` |
+| [Building a Pack](building-a-pack.md) | Bundle style presets, components, themes, audio, and more into a distributable pack |
+
+## API Reference
+
+| Page | Description |
+|---|---|
 | [Animation API](anim-api.md) | `window.lcards.anim.*` — anime.js v4 access, helpers, presets, scopes |
 | [Assets & SVG API](assets-api.md) | Font loading, SVG cache, SVG/anchor helpers, text measure cache |
-| [Debug API](debug-api.md) | Console introspection: log level, core singletons, MSD cards (`window.lcards.cards.msd`), MSD debug namespaces, DataSources |
+| [Debug API](debug-api.md) | Console introspection: log level, core singletons, MSD cards, DataSources |
+| [Helpers API](helpers-api.md) | WebSocket-based HA helper management — create, read, update, delete |
+
+## Release Notes
+
+| Page | Description |
+|---|---|
+| [Changelog](changelog.md) | Release notes and breaking changes |

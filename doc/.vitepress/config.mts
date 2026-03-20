@@ -188,10 +188,11 @@ export default withMermaid(defineConfig({
           {
             text: 'Guide',
             items: [
-              { text: 'Overview',     link: '/development/' },
-              { text: 'Custom Card',  link: '/development/custom-card' },
-              { text: 'Helpers API',  link: '/development/helpers-api' },
-              { text: 'Changelog',    link: '/development/changelog' },
+              { text: 'Overview',         link: '/development/' },
+              { text: 'Custom Card',      link: '/development/custom-card' },
+              { text: 'Building an Editor', link: '/development/building-an-editor' },
+              { text: 'Building a Pack',  link: '/development/building-a-pack' },
+              { text: 'Changelog',        link: '/development/changelog' },
             ],
           },
           {
@@ -384,9 +385,10 @@ export default withMermaid(defineConfig({
         {
           text: 'Developer Guide',
           items: [
-            { text: 'Overview',     link: '/development/' },
-            { text: 'Custom Card',  link: '/development/custom-card' },
-            { text: 'Helpers API',  link: '/development/helpers-api' },
+            { text: 'Overview',           link: '/development/' },
+            { text: 'Custom Card',        link: '/development/custom-card' },
+            { text: 'Building an Editor', link: '/development/building-an-editor' },
+            { text: 'Building a Pack',    link: '/development/building-a-pack' },
           ],
         },
         {
