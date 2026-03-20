@@ -73,16 +73,25 @@ Custom presets are registered via `animation_presets` in pack definitions.
 
 ---
 
-## Runtime API
+## Console Access
 
-```javascript
-const am = window.lcards.core.animationManager;
+::: code-group
+```javascript [Snapshot]
+window.lcards.debug.singleton('animationManager')
+// → { type: 'AnimationManager', initialized: true, scopesCount: 4, activeAnimationsCount: 1 }
+```
+```javascript [Live object]
+const am = window.lcards.core.animationManager
+
 am.play('my-overlay', 'alert_pulse', { loop: true })
 am.stop('my-overlay')
 am.stopAll()
-am.getActiveAnimations()     // Map<overlayId, Set>
-am.registerPreset('name', { ... })
+am.getActiveAnimations()        // Map<overlayId, Set<anime instance>>
+am.registerPreset('name', {...}) // register a named preset
+am.scopes                        // Map<overlayId, scopeData>
+am.activeAnimations              // Map<overlayId, Set>
 ```
+:::
 
 ---
 

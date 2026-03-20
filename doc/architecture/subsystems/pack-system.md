@@ -323,6 +323,24 @@ Note: ComponentManager initializes from `components/index.js` at step 1 *before*
    ```
 
 
+## Console Access
+
+::: code-group
+```javascript [Snapshot]
+window.lcards.debug.singleton('packManager')
+// → { type: 'PackManager', loadedPacks: 9, packIds: ['core', 'lcards_buttons', ...] }
+```
+```javascript [Live object]
+const pm = window.lcards.core.packManager
+
+pm.getLoadedPacks()      // array of all loaded pack objects
+pm.getPack('lcards_buttons')  // specific pack by id
+pm.getPackIds()          // ['core', 'lcards_buttons', ...]
+```
+:::
+
+---
+
 ## See Also
 
 - [Component Manager](component-manager.md)

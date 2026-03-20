@@ -78,6 +78,26 @@ card.set hass(newHass)
 
 ---
 
+## Console Access
+
+::: code-group
+```javascript [Snapshot]
+window.lcards.debug.singleton('systemsManager')
+// → { type: 'CoreSystemsManager', entityCount: 12, overlayCount: 8, subscriberCount: 24 }
+```
+```javascript [Live object]
+const sm = window.lcards.core.systemsManager
+
+sm.getEntityState('sensor.temperature')   // cached entity state object
+sm.getRegisteredOverlays()                // all overlay registrations
+sm.subscribeToEntity('sensor.temp', cb)  // returns unsubscribe fn
+sm.registerOverlay({ id, tags, type, element })
+sm.unregisterOverlay('my-overlay-id')
+```
+:::
+
+---
+
 ## See Also
 
 - [Card Foundation](../cards/lcards-card-foundation.md)

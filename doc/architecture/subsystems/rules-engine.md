@@ -108,6 +108,27 @@ Higher `priority` (lower number) wins when multiple rules target the same overla
 
 ---
 
+## Console Access
+
+::: code-group
+```javascript [Snapshot]
+window.lcards.debug.singleton('rulesManager')
+// → { type: 'RulesEngine', rulesCount: 3, dirtyRules: 0, evalCounts: {...}, trace: {...} }
+```
+```javascript [Live object]
+const rm = window.lcards.core.rulesManager
+
+rm.rules                            // full rules array
+rm.rulesById                        // Map<id, rule>
+rm.getTrace()                       // detailed evaluation trace
+rm.getRecentMatches(30000)          // matches in the last 30s
+rm.getRuleTrace('my-rule-id', 20)   // history for one rule
+rm.getAllRules()                     // array of all registered rules
+```
+:::
+
+---
+
 ## See Also
 
 - [Rule-Based Animations](../animations/rule-based-animations.md)

@@ -261,3 +261,25 @@ sm.mountGlobalUIListener();                        // called by LCARdSCore
 sm.subscribeToAlertMode();                         // called by LCARdSCore
 sm.destroy();                                      // cleanup
 ```
+
+---
+
+## Console Access
+
+::: code-group
+```javascript [Snapshot]
+window.lcards.debug.singleton('soundManager')
+// → { type: 'SoundManager', initialized: true, schemesCount: 3, activeScheme: 'lcards_default', overrideCount: 0 }
+```
+```javascript [Live object]
+const sm = window.lcards.core.soundManager
+
+sm.play('card_tap')                     // fire an event
+sm.preview('my_asset')                  // play a specific asset directly
+sm.getSchemeNames()                     // ['none', 'lcards_default', ...]
+sm.getEventTypes()                      // [{ key, label, category }, ...]
+sm.getOverrides()                       // current per-event overrides
+await sm.setOverride('card_tap', 'my') // set persistent override
+await sm.clearAllOverrides()            // wipe all overrides
+```
+:::

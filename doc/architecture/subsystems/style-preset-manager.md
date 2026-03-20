@@ -45,21 +45,44 @@ export const BUTTONS_PACK = {
 
 ---
 
-## Preset Resolution
+## Public API
 
-Cards call the manager to retrieve a merged style object:
+| Method | Returns | Description |
+|---|---|---|
+| `getPreset(type, name)` | `Object\|null` | Full preset definition, or `null` if not found |
+| `getPresetIds(type)` | `string[]` | All preset names for an overlay type |
+| `getAvailablePresets(type)` | `Object[]` | Preset objects with metadata for a type |
+| `getDebugInfo()` | `Object` | Stats snapshot: pack count, cache size, presets by type |
 
 ```javascript
-const spm = window.lcards.core.stylePresetManager;
+const spm = window.lcards.core.stylePresetManager
 
-// Returns preset object or null
-const preset = spm.getPreset('button', 'lozenge');
+// Get a preset definition
+const preset = spm.getPreset('button', 'lozenge')
 
-// List available presets for a type
+// List what's available
 spm.getPresetIds('button')   // ['lozenge', 'bullet', 'capped', ...]
 ```
 
 Card config `style` always merges *on top of* the preset, so any field can be overridden per-card.
+
+---
+
+## Console Access
+
+::: code-group
+```javascript [Snapshot]
+window.lcards.debug.singleton('stylePresetManager')
+// → { type: 'StylePresetManager', initialized: true, packCount: 3, cacheSize: 24 }
+```
+```javascript [Live object]
+const spm = window.lcards.core.stylePresetManager
+
+spm.getPresetIds('button')       // available button presets
+spm.getPreset('slider', 'pills') // full preset config object
+spm.getAvailablePresets('elbow') // all elbow presets with metadata
+```
+:::
 
 ---
 

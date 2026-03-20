@@ -63,7 +63,14 @@ export const ELBOW_PACK = {
 
 ---
 
-## Card Usage
+## Public API
+
+| Method | Returns | Description |
+|---|---|---|
+| `getComponent(id)` | `Object\|null` | Full component definition by ID, or null |
+| `hasComponent(id)` | `boolean` | True if a component with this ID is registered |
+| `getComponentIds()` | `string[]` | All registered component IDs |
+| `getComponentsByType(type)` | `Object[]` | All components matching a type string |
 
 ```javascript
 const cm = window.lcards.core.componentManager;
@@ -86,6 +93,25 @@ When a button card has `component: dpad` in config, it:
 1. Retrieves the definition from `componentManager`
 2. Builds one SVG path element per segment
 3. Attaches per-segment style, text, and action from config overrides merged on top of definition defaults
+
+---
+
+## Console Access
+
+::: code-group
+```javascript [Snapshot]
+window.lcards.debug.singleton('componentManager')
+// → { type: 'ComponentManager', initialized: true, componentCount: 8, componentIds: ['dpad', ...] }
+```
+```javascript [Live object]
+const cm = window.lcards.core.componentManager
+
+cm.getComponentIds()         // all registered IDs
+cm.getComponent('dpad')      // full definition with segments/defaults
+cm.hasComponent('dpad')      // existence check
+cm.getComponentsByType('nav') // filter by type
+```
+:::
 
 ---
 

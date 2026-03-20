@@ -1,6 +1,6 @@
 # Validation Service
 
-> Config schema validation for all LCARdS card types.
+> Config schema validation for all LCARdS card types — `window.lcards.core.validationService`
 
 ---
 
@@ -38,7 +38,13 @@ SchemaRegistry.register('lcards-slider', sliderSchema);
 
 ---
 
-## Card Usage
+## Public API
+
+| Method | Returns | Description |
+|---|---|---|
+| `validateConfig(cardType, config)` | `{ valid, errors, warnings }` | Validate a config object against the card's registered schema |
+| `getSchema(cardType)` | `Object\|null` | Retrieve the raw JSON schema for a card type |
+| `getRegisteredTypes()` | `string[]` | All card types with registered schemas |
 
 ```javascript
 import { validateConfig } from '../core/validation-service/index.js';
@@ -50,6 +56,24 @@ if (!result.valid) {
   lcardsLog.warn('[MyCard] Config validation failed:', result.errors);
 }
 ```
+
+---
+
+## Console Access
+
+::: code-group
+```javascript [Snapshot]
+window.lcards.debug.singleton('validationService')
+// → { type: 'ValidationService', initialized: true, registeredSchemas: 8, cacheSize: 14 }
+```
+```javascript [Live object]
+const vs = window.lcards.core.validationService
+
+vs.getRegisteredTypes()                // all card types with schemas
+vs.getSchema('lcards-button')          // raw schema object
+vs.validateConfig('lcards-slider', {}) // run validation directly
+```
+:::
 
 ---
 

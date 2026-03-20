@@ -134,6 +134,12 @@ window.lcards.debug.singleton('rulesManager')
 | `helperManager` | Helper entity states |
 | `validationService` | Validation rule cache |
 
+::: tip Full singleton API reference
+`debug.singleton()` returns a lightweight stats snapshot. Each singleton has a dedicated subsystem doc with all properties and methods:
+
+[Systems Manager](../architecture/subsystems/systems-manager.md) · [DataSource System](../architecture/subsystems/datasource-system.md) · [Rules Engine](../architecture/subsystems/rules-engine.md) · [Theme System](../architecture/subsystems/theme-system.md) · [Animation Manager](../architecture/subsystems/animation-manager.md) · [Pack System](../architecture/subsystems/pack-system.md) · [Asset Manager](../architecture/subsystems/asset-manager.md) · [Component Manager](../architecture/subsystems/component-manager.md) · [Style Preset Manager](../architecture/subsystems/style-preset-manager.md) · [Helper Manager](../architecture/subsystems/helper-manager.md) · [Sound System](../architecture/subsystems/sound-system.md) · [Validation Service](../architecture/subsystems/validation-service.md)
+:::
+
 ### `debug.singletons()`
 
 Lists all managers that expose `getDebugInfo()` and returns a combined snapshot.

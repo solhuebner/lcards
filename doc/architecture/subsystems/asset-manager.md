@@ -44,7 +44,16 @@ export const MY_PACK = {
 
 ---
 
-## Card Usage
+## Public API
+
+| Method | Returns | Description |
+|---|---|---|
+| `loadSvg(key)` | `Promise<string>` | Load SVG by key; cached after first fetch |
+| `hasSvg(key)` | `boolean` | True if SVG is already cached |
+| `getSvgKeys()` | `string[]` | All registered SVG asset keys |
+| `listFonts()` | `string[]` | All registered font asset keys |
+| `listTypes()` | `string[]` | All registered asset categories |
+| `getRegistry(type)` | `Object` | Full asset registry for a category |
 
 ```javascript
 const assetManager = window.lcards.core.assetManager;
@@ -64,6 +73,27 @@ const keys = assetManager.getSvgKeys();
 ## Caching
 
 Assets are cached by key in a `Map`. The cache persists for the browser session. There is no expiry or invalidation — a page reload clears it.
+
+---
+
+## Console Access
+
+::: code-group
+```javascript [Snapshot]
+window.lcards.debug.singleton('assetManager')
+// → { type: 'AssetManager', initialized: true, svgCacheSize: 12, registeredTypes: ['svg', 'font'] }
+```
+```javascript [Live object]
+const am = window.lcards.core.assetManager
+
+const svg = await am.loadSvg('enterprise_schematic')  // fetch + cache
+am.hasSvg('bridge_layout')   // check cache
+am.getSvgKeys()              // all registered SVG keys
+am.listFonts()               // registered font keys
+am.listTypes()               // ['svg', 'font', ...]
+am.getRegistry('svg')        // raw registry map for a type
+```
+:::
 
 ---
 

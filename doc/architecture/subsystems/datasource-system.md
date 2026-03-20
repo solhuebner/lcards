@@ -106,6 +106,25 @@ text: "{datasource:temp_sensor.rolling_avg}"  # explicit prefix
 
 ---
 
+## Console Access
+
+::: code-group
+```javascript [Snapshot]
+window.lcards.debug.singleton('dataSourceManager')
+// → { type: 'DataSourceManager', sourceCount: 4, sources: [...] }
+```
+```javascript [Live object]
+const dsm = window.lcards.core.dataSourceManager
+
+dsm.sources                           // Map of all active DataSource instances
+dsm.getSource('sensor_temp')          // specific DataSource instance
+dsm.getSource('sensor_temp').subscribe(cb)  // subscribe to updates
+dsm.getSource('sensor_temp').getHistory()   // recent value history
+```
+:::
+
+---
+
 ## See Also
 
 - [DataSource Buffer Reference](../animations/datasource-buffers.md)

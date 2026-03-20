@@ -64,6 +64,26 @@ const missing = await hm.getMissingHelpers();
 
 ---
 
+## Console Access
+
+::: code-group
+```javascript [Snapshot]
+window.lcards.debug.singleton('helperManager')
+// → { type: 'LCARdSHelperManager', initialized: true, helperCount: 12, missingCount: 0 }
+```
+```javascript [Live object]
+const hm = window.lcards.core.helperManager
+
+hm.getValue('alert_mode')             // current value of a helper
+hm.setValue('lcards_brightness', 80)  // update helper value
+hm.subscribe('alert_mode', cb)        // listen for value changes
+await hm.ensureAllHelpers()           // create any missing HA helpers
+await hm.getMissingHelpers()          // list helpers not yet created
+```
+:::
+
+---
+
 ## See Also
 
 - [Configuration — Helpers](../../configuration/persistent-helpers.md)

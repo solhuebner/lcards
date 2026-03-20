@@ -89,15 +89,27 @@ ALERT_MODE_TRANSFORMS['red'] = {
 
 ---
 
-## Runtime API
+## Console Access
 
-```javascript
-const tm = window.lcards.core.themeManager;
-tm.getCurrentTheme()         // active theme object
-tm.setActiveTheme('cb-lcars')
-tm.resolveToken('palette.moonlight')
-tm.getRegisteredThemes()     // Map of all loaded themes
+::: code-group
+```javascript [Snapshot]
+window.lcards.debug.singleton('themeManager')
+// → { type: 'ThemeManager', activeTheme: 'lcars-default', themeCount: 3, alertMode: 'green' }
 ```
+```javascript [Live object]
+const tm = window.lcards.core.themeManager
+
+tm.getCurrentTheme()          // active theme object (tokens, palette, etc.)
+tm.getActiveTheme()           // alias for getCurrentTheme()
+tm.setActiveTheme('cb-lcars') // switch active theme
+tm.listThemes()               // all registered theme IDs
+tm.resolveToken('palette.moonlight')   // resolve token path to value
+tm.getToken('palette.moonlight', '#fff') // resolve with fallback
+tm.getAlertMode()             // current alert mode string
+tm.setAlertMode('red')        // trigger alert mode change
+tm.getRegisteredThemes()      // Map of all loaded theme objects
+```
+:::
 
 ---
 
