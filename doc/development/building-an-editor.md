@@ -7,7 +7,7 @@ LCARdS ships a visual editor for every built-in card. This guide shows how to ad
 All editors extend `LCARdSBaseEditor`, which provides:
 
 - Tab system (`ha-tab-group` / `ha-tab-panel`)
-- Declarative config-form renderer  
+- Declarative config-form renderer
 - Free utility tabs: YAML, Developer, DataSources, Templates, Rules, Theme Browser, Provenance
 - Config change dispatch (`config-changed` event)
 - Built-in YAML validation against registered schemas
