@@ -151,6 +151,26 @@ window.lcards.debug.singletons()
 
 ---
 
+## MSD Card API (`window.lcards.cards.msd`)
+
+Production utilities for locating MSD card elements by config ID. These work in normal use — not just debug sessions.
+
+| Method | Returns | Description |
+|---|---|---|
+| `getAll()` | `Element[]` | All MSD card elements registered with `SystemsManager` |
+| `getById(id)` | `Element\|null` | MSD card element whose config `id` matches, or `null` |
+
+```javascript
+window.lcards.cards.msd.getAll()
+window.lcards.cards.msd.getById('bridge')
+
+// Inspect any card's pipeline
+const card = window.lcards.cards.msd.getById('bridge')
+card._msdPipeline?.getResolvedModel()?.overlays
+```
+
+---
+
 ## MSD Debug Namespace (`debug.msd`)
 
 Introspection tools for MSD cards, accessed via `window.lcards.debug.msd`.
@@ -301,7 +321,6 @@ window.lcards.debug.msd.anchors.trace('my_anchor')
 
 ## See Also
 
-- [DataSources Debug API](datasources-api.md)
-- [Runtime API](runtime-api.md)
+- [DataSource System](../architecture/subsystems/datasource-system.md)
 - [Systems Manager](../architecture/subsystems/systems-manager.md)
 - [Rules Engine](../architecture/subsystems/rules-engine.md)

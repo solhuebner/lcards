@@ -106,6 +106,28 @@ text: "{datasource:temp_sensor.rolling_avg}"  # explicit prefix
 
 ---
 
+## Public API
+
+Two levels: the **DataSourceManager** singleton and individual **DataSource** instances.
+
+### DataSourceManager
+
+| Property / Method | Returns | Description |
+|---|---|---|
+| `sources` | `Map<name, DataSource>` | All active DataSource instances |
+| `getSource(name)` | `DataSource\|null` | DataSource by its config key name |
+| `initializeFromConfig(dsConfig)` | `Promise<void>` | Register and start all DataSources from a card config block |
+
+### DataSource instance
+
+| Method | Returns | Description |
+|---|---|---|
+| `subscribe(cb)` | `() => void` | Subscribe to value updates `{ v, t }`; returns unsubscribe fn |
+| `getValue()` | `any` | Current value (synchronous) |
+| `getHistory()` | `Object[]` | Recent value buffer `[{ v, t }, ...]` |
+
+---
+
 ## Console Access
 
 ::: code-group
@@ -122,6 +144,40 @@ dsm.getSource('sensor_temp').subscribe(cb)  // subscribe to updates
 dsm.getSource('sensor_temp').getHistory()   // recent value history
 ```
 :::
+
+---
+
+## Debug Namespace (`window.lcards.debug.datasources`)
+
+Specialized introspection tools for deep DataSource analysis — processor graphs, validation, buffer stats.
+
+::: tip
+```javascript
+window.lcards.debug.datasources.help()   // print method summary
+window.lcards.debug.datasources.list()   // list all active source names
+```
+:::
+
+| Method | Description |
+|---|---|
+| `list()` | All active DataSource names |
+| `get(name)` | DataSource instance by name |
+| `listProcessors(dsName)` | Processor keys registered on a DataSource |
+| `showProcessorGraph(dsName)` | Log processor execution order; returns `{ nodes, edges }` |
+| `inspectProcessor(dsName, processorName)` | Config, currentValue, buffer size, and stats for one processor |
+| `validate(dsName)` | Config validation report `{ valid, errors, warnings, info }` |
+| `getStats(dsName)` | Full stats: entity, buffer `{ size, capacity, oldest, newest }`, processing |
+
+```javascript
+const ds = window.lcards.debug.datasources
+
+ds.list()                                            // ['sensor_temp', 'cpu_usage', ...]
+ds.validate('sensor_temp')                           // { valid: true, errors: [], warnings: [] }
+ds.getStats('sensor_temp')                           // { entity, buffer: { size, capacity, ... } }
+ds.listProcessors('sensor_temp')                     // ['moving_average', 'rate_limiter', ...]
+ds.inspectProcessor('sensor_temp', 'moving_average') // { config, currentValue, bufferSize, stats }
+ds.showProcessorGraph('sensor_temp')                 // logs + returns { nodes, edges }
+```
 
 ---
 

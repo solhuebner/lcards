@@ -108,6 +108,19 @@ Higher `priority` (lower number) wins when multiple rules target the same overla
 
 ---
 
+## Public API
+
+| Property / Method | Returns | Description |
+|---|---|---|
+| `rules` | `Rule[]` | All registered rules in evaluation order |
+| `rulesById` | `Map<id, Rule>` | Rules keyed by ID for fast lookup |
+| `getAllRules()` | `Rule[]` | Array of all registered rule objects |
+| `getTrace()` | `Object` | Detailed evaluation trace with per-overlay match history |
+| `getRecentMatches(windowMs)` | `Match[]` | All rule matches within the last N milliseconds |
+| `getRuleTrace(ruleId, limit?)` | `Object[]` | Per-rule match history with optional result count limit |
+
+---
+
 ## Console Access
 
 ::: code-group

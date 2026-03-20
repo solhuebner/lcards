@@ -78,6 +78,18 @@ card.set hass(newHass)
 
 ---
 
+## Public API
+
+| Method | Returns | Description |
+|---|---|---|
+| `getEntityState(entityId)` | `HassEntity\|null` | Cached HASS entity state (synchronous, no subscription) |
+| `subscribeToEntity(entityId, cb)` | `() => void` | Subscribe to state changes; returns unsubscribe fn |
+| `registerOverlay(opts)` | `void` | Register an overlay descriptor `{ id, tags?, type, element }` |
+| `unregisterOverlay(overlayId)` | `void` | Remove an overlay from the registry |
+| `getRegisteredOverlays()` | `Object[]` | All currently registered overlay descriptors |
+
+---
+
 ## Console Access
 
 ::: code-group

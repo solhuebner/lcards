@@ -386,8 +386,6 @@ export default withMermaid(defineConfig({
             { text: 'Overview',     link: '/development/' },
             { text: 'Custom Card',  link: '/development/custom-card' },
             { text: 'Helpers API',  link: '/development/helpers-api' },
-            { text: 'Changelog',    link: '/development/changelog' },
-            { text: 'About',        link: '/credits' },
           ],
         },
         {

@@ -73,6 +73,19 @@ Custom presets are registered via `animation_presets` in pack definitions.
 
 ---
 
+## Public API
+
+| Method | Returns | Description |
+|---|---|---|
+| `play(overlayId, preset, opts?)` | `void` | Start a named preset animation on an overlay scope |
+| `stop(overlayId)` | `void` | Stop all animations on a specific overlay |
+| `stopAll()` | `void` | Stop every active animation across all overlays |
+| `getActiveAnimations()` | `Map<id, Set>` | Active animation instances grouped by overlay ID |
+| `registerPreset(name, config)` | `void` | Register a new named animation preset bundle |
+| `scopes` | `Map` | Internal scope registry keyed by overlay ID |
+
+---
+
 ## Console Access
 
 ::: code-group

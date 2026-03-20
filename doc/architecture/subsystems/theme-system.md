@@ -89,6 +89,22 @@ ALERT_MODE_TRANSFORMS['red'] = {
 
 ---
 
+## Public API
+
+| Method | Returns | Description |
+|---|---|---|
+| `getCurrentTheme()` | `ThemeObject` | Full active theme (tokens, palette, spacing, …) |
+| `getActiveTheme()` | `ThemeObject` | Alias for `getCurrentTheme()` |
+| `setActiveTheme(id)` | `void` | Switch to a registered theme by ID |
+| `listThemes()` | `string[]` | All registered theme IDs |
+| `resolveToken(path)` | `string\|null` | Resolve a dot-path token against the active theme |
+| `getToken(path, fallback?)` | `string` | Resolve token with a default fallback value |
+| `getAlertMode()` | `string` | Current alert mode (`'green'`, `'red'`, `'yellow'`) |
+| `setAlertMode(mode)` | `void` | Trigger alert mode change (updates CSS vars + fires events) |
+| `getRegisteredThemes()` | `Map<id, Theme>` | All loaded theme objects |
+
+---
+
 ## Console Access
 
 ::: code-group

@@ -322,6 +322,18 @@ Note: ComponentManager initializes from `components/index.js` at step 1 *before*
    window.lcards.core.componentManager.getComponent('my-variant')
    ```
 
+---
+
+## Public API
+
+| Method | Returns | Description |
+|---|---|---|
+| `getLoadedPacks()` | `Object[]` | All loaded pack definition objects in registration order |
+| `getPack(id)` | `Object\|null` | Specific pack definition by ID string |
+| `getPackIds()` | `string[]` | IDs of all loaded packs in load order |
+| `registerPack(pack)` | `void` | Register a pack definition object (called at init time) |
+
+---
 
 ## Console Access
 
