@@ -70,9 +70,9 @@ export function loadAllFontsFromConfig(config) {
  *
  * Supports legacy CB-LCARS font names (auto-migrates to lcards_ prefix).
  */
-export function loadFont(fontInput) {
-  window.lcards._loadedFonts = window.lcards._loadedFonts || new Set();
+const _loadedFonts = new Set();
 
+export function loadFont(fontInput) {
   const fontList = fontInput.split(',').map(f =>
     f.trim().replace(/^['"]|['"]$/g, '')
   );
@@ -84,16 +84,16 @@ export function loadFont(fontInput) {
     // If it’s a URL, inject directly
     if (fontName.startsWith('http://') || fontName.startsWith('https://')) {
       const href = fontName;
-      if (window.lcards._loadedFonts.has(href)) return;
+      if (_loadedFonts.has(href)) return;
       if (document.querySelector(`link[href="${href}"]`)) {
-        window.lcards._loadedFonts.add(href);
+        _loadedFonts.add(href);
         return;
       }
       const link = document.createElement('link');
       link.rel = 'stylesheet';
       link.href = href;
       document.head.appendChild(link);
-      window.lcards._loadedFonts.add(href);
+      _loadedFonts.add(href);
       lcardsLog.debug(`[loadFont] Loaded remote font from: ${href}`);
       return;
     }
@@ -104,9 +104,9 @@ export function loadFont(fontInput) {
     const href = `/hacsfiles/lcards/fonts/${fontName}.css`;
     const fontKey = fontName;
 
-    if (window.lcards._loadedFonts.has(fontKey)) return;
+    if (_loadedFonts.has(fontKey)) return;
     if (document.querySelector(`link[href="${href}"]`)) {
-      window.lcards._loadedFonts.add(fontKey);
+      _loadedFonts.add(fontKey);
       return;
     }
 
@@ -114,7 +114,7 @@ export function loadFont(fontInput) {
     link.rel = 'stylesheet';
     link.href = href;
     document.head.appendChild(link);
-    window.lcards._loadedFonts.add(fontKey);
+    _loadedFonts.add(fontKey);
     lcardsLog.debug(`[loadFont] Loaded local font: ${fontName}`);
   });
 }

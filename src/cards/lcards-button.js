@@ -2305,9 +2305,7 @@ export class LCARdSButton extends LCARdSCard {
             await document.fonts.load('100 56px Antonio');
 
             // Clear text measurement cache to force remeasure with loaded font
-            if (window.lcards?._textMeasureCache) {
-                window.lcards._textMeasureCache.clear();
-            }
+            RendererUtils.clearTextMeasureCache();
 
             // Trigger re-render with correct font measurements
             this.requestUpdate();

@@ -580,9 +580,7 @@ export class LCARdSNativeCard extends LitElement {
             lcardsLog.debug(`[LCARdSNativeCard] Fonts loaded, triggering re-render: ${this._cardGuid}`);
 
             // Invalidate text measurement cache so sizes are re-measured with real fonts
-            if (window.lcards?._textMeasureCache) {
-                window.lcards._textMeasureCache.clear();
-            }
+            window.lcards?.clearTextMeasureCache?.();
 
             this.requestUpdate();
         };
@@ -592,9 +590,7 @@ export class LCARdSNativeCard extends LitElement {
         // Backup: document.fonts.ready resolves when currently-loading fonts finish.
         // Handles the race where loadingdone already fired before our listener registered.
         document.fonts.ready.then(() => {
-            if (window.lcards?._textMeasureCache) {
-                window.lcards._textMeasureCache.clear();
-            }
+            window.lcards?.clearTextMeasureCache?.();
             this.requestUpdate();
         });
 
