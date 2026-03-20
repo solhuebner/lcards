@@ -183,18 +183,30 @@ export class LCARdSMSDCard extends LCARdSCard {
     }
 
     /**
-     * Called on first update after DOM is ready
-     * Initialize MSD pipeline
+     * Called on first update after DOM is ready.
+     * Delegates to _loadAndInitializeMsd() — shared with reconnect path.
      * @param {Map} changedProperties - Changed properties
      * @protected
      */
     async _onFirstUpdated(changedProperties) {
         lcardsLog.trace('[LCARdSMSDCard] _onFirstUpdated called');
-
-        // Call parent first
         await super._onFirstUpdated(changedProperties);
+        await this._loadAndInitializeMsd();
+    }
 
-        // ✅ FIX: Wait for async config processing to complete
+    /**
+     * Core MSD initialization logic: waits for config, loads SVG, generates GUID,
+     * and initializes the pipeline.
+     *
+     * Extracted so it can be called from both _onFirstUpdated (first mount) and
+     * _onConnected (reconnect after edit-mode toggle or view navigation), since
+     * Lit's firstUpdated only fires once per element lifetime.
+     * @private
+     */
+    async _loadAndInitializeMsd() {
+        lcardsLog.trace('[LCARdSMSDCard] _loadAndInitializeMsd called');
+
+        // Wait for async config processing to complete.
         // LCARdSCard.setConfig() starts _processConfigAsync() in background.
         // We must wait for it before accessing this.config or derived properties.
         if (this._configProcessingPromise) {
@@ -216,12 +228,11 @@ export class LCARdSMSDCard extends LCARdSCard {
             return;
         }
 
-        // NOW _msdConfig is guaranteed to be set by _onConfigUpdated()
-        // Load SVG now that config is processed (skip if source is "none")
+        // Load SVG if not already loaded.
+        // _svgContent is intentionally preserved across reconnects so we don't re-fetch.
         if (this._msdConfig?.base_svg && !this._svgContent) {
             const svgSource = this._msdConfig.base_svg.source;
 
-            // Skip loading if source is "none" (viewBox-only mode)
             if (svgSource === 'none') {
                 lcardsLog.trace('[LCARdSMSDCard] Skipping SVG load - source is "none" (viewBox-only mode)');
             } else {
@@ -239,7 +250,7 @@ export class LCARdSMSDCard extends LCARdSCard {
             }
         }
 
-        // Generate instance GUID
+        // Generate instance GUID (preserved across reconnects — do not regenerate).
         if (!this._msdInstanceGuid) {
             if (this.config.id) {
                 this._msdInstanceGuid = `msd-${this.config.id}`;
@@ -250,14 +261,13 @@ export class LCARdSMSDCard extends LCARdSCard {
             }
         }
 
-        // ✅ FIX: Wait for Lit's render to complete before initializing pipeline
-        // This ensures the SVG container from _renderSvgContainer() is mounted to DOM
-        // before MsdControlsRenderer tries to find it with getSvgControlsContainer()
+        // Wait for Lit's render cycle so the SVG container is actually mounted to DOM
+        // before MsdControlsRenderer tries to find it with getSvgControlsContainer().
         lcardsLog.trace('[LCARdSMSDCard] Waiting for Lit render to complete...');
         await this.updateComplete;
         lcardsLog.trace('[LCARdSMSDCard] Lit render complete');
 
-        // Initialize MSD pipeline (now with config guaranteed ready)
+        // Initialize MSD pipeline (config and SVG are now guaranteed ready).
         lcardsLog.trace('[LCARdSMSDCard] Initializing pipeline:', {
             hasConfig: !!this._msdConfig,
             hasSvg: !!this._svgContent,
@@ -584,6 +594,23 @@ export class LCARdSMSDCard extends LCARdSCard {
 
         // Render SVG container for MSD mounting
         return this._renderSvgContainer();
+    }
+
+    /**
+     * Re-initialize pipeline after reconnect (edit mode toggle, view navigation, etc.).
+     * Lit's firstUpdated only fires once per element lifetime, so reconnects must
+     * trigger pipeline initialization here instead.
+     * @protected
+     */
+    async _onConnected() {
+        await super._onConnected();
+
+        // _initialized is set by LCARdSCard._onFirstUpdated — if it's true here, this is
+        // a reconnect (not the first mount), and the pipeline was torn down by disconnectedCallback.
+        if (this._initialized && !this._msdInitialized) {
+            lcardsLog.debug('[LCARdSMSDCard] Re-initializing MSD pipeline after reconnect');
+            await this._loadAndInitializeMsd();
+        }
     }
 
     /**
