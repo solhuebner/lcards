@@ -1730,7 +1730,7 @@ export class LCARdSCard extends LCARdSNativeCard {
                 }
                 this._datasourceRetryScheduled = false;
 
-                lcardsLog.info('[LCARdSCard] DataSourceManager now available, re-processing templates', {
+                lcardsLog.debug('[LCARdSCard] DataSourceManager now available, re-processing templates', {
                     cardGuid: this._cardGuid
                 });
 

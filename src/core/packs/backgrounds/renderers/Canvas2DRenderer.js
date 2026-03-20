@@ -50,7 +50,7 @@ export class Canvas2DRenderer {
     this._targetFps = options.targetFps ?? 30;
     this._minFrameInterval = this._targetFps > 0 ? 1000 / this._targetFps : 0;
 
-    lcardsLog.info('[Canvas2DRenderer] Initialized', {
+    lcardsLog.debug('[Canvas2DRenderer] Initialized', {
       canvasWidth: canvas.width,
       canvasHeight: canvas.height,
       targetFps: this._targetFps
@@ -164,7 +164,7 @@ export class Canvas2DRenderer {
 
     this._animate();
 
-    lcardsLog.info('[Canvas2DRenderer] Animation started', {
+    lcardsLog.debug('[Canvas2DRenderer] Animation started', {
       effectCount: this.effects.length
     });
   }
@@ -212,7 +212,7 @@ export class Canvas2DRenderer {
       this._recoveryAttempts = 0;
     }
 
-    lcardsLog.info('[Canvas2DRenderer] Animation stopped');
+    lcardsLog.debug('[Canvas2DRenderer] Animation stopped');
   }
 
   /**
@@ -415,7 +415,7 @@ export class Canvas2DRenderer {
    * Cleanup renderer and all effects
    */
   destroy() {
-    lcardsLog.info('[Canvas2DRenderer] Destroying renderer');
+    lcardsLog.debug('[Canvas2DRenderer] Destroying renderer');
     this.clear();
   }
 }

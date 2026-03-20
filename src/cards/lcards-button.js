@@ -6006,7 +6006,7 @@ export class LCARdSButton extends LCARdSCard {
             if (rawInset === 'auto') {
                 this._backgroundRenderer.updateInset(this._resolveBackgroundAnimationInset(rawInset));
             }
-            lcardsLog.info('[LCARdSButton] Background animation initialized');
+            lcardsLog.debug('[LCARdSButton] Background animation initialized');
         } else {
             lcardsLog.error('[LCARdSButton] Background animation initialization failed');
         }

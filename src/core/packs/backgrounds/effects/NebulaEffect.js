@@ -136,7 +136,7 @@ export class NebulaEffect extends BaseEffect {
       });
     }
 
-    lcardsLog.info(`[NebulaEffect] Generated ${this.clouds.length} clouds`);
+    lcardsLog.debug(`[NebulaEffect] Generated ${this.clouds.length} clouds`);
   }
 
   /**

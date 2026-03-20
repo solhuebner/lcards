@@ -159,7 +159,7 @@ export class BackgroundAnimationRenderer {
         lcardsLog.debug('[BackgroundAnimation] IntersectionObserver attached');
       }
 
-      lcardsLog.info('[BackgroundAnimation] Renderer initialized and started');
+      lcardsLog.debug('[BackgroundAnimation] Renderer initialized and started');
       return true;
 
     } catch (error) {
@@ -484,7 +484,7 @@ export class BackgroundAnimationRenderer {
       return false;
     }
 
-    lcardsLog.info(`[BackgroundAnimation] Loaded ${loadedEffects} effect(s)`);
+    lcardsLog.debug(`[BackgroundAnimation] Loaded ${loadedEffects} effect(s)`);
     return true;
   }
 

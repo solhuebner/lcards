@@ -311,7 +311,7 @@ export class LCARdSElbow extends LCARdSButton {
         }
 
         if (trackedCount > 0) {
-            lcardsLog.info(`[LCARdSElbow] Tracked provenance for ${trackedCount} dynamically-added colors`);
+            lcardsLog.debug(`[LCARdSElbow] Tracked provenance for ${trackedCount} dynamically-added colors`);
         }
     }
 

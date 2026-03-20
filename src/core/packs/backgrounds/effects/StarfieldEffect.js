@@ -148,7 +148,7 @@ export class StarfieldEffect extends BaseEffect {
       }
     }
 
-    lcardsLog.info(`[StarfieldEffect] Generated ${this.stars.length} stars across ${this.parallaxLayers} layers`);
+    lcardsLog.debug(`[StarfieldEffect] Generated ${this.stars.length} stars across ${this.parallaxLayers} layers`);
 
     // Pre-build draw buckets for batched rendering.
     // Stars are grouped by (color, quantized-opacity) so that each bucket can
@@ -254,7 +254,7 @@ export class StarfieldEffect extends BaseEffect {
 
     // Log first draw for debugging
     if (!this._hasLoggedFirstDraw) {
-      lcardsLog.info(`[StarfieldEffect] First draw: ${this.stars.length} stars`, {
+      lcardsLog.debug(`[StarfieldEffect] First draw: ${this.stars.length} stars`, {
         canvasSize: `${canvasWidth}x${canvasHeight}`,
         colors: this.resolvedColors,
         scrollSpeed: `${this.scrollSpeedX},${this.scrollSpeedY}`

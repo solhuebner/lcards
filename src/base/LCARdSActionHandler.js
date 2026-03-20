@@ -109,7 +109,7 @@ export class LCARdSActionHandler {
                     triggerManager.register(trigger, animConfig);
                 });
 
-                lcardsLog.info(`[LCARdSActionHandler] ✅ TriggerManager created with ${animations.length} animations`);
+                lcardsLog.debug(`[LCARdSActionHandler] ✅ TriggerManager created with ${animations.length} animations`);
 
                 // Add cleanup for TriggerManager
                 cleanupFunctions.push(() => {
@@ -194,7 +194,7 @@ export class LCARdSActionHandler {
                 await currentAnimationManager.registerAnimation(overlayId, animConfig);
             }
 
-            lcardsLog.info(`[LCARdSActionHandler] ✅ TriggerManager created (late-binding) with ${animations.length} animations`);
+            lcardsLog.debug(`[LCARdSActionHandler] ✅ TriggerManager created (late-binding) with ${animations.length} animations`);
 
             // Clear pending setup
             pendingAnimationSetup = null;

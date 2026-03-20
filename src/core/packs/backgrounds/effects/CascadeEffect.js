@@ -427,7 +427,7 @@ export class CascadeEffect extends BaseEffect {
     ctx.restore();
 
     if (!this._hasLoggedFirstDraw) {
-      lcardsLog.info('[CascadeEffect] First draw', {
+      lcardsLog.debug('[CascadeEffect] First draw', {
         rows: this._computedRows,
         cols: this._computedCols,
         canvas: `${canvasWidth}×${canvasHeight}`,
