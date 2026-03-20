@@ -127,6 +127,8 @@ export class LCARdSNativeCard extends LitElement {
         this._mountResolved = false;
         this._cardGuid = this._generateGuid();
         this._errorState = null;
+        /** @type {string[]} */
+        this._trackedEntities = [];
 
         lcardsLog.debug(`[LCARdSNativeCard] Created card with GUID: ${this._cardGuid}`);
     }
@@ -469,7 +471,7 @@ export class LCARdSNativeCard extends LitElement {
 
     /**
      * Return `true` when the card is running inside the HA editor card-picker preview.
-     * @returns {boolean}
+     * @returns {boolean|'picker'|'editor'}
      */
     isPreviewMode() {
         return this._isPreviewMode;
@@ -517,7 +519,7 @@ export class LCARdSNativeCard extends LitElement {
 
         // Check for dashboard edit mode
         const dashboardEl = parentElement.closest('hui-root, ha-panel-lovelace');
-        if (dashboardEl && dashboardEl.editMode) {
+        if (dashboardEl && /** @type {any} */ (dashboardEl).editMode) {
             lcardsLog.debug(`[LCARdSNativeCard] Preview detection: dashboard edit mode detected`);
             return true;
         }

@@ -1568,7 +1568,7 @@ static _getRawData(dataSource, config) {
     let formatted = format;
 
     // Year
-    formatted = formatted.replace('YYYY', date.getFullYear());
+    formatted = formatted.replace('YYYY', String(date.getFullYear()));
     formatted = formatted.replace('YY', String(date.getFullYear()).slice(-2));
 
     // Month

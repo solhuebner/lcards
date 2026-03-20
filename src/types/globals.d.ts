@@ -17,6 +17,7 @@ declare global {
         lcardsCore: any;
         customCards: any[];
         ApexCharts: any;
+    jsyaml: any;
         /** Debug/diagnostic handle exposed at runtime for console access */
         ThemeManager: any;
     }

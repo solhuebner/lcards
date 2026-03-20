@@ -43,7 +43,7 @@ function _getAllMsdCards() {
 /**
  * Get MSD card by config ID or return first card if no ID specified
  * @param {string|null} cardId - Config ID (e.g. 'bridge') or null for first card
- * @returns {Element|null} MSD card element
+ * @returns {any} MSD card element
  * @private
  */
 function _getMsdCard(cardId = null) {
@@ -684,7 +684,7 @@ export class MsdDebugAPI {
          */
         listActive(options = {}, cardId = null) {
           try {
-            const { includeDisabled = false, verbose = false } = options;
+            const { includeDisabled = false, verbose = false } = /** @type {any} */ (options);
             const config = _getMsdConfig(cardId);
             const rules = config?.rules || [];
 

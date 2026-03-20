@@ -8,7 +8,7 @@
  */
 
 export function getLovelace() {
-    let root = document.querySelector('home-assistant');
+    let root = /** @type {any} */ (document.querySelector('home-assistant'));
     root = root && root.shadowRoot;
     root = root && root.querySelector('home-assistant-main');
     root = root && root.shadowRoot;

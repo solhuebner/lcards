@@ -45,7 +45,7 @@ export class LCARdSActionHandler {
      * @param {HTMLElement} element - Target element (can be in shadow DOM)
      * @param {Object} actions - Action configurations (tap_action, hold_action, double_tap_action)
      * @param {Object} hass - Home Assistant instance
-     * @param {Object} options - Additional options
+     * @param {any} [options] - Additional options
      * @param {Object} options.animationManager - AnimationManager instance for triggering animations
      * @param {string} options.elementId - Element ID for animation targeting
      * @param {Array} options.animations - Animation configurations for late-binding
@@ -432,7 +432,7 @@ export class LCARdSActionHandler {
 
         // Add visual indicator that handlers are attached
         element.setAttribute('data-lcards-actions-attached', 'true');
-        element.setAttribute('data-lcards-handler-count', cleanupFunctions.length);
+        element.setAttribute('data-lcards-handler-count', String(cleanupFunctions.length));
 
         lcardsLog.trace(`[LCARdSActionHandler] ✅ Actions setup complete - ${cleanupFunctions.length} handlers attached to ${element.tagName} element`, {
             elementId,

@@ -594,7 +594,7 @@ export async function animateElement(scope, options, hass = null, onInstanceCrea
         lcardsLog.debug('[animateElement] Cascade-color targeting:', {
           selector: targets,
           elementsFound: elements.length,
-          elementTags: elements.map(el => `${el.tagName}[data-row=${el.dataset.row},data-col=${el.dataset.col}]`)
+          elementTags: elements.map(el => `${el.tagName}[data-row=${/** @type {any} */ (el).dataset.row},data-col=${/** @type {any} */ (el).dataset.col}]`)
         });
       }
 
@@ -622,7 +622,7 @@ export async function animateElement(scope, options, hass = null, onInstanceCrea
 
               // Apply per-element CSS styles from preset
               if (_batchProbeResult.styles) {
-                elements.forEach(el => Object.assign(el.style, _batchProbeResult.styles));
+                elements.forEach(el => Object.assign(/** @type {any} */ (el).style, _batchProbeResult.styles));
               }
               // Run preset setup callbacks
               if (_batchProbeResult.setup) {
@@ -707,7 +707,7 @@ export async function animateElement(scope, options, hass = null, onInstanceCrea
 
               // Apply CSS styles to target element
               if (presetResult.styles && element) {
-                Object.assign(element.style, presetResult.styles);
+                Object.assign(/** @type {HTMLElement} */ (element).style, presetResult.styles);
               }
             } catch (error) {
               lcardsLog.error(`[animateElement] Error applying MSD preset ${type}:`, error);
@@ -761,9 +761,9 @@ export async function animateElement(scope, options, hass = null, onInstanceCrea
         let targetElement = element;
         let animeParams = { ...processedParams };
 
-        if (element._drawable) {
+        if (/** @type {any} */ (element)._drawable) {
           // Use drawable created by preset setup (e.g., draw animation)
-          targetElement = element._drawable;
+          targetElement = /** @type {any} */ (element)._drawable;
           lcardsLog.debug(`[animateElement] Using drawable for ${type}`, { element: element.tagName });
         } else if (processedParams.targets && processedParams.targets instanceof Element) {
           // Preset wants to animate a different element (e.g., text child of group)
@@ -771,11 +771,11 @@ export async function animateElement(scope, options, hass = null, onInstanceCrea
           // Remove targets from params since it's passed as first argument
           const { targets: _, ...rest } = processedParams;
           animeParams = rest;
-        } else if (element._animTargets !== undefined) {
+        } else if (/** @type {any} */ (element)._animTargets !== undefined) {
           // Text/split animations: setup() stored per-character targets on the element.
           // null signals that setup() self-managed the animation entirely (e.g. scramble).
-          const animTargets = element._animTargets;
-          delete element._animTargets;
+          const animTargets = /** @type {any} */ (element)._animTargets;
+          delete /** @type {any} */ (element)._animTargets;
           if (animTargets === null) {
             lcardsLog.debug(`[animateElement] Preset setup() self-managed animation for ${type}, skipping main anime call`);
             continue;
@@ -926,8 +926,8 @@ export async function createTimelines(
           (mergedParams.type === 'pulse' || mergedParams.type === 'glow') &&
           (element.tagName === 'text' || element.tagName === 'TEXT')
         ) {
-          element.style.transformOrigin = 'center';
-          element.style.transformBox = 'fill-box';
+          /** @type {any} */ (element).style.transformOrigin = 'center';
+          /** @type {any} */ (element).style.transformBox = 'fill-box';
         }
 
         // Legacy preset application removed - all presets now from packs

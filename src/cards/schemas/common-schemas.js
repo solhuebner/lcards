@@ -741,8 +741,8 @@ export const rulesSchema = {
 
 /**
  * Get text schema for multi-text label system
- * @param {Object} options - Schema options
- * @param {Array<string>} options.positionEnum - Available position values
+ * @param {Object} [options] - Schema options
+ * @param {Array<string>} [options.positionEnum] - Available position values
  * @returns {Object} Text schema
  */
 export function getTextSchema(options = {}) {
