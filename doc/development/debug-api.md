@@ -94,6 +94,57 @@ These live on the root `window.lcards` namespace rather than `debug.*`:
 
 ---
 
+## Core Systems Introspection
+
+Introspect the `window.lcards.core.*` singleton registry directly. These live on `window.lcards.debug` (wired by `CoreDebugAPI` at core init time) and have nothing to do with MSD.
+
+### `debug.core()`
+
+Returns `window.lcards.core.getDebugInfo()` — a snapshot of all core manager states.
+
+```javascript
+window.lcards.debug.core()
+// → { systemsManager: {...}, dataSourceManager: {...}, rulesManager: {...}, ... }
+```
+
+### `debug.singleton(manager)`
+
+Returns `getDebugInfo()` for a specific core singleton by name.
+
+```javascript
+window.lcards.debug.singleton('dataSourceManager')
+window.lcards.debug.singleton('animationManager')
+window.lcards.debug.singleton('rulesManager')
+```
+
+**Valid names:**
+
+| Manager | What it tells you |
+|---|---|
+| `systemsManager` | Entity subscriptions, overlay registry |
+| `dataSourceManager` | Active sources, buffer sizes, subscribers |
+| `rulesManager` | Active rules, last evaluation results |
+| `animationManager` | Active animations, registry stats |
+| `themeManager` | Active theme, registered tokens |
+| `stylePresetManager` | Loaded presets, pack contributions |
+| `assetManager` | Loaded SVGs, font status |
+| `packManager` | Loaded packs, load order |
+| `soundManager` | Active scheme, event bindings |
+| `componentManager` | Registered SVG components |
+| `helperManager` | Helper entity states |
+| `validationService` | Validation rule cache |
+
+### `debug.singletons()`
+
+Lists all managers that expose `getDebugInfo()` and returns a combined snapshot.
+
+```javascript
+window.lcards.debug.singletons()
+// → { managers: ['systemsManager', 'animationManager', ...], count: 12, coreInitialized: true }
+```
+
+---
+
 ## MSD Debug Namespace (`debug.msd`)
 
 Introspection tools for MSD cards, accessed via `window.lcards.debug.msd`.
@@ -127,17 +178,7 @@ window.lcards.debug.msd.listMsdCards()
 // Returns: [{ id, systemId, hasConfig, hasPipeline, overlayCount, routingChannels, element }]
 ```
 
-### `core()`
-
-Returns debug info from `window.lcards.core.getDebugInfo()`.
-
-### `singleton(manager)`
-
-Returns debug info for a specific core singleton, e.g. `singleton('dataSourceManager')`.
-
-### `singletons()`
-
-Lists all singleton managers that expose a `getDebugInfo()` method.
+> For singleton manager introspection, see [Core Systems Introspection](#core-systems-introspection) above.
 
 ---
 
@@ -164,50 +205,26 @@ window.lcards.debug.msd.routing.stats()
 
 | Method | Description |
 |--------|-------------|
-| `stats()` | DataSource statistics |
-| `list()` | List all active DataSources |
-| `get(sourceName)` | Get a specific DataSource instance |
-| `dump()` | Dump all DataSource data |
-| `trace(entityId, cardId?)` | Trace data flow for an entity (not yet implemented) |
-| `history(entityId, n)` | Get history for an entity (not yet implemented) |
+| `trace(entityId, cardId?)` | Trace data flow for an entity through DataSource → overlay |
 
 ```javascript
-window.lcards.debug.msd.data.list()
-window.lcards.debug.msd.data.get('sensor_temp')
+window.lcards.debug.msd.data.trace('sensor.temperature')
 ```
 
-### `styles` — Style resolution
-
-| Method | Description |
-|--------|-------------|
-| `resolutions(overlayId)` | Show style token resolutions for an overlay |
-| `findByToken(tokenPath)` | Find overlays using a specific token |
-| `provenance()` | Show style provenance information |
-| `listTokens()` | List all registered style tokens |
-| `getTokenValue(tokenPath)` | Get the current value of a style token |
-
-```javascript
-window.lcards.debug.msd.styles.resolutions('my_overlay')
-window.lcards.debug.msd.styles.findByToken('palette.alert-red')
-```
-
-### `charts` — Chart configuration
-
-| Method | Description |
-|--------|-------------|
-| `validate(guid)` | Validate chart config for an overlay |
-| `validateAll()` | Validate all chart configurations |
-| `getFormatSpec(guid)` | Get the format specification for a chart overlay |
-| `listTypes()` | List all registered chart types |
+> For broader DataSource introspection, use `window.lcards.debug.datasources.*`.
 
 ### `rules` — Rules engine
 
 | Method | Description |
 |--------|-------------|
-| `trace(overlayId?)` | Trace rule evaluation |
-| `evaluate(overlayId?)` | Evaluate rules and return results |
-| `listActive(options?)` | List currently active rules |
-| `debugRule(ruleId)` | Debug a specific rule |
+| `listActive(options?, cardId?)` | List currently active/enabled rules |
+
+```javascript
+window.lcards.debug.msd.rules.listActive()
+window.lcards.debug.msd.rules.listActive({ includeDisabled: true, verbose: true })
+```
+
+> For full rules engine introspection, use `window.lcards.debug.singleton('rulesManager')`.
 
 ### `animations` — Animation state
 
@@ -224,26 +241,6 @@ window.lcards.debug.msd.styles.findByToken('palette.alert-red')
 window.lcards.debug.msd.animations.active()
 window.lcards.debug.msd.animations.inspect('my_anim_id')
 ```
-
-### `packs` — Pack management
-
-| Method | Description |
-|--------|-------------|
-| `list()` | List all registered packs |
-| `get(packId)` | Get details for a specific pack |
-| `issues(packId?)` | Show issues with pack(s) |
-| `order()` | Show pack load order |
-
-### `visual` — Visual debugging
-
-| Method | Description |
-|--------|-------------|
-| `enable()` | Enable visual debug mode |
-| `disable()` | Disable visual debug mode |
-| `toggle()` | Toggle visual debug mode |
-| `status()` | Current visual debug status |
-| `getActive()` | Get active visual debug elements |
-| `refresh()` | Refresh visual debug state |
 
 ### `overlays` — Overlay inspection
 
