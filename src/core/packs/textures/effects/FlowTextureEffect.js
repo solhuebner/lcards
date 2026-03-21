@@ -125,7 +125,10 @@ export class FlowTextureEffect extends BaseTextureEffect {
 
     updateConfig(cfg) {
         super.updateConfig(cfg);
-        if (cfg.color          !== undefined) this._color        = ColorUtils.resolveCssVariable(cfg.color, 'rgba(0,200,255,0.7)');
+        if (cfg.color          !== undefined) {
+            const _res = window.lcards?.core?.themeManager?.resolver;
+            this._color = ColorUtils.resolveCssVariable(_res ? _res.resolve(cfg.color, cfg.color) : cfg.color, 'rgba(0,200,255,0.7)');
+        }
         if (cfg.wave_scale     !== undefined) this._waveScale    = cfg.wave_scale;
         if (cfg.scroll_speed_x !== undefined) this._scrollSpeedX = cfg.scroll_speed_x;
         if (cfg.scroll_speed_y !== undefined) this._scrollSpeedY = cfg.scroll_speed_y;

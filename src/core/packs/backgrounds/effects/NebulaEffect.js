@@ -60,8 +60,10 @@ export class NebulaEffect extends BaseEffect {
     const colorInput = config.colors ?? config.color ?? '#FF00FF';
     this.colors = Array.isArray(colorInput) ? colorInput : [colorInput];
 
-    // Resolve CSS variables for all colors
-    this.resolvedColors = this.colors.map(c => ColorUtils.resolveCssVariable(c));
+    // Resolve colour expressions (CSS vars + computed functions like darken/lighten/alpha)
+    const _resolver = window.lcards?.core?.themeManager?.resolver;
+    const _resolve = (c) => ColorUtils.resolveCssVariable((_resolver ? _resolver.resolve(c, c) : c), c);
+    this.resolvedColors = this.colors.map(_resolve);
 
     // Turbulence config
     this.turbulence = Math.max(0, Math.min(1, config.turbulence ?? 0.5));
