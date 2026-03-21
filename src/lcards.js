@@ -436,7 +436,7 @@ window.lcards.alertConfig = {
   /**
    * Get current transform configuration for a mode
    * @param {string} mode - Alert mode name
-   * @returns {Object} Transform configuration
+   * @returns {Promise<any>} Transform configuration
    */
   getTransform: async (mode) => {
     const { getAlertModeTransform } = await import('./core/themes/alertModeTransform.js');
@@ -474,7 +474,7 @@ window.lcards.alertConfig = {
 
   /**
    * Export current runtime overrides as JSON
-   * @returns {Object} Runtime overrides
+   * @returns {Promise<any>} Runtime overrides
    */
   export: async () => {
     const { getRuntimeTransformOverrides } = await import('./core/themes/alertModeTransform.js');

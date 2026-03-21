@@ -682,9 +682,9 @@ export class MsdDebugAPI {
          * // Get detailed rule information
          * const detailed = window.lcards.debug.msd.rules.listActive({ verbose: true });
          */
-        listActive(options = {}, cardId = null) {
+        listActive(options = /** @type {any} */ ({}), cardId = null) {
           try {
-            const { includeDisabled = false, verbose = false } = /** @type {any} */ (options);
+            const { includeDisabled = false, verbose = false } = options;
             const config = _getMsdConfig(cardId);
             const rules = config?.rules || [];
 

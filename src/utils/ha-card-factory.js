@@ -166,7 +166,7 @@ export async function createCardElement(cardType, label = 'card') {
 
     // ── Strategy 2: document.createElement + upgrade wait ───────────────────
     try {
-        const el = document.createElement(normalizedType);
+        const el = /** @type {any} */ (document.createElement(normalizedType));
 
         // LCARdS cards are already registered — no meaningful upgrade wait needed
         if (isLCARdSCard) {
@@ -188,7 +188,7 @@ export async function createCardElement(cardType, label = 'card') {
 
     // ── Strategy 3: body attachment (forces upgrade for lazy hui-* elements) ─
     try {
-        const el = document.createElement(normalizedType);
+        const el = /** @type {any} */ (document.createElement(normalizedType));
         const tmp = document.createElement('div');
         tmp.style.cssText = 'position:absolute;left:-10000px;visibility:hidden;';
         document.body.appendChild(tmp);
@@ -226,7 +226,7 @@ export async function createCardElement(cardType, label = 'card') {
  * - lcards-* cards: property assignment + requestUpdate (Lit reactive)
  * - unknown:        setHass() → property assignment
  *
- * @param {HTMLElement} cardElement
+ * @param {any}      cardElement
  * @param {any}      hass
  * @param {string}      [label]
  */

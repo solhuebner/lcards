@@ -45,16 +45,18 @@ export class LCARdSActionHandler {
      * @param {HTMLElement} element - Target element (can be in shadow DOM)
      * @param {Object} actions - Action configurations (tap_action, hold_action, double_tap_action)
      * @param {Object} hass - Home Assistant instance
-     * @param {any} [options] - Additional options
+     * @param {object} [options] - Additional options
      * @param {Object} options.animationManager - AnimationManager instance for triggering animations
      * @param {string} options.elementId - Element ID for animation targeting
      * @param {Array} options.animations - Animation configurations for late-binding
      * @param {Function} options.getAnimationSetup - Callback to get animation setup (overlayId, elementSelector)
+     * @param {Function} [options.getAnimationManager] - Getter for AnimationManager (late-binding)
      * @param {Object} options.shadowRoot - Shadow root for element queries
      * @param {string} options.entity - Default entity ID for actions (fallback if action.entity not specified)
+     * @param {Object} [options.soundOverride] - Per-event sound override config
      * @returns {Function} Cleanup function
      */
-    setupActions(element, actions = {}, hass, options = {}) {
+    setupActions(element, actions = {}, hass, options = /** @type {any} */ ({})) {
         if (!element) {
             return () => {};
         }
