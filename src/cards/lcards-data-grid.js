@@ -939,13 +939,14 @@ export class LCARdSDataGrid extends LCARdSCard {
       return;
     }
 
-    // Resolve colors for anime.js: CSS vars must be converted to concrete values
-    // (hex/rgb) before being passed to keyframes — anime.js cannot interpolate
-    // between unresolved CSS variables.
-    // ColorUtils.resolveCssVariable handles var(--name, fallback), nested vars,
-    // and returns the fallback default if the property is not defined.
-    const resolveColorForAnime = (colorValue) =>
-      colorValue ? ColorUtils.resolveCssVariable(colorValue, null) : null;
+    // Resolve colors for anime.js: CSS vars and computed expressions (darken/lighten/alpha/etc.)
+    // must be converted to concrete values before being passed to keyframes.
+    const _resolver = window.lcards?.core?.themeManager?.resolver;
+    const resolveColorForAnime = (colorValue) => {
+      if (!colorValue) return null;
+      const afterResolver = _resolver ? _resolver.resolve(colorValue, colorValue) : colorValue;
+      return ColorUtils.resolveCssVariable(afterResolver, null);
+    };
 
     // Get cascade colors from config or theme
     // Standard format: cascadeAnim.params contains the preset parameters

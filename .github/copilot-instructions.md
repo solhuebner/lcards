@@ -401,6 +401,58 @@ export class MyCard extends LCARdSCard {
 
 ---
 
+## 🎨 Color Resolution
+
+**The most commonly missed pattern.** LCARdS supports three color expression forms:
+- Concrete: `#93e1ff`, `rgba(255,153,0,0.5)`
+- CSS variable: `var(--lcars-blue, #93e1ff)`
+- Computed: `darken(var(--lcars-blue), 0.3)`, `alpha(#ff9900, 0.5)`
+
+### Always use the two-step pattern for Canvas2D contexts
+
+`ThemeTokenResolver` handles computed expressions but outputs `var()` strings. Canvas2D cannot use `var()` — `resolveCssVariable` materialises them.
+
+```javascript
+// ✅ CORRECT — works for all three expression forms
+const _resolver = window.lcards?.core?.themeManager?.resolver;
+const _resolve = (c) => ColorUtils.resolveCssVariable(
+  (_resolver ? _resolver.resolve(c, c) : c), c
+);
+this.resolvedColor = _resolve(config.color);
+this.resolvedColors = this.colors.map(_resolve); // for arrays
+```
+
+### In cards / CSS / Lit contexts
+
+`resolver.resolve()` alone is enough — the browser handles `var()` natively.
+
+```javascript
+const resolver = window.lcards?.core?.themeManager?.resolver;
+const color = resolver ? resolver.resolve(rawValue, rawValue) : rawValue;
+```
+
+### In `updateConfig()` methods
+
+Live config updates bypass the `_resolveConfigColors` preprocessing pipeline — apply the two-step pattern here too.
+
+```javascript
+// ✅ CORRECT in updateConfig
+const _res = window.lcards?.core?.themeManager?.resolver;
+this._color = ColorUtils.resolveCssVariable(
+  _res ? _res.resolve(cfg.color, cfg.color) : cfg.color, fallback
+);
+```
+
+### Anti-patterns
+
+❌ `ColorUtils.resolveCssVariable(config.color)` alone — silently ignores `darken/lighten/alpha` expressions
+❌ `resolver.resolve(config.color)` alone for canvas — `var()` strings break `fillStyle`
+❌ Writing a config preprocessor that only iterates top-level keys — always recurse into nested objects and arrays
+
+> Full reference: `doc/development/color-resolution.md`
+
+---
+
 ## 🚨 Critical Patterns
 
 ### Provenance Tracking

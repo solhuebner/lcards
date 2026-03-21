@@ -1555,8 +1555,11 @@ export class LCARdSMSDCard extends LCARdSCard {
             const svgAttr = styleMapping[configKey];
 
             if (svgAttr && value !== null && value !== undefined) {
-                // Resolve CSS variables if present
-                const resolvedValue = ColorUtils.resolveCssVariable(value);
+                // Resolve computed expressions and CSS variables.
+                // SVG setAttribute does not support var() natively — materialise to concrete value.
+                const _res = window.lcards?.core?.themeManager?.resolver;
+                const afterResolver = (typeof value === 'string' && _res) ? _res.resolve(value, value) : value;
+                const resolvedValue = ColorUtils.resolveCssVariable(afterResolver);
 
                 // Apply to all target elements (group children or the element itself)
                 targetElements.forEach(el => {
@@ -1574,9 +1577,11 @@ export class LCARdSMSDCard extends LCARdSCard {
      */
     _applyControlStyleToDOM(controlEl, style) {
         // Apply style properties to control container
+        const _resMSD = window.lcards?.core?.themeManager?.resolver;
         for (const [key, value] of Object.entries(style)) {
             if (value !== null && value !== undefined) {
-                const resolvedValue = ColorUtils.resolveCssVariable(value);
+                const afterResolver = (typeof value === 'string' && _resMSD) ? _resMSD.resolve(value, value) : value;
+                const resolvedValue = ColorUtils.resolveCssVariable(afterResolver);
                 controlEl.style[key] = resolvedValue;
                 lcardsLog.trace(`[LCARdSMSDCard]   Set style.${key}=${resolvedValue}`);            }
         }

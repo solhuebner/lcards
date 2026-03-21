@@ -1158,10 +1158,12 @@ export class ApexChartsAdapter {
       return resolved;
     }
 
-    // Handle strings - resolve if CSS variable
+    // Handle strings - resolve if CSS variable or computed expression (darken/lighten/alpha/etc.)
     if (typeof obj === 'string') {
       const original = obj;
-      const resolved = ColorUtils.resolveCssVariable(obj);
+      const resolver = window.lcards?.core?.themeManager?.resolver;
+      const afterResolver = resolver ? resolver.resolve(obj, obj) : obj;
+      const resolved = afterResolver.includes('var(') ? ColorUtils.resolveCssVariable(afterResolver) : afterResolver;
       if (original !== resolved) {
         lcardsLog.debug(`[ApexChartsAdapter] 🎨 Resolved CSS variable: ${original} → ${resolved}`);
       }

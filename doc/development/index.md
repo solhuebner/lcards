@@ -16,6 +16,7 @@ Documentation for developers extending LCARdS — building custom cards, editors
 |---|---|
 | [Animation API](anim-api.md) | `window.lcards.anim.*` — anime.js v4 access, helpers, presets, scopes |
 | [Assets & SVG API](assets-api.md) | Font loading, SVG cache, SVG/anchor helpers, text measure cache |
+| [Color Resolution](color-resolution.md) | Correct patterns for resolving CSS vars, computed expressions (`darken`, `lighten`, `alpha`, etc.) in all contexts |
 | [Debug API](debug-api.md) | Console introspection: log level, core singletons, MSD cards, DataSources |
 | [Helpers API](helpers-api.md) | WebSocket-based HA helper management — create, read, update, delete |
 
