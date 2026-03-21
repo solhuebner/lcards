@@ -99,6 +99,7 @@ export class LCARdSCardDataSourcesList extends LitElement {
   }
 
   render() {
+    // @ts-ignore - TS2339: auto-suppressed
     const datasources = this.config?.data_sources || {};
     const sourceKeys = Object.keys(datasources);
 

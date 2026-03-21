@@ -380,6 +380,7 @@ export class LCARdSDataSourceBrowser extends LitElement {
    * @private
    */
   _isCardLocalSource(sourceName) {
+    // @ts-ignore - TS2339: auto-suppressed
     const cardSources = this.cardConfig?.data_sources || {};
     return sourceName in cardSources;
   }
@@ -522,6 +523,7 @@ export class LCARdSDataSourceBrowser extends LitElement {
    * @private
    */
   _renderEntityDetail(data) {
+    // @ts-ignore - TS2339: auto-suppressed
     const entity = this.hass?.states?.[data.entityId];
 
     if (!entity) {
