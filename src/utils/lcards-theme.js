@@ -1,15 +1,6 @@
 import { lcardsLog } from './lcards-logging.js';
 
 /**
- * Process card configurations to load all fonts.
- * @deprecated Fonts now loaded on-demand via AssetManager
- */
-export function loadAllFontsFromConfig(config) {
-  lcardsLog.warn('[loadAllFontsFromConfig] DEPRECATED: Fonts loaded on-demand via AssetManager');
-  // No-op — fonts loaded when actually used
-}
-
-/**
  * Dynamically loads a LCARdS font based on font-family name.
  * Only loads if not already injected.
  */
