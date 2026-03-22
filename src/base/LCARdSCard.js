@@ -27,6 +27,18 @@ import { ColorUtils } from '../core/themes/ColorUtils.js';
 import { ProvenanceTracker } from '../utils/provenance-tracker.js';
 import { escapeXmlAttribute } from '../utils/lcards-svg-helpers.js';
 import { resolveStateColor } from '../utils/state-color-resolver.js';
+import {
+    haFormatState,
+    haFormatEntityName,
+    haFormatAttrValue,
+    haFormatAttrName,
+    haFormatStateParts,
+    haFormatAttrParts,
+    haFormatNumber,
+    haFormatDate,
+    joinParts,
+    extractUnit
+} from '../utils/ha-entity-display.js';
 
 /**
  * Base class for simple LCARdS cards
@@ -1644,6 +1656,60 @@ export class LCARdSCard extends LCARdSNativeCard {
         if (!entityId || !this.hass?.states) return null;
         const entity = this.hass.states[entityId];
         return entity?.state || null;
+    }
+
+    // ============================================================================
+    // HA i18n / LOCALE-AWARE DISPLAY HELPERS
+    // ============================================================================
+
+    /**
+     * Get the HA-translated display state for an entity.
+     * Respects device_class: e.g. binary_sensor door → "Open"/"Closed" instead of "on"/"off".
+     * This matches what native HA cards (Entities, Tile, etc.) show.
+     *
+     * IMPORTANT: Never use this for state classification logic (active/inactive).
+     * State classification must always use the raw entity.state value.
+     *
+     * @param {Object} [entity] - Entity state object (defaults to this._entity)
+     * @returns {string} Human-readable state label
+     * @protected
+     */
+    _getStateDisplay(entity = null) {
+        return haFormatState(this.hass, entity || this._entity);
+    }
+
+    /**
+     * Get the HA-formatted friendly name for an entity.
+     * @param {Object} [entity] - Entity state object (defaults to this._entity)
+     * @returns {string} Entity display name
+     * @protected
+     */
+    _getEntityName(entity = null) {
+        return haFormatEntityName(this.hass, entity || this._entity);
+    }
+
+    /**
+     * Get the HA-formatted display value for an entity attribute.
+     * e.g. battery_level 80 → "80 %", duration 3600 → "1 hour"
+     * @param {string} key - Attribute key
+     * @param {Object} [entity] - Entity state object (defaults to this._entity)
+     * @returns {string} Formatted attribute value
+     * @protected
+     */
+    _getAttributeDisplay(key, entity = null) {
+        return haFormatAttrValue(this.hass, entity || this._entity, key);
+    }
+
+    /**
+     * Get the HA-formatted display name for an attribute key.
+     * e.g. "battery_level" → "Battery Level"
+     * @param {string} key - Attribute key
+     * @param {Object} [entity] - Entity state object (defaults to this._entity)
+     * @returns {string} Formatted attribute name
+     * @protected
+     */
+    _getAttributeName(key, entity = null) {
+        return haFormatAttrName(this.hass, entity || this._entity, key);
     }
 
     // ============================================================================
