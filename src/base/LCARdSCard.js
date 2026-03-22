@@ -31,13 +31,7 @@ import {
     haFormatState,
     haFormatEntityName,
     haFormatAttrValue,
-    haFormatAttrName,
-    haFormatStateParts,
-    haFormatAttrParts,
-    haFormatNumber,
-    haFormatDate,
-    joinParts,
-    extractUnit
+    haFormatAttrName
 } from '../utils/ha-entity-display.js';
 
 /**

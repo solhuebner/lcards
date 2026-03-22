@@ -28,7 +28,7 @@
 import { lcardsLog } from '../utils/lcards-logging.js';
 import { deepMerge } from '../utils/deepMerge.js';
 import { ColorUtils } from '../core/themes/ColorUtils.js';
-import { haFormatNumber, haFormatDate } from '../utils/ha-entity-display.js';
+import { haFormatNumber } from '../utils/ha-entity-display.js';
 
 export class ApexChartsAdapter {
   /**
