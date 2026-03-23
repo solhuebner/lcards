@@ -203,6 +203,10 @@ export class LCARdSCard extends LCARdSNativeCard {
         this._registeredDataSources = new Set(); // Track datasources registered by this card
         this._datasourceSubscriptions = new Map(); // Track datasource subscriptions (sourceId -> unsubscribe function)
 
+        // Light colour CSS variable state (populated by _updateLightColorVariable)
+        this._lightColorValue = null;   // Cached resolved colour string, or null when light is off
+        this._lightAlphaValue = null;   // Cached brightness scalar (0.0–1.0), or null when light is off
+
         lcardsLog.trace(`[LCARdSCard] Constructor called for ${this._getDisplayId()}`);
     }
 
