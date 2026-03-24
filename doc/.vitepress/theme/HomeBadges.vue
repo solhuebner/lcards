@@ -4,7 +4,7 @@
       <img src="https://img.shields.io/github/v/release/snootched/lcards?display_name=release&logo=startrek&color=37a6d1" alt="GitHub release" />
     </a>
     <a href="https://github.com/snootched/lcards/blob/main/LICENSE" target="_blank" rel="noopener">
-      <img src="https://img.shields.io/github/license/snootched/lcards?logo=opensourceinitiative&logoColor=white" alt="License" />
+       <img src="https://img.shields.io/badge/license-MIT-37a6d1?logo=opensourceinitiative&logoColor=white" alt="license">
     </a>
     <a href="https://github.com/snootched/lcards/commits/main" target="_blank" rel="noopener">
       <img src="https://img.shields.io/github/last-commit/snootched/lcards?style=default&logo=git&logoColor=white&color=37a6d1" alt="Last commit" />
