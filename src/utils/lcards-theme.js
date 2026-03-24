@@ -95,15 +95,24 @@ export function resolveThemeTokensRecursive(obj, themeManager) {
           lcardsLog.warn(`[resolveThemeTokensRecursive] Theme token not found: '${value}' - using as literal value`);
         }
       } else if (value.includes('(') && /^(alpha|darken|lighten|saturate|desaturate|mix)\(/.test(value)) {
-        // Resolve computed token (all ColorUtils functions)
-        try {
-          const resolved = themeManager.resolver.resolve(value, value);
-          if (resolved !== value) {
-            result[key] = resolved;
-            lcardsLog.trace(`[resolveThemeTokensRecursive] Resolved computed token: ${value} -> ${resolved}`);
+        // Skip computed tokens that reference match-light or match-brightness — these are
+        // per-card runtime tokens resolved at render time by _resolveMatchLightColor().
+        // Eagerly evaluating them here would corrupt the stored value (ColorUtils functions
+        // cannot parse the 'match-light' placeholder string).
+        if (value.includes('match-light') || value.includes('match-brightness')) {
+          // Leave as-is; _resolveMatchLightColor() handles these at render time
+          lcardsLog.trace(`[resolveThemeTokensRecursive] Skipping match-light/brightness computed token: ${value}`);
+        } else {
+          // Resolve computed token (all ColorUtils functions)
+          try {
+            const resolved = themeManager.resolver.resolve(value, value);
+            if (resolved !== value) {
+              result[key] = resolved;
+              lcardsLog.trace(`[resolveThemeTokensRecursive] Resolved computed token: ${value} -> ${resolved}`);
+            }
+          } catch (error) {
+            lcardsLog.warn(`[resolveThemeTokensRecursive] Failed to resolve computed token: ${value}`, error);
           }
-        } catch (error) {
-          lcardsLog.warn(`[resolveThemeTokensRecursive] Failed to resolve computed token: ${value}`, error);
         }
       }
     } else if (value && typeof value === 'object') {

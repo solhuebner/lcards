@@ -753,6 +753,14 @@ export class LCARdSCard extends LCARdSNativeCard {
     async _onConnected() {
         super._onConnected();
 
+        // Re-populate the per-card light-colour CSS variable when the card reconnects
+        // (e.g. after HA enters/exits edit mode). _onHassChanged is NOT re-fired on
+        // reconnect unless HASS itself changes, so the variable removed by
+        // _cleanupLightColorVariable() in _onDisconnected would never be recreated.
+        if (this._entity) {
+            this._updateLightColorVariable();
+        }
+
         // Re-establish ResizeObserver + window listener if auto-sizing was enabled
         // but the observer was cleaned up during a previous disconnect.
         // (Lit's firstUpdated only fires once, so _setupAutoSizing won't be called
@@ -3137,18 +3145,49 @@ export class LCARdSCard extends LCARdSNativeCard {
      */
     _resolveMatchLightColor(value) {
         if (typeof value !== 'string') return value;
+        if (!value.includes('match-light') && !value.includes('match-brightness')) return value;
+
         let result = value;
-        if (result.includes('match-light')) {
-            // Replace all occurrences so it works both as a bare value ('match-light')
-            // and as an argument inside a computed expression
-            // e.g. 'darken(match-light, 0.5)' → 'darken(var(--lcards-light-color-{guid}), 0.5)'
-            result = result.replace(/match-light/g, `var(--lcards-light-color-${this._cardGuid})`);
-        }
+
+        // Substitute match-brightness with the cached concrete alpha scalar (0.0–1.0).
+        // Using a concrete float (not a CSS var) lets ColorUtils.alpha() compute the
+        // final rgba() / color-mix() value correctly, and ensures brightness changes
+        // are reflected each render without ThemeTokenResolver cache interference.
         if (result.includes('match-brightness')) {
-            // Replace match-brightness with the per-card alpha CSS variable
-            // e.g. 'alpha(match-light, match-brightness)' → 'alpha(var(--lcards-light-color-{guid}), var(--lcards-light-alpha-{guid}))'
-            result = result.replace(/match-brightness/g, `var(--lcards-light-alpha-${this._cardGuid})`);
+            const alpha = this._lightAlphaValue ?? 1.0;
+            result = result.replace(/match-brightness/g, String(alpha));
         }
+
+        // Substitute match-light with the cached concrete color when available.
+        // Concrete values allow computed wrappers like alpha() to be fully resolved
+        // to a valid CSS color. Fall back to the CSS variable reference so that a
+        // plain 'match-light' (no alpha wrapper) still reacts to CSS-var changes
+        // even before the first _updateLightColorVariable() call.
+        if (result.includes('match-light')) {
+            const lightColor = this._lightColorValue;
+            if (lightColor) {
+                result = result.replace(/match-light/g, lightColor);
+            } else {
+                // No concrete value yet — use CSS variable reference as fallback
+                result = result.replace(/match-light/g, `var(--lcards-light-color-${this._cardGuid})`);
+            }
+        }
+
+        // If the substitution left a computed expression (e.g. alpha(rgb(…), 0.784)),
+        // resolve it now to a valid CSS value via ThemeTokenResolver.
+        // Since match-light/brightness are replaced with concrete values, the resulting
+        // expression is stable and ThemeTokenResolver caching is safe.
+        if (/^(alpha|darken|lighten|saturate|desaturate|mix)\(/.test(result)) {
+            const resolver = window.lcards?.core?.themeManager?.resolver;
+            if (resolver) {
+                const resolved = resolver.resolve(result, result);
+                if (resolved !== result) {
+                    lcardsLog.trace(`[LCARdSCard] _resolveMatchLightColor resolved computed: ${result} -> ${resolved}`);
+                    return resolved;
+                }
+            }
+        }
+
         return result;
     }
 

@@ -78,9 +78,11 @@ export function resolveStateColor({ actualState, classifiedState, colorConfig, f
                    colorConfig.default ||
                    fallback;
 
-    // Resolve computed tokens (e.g., "darken(var(--lcards-orange), 0.2)") via ThemeTokenResolver
-    // This enables computed color tokens created in the color picker to work everywhere
-    if (resolved && window.lcards?.core?.themeManager?.resolver) {
+    // Resolve computed tokens (e.g., "darken(var(--lcards-orange), 0.2)") via ThemeTokenResolver.
+    // Skip match-light/match-brightness tokens — these are per-card runtime placeholders that
+    // must not be evaluated here; _resolveMatchLightColor() handles them at render time.
+    if (resolved && window.lcards?.core?.themeManager?.resolver &&
+        !String(resolved).includes('match-light') && !String(resolved).includes('match-brightness')) {
         resolved = window.lcards.core.themeManager.resolver.resolve(resolved, resolved);
     }
 

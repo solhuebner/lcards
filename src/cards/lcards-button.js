@@ -3162,10 +3162,14 @@ export class LCARdSButton extends LCARdSCard {
      * @returns {string|number|null} Current background color based on entity state
      */
     _getCurrentEntityStateColor() {
-        return this._resolveEntityStateColor(
+        const color = this._resolveEntityStateColor(
             this._buttonStyle?.card?.color?.background,
             'var(--lcars-orange, #FF9900)'
         );
+        // Resolve match-light / match-brightness tokens to concrete CSS values so that
+        // the restore color applied to element.style.fill on mouse-leave is valid CSS.
+        // Without this, hover-off would set fill='match-light' → browser ignores → black.
+        return this._resolveMatchLightColor(color);
     }
 
     /**
