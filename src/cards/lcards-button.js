@@ -2367,6 +2367,16 @@ export class LCARdSButton extends LCARdSCard {
     }
 
     /**
+     * Re-resolve button style whenever the light-colour CSS variable changes
+     * so the button immediately reflects the current light colour.
+     * @protected
+     * @override
+     */
+    _onLightColorChanged() {
+        this._resolveButtonStyleSync();
+    }
+
+    /**
      * Resolve button style with full priority chain
      *
      * Follows CB-LCARS schema:

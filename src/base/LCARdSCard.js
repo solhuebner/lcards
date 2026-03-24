@@ -203,6 +203,10 @@ export class LCARdSCard extends LCARdSNativeCard {
         this._registeredDataSources = new Set(); // Track datasources registered by this card
         this._datasourceSubscriptions = new Map(); // Track datasource subscriptions (sourceId -> unsubscribe function)
 
+        // Light colour CSS variable state (populated by _updateLightColorVariable)
+        this._lightColorValue = null;   // Cached resolved colour string, or null when light is off
+        this._lightAlphaValue = null;   // Cached brightness scalar (0.0–1.0), or null when light is off
+
         lcardsLog.trace(`[LCARdSCard] Constructor called for ${this._getDisplayId()}`);
     }
 
@@ -3034,9 +3038,11 @@ export class LCARdSCard extends LCARdSNativeCard {
 
         // Check if light is on
         if (this._entity.state !== 'on') {
-            // Light is off, remove variable or set to default
+            // Light is off, remove variables
             document.documentElement.style.removeProperty(varName);
+            document.documentElement.style.removeProperty(`--lcards-light-alpha-${this._cardGuid}`);
             this._lightColorValue = null;
+            this._lightAlphaValue = null;
             this._onLightColorChanged();
             return;
         }
@@ -3062,6 +3068,12 @@ export class LCARdSCard extends LCARdSNativeCard {
             // More sophisticated conversion could be added
             color = '#ffd89b';
         }
+        // Brightness-only light (no colour capability) — derive a warm white scaled to brightness
+        else {
+            const b = this._entity.attributes.brightness ?? 255;
+            const level = Math.round((b / 255) * 255);
+            color = `rgb(${level}, ${Math.round(level * 0.97)}, ${Math.round(level * 0.85)})`;
+        }
 
         // Set the CSS variable and cache the value on the instance so subclasses
         // can embed the resolved colour directly in generated markup (e.g. slider
@@ -3071,6 +3083,14 @@ export class LCARdSCard extends LCARdSNativeCard {
             this._lightColorValue = color;
             lcardsLog.trace(`[LCARdSCard] Set light color variable ${varName} = ${color}`);
         }
+
+        // Export brightness as a 0.0–1.0 alpha scalar for 'match-brightness' token support
+        const alphaVarName = `--lcards-light-alpha-${this._cardGuid}`;
+        const brightness = this._entity.attributes.brightness ?? 255;
+        const alpha = (brightness / 255).toFixed(3);
+        document.documentElement.style.setProperty(alphaVarName, alpha);
+        this._lightAlphaValue = parseFloat(alpha);
+        lcardsLog.trace(`[LCARdSCard] Set light alpha variable ${alphaVarName} = ${alpha}`);
 
         // Notify subclasses that the light colour may have changed so they can
         // bust any render caches that embedded the old resolved value.
@@ -3098,6 +3118,7 @@ export class LCARdSCard extends LCARdSNativeCard {
         if (this._cardGuid) {
             const varName = `--lcards-light-color-${this._cardGuid}`;
             document.documentElement.style.removeProperty(varName);
+            document.documentElement.style.removeProperty(`--lcards-light-alpha-${this._cardGuid}`);
             lcardsLog.trace(`[LCARdSCard] Cleaned up light color variable ${varName}`);
         }
     }
@@ -3115,13 +3136,20 @@ export class LCARdSCard extends LCARdSNativeCard {
      * @protected
      */
     _resolveMatchLightColor(value) {
-        if (typeof value === 'string' && value.includes('match-light')) {
+        if (typeof value !== 'string') return value;
+        let result = value;
+        if (result.includes('match-light')) {
             // Replace all occurrences so it works both as a bare value ('match-light')
             // and as an argument inside a computed expression
             // e.g. 'darken(match-light, 0.5)' → 'darken(var(--lcards-light-color-{guid}), 0.5)'
-            return value.replace(/match-light/g, `var(--lcards-light-color-${this._cardGuid})`);
+            result = result.replace(/match-light/g, `var(--lcards-light-color-${this._cardGuid})`);
         }
-        return value;
+        if (result.includes('match-brightness')) {
+            // Replace match-brightness with the per-card alpha CSS variable
+            // e.g. 'alpha(match-light, match-brightness)' → 'alpha(var(--lcards-light-color-{guid}), var(--lcards-light-alpha-{guid}))'
+            result = result.replace(/match-brightness/g, `var(--lcards-light-alpha-${this._cardGuid})`);
+        }
+        return result;
     }
 
     /**
