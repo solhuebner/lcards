@@ -2049,31 +2049,15 @@ export class LCARdSCard extends LCARdSNativeCard {
             };
         }
 
-        // Parse prefix:name format
+        // Parse prefix:name format — preserves any icon set prefix (mdi, si, hue, phu, etc.)
+        // so ha-icon can resolve it correctly regardless of source.
         if (iconString.includes(':')) {
             const [prefix, name] = iconString.split(':', 2);
-
-            switch (prefix.toLowerCase()) {
-                case 'mdi':
-                    return {
-                        type: 'mdi',
-                        icon: name // Just the name without prefix
-                        // position, size and color will be resolved from theme tokens
-                    };
-                case 'si':
-                    return {
-                        type: 'si',
-                        icon: name // Just the name without prefix
-                        // position, size and color will be resolved from theme tokens
-                    };
-                default:
-                    // Unknown prefix, treat as MDI
-                    return {
-                        type: 'mdi',
-                        icon: name
-                        // position, size and color will be resolved from theme tokens
-                    };
-            }
+            return {
+                type: prefix.toLowerCase(),
+                icon: name
+                // position, size and color will be resolved from theme tokens
+            };
         }
 
         // Plain name - assume MDI

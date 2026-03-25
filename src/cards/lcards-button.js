@@ -3460,7 +3460,7 @@ export class LCARdSButton extends LCARdSCard {
      * @returns {Object} { markup: string, widthUsed: number } - Icon markup and horizontal space used
      * @protected
      */
-    _generateAreaBasedIconMarkup(iconConfig, buttonWidth, buttonHeight) {
+    _generateAreaBasedIconMarkup(iconConfig, buttonWidth, buttonHeight, shapeClipId = null) {
         // Handle null/undefined iconConfig
         if (!iconConfig) {
             return { markup: '', widthUsed: 0 };
@@ -3471,11 +3471,11 @@ export class LCARdSButton extends LCARdSCard {
         // Route to appropriate implementation based on area orientation
         if (iconArea === 'top' || iconArea === 'bottom') {
             // Top/bottom areas use horizontal divider
-            return this._generateIconMarkupTopBottom(iconConfig, buttonWidth, buttonHeight, iconArea);
+            return this._generateIconMarkupTopBottom(iconConfig, buttonWidth, buttonHeight, iconArea, shapeClipId);
         } else {
             // Left/right areas use vertical divider (existing implementation)
             const legacyPosition = iconArea === 'right' ? 'right' : 'left';
-            return this._generateIconMarkup(iconConfig, buttonWidth, buttonHeight, legacyPosition);
+            return this._generateIconMarkup(iconConfig, buttonWidth, buttonHeight, legacyPosition, shapeClipId);
         }
     }
 
@@ -3483,7 +3483,7 @@ export class LCARdSButton extends LCARdSCard {
      * Generate icon markup for top/bottom area-based positioning with horizontal divider
      * @private
      */
-    _generateIconMarkupTopBottom(iconConfig, buttonWidth, buttonHeight, area) {
+    _generateIconMarkupTopBottom(iconConfig, buttonWidth, buttonHeight, area, shapeClipId = null) {
         if (!iconConfig) return { markup: '', widthUsed: 0 };
 
         const requestedSize = iconConfig.size || 24; // Visual icon size
@@ -3571,11 +3571,12 @@ export class LCARdSButton extends LCARdSCard {
         if (areaBackground && areaBackground !== 'transparent') {
             const areaX = strokeWidth;
             const areaWidth = availableWidth;
+            const clipAttr = shapeClipId ? ` clip-path="url(#${shapeClipId})"` : '';
             areaBackgroundMarkup = `
                 <rect x="${areaX}" y="${areaY}"
                       width="${areaWidth}" height="${iconAreaHeight}"
                       fill="${areaBackground}"
-                      class="icon-area-background" />
+                      class="icon-area-background"${clipAttr} />
             `;
         }
 
@@ -3589,7 +3590,8 @@ export class LCARdSButton extends LCARdSCard {
 
         // Determine icon type and rendering
         let iconElement = '';
-        if (iconConfig.type === 'entity' || iconConfig.type === 'mdi' || iconConfig.type === 'si') {
+        if (iconConfig.type) {
+            // Accepts any icon set: mdi, si, entity, and custom third-party sets (e.g. hue:, phu:)
             const iconName = iconConfig.type === 'entity'
                 ? (this._entity?.attributes?.icon || 'mdi:help-circle')
                 : `${iconConfig.type}:${iconConfig.icon}`;
@@ -3634,7 +3636,7 @@ export class LCARdSButton extends LCARdSCard {
      * @deprecated - Will be replaced by _generateAreaBasedIconMarkup with proper icon.position support
      * @private
      */
-    _generateIconMarkup(iconConfig, buttonWidth, buttonHeight, position) {
+    _generateIconMarkup(iconConfig, buttonWidth, buttonHeight, position, shapeClipId = null) {
         if (!iconConfig) return { markup: '', widthUsed: 0 };
 
         const requestedSize = iconConfig.size || 24; // Visual icon size
@@ -3680,8 +3682,8 @@ export class LCARdSButton extends LCARdSCard {
 
             // Determine icon type and rendering
             let iconElement = '';
-            if (iconConfig.type === 'entity' || iconConfig.type === 'mdi' || iconConfig.type === 'si') {
-                // Resolve 'entity' type to actual entity icon
+            if (iconConfig.type) {
+                // Accepts any icon set: mdi, si, entity, and custom third-party sets (e.g. hue:, phu:)
                 const iconName = iconConfig.type === 'entity'
                     ? (this._entity?.attributes?.icon || 'mdi:help-circle')
                     : `${iconConfig.type}:${iconConfig.icon}`;
@@ -3788,11 +3790,12 @@ export class LCARdSButton extends LCARdSCard {
                 const areaY = strokeWidth;
                 const areaWidth = iconAreaWidth;
                 const areaHeight = availableHeight;
+                const clipAttr = shapeClipId ? ` clip-path="url(#${shapeClipId})"` : '';
                 areaBackgroundMarkup = `
                     <rect x="${areaX}" y="${areaY}"
                           width="${areaWidth}" height="${areaHeight}"
                           fill="${areaBackground}"
-                          class="icon-area-background" />
+                          class="icon-area-background"${clipAttr} />
                 `;
             }
 
@@ -3817,8 +3820,8 @@ export class LCARdSButton extends LCARdSCard {
 
             // Determine icon type and rendering
             let iconElement = '';
-            if (iconConfig.type === 'entity' || iconConfig.type === 'mdi' || iconConfig.type === 'si') {
-                // Resolve 'entity' type to actual entity icon
+            if (iconConfig.type) {
+                // Accepts any icon set: mdi, si, entity, and custom third-party sets (e.g. hue:, phu:)
                 const iconName = iconConfig.type === 'entity'
                     ? (this._entity?.attributes?.icon || 'mdi:help-circle')
                     : `${iconConfig.type}:${iconConfig.icon}`;
@@ -4240,6 +4243,41 @@ export class LCARdSButton extends LCARdSCard {
         border.bottomLeft = Math.min(border.bottomLeft, maxRadius);
         border.radius = Math.min(border.radius, maxRadius);
 
+        // Determine button shape mode FIRST — needed for shape clip-path generation
+        // which must be passed into icon markup generators.
+
+        // Determine if we need complex path rendering
+        const needsComplexPath = border.hasIndividualRadius || border.hasIndividualSides;
+
+        // Check for custom SVG path first (chevrons, trapezoids, etc.)
+        const customPathData = this._getCustomPath(this._buttonStyle);
+
+        // Normalize custom path if provided
+        let normalizedPath = null;
+        if (customPathData) {
+            normalizedPath = this._normalizePathTo100(
+                customPathData.path,
+                customPathData.preserveAspectRatio
+            );
+        }
+
+        // Build a <clipPath> that matches the button's outer shape.
+        // This is applied to icon-area background rects so they stay within
+        // rounded/lozenge corners instead of rendering as plain squares.
+        // Only needed for area-based icons with a non-transparent background.
+        const shapeClipId = `btn-shape-${this._cardGuid}`;
+        let shapeClipMarkup = '';
+        if (!this._processedSvg) {
+            if (normalizedPath) {
+                shapeClipMarkup = `<clipPath id="${shapeClipId}"><path d="${normalizedPath}"/></clipPath>`;
+            } else if (needsComplexPath) {
+                const clipShapePath = this._generateComplexBorderPath(width, height, border, 0);
+                shapeClipMarkup = `<clipPath id="${shapeClipId}"><path d="${clipShapePath}"/></clipPath>`;
+            } else {
+                shapeClipMarkup = `<clipPath id="${shapeClipId}"><rect x="0" y="0" width="${width}" height="${height}" rx="${border.radius}" ry="${border.radius}"/></clipPath>`;
+            }
+        }
+
         // Generate icon markup if present
         const iconArea = this._processedIcon?.area || 'left';
         const iconPosition = this._processedIcon?.position || 'center';
@@ -4263,7 +4301,7 @@ export class LCARdSButton extends LCARdSCard {
                 iconData = this._generateFlexibleIconMarkup(this._processedIcon, width, height);
             } else {
                 // Area-based positioning: icon_area is left/right/top/bottom
-                iconData = this._generateAreaBasedIconMarkup(this._processedIcon, width, height);
+                iconData = this._generateAreaBasedIconMarkup(this._processedIcon, width, height, shapeClipId);
             }
         }
 
@@ -4273,21 +4311,6 @@ export class LCARdSButton extends LCARdSCard {
             const textAreaWidth = width - iconData.widthUsed;
             const textAreaStart = iconArea === 'left' ? iconData.widthUsed : 0;
             textX = textAreaStart + (textAreaWidth / 2);
-        }
-
-        // Determine if we need complex path rendering
-        const needsComplexPath = border.hasIndividualRadius || border.hasIndividualSides;
-
-        // Check for custom SVG path first (chevrons, trapezoids, etc.)
-        const customPathData = this._getCustomPath(this._buttonStyle);
-
-        // Normalize custom path if provided
-        let normalizedPath = null;
-        if (customPathData) {
-            normalizedPath = this._normalizePathTo100(
-                customPathData.path,
-                customPathData.preserveAspectRatio
-            );
         }
 
         // Generate button background (fill only, no stroke)
@@ -4374,6 +4397,7 @@ export class LCARdSButton extends LCARdSCard {
 
         const svgString = `
             <svg ${svgAttrs}>
+                ${shapeClipMarkup ? `<defs>${shapeClipMarkup}</defs>` : ''}
                 <g ${gAttrs}>
                     ${backgroundMarkup}
                     ${textureMarkup}
