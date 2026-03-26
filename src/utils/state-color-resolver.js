@@ -9,6 +9,65 @@
  */
 
 /**
+ * Evaluate numeric range-keyed color conditions, picking the most specific match.
+ *
+ * Supported key formats:
+ *   above:N      → value > N  (strictly greater)
+ *   below:N      → value < N  (strictly less)
+ *   between:N:M  → N <= value <= M  (inclusive both ends)
+ *
+ * Specificity order for overlapping matches:
+ *   1. between — sorted by range width ascending  (narrowest wins)
+ *   2. above   — sorted by threshold descending   (highest threshold wins)
+ *   3. below   — sorted by threshold ascending    (lowest threshold wins)
+ *
+ * @param {number} value - The numeric entity state value
+ * @param {Object} colorConfig - The color config object containing possible range keys
+ * @returns {string|undefined} Matched color value, or undefined if no range matches
+ */
+function _resolveRangeColor(value, colorConfig) {
+    const candidates = [];
+
+    for (const key of Object.keys(colorConfig)) {
+        if (key.startsWith('above:')) {
+            const threshold = parseFloat(key.slice(6));
+            if (!isNaN(threshold) && value > threshold) {
+                candidates.push({ type: 'above', threshold, key });
+            }
+        } else if (key.startsWith('below:')) {
+            const threshold = parseFloat(key.slice(6));
+            if (!isNaN(threshold) && value < threshold) {
+                candidates.push({ type: 'below', threshold, key });
+            }
+        } else {
+            const m = key.match(/^between:(-?[\d.]+):(-?[\d.]+)$/);
+            if (m) {
+                const lo = parseFloat(m[1]), hi = parseFloat(m[2]);
+                if (!isNaN(lo) && !isNaN(hi) && value >= lo && value <= hi) {
+                    candidates.push({ type: 'between', lo, hi, width: hi - lo, key });
+                }
+            }
+        }
+    }
+
+    if (candidates.length === 0) return undefined;
+
+    // Sort by specificity: between (narrowest first) > above (highest threshold first) > below (lowest threshold first)
+    const typePriority = { between: 0, above: 1, below: 2 };
+    candidates.sort((a, b) => {
+        if (typePriority[a.type] !== typePriority[b.type]) {
+            return typePriority[a.type] - typePriority[b.type];
+        }
+        if (a.type === 'between') return a.width - b.width;
+        if (a.type === 'above')   return b.threshold - a.threshold;
+        if (a.type === 'below')   return a.threshold - b.threshold;
+        return 0;
+    });
+
+    return colorConfig[candidates[0].key];
+}
+
+/**
  * Resolve a state-based color value
  *
  * Automatically resolves computed color tokens (e.g., "darken(var(--lcards-orange), 0.2)")
@@ -70,10 +129,14 @@ export function resolveStateColor({ actualState, classifiedState, colorConfig, f
 
     // State-based color object - check in priority order:
     // 1. Actual entity state (e.g., "heat", "cool", "playing")
-    // 2. Numeric virtual states: "zero" (state == 0) / "non_zero" (state != 0)
-    // 3. Classified state (e.g., "active", "inactive", "unavailable")
-    // 4. Default state
-    // 5. Fallback parameter
+    // 2. "zero" — exact numeric zero match (value === 0); treated like an exact-match key
+    // 3. Range conditions (above:N, below:N, between:N:M) — most-specific numeric match wins
+    // 4. "non_zero" — catch-all for any non-zero number (only when no range matched)
+    // 5. Classified state (e.g., "active", "inactive", "unavailable")
+    // 6. Default state / fallback parameter
+    //
+    // "zero" comes before ranges because it is an exact condition (value === 0), not a range.
+    // "non_zero" comes after ranges because it is a catch-all fallback.
     //
     // NOTE: Use !== undefined throughout to avoid silently skipping falsy color
     // values (e.g., an empty string reset or a future numeric token).
@@ -84,24 +147,36 @@ export function resolveStateColor({ actualState, classifiedState, colorConfig, f
         resolved = colorConfig[actualState];
     }
 
-    // 2. Numeric virtual state matching
+    // 2. "zero" — exact numeric zero (higher specificity than any range)
     if (resolved === undefined) {
         const numericVal = parseFloat(actualState);
-        if (!isNaN(numericVal)) {
-            if (numericVal === 0 && colorConfig.zero !== undefined) {
-                resolved = colorConfig.zero;
-            } else if (numericVal !== 0 && colorConfig.non_zero !== undefined) {
-                resolved = colorConfig.non_zero;
-            }
+        if (!isNaN(numericVal) && numericVal === 0 && colorConfig.zero !== undefined) {
+            resolved = colorConfig.zero;
         }
     }
 
-    // 3. Classified state (active / inactive / unavailable / default)
+    // 3. Range conditions (above:N, below:N, between:N:M) — most-specific match wins
+    if (resolved === undefined) {
+        const numericVal = parseFloat(actualState);
+        if (!isNaN(numericVal)) {
+            resolved = _resolveRangeColor(numericVal, colorConfig);
+        }
+    }
+
+    // 4. "non_zero" — catch-all for any non-zero number (no range matched)
+    if (resolved === undefined) {
+        const numericVal = parseFloat(actualState);
+        if (!isNaN(numericVal) && numericVal !== 0 && colorConfig.non_zero !== undefined) {
+            resolved = colorConfig.non_zero;
+        }
+    }
+
+    // 4. Classified state (active / inactive / unavailable / default)
     if (resolved === undefined && classifiedState != null && colorConfig[classifiedState] !== undefined) {
         resolved = colorConfig[classifiedState];
     }
 
-    // 4. Default / fallback
+    // 5. Default / fallback
     if (resolved === undefined) {
         resolved = colorConfig.default !== undefined ? colorConfig.default : fallback;
     }

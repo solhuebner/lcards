@@ -57,8 +57,12 @@ export class LCARdSColorSectionV2 extends LitElement {
             variablePrefixes: { type: Array },
 
             // Internal state
-            _expandedStates: { type: Set, state: true },
-            _customStateInput: { type: String, state: true }
+            _expandedStates: { attribute: false, state: true },
+            _customStateInput: { type: String, state: true },
+            _rangeOperator: { type: String, state: true },
+            _rangeMin: { type: String, state: true },
+            _rangeMax: { type: String, state: true },
+            _guideExpanded: { type: Boolean, state: true }
         };
     }
 
@@ -77,6 +81,10 @@ export class LCARdSColorSectionV2 extends LitElement {
         this.variablePrefixes = ['--lcards-', '--lcars-', '--cblcars-'];
         this._expandedStates = new Set();
         this._customStateInput = '';
+        this._rangeOperator = 'above';
+        this._rangeMin = '';
+        this._rangeMax = '';
+        this._guideExpanded = false;
 
         lcardsLog.debug('[ColorSectionV2] Initialized', {
             basePath: this.basePath,
@@ -97,10 +105,43 @@ export class LCARdSColorSectionV2 extends LitElement {
                     background: var(--primary-background-color);
                     border: 1px solid var(--divider-color);
                     border-radius: var(--ha-card-border-radius, 12px);
-                    padding: 12px;
                     margin-bottom: 12px;
                     margin-top: 12px;
                     font-size: 13px;
+                    overflow: hidden;
+                }
+
+                .state-mapping-info-header {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 10px 12px;
+                    cursor: pointer;
+                    user-select: none;
+                    color: var(--primary-color);
+                    font-weight: 500;
+                }
+
+                .state-mapping-info-header:hover {
+                    background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.06);
+                }
+
+                .state-mapping-info-header ha-icon {
+                    flex-shrink: 0;
+                }
+
+                .state-mapping-info-header .guide-chevron {
+                    margin-left: auto;
+                    transition: transform 0.2s;
+                }
+
+                .state-mapping-info-header .guide-chevron.expanded {
+                    transform: rotate(180deg);
+                }
+
+                .state-mapping-info-body {
+                    padding: 0 12px 12px 12px;
+                    border-top: 1px solid var(--divider-color);
                 }
 
                 .state-mapping-info strong {
@@ -231,6 +272,32 @@ export class LCARdSColorSectionV2 extends LitElement {
                 .editor-item-content lcards-color-picker {
                     position: relative;
                 }
+
+                /* Range condition form */
+                .range-condition-input {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                    padding-top: 12px;
+                    border-top: 1px solid var(--divider-color);
+                }
+
+                .range-condition-row {
+                    display: flex;
+                    gap: 8px;
+                    align-items: flex-end;
+                    flex-wrap: wrap;
+                }
+
+                .range-condition-row ha-selector {
+                    width: 140px;
+                    flex-shrink: 0;
+                }
+
+                .range-condition-row ha-textfield {
+                    flex: 1;
+                    min-width: 80px;
+                }
             `
         ];
     }
@@ -264,24 +331,38 @@ export class LCARdSColorSectionV2 extends LitElement {
                     </div>
                 `}
 
-                <!-- State Mapping Info -->
+                <!-- State Mapping Info (collapsible) -->
                 <div class="state-mapping-info">
-                    <ha-icon icon="mdi:information" style="float: left; margin-right: 8px;"></ha-icon>
-                    <strong>State Mapping Guide:</strong><br>
-                    <br>
-                    Use custom state names (e.g., <code>heat</code>, <code>cool</code>, <code>playing</code>) for exact entity states, or use mapped states:<br>
-                    • <strong>active</strong> → on, locked, open, home, playing, heating, cooling, etc.<br>
-                    • <strong>inactive</strong> → off, paused, idle, stopped, unlocked, closed, etc.<br>
-                    • <strong>unavailable</strong> → unavailable, unknown<br>
-                    • <strong>default</strong> → fallback for all other states
-                    <br><br>
-                    Numeric states (e.g. counts, sensor values):<br>
-                    • <strong>zero</strong> → entity state is exactly 0 (e.g. no lights on, empty count)<br>
-                    • <strong>non_zero</strong> → entity state is any non-zero number, including negatives (e.g. lights on, count &gt; 0, temperatures below 0)<br>
-                    <br>
-                    Special states for interactive elements (if supported):<br>
-                    • <strong>hover</strong> → while hovering<br>
-                    • <strong>pressed</strong> → while pressed<br>
+                    <div class="state-mapping-info-header"
+                         @click=${() => { this._guideExpanded = !this._guideExpanded; }}>
+                        <ha-icon icon="mdi:information-outline"></ha-icon>
+                        <span>State Mapping Guide</span>
+                        <ha-icon
+                            class="guide-chevron ${this._guideExpanded ? 'expanded' : ''}"
+                            icon="mdi:chevron-down">
+                        </ha-icon>
+                    </div>
+                    ${this._guideExpanded ? html`
+                    <div class="state-mapping-info-body">
+                        <br>
+                        Use custom state names (e.g., <code>heat</code>, <code>cool</code>, <code>playing</code>) for exact entity states, or use mapped states:<br>
+                        • <strong>active</strong> → on, locked, open, home, playing, heating, cooling, etc.<br>
+                        • <strong>inactive</strong> → off, paused, idle, stopped, unlocked, closed, etc.<br>
+                        • <strong>unavailable</strong> → unavailable, unknown<br>
+                        • <strong>default</strong> → fallback for all other states
+                        <br><br>
+                        Numeric states (e.g. counts, sensor values):<br>
+                        • <strong>zero</strong> → entity state is exactly 0 — higher priority than ranges<br>
+                        • <strong>above:N</strong> → value &gt; N — e.g. <code>above:50</code><br>
+                        • <strong>below:N</strong> → value &lt; N — e.g. <code>below:20</code><br>
+                        • <strong>between:N:M</strong> → N ≤ value ≤ M — e.g. <code>between:20:80</code><br>
+                        When multiple ranges match, the most specific one wins (narrowest / highest above / lowest below).<br>
+                        • <strong>non_zero</strong> → any non-zero number — catch-all when no range matched<br>
+                        <br>
+                        Interactive element states (if supported by card):<br>
+                        • <strong>hover</strong> · <strong>pressed</strong>
+                    </div>
+                    ` : ''}
                 </div>
 
                 <!-- Add State Controls -->
@@ -421,6 +502,50 @@ export class LCARdSColorSectionV2 extends LitElement {
                         </ha-button>
                     </div>
                 ` : ''}
+
+                <!-- Range Condition Input -->
+                <div class="range-condition-input">
+                    <div class="field-label">Add Range Condition</div>
+                    <div class="range-condition-row">
+                        <ha-selector
+                            .hass=${this.editor.hass}
+                            .label=${'Operator'}
+                            .value=${this._rangeOperator}
+                            .selector=${{
+                                select: {
+                                    mode: 'dropdown',
+                                    options: [
+                                        { value: 'above', label: 'Above (>)' },
+                                        { value: 'below', label: 'Below (<)' },
+                                        { value: 'between', label: 'Between' }
+                                    ]
+                                }
+                            }}
+                            @value-changed=${this._handleRangeOperatorChange}>
+                        </ha-selector>
+                        <ha-textfield
+                            .label=${this._rangeOperator === 'between' ? 'From' : 'Threshold'}
+                            .value=${this._rangeMin}
+                            type="number"
+                            @input=${this._handleRangeMinChange}>
+                        </ha-textfield>
+                        ${this._rangeOperator === 'between' ? html`
+                            <ha-textfield
+                                label="To"
+                                .value=${this._rangeMax}
+                                type="number"
+                                @input=${this._handleRangeMaxChange}>
+                            </ha-textfield>
+                        ` : ''}
+                        <ha-button
+                            variant="brand"
+                            @click=${this._addRangeCondition}
+                            ?disabled=${!this._isValidRangeForm()}>
+                            <ha-icon icon="mdi:plus" slot="start"></ha-icon>
+                            Add
+                        </ha-button>
+                    </div>
+                </div>
             </div>
         `;
     }
@@ -525,6 +650,84 @@ export class LCARdSColorSectionV2 extends LitElement {
         this._customStateInput = '';
 
         lcardsLog.info('[ColorSectionV2] Added custom state', { state: stateName });
+    }
+
+    /**
+     * Handle range operator change
+     * @param {Event} e
+     * @private
+     */
+    _handleRangeOperatorChange(e) {
+        this._rangeOperator = /** @type {CustomEvent} */ (e).detail.value;
+    }
+
+    /**
+     * Handle range min/threshold input
+     * @param {Event} e
+     * @private
+     */
+    _handleRangeMinChange(e) {
+        this._rangeMin = /** @type {HTMLInputElement} */ (e.target).value;
+    }
+
+    /**
+     * Handle range max input (between only)
+     * @param {Event} e
+     * @private
+     */
+    _handleRangeMaxChange(e) {
+        this._rangeMax = /** @type {HTMLInputElement} */ (e.target).value;
+    }
+
+    /**
+     * Validate the current range form inputs
+     * @returns {boolean}
+     * @private
+     */
+    _isValidRangeForm() {
+        const min = parseFloat(this._rangeMin);
+        if (isNaN(min)) return false;
+        if (this._rangeOperator === 'between') {
+            const max = parseFloat(this._rangeMax);
+            if (isNaN(max)) return false;
+            if (min >= max) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Build the DSL key from the current range form state
+     * @returns {string}
+     * @private
+     */
+    _buildRangeKey() {
+        if (this._rangeOperator === 'between') {
+            return `between:${this._rangeMin}:${this._rangeMax}`;
+        }
+        return `${this._rangeOperator}:${this._rangeMin}`;
+    }
+
+    /**
+     * Add the current range condition to the config
+     * @private
+     */
+    _addRangeCondition() {
+        if (!this._isValidRangeForm()) return;
+
+        const key = this._buildRangeKey();
+
+        if (this._hasState(key)) {
+            this._showError(`Range condition "${key}" already exists`);
+            return;
+        }
+
+        this._addState(key);
+
+        // Reset form
+        this._rangeMin = '';
+        this._rangeMax = '';
+
+        lcardsLog.info('[ColorSectionV2] Added range condition', { key });
     }
 
     /**
@@ -679,6 +882,12 @@ export class LCARdSColorSectionV2 extends LitElement {
      * @private
      */
     _formatStateLabel(state) {
+        // Range DSL keys — format for display
+        if (state.startsWith('above:')) return `Above ${state.slice(6)}`;
+        if (state.startsWith('below:')) return `Below ${state.slice(6)}`;
+        const between = state.match(/^between:(-?[\d.]+):(-?[\d.]+)$/);
+        if (between) return `Between ${between[1]}–${between[2]}`;
+
         return state
             .split(/[-_]/)
             .map(word => word.charAt(0).toUpperCase() + word.slice(1))
