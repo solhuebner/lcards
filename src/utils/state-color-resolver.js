@@ -70,13 +70,41 @@ export function resolveStateColor({ actualState, classifiedState, colorConfig, f
 
     // State-based color object - check in priority order:
     // 1. Actual entity state (e.g., "heat", "cool", "playing")
-    // 2. Classified state (e.g., "active", "inactive", "unavailable")
-    // 3. Default state
-    // 4. Fallback parameter
-    let resolved = (actualState && colorConfig[actualState]) ||
-                   colorConfig[classifiedState] ||
-                   colorConfig.default ||
-                   fallback;
+    // 2. Numeric virtual states: "zero" (state == 0) / "non_zero" (state != 0)
+    // 3. Classified state (e.g., "active", "inactive", "unavailable")
+    // 4. Default state
+    // 5. Fallback parameter
+    //
+    // NOTE: Use !== undefined throughout to avoid silently skipping falsy color
+    // values (e.g., an empty string reset or a future numeric token).
+    let resolved;
+
+    // 1. Exact raw state match
+    if (actualState != null && colorConfig[actualState] !== undefined) {
+        resolved = colorConfig[actualState];
+    }
+
+    // 2. Numeric virtual state matching
+    if (resolved === undefined) {
+        const numericVal = parseFloat(actualState);
+        if (!isNaN(numericVal)) {
+            if (numericVal === 0 && colorConfig.zero !== undefined) {
+                resolved = colorConfig.zero;
+            } else if (numericVal !== 0 && colorConfig.non_zero !== undefined) {
+                resolved = colorConfig.non_zero;
+            }
+        }
+    }
+
+    // 3. Classified state (active / inactive / unavailable / default)
+    if (resolved === undefined && classifiedState != null && colorConfig[classifiedState] !== undefined) {
+        resolved = colorConfig[classifiedState];
+    }
+
+    // 4. Default / fallback
+    if (resolved === undefined) {
+        resolved = colorConfig.default !== undefined ? colorConfig.default : fallback;
+    }
 
     // Resolve computed tokens (e.g., "darken(var(--lcards-orange), 0.2)") via ThemeTokenResolver.
     // Skip match-light/match-brightness tokens — these are per-card runtime placeholders that

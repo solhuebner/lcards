@@ -631,7 +631,7 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                                 basePath="style.card.color.background"
                                 header="Background Colours"
                                 description="Card background colour for each state - supports custom states like 'idle', 'buffering', etc."
-                                .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                                .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero', 'hover', 'pressed']}
                                 ?allowCustomStates=${true}
                                 ?expanded=${false}>
                             </lcards-color-section-v2>

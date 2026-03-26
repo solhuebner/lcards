@@ -47,7 +47,7 @@ export class LCARdSColorSection extends LitElement {
         this.basePath = '';
         this.header = 'Colours';
         this.description = '';
-        this.states = ['default', 'active', 'hover', 'disabled'];
+        this.states = ['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero', 'hover', 'disabled'];
         this.expanded = false;
         this.variablePrefixes = ['--lcards-', '--lcars-', '--cblcars-'];
         this.showPreview = true;

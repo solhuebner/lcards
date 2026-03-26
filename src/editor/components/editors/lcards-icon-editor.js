@@ -103,7 +103,7 @@ export class LCARdSIconEditor extends LitElement {
                         basePath="icon_area_background"
                         header="Area Background"
                         description="Background colour for entire icon area (matches legacy cards)"
-                        .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                        .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero']}
                         ?allowCustomStates=${true}
                         ?expanded=${false}>
                     </lcards-color-section-v2>
@@ -176,7 +176,7 @@ export class LCARdSIconEditor extends LitElement {
                         basePath="icon_style.color"
                         header="Icon Colour"
                         description="Foreground icon colour"
-                        .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                        .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero']}
                         ?allowCustomStates=${true}
                         ?expanded=${false}>
                     </lcards-color-section-v2>

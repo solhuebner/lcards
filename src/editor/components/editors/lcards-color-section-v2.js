@@ -71,7 +71,7 @@ export class LCARdSColorSectionV2 extends LitElement {
         this.expanded = false;
         this.allowMatchLight = false;
         this.entityId = '';          // Explicit entity ID for reactivity
-        this.suggestedStates = ['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed'];
+        this.suggestedStates = ['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero', 'hover', 'pressed'];
         this.allowCustomStates = true;
         this.showPreview = true;
         this.variablePrefixes = ['--lcards-', '--lcars-', '--cblcars-'];
@@ -275,6 +275,10 @@ export class LCARdSColorSectionV2 extends LitElement {
                     • <strong>unavailable</strong> → unavailable, unknown<br>
                     • <strong>default</strong> → fallback for all other states
                     <br><br>
+                    Numeric states (e.g. counts, sensor values):<br>
+                    • <strong>zero</strong> → entity state is exactly 0 (e.g. no lights on, empty count)<br>
+                    • <strong>non_zero</strong> → entity state is any non-zero number, including negatives (e.g. lights on, count &gt; 0, temperatures below 0)<br>
+                    <br>
                     Special states for interactive elements (if supported):<br>
                     • <strong>hover</strong> → while hovering<br>
                     • <strong>pressed</strong> → while pressed<br>
@@ -759,30 +763,34 @@ export class LCARdSColorSectionV2 extends LitElement {
             const content = document.createElement('div');
             content.innerHTML = message;
             content.style.padding = '16px';
+            content.style.lineHeight = '1.5';
             dialog.appendChild(content);
 
+            // Cancel button
             const cancelButton = document.createElement('ha-button');
-            cancelButton.slot = 'footer';
             cancelButton.textContent = 'Cancel';
             cancelButton.setAttribute('appearance', 'plain');
             cancelButton.addEventListener('click', () => {
-                // @ts-ignore - TS2551: auto-suppressed
-                dialog.close();
+                // @ts-ignore - TS2339: auto-suppressed
+                dialog.open = false;
                 resolve(false);
             });
 
+            // Confirm button
             const confirmButton = document.createElement('ha-button');
-            confirmButton.slot = 'footer';
             confirmButton.textContent = 'Delete';
             confirmButton.setAttribute('variant', 'danger');
             confirmButton.addEventListener('click', () => {
-                // @ts-ignore - TS2551: auto-suppressed
-                dialog.close();
+                // @ts-ignore - TS2339: auto-suppressed
+                dialog.open = false;
                 resolve(true);
             });
 
-            dialog.appendChild(cancelButton);
-            dialog.appendChild(confirmButton);
+            const footerDiv = document.createElement('div');
+            footerDiv.slot = 'footer';
+            footerDiv.appendChild(cancelButton);
+            footerDiv.appendChild(confirmButton);
+            dialog.appendChild(footerDiv);
 
             dialog.addEventListener('closed', () => {
                 dialog.remove();
