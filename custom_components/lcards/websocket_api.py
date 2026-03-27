@@ -14,7 +14,7 @@ from .const import DOMAIN, DOMAIN_VERSION
 
 def async_setup_ws(hass: HomeAssistant) -> None:
     """Register all LCARdS WebSocket commands."""
-    hass.components.websocket_api.async_register_command(ws_lcards_info)
+    websocket_api.async_register_command(hass, ws_lcards_info)
 
 
 @websocket_api.websocket_command(
