@@ -3,11 +3,24 @@ name: Release
 # Trigger on version tags:
 #   2026.3.25          → stable release
 #   2026.3.25-alpha.1  → pre-release
+#
+# OR run manually from Actions → Release → Run workflow
 on:
   push:
     tags:
       - "[0-9]+.[0-9]+.[0-9]+"
       - "[0-9]+.[0-9]+.[0-9]+-*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 2026.3.25 or 2026.3.25-alpha.1)"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark as pre-release?"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -37,7 +50,7 @@ jobs:
       # Patch manifest.json and const.py in-place before packaging.
       - name: Stamp version from tag
         run: |
-          VERSION="${{ github.ref_name }}"
+          VERSION="${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}"
           echo "📌 Release version: ${VERSION}"
 
           # manifest.json
@@ -96,10 +109,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: lcards.zip
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || contains(github.ref_name, '-') }}
           generate_release_notes: true
           body: |
-            ## LCARdS ${{ github.ref_name }}
+            ## LCARdS ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
 
             ### Installation via HACS (recommended)
             1. Open HACS → Integrations → ⋮ → Custom repositories
