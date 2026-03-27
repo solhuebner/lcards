@@ -22,6 +22,7 @@
     "build:dev": "vite build --mode development",
     "build:integration": "vite build --mode integration && node scripts/copy-assets.js",
     "set-version": "node scripts/set-version.js",
+    "generate-brand-icon": "node scripts/generate-brand-icon.js",
     "typecheck": "tsc --pretty false 2>&1 | sort",
     "create-editor": "node tools/create-editor.js",
     "docs:build": "vitepress build doc",
