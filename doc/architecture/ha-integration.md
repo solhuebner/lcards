@@ -55,11 +55,12 @@ graph TB
 
 | File | Responsibility |
 |------|---------------|
-| `__init__.py` | Entry point — wires up static paths, JS injection, sidebar panel, WS commands, and options update listener |
-| `frontend.py` | Registers static HTTP paths and injects `lcards.js` into every HA frontend session |
-| `config_flow.py` | Initial setup flow (single-instance, no user input) + options flow (sidebar toggle) |
-| `websocket_api.py` | Registers `lcards/info` WebSocket command |
-| `const.py` | Shared constants: `DOMAIN`, `DOMAIN_VERSION`, `CONF_SHOW_PANEL`, `DEFAULT_SHOW_PANEL` |
+| `__init__.py` | Entry point — wires up static paths, JS injection, sidebar panel, storage init, WS commands, log level, and options update listener |
+| `frontend.py` | Registers static HTTP paths and injects `lcards.js` (with `?log=` param) into every HA frontend session |
+| `config_flow.py` | Initial setup flow (single-instance, no user input) + options flow (panel, log level, sidebar customisation) |
+| `websocket_api.py` | Registers `lcards/info` and all `lcards/storage/*` WebSocket commands |
+| `storage.py` | `LCARdSStorage` — HA Store-backed flat key/value persistence (`.storage/lcards`) |
+| `const.py` | Shared constants: `DOMAIN`, `DOMAIN_VERSION`, option keys, `_LOG_LEVEL_MAP` |
 | `manifest.json` | HACS/HA integration manifest — domain, version (HA CalVer), dependencies |
 | `strings.json` + `translations/en.json` | UI strings for the config and options dialog |
 
@@ -83,10 +84,12 @@ Runs at HA startup before any config entry is loaded. Registers infrastructure t
 
 Runs when the integration is configured (after initial setup or on restart):
 
-1. **JS injection** — `add_extra_js_url` loads `lcards.js` on every HA page
-2. **Lovelace resource** — registers the script for Cast / kiosk support
-3. **Sidebar panel** — `async_register_built_in_panel` if `show_panel` option is `True`
-4. **Options listener** — `entry.add_update_listener()` triggers an entry reload when the user saves new options, applying changes without an HA restart
+1. **Log level** — maps the `log_level` option to a Python `logging` level and calls `setLevel()` on the `custom_components.lcards` parent logger, cascading to all child loggers
+2. **Storage init** — creates `LCARdSStorage`, loads `.storage/lcards` from disk, stores the instance at `hass.data["lcards"]["storage"]`
+3. **JS injection** — `add_extra_js_url` loads `lcards.js?v=...&log=<level>` on every HA page; the `?log=` param lets `lcards.js` read the configured level at module load time via `import.meta.url`
+4. **Lovelace resource** — registers the script for Cast / kiosk support
+5. **Sidebar panel** — `async_register_built_in_panel` with the configured title and icon, if `show_panel` option is `True`
+6. **Options listener** — `entry.add_update_listener()` triggers an entry reload when the user saves new options, applying changes without an HA restart
 
 ### Unload — `async_unload_entry()`
 
@@ -120,23 +123,72 @@ LCARdS enforces a single-instance constraint (`async_set_unique_id(DOMAIN)`). Th
 
 After setup, users configure options via **Settings → Integrations → LCARdS → Configure**:
 
-| Option key | `const.py` | Default | Effect |
-|------------|------------|---------|--------|
-| `show_panel` | `CONF_SHOW_PANEL` | `True` | Register or remove the sidebar panel. Applied immediately via entry reload — no HA restart required. |
+| Option key | `const.py` constant | Default | Effect |
+|------------|---------------------|---------|--------|
+| `show_panel` | `CONF_SHOW_PANEL` | `True` | Register or remove the sidebar panel |
+| `sidebar_title` | `CONF_SIDEBAR_TITLE` | `"LCARdS Config"` | Sidebar label text |
+| `sidebar_icon` | `CONF_SIDEBAR_ICON` | `"mdi:space-invaders"` | Sidebar icon (MDI name) |
+| `log_level` | `CONF_LOG_LEVEL` | `"warn"` | Frontend + backend verbosity — see [Logging](#logging) below |
+
+All changes applied immediately via entry reload — no HA restart required.
 
 ---
 
 ## WebSocket API
 
-The integration registers WebSocket commands under the `lcards/*` namespace:
+The integration registers WebSocket commands under the `lcards/*` namespace via `websocket_api.py`. Commands registered in `async_setup()` (before the config entry) are available immediately after HA start.
 
-| Command type | Handler | Response |
+### `lcards/info`
+
+Backend probe — registered in `async_setup()` so it is always available.
+
+| Command | Registered | Response |
 |---|---|---|
-| `lcards/info` | `ws_lcards_info` | `{ available: true, version: "...", domain: "lcards" }` |
+| `lcards/info` | `async_setup()` | `{ available: true, version: "..." }` |
 
-The `lcards/info` command is the probe used by the JS-side `IntegrationService`. Additional commands for Phase 2 features (theme persistence, Store API) will be added here.
+Used by `IntegrationService` on the JS side to detect backend presence. → See [Integration Service](subsystems/integration-service).
 
-→ See [Integration Service](subsystems/integration-service) for the JS-side counterpart.
+### `lcards/storage/*`
+
+Persistent key/value store — registered in `async_setup()`, but requires the storage instance (initialised in `async_setup_entry()`) to respond.
+
+| Command | Parameters | Response |
+|---|---|---|
+| `lcards/storage/get` | `key?: string` | `{ key, value }` — value is `null` for missing key |
+| `lcards/storage/set` | `data: { [key]: value }` | `{ ok: true, keys: [...] }` |
+| `lcards/storage/delete` | `key: string` | `{ ok: true, existed: bool }` |
+| `lcards/storage/reset` | — | `{ ok: true }` |
+| `lcards/storage/dump` | — | `{ version: 1, data: { ... } }` |
+
+→ Full reference including browser console test snippets: [Persistent Storage](subsystems/storage).
+
+---
+
+## Logging
+
+All integration Python files use `logging.getLogger(__name__)` — the logger hierarchy is `custom_components.lcards.*`.
+
+The `log_level` option controls **both** frontend and backend verbosity:
+
+- **Frontend** — `log_level` is appended as `?log=<level>` to the `add_extra_js_url` script URL. `lcards.js` reads it from `import.meta.url` at module load time (before the banner). The page URL parameter `?lcards_log_level=` overrides it for the current session.
+- **Backend** — `async_setup_entry()` maps the level string to a Python `logging` level via `_LOG_LEVEL_MAP` and calls `setLevel()` on `custom_components.lcards`, cascading to all child loggers.
+
+| lcards level | Python level |
+|---|---|
+| `off` | `CRITICAL + 1` (effectively silent) |
+| `error` | `ERROR` |
+| `warn` | `WARNING` |
+| `info` | `INFO` |
+| `debug` | `DEBUG` |
+| `trace` | `DEBUG` |
+
+You can also override the Python log level independently via `configuration.yaml`:
+
+```yaml
+logger:
+  logs:
+    custom_components.lcards: debug
+```
 
 ---
 
