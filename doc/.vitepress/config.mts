@@ -174,6 +174,7 @@ export default withMermaid(defineConfig({
         activeMatch: '/architecture/',
         items: [
           { text: 'Systems Overview',   link: '/architecture/systems-arch' },
+          { text: 'HA Integration',     link: '/architecture/ha-integration' },
           { text: 'Card Foundation',    link: '/architecture/cards/lcards-card-foundation' },
           { text: 'MSD Pipeline',       link: '/architecture/msd/' },
           { text: 'Animation System',   link: '/architecture/animations/' },
@@ -332,6 +333,7 @@ export default withMermaid(defineConfig({
           text: 'Architecture',
           items: [
             { text: 'Systems Overview', link: '/architecture/systems-arch' },
+            { text: 'HA Integration',   link: '/architecture/ha-integration' },
           ],
         },
         {
@@ -368,6 +370,7 @@ export default withMermaid(defineConfig({
             { text: 'Component Manager',      link: '/architecture/subsystems/component-manager' },
             { text: 'DataSource System',      link: '/architecture/subsystems/datasource-system' },
             { text: 'Helper Manager',         link: '/architecture/subsystems/helper-manager' },
+            { text: 'Integration Service',    link: '/architecture/subsystems/integration-service' },
             { text: 'Pack System',            link: '/architecture/subsystems/pack-system' },
             { text: 'Rules Engine',           link: '/architecture/subsystems/rules-engine' },
             { text: 'Shape & Texture System', link: '/architecture/subsystems/shape-texture-system' },

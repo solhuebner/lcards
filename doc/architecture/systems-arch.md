@@ -6,18 +6,20 @@ The diagram below shows how LCARdS cards, core singletons, and Home Assistant re
 graph LR
     subgraph HA["Home Assistant"]
         HACore[HA Core]
+        subgraph Integration["custom_components/lcards/ (HACS Integration)"]
+            IntPy["Python backend\nasync_setup / setup_entry\nWebSocket API"]:::integrationStyle
+        end
     end
 
-    subgraph CORE["LCARdS Core"]
-       subgraph CoreSystems["window.lcards.core.*"]
-            direction LR
-            CoreRules[Rules Engine]:::coreStyle
-            CoreThemes[Theme Manager]:::coreStyle
-            CoreData[Data Source Manager]:::coreStyle
-            CoreSystemsMgr[Systems Manager]:::coreStyle
-            CoreAnim[Animation Manager]:::coreStyle
-            CoreOther[...other core systems]:::coreStyle
-        end
+    subgraph CORE["LCARdS Core (window.lcards.core.*)"]
+        direction LR
+        CoreIntSvc[Integration Service]:::coreStyle
+        CoreRules[Rules Engine]:::coreStyle
+        CoreThemes[Theme Manager]:::coreStyle
+        CoreData[Data Source Manager]:::coreStyle
+        CoreSystemsMgr[Systems Manager]:::coreStyle
+        CoreAnim[Animation Manager]:::coreStyle
+        CoreOther[...other core systems]:::coreStyle
     end
 
     subgraph DASHBOARD["Dashboard"]
@@ -33,15 +35,18 @@ graph LR
         end
     end
 
-    HACore 0@-..-CoreSystems
-    CoreSystems 1@-...- Button
-    CoreSystems 2@-.- Slider
-    CoreSystems 3@-.- Chart
-    CoreSystems 4@-.- Elbow
-    CoreSystems 5@-.- Grid
-    CoreSystems 6@-.- AlertOverlay
-    CoreSystems 7@-.- MSD
-    CoreSystems 8@-.- MSDLCARdS
+    IntPy 0@-..->|"injects lcards.js"| CORE
+    HACore 1@-..-CoreSystems
+    IntPy 2@-..->|"lcards/info WS"| CoreIntSvc
+    CoreIntSvc 3@-.- CoreRules
+    CORE 4@-...- Button
+    CORE 5@-.- Slider
+    CORE 6@-.- Chart
+    CORE 7@-.- Elbow
+    CORE 8@-.- Grid
+    CORE 9@-.- AlertOverlay
+    CORE 10@-.- MSD
+    CORE 11@-.- MSDLCARdS
 
     0@{ animate: slow }
     1@{ animate: slow }
@@ -52,17 +57,22 @@ graph LR
     6@{ animate: slow }
     7@{ animate: slow }
     8@{ animate: slow }
+    9@{ animate: slow }
+    10@{ animate: slow }
+    11@{ animate: slow }
 
-    linkStyle 0,1,2,3,4,5,6,7,8 stroke:#00eeee,stroke-width:3px
+    linkStyle 0,2 stroke:#37a6d1,stroke-width:3px
+    linkStyle 1,3,4,5,6,7,8,9,10,11 stroke:#00eeee,stroke-width:3px
 
     classDef lcardsStyle fill:#ffb399,stroke:#e7442a,color:#000
     classDef coreStyle fill:#6d748c,stroke:#d2d5df
+    classDef integrationStyle fill:#1c3c55,stroke:#37a6d1,color:#fff
 
-    style HA fill:#1c3c55,stroke:#37a6d1,color:#fff
+    style HA fill:#162535,stroke:#37a6d1,color:#fff
+    style Integration fill:#1c3c55,stroke:#37a6d1,color:#fff
     style HACore fill:#37a6d1,stroke:#93e1ff,color:#fff
 
     style CORE fill:#1e2229,stroke:#2f3749
-    style CoreSystems fill:#2f3749,stroke:#52596e
 
     style DASHBOARD fill:#2f3749,stroke:#52596e
     style MSD fill:#e7442a,stroke:#ffb399,color:#fff
@@ -76,6 +86,7 @@ These services start on page load and become accessible to all LCARdS cards via 
 
 | Service | `window.lcards.core.*` | What it does |
 |---|---|---|
+| **Integration Service** | `integrationService` | Probes the HA Python backend on startup; sets `available` flag so other services can gate on backend APIs. Falls back gracefully when the integration is absent. |
 | **Systems Manager** | `systemsManager` | Centralised entity state subscriptions; cards register interest and receive smart push notifications — no duplicate subscriptions |
 | **DataSource Manager** | `dataSourceManager` | Named data buffers tied to entities; records history, runs processing pipelines (moving average, min/max, aggregation) and notifies subscribers |
 | **Rules Engine** | `rulesManager` | Evaluates conditions and hot-patches LCARd styles at runtime; target any card by tag, type, or ID |
@@ -186,6 +197,8 @@ See [Pack System](subsystems/pack-system.md) for the full developer reference.
 
 ## Further Reading
 
+- [HA Integration Architecture](ha-integration.md)
+- [Integration Service](subsystems/integration-service.md)
 - [Pack System](subsystems/pack-system.md)
 - [Background Animation System](subsystems/background-animation-system.md)
 - [Shape Texture System](subsystems/shape-texture-system.md)
