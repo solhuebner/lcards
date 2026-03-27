@@ -55,11 +55,13 @@ graph TB
 
 | File | Responsibility |
 |------|---------------|
-| `__init__.py` | Entry point — wires up static paths, JS injection, sidebar panel, storage init, WS commands, log level, and options update listener |
+| `__init__.py` | Entry point — wires up static paths, JS injection, sidebar panel, storage init, WS commands, services, log level, and options update listener |
 | `frontend.py` | Registers static HTTP paths and injects `lcards.js` (with `?log=` param) into every HA frontend session |
 | `config_flow.py` | Initial setup flow (single-instance, no user input) + options flow (panel, log level, sidebar customisation) |
 | `websocket_api.py` | Registers `lcards/info` and all `lcards/storage/*` WebSocket commands |
 | `storage.py` | `LCARdSStorage` — HA Store-backed flat key/value persistence (`.storage/lcards`) |
+| `services.py` | Registers the `lcards.*` HA action namespace — 9 services covering alert modes and frontend control |
+| `services.yaml` | Action descriptions and field selectors shown in Developer Tools → Actions |
 | `const.py` | Shared constants: `DOMAIN`, `DOMAIN_VERSION`, option keys, `_LOG_LEVEL_MAP` |
 | `manifest.json` | HACS/HA integration manifest — domain, version (HA CalVer), dependencies |
 | `strings.json` + `translations/en.json` | UI strings for the config and options dialog |
@@ -86,6 +88,7 @@ Runs when the integration is configured (after initial setup or on restart):
 
 1. **Log level** — maps the `log_level` option to a Python `logging` level and calls `setLevel()` on the `custom_components.lcards` parent logger, cascading to all child loggers
 2. **Storage init** — creates `LCARdSStorage`, loads `.storage/lcards` from disk, stores the instance at `hass.data["lcards"]["storage"]`
+3. **Services** — `async_setup_services(hass)` registers the full `lcards.*` action namespace (9 services)
 3. **JS injection** — `add_extra_js_url` loads `lcards.js?v=...&log=<level>` on every HA page; the `?log=` param lets `lcards.js` read the configured level at module load time via `import.meta.url`
 4. **Lovelace resource** — registers the script for Cast / kiosk support
 5. **Sidebar panel** — `async_register_built_in_panel` with the configured title and icon, if `show_panel` option is `True`
@@ -95,9 +98,10 @@ Runs when the integration is configured (after initial setup or on restart):
 
 Called on HA restart, explicit reload (triggered by options change), or removal:
 
-1. Removes `add_extra_js_url` injection
-2. Removes the Lovelace resource
-3. Removes the sidebar panel
+1. **Services** — `async_remove_services(hass)` deregisters all `lcards.*` services
+2. Removes `add_extra_js_url` injection
+3. Removes the Lovelace resource
+4. Removes the sidebar panel
 
 `async_remove_entry()` is a no-op — `async_unload_entry` handles all cleanup.
 
@@ -189,6 +193,75 @@ logger:
   logs:
     custom_components.lcards: debug
 ```
+
+---
+
+## HA Services (Actions)
+
+The integration registers a `lcards.*` action namespace in `async_setup_entry()`, handled by `services.py`.
+
+| Service | Parameters | Effect |
+|---------|-----------|--------|
+| `lcards.set_alert_mode` | `mode: string` | Sets `input_select.lcards_alert_mode` to the supplied mode |
+| `lcards.red_alert` | — | Sets alert mode to `red_alert` |
+| `lcards.yellow_alert` | — | Sets alert mode to `yellow_alert` |
+| `lcards.blue_alert` | — | Sets alert mode to `blue_alert` |
+| `lcards.gray_alert` | — | Sets alert mode to `gray_alert` |
+| `lcards.black_alert` | — | Sets alert mode to `black_alert` |
+| `lcards.clear_alert` | — | Sets alert mode to `green_alert` (normal) |
+| `lcards.reload` | — | Fires `lcards_event {action: reload}` to all browser tabs |
+| `lcards.set_log_level` | `level: string` | Updates Python loggers + fires `lcards_event {action: set_log_level}` |
+
+Alert mode services delegate to `input_select.select_option` on `input_select.lcards_alert_mode`. This means the full LCARdS pipeline (ThemeManager, SoundManager, alert overlays) fires via the existing HelperManager subscriptions in JS — no separate JS wiring required.
+
+Schema validation is handled by `voluptuous`; invalid values are rejected before the handler fires. If `input_select.lcards_alert_mode` doesn't exist, a `WARNING` is logged and the service exits without raising.
+
+→ Full reference including automation examples: [HA Services](subsystems/ha-services)
+
+---
+
+## Python → JS Push Channel
+
+Two services (`lcards.reload` and `lcards.set_log_level`) push instructions directly to connected browser tabs without requiring a page reload or WS request/response cycle.
+
+### How it works
+
+```mermaid
+sequenceDiagram
+    participant Auto as Automation / Developer Tools
+    participant PY as services.py
+    participant Bus as HA Event Bus
+    participant JS as IntegrationService (JS)
+
+    Auto->>PY: lcards.reload
+    PY->>Bus: async_fire("lcards_event", {action: "reload"})
+    Bus-->>JS: subscribeEvents callback fires
+    JS->>JS: window.location.reload()
+```
+
+### Event payload shapes
+
+| `action` | Additional fields | JS handler |
+|----------|-------------------|------------|
+| `reload` | — | `window.location.reload()` |
+| `set_log_level` | `level: string` | `window.lcards.setGlobalLogLevel(level)` |
+
+### Subscription lifecycle
+
+`IntegrationService` subscribes to the `lcards_event` HA event **after** the `lcards/info` probe succeeds — so the push channel is only open when the backend is confirmed active:
+
+```
+async_setup_entry → backend online → IntegrationService.initialize() succeeds
+    → _startEventListener() → hass.connection.subscribeEvents(handler, 'lcards_event')
+        → stores unsub fn as _eventUnsubscribe
+
+async_unload_entry → integration unloaded (tab navigates away / WS closes)
+    → WebSocket disconnect → subscription cleaned up automatically
+```
+
+The channel is a **broadcast** — all open browser tabs subscribed to `lcards_event` receive every event simultaneously.
+
+→ JS implementation details: [Integration Service — Push Channel](subsystems/integration-service#push-channel)
 
 ---
 

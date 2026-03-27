@@ -370,6 +370,7 @@ export default withMermaid(defineConfig({
             { text: 'Background Animations',  link: '/architecture/subsystems/background-animation-system' },
             { text: 'Component Manager',      link: '/architecture/subsystems/component-manager' },
             { text: 'DataSource System',      link: '/architecture/subsystems/datasource-system' },
+            { text: 'HA Services',            link: '/architecture/subsystems/ha-services' },
             { text: 'Helper Manager',         link: '/architecture/subsystems/helper-manager' },
             { text: 'Integration Service',    link: '/architecture/subsystems/integration-service' },
             { text: 'Persistent Storage',      link: '/architecture/subsystems/storage' },

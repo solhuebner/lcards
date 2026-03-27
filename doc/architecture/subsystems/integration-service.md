@@ -112,6 +112,51 @@ if (integration.available) {
 
 ---
 
+## Push Channel
+
+After a successful `lcards/info` probe, `IntegrationService` subscribes to the `lcards_event` HA bus event. This gives Python service handlers a way to push instructions to all connected browser tabs without a WS request/response cycle.
+
+### Subscription
+
+```javascript
+// Called once, after initialize() succeeds
+_startEventListener() {
+    if (this._eventUnsubscribe) return; // idempotent
+    this._hass.connection
+        .subscribeEvents(
+            (event) => this._handleLcardsEvent(event),
+            'lcards_event'
+        )
+        .then((unsub) => { this._eventUnsubscribe = unsub; });
+}
+```
+
+The subscription is cleaned up automatically when the WebSocket connection closes (tab navigation or HA restart). The guard `if (this._eventUnsubscribe) return` prevents double-subscription on partial re-initialisation.
+
+### Handled actions
+
+| `event.data.action` | JS response |
+|---------------------|-------------|
+| `reload` | `window.location.reload()` — immediate, unconditional |
+| `set_log_level` | `window.lcards.setGlobalLogLevel(event.data.level)` if available |
+| anything else | `lcardsLog.debug` — logged and ignored |
+
+### Triggering from Python
+
+Service handlers in `services.py` fire events with:
+
+```python
+hass.bus.async_fire("lcards_event", {"action": "reload"})
+hass.bus.async_fire("lcards_event", {"action": "set_log_level", "level": level})
+```
+
+The event is a **broadcast** — every browser tab with an active `IntegrationService` subscription receives it simultaneously.
+
+→ See [HA Services](ha-services) for the full Python action reference and automation examples.
+→ See [HA Integration Architecture](../ha-integration#python--js-push-channel) for the sequence diagram.
+
+---
+
 ## Degraded Mode
 
 When `available === false` (integration not installed, or removed):
