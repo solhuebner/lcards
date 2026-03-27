@@ -42,6 +42,7 @@ from .frontend import (
     async_register_frontend_script_resource,
     async_remove_frontend_script_resource,
 )
+from .storage import LCARdSStorage
 from .websocket_api import async_setup_ws
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
@@ -57,6 +58,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     _LOGGER.debug("LCARdS: registering static paths and WebSocket API")
     await async_register_static_path(hass)
     async_setup_ws(hass)
+    # Ensure hass.data[DOMAIN] exists so storage + frontend can write to it
+    # before a config entry is active (e.g. the resource_url key).
+    hass.data.setdefault(DOMAIN, {})
     _LOGGER.info("LCARdS: component setup complete")
     return True
 
@@ -109,6 +113,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     py_level = _LOG_LEVEL_MAP.get(log_level, logging.WARNING)
     logging.getLogger(f"custom_components.{DOMAIN}").setLevel(py_level)
     _LOGGER.debug("LCARdS: backend log level set to %r (Python level %d)", log_level, py_level)
+
+    # Initialise persistent storage (loads from .storage/lcards if it exists).
+    storage = await LCARdSStorage(hass).async_load()
+    hass.data.setdefault(DOMAIN, {})["storage"] = storage
 
     # Inject lcards.js (add_extra_js_url + Lovelace resource for Cast).
     # Pass the configured log level so lcards.js reads it from import.meta.url.
