@@ -1,12 +1,14 @@
 # Integration Service
 
-> **`window.lcards.core.integrationService`** — Backend availability probe and capability flag.
+> **`window.lcards.core.integrationService`** — Backend availability probe, capability flag, and storage convenience API.
 
 ---
 
 ## Overview
 
 `IntegrationService` probes the LCARdS HA backend on startup to determine whether the Python integration is installed and active. All other services and cards that want to call backend WebSocket APIs check `integrationService.available` before doing so, allowing LCARdS to degrade gracefully when the integration is absent (e.g. legacy plugin-only setups or development without HA).
+
+It also exposes three convenience methods — `readStorage()`, `writeStorage()`, and `deleteStorage()` — so services and cards can access the backend persistent store without reimplementing the guard-and-call pattern.
 
 ---
 
@@ -20,8 +22,9 @@
 
 - Send the `lcards/info` WebSocket command on the first HASS update that has a live connection
 - Set `this.available = true/false` based on whether the integration responds
-- Surface `this.version` for diagnostics and `window.lcards.info()`
+- Surface `this.version`, `this.storageKeyCount`, and `this.options` for diagnostics
 - Probe exactly once per page load — subsequent HASS updates are ignored
+- Provide `readStorage()` / `writeStorage()` / `deleteStorage()` with built-in availability guards
 
 ---
 
@@ -34,7 +37,7 @@ HA page loads → HASS first pushed to core
     → IntegrationService.updateHass(hass)
         → hass.connection available?  no → wait for next push
                                       yes → send lcards/info (once)
-                                            success → available = true, version = "..."
+                                            success → available = true, version, storageKeyCount, options
                                             error   → available = false (degraded mode)
 ```
 
@@ -45,26 +48,53 @@ HA page loads → HASS first pushed to core
 | Property | Type | Description |
 |----------|------|-------------|
 | `available` | `boolean` | `true` if the HA integration responded to `lcards/info`. Default `false`. |
-| `version` | `string \| null` | Version string reported by the integration (`DOMAIN_VERSION` from `const.py`), or `null` if unavailable. |
+| `version` | `string \| null` | Version string reported by the integration (`DOMAIN_VERSION` from `const.py`), or `null`. |
+| `storageKeyCount` | `number \| null` | Number of keys currently in backend storage, or `null` if unavailable. |
+| `options` | `Object \| null` | Snapshot of the integration's configured options (`show_panel`, `sidebar_title`, `sidebar_icon`, `log_level`), or `null`. |
 
 ---
 
-## Usage Pattern
+## Backend Storage Convenience API
 
-Any service or card that wants to use backend APIs should guard with `available`:
+These three methods wrap the `lcards/storage/*` WebSocket commands with availability guards. They return sensible fallback values when the integration is unavailable rather than throwing.
+
+### `readStorage(key) → Promise<any>`
+
+Returns the stored value for `key`, or `undefined` on miss, unavailable backend, or error.
+
+```javascript
+const integration = window.lcards.core.integrationService;
+const prefs = await integration.readStorage('my_service_prefs');
+// prefs === undefined if key not set or integration not available
+```
+
+### `writeStorage(updates) → Promise<boolean>`
+
+Shallow-merges `updates` (a plain `{ key: value }` object) into the store. Returns `true` on success, `false` on error or unavailable backend.
+
+```javascript
+const ok = await integration.writeStorage({ my_service_prefs: { theme: 'dark' } });
+```
+
+### `deleteStorage(key) → Promise<boolean>`
+
+Removes a single key from the store. Returns `true` on success, `false` on error or unavailable.
+
+```javascript
+await integration.deleteStorage('my_service_prefs');
+```
+
+### Usage pattern
 
 ```javascript
 const integration = window.lcards.core.integrationService;
 
 if (integration.available) {
-    // Safe to call lcards/* WebSocket commands
-    const result = await hass.connection.sendMessagePromise({
-        type: 'lcards/set_theme',
-        theme: 'lcars-dark',
-    });
+    // Reads / writes go to the persistent HA .storage/lcards file
+    const value = await integration.readStorage('sound_overrides');
 } else {
     // Fall back to localStorage or no-op
-    localStorage.setItem('lcards_theme', 'lcars-dark');
+    const value = JSON.parse(localStorage.getItem('lcards_sound_overrides') ?? '{}');
 }
 ```
 
@@ -74,29 +104,31 @@ if (integration.available) {
 
 When `available === false` (integration not installed, or removed):
 
-- All `lcards/*` WebSocket commands will fail — services must handle this gracefully
-- Phase 2 features (theme persistence, Store API) fall back to localStorage
+- All three storage helpers return `undefined` / `false` silently — no throws
+- Services must fall back to `localStorage` or no-op behaviour
 - Cards continue to work fully — JS injection is independent of the integration probe
 - `window.lcards.info()` reports `integration: { available: false, version: null }`
-
-This supports the transition period where some users may still be on the legacy HACS Frontend Plugin path.
 
 ---
 
 ## WebSocket Endpoint
 
-The probe hits the `lcards/info` command registered by the Python integration:
+The probe hits the `lcards/info` command. The expanded response (since Phase 2C) includes storage diagnostics and the options snapshot:
 
 ```python
-# custom_components/lcards/websocket_api.py
-@websocket_api.websocket_command({vol.Required("type"): "lcards/info"})
-@callback
-def ws_lcards_info(hass, connection, msg):
-    connection.send_result(msg["id"], {
-        "available": True,
-        "version": DOMAIN_VERSION,
-        "domain": DOMAIN,
-    })
+# custom_components/lcards/websocket_api.py — ws_lcards_info response
+{
+    "available":         True,
+    "version":           "2026.3.25",
+    "storage_key_count": 3,          # number of keys in .storage/lcards
+    "options": {                     # from the config entry (None if not configured)
+        "show_panel":    True,
+        "sidebar_title": "LCARdS Config",
+        "sidebar_icon":  "mdi:space-invaders",
+        "log_level":     "warn",
+    },
+}
 ```
 
 → See [HA Integration Architecture](../ha-integration) for the full Python-side reference.
+→ See [Backend WS API](../../development/backend-api) for the full storage command reference.

@@ -15,7 +15,18 @@ import voluptuous as vol
 from homeassistant.core import HomeAssistant
 from homeassistant.components import websocket_api
 
-from .const import DOMAIN, DOMAIN_VERSION
+from .const import (
+    DOMAIN,
+    DOMAIN_VERSION,
+    CONF_SHOW_PANEL,
+    CONF_SIDEBAR_TITLE,
+    CONF_SIDEBAR_ICON,
+    CONF_LOG_LEVEL,
+    DEFAULT_SHOW_PANEL,
+    DEFAULT_SIDEBAR_TITLE,
+    DEFAULT_SIDEBAR_ICON,
+    DEFAULT_LOG_LEVEL,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,11 +68,30 @@ async def ws_lcards_info(
     whether the backend is present.
     """
     _LOGGER.debug("LCARdS: %s/info probe received", DOMAIN)
+
+    # Storage key count (None if storage not yet initialised)
+    storage = _get_storage(hass)
+    storage_key_count = len(storage.dump()["data"]) if storage is not None else None
+
+    # Options snapshot from the first config entry (None if not yet configured)
+    entries = hass.config_entries.async_entries(DOMAIN)
+    options: dict | None = None
+    if entries:
+        entry_opts = entries[0].options
+        options = {
+            CONF_SHOW_PANEL:    entry_opts.get(CONF_SHOW_PANEL,    DEFAULT_SHOW_PANEL),
+            CONF_SIDEBAR_TITLE: entry_opts.get(CONF_SIDEBAR_TITLE, DEFAULT_SIDEBAR_TITLE),
+            CONF_SIDEBAR_ICON:  entry_opts.get(CONF_SIDEBAR_ICON,  DEFAULT_SIDEBAR_ICON),
+            CONF_LOG_LEVEL:     entry_opts.get(CONF_LOG_LEVEL,     DEFAULT_LOG_LEVEL),
+        }
+
     connection.send_result(
         msg["id"],
         {
-            "available": True,
-            "version": DOMAIN_VERSION,
+            "available":         True,
+            "version":           DOMAIN_VERSION,
+            "storage_key_count": storage_key_count,
+            "options":           options,
         },
     )
 
