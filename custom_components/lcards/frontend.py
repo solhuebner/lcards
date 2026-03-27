@@ -23,6 +23,18 @@ _LEGACY_RESOURCE_PREFIXES = (
 )
 
 
+def _get_lovelace_resources(hass: HomeAssistant):
+    """Return the Lovelace resources collection, or None if unavailable.
+
+    hass.data["lovelace"] is a LovelaceData named-tuple/dataclass — access
+    .resources as an attribute, not via dict .get().
+    """
+    lovelace = hass.data.get("lovelace")
+    if lovelace is None:
+        return None
+    return getattr(lovelace, "resources", None)
+
+
 async def async_register_static_path(hass: HomeAssistant) -> None:
     """Register the static HTTP path that serves lcards.js.
 
@@ -63,7 +75,7 @@ async def async_register_frontend_script_resource(hass: HomeAssistant) -> None:
     add_extra_js_url(hass, resource_url)
 
     # 2. Register / update Lovelace resource for Cast support
-    resources = hass.data.get("lovelace", {}).get("resources")
+    resources = _get_lovelace_resources(hass)
     if not resources:
         return
 
@@ -130,7 +142,7 @@ async def async_remove_frontend_script_resource(hass: HomeAssistant) -> None:
 
     remove_extra_js_url(hass, resource_url)
 
-    resources = hass.data.get("lovelace", {}).get("resources")
+    resources = _get_lovelace_resources(hass)
     if not resources:
         return
 
