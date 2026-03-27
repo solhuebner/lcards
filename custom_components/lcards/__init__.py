@@ -44,6 +44,7 @@ from .frontend import (
 )
 from .storage import LCARdSStorage
 from .websocket_api import async_setup_ws
+from .services import async_setup_services, async_remove_services
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -118,6 +119,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     storage = await LCARdSStorage(hass).async_load()
     hass.data.setdefault(DOMAIN, {})["storage"] = storage
 
+    # Register HA services (lcards.red_alert, lcards.set_alert_mode, etc.)
+    await async_setup_services(hass)
+
     # Inject lcards.js (add_extra_js_url + Lovelace resource for Cast).
     # Pass the configured log level so lcards.js reads it from import.meta.url.
     await async_register_frontend_script_resource(hass, log_level)
@@ -151,6 +155,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     remain until async_setup_entry fires again.
     """
     _LOGGER.debug("LCARdS: unloading config entry")
+    async_remove_services(hass)
     await async_remove_frontend_script_resource(hass)
 
     try:

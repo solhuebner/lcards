@@ -46,6 +46,9 @@ export class IntegrationService extends BaseService {
 
         /** @private — ensures we only probe once */
         this._probed = false;
+
+        /** @private — unsubscribe fn for the lcards_event HA event listener */
+        this._eventUnsubscribe = null;
     }
 
     /**
@@ -93,6 +96,10 @@ export class IntegrationService extends BaseService {
             lcardsLog.info(
                 `[IntegrationService] Backend available v${this.version} (${this.storageKeyCount ?? '?'} storage keys)`
             );
+
+            // Subscribe to the lcards_event push channel now that we know
+            // the backend is live and the WS connection is ready.
+            this._startEventListener();
         } catch {
             this.available = false;
             this.version = null;
@@ -198,4 +205,68 @@ export class IntegrationService extends BaseService {
         }
     }
 
-}
+    // -----------------------------------------------------------------------
+    // Python → JS push channel
+    // -----------------------------------------------------------------------
+
+    /**
+     * Subscribe to `lcards_event` HA events fired by the Python backend.
+     *
+     * Called automatically after a successful `initialize()` probe.
+     * Safe to call multiple times — subsequent calls are no-ops if already
+     * subscribed.
+     *
+     * Handled actions:
+     *   reload         — perform a full page reload
+     *   set_log_level  — update JS log verbosity via window.lcards.setGlobalLogLevel
+     *
+     * @private
+     */
+    _startEventListener() {
+        if (!this._hass?.connection) return;
+        if (this._eventUnsubscribe) return; // already subscribed
+
+        // subscribeEvents returns a Promise<unsubscribe fn>
+        this._hass.connection
+            .subscribeEvents(
+                (event) => this._handleLcardsEvent(event),
+                'lcards_event',
+            )
+            .then((unsub) => {
+                this._eventUnsubscribe = unsub;
+                lcardsLog.info('[IntegrationService] Subscribed to lcards_event push channel');
+            })
+            .catch((err) => {
+                lcardsLog.warn('[IntegrationService] Failed to subscribe to lcards_event:', err);
+            });
+    }
+
+    /**
+     * Handle an incoming lcards_event from the HA backend.
+     *
+     * @param {Object} event - HA event (event.data is the payload)
+     * @private
+     */
+    _handleLcardsEvent(event) {
+        const data = event?.data ?? {};
+        lcardsLog.debug('[IntegrationService] Received lcards_event:', data);
+
+        switch (data.action) {
+            case 'reload':
+                lcardsLog.info('[IntegrationService] Reload requested by backend — reloading page');
+                window.location.reload();
+                break;
+
+            case 'set_log_level': {
+                const level = data.level;
+                if (level && typeof window.lcards?.setGlobalLogLevel === 'function') {
+                    lcardsLog.info(`[IntegrationService] Log level set by backend → ${level}`);
+                    window.lcards.setGlobalLogLevel(level);
+                }
+                break;
+            }
+
+            default:
+                lcardsLog.debug('[IntegrationService] Unknown lcards_event action:', data.action);
+        }
+    }}
