@@ -14,6 +14,14 @@ from homeassistant.components.lovelace.resources import ResourceStorageCollectio
 
 from .const import DOMAIN, FRONTEND_SCRIPT_URL, DOMAIN_VERSION
 
+# Legacy resource URL prefixes that were manually added by users following the
+# old installation docs (HACS frontend plugin path). The integration removes
+# these automatically on first setup so lcards.js is not loaded twice.
+_LEGACY_RESOURCE_PREFIXES = (
+    "/hacsfiles/lcards/lcards.js",
+    "/local/community/lcards/lcards.js",
+)
+
 
 async def async_register_static_path(hass: HomeAssistant) -> None:
     """Register the static HTTP path that serves lcards.js.
@@ -62,6 +70,30 @@ async def async_register_frontend_script_resource(hass: HomeAssistant) -> None:
     if not resources.loaded:
         await resources.async_load()
         resources.loaded = True
+
+    # Remove any legacy manually-added resources from the old plugin install path.
+    # These would cause lcards.js to load twice alongside the integration resource.
+    legacy_ids = [
+        r["id"]
+        for r in resources.async_items()
+        if any(r["url"].startswith(prefix) for prefix in _LEGACY_RESOURCE_PREFIXES)
+    ]
+    for legacy_id in legacy_ids:
+        if isinstance(resources, ResourceStorageCollection):
+            await resources.async_delete_item(legacy_id)
+        else:
+            resources.data[:] = [
+                r for r in resources.data
+                if not any(r.get("url", "").startswith(p) for p in _LEGACY_RESOURCE_PREFIXES)
+            ]
+
+    if legacy_ids:
+        import logging
+        logging.getLogger(__name__).info(
+            "LCARdS: removed %d legacy Lovelace resource(s) from the old plugin "
+            "install path — lcards.js is now served by the integration.",
+            len(legacy_ids),
+        )
 
     frontend_added = False
     for r in resources.async_items():
