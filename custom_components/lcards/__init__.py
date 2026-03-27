@@ -25,7 +25,7 @@ from homeassistant.components.frontend import (
 )
 from homeassistant.helpers import config_validation as cv
 
-from .const import DOMAIN
+from .const import DOMAIN, CONF_SHOW_PANEL, DEFAULT_SHOW_PANEL
 from .frontend import (
     async_register_static_path,
     async_register_frontend_script_resource,
@@ -48,18 +48,8 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up LCARdS from a config entry.
-
-    Injects lcards.js into every HA frontend session and registers the
-    LCARdS Config sidebar panel. Both are cleaned up in async_remove_entry.
-    """
-    # Inject lcards.js (add_extra_js_url + Lovelace resource for Cast)
-    await async_register_frontend_script_resource(hass)
-
-    # Register the sidebar panel — appears automatically in the HA sidebar.
-    # require_admin=False: all users can access the Config Panel.
-    # Revisit when write APIs (theme overrides, etc.) are added in Phase 2+.
+def _register_panel(hass: HomeAssistant) -> None:
+    """Register the LCARdS sidebar panel."""
     async_register_built_in_panel(
         hass,
         component_name="custom",
@@ -76,19 +66,58 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         require_admin=False,
     )
 
+
+async def _async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload the config entry when options are updated.
+
+    This triggers async_unload_entry → async_setup_entry so the panel
+    is registered or removed according to the new setting immediately,
+    without requiring an HA restart.
+    """
+    await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up LCARdS from a config entry.
+
+    Injects lcards.js into every HA frontend session and, if enabled in
+    options, registers the LCARdS Config sidebar panel.
+    Cleaned up in async_unload_entry (restart / reload / removal).
+    """
+    # Inject lcards.js (add_extra_js_url + Lovelace resource for Cast)
+    await async_register_frontend_script_resource(hass)
+
+    # Conditionally register the sidebar panel based on user option.
+    # Defaults to True (visible) on first install.
+    if entry.options.get(CONF_SHOW_PANEL, DEFAULT_SHOW_PANEL):
+        _register_panel(hass)
+
+    # Re-apply setup whenever the user saves new options.
+    entry.async_on_unload(entry.add_update_listener(_async_options_updated))
+
     return True
 
 
-async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Clean up when the integration is removed.
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload a config entry.
 
-    Removes JS injection and unregisters the sidebar panel so no
-    orphaned UI elements remain after uninstall.
+    Called on HA restart, explicit reload, or just before removal.
+    Removes JS injection and the sidebar panel so no orphaned UI elements
+    remain until async_setup_entry fires again.
     """
     await async_remove_frontend_script_resource(hass)
 
     try:
-        async_remove_panel("lcards-config")
+        async_remove_panel(hass, "lcards-config")
     except Exception:  # noqa: BLE001
         # Panel may already be gone if HA is shutting down
         pass
+
+    return True
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Called after async_unload_entry when the integration is deleted.
+
+    async_unload_entry already handled the cleanup — nothing extra needed.
+    """

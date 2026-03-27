@@ -119,7 +119,6 @@ jobs:
         run: |
           cd custom_components/lcards
           zip -r ../../lcards.zip . \
-            --exclude "*.map" \
             --exclude "__pycache__/*" \
             --exclude "*.pyc"
 
