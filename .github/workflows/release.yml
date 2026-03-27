@@ -66,17 +66,24 @@ jobs:
 
       # ── Stamp version ─────────────────────────────────────────────────────
       # manifest.json requires HA CalVer: no leading zeros, no pre-release suffix.
+      # A 4th integer segment is preserved for same-day patch releases.
       # const.py stores the full version string (including any suffix) for display.
+      #
+      # Examples:
+      #   2026.03.27          → manifest 2026.3.27   (normal release)
+      #   2026.03.27.1        → manifest 2026.3.27.1 (same-day patch)
+      #   2026.03.27-alpha.1  → manifest 2026.3.27   (pre-release; suffix stripped)
+      #   2026.03.27.1-rc.1   → manifest 2026.3.27.1 (pre-release patch; suffix stripped)
       - name: Stamp version
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           echo "📌 Release version: ${VERSION}"
 
-          # HA manifest.json requires CalVer without leading zeros and without
-          # pre-release suffixes: 2026.03.27-alpha.1 → 2026.3.27
+          # Strip any pre-release suffix (-alpha.1, -beta.2, -rc.1, etc.)
           CALVER="${VERSION%%-*}"
-          IFS='.' read -r Y M D <<< "$CALVER"
-          HA_VERSION="${Y}.$((10#$M)).$((10#$D))"
+          # Read up to 4 segments: YYYY.MM.DD[.SEQ]
+          IFS='.' read -r Y M D SEQ <<< "$CALVER"
+          HA_VERSION="${Y}.$((10#$M)).$((10#$D))${SEQ:+.$SEQ}"
           echo "📌 HA manifest version: ${HA_VERSION}"
 
           # manifest.json — HA calver (no leading zeros, no suffix)
