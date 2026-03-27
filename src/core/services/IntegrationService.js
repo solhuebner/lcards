@@ -26,6 +26,22 @@ export class IntegrationService extends BaseService {
 
         /** @type {string|null} Version reported by the integration, or null */
         this.version = null;
+
+        /** @private — ensures we only probe once */
+        this._probed = false;
+    }
+
+    /**
+     * Called by _updateHass on every HASS update.
+     * Probes lcards/info once — on the first update where hass.connection exists.
+     *
+     * @param {Object} hass - Home Assistant instance
+     */
+    updateHass(hass) {
+        if (this._probed || !hass?.connection) return;
+        this._probed = true;
+        // Fire-and-forget — errors are caught inside initialize()
+        this.initialize(hass);
     }
 
     /**
@@ -66,12 +82,4 @@ export class IntegrationService extends BaseService {
         }
     }
 
-    /**
-     * @override
-     * IntegrationService does not need ongoing HASS updates —
-     * availability is probed once at boot.
-     */
-    updateHass(_hass) {
-        // Intentional no-op — probe is one-shot at initialize() time
-    }
 }

@@ -259,11 +259,10 @@ class LCARdSCore {
                 lcardsLog.debug('[LCARdSCore] ✅ Core debug API attached at window.lcards.debug.core/singleton/singletons');
             }
 
-            // Probe the HA integration backend (non-blocking — errors are handled internally)
-            // Result is available at window.lcards.core.integrationService.available
+            // Create IntegrationService — it self-probes on the first _updateHass
+            // call where hass.connection is available, so no initialize() call here.
             this.integrationService = new IntegrationService();
-            await this.integrationService.initialize(hass);
-            lcardsLog.debug('[LCARdSCore] ✅ IntegrationService probed');
+            lcardsLog.debug('[LCARdSCore] ✅ IntegrationService created (will probe on first connection)');
 
             this._coreInitialized = true;
 
@@ -466,7 +465,9 @@ class LCARdSCore {
             this.soundManager.updateHass(hass);
         }
 
-        // StylePresetManager doesn't need HASS updates (it's theme/pack based)
+        if (this.integrationService) {
+            this.integrationService.updateHass(hass);
+        }
     }
 
     /**
