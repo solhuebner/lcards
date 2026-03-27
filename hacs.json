@@ -1,6 +1,7 @@
 {
   "name": "LCARdS",
-  "category": "integration",
+  "zip_release": true,
+  "filename": "lcards.zip",
   "render_readme": true,
   "homeassistant": "2026.3.0"
 }
