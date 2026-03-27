@@ -7,7 +7,11 @@ entry for Cast / kiosk support.
 Modelled closely on UIX (Lint-Free-Technology/uix) — same pattern, same
 safety guards.
 """
+import logging
+
 from homeassistant.core import HomeAssistant
+
+_LOGGER = logging.getLogger(__name__)
 from homeassistant.components.frontend import add_extra_js_url, remove_extra_js_url
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.components.lovelace.resources import ResourceStorageCollection
@@ -86,6 +90,8 @@ async def async_register_static_path(hass: HomeAssistant) -> None:
         # Already registered — happens when the integration is removed
         # and HA has not been fully restarted yet.
         pass
+    else:
+        _LOGGER.debug("LCARdS: static paths registered from %s", integration_dir)
 
 
 async def async_register_frontend_script_resource(
@@ -111,6 +117,7 @@ async def async_register_frontend_script_resource(
 
     # 1. Inject into every HA frontend session (no Lovelace dashboard needed)
     add_extra_js_url(hass, resource_url)
+    _LOGGER.info("LCARdS: registered frontend script resource: %s", resource_url)
 
     # 2. Register / update Lovelace resource for Cast support
     resources = _get_lovelace_resources(hass)
@@ -138,8 +145,7 @@ async def async_register_frontend_script_resource(
             ]
 
     if legacy_ids:
-        import logging
-        logging.getLogger(__name__).info(
+        _LOGGER.info(
             "LCARdS: removed %d legacy Lovelace resource(s) from the old plugin "
             "install path — lcards.js is now served by the integration.",
             len(legacy_ids),
@@ -190,6 +196,7 @@ async def async_remove_frontend_script_resource(hass: HomeAssistant) -> None:
     )
 
     remove_extra_js_url(hass, resource_url)
+    _LOGGER.debug("LCARdS: removed frontend script resource: %s", resource_url)
     # Clean up the stored URL so it isn't stale on the next setup_entry cycle.
     hass.data.get(DOMAIN, {}).pop("resource_url", None)
 

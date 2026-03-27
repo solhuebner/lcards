@@ -7,9 +7,12 @@ Post-install options (sidebar panel visibility, title, icon, log level)
 are surfaced via the "Configure" button on the integration card,
 handled by LCARdSOptionsFlow.
 """
+import logging
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
+
+_LOGGER = logging.getLogger(__name__)
 
 from .const import (
     DOMAIN,
@@ -32,6 +35,7 @@ class LCARdSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._abort_if_unique_id_configured()
 
         if user_input is not None:
+            _LOGGER.info("LCARdS: integration configured")
             return self.async_create_entry(title="LCARdS", data={})
 
         return self.async_show_form(step_id="user")
@@ -51,6 +55,13 @@ class LCARdSOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         """Show the options form."""
         if user_input is not None:
+            _LOGGER.debug(
+                "LCARdS: options saved — show_panel=%s, log_level=%r, title=%r, icon=%r",
+                user_input.get("show_panel"),
+                user_input.get("log_level"),
+                user_input.get("sidebar_title"),
+                user_input.get("sidebar_icon"),
+            )
             return self.async_create_entry(data=user_input)
 
         opts = self.config_entry.options
