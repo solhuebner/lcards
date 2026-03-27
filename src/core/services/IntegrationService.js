@@ -176,4 +176,26 @@ export class IntegrationService extends BaseService {
         }
     }
 
+    /**
+     * Wipe the entire LCARdS backend persistent storage.
+     *
+     * This is irreversible. All stored keys are removed and the store is saved
+     * to disk in the empty state. Services should invalidate their in-memory
+     * caches after calling this.
+     *
+     * @returns {Promise<boolean>} `true` on success, `false` on error / unavailable
+     */
+    async resetStorage() {
+        if (!this.available || !this._hass?.connection) return false;
+        try {
+            await this._hass.connection.sendMessagePromise({
+                type: 'lcards/storage/reset',
+            });
+            return true;
+        } catch (err) {
+            lcardsLog.warn('[IntegrationService] resetStorage() failed:', err);
+            return false;
+        }
+    }
+
 }

@@ -84,6 +84,18 @@ Removes a single key from the store. Returns `true` on success, `false` on error
 await integration.deleteStorage('my_service_prefs');
 ```
 
+### `resetStorage() → Promise<boolean>`
+
+Wipes the **entire** store — all keys removed, saved to disk. Irreversible. Returns `true` on success.
+
+After calling this, services must invalidate their in-memory caches or they will re-write stale data on the next save operation.
+
+```javascript
+await integration.resetStorage();
+// Caller is responsible for clearing service caches, e.g.:
+// soundManager._overridesCache = {};
+```
+
 ### Usage pattern
 
 ```javascript

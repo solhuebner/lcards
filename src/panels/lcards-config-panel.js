@@ -26,6 +26,7 @@ import '../editor/components/theme-browser/lcards-theme-token-browser-tab.js';
 import '../editor/components/pack-explorer/lcards-pack-explorer-tab.js';
 import '../editor/components/shared/lcards-collapsible-section.js';
 import './components/lcards-sound-config-tab.js';
+import './components/lcards-storage-explorer-tab.js';
 
 export class LCARdSConfigPanel extends LitElement {
   static properties = {
@@ -784,6 +785,10 @@ export class LCARdSConfigPanel extends LitElement {
             Pack Explorer
           </ha-tab-group-tab>
           <ha-tab-group-tab value="4" ?active=${this._selectedTab === 4}>
+            <ha-icon icon="mdi:database-cog"></ha-icon>
+            Storage
+          </ha-tab-group-tab>
+          <ha-tab-group-tab value="5" ?active=${this._selectedTab === 5}>
             <ha-icon icon="mdi:code-braces"></ha-icon>
             YAML Export
           </ha-tab-group-tab>
@@ -816,6 +821,8 @@ export class LCARdSConfigPanel extends LitElement {
       case 3:
         return this._renderPackExplorerTab();
       case 4:
+        return this._renderStorageTab();
+      case 5:
         return this._renderYAMLTab();
       default:
         return html`<div>Unknown tab</div>`;
@@ -1164,6 +1171,14 @@ export class LCARdSConfigPanel extends LitElement {
         ._dialogOpen=${true}
         ._inlineMode=${true}
       ></lcards-theme-token-browser-tab>
+    `;
+  }
+
+  _renderStorageTab() {
+    return html`
+      <lcards-storage-explorer-tab
+        .hass=${this.hass}
+      ></lcards-storage-explorer-tab>
     `;
   }
 
