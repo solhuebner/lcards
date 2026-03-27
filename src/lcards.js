@@ -2,7 +2,20 @@ import { lcardsSetGlobalLogLevel, lcardsGetGlobalLogLevel, lcardsLog, lcardsLogB
 import * as LCARdS from './lcards-vars.js'
 import { lcardsCore } from './core/lcards-core.js';
 
-// Check URL for log level override and set it immediately
+// 1. Integration-configured log level — baked into the script URL as ?log=<level>
+//    by frontend.py when the integration loads. Applies the persistent user preference
+//    set in the HA "Configure" dialog before anything else runs.
+try {
+    const scriptLogLevel = new URL(import.meta.url).searchParams.get('log');
+    if (scriptLogLevel) {
+        lcardsSetGlobalLogLevel(scriptLogLevel);
+    }
+} catch (_e) {
+    // Silently ignore — older browsers or unusual Module-URL environments.
+}
+
+// 2. Page URL override — ?lcards_log_level= takes higher priority than the integration
+//    setting, letting developers switch verbosity per session without touching HA config.
 const urlLogLevel = new URLSearchParams(window.location.search).get('lcards_log_level');
 if (urlLogLevel) {
     lcardsSetGlobalLogLevel(urlLogLevel);

@@ -25,7 +25,13 @@ from homeassistant.components.frontend import (
 )
 from homeassistant.helpers import config_validation as cv
 
-from .const import DOMAIN, CONF_SHOW_PANEL, DEFAULT_SHOW_PANEL
+from .const import (
+    DOMAIN,
+    CONF_SHOW_PANEL, DEFAULT_SHOW_PANEL,
+    CONF_SIDEBAR_TITLE, DEFAULT_SIDEBAR_TITLE,
+    CONF_SIDEBAR_ICON, DEFAULT_SIDEBAR_ICON,
+    CONF_LOG_LEVEL, DEFAULT_LOG_LEVEL,
+)
 from .frontend import (
     async_register_static_path,
     async_register_frontend_script_resource,
@@ -48,13 +54,17 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     return True
 
 
-def _register_panel(hass: HomeAssistant) -> None:
-    """Register the LCARdS sidebar panel."""
+def _register_panel(
+    hass: HomeAssistant,
+    title: str = DEFAULT_SIDEBAR_TITLE,
+    icon: str = DEFAULT_SIDEBAR_ICON,
+) -> None:
+    """Register the LCARdS sidebar panel with the given title and icon."""
     async_register_built_in_panel(
         hass,
         component_name="custom",
-        sidebar_title="LCARdS Config",
-        sidebar_icon="mdi:space-invaders",
+        sidebar_title=title,
+        sidebar_icon=icon,
         frontend_url_path="lcards-config",
         config={
             "_panel_custom": {
@@ -84,13 +94,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     options, registers the LCARdS Config sidebar panel.
     Cleaned up in async_unload_entry (restart / reload / removal).
     """
-    # Inject lcards.js (add_extra_js_url + Lovelace resource for Cast)
-    await async_register_frontend_script_resource(hass)
+    # Inject lcards.js (add_extra_js_url + Lovelace resource for Cast).
+    # Pass the configured log level so lcards.js reads it from import.meta.url.
+    log_level = entry.options.get(CONF_LOG_LEVEL, DEFAULT_LOG_LEVEL)
+    await async_register_frontend_script_resource(hass, log_level)
 
     # Conditionally register the sidebar panel based on user option.
     # Defaults to True (visible) on first install.
     if entry.options.get(CONF_SHOW_PANEL, DEFAULT_SHOW_PANEL):
-        _register_panel(hass)
+        title = entry.options.get(CONF_SIDEBAR_TITLE, DEFAULT_SIDEBAR_TITLE)
+        icon  = entry.options.get(CONF_SIDEBAR_ICON, DEFAULT_SIDEBAR_ICON)
+        _register_panel(hass, title, icon)
 
     # Re-apply setup whenever the user saves new options.
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))

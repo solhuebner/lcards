@@ -3,14 +3,21 @@
 Single-instance only — LCARdS does not support multiple config entries.
 The initial setup form requires no user input.
 
-Post-install options (sidebar panel visibility, etc.) are surfaced via the
-"Configure" button on the integration card, handled by LCARdSOptionsFlow.
+Post-install options (sidebar panel visibility, title, icon, log level)
+are surfaced via the "Configure" button on the integration card,
+handled by LCARdSOptionsFlow.
 """
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
 
-from .const import DOMAIN, CONF_SHOW_PANEL, DEFAULT_SHOW_PANEL
+from .const import (
+    DOMAIN,
+    CONF_SHOW_PANEL, DEFAULT_SHOW_PANEL,
+    CONF_SIDEBAR_TITLE, DEFAULT_SIDEBAR_TITLE,
+    CONF_SIDEBAR_ICON, DEFAULT_SIDEBAR_ICON,
+    CONF_LOG_LEVEL, DEFAULT_LOG_LEVEL, LOG_LEVEL_OPTIONS,
+)
 
 
 class LCARdSConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -46,15 +53,28 @@ class LCARdSOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(data=user_input)
 
-        current_show = self.config_entry.options.get(
-            CONF_SHOW_PANEL, DEFAULT_SHOW_PANEL
-        )
+        opts = self.config_entry.options
 
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_SHOW_PANEL, default=current_show): bool,
+                    vol.Required(
+                        CONF_SHOW_PANEL,
+                        default=opts.get(CONF_SHOW_PANEL, DEFAULT_SHOW_PANEL),
+                    ): bool,
+                    vol.Optional(
+                        CONF_SIDEBAR_TITLE,
+                        default=opts.get(CONF_SIDEBAR_TITLE, DEFAULT_SIDEBAR_TITLE),
+                    ): str,
+                    vol.Optional(
+                        CONF_SIDEBAR_ICON,
+                        default=opts.get(CONF_SIDEBAR_ICON, DEFAULT_SIDEBAR_ICON),
+                    ): str,
+                    vol.Required(
+                        CONF_LOG_LEVEL,
+                        default=opts.get(CONF_LOG_LEVEL, DEFAULT_LOG_LEVEL),
+                    ): vol.In(LOG_LEVEL_OPTIONS),
                 }
             ),
         )

@@ -12,7 +12,7 @@ from homeassistant.components.frontend import add_extra_js_url, remove_extra_js_
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.components.lovelace.resources import ResourceStorageCollection
 
-from .const import DOMAIN, FRONTEND_SCRIPT_URL, DOMAIN_VERSION
+from .const import DOMAIN, FRONTEND_SCRIPT_URL, DOMAIN_VERSION, DEFAULT_LOG_LEVEL
 
 # Legacy resource URL prefixes that were manually added by users following the
 # old installation docs (HACS frontend plugin path). The integration removes
@@ -88,16 +88,22 @@ async def async_register_static_path(hass: HomeAssistant) -> None:
         pass
 
 
-async def async_register_frontend_script_resource(hass: HomeAssistant) -> None:
+async def async_register_frontend_script_resource(
+    hass: HomeAssistant,
+    log_level: str = DEFAULT_LOG_LEVEL,
+) -> None:
     """Inject lcards.js into every HA frontend session.
 
     1. add_extra_js_url  — loads the script on every HA page automatically.
     2. Lovelace resource — makes the card available in Cast / kiosk mode.
 
+    The log_level is appended as a ?log= query param so lcards.js can read
+    it via import.meta.url at module load time, before any other code runs.
+
     Called from async_setup_entry() so it only runs when the integration
     is actually configured and active.
     """
-    resource_url = f"/{DOMAIN}/{FRONTEND_SCRIPT_URL}?v={DOMAIN_VERSION}"
+    resource_url = f"/{DOMAIN}/{FRONTEND_SCRIPT_URL}?v={DOMAIN_VERSION}&log={log_level}"
 
     # 1. Inject into every HA frontend session (no Lovelace dashboard needed)
     add_extra_js_url(hass, resource_url)
