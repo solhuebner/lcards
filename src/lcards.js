@@ -241,14 +241,14 @@ async function initializeCustomCard() {
 initializeCustomCard()
     .then(() => {
         // Register cards (registered here to ensure singletons are ready)
-        customElements.define('lcards-button', LCARdSButton);
-        customElements.define('lcards-elbow', LCARdSElbow);
-        customElements.define('lcards-chart', LCARdSChart);
-        customElements.define('lcards-slider', LCARdSSlider);
-        customElements.define('lcards-data-grid', LCARdSDataGrid);
-        customElements.define('lcards-msd-card', LCARdSMSDCard);
-        customElements.define('lcards-alert-overlay', LCARdSAlertOverlay);
-        customElements.define('lcards-select-menu', LCARdSSelectMenu);
+        if (!customElements.get('lcards-button')) customElements.define('lcards-button', LCARdSButton);
+        if (!customElements.get('lcards-elbow')) customElements.define('lcards-elbow', LCARdSElbow);
+        if (!customElements.get('lcards-chart')) customElements.define('lcards-chart', LCARdSChart);
+        if (!customElements.get('lcards-slider')) customElements.define('lcards-slider', LCARdSSlider);
+        if (!customElements.get('lcards-data-grid')) customElements.define('lcards-data-grid', LCARdSDataGrid);
+        if (!customElements.get('lcards-msd-card')) customElements.define('lcards-msd-card', LCARdSMSDCard);
+        if (!customElements.get('lcards-alert-overlay')) customElements.define('lcards-alert-overlay', LCARdSAlertOverlay);
+        if (!customElements.get('lcards-select-menu')) customElements.define('lcards-select-menu', LCARdSSelectMenu);
         //customElements.define('lcards-config-panel', LCARdSConfigPanel);
 
         lcardsLog.debug('[lcards.js] All custom elements registered after core initialization');

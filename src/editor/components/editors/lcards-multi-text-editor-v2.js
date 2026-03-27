@@ -726,4 +726,4 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
     }
 }
 
-customElements.define('lcards-multi-text-editor-v2', LCARdSMultiTextEditorV2);
+if (!customElements.get('lcards-multi-text-editor-v2')) customElements.define('lcards-multi-text-editor-v2', LCARdSMultiTextEditorV2);

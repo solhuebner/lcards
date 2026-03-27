@@ -118,4 +118,4 @@ export class LCARdSDialog extends LitElement {
   }
 }
 
-customElements.define('lcards-dialog', LCARdSDialog);
+if (!customElements.get('lcards-dialog')) customElements.define('lcards-dialog', LCARdSDialog);

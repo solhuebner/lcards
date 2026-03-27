@@ -208,4 +208,4 @@ export class LCARdSColorSelector extends LitElement {
     }
 }
 
-customElements.define('lcards-color-selector', LCARdSColorSelector);
+if (!customElements.get('lcards-color-selector')) customElements.define('lcards-color-selector', LCARdSColorSelector);

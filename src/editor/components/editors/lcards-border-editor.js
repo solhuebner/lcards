@@ -586,4 +586,4 @@ export class LCARdSBorderEditor extends LitElement {
     }
 }
 
-customElements.define('lcards-border-editor', LCARdSBorderEditor);
+if (!customElements.get('lcards-border-editor')) customElements.define('lcards-border-editor', LCARdSBorderEditor);

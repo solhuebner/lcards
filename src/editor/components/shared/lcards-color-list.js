@@ -457,4 +457,4 @@ export class LCARdSColorList extends LitElement {
   }
 }
 
-customElements.define('lcards-color-list', LCARdSColorList);
+if (!customElements.get('lcards-color-list')) customElements.define('lcards-color-list', LCARdSColorList);

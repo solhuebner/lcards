@@ -749,4 +749,4 @@ export class LCARdSProcessorTreeEditor extends LitElement {
   }
 }
 
-customElements.define('lcards-processor-tree-editor', LCARdSProcessorTreeEditor);
+if (!customElements.get('lcards-processor-tree-editor')) customElements.define('lcards-processor-tree-editor', LCARdSProcessorTreeEditor);

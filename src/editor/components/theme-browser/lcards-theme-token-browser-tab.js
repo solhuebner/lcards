@@ -3730,4 +3730,4 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
   }
 }
 
-customElements.define('lcards-theme-token-browser-tab', LCARdSThemeTokenBrowserTab);
+if (!customElements.get('lcards-theme-token-browser-tab')) customElements.define('lcards-theme-token-browser-tab', LCARdSThemeTokenBrowserTab);

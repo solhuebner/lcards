@@ -142,4 +142,4 @@ export class LCARdSMultiActionEditor extends LitElement {
     }
 }
 
-customElements.define('lcards-multi-action-editor', LCARdSMultiActionEditor);
+if (!customElements.get('lcards-multi-action-editor')) customElements.define('lcards-multi-action-editor', LCARdSMultiActionEditor);

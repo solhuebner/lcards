@@ -64,6 +64,15 @@ async def async_register_static_path(hass: HomeAssistant) -> None:
                     # cache=True — browser caches; HA appends ?v= to bust on upgrade
                     True,
                 ),
+                # Source map — served alongside lcards.js so browser devtools
+                # can map the bundle back to original source files.
+                StaticPathConfig(
+                    f"/{DOMAIN}/{FRONTEND_SCRIPT_URL}.map",
+                    hass.config.path(
+                        f"custom_components/{DOMAIN}/{FRONTEND_SCRIPT_URL}.map"
+                    ),
+                    True,
+                ),
                 # Asset alias — /hacsfiles/lcards/* → custom_components/lcards/*
                 # Keeps all existing font/SVG/sound URL references working.
                 StaticPathConfig(

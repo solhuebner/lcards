@@ -186,4 +186,4 @@ export class LCARdSIconEditor extends LitElement {
     }
 }
 
-customElements.define('lcards-icon-editor', LCARdSIconEditor);
+if (!customElements.get('lcards-icon-editor')) customElements.define('lcards-icon-editor', LCARdSIconEditor);

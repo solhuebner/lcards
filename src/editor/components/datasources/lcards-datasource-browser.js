@@ -1289,4 +1289,4 @@ export class LCARdSDataSourceBrowser extends LitElement {
   }
 }
 
-customElements.define('lcards-datasource-browser', LCARdSDataSourceBrowser);
+if (!customElements.get('lcards-datasource-browser')) customElements.define('lcards-datasource-browser', LCARdSDataSourceBrowser);

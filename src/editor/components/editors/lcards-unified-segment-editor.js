@@ -656,4 +656,4 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
     }
 }
 
-customElements.define('lcards-unified-segment-editor', LCARdSUnifiedSegmentEditor);
+if (!customElements.get('lcards-unified-segment-editor')) customElements.define('lcards-unified-segment-editor', LCARdSUnifiedSegmentEditor);

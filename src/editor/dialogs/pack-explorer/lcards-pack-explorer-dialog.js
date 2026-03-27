@@ -81,4 +81,4 @@ export class LCARdSPackExplorerDialog extends LitElement {
   }
 }
 
-customElements.define('lcards-pack-explorer-dialog', LCARdSPackExplorerDialog);
+if (!customElements.get('lcards-pack-explorer-dialog')) customElements.define('lcards-pack-explorer-dialog', LCARdSPackExplorerDialog);

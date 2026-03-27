@@ -362,4 +362,4 @@ export class LCARdSChartLivePreview extends LitElement {
 }
 
 // Register custom element
-customElements.define('lcards-chart-live-preview', LCARdSChartLivePreview);
+if (!customElements.get('lcards-chart-live-preview')) customElements.define('lcards-chart-live-preview', LCARdSChartLivePreview);

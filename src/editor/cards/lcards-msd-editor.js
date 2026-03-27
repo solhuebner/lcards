@@ -339,4 +339,4 @@ export class LCARdSMSDEditor extends LCARdSBaseEditor {
 }
 
 // Register the custom element
-customElements.define('lcards-msd-editor', LCARdSMSDEditor);
+if (!customElements.get('lcards-msd-editor')) customElements.define('lcards-msd-editor', LCARdSMSDEditor);

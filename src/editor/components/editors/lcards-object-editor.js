@@ -340,4 +340,4 @@ export class LCARdSObjectEditor extends LitElement {
     }
 }
 
-customElements.define('lcards-object-editor', LCARdSObjectEditor);
+if (!customElements.get('lcards-object-editor')) customElements.define('lcards-object-editor', LCARdSObjectEditor);

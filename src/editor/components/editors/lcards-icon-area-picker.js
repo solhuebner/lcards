@@ -323,4 +323,4 @@ export class LCARdSIconAreaPicker extends LitElement {
     }
 }
 
-customElements.define('lcards-icon-area-picker', LCARdSIconAreaPicker);
+if (!customElements.get('lcards-icon-area-picker')) customElements.define('lcards-icon-area-picker', LCARdSIconAreaPicker);

@@ -1344,4 +1344,4 @@ rules:
     }
 }
 
-customElements.define('lcards-rules-dashboard', LCARdSRulesDashboard);
+if (!customElements.get('lcards-rules-dashboard')) customElements.define('lcards-rules-dashboard', LCARdSRulesDashboard);

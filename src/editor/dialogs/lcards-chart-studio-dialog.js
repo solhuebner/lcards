@@ -2957,4 +2957,4 @@ yaxis:
 }
 
 // Register custom element
-customElements.define('lcards-chart-studio-dialog', LCARdSChartStudioDialog);
+if (!customElements.get('lcards-chart-studio-dialog')) customElements.define('lcards-chart-studio-dialog', LCARdSChartStudioDialog);
