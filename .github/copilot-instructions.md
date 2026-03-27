@@ -842,6 +842,7 @@ $0._singletons.rulesManager  // From any card element
 ❌ **Don't** inject `<style>` tags inside `_renderCard()` — use `static get styles()` with `css` template
 ❌ **Don't** update editor config with direct assignment — use `this._updateConfig(partial)` in editors
 ❌ **Don't** call `ColorUtils.resolveCssVariable()` alone on color values — use the two-step resolver pattern for Canvas2D/SVG/anime.js contexts
+❌ **Don't** use bare `customElements.define('name', Class)` — always guard with `if (!customElements.get('name'))` to prevent double-registration errors when the module is evaluated more than once (e.g. HMR, panel re-mount)
 
 ---
 

@@ -782,4 +782,4 @@ export class LCARdSStorageExplorerTab extends LitElement {
   `;
 }
 
-customElements.define('lcards-storage-explorer-tab', LCARdSStorageExplorerTab);
+if (!customElements.get('lcards-storage-explorer-tab')) customElements.define('lcards-storage-explorer-tab', LCARdSStorageExplorerTab);
