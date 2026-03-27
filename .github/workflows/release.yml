@@ -66,15 +66,23 @@ jobs:
       - name: Stamp version from tag
         run: |
           VERSION="${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}"
-          echo "📌 Release version: ${VERSION}"
+          echo "📌 Release tag: ${VERSION}"
 
-          # manifest.json
-          jq --arg v "$VERSION" '.version = $v' \
+          # HA manifest.json requires CalVer without leading zeros and without
+          # pre-release suffixes: 2026.03.27-alpha.1 → 2026.3.27
+          # Strip pre-release suffix first, then remove leading zeros from each part.
+          CALVER="${VERSION%%-*}"          # "2026.03.27"
+          IFS='.' read -r Y M D <<< "$CALVER"
+          HA_VERSION="${Y}.$((10#$M)).$((10#$D))"   # "2026.3.27"
+          echo "📌 HA manifest version: ${HA_VERSION}"
+
+          # manifest.json — HA calver (no leading zeros, no suffix)
+          jq --arg v "$HA_VERSION" '.version = $v' \
             custom_components/lcards/manifest.json > /tmp/manifest.json
           mv /tmp/manifest.json custom_components/lcards/manifest.json
-          echo "  ✅ manifest.json → ${VERSION}"
+          echo "  ✅ manifest.json → ${HA_VERSION}"
 
-          # const.py
+          # const.py — store full release tag for display/WS endpoint
           sed -i "s/^DOMAIN_VERSION = .*/DOMAIN_VERSION = \"${VERSION}\"/" \
             custom_components/lcards/const.py
           echo "  ✅ const.py       → ${VERSION}"
