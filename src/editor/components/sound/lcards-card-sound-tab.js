@@ -439,4 +439,4 @@ export class LCARdSCardSoundTab extends LitElement {
   }
 }
 
-customElements.define('lcards-card-sound-tab', LCARdSCardSoundTab);
+if (!customElements.get('lcards-card-sound-tab')) customElements.define('lcards-card-sound-tab', LCARdSCardSoundTab);

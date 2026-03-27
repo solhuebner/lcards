@@ -203,4 +203,4 @@ export class LCARdSCollapsibleSection extends LitElement {
   }
 }
 
-customElements.define('lcards-collapsible-section', LCARdSCollapsibleSection);
+if (!customElements.get('lcards-collapsible-section')) customElements.define('lcards-collapsible-section', LCARdSCollapsibleSection);

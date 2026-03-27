@@ -812,4 +812,4 @@ export class LCARdSTemplateEvaluationTab extends LitElement {
   }
 }
 
-customElements.define('lcards-template-evaluation-tab', LCARdSTemplateEvaluationTab);
+if (!customElements.get('lcards-template-evaluation-tab')) customElements.define('lcards-template-evaluation-tab', LCARdSTemplateEvaluationTab);

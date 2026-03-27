@@ -908,6 +908,6 @@ export class LCARdSSliderRangeVisualizer extends LitElement {
     }
 }
 
-customElements.define('lcards-slider-range-visualizer', LCARdSSliderRangeVisualizer);
+if (!customElements.get('lcards-slider-range-visualizer')) customElements.define('lcards-slider-range-visualizer', LCARdSSliderRangeVisualizer);
 
 lcardsLog.debug('[LCARdSSliderRangeVisualizer] Component registered');

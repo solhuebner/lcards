@@ -40,6 +40,7 @@ import { DataSourceDebugAPI } from '../api/DataSourceDebugAPI.js';
 import { CoreDebugAPI } from '../api/CoreDebugAPI.js';
 import { LCARdSHelperManager } from './helpers/lcards-helper-manager.js';
 import { SoundManager } from './sound/SoundManager.js';
+import { IntegrationService } from './services/IntegrationService.js';
 
 /**
  * LCARdSCore - Central coordinator for all LCARdS infrastructure
@@ -70,6 +71,7 @@ class LCARdSCore {
         this.componentManager = null;    // Component registry (Phase 4)
         this.helperManager = null;       // Helper management system (Phase 5)
         this.soundManager = null;         // Sound management system (Phase 2g)
+        this.integrationService = null;   // HA integration probe (available / version)
 
         // ===== REGISTRIES =====
         this._cardInstances = new Map();     // Map<cardId, CardContext>
@@ -256,6 +258,11 @@ class LCARdSCore {
                 window.lcards.debug.singletons = coreDebug.singletons;
                 lcardsLog.debug('[LCARdSCore] ✅ Core debug API attached at window.lcards.debug.core/singleton/singletons');
             }
+
+            // Create IntegrationService — it self-probes on the first _updateHass
+            // call where hass.connection is available, so no initialize() call here.
+            this.integrationService = new IntegrationService();
+            lcardsLog.debug('[LCARdSCore] ✅ IntegrationService created (will probe on first connection)');
 
             this._coreInitialized = true;
 
@@ -458,7 +465,9 @@ class LCARdSCore {
             this.soundManager.updateHass(hass);
         }
 
-        // StylePresetManager doesn't need HASS updates (it's theme/pack based)
+        if (this.integrationService) {
+            this.integrationService.updateHass(hass);
+        }
     }
 
     /**

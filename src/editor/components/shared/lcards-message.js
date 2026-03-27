@@ -56,4 +56,4 @@ export class LCARdSMessage extends LitElement {
     }
 }
 
-customElements.define('lcards-message', LCARdSMessage);
+if (!customElements.get('lcards-message')) customElements.define('lcards-message', LCARdSMessage);

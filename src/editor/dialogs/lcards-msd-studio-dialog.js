@@ -12334,4 +12334,4 @@ export class LCARdSMSDStudioDialog extends LitElement {
 }
 
 // Register the custom element
-customElements.define('lcards-msd-studio-dialog', LCARdSMSDStudioDialog);
+if (!customElements.get('lcards-msd-studio-dialog')) customElements.define('lcards-msd-studio-dialog', LCARdSMSDStudioDialog);

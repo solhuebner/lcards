@@ -2310,4 +2310,4 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
     }
 }
 
-customElements.define('lcards-elbow-editor', LCARdSElbowEditor);
+if (!customElements.get('lcards-elbow-editor')) customElements.define('lcards-elbow-editor', LCARdSElbowEditor);

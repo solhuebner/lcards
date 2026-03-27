@@ -240,4 +240,4 @@ export class LCARdSStyleHierarchyDiagram extends LitElement {
     }
 }
 
-customElements.define('lcards-style-hierarchy-diagram', LCARdSStyleHierarchyDiagram);
+if (!customElements.get('lcards-style-hierarchy-diagram')) customElements.define('lcards-style-hierarchy-diagram', LCARdSStyleHierarchyDiagram);

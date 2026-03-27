@@ -1429,4 +1429,4 @@ export class LCARdSFilterEditor extends LitElement {
     }
 }
 
-customElements.define('lcards-filter-editor', LCARdSFilterEditor);
+if (!customElements.get('lcards-filter-editor')) customElements.define('lcards-filter-editor', LCARdSFilterEditor);

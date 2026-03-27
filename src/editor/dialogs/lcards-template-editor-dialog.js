@@ -920,4 +920,4 @@ export class LCARdSTemplateEditorDialog extends LitElement {
     }
 }
 
-customElements.define('lcards-template-editor-dialog', LCARdSTemplateEditorDialog);
+if (!customElements.get('lcards-template-editor-dialog')) customElements.define('lcards-template-editor-dialog', LCARdSTemplateEditorDialog);

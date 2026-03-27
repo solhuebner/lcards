@@ -1010,4 +1010,4 @@ export class LCARdSColorSectionV2 extends LitElement {
     }
 }
 
-customElements.define('lcards-color-section-v2', LCARdSColorSectionV2);
+if (!customElements.get('lcards-color-section-v2')) customElements.define('lcards-color-section-v2', LCARdSColorSectionV2);

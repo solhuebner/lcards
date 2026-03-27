@@ -3109,4 +3109,4 @@ export class LCARdSAnimationEditor extends LitElement {
   }
 }
 
-customElements.define('lcards-animation-editor', LCARdSAnimationEditor);
+if (!customElements.get('lcards-animation-editor')) customElements.define('lcards-animation-editor', LCARdSAnimationEditor);

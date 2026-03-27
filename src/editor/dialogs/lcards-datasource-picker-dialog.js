@@ -732,4 +732,4 @@ export class LCARdSDataSourcePickerDialog extends LitElement {
   }
 }
 
-customElements.define('lcards-datasource-picker-dialog', LCARdSDataSourcePickerDialog);
+if (!customElements.get('lcards-datasource-picker-dialog')) customElements.define('lcards-datasource-picker-dialog', LCARdSDataSourcePickerDialog);

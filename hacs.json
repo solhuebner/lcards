@@ -1,6 +1,7 @@
 {
   "name": "LCARdS",
-  "content_in_root": false,
+  "zip_release": true,
+  "filename": "lcards.zip",
   "render_readme": true,
   "homeassistant": "2026.3.0"
 }

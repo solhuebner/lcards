@@ -3769,4 +3769,4 @@ export class LCARdSDataGridStudioDialogV4 extends LitElement {
     }
 }
 
-customElements.define('lcards-data-grid-studio-dialog-v4', LCARdSDataGridStudioDialogV4);
+if (!customElements.get('lcards-data-grid-studio-dialog-v4')) customElements.define('lcards-data-grid-studio-dialog-v4', LCARdSDataGridStudioDialogV4);

@@ -1199,4 +1199,4 @@ export class LCARdSConfigPanel extends LitElement {
   }
 }
 
-customElements.define('lcards-config-panel', LCARdSConfigPanel);
+if (!customElements.get('lcards-config-panel')) customElements.define('lcards-config-panel', LCARdSConfigPanel);

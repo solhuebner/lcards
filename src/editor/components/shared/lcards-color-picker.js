@@ -1331,4 +1331,4 @@ export class LCARdSColorPicker extends LitElement {
 // Static cache for CSS variables (shared across instances)
 LCARdSColorPicker._variablesCache = null;
 
-customElements.define('lcards-color-picker', LCARdSColorPicker);
+if (!customElements.get('lcards-color-picker')) customElements.define('lcards-color-picker', LCARdSColorPicker);

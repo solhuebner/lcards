@@ -1,0 +1,150 @@
+name: Release
+
+# Trigger on version tags:
+#   2026.3.25          → stable release
+#   2026.3.25-alpha.1  → pre-release
+#
+# OR run manually from Actions → Release → Run workflow
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+-*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 2026.3.25 or 2026.3.25-alpha.1)"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark as pre-release?"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Checkout ─────────────────────────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # needed for tag creation and release notes
+
+      # ── Node ─────────────────────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Tag (workflow_dispatch only) ───────────────────────────────────────
+      # When triggered manually, no tag exists yet — create and push it so
+      # softprops/action-gh-release can find it.
+      - name: Create and push tag
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          VERSION="${{ inputs.version }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "${VERSION}"
+          git push origin "${VERSION}"
+          echo "🏷️ Created tag ${VERSION}"
+
+      # ── Version ───────────────────────────────────────────────────────────────
+      # The git tag IS the canonical version (HA calver: YYYY.M.X[-suffix]).
+      # Patch manifest.json and const.py in-place before packaging.
+      - name: Stamp version from tag
+        run: |
+          VERSION="${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}"
+          echo "📌 Release tag: ${VERSION}"
+
+          # HA manifest.json requires CalVer without leading zeros and without
+          # pre-release suffixes: 2026.03.27-alpha.1 → 2026.3.27
+          # Strip pre-release suffix first, then remove leading zeros from each part.
+          CALVER="${VERSION%%-*}"          # "2026.03.27"
+          IFS='.' read -r Y M D <<< "$CALVER"
+          HA_VERSION="${Y}.$((10#$M)).$((10#$D))"   # "2026.3.27"
+          echo "📌 HA manifest version: ${HA_VERSION}"
+
+          # manifest.json — HA calver (no leading zeros, no suffix)
+          jq --arg v "$HA_VERSION" '.version = $v' \
+            custom_components/lcards/manifest.json > /tmp/manifest.json
+          mv /tmp/manifest.json custom_components/lcards/manifest.json
+          echo "  ✅ manifest.json → ${HA_VERSION}"
+
+          # const.py — store full release tag for display/WS endpoint
+          sed -i "s/^DOMAIN_VERSION = .*/DOMAIN_VERSION = \"${VERSION}\"/" \
+            custom_components/lcards/const.py
+          echo "  ✅ const.py       → ${VERSION}"
+
+      # ── Build ─────────────────────────────────────────────────────────────────
+      - name: Build integration JS
+        run: npm run build:integration
+        # build:integration = vite build --mode integration && node scripts/copy-assets.js
+        # This produces custom_components/lcards/lcards.js and copies
+        # src/assets/{fonts,msd,sounds} into custom_components/lcards/
+
+      - name: Verify build output
+        run: |
+          ERRORS=0
+          if [ ! -f "custom_components/lcards/lcards.js" ]; then
+            echo "❌ Build failed: custom_components/lcards/lcards.js missing"
+            ERRORS=$((ERRORS + 1))
+          else
+            echo "✅ lcards.js — $(du -sh custom_components/lcards/lcards.js | cut -f1)"
+          fi
+          for DIR in fonts msd sounds; do
+            if [ ! -d "custom_components/lcards/$DIR" ]; then
+              echo "❌ Missing asset dir: custom_components/lcards/$DIR"
+              ERRORS=$((ERRORS + 1))
+            else
+              echo "✅ assets/$DIR present"
+            fi
+          done
+          [ $ERRORS -eq 0 ] || exit 1
+
+      # ── Package ───────────────────────────────────────────────────────────────
+      # Zip contents at root so HACS extracts them into custom_components/lcards/
+      - name: Package integration
+        run: |
+          cd custom_components/lcards
+          zip -r ../../lcards.zip . \
+            --exclude "__pycache__/*" \
+            --exclude "*.pyc"
+
+          echo ""
+          echo "📦 Package contents:"
+          unzip -l ../../lcards.zip
+
+      # ── Release ───────────────────────────────────────────────────────────────
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+          files: lcards.zip
+          prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          body: |
+            ## LCARdS ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+
+            ### Installation via HACS (recommended)
+            1. Open HACS → Integrations → ⋮ → Custom repositories
+            2. Add `https://github.com/snootched/lcards` — category **Integration**
+            3. Install **LCARdS** and restart Home Assistant
+            4. Add the integration via **Settings → Integrations → Add integration → LCARdS**
+
+            ### Manual installation
+            1. Download `lcards.zip`
+            2. Extract into `config/custom_components/lcards/`
+            3. Restart Home Assistant
+            4. Add the integration via Settings → Integrations

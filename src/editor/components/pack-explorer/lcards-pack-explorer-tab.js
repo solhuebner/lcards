@@ -1575,4 +1575,4 @@ export class LCARdSPackExplorerTab extends LitElement {
   }
 }
 
-customElements.define('lcards-pack-explorer-tab', LCARdSPackExplorerTab);
+if (!customElements.get('lcards-pack-explorer-tab')) customElements.define('lcards-pack-explorer-tab', LCARdSPackExplorerTab);

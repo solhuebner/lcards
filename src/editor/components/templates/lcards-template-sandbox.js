@@ -2534,4 +2534,4 @@ export class LCARdSTemplateSandbox extends LitElement {
   }
 }
 
-customElements.define('lcards-template-sandbox', LCARdSTemplateSandbox);
+if (!customElements.get('lcards-template-sandbox')) customElements.define('lcards-template-sandbox', LCARdSTemplateSandbox);

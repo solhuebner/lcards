@@ -1848,4 +1848,4 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
     }
 }
 
-customElements.define('lcards-button-editor', LCARdSButtonEditor);
+if (!customElements.get('lcards-button-editor')) customElements.define('lcards-button-editor', LCARdSButtonEditor);

@@ -35,4 +35,4 @@ export class LCARdSCardPickerWrapper extends LitElement {
     }
 }
 
-customElements.define('lcards-card-picker-wrapper', LCARdSCardPickerWrapper);
+if (!customElements.get('lcards-card-picker-wrapper')) customElements.define('lcards-card-picker-wrapper', LCARdSCardPickerWrapper);

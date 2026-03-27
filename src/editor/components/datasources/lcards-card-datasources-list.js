@@ -240,4 +240,4 @@ export class LCARdSCardDataSourcesList extends LitElement {
   }
 }
 
-customElements.define('lcards-card-datasources-list', LCARdSCardDataSourcesList);
+if (!customElements.get('lcards-card-datasources-list')) customElements.define('lcards-card-datasources-list', LCARdSCardDataSourcesList);

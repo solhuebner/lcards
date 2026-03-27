@@ -755,4 +755,4 @@ export class LCARdSConditionGroupEditor extends LitElement {
     }
 }
 
-customElements.define('lcards-condition-group-editor', LCARdSConditionGroupEditor);
+if (!customElements.get('lcards-condition-group-editor')) customElements.define('lcards-condition-group-editor', LCARdSConditionGroupEditor);

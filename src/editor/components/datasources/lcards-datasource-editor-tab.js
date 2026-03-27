@@ -489,4 +489,4 @@ export class LCARdSDataSourceEditorTab extends LitElement {
   }
 }
 
-customElements.define('lcards-datasource-editor-tab', LCARdSDataSourceEditorTab);
+if (!customElements.get('lcards-datasource-editor-tab')) customElements.define('lcards-datasource-editor-tab', LCARdSDataSourceEditorTab);

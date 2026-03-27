@@ -167,4 +167,4 @@ export class LCARdSFormSection extends LitElement {
     }
 }
 
-customElements.define('lcards-form-section', LCARdSFormSection);
+if (!customElements.get('lcards-form-section')) customElements.define('lcards-form-section', LCARdSFormSection);

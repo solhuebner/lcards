@@ -618,4 +618,4 @@ ${colorData.color}</title>
   }
 }
 
-customElements.define('alert-mode-color-wheel', AlertModeColorWheel);
+if (!customElements.get('alert-mode-color-wheel')) customElements.define('alert-mode-color-wheel', AlertModeColorWheel);

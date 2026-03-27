@@ -181,4 +181,4 @@ export class LCARdSDataGridEditor extends LCARdSBaseEditor {
 }
 
 // Register the custom element
-customElements.define('lcards-data-grid-editor', LCARdSDataGridEditor);
+if (!customElements.get('lcards-data-grid-editor')) customElements.define('lcards-data-grid-editor', LCARdSDataGridEditor);

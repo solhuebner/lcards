@@ -72,4 +72,4 @@ export class LCARdSGridLayout extends LitElement {
     }
 }
 
-customElements.define('lcards-grid-layout', LCARdSGridLayout);
+if (!customElements.get('lcards-grid-layout')) customElements.define('lcards-grid-layout', LCARdSGridLayout);

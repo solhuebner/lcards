@@ -572,4 +572,4 @@ export class LCARdSDataSourceDialog extends LitElement {
   }
 }
 
-customElements.define('lcards-datasource-dialog', LCARdSDataSourceDialog);
+if (!customElements.get('lcards-datasource-dialog')) customElements.define('lcards-datasource-dialog', LCARdSDataSourceDialog);

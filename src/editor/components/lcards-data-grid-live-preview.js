@@ -388,4 +388,4 @@ export class LCARdSDataGridLivePreview extends LitElement {
 }
 
 // Register custom element
-customElements.define('lcards-data-grid-live-preview', LCARdSDataGridLivePreview);
+if (!customElements.get('lcards-data-grid-live-preview')) customElements.define('lcards-data-grid-live-preview', LCARdSDataGridLivePreview);
