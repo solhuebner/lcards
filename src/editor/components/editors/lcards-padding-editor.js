@@ -280,4 +280,4 @@ export class LCARdSPaddingEditor extends LitElement {
     }
 }
 
-customElements.define('lcards-padding-editor', LCARdSPaddingEditor);
+if (!customElements.get('lcards-padding-editor')) customElements.define('lcards-padding-editor', LCARdSPaddingEditor);

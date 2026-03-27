@@ -80,16 +80,26 @@ style:
 | `active` | `on` · `open` · `playing` · `home` · `heat` · `cool` · `auto` · `fan_only` · `dry` · `locked` · `armed_home` · `armed_away` · `armed_night` · `armed_vacation` · `armed_custom_bypass` · `cleaning` · `mowing` · `docked` · `returning` · `paused` · `active` · `above_horizon` |
 | `inactive` | `off` · `closed` · `away` · `idle` · `stopped` · `standby` · `unlocked` · `disarmed` · `inactive` — and any state not in the `active` or `unavailable` lists |
 | `unavailable` | `unavailable` · `unknown` |
+| `zero` | Entity state parses to exactly `0` — checked before range conditions |
+| `non_zero` | Entity state is any non-zero number (including negatives) — catch-all used only when no range condition matched |
+| `above:N` | Numeric state strictly greater than `N` — e.g. `above:50` |
+| `below:N` | Numeric state strictly less than `N` — e.g. `below:20` |
+| `between:N:M` | Numeric state `N ≤ value ≤ M` (inclusive) — e.g. `between:20:80` |
 | Any custom string | Exact match — e.g. `heat`, `cool`, `buffering`, `charging` |
 
 ### Resolution Order
 
 For each colour field, the resolved value is determined in this order:
 
-1. **Exact state match** — e.g. the entity state is `"heat"` and `heat:` key exists
-2. **Classified state** — `active`, `inactive`, or `unavailable` based on the state table above
-3. **`default`** key — fallback for any unmatched state
-4. **Fallback parameter** — hard-coded theme default for that field
+1. **Exact state match** — e.g. the entity state is `"heat"` and a `heat:` key exists
+2. **`zero`** — if the numeric state is exactly `0` and a `zero:` key exists
+3. **Range conditions** (`above:N`, `below:N`, `between:N:M`) — all matching ranges are evaluated and the most specific one wins:
+   - `between` — narrowest range (smallest `M − N`) wins
+   - `above` — highest threshold wins
+   - `below` — lowest threshold wins
+4. **`non_zero`** — if the numeric state is non-zero and no range matched
+5. **Classified state** — `active`, `inactive`, or `unavailable` per the table above
+6. **`default`** key — final fallback for any unmatched state
 
 ---
 
@@ -146,6 +156,24 @@ style:
       cool: "var(--lcards-blue)"
       unavailable: "var(--lcards-alert-red)"
     width: 2
+```
+
+### Numeric Sensor Example
+
+A battery sensor card that uses ranges to colour-code charge level:
+
+```yaml
+type: custom:lcards-button
+entity: sensor.phone_battery
+style:
+  card:
+    color:
+      background:
+        zero: "var(--lcards-alert-red)"       # exactly 0 %
+        below:20: "var(--lcards-alert-red)"   # critical — checked after zero
+        below:50: "var(--lcards-alert-yellow)" # low
+        non_zero: "var(--lcards-green)"       # any positive level, no range matched
+        default: "var(--lcards-gray)"
 ```
 
 ---

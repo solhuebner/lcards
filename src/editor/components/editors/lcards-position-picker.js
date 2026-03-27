@@ -241,4 +241,4 @@ export class LCARdSPositionPicker extends LitElement {
     }
 }
 
-customElements.define('lcards-position-picker', LCARdSPositionPicker);
+if (!customElements.get('lcards-position-picker')) customElements.define('lcards-position-picker', LCARdSPositionPicker);

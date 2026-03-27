@@ -411,6 +411,16 @@ dist/*
 dist/lcards.js
 dist/lcards.js.map
 
+# Integration build artifacts — produced by npm run build:integration
+# Served to HA via devcontainer bind mount during development.
+# Added to GitHub releases by CI on the release workflow.
+custom_components/lcards/lcards.js
+custom_components/lcards/lcards.js.map
+# Asset directories copied from src/assets/ by scripts/copy-assets.js
+custom_components/lcards/fonts/
+custom_components/lcards/msd/
+custom_components/lcards/sounds/
+
 # VitePress build output & cache
 docs/site/
 doc/.vitepress/dist/

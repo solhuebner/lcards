@@ -414,6 +414,30 @@ export const stateColorSchema = {
                     pattern: '^(#[0-9A-Fa-f]{6}|#[0-9A-Fa-f]{8}|transparent|match-light|theme:|rgb\\(|rgba\\(|hsl\\(|var\\(--)',
                     description: 'Colour when entity is unavailable',
                     examples: ['#666666', 'theme:color.ui.unavailable']
+                },
+                zero: {
+                    type: 'string',
+                    pattern: '^(#[0-9A-Fa-f]{6}|#[0-9A-Fa-f]{8}|transparent|match-light|theme:|rgb\\(|rgba\\(|hsl\\(|var\\(--)',
+                    description: 'Colour when entity state is numeric 0 (e.g. no lights on, zero count)',
+                    examples: ['var(--lcards-gray-dark)', 'theme:color.ui.inactive']
+                },
+                non_zero: {
+                    type: 'string',
+                    pattern: '^(#[0-9A-Fa-f]{6}|#[0-9A-Fa-f]{8}|transparent|match-light|theme:|rgb\\(|rgba\\(|hsl\\(|var\\(--)',
+                    description: 'Colour when entity state is a non-zero number (e.g. lights are on, count > 0)',
+                    examples: ['var(--lcards-green-tertiary)', 'theme:color.ui.active']
+                },
+                hover: {
+                    type: 'string',
+                    pattern: '^(#[0-9A-Fa-f]{6}|#[0-9A-Fa-f]{8}|transparent|match-light|theme:|rgb\\(|rgba\\(|hsl\\(|var\\(--)',
+                    description: 'Colour on hover interaction',
+                    examples: ['var(--lcards-orange)', 'theme:color.ui.active']
+                },
+                pressed: {
+                    type: 'string',
+                    pattern: '^(#[0-9A-Fa-f]{6}|#[0-9A-Fa-f]{8}|transparent|match-light|theme:|rgb\\(|rgba\\(|hsl\\(|var\\(--)',
+                    description: 'Colour on press/tap interaction',
+                    examples: ['var(--lcards-orange-dark)', 'theme:color.ui.active']
                 }
             },
             additionalProperties: {

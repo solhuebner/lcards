@@ -1302,7 +1302,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     basePath="style.gauge.scale.tick_marks.major.color"
                     header="Major Tick Colours"
                     description="State-based colours for major tick marks - supports custom states"
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>
@@ -1313,7 +1313,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     basePath="style.gauge.scale.tick_marks.minor.color"
                     header="Minor Tick Colours"
                     description="State-based colours for minor tick marks - supports custom states"
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>
@@ -1360,7 +1360,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                         basePath="style.gauge.scale.labels.color"
                         header="Label Colours"
                         description="State-based colours for scale numeric labels - supports custom states"
-                        .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                        .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero']}
                         ?allowCustomStates=${true}
                         ?expanded=${false}>
                     </lcards-color-section-v2>
@@ -1744,7 +1744,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     basePath="style.border.left.color"
                     header="Left Border Colours"
                     description="State-based colours for left border - supports custom states"
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero', 'hover', 'pressed']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>
@@ -1777,7 +1777,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     basePath="style.border.top.color"
                     header="Top Border Colours"
                     description="State-based colours for top border - supports custom states"
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero', 'hover', 'pressed']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>
@@ -1810,7 +1810,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     basePath="style.border.right.color"
                     header="Right Border Colours"
                     description="State-based colours for right border - supports custom states"
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero', 'hover', 'pressed']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>
@@ -1843,7 +1843,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     basePath="style.border.bottom.color"
                     header="Bottom Border Colours"
                     description="State-based colours for bottom border - supports custom states"
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero', 'hover', 'pressed']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>
@@ -2134,6 +2134,6 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
 }
 
 // Register custom element
-customElements.define('lcards-slider-editor', LCARdSSliderEditor);
+if (!customElements.get('lcards-slider-editor')) customElements.define('lcards-slider-editor', LCARdSSliderEditor);
 
 lcardsLog.debug('[LCARdSSliderEditor] Standalone editor module loaded');

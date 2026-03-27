@@ -203,6 +203,10 @@ export class LCARdSCard extends LCARdSNativeCard {
         this._registeredDataSources = new Set(); // Track datasources registered by this card
         this._datasourceSubscriptions = new Map(); // Track datasource subscriptions (sourceId -> unsubscribe function)
 
+        // Light colour CSS variable state (populated by _updateLightColorVariable)
+        this._lightColorValue = null;   // Cached resolved colour string, or null when light is off
+        this._lightAlphaValue = null;   // Cached brightness scalar (0.0–1.0), or null when light is off
+
         lcardsLog.trace(`[LCARdSCard] Constructor called for ${this._getDisplayId()}`);
     }
 
@@ -748,6 +752,14 @@ export class LCARdSCard extends LCARdSNativeCard {
      */
     async _onConnected() {
         super._onConnected();
+
+        // Re-populate the per-card light-colour CSS variable when the card reconnects
+        // (e.g. after HA enters/exits edit mode). _onHassChanged is NOT re-fired on
+        // reconnect unless HASS itself changes, so the variable removed by
+        // _cleanupLightColorVariable() in _onDisconnected would never be recreated.
+        if (this._entity) {
+            this._updateLightColorVariable();
+        }
 
         // Re-establish ResizeObserver + window listener if auto-sizing was enabled
         // but the observer was cleaned up during a previous disconnect.
@@ -2037,31 +2049,15 @@ export class LCARdSCard extends LCARdSNativeCard {
             };
         }
 
-        // Parse prefix:name format
+        // Parse prefix:name format — preserves any icon set prefix (mdi, si, hue, phu, etc.)
+        // so ha-icon can resolve it correctly regardless of source.
         if (iconString.includes(':')) {
             const [prefix, name] = iconString.split(':', 2);
-
-            switch (prefix.toLowerCase()) {
-                case 'mdi':
-                    return {
-                        type: 'mdi',
-                        icon: name // Just the name without prefix
-                        // position, size and color will be resolved from theme tokens
-                    };
-                case 'si':
-                    return {
-                        type: 'si',
-                        icon: name // Just the name without prefix
-                        // position, size and color will be resolved from theme tokens
-                    };
-                default:
-                    // Unknown prefix, treat as MDI
-                    return {
-                        type: 'mdi',
-                        icon: name
-                        // position, size and color will be resolved from theme tokens
-                    };
-            }
+            return {
+                type: prefix.toLowerCase(),
+                icon: name
+                // position, size and color will be resolved from theme tokens
+            };
         }
 
         // Plain name - assume MDI
@@ -3034,9 +3030,11 @@ export class LCARdSCard extends LCARdSNativeCard {
 
         // Check if light is on
         if (this._entity.state !== 'on') {
-            // Light is off, remove variable or set to default
+            // Light is off, remove variables
             document.documentElement.style.removeProperty(varName);
+            document.documentElement.style.removeProperty(`--lcards-light-alpha-${this._cardGuid}`);
             this._lightColorValue = null;
+            this._lightAlphaValue = null;
             this._onLightColorChanged();
             return;
         }
@@ -3062,6 +3060,12 @@ export class LCARdSCard extends LCARdSNativeCard {
             // More sophisticated conversion could be added
             color = '#ffd89b';
         }
+        // Brightness-only light (no colour capability) — derive a warm white scaled to brightness
+        else {
+            const b = this._entity.attributes.brightness ?? 255;
+            const level = Math.round((b / 255) * 255);
+            color = `rgb(${level}, ${Math.round(level * 0.97)}, ${Math.round(level * 0.85)})`;
+        }
 
         // Set the CSS variable and cache the value on the instance so subclasses
         // can embed the resolved colour directly in generated markup (e.g. slider
@@ -3071,6 +3075,14 @@ export class LCARdSCard extends LCARdSNativeCard {
             this._lightColorValue = color;
             lcardsLog.trace(`[LCARdSCard] Set light color variable ${varName} = ${color}`);
         }
+
+        // Export brightness as a 0.0–1.0 alpha scalar for 'match-brightness' token support
+        const alphaVarName = `--lcards-light-alpha-${this._cardGuid}`;
+        const brightness = this._entity.attributes.brightness ?? 255;
+        const alpha = (brightness / 255).toFixed(3);
+        document.documentElement.style.setProperty(alphaVarName, alpha);
+        this._lightAlphaValue = parseFloat(alpha);
+        lcardsLog.trace(`[LCARdSCard] Set light alpha variable ${alphaVarName} = ${alpha}`);
 
         // Notify subclasses that the light colour may have changed so they can
         // bust any render caches that embedded the old resolved value.
@@ -3098,6 +3110,7 @@ export class LCARdSCard extends LCARdSNativeCard {
         if (this._cardGuid) {
             const varName = `--lcards-light-color-${this._cardGuid}`;
             document.documentElement.style.removeProperty(varName);
+            document.documentElement.style.removeProperty(`--lcards-light-alpha-${this._cardGuid}`);
             lcardsLog.trace(`[LCARdSCard] Cleaned up light color variable ${varName}`);
         }
     }
@@ -3115,13 +3128,51 @@ export class LCARdSCard extends LCARdSNativeCard {
      * @protected
      */
     _resolveMatchLightColor(value) {
-        if (typeof value === 'string' && value.includes('match-light')) {
-            // Replace all occurrences so it works both as a bare value ('match-light')
-            // and as an argument inside a computed expression
-            // e.g. 'darken(match-light, 0.5)' → 'darken(var(--lcards-light-color-{guid}), 0.5)'
-            return value.replace(/match-light/g, `var(--lcards-light-color-${this._cardGuid})`);
+        if (typeof value !== 'string') return value;
+        if (!value.includes('match-light') && !value.includes('match-brightness')) return value;
+
+        let result = value;
+
+        // Substitute match-brightness with the cached concrete alpha scalar (0.0–1.0).
+        // Using a concrete float (not a CSS var) lets ColorUtils.alpha() compute the
+        // final rgba() / color-mix() value correctly, and ensures brightness changes
+        // are reflected each render without ThemeTokenResolver cache interference.
+        if (result.includes('match-brightness')) {
+            const alpha = this._lightAlphaValue ?? 1.0;
+            result = result.replace(/match-brightness/g, String(alpha));
         }
-        return value;
+
+        // Substitute match-light with the cached concrete color when available.
+        // Concrete values allow computed wrappers like alpha() to be fully resolved
+        // to a valid CSS color. Fall back to the CSS variable reference so that a
+        // plain 'match-light' (no alpha wrapper) still reacts to CSS-var changes
+        // even before the first _updateLightColorVariable() call.
+        if (result.includes('match-light')) {
+            const lightColor = this._lightColorValue;
+            if (lightColor) {
+                result = result.replace(/match-light/g, lightColor);
+            } else {
+                // No concrete value yet — use CSS variable reference as fallback
+                result = result.replace(/match-light/g, `var(--lcards-light-color-${this._cardGuid})`);
+            }
+        }
+
+        // If the substitution left a computed expression (e.g. alpha(rgb(…), 0.784)),
+        // resolve it now to a valid CSS value via ThemeTokenResolver.
+        // Since match-light/brightness are replaced with concrete values, the resulting
+        // expression is stable and ThemeTokenResolver caching is safe.
+        if (/^(alpha|darken|lighten|saturate|desaturate|mix)\(/.test(result)) {
+            const resolver = window.lcards?.core?.themeManager?.resolver;
+            if (resolver) {
+                const resolved = resolver.resolve(result, result);
+                if (resolved !== result) {
+                    lcardsLog.trace(`[LCARdSCard] _resolveMatchLightColor resolved computed: ${result} -> ${resolved}`);
+                    return resolved;
+                }
+            }
+        }
+
+        return result;
     }
 
     /**

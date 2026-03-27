@@ -160,4 +160,4 @@ export class LCARdSChartEditor extends LCARdSBaseEditor {
 }
 
 // Register the custom element
-customElements.define('lcards-chart-editor', LCARdSChartEditor);
+if (!customElements.get('lcards-chart-editor')) customElements.define('lcards-chart-editor', LCARdSChartEditor);

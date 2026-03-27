@@ -1103,4 +1103,4 @@ export class LCARdSChartSeriesListEditor extends LitElement {
   }
 }
 
-customElements.define('lcards-chart-series-list-editor', LCARdSChartSeriesListEditor);
+if (!customElements.get('lcards-chart-series-list-editor')) customElements.define('lcards-chart-series-list-editor', LCARdSChartSeriesListEditor);

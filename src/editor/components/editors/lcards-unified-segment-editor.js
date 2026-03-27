@@ -279,7 +279,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
                         basePath="${basePath}.style.fill"
                         header="Fill"
                         description="SVG fill colour states - supports custom states like 'heat', 'cool', 'playing', etc."
-                        .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                        .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero', 'hover', 'pressed']}
                         ?allowCustomStates=${true}
                         ?expanded=${false}>
                     </lcards-color-section-v2>
@@ -292,7 +292,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
                         basePath="${basePath}.style.stroke"
                         header="Stroke"
                         description="SVG stroke colour states - supports custom states like 'heat', 'cool', 'playing', etc."
-                        .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                        .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero', 'hover', 'pressed']}
                         ?allowCustomStates=${true}
                         ?expanded=${false}>
                     </lcards-color-section-v2>
@@ -603,7 +603,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
                     basePath="${basePath}.style.fill"
                     header="Fill"
                     description="SVG fill colour states - supports custom states like 'heat', 'cool', 'playing', etc."
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero', 'hover', 'pressed']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>
@@ -616,7 +616,7 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
                     basePath="${basePath}.style.stroke"
                     header="Stroke"
                     description="SVG stroke colour states - supports custom states like 'heat', 'cool', 'playing', etc."
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero', 'hover', 'pressed']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>
@@ -656,4 +656,4 @@ export class LCARdSUnifiedSegmentEditor extends LitElement {
     }
 }
 
-customElements.define('lcards-unified-segment-editor', LCARdSUnifiedSegmentEditor);
+if (!customElements.get('lcards-unified-segment-editor')) customElements.define('lcards-unified-segment-editor', LCARdSUnifiedSegmentEditor);

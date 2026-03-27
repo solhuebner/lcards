@@ -4047,4 +4047,4 @@ export class LCARdSProvenanceTab extends LitElement {
   }
 }
 
-customElements.define('lcards-provenance-tab', LCARdSProvenanceTab);
+if (!customElements.get('lcards-provenance-tab')) customElements.define('lcards-provenance-tab', LCARdSProvenanceTab);

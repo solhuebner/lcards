@@ -225,4 +225,4 @@ export class LCARdSDataSourceCard extends LitElement {
   }
 }
 
-customElements.define('lcards-datasource-card', LCARdSDataSourceCard);
+if (!customElements.get('lcards-datasource-card')) customElements.define('lcards-datasource-card', LCARdSDataSourceCard);

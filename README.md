@@ -4,7 +4,7 @@
 <br>Build your own LCARS-style dashboards and Master Systems Display (MSD) with realistic controls, reactivity and animations.**
 
 [![GitHub release](https://img.shields.io/github/v/release/snootched/LCARdS?display_name=release&logo=startrek&color=37a6d1")](https://github.com/snootched/LCARdS/releases)
-[![License](https://img.shields.io/github/license/snootched/LCARdS?logo=opensourceinitiative&logoColor=white)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-37a6d1?logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![Last commit](https://img.shields.io/github/last-commit/snootched/LCARdS?style=default&logo=git&logoColor=white&color=37a6d1)](https://github.com/snootched/LCARdS/commits/main)
 
 <br>
@@ -15,6 +15,24 @@
 > Configuration references, card guides, core systems, tutorials, and API docs are all in the full documentation site.
 >
 > **[➜ lcards.unimatrix01.ca](https://lcards.unimatrix01.ca)**
+
+<br>
+
+> [!WARNING]
+> ## ⚠️ Breaking Change — Integration replaces Frontend Plugin
+>
+> LCARdS has moved from a **HACS Frontend Plugin** to a **HACS Integration**.
+> This is a one-time migration that must be done manually on existing installs.
+>
+> **If you have an existing LCARdS installation you must:**
+> 1. Remove the old **LCARdS** HACS Frontend Plugin (HACS → Frontend → LCARdS → Remove)
+> 2. If you added LCARdS as a custom HACS repository, remove that entry too
+> 3. Remove the `panel_custom:` block from `configuration.yaml` if you added one
+> 4. Restart Home Assistant
+> 5. Install **LCARdS** from HACS **Integrations** (not Frontend)
+> 6. Go to **Settings → Integrations → Add Integration → LCARdS** to activate it
+>
+> → **[Full migration instructions](https://lcards.unimatrix01.ca/getting-started/installation)**
 
 <br>
 
@@ -60,11 +78,17 @@ LCARdS supersedes CB-LCARS. You can run both side-by-side while transitioning �
 
 ## Installation
 
-[![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=snootched&repository=LCARdS&category=frontend)
+[![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=snootched&repository=LCARdS&category=integration)
 
-Search for **LCARdS** in HACS, install, and hard-refresh your browser to clear cache.
+1. Open **HACS** → search for **LCARdS** under **Integrations** → Download
+2. Restart Home Assistant
+3. Go to **Settings → Integrations → Add Integration → LCARdS**
+
+That's it — no `configuration.yaml` changes required. LCARdS registers its resources and sidebar panel automatically.
 
 There are no external dependencies — use with [**HA-LCARS themes**](https://github.com/th3jesta/ha-lcars) for the full experience.
+
+> **Existing users:** see the breaking change notice above before installing.
 
 → **[Full installation guide](https://lcards.unimatrix01.ca/getting-started/installation)**
 

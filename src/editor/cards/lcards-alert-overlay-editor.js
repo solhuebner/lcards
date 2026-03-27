@@ -926,4 +926,4 @@ export class LCARdSAlertOverlayEditor extends LCARdSBaseEditor {
 }
 
 // Register custom element
-customElements.define('lcards-alert-overlay-editor', LCARdSAlertOverlayEditor);
+if (!customElements.get('lcards-alert-overlay-editor')) customElements.define('lcards-alert-overlay-editor', LCARdSAlertOverlayEditor);

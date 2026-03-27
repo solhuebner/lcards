@@ -825,4 +825,4 @@ export class LCARdSVisualGridDesigner extends LitElement {
     }
 }
 
-customElements.define('lcards-visual-grid-designer', LCARdSVisualGridDesigner);
+if (!customElements.get('lcards-visual-grid-designer')) customElements.define('lcards-visual-grid-designer', LCARdSVisualGridDesigner);

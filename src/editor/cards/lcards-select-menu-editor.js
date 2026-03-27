@@ -1176,4 +1176,4 @@ export class LCARdSSelectMenuEditor extends LCARdSBaseEditor {
     }
 }
 
-customElements.define('lcards-select-menu-editor', LCARdSSelectMenuEditor);
+if (!customElements.get('lcards-select-menu-editor')) customElements.define('lcards-select-menu-editor', LCARdSSelectMenuEditor);

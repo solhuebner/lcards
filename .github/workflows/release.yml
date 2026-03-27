@@ -1,10 +1,11 @@
 name: Release
 
 # Trigger on version tags:
-#   2026.3.25          → stable release
-#   2026.3.25-alpha.1  → pre-release
+#   2026.3.27          → stable release
+#   2026.3.27-alpha.1  → pre-release
 #
 # OR run manually from Actions → Release → Run workflow
+# Version is read automatically from package.json — the single source of truth.
 on:
   push:
     tags:
@@ -12,10 +13,6 @@ on:
       - "[0-9]+.[0-9]+.[0-9]+-*"
   workflow_dispatch:
     inputs:
-      version:
-        description: "Version to release (e.g. 2026.3.25 or 2026.3.25-alpha.1)"
-        required: true
-        type: string
       prerelease:
         description: "Mark as pre-release?"
         required: false
@@ -47,33 +44,46 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # ── Tag (workflow_dispatch only) ───────────────────────────────────────
-      # When triggered manually, no tag exists yet — create and push it so
-      # softprops/action-gh-release can find it.
-      - name: Create and push tag
-        if: github.event_name == 'workflow_dispatch'
+      # ── Resolve version ────────────────────────────────────────────────────
+      # Tag push: version = the tag itself.
+      # workflow_dispatch: version = package.json (the single source of truth).
+      - name: Resolve version
+        id: version
         run: |
-          VERSION="${{ inputs.version }}"
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "${VERSION}"
-          git push origin "${VERSION}"
-          echo "🏷️ Created tag ${VERSION}"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION="${{ github.ref_name }}"
+            echo "📌 Tag-push release: ${VERSION}"
+          else
+            VERSION=$(jq -r '.version' package.json)
+            echo "📌 package.json version: ${VERSION}"
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag "${VERSION}"
+            git push origin "${VERSION}"
+            echo "🏷️  Created tag ${VERSION}"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
-      # ── Version ───────────────────────────────────────────────────────────────
-      # The git tag IS the canonical version (HA calver: YYYY.M.X[-suffix]).
-      # Patch manifest.json and const.py in-place before packaging.
-      - name: Stamp version from tag
+      # ── Stamp version ─────────────────────────────────────────────────────
+      # manifest.json requires HA CalVer: no leading zeros, no pre-release suffix.
+      # A 4th integer segment is preserved for same-day patch releases.
+      # const.py stores the full version string (including any suffix) for display.
+      #
+      # Examples:
+      #   2026.03.27          → manifest 2026.3.27   (normal release)
+      #   2026.03.27.1        → manifest 2026.3.27.1 (same-day patch)
+      #   2026.03.27-alpha.1  → manifest 2026.3.27   (pre-release; suffix stripped)
+      #   2026.03.27.1-rc.1   → manifest 2026.3.27.1 (pre-release patch; suffix stripped)
+      - name: Stamp version
         run: |
-          VERSION="${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}"
-          echo "📌 Release tag: ${VERSION}"
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "📌 Release version: ${VERSION}"
 
-          # HA manifest.json requires CalVer without leading zeros and without
-          # pre-release suffixes: 2026.03.27-alpha.1 → 2026.3.27
-          # Strip pre-release suffix first, then remove leading zeros from each part.
-          CALVER="${VERSION%%-*}"          # "2026.03.27"
-          IFS='.' read -r Y M D <<< "$CALVER"
-          HA_VERSION="${Y}.$((10#$M)).$((10#$D))"   # "2026.3.27"
+          # Strip any pre-release suffix (-alpha.1, -beta.2, -rc.1, etc.)
+          CALVER="${VERSION%%-*}"
+          # Read up to 4 segments: YYYY.MM.DD[.SEQ]
+          IFS='.' read -r Y M D SEQ <<< "$CALVER"
+          HA_VERSION="${Y}.$((10#$M)).$((10#$D))${SEQ:+.$SEQ}"
           echo "📌 HA manifest version: ${HA_VERSION}"
 
           # manifest.json — HA calver (no leading zeros, no suffix)
@@ -119,7 +129,6 @@ jobs:
         run: |
           cd custom_components/lcards
           zip -r ../../lcards.zip . \
-            --exclude "*.map" \
             --exclude "__pycache__/*" \
             --exclude "*.pyc"
 
@@ -131,12 +140,12 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+          tag_name: ${{ steps.version.outputs.version }}
           files: lcards.zip
-          prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || contains(github.ref_name, '-') }}
+          prerelease: ${{ (github.event_name == 'workflow_dispatch' && inputs.prerelease) || contains(steps.version.outputs.version, '-') }}
           generate_release_notes: true
           body: |
-            ## LCARdS ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+            ## LCARdS ${{ steps.version.outputs.version }}
 
             ### Installation via HACS (recommended)
             1. Open HACS → Integrations → ⋮ → Custom repositories

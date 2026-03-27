@@ -174,6 +174,7 @@ export default withMermaid(defineConfig({
         activeMatch: '/architecture/',
         items: [
           { text: 'Systems Overview',   link: '/architecture/systems-arch' },
+          { text: 'HA Integration',     link: '/architecture/ha-integration' },
           { text: 'Card Foundation',    link: '/architecture/cards/lcards-card-foundation' },
           { text: 'MSD Pipeline',       link: '/architecture/msd/' },
           { text: 'Animation System',   link: '/architecture/animations/' },
@@ -198,10 +199,11 @@ export default withMermaid(defineConfig({
           {
             text: 'API Reference',
             items: [
-              { text: 'Animation API',  link: '/development/anim-api' },
-              { text: 'Assets API',     link: '/development/assets-api' },
-              { text: 'Debug API',      link: '/development/debug-api' },
-              { text: 'Helpers API',    link: '/development/helpers-api' },
+              { text: 'Animation API',    link: '/development/anim-api' },
+              { text: 'Assets API',       link: '/development/assets-api' },
+              { text: 'Backend WS API',   link: '/development/backend-api' },
+              { text: 'Debug API',        link: '/development/debug-api' },
+              { text: 'Helpers API',      link: '/development/helpers-api' },
             ],
           },
         ],
@@ -332,6 +334,7 @@ export default withMermaid(defineConfig({
           text: 'Architecture',
           items: [
             { text: 'Systems Overview', link: '/architecture/systems-arch' },
+            { text: 'HA Integration',   link: '/architecture/ha-integration' },
           ],
         },
         {
@@ -367,7 +370,10 @@ export default withMermaid(defineConfig({
             { text: 'Background Animations',  link: '/architecture/subsystems/background-animation-system' },
             { text: 'Component Manager',      link: '/architecture/subsystems/component-manager' },
             { text: 'DataSource System',      link: '/architecture/subsystems/datasource-system' },
+            { text: 'HA Services',            link: '/architecture/subsystems/ha-services' },
             { text: 'Helper Manager',         link: '/architecture/subsystems/helper-manager' },
+            { text: 'Integration Service',    link: '/architecture/subsystems/integration-service' },
+            { text: 'Persistent Storage',      link: '/architecture/subsystems/storage' },
             { text: 'Pack System',            link: '/architecture/subsystems/pack-system' },
             { text: 'Rules Engine',           link: '/architecture/subsystems/rules-engine' },
             { text: 'Shape & Texture System', link: '/architecture/subsystems/shape-texture-system' },
@@ -396,10 +402,11 @@ export default withMermaid(defineConfig({
           text: 'API Reference',
           collapsed: false,
           items: [
-            { text: 'Animation API',  link: '/development/anim-api' },
-            { text: 'Assets API',     link: '/development/assets-api' },
-            { text: 'Debug API',      link: '/development/debug-api' },
-            { text: 'Helpers API',    link: '/development/helpers-api' },
+            { text: 'Animation API',    link: '/development/anim-api' },
+            { text: 'Assets API',       link: '/development/assets-api' },
+            { text: 'Backend WS API',   link: '/development/backend-api' },
+            { text: 'Debug API',        link: '/development/debug-api' },
+            { text: 'Helpers API',      link: '/development/helpers-api' },
           ],
         },
       ],

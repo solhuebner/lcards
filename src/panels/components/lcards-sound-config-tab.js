@@ -727,4 +727,4 @@ export class LCARdSSoundConfigTab extends LitElement {
   `;
 }
 
-customElements.define('lcards-sound-config-tab', LCARdSSoundConfigTab);
+if (!customElements.get('lcards-sound-config-tab')) customElements.define('lcards-sound-config-tab', LCARdSSoundConfigTab);

@@ -45,7 +45,8 @@ export class LCARdSColorPicker extends LitElement {
             _selectedFunction: { type: String, state: true },
             _baseColor: { type: String, state: true },
             _baseColor2: { type: String, state: true },  // For mix() function
-            _amount: { type: Number, state: true }
+            _amount: { type: Number, state: true },
+            _applyBrightness: { type: Boolean, state: true }  // Apply light brightness to colour
         };
     }
 
@@ -70,6 +71,7 @@ export class LCARdSColorPicker extends LitElement {
         this._baseColor = '';
         this._baseColor2 = '';
         this._amount = 20;
+        this._applyBrightness = false;
     }
 
     static get styles() {
@@ -289,12 +291,22 @@ export class LCARdSColorPicker extends LitElement {
     connectedCallback() {
         super.connectedCallback();
         this._loadCssVariables();
+        // Parse incoming value to populate brightness toggle state
+        const { applyBrightness } = this._parseIncomingValue(this.value);
+        if (applyBrightness) {
+            this._applyBrightness = true;
+        }
         this._updateComputedColor();
     }
 
     updated(changedProps) {
         super.updated(changedProps);
         if (changedProps.has('value')) {
+            // Parse incoming value to keep brightness toggle in sync
+            const { applyBrightness } = this._parseIncomingValue(this.value);
+            if (this._applyBrightness !== applyBrightness) {
+                this._applyBrightness = applyBrightness;
+            }
             this._updateComputedColor();
 
             // Try to parse value into builder if in builder mode
@@ -412,10 +424,24 @@ export class LCARdSColorPicker extends LitElement {
      * @private
      */
     _resolveMatchLightForPreview(value) {
-        if (!value || !value.includes('match-light')) return value;
+        if (!value || (!value.includes('match-light') && !value.includes('match-brightness'))) return value;
         // @ts-ignore - TS2339: auto-suppressed
         const entity = this.hass?.states?.[this.entityId];
-        if (!entity || entity.state !== 'on') return value;
+
+        // Resolve match-brightness: replace with actual alpha value or remove if light is off
+        let result = value;
+        if (result.includes('match-brightness')) {
+            if (entity && entity.state === 'on') {
+                const brightness = entity.attributes.brightness ?? 255;
+                const alpha = (brightness / 255).toFixed(3);
+                result = result.replace(/match-brightness/g, alpha);
+            } else {
+                result = result.replace(/match-brightness/g, '1');
+            }
+        }
+
+        if (!result.includes('match-light')) return result;
+        if (!entity || entity.state !== 'on') return result;
 
         let color = null;
         if (entity.attributes.rgb_color) {
@@ -423,17 +449,21 @@ export class LCARdSColorPicker extends LitElement {
             color = `rgb(${r}, ${g}, ${b})`;
         } else if (entity.attributes.hs_color) {
             const [h, s] = entity.attributes.hs_color;
-            const v = (entity.attributes.brightness ?? 255) / 255;
             color = ColorUtils.hsToRgb ? (() => {
                 const [r, g, b] = ColorUtils.hsToRgb(h, s, (entity.attributes.brightness ?? 255));
                 return `rgb(${r}, ${g}, ${b})`;
             })() : null;
         } else if (entity.attributes.color_temp) {
             color = '#ffd89b';
+        } else {
+            // Brightness-only light — derive a warm white scaled to brightness
+            const b = entity.attributes.brightness ?? 255;
+            const level = Math.round((b / 255) * 255);
+            color = `rgb(${level}, ${Math.round(level * 0.97)}, ${Math.round(level * 0.85)})`;
         }
 
-        if (!color) return value;
-        return value.replace(/match-light/g, color);
+        if (!color) return result;
+        return result.replace(/match-light/g, color);
     }
 
     /**
@@ -572,6 +602,19 @@ export class LCARdSColorPicker extends LitElement {
                         ${this._renderDropdownItems()}
                     </ha-select>
                 </div>
+
+                ${this.allowMatchLight ? html`
+                <!-- Apply light brightness toggle -->
+                <div class="input-group" style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 16px;">☀</span>
+                    <span style="flex: 1; font-size: 12px;">Apply light brightness to colour</span>
+                    <ha-switch
+                        .checked=${this._applyBrightness}
+                        .disabled=${this.disabled}
+                        @change=${this._handleBrightnessToggle}>
+                    </ha-switch>
+                </div>
+                ` : ''}
 
                 <!-- Custom Color Input -->
                 <div class="input-group">
@@ -753,13 +796,18 @@ export class LCARdSColorPicker extends LitElement {
             </ha-dropdown-item>
         `);
 
-        // Match Light option (if enabled)
+        // Match Light option (if enabled and entity has colour attributes)
         if (this.allowMatchLight) {
-            items.push(html`
-                <ha-dropdown-item .value=${'match-light'}>
-                    💡 Match Light Colour
-                </ha-dropdown-item>
-            `);
+            // @ts-ignore - TS2339: auto-suppressed
+            const attrs = this.hass?.states?.[this.entityId]?.attributes;
+            const hasColour = attrs && (attrs.rgb_color || attrs.hs_color);
+            if (hasColour) {
+                items.push(html`
+                    <ha-dropdown-item .value=${'match-light'}>
+                        💡 Match Light Colour
+                    </ha-dropdown-item>
+                `);
+            }
         }
 
         // CSS variables with color swatches
@@ -788,12 +836,15 @@ export class LCARdSColorPicker extends LitElement {
     _getCurrentDropdownValue() {
         if (!this.value) return '';
 
+        // Unwrap alpha(color, match-brightness) to get the inner colour for dropdown matching
+        const { color } = this._parseIncomingValue(this.value);
+
         // Check for special values
-        if (this.value === 'transparent') return 'transparent';
-        if (this.value === 'match-light') return 'match-light';
+        if (color === 'transparent') return 'transparent';
+        if (color === 'match-light') return 'match-light';
 
         // Check if value matches a CSS variable
-        const matchingVar = this._cssVariables.find(v => v.value === this.value);
+        const matchingVar = this._cssVariables.find(v => v.value === color);
         if (matchingVar) return matchingVar.value;
 
         return '';
@@ -827,6 +878,35 @@ export class LCARdSColorPicker extends LitElement {
     }
 
     /**
+     * Parse incoming value to extract the inner colour and brightness toggle state.
+     * Handles the `alpha(<color>, match-brightness)` round-trip pattern.
+     * @param {string} value - Incoming color value
+     * @returns {{ color: string, applyBrightness: boolean }}
+     * @private
+     */
+    _parseIncomingValue(value) {
+        if (!value) return { color: value, applyBrightness: false };
+        const match = value.match(/^alpha\((.+),\s*match-brightness\)$/);
+        if (match) {
+            return { color: match[1].trim(), applyBrightness: true };
+        }
+        return { color: value, applyBrightness: false };
+    }
+
+    /**
+     * Compute the emitted color value, optionally wrapping with alpha(color, match-brightness).
+     * @param {string} colorValue - The base color value
+     * @param {boolean} applyBrightness - Whether to apply light brightness
+     * @returns {string} Final value to emit
+     * @private
+     */
+    _computeEmittedValue(colorValue, applyBrightness) {
+        if (!colorValue) return colorValue;
+        if (!applyBrightness) return colorValue;
+        return `alpha(${colorValue}, match-brightness)`;
+    }
+
+    /**
      * Handle dropdown change
      * @param {CustomEvent} ev - selected event from ha-select
      * @private
@@ -838,7 +918,7 @@ export class LCARdSColorPicker extends LitElement {
         // @ts-ignore - TS2339: auto-suppressed
         const newValue = ev.detail?.value ?? ev.target?.value;
         if (newValue) {
-            this._emitChange(newValue);
+            this._emitChange(this._computeEmittedValue(newValue, this._applyBrightness));
         }
     }
 
@@ -852,6 +932,22 @@ export class LCARdSColorPicker extends LitElement {
 
         const newValue = ev.detail.value;
         this._emitChange(newValue);
+    }
+
+    /**
+     * Handle brightness toggle change
+     * @param {Event} ev - change event from ha-switch
+     * @private
+     */
+    _handleBrightnessToggle(ev) {
+        if (this.disabled) return;
+        this._applyBrightness = ev.target.checked;
+        // Re-emit with the inner colour value, wrapping/unwrapping as needed
+        const { color } = this._parseIncomingValue(this.value);
+        const baseColor = color || this._getCurrentDropdownValue();
+        if (baseColor) {
+            this._emitChange(this._computeEmittedValue(baseColor, this._applyBrightness));
+        }
     }
 
     /**
@@ -1235,4 +1331,4 @@ export class LCARdSColorPicker extends LitElement {
 // Static cache for CSS variables (shared across instances)
 LCARdSColorPicker._variablesCache = null;
 
-customElements.define('lcards-color-picker', LCARdSColorPicker);
+if (!customElements.get('lcards-color-picker')) customElements.define('lcards-color-picker', LCARdSColorPicker);

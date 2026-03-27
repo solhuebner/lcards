@@ -1,0 +1,87 @@
+# LCARdS HA service (action) descriptions.
+# These appear in the HA Developer Tools → Actions panel and can be used
+# in automations and scripts.
+
+set_alert_mode:
+  name: Set Alert Mode
+  description: >
+    Set the LCARdS alert mode. Requires the input_select.lcards_alert_mode
+    helper — create it from the Helpers tab in the LCARdS Config Panel.
+  fields:
+    mode:
+      name: Mode
+      description: Alert mode to activate.
+      required: true
+      selector:
+        select:
+          options:
+            - value: red_alert
+              label: "🔴 Red Alert"
+            - value: yellow_alert
+              label: "🟡 Yellow Alert"
+            - value: blue_alert
+              label: "🔵 Blue Alert"
+            - value: gray_alert
+              label: "⚫ Gray Alert"
+            - value: black_alert
+              label: "⬛ Black Alert"
+            - value: green_alert
+              label: "🟢 Green (Normal)"
+
+red_alert:
+  name: Red Alert
+  description: Activate LCARdS red alert mode.
+
+yellow_alert:
+  name: Yellow Alert
+  description: Activate LCARdS yellow alert mode.
+
+blue_alert:
+  name: Blue Alert
+  description: Activate LCARdS blue alert mode.
+
+gray_alert:
+  name: Gray Alert
+  description: Activate LCARdS gray alert mode.
+
+black_alert:
+  name: Black Alert
+  description: Activate LCARdS black alert mode.
+
+clear_alert:
+  name: Clear Alert
+  description: Clear all alerts and return LCARdS to normal (green) mode.
+
+reload:
+  name: Reload
+  description: >
+    Fire a reload event to all active LCARdS frontends. Each connected browser
+    tab will perform a full page reload. Useful after config changes that require
+    a fresh JS bundle load.
+
+set_log_level:
+  name: Set Log Level
+  description: >
+    Change the LCARdS log verbosity at runtime. Updates both the Python backend
+    logger and pushes the new level to all connected JS frontends immediately —
+    no page reload required.
+  fields:
+    level:
+      name: Level
+      description: Log verbosity level.
+      required: true
+      selector:
+        select:
+          options:
+            - value: "off"
+              label: "Off (silent)"
+            - value: "error"
+              label: "Error"
+            - value: "warn"
+              label: "Warn"
+            - value: "info"
+              label: "Info"
+            - value: "debug"
+              label: "Debug"
+            - value: "trace"
+              label: "Trace (verbose)"

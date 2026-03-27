@@ -354,4 +354,4 @@ export class LCARdSMSDLivePreview extends LitElement {
 }
 
 // Register the custom element
-customElements.define('lcards-msd-live-preview', LCARdSMSDLivePreview);
+if (!customElements.get('lcards-msd-live-preview')) customElements.define('lcards-msd-live-preview', LCARdSMSDLivePreview);

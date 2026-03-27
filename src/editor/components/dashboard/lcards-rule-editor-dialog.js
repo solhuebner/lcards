@@ -395,4 +395,4 @@ export class LCARdSRuleEditorDialog extends LitElement {
     }
 }
 
-customElements.define('lcards-rule-editor-dialog', LCARdSRuleEditorDialog);
+if (!customElements.get('lcards-rule-editor-dialog')) customElements.define('lcards-rule-editor-dialog', LCARdSRuleEditorDialog);

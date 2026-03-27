@@ -816,4 +816,4 @@ export class LCARdSShapeTextureEditor extends LitElement {
     }
 }
 
-customElements.define('lcards-shape-texture-editor', LCARdSShapeTextureEditor);
+if (!customElements.get('lcards-shape-texture-editor')) customElements.define('lcards-shape-texture-editor', LCARdSShapeTextureEditor);

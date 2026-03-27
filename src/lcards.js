@@ -2,7 +2,20 @@ import { lcardsSetGlobalLogLevel, lcardsGetGlobalLogLevel, lcardsLog, lcardsLogB
 import * as LCARdS from './lcards-vars.js'
 import { lcardsCore } from './core/lcards-core.js';
 
-// Check URL for log level override and set it immediately
+// 1. Integration-configured log level — baked into the script URL as ?log=<level>
+//    by frontend.py when the integration loads. Applies the persistent user preference
+//    set in the HA "Configure" dialog before anything else runs.
+try {
+    const scriptLogLevel = new URL(import.meta.url).searchParams.get('log');
+    if (scriptLogLevel) {
+        lcardsSetGlobalLogLevel(scriptLogLevel);
+    }
+} catch (_e) {
+    // Silently ignore — older browsers or unusual Module-URL environments.
+}
+
+// 2. Page URL override — ?lcards_log_level= takes higher priority than the integration
+//    setting, letting developers switch verbosity per session without touching HA config.
 const urlLogLevel = new URLSearchParams(window.location.search).get('lcards_log_level');
 if (urlLogLevel) {
     lcardsSetGlobalLogLevel(urlLogLevel);
@@ -241,14 +254,14 @@ async function initializeCustomCard() {
 initializeCustomCard()
     .then(() => {
         // Register cards (registered here to ensure singletons are ready)
-        customElements.define('lcards-button', LCARdSButton);
-        customElements.define('lcards-elbow', LCARdSElbow);
-        customElements.define('lcards-chart', LCARdSChart);
-        customElements.define('lcards-slider', LCARdSSlider);
-        customElements.define('lcards-data-grid', LCARdSDataGrid);
-        customElements.define('lcards-msd-card', LCARdSMSDCard);
-        customElements.define('lcards-alert-overlay', LCARdSAlertOverlay);
-        customElements.define('lcards-select-menu', LCARdSSelectMenu);
+        if (!customElements.get('lcards-button')) customElements.define('lcards-button', LCARdSButton);
+        if (!customElements.get('lcards-elbow')) customElements.define('lcards-elbow', LCARdSElbow);
+        if (!customElements.get('lcards-chart')) customElements.define('lcards-chart', LCARdSChart);
+        if (!customElements.get('lcards-slider')) customElements.define('lcards-slider', LCARdSSlider);
+        if (!customElements.get('lcards-data-grid')) customElements.define('lcards-data-grid', LCARdSDataGrid);
+        if (!customElements.get('lcards-msd-card')) customElements.define('lcards-msd-card', LCARdSMSDCard);
+        if (!customElements.get('lcards-alert-overlay')) customElements.define('lcards-alert-overlay', LCARdSAlertOverlay);
+        if (!customElements.get('lcards-select-menu')) customElements.define('lcards-select-menu', LCARdSSelectMenu);
         //customElements.define('lcards-config-panel', LCARdSConfigPanel);
 
         lcardsLog.debug('[lcards.js] All custom elements registered after core initialization');

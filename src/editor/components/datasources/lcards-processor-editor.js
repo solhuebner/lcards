@@ -911,4 +911,4 @@ export class LCARdSProcessorEditor extends LitElement {
   }
 }
 
-customElements.define('lcards-processor-editor', LCARdSProcessorEditor);
+if (!customElements.get('lcards-processor-editor')) customElements.define('lcards-processor-editor', LCARdSProcessorEditor);

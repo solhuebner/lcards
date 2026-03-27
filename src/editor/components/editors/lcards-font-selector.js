@@ -338,4 +338,4 @@ export class LCARdSFontSelector extends LitElement {
     }
 }
 
-customElements.define('lcards-font-selector', LCARdSFontSelector);
+if (!customElements.get('lcards-font-selector')) customElements.define('lcards-font-selector', LCARdSFontSelector);

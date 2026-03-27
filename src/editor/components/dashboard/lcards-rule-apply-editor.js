@@ -322,5 +322,5 @@ export class LCARdSRuleApplyEditor extends LitElement {
     }
 }
 
-customElements.define('lcards-rule-apply-editor', LCARdSRuleApplyEditor);
+if (!customElements.get('lcards-rule-apply-editor')) customElements.define('lcards-rule-apply-editor', LCARdSRuleApplyEditor);
 

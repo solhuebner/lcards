@@ -11825,9 +11825,26 @@ export class LCARdSMSDStudioDialog extends LitElement {
      * @private
      */
     _handleKeyDown(e) {
-        // Don't interfere with input fields
+        // Don't interfere with input fields.
+        // Use composedPath()[0] to pierce shadow DOM boundaries and find the actual
+        // element that received the keystroke (e.target is retargeted at shadow boundaries).
+        const composedTarget = e.composedPath?.()?.[0];
+        const composedTag = composedTarget?.tagName?.toLowerCase() ?? '';
+        if (
+            composedTag === 'input' ||
+            composedTag === 'textarea' ||
+            composedTag === 'select' ||
+            composedTag.includes('input') ||
+            composedTag.includes('textfield') ||
+            composedTag.includes('textarea') ||
+            composedTarget?.isContentEditable
+        ) {
+            return;
+        }
+        // Fallback: also check the retargeted e.target for non-shadow cases
         // @ts-ignore - TS2339: auto-suppressed
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'HA-TEXTFIELD') {
+        const targetTag = e.target?.tagName ?? '';
+        if (targetTag === 'INPUT' || targetTag === 'TEXTAREA' || targetTag === 'SELECT' || targetTag === 'HA-TEXTFIELD') {
             return;
         }
 
@@ -12317,4 +12334,4 @@ export class LCARdSMSDStudioDialog extends LitElement {
 }
 
 // Register the custom element
-customElements.define('lcards-msd-studio-dialog', LCARdSMSDStudioDialog);
+if (!customElements.get('lcards-msd-studio-dialog')) customElements.define('lcards-msd-studio-dialog', LCARdSMSDStudioDialog);

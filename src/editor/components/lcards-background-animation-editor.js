@@ -1629,4 +1629,4 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
   }
 }
 
-customElements.define('lcards-background-animation-editor', LCARdSBackgroundAnimationEditor);
+if (!customElements.get('lcards-background-animation-editor')) customElements.define('lcards-background-animation-editor', LCARdSBackgroundAnimationEditor);

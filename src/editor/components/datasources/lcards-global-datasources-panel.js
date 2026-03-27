@@ -332,4 +332,4 @@ export class LCARdSGlobalDataSourcesPanel extends LitElement {
   }
 }
 
-customElements.define('lcards-global-datasources-panel', LCARdSGlobalDataSourcesPanel);
+if (!customElements.get('lcards-global-datasources-panel')) customElements.define('lcards-global-datasources-panel', LCARdSGlobalDataSourcesPanel);

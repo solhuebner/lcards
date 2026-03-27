@@ -1387,4 +1387,4 @@ export class LCARdSYamlEditor extends LitElement {
     }
 }
 
-customElements.define('lcards-yaml-editor', LCARdSYamlEditor);
+if (!customElements.get('lcards-yaml-editor')) customElements.define('lcards-yaml-editor', LCARdSYamlEditor);

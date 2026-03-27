@@ -290,7 +290,7 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
                 basePath="text.default.color"
                 header="Text Colours"
                 description="Default text colours for different states"
-                .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero']}
                 ?allowCustomStates=${true}
                 ?expanded=${false}>
             </lcards-color-section-v2>
@@ -486,7 +486,7 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
                 basePath="text.${fieldName}.color"
                 header="Field Colours"
                 description="Override default colour settings"
-                .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero']}
                 ?allowCustomStates=${true}
                 ?expanded=${false}>
             </lcards-color-section-v2>
@@ -726,4 +726,4 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
     }
 }
 
-customElements.define('lcards-multi-text-editor-v2', LCARdSMultiTextEditorV2);
+if (!customElements.get('lcards-multi-text-editor-v2')) customElements.define('lcards-multi-text-editor-v2', LCARdSMultiTextEditorV2);

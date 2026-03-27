@@ -142,6 +142,17 @@ export class SoundManager extends BaseService {
      * synced to HA at least once.
      */
     this._schemesOptionsSynced = false;
+
+    /**
+     * In-memory cache of per-event sound overrides.
+     * Populated once by _ensureOverridesLoaded() on the first HASS update after
+     * IntegrationService has probed.  Falls back to localStorage when null.
+     * @type {Object|null}
+     */
+    this._overridesCache = null;
+
+    /** @type {boolean} True once a backend (or localStorage fallback) load has completed */
+    this._overridesLoaded = false;
   }
 
   // ============================================================================
@@ -169,6 +180,8 @@ export class SoundManager extends BaseService {
     if (!this._schemesOptionsSynced && this._soundSchemes.size > 0) {
       this._syncSchemeHelperOptions();
     }
+    // One-shot: load overrides from backend once IntegrationService has probed
+    this._ensureOverridesLoaded();
   }
 
   /**
@@ -541,7 +554,7 @@ export class SoundManager extends BaseService {
     } else {
       current[eventType] = assetKey;
     }
-    this._saveOverrides(current);
+    await this._saveOverrides(current);
   }
 
   /**
@@ -549,7 +562,7 @@ export class SoundManager extends BaseService {
    * @returns {Promise<void>}
    */
   async clearAllOverrides() {
-    this._saveOverrides({});
+    await this._saveOverrides({});
   }
 
   // ============================================================================
@@ -603,12 +616,64 @@ export class SoundManager extends BaseService {
   }
 
   /**
-   * Parse and return per-event overrides from localStorage.
-   * Returns empty object on parse failure (never throws).
+   * Load overrides once — tries backend storage first, falls back to localStorage.
+   * Handles localStorage → backend migration on first run.
+   * No-op after the first successful completion.
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _ensureOverridesLoaded() {
+    if (this._overridesLoaded) return;
+    const integration = this._core?.integrationService;
+    if (!integration) return; // Core not ready yet — will retry on next updateHass()
+    // Only attempt once the probe has resolved (available true OR probe done)
+    if (!integration._probed) return;
+
+    this._overridesLoaded = true; // Claim the slot to prevent concurrent loads
+
+    if (integration.available) {
+      const backendValue = await integration.readStorage('sound_overrides');
+      if (backendValue !== undefined && backendValue !== null) {
+        // Backend has data — use it
+        this._overridesCache = backendValue;
+        lcardsLog.debug('[SoundManager] Overrides loaded from backend storage');
+        return;
+      }
+      // Backend has no data yet — check localStorage for migration
+      const local = this._readLocalStorage();
+      if (Object.keys(local).length > 0) {
+        lcardsLog.info('[SoundManager] Migrating sound overrides from localStorage → backend storage');
+        this._overridesCache = local;
+        await integration.writeStorage({ sound_overrides: local });
+        // Keep localStorage until confirmed written; backend is now authoritative
+      } else {
+        this._overridesCache = {};
+      }
+    } else {
+      // Integration not available — stay on localStorage
+      this._overridesCache = this._readLocalStorage();
+      lcardsLog.debug('[SoundManager] Integration unavailable — overrides from localStorage');
+    }
+  }
+
+  /**
+   * Return the current per-event overrides from the in-memory cache.
+   * Falls back to localStorage if the cache has not been populated yet
+   * (i.e. the async load is still in flight on first page load).
    * @returns {Object}
    * @private
    */
   _getOverrides() {
+    return this._overridesCache ?? this._readLocalStorage();
+  }
+
+  /**
+   * Read per-event overrides from localStorage (synchronous fallback).
+   * Returns empty object on parse failure — never throws.
+   * @returns {Object}
+   * @private
+   */
+  _readLocalStorage() {
     try {
       const raw = localStorage.getItem('lcards_sound_overrides');
       if (!raw || raw === '{}' || raw === '') return {};
@@ -620,16 +685,31 @@ export class SoundManager extends BaseService {
   }
 
   /**
-   * Persist overrides to localStorage.
+   * Persist overrides — updates in-memory cache, localStorage (fallback), and
+   * backend storage (when the integration is available).
    * @param {Object} overrides
+   * @returns {Promise<void>}
    * @private
    */
-  _saveOverrides(overrides) {
+  async _saveOverrides(overrides) {
+    // 1. Update in-memory cache immediately (synchronous callers benefit)
+    this._overridesCache = overrides;
+
+    // 2. localStorage as persistent fallback (best-effort)
     try {
       localStorage.setItem('lcards_sound_overrides', JSON.stringify(overrides));
-      lcardsLog.debug('[SoundManager] Saved sound overrides to localStorage');
+      lcardsLog.debug('[SoundManager] Saved sound overrides to localStorage (fallback)');
     } catch (e) {
-      lcardsLog.error('[SoundManager] Failed to save sound overrides:', e);
+      lcardsLog.warn('[SoundManager] Failed to write sound overrides to localStorage:', e);
+    }
+
+    // 3. Backend storage (authoritative when available)
+    const integration = this._core?.integrationService;
+    if (integration?.available) {
+      const ok = await integration.writeStorage({ sound_overrides: overrides });
+      if (ok) {
+        lcardsLog.debug('[SoundManager] Saved sound overrides to backend storage');
+      }
     }
   }
 

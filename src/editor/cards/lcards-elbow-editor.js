@@ -807,7 +807,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                         basePath="elbow.frame.segments.inner_frame.color"
                         header="Inner Ring Colours"
                         description="Inner ring colour per entity state"
-                        .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                        .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero', 'hover', 'pressed']}
                         ?allowCustomStates=${true}
                         ?expanded=${false}>
                     </lcards-color-section-v2>
@@ -828,7 +828,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                     basePath="elbow.segment.color"
                     header="Frame Colours"
                     description="Frame colour per entity state"
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero', 'hover', 'pressed']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>
@@ -1159,7 +1159,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                     basePath="elbow.segment.color"
                     header="Segment Colours"
                     description="Elbow segment colour for each state - supports custom states"
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero', 'hover', 'pressed']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>
@@ -1254,7 +1254,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                     basePath="elbow.segments.outer_segment.color"
                     header="Outer Segment Colour"
                     description="Colour states for outer frame segment - supports custom states like 'heat', 'cool', etc."
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero', 'hover', 'pressed']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>
@@ -1386,7 +1386,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                     basePath="elbow.segments.inner_segment.color"
                     header="Inner Segment Colour"
                     description="Colour states for inner content segment - supports custom states like 'heat', 'cool', etc."
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'hover', 'pressed']}
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero', 'hover', 'pressed']}
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>
@@ -1692,7 +1692,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                                     basePath="symbiont.imprint.background"
                                     header="Background"
                                     description="Background colour for each state — null = transparent (do not imprint)"
-                                    .suggestedStates=${['default', 'active', 'inactive']}
+                                    .suggestedStates=${['default', 'active', 'inactive', 'zero', 'non_zero']}
                                     ?allowCustomStates=${true}
                                     ?expanded=${false}>
                                 </lcards-color-section-v2>
@@ -1712,7 +1712,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                                     basePath="symbiont.imprint.text.color"
                                     header="Text Colour"
                                     description="Text colour for each state — null = do not imprint"
-                                    .suggestedStates=${['default', 'active', 'inactive']}
+                                    .suggestedStates=${['default', 'active', 'inactive', 'zero', 'non_zero']}
                                     ?allowCustomStates=${true}
                                     ?expanded=${false}>
                                 </lcards-color-section-v2>
@@ -2310,4 +2310,4 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
     }
 }
 
-customElements.define('lcards-elbow-editor', LCARdSElbowEditor);
+if (!customElements.get('lcards-elbow-editor')) customElements.define('lcards-elbow-editor', LCARdSElbowEditor);
