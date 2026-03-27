@@ -36,22 +36,41 @@ def _get_lovelace_resources(hass: HomeAssistant):
 
 
 async def async_register_static_path(hass: HomeAssistant) -> None:
-    """Register the static HTTP path that serves lcards.js.
+    """Register static HTTP paths for LCARdS.
 
-    Called from async_setup() so the path is available from HA start,
+    Two paths are registered:
+
+    1. /{DOMAIN}/lcards.js  — the main JS bundle served by the integration.
+
+    2. /hacsfiles/lcards/   — alias pointing at the same custom_components dir.
+       All hardcoded asset URLs in the LCARdS JS bundle reference
+       /hacsfiles/lcards/fonts/*, /hacsfiles/lcards/msd/*, etc.
+       By serving that prefix from the integration directory, fonts, SVGs
+       and sounds all resolve correctly without any JS changes.
+
+    Called from async_setup() so both paths are available from HA start,
     even before a config entry exists.
     """
+    integration_dir = hass.config.path(f"custom_components/{DOMAIN}")
     try:
         await hass.http.async_register_static_paths(
             [
+                # Main JS bundle
                 StaticPathConfig(
                     f"/{DOMAIN}/{FRONTEND_SCRIPT_URL}",
                     hass.config.path(
                         f"custom_components/{DOMAIN}/{FRONTEND_SCRIPT_URL}"
                     ),
-                    # cache=True — browser will cache; HA appends ?v= to bust on upgrade
+                    # cache=True — browser caches; HA appends ?v= to bust on upgrade
                     True,
-                )
+                ),
+                # Asset alias — /hacsfiles/lcards/* → custom_components/lcards/*
+                # Keeps all existing font/SVG/sound URL references working.
+                StaticPathConfig(
+                    "/hacsfiles/lcards",
+                    integration_dir,
+                    True,
+                ),
             ]
         )
     except RuntimeError:

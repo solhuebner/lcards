@@ -20,7 +20,7 @@ jobs:
       - name: HACS validation
         uses: hacs/action@main
         with:
-          category: "plugin"
+          category: "integration"
 
   validate-build:
     name: Validate Build
@@ -39,16 +39,26 @@ jobs:
         run: npm ci
 
       - name: Run build
-        run: npm run build
+        run: npm run build:integration
 
       - name: Check build output
         run: |
-          if [ ! -f "dist/lcards.js" ]; then
-            echo "❌ Build failed: dist/lcards.js not found"
-            exit 1
+          ERRORS=0
+          if [ ! -f "custom_components/lcards/lcards.js" ]; then
+            echo "❌ Build failed: custom_components/lcards/lcards.js not found"
+            ERRORS=$((ERRORS + 1))
+          else
+            echo "✅ lcards.js — $(du -sh custom_components/lcards/lcards.js | cut -f1)"
           fi
-          echo "✅ Build successful"
-          ls -lh dist/lcards.js
+          for DIR in fonts msd sounds; do
+            if [ ! -d "custom_components/lcards/$DIR" ]; then
+              echo "❌ Missing asset dir: custom_components/lcards/$DIR"
+              ERRORS=$((ERRORS + 1))
+            else
+              echo "✅ assets/$DIR present"
+            fi
+          done
+          [ $ERRORS -eq 0 ] || exit 1
 
   validate-version:
     name: Validate Version Format
@@ -89,6 +99,12 @@ jobs:
             "LICENSE"
             "src/lcards.js"
             "src/assets"
+            "custom_components/lcards/__init__.py"
+            "custom_components/lcards/manifest.json"
+            "custom_components/lcards/config_flow.py"
+            "custom_components/lcards/frontend.py"
+            "custom_components/lcards/websocket_api.py"
+            "custom_components/lcards/const.py"
           )
 
           for FILE in "${FILES[@]}"; do

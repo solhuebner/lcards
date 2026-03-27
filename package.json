@@ -20,7 +20,8 @@
   "scripts": {
     "build": "vite build",
     "build:dev": "vite build --mode development",
-    "build:integration": "vite build --mode integration",
+    "build:integration": "vite build --mode integration && node scripts/copy-assets.js",
+    "set-version": "node scripts/set-version.js",
     "typecheck": "tsc --pretty false 2>&1 | sort",
     "create-editor": "node tools/create-editor.js",
     "docs:build": "vitepress build doc",
