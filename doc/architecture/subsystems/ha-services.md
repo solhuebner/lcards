@@ -19,7 +19,7 @@ Services are registered in `async_setup_entry()` and removed cleanly on `async_u
 
 ## File
 
-`custom_components/lcards/services.py`  
+`custom_components/lcards/services.py`
 `custom_components/lcards/services.yaml`
 
 ---
