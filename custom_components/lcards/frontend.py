@@ -105,6 +105,10 @@ async def async_register_frontend_script_resource(
     """
     resource_url = f"/{DOMAIN}/{FRONTEND_SCRIPT_URL}?v={DOMAIN_VERSION}&log={log_level}"
 
+    # Store the exact registered URL so async_remove_frontend_script_resource
+    # can call remove_extra_js_url with the right string (it uses exact matching).
+    hass.data.setdefault(DOMAIN, {})["resource_url"] = resource_url
+
     # 1. Inject into every HA frontend session (no Lovelace dashboard needed)
     add_extra_js_url(hass, resource_url)
 
@@ -145,8 +149,9 @@ async def async_register_frontend_script_resource(
     for r in resources.async_items():
         if r["url"].startswith(f"/{DOMAIN}/{FRONTEND_SCRIPT_URL}"):
             frontend_added = True
-            # Update URL if the version query string changed (upgrade scenario)
-            if not r["url"].endswith(DOMAIN_VERSION):
+            # Update URL whenever it differs from the target — covers both
+            # version upgrades and log level option changes.
+            if r["url"] != resource_url:
                 if isinstance(resources, ResourceStorageCollection):
                     await resources.async_update_item(
                         r["id"],
@@ -166,15 +171,27 @@ async def async_register_frontend_script_resource(
         ):
             resources.data.append({"type": "module", "url": resource_url})
 
+    # Note: the Lovelace update block above uses r["url"] != resource_url for
+    # comparison — this correctly detects any change including log level shifts.
+
 
 async def async_remove_frontend_script_resource(hass: HomeAssistant) -> None:
     """Remove lcards.js from extra JS URLs and Lovelace resources.
 
-    Called from async_remove_entry() when the integration is uninstalled.
+    Called from async_unload_entry() on reload/removal.
+
+    remove_extra_js_url() uses exact URL matching, so we must pass the same
+    URL that was passed to add_extra_js_url(). We stored it in hass.data[DOMAIN]
+    at registration time precisely for this reason.
     """
-    resource_url = f"/{DOMAIN}/{FRONTEND_SCRIPT_URL}?v={DOMAIN_VERSION}"
+    resource_url = (
+        hass.data.get(DOMAIN, {}).get("resource_url")
+        or f"/{DOMAIN}/{FRONTEND_SCRIPT_URL}?v={DOMAIN_VERSION}"
+    )
 
     remove_extra_js_url(hass, resource_url)
+    # Clean up the stored URL so it isn't stale on the next setup_entry cycle.
+    hass.data.get(DOMAIN, {}).pop("resource_url", None)
 
     resources = _get_lovelace_resources(hass)
     if not resources:
