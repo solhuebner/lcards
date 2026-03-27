@@ -34,6 +34,8 @@ jobs:
       # ── Checkout ─────────────────────────────────────────────────────────────
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # needed for tag creation and release notes
 
       # ── Node ─────────────────────────────────────────────────────────────────
       - name: Setup Node.js
@@ -44,6 +46,19 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # ── Tag (workflow_dispatch only) ───────────────────────────────────────
+      # When triggered manually, no tag exists yet — create and push it so
+      # softprops/action-gh-release can find it.
+      - name: Create and push tag
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          VERSION="${{ inputs.version }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "${VERSION}"
+          git push origin "${VERSION}"
+          echo "🏷️ Created tag ${VERSION}"
 
       # ── Version ───────────────────────────────────────────────────────────────
       # The git tag IS the canonical version (HA calver: YYYY.M.X[-suffix]).
@@ -108,6 +123,7 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
           files: lcards.zip
           prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || contains(github.ref_name, '-') }}
           generate_release_notes: true
