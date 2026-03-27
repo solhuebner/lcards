@@ -19,7 +19,10 @@ integration is installed and set up via the HA integrations UI.
 """
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.components import frontend
+from homeassistant.components.frontend import (
+    async_register_built_in_panel,
+    async_remove_panel,
+)
 from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN
@@ -57,7 +60,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Register the sidebar panel — appears automatically in the HA sidebar.
     # require_admin=False: all users can access the Config Panel.
     # Revisit when write APIs (theme overrides, etc.) are added in Phase 2+.
-    frontend.async_register_built_in_panel(
+    async_register_built_in_panel(
         hass,
         component_name="custom",
         sidebar_title="LCARdS Config",
@@ -85,7 +88,7 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     await async_remove_frontend_script_resource(hass)
 
     try:
-        frontend.async_remove_panel("lcards-config")
+        async_remove_panel("lcards-config")
     except Exception:  # noqa: BLE001
         # Panel may already be gone if HA is shutting down
         pass
