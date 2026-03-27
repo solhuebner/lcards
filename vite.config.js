@@ -3,6 +3,11 @@ import { readFileSync } from 'node:fs';
 
 const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
 
+// 'integration' mode writes directly into custom_components/lcards/ so the
+// devcontainer bind-mount picks it up without a separate copy step.
+// All other modes (default, 'development') write to dist/ as before.
+const isIntegrationMode = (mode) => mode === 'integration';
+
 export default defineConfig(({ mode }) => ({
     build: {
         lib: {
@@ -22,13 +27,16 @@ export default defineConfig(({ mode }) => ({
                 inlineDynamicImports: true,
             },
         },
-        outDir: 'dist',
-        // Don't wipe dist/ — fonts/ and msd/ asset dirs are managed by CI, not this build.
+        // integration mode → custom_components/lcards/  (bind-mounted into HA devcontainer)
+        // all other modes  → dist/                      (legacy plugin path, unchanged)
+        outDir: isIntegrationMode(mode) ? 'custom_components/lcards' : 'dist',
+        // Never wipe outDir — Python files live alongside lcards.js in integration mode;
+        // fonts/ and msd/ asset dirs are managed by CI in dist/ mode.
         emptyOutDir: false,
         sourcemap: true,
-        // Disable minification in development mode for readable output.
+        // Disable minification in development / integration mode for readable output.
         // Production builds use esbuild (default, ~10x faster than Terser).
-        minify: mode === 'development' ? false : 'esbuild',
+        minify: (mode === 'development' || isIntegrationMode(mode)) ? false : 'esbuild',
     },
     define: {
         __LCARDS_VERSION__: JSON.stringify(pkg.version),

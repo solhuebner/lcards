@@ -40,6 +40,7 @@ import { DataSourceDebugAPI } from '../api/DataSourceDebugAPI.js';
 import { CoreDebugAPI } from '../api/CoreDebugAPI.js';
 import { LCARdSHelperManager } from './helpers/lcards-helper-manager.js';
 import { SoundManager } from './sound/SoundManager.js';
+import { IntegrationService } from './services/IntegrationService.js';
 
 /**
  * LCARdSCore - Central coordinator for all LCARdS infrastructure
@@ -70,6 +71,7 @@ class LCARdSCore {
         this.componentManager = null;    // Component registry (Phase 4)
         this.helperManager = null;       // Helper management system (Phase 5)
         this.soundManager = null;         // Sound management system (Phase 2g)
+        this.integrationService = null;   // HA integration probe (available / version)
 
         // ===== REGISTRIES =====
         this._cardInstances = new Map();     // Map<cardId, CardContext>
@@ -256,6 +258,12 @@ class LCARdSCore {
                 window.lcards.debug.singletons = coreDebug.singletons;
                 lcardsLog.debug('[LCARdSCore] ✅ Core debug API attached at window.lcards.debug.core/singleton/singletons');
             }
+
+            // Probe the HA integration backend (non-blocking — errors are handled internally)
+            // Result is available at window.lcards.core.integrationService.available
+            this.integrationService = new IntegrationService();
+            await this.integrationService.initialize(hass);
+            lcardsLog.debug('[LCARdSCore] ✅ IntegrationService probed');
 
             this._coreInitialized = true;
 

@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "LCARdS",
+        "description": "LCARdS will automatically register its frontend resources and sidebar panel. No further configuration is required."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Only a single instance of LCARdS is allowed."
+    }
+  }
+}
