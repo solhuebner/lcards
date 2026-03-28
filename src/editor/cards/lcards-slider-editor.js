@@ -1216,17 +1216,17 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     })}
                 </lcards-grid-layout>
 
-                <!-- INLINE: Progress bar color -->
-                <lcards-color-section
+                <!-- INLINE: Progress bar color (state-aware) -->
+                <lcards-color-section-v2
                     .editor=${this}
                     .entityId=${this.config?.entity || ''}
                     basePath="style.gauge.progress_bar.color"
                     header="Progress Bar Colour"
-                    description="Colour of the filled progress bar"
-                    ?singleColor=${true}
-                    ?expanded=${false}
-                    ?useColorPicker=${true}>
-                </lcards-color-section>
+                    description="State-based colour for the filled progress bar"
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero']}
+                    ?allowCustomStates=${true}
+                    ?expanded=${false}>
+                </lcards-color-section-v2>
             </lcards-form-section>
 
             <!-- Tick Marks & Scale with INLINE COLOR -->

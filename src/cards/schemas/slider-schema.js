@@ -420,6 +420,14 @@ export function getSliderSchema(options = {}) {
                         type: 'object',
                         description: 'Gauge-specific configuration (for type: gauge)',
                         properties: {
+                            color: {
+                                ...stateColorSchema,
+                                description: 'Primary gauge fill/progress-bar colour. Supports state-based maps ({ default, active, inactive, unavailable, ... }). Takes priority over progress_bar.color.',
+                                'x-ui-hints': {
+                                    label: 'Gauge Colour',
+                                    helper: 'Main colour for the filled portion of the gauge (progress bar). Supports state-reactive values.'
+                                }
+                            },
                             progress_bar: {
                                 type: 'object',
                                 description: 'Progress indicator bar',

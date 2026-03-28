@@ -2050,7 +2050,12 @@ export class LCARdSSlider extends LCARdSButton {
 
         // Progress bar configuration
         const progressConfig = gaugeConfig?.progress_bar;
-        const progressColor = this._resolveColorValue(progressConfig?.color || 'var(--lcards-blue-light)');
+        const progressColor = resolveStateColor({
+            actualState: this._entity?.state,
+            classifiedState: this._getButtonState(),
+            colorConfig: progressConfig?.color,
+            fallback: 'var(--lcars-blue-light)'
+        });
         const progressHeight = progressConfig?.height || 12;
         const progressRadius = progressConfig?.radius !== undefined ? progressConfig?.radius : 2;
 
@@ -2867,8 +2872,13 @@ export class LCARdSSlider extends LCARdSButton {
             borderBottom: this._resolveStateBorderColor(borderConfig?.bottom?.color),
             borderLeft: this._resolveStateBorderColor(borderConfig?.left?.color),
             borderRight: this._resolveStateBorderColor(borderConfig?.right?.color),
-            // Progress bar color
-            progressBar: this._resolveColorValue(this._sliderStyle?.gauge?.progress_bar?.color || 'var(--lcards-blue-light)'),
+            // Progress bar color (state-aware)
+            progressBar: resolveStateColor({
+                actualState: this._entity?.state,
+                classifiedState: this._getButtonState(),
+                colorConfig: this._sliderStyle?.gauge?.progress_bar?.color,
+                fallback: 'var(--lcars-blue-light)'
+            }),
             // Range frame and borders
             rangeBorder: this._resolveColorValue(this._sliderStyle?.range?.border?.color) || '#000000',
             rangeFrame: this._resolveColorValue(this._sliderStyle?.range?.frame?.color) || this._resolveStateBorderColor(borderConfig?.top?.color),
@@ -3371,13 +3381,13 @@ export class LCARdSSlider extends LCARdSButton {
             effectiveDimensions: { x, y, width, height }
         });
 
-        // Get fill color (gauge active color or progress_bar color)
-        const fillColor = this._resolveColorValue(
-            progressBarConfig.color ||
-            gaugeConfig?.fill?.color?.active ||
-            'var(--lcards-blue-light)'
-        );
-
+        // Get fill color (state-aware progress_bar color)
+        const fillColor = resolveStateColor({
+            actualState: this._entity?.state,
+            classifiedState: this._getButtonState(),
+            colorConfig: progressBarConfig.color,
+            fallback: 'var(--lcars-blue-light)'
+        });
         let svg = '';
 
         // Generate progress bar rect - fill zone based on value percentage
