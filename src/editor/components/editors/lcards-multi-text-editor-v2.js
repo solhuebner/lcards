@@ -283,6 +283,45 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
                 </lcards-padding-editor>
             </lcards-form-section>
 
+            <!-- Background Section (defaults) -->
+            <lcards-form-section
+                header="Background"
+                description="Default text background (bar-break effect)"
+                icon="mdi:rectangle"
+                ?expanded=${false}
+                ?outlined=${true}
+                headerLevel="5">
+
+                <lcards-color-section-v2
+                    .editor=${this.editor}
+                    .config=${this.editor.config}
+                    basePath="text.default.background"
+                    header="Background Colour"
+                    description="Background colour for different entity states"
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero']}
+                    ?allowCustomStates=${true}
+                    ?expanded=${false}>
+                </lcards-color-section-v2>
+
+                ${FormField.renderField(this.editor, 'text.default.background_padding', {
+                    label: 'Background Padding'
+                })}
+
+                ${FormField.renderField(this.editor, 'text.default.background_radius', {
+                    label: 'Background Corner Radius'
+                })}
+
+                ${FormField.renderField(this.editor, 'text.default.background_width', {
+                    label: 'Background Width (Fixed)',
+                    helper: 'Exact px width — overrides auto-sizing. Text overflows if content is wider.'
+                })}
+
+                ${FormField.renderField(this.editor, 'text.default.background_min_width', {
+                    label: 'Background Min Width',
+                    helper: 'Auto-sizes with text but never shrinks below this value — safe for dynamic content.'
+                })}
+            </lcards-form-section>
+
             <!-- Text Colors -->
             <lcards-color-section-v2
                 .editor=${this.editor}
@@ -477,6 +516,48 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
                     label="${fieldName} Padding"
                     helper="${hasDefaults && !fieldConfig.padding ? 'Inherits from defaults' : 'Custom padding for this field'}">
                 </lcards-padding-editor>
+            </lcards-form-section>
+
+            <!-- Background Section -->
+            <lcards-form-section
+                header="Background"
+                description="Text background rectangle (bar-break effect)"
+                icon="mdi:rectangle"
+                ?expanded=${false}
+                ?outlined=${true}
+                headerLevel="6"
+                ?compact=${true}>
+
+                <lcards-color-section-v2
+                    .editor=${this.editor}
+                    .config=${this.editor.config}
+                    basePath="text.${fieldName}.background"
+                    header="Background Colour"
+                    description="${hasDefaults ? 'Override default background colour per state' : 'Background colour for different entity states'}"
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero']}
+                    ?allowCustomStates=${true}
+                    ?expanded=${false}>
+                </lcards-color-section-v2>
+
+                ${FormField.renderField(this.editor, `text.${fieldName}.background_padding`, {
+                    label: 'Background Padding',
+                    helper: hasDefaults && fieldConfig.background_padding === undefined ? 'Inherits from defaults' : ''
+                })}
+
+                ${FormField.renderField(this.editor, `text.${fieldName}.background_radius`, {
+                    label: 'Background Corner Radius',
+                    helper: hasDefaults && fieldConfig.background_radius === undefined ? 'Inherits from defaults' : ''
+                })}
+
+                ${FormField.renderField(this.editor, `text.${fieldName}.background_width`, {
+                    label: 'Background Width (Fixed)',
+                    helper: 'Exact px width — overrides auto-sizing. Text overflows if content is wider.'
+                })}
+
+                ${FormField.renderField(this.editor, `text.${fieldName}.background_min_width`, {
+                    label: 'Background Min Width',
+                    helper: 'Auto-sizes with text but never shrinks below this value — safe for dynamic content.'
+                })}
             </lcards-form-section>
 
             <!-- Field Colors -->

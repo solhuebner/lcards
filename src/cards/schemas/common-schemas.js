@@ -910,6 +910,47 @@ export function getTextSchema(options = {}) {
                             label: 'Display Format (Default)',
                             helper: 'friendly = HA-translated (e.g. "Open"), raw = actual state (e.g. "on"), parts = value+unit joined, unit = unit only'
                         }
+                    },
+                    background: stateColorSchema,
+                    background_padding: {
+                        type: 'number',
+                        minimum: 0,
+                        default: 8,
+                        description: 'Horizontal padding between text glyphs and the background rect edges (px).',
+                        'x-ui-hints': {
+                            label: 'Background Padding',
+                            selector: { number: { mode: 'box', min: 0, max: 100, step: 1, unit_of_measurement: 'px' } }
+                        }
+                    },
+                    background_radius: {
+                        type: 'number',
+                        minimum: 0,
+                        default: 4,
+                        description: 'Corner radius of the background rect (px).',
+                        'x-ui-hints': {
+                            label: 'Background Corner Radius',
+                            selector: { number: { mode: 'box', min: 0, max: 50, step: 1, unit_of_measurement: 'px' } }
+                        }
+                    },
+                    background_width: {
+                        type: ['number', 'null'],
+                        minimum: 1,
+                        description: 'Fixed explicit width of the background rect (px). Overrides auto-sizing from text metrics. Text will overflow if content is wider than this value.',
+                        'x-ui-hints': {
+                            label: 'Background Width (Fixed)',
+                            helper: 'Pin to an exact px width. Use background_min_width for a safe lower bound with dynamic content.',
+                            selector: { number: { mode: 'box', min: 1, max: 2000, step: 1, unit_of_measurement: 'px' } }
+                        }
+                    },
+                    background_min_width: {
+                        type: ['number', 'null'],
+                        minimum: 1,
+                        description: 'Minimum width of the background rect (px). Auto-sizes to text width but never smaller than this value. Safe for dynamic content.',
+                        'x-ui-hints': {
+                            label: 'Background Min Width',
+                            helper: 'Auto-sizes with text but will not shrink below this value — safe for dynamic content.',
+                            selector: { number: { mode: 'box', min: 1, max: 2000, step: 1, unit_of_measurement: 'px' } }
+                        }
                     }
                 }
             }
@@ -1113,6 +1154,47 @@ export function getTextSchema(options = {}) {
                     'x-ui-hints': {
                         label: 'Display Format',
                         helper: 'friendly = HA-translated (e.g. "Open"), raw = actual state (e.g. "on"), parts = value+unit joined, unit = unit only'
+                    }
+                },
+                background: stateColorSchema,
+                background_padding: {
+                    type: 'number',
+                    minimum: 0,
+                    default: 8,
+                    description: 'Horizontal padding between text glyphs and the background rect edges (px).',
+                    'x-ui-hints': {
+                        label: 'Background Padding',
+                        selector: { number: { mode: 'box', min: 0, max: 100, step: 1, unit_of_measurement: 'px' } }
+                    }
+                },
+                background_radius: {
+                    type: 'number',
+                    minimum: 0,
+                    default: 4,
+                    description: 'Corner radius of the background rect (px).',
+                    'x-ui-hints': {
+                        label: 'Background Corner Radius',
+                        selector: { number: { mode: 'box', min: 0, max: 50, step: 1, unit_of_measurement: 'px' } }
+                    }
+                },
+                background_width: {
+                    type: ['number', 'null'],
+                    minimum: 1,
+                    description: 'Fixed explicit width of the background rect (px). Overrides auto-sizing from text metrics. Text will overflow if content is wider than this value.',
+                    'x-ui-hints': {
+                        label: 'Background Width (Fixed)',
+                        helper: 'Pin to an exact px width. Use background_min_width for a safe lower bound with dynamic content.',
+                        selector: { number: { mode: 'box', min: 1, max: 2000, step: 1, unit_of_measurement: 'px' } }
+                    }
+                },
+                background_min_width: {
+                    type: ['number', 'null'],
+                    minimum: 1,
+                    description: 'Minimum width of the background rect (px). Auto-sizes to text width but never smaller than this value. Safe for dynamic content.',
+                    'x-ui-hints': {
+                        label: 'Background Min Width',
+                        helper: 'Auto-sizes with text but will not shrink below this value — safe for dynamic content.',
+                        selector: { number: { mode: 'box', min: 1, max: 2000, step: 1, unit_of_measurement: 'px' } }
                     }
                 }
             }
@@ -1319,8 +1401,18 @@ export const backgroundAnimationSchema = {
 // ============================================================================
 
 export const cardHeightSchema = {
-    type: 'string',
-    pattern: '^[\\d.]+(\\s*(px|vh|vw|%|em|rem|vmin|vmax))?$',
+    oneOf: [
+        {
+            type: 'number',
+            minimum: 1,
+            description: 'Card height in pixels (bare integer, e.g. 56 = 56px)'
+        },
+        {
+            type: 'string',
+            pattern: '^[\\d.]+(\\s*(px|vh|vw|%|em|rem|vmin|vmax))?$',
+            description: 'Card height with CSS unit (e.g. 200px, 50vh, 10em)'
+        }
+    ],
     description: 'Card height override. Bare integer = px (e.g. 200 = 200px). CSS units accepted: 200px, 50vh, 10em.',
     'x-ui-hints': {
         label: 'Height',
@@ -1330,8 +1422,18 @@ export const cardHeightSchema = {
 };
 
 export const cardWidthSchema = {
-    type: 'string',
-    pattern: '^[\\d.]+(\\s*(px|vh|vw|%|em|rem|vmin|vmax))?$',
+    oneOf: [
+        {
+            type: 'number',
+            minimum: 1,
+            description: 'Card width in pixels (bare integer, e.g. 300 = 300px)'
+        },
+        {
+            type: 'string',
+            pattern: '^[\\d.]+(\\s*(px|vh|vw|%|em|rem|vmin|vmax))?$',
+            description: 'Card width with CSS unit (e.g. 400px, 50vw, 10em)'
+        }
+    ],
     description: 'Card width override. Bare integer = px (e.g. 400 = 400px). CSS units accepted: 400px, 50vw, 10em.',
     'x-ui-hints': {
         label: 'Width',

@@ -109,6 +109,49 @@ text:
 
 ---
 
+## Text Background
+
+Adding a `background` color to a text field draws an opaque rectangle behind the glyphs, creating the classic LCARS bar-break effect where the label floats inside a colored bar.
+
+`background` accepts the same state-map object as text `color` — a plain string is **not** supported; always use object form:
+
+```yaml
+# Single colour (all states)
+background:
+  default: black
+
+# State-reactive colour
+background:
+  default: black
+  active: var(--lcars-ui-red)
+  inactive: transparent
+```
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `background` | state-map | — | Background rect colour — must be a state-map object (`{ default: 'black' }`). Supports all states used by text `color`. |
+| `background_padding` | number (px) | `8` | Horizontal space between glyphs and box edges |
+| `background_radius` | number (px) | `4` | Corner radius of the background rect |
+| `background_width` | number (px) | auto | **Fixed** explicit width. Overrides auto-sizing — text overflows if content is wider |
+| `background_min_width` | number (px) | — | **Minimum** width. Auto-sizes from text but never shrinks below this value |
+
+### Aligning stacked cards
+
+When stacking several `bar-label-*` cards, each value field naturally auto-sizes to its text content, resulting in misaligned box edges. Use `background_min_width` (safe for dynamic content) or `background_width` (exact pin) to make all boxes the same width:
+
+```yaml
+text:
+  value:
+    content: "[[[return entity.state + ' W']]]"
+    anchor: end
+    background:
+      default: black
+    background_min_width: 120   # all stacked cards share this minimum box width
+```
+
+> **Note on `background_width` + `anchor`:** when a fixed width is set, `background_padding` no longer controls box _width_ — it still controls the anchor offset so the text sits `background_padding` px from the box's anchored edge. Extra space accumulates on the opposite side. With `anchor: end` this means the right edge stays pinned and extra space grows leftward, which is usually the desired alignment behaviour.
+
+---
 ## Colour in Text Fields
 
 The `color` field accepts both a plain colour string and a [state-based colour map](colours.md):

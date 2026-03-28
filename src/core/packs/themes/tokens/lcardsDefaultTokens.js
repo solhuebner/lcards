@@ -291,6 +291,12 @@ export const lcardsDefaultTokens = {
         }
       },
       gauge: {
+        color: {
+          default:     'colors.lcars.orange',
+          active:      'lighten(colors.lcars.orange, 0.1)',
+          inactive:    'darken(colors.lcars.orange, 0.2)',
+          unavailable: 'darken(colors.lcars.orange, 0.4)'
+        },
         progress: {
           color: 'colors.lcars.orange',
           height: 4
