@@ -195,6 +195,16 @@ export const SLIDER_PRESETS = {
       track: {
         type:   'gauge',
         margin: 0
+      },
+      gauge: {
+        progress_bar: {
+          color: {
+            default:     'theme:components.slider.gauge.progress_bar.color.default',
+            active:      'theme:components.slider.gauge.progress_bar.color.active',
+            inactive:    'theme:components.slider.gauge.progress_bar.color.inactive',
+            unavailable: 'theme:components.slider.gauge.progress_bar.color.unavailable'
+          }
+        }
       }
     }
   },
