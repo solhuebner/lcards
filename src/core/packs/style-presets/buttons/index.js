@@ -570,7 +570,7 @@ export const BUTTON_PRESETS = {
           unavailable: 'var(--lcars-ui-red, #CC6666)'
         },
         // Opaque background creates the bar "break" effect
-        background: 'black',
+        background: { default: 'black' },
         background_padding: 15,  // Space between text and colored bars
         background_radius: 0,    // Sharp corners for LCARS aesthetic
         padding: {

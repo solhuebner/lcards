@@ -4735,6 +4735,8 @@ export class LCARdSButton extends LCARdSCard {
 
                 // Text background properties for "bar label" effect
                 // Priority: field-specific config > text.default (config) > preset field config > text.default (preset) > null
+                // background must be a stateColorSchema object e.g. { default: 'black' }.
+                // Preset definitions use object form; user YAML should use the same.
                 background: fieldConfig.background !== undefined ? fieldConfig.background :
                            (userDefaults.background !== undefined ? userDefaults.background :
                            (presetFieldConfig.background !== undefined ? presetFieldConfig.background :
@@ -4746,7 +4748,17 @@ export class LCARdSButton extends LCARdSCard {
                 background_radius: fieldConfig.background_radius !== undefined ? fieldConfig.background_radius :
                                   (userDefaults.background_radius !== undefined ? userDefaults.background_radius :
                                   (presetFieldConfig.background_radius !== undefined ? presetFieldConfig.background_radius :
-                                  (presetTextDefaults.background_radius !== undefined ? presetTextDefaults.background_radius : 4)))
+                                  (presetTextDefaults.background_radius !== undefined ? presetTextDefaults.background_radius : 4))),
+                // null = auto-size from text metrics (default behaviour)
+                background_width: fieldConfig.background_width !== undefined ? fieldConfig.background_width :
+                                 (userDefaults.background_width !== undefined ? userDefaults.background_width :
+                                 (presetFieldConfig.background_width !== undefined ? presetFieldConfig.background_width :
+                                 (presetTextDefaults.background_width !== undefined ? presetTextDefaults.background_width : null))),
+                // null = no minimum (default behaviour)
+                background_min_width: fieldConfig.background_min_width !== undefined ? fieldConfig.background_min_width :
+                                     (userDefaults.background_min_width !== undefined ? userDefaults.background_min_width :
+                                     (presetFieldConfig.background_min_width !== undefined ? presetFieldConfig.background_min_width :
+                                     (presetTextDefaults.background_min_width !== undefined ? presetTextDefaults.background_min_width : null)))
             };
         }
 
@@ -5063,6 +5075,17 @@ export class LCARdSButton extends LCARdSCard {
 
             resolvedColor = this._resolveMatchLightColor(resolvedColor);
 
+            // Resolve background color based on entity state (supports state-based color map)
+            let resolvedBackground = null;
+            if (field.background) {
+                resolvedBackground = resolveStateColor({
+                    actualState: actualEntityState,
+                    classifiedState: entityState,
+                    colorConfig: field.background,
+                    fallback: null
+                });
+            }
+
             processedFields.push({
                 id: fieldId,
                 content: content,
@@ -5077,9 +5100,11 @@ export class LCARdSButton extends LCARdSCard {
                 rotation: field.rotation,  // NEW: pass through rotation
 
                 // Text background properties for "bar label" effect
-                background: field.background,
+                background: resolvedBackground,
                 background_padding: field.background_padding,
-                background_radius: field.background_radius
+                background_radius: field.background_radius,
+                background_width: field.background_width,
+                background_min_width: field.background_min_width
             });
         }
 
@@ -5110,7 +5135,16 @@ export class LCARdSButton extends LCARdSCard {
                 const metrics = RendererUtils.measureText(field.content, fontString);
                 const textWidth = metrics.width;
 
-                const bgWidth = textWidth + (bgPadding * 2);
+                const bgFixedWidth = field.background_width ?? null;
+                const bgMinWidth   = field.background_min_width ?? null;
+                let bgWidth;
+                if (bgFixedWidth !== null) {
+                    // Explicit fixed size — ignore text metrics for width
+                    bgWidth = bgFixedWidth;
+                } else {
+                    const autoWidth = textWidth + (bgPadding * 2);
+                    bgWidth = bgMinWidth !== null ? Math.max(autoWidth, bgMinWidth) : autoWidth;
+                }
 
                 // For bar labels, use container height but round up to ensure full coverage
                 // (e.g., 55.984375 → 56). This respects custom row heights while preventing gaps.
