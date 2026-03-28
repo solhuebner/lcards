@@ -61,7 +61,7 @@ export const BUTTON_PRESETS = {
         // Name-specific overrides (if any)
         position: 'bottom-right',
         content: "{entity.attributes.friendly_name}",
-        show: true
+        show: false
       },
       state: {
         // Label-specific overrides (if any)
@@ -310,9 +310,6 @@ export const BUTTON_PRESETS = {
 
     // Text styling - left aligned for outline style
     text: {
-      default: {
-        font_size: 'theme:typography.fontSize.3xl',
-      },
       name: {
         position: 'right',
         show: true,
@@ -332,9 +329,6 @@ export const BUTTON_PRESETS = {
     extends: 'button.base',
     icon_area: 'right',
     text: {
-      default: {
-        font_size: 'theme:typography.fontSize.3xl',
-      },
       name: {
         position: 'left',
         show: true,
@@ -385,9 +379,7 @@ export const BUTTON_PRESETS = {
 
     // Text styling - left aligned for outline style
     text: {
-
       default: {
-        font_size: 'theme:typography.fontSize.3xl',
         color: {
           default: 'theme:components.button.background.active',
           active: 'theme:components.button.background.active',
@@ -397,7 +389,7 @@ export const BUTTON_PRESETS = {
       },
       name: {
         position: 'right',
-        show: true,
+        show: false,
         padding: {
           right: 12
         }
@@ -430,7 +422,7 @@ export const BUTTON_PRESETS = {
       },
       name: {
         position: 'left',
-        show: true,
+        show: false,
         padding: {
           left: 12
         }

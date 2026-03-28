@@ -190,17 +190,23 @@ dialog.mz-svg-lightbox .mz-svg-inner {
   background-color: transparent !important;
 }
 
-/* Nav items */
+/* Nav items — force light text in both modes (nav bg is always dark) */
+.VPNavBar,
 .VPNavBarMenuLink,
 .VPNavBarMenuLink.active,
+.VPNavBarMenuGroup .button,
+.VPNavBarMenuGroup .button .text,
 .VPNavBarAppearance .sun,
-.VPNavBarAppearance .moon {
+.VPNavBarAppearance .moon,
+.VPNavBarSocialLinks .VPSocialLink,
+.VPNavBarHamburger .bar {
   color: var(--lcars-nav-text) !important;
 }
 
 .VPNavBarMenuLink:hover,
-.VPNavBarMenuLink.active {
-  color: var(--vp-c-brand-1) !important;
+.VPNavBarMenuLink.active,
+.VPNavBarMenuGroup .button:hover .text {
+  color: var(--vp-c-brand-2) !important;
 }
 
 /* Site title */

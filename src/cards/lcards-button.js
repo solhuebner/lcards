@@ -6160,16 +6160,9 @@ export class LCARdSButton extends LCARdSCard {
     static getStubConfig() {
         return {
             type: 'custom:lcards-button',
-            entity: 'light.example',
             preset: 'lozenge',
             tap_action: {
                 action: 'toggle'
-            },
-            text: {
-                label: {
-                    content: 'LCARdS Button',
-                    show: true,
-                }
             }
         };
     }
