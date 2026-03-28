@@ -1,23 +1,35 @@
 name: Release
 
-# Trigger on version tags:
-#   2026.3.27          → stable release
-#   2026.3.27-alpha.1  → pre-release
+# Releases are triggered manually only.
+# Run from Actions → Release → Run workflow on the desired branch.
 #
-# OR run manually from Actions → Release → Run workflow
-# Version is read automatically from package.json — the single source of truth.
+# Branch determines release type (overridable via the prerelease input):
+#   main  → stable release   (prerelease auto = false)
+#   dev   → pre-release      (prerelease auto = true)
+#   other → pre-release      (prerelease auto = true)
+#
+# Version is always read from package.json — the single source of truth.
+#
+# package.json versioning conventions:
+#   2026.3.28          → stable release      → manifest 2026.3.28
+#   2026.3.28-alpha.1  → pre-release dev     → manifest 2026.3.28   (suffix stripped)
+#   2026.3.28.1        → same-day hotfix     → manifest 2026.3.28.1
+#   2026.3.28.1-rc.1   → hotfix pre-release  → manifest 2026.3.28.1 (suffix stripped)
+#
+# NOTE: Use -alpha.* when the stable for that day hasn't shipped yet.
+# Use .1/.2 increments when hotfixing an already-released stable.
 on:
-  push:
-    tags:
-      - "[0-9]+.[0-9]+.[0-9]+"
-      - "[0-9]+.[0-9]+.[0-9]+-*"
   workflow_dispatch:
     inputs:
       prerelease:
-        description: "Mark as pre-release?"
+        description: "Pre-release? (auto = detect from branch: main→stable, dev→pre-release)"
         required: false
-        type: boolean
-        default: false
+        type: choice
+        options:
+          - auto
+          - "true"
+          - "false"
+        default: auto
 
 permissions:
   contents: write
@@ -45,24 +57,48 @@ jobs:
         run: npm ci
 
       # ── Resolve version ────────────────────────────────────────────────────
-      # Tag push: version = the tag itself.
-      # workflow_dispatch: version = package.json (the single source of truth).
+      # Version is always read from package.json on the checked-out branch.
+      # A tag is created and pushed so the GitHub release has a proper ref.
       - name: Resolve version
         id: version
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            VERSION="${{ github.ref_name }}"
-            echo "📌 Tag-push release: ${VERSION}"
+          VERSION=$(jq -r '.version' package.json)
+          echo "📌 package.json version: ${VERSION}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Only create tag if it doesn't already exist
+          if git rev-parse "${VERSION}" >/dev/null 2>&1; then
+            echo "🏷️  Tag ${VERSION} already exists — skipping creation"
           else
-            VERSION=$(jq -r '.version' package.json)
-            echo "📌 package.json version: ${VERSION}"
-            git config user.name  "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
             git tag "${VERSION}"
             git push origin "${VERSION}"
             echo "🏷️  Created tag ${VERSION}"
           fi
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      # ── Resolve prerelease flag ────────────────────────────────────────────
+      # Priority: explicit input > version suffix (-alpha/-beta/-rc) > branch name
+      - name: Resolve prerelease
+        id: prerelease
+        run: |
+          INPUT="${{ inputs.prerelease }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          BRANCH="${{ github.ref_name }}"
+
+          if [ "$INPUT" = "true" ] || [ "$INPUT" = "false" ]; then
+            IS_PRERELEASE="$INPUT"
+            echo "📌 Pre-release: ${IS_PRERELEASE} (explicit input)"
+          elif echo "$VERSION" | grep -q -- '-'; then
+            IS_PRERELEASE="true"
+            echo "📌 Pre-release: true (version suffix detected in ${VERSION})"
+          elif [ "$BRANCH" = "main" ]; then
+            IS_PRERELEASE="false"
+            echo "📌 Pre-release: false (branch=main)"
+          else
+            IS_PRERELEASE="true"
+            echo "📌 Pre-release: true (branch=${BRANCH} is not main)"
+          fi
+          echo "is_prerelease=${IS_PRERELEASE}" >> $GITHUB_OUTPUT
 
       # ── Stamp version ─────────────────────────────────────────────────────
       # manifest.json requires HA CalVer: no leading zeros, no pre-release suffix.
@@ -142,7 +178,7 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.version }}
           files: lcards.zip
-          prerelease: ${{ (github.event_name == 'workflow_dispatch' && inputs.prerelease) || contains(steps.version.outputs.version, '-') }}
+          prerelease: ${{ steps.prerelease.outputs.is_prerelease }}
           generate_release_notes: true
           body: |
             ## LCARdS ${{ steps.version.outputs.version }}
