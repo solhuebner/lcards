@@ -490,6 +490,84 @@ export function getSliderSchema(options = {}) {
                                             bottom: { type: 'number', minimum: 0 },
                                             left: { type: 'number', minimum: 0 }
                                         }
+                                    },
+                                    background: {
+                                        type: 'object',
+                                        description: 'Background track drawn behind the progress bar fill, clamped to control range. Leave unset for no background.',
+                                        properties: {
+                                            color: {
+                                                ...stateColorSchema,
+                                                description: 'Background track colour. Supports state-based maps.',
+                                                'x-ui-hints': {
+                                                    label: 'Background Colour',
+                                                    helper: 'Colour for the background track. Supports state-reactive values.'
+                                                }
+                                            },
+                                            height: {
+                                                oneOf: [
+                                                    { type: 'number', minimum: 1, maximum: 100 },
+                                                    { type: 'string' }
+                                                ],
+                                                'x-ui-hints': {
+                                                    selector: { number: { min: 1, max: 100, mode: 'box', unit_of_measurement: 'px' } },
+                                                    label: 'Background Thickness',
+                                                    helper: 'Cross-section of the background track. Defaults to the same as the progress bar height.'
+                                                }
+                                            },
+                                            radius: {
+                                                oneOf: [
+                                                    { type: 'number', minimum: 0 },
+                                                    {
+                                                        type: 'object',
+                                                        properties: {
+                                                            start: { type: 'number', minimum: 0 },
+                                                            end:   { type: 'number', minimum: 0 }
+                                                        }
+                                                    }
+                                                ],
+                                                'x-ui-hints': {
+                                                    selector: { number: { min: 0, max: 50, mode: 'box', unit_of_measurement: 'px' } },
+                                                    label: 'Background Radius',
+                                                    helper: 'Corner radius for the background track. Defaults to progress_bar.radius if unset.'
+                                                }
+                                            },
+                                            min: {
+                                                type: 'number',
+                                                'x-ui-hints': {
+                                                    label: 'Background Start',
+                                                    helper: 'Value at which the background track starts. Defaults to control.min (clamped to display range).'
+                                                }
+                                            },
+                                            max: {
+                                                type: 'number',
+                                                'x-ui-hints': {
+                                                    label: 'Background End',
+                                                    helper: 'Value at which the background track ends. Defaults to control.max (clamped to display range).'
+                                                }
+                                            }
+                                        },
+                                        'x-ui-hints': {
+                                            label: 'Background Track',
+                                            helper: 'Optional track behind the progress bar fill, clamped to control range.'
+                                        }
+                                    },
+                                    radius: {
+                                        oneOf: [
+                                            { type: 'number', minimum: 0 },
+                                            {
+                                                type: 'object',
+                                                properties: {
+                                                    start: { type: 'number', minimum: 0, description: 'Radius on start end (left for horizontal, bottom for vertical)' },
+                                                    end:   { type: 'number', minimum: 0, description: 'Radius on end (right for horizontal, top for vertical)' }
+                                                },
+                                                'x-ui-hints': { label: 'Per-End Radius' }
+                                            }
+                                        ],
+                                        'x-ui-hints': {
+                                            selector: { number: { min: 0, max: 50, mode: 'box', unit_of_measurement: 'px' } },
+                                            label: 'Corner Radius',
+                                            helper: 'Uniform radius (number) or per-end via YAML: { start: 6, end: 0 }. start = left/bottom, end = right/top.'
+                                        }
                                     }
                                 }
                             },

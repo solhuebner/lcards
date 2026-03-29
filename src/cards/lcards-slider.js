@@ -2073,7 +2073,11 @@ export class LCARdSSlider extends LCARdSButton {
             skipRanges,
             entityState: this._entity?.state,  // Include state for reactive tick colors
             lightColor: this._lightColorValue || null,  // Bust cache when light colour changes
-            alertMode: window.lcards?.core?.themeManager?.getAlertMode?.() || 'green_alert'  // Bust cache on alert mode change
+            alertMode: window.lcards?.core?.themeManager?.getAlertMode?.() || 'green_alert',  // Bust cache on alert mode change
+            controlMin: this._controlConfig.min,  // Bust cache when control range changes (affects bg extent)
+            controlMax: this._controlConfig.max,
+            displayMin: this._displayConfig.min,
+            displayMax: this._displayConfig.max
         });
 
         if (this._memoizedGauge && this._memoizedGaugeConfig === configHash) {
@@ -2194,7 +2198,48 @@ export class LCARdSSlider extends LCARdSButton {
             fallback: 'var(--lcars-blue-light)'
         });
         const progressHeight = progressConfig?.height || 12;
-        const progressRadius = progressConfig?.radius !== undefined ? progressConfig?.radius : 2;
+        // Fill bar radius: uniform number (default 2) or per-end { start, end } object
+        const _prRaw = progressConfig?.radius;
+        const pr = (_prRaw !== null && typeof _prRaw === 'object')
+            ? { start: _prRaw.start ?? 2, end: _prRaw.end ?? 2 }
+            : { start: (_prRaw ?? 2), end: (_prRaw ?? 2) };
+        // Background radius: independently configurable, defaults to fill radius
+        const _bgRRaw = progressConfig?.background?.radius ?? progressConfig?.radius;
+        const bgPr = (_bgRRaw !== null && typeof _bgRRaw === 'object')
+            ? { start: _bgRRaw.start ?? 2, end: _bgRRaw.end ?? 2 }
+            : { start: (_bgRRaw ?? 2), end: (_bgRRaw ?? 2) };
+        // Helper: rect (uniform) or path (per-end). isH=true: left=start,right=end; false: bottom=start,top=end
+        const pbRect = (rad, px, py, pw, ph, isH, fill, close = '') => {
+            if (rad.start === rad.end) {
+                return `<rect x="${px}" y="${py}" width="${pw}" height="${ph}" fill="${fill}" rx="${rad.start}" ry="${rad.start}" ${close}/>`;
+            }
+            const corners = isH
+                ? { tl: rad.start, tr: rad.end,   br: rad.end,   bl: rad.start }
+                : { tl: rad.end,   tr: rad.end,   br: rad.start, bl: rad.start };
+            return `<path d="${this._buildRoundedRectPath(px, py, pw, ph, corners)}" fill="${fill}" ${close}/>`;
+        };
+        const pbPath   = (px, py, pw, ph, isH, fill) => pbRect(pr,   px, py, pw, ph, isH, fill);
+        const bgPbPath = (px, py, pw, ph, isH, fill) => pbRect(bgPr, px, py, pw, ph, isH, fill);
+        const progressBgColor = resolveStateColor({
+            actualState: this._entity?.state,
+            classifiedState: this._getButtonState(),
+            colorConfig: progressConfig?.background?.color,
+            fallback: ''
+        });
+        const progressBgThickness = progressConfig?.background?.height ?? progressHeight;
+        // Background track extent — explicit background.min/max override control-range clamping
+        const _dispMin = this._displayConfig.min;
+        const _dispMax = this._displayConfig.max;
+        const _dispRange = _dispMax - _dispMin;
+        const _ctrlMin = progressConfig?.background?.min ?? this._controlConfig.min;
+        const _ctrlMax = progressConfig?.background?.max ?? this._controlConfig.max;
+        const bgStartFrac = _dispRange > 0 ? Math.max(0, Math.min(1, (_ctrlMin - _dispMin) / _dispRange)) : 0;
+        const bgEndFrac   = _dispRange > 0 ? Math.max(0, Math.min(1, (_ctrlMax - _dispMin) / _dispRange)) : 1;
+        lcardsLog.debug('[LCARdSSlider] _generateGaugeSVG() background extent', {
+            bgMin: _ctrlMin, bgMax: _ctrlMax, bgStartFrac, bgEndFrac,
+            controlMin: this._controlConfig.min, controlMax: this._controlConfig.max,
+            displayMin: _dispMin, displayMax: _dispMax
+        });
 
         // Calculate progress bar position (at bottom of minor ticks)
         const progressY = minorHeight;
@@ -2311,12 +2356,14 @@ export class LCARdSSlider extends LCARdSButton {
 
             // Draw progress bar (at bottom of minor ticks, extends based on value)
             if (!skipProgressBar) {
-                svg += `
-                    <rect x="${progressX}" y="${progressY}"
-                          width="${progressWidth}" height="${progressHeight}"
-                          fill="${progressColor}"
-                          rx="${progressRadius}" ry="${progressRadius}" />
-                `;
+                // Background track — extent clamped to control range (or background.min/max), optional custom thickness
+                if (progressBgColor) {
+                    const bgX = bgStartFrac * trackWidth;
+                    const bgW = (bgEndFrac - bgStartFrac) * trackWidth;
+                    const bgYH = progressY + (progressHeight - progressBgThickness) / 2;
+                    svg += bgPbPath(bgX, bgYH, bgW, progressBgThickness, true, progressBgColor);
+                }
+                svg += pbPath(progressX, progressY, progressWidth, progressHeight, true, progressColor);
             }
 
         } else {
@@ -2427,12 +2474,14 @@ export class LCARdSSlider extends LCARdSButton {
 
             // Draw progress bar (fills from bottom up) - skip if component has separate progress zone
             if (!skipProgressBar) {
-                svg += `
-                    <rect x="${progressX}" y="${progressY}"
-                          width="${progressBarWidth}" height="${progressBarHeight}"
-                          fill="${progressColor}"
-                          rx="${progressRadius}" ry="${progressRadius}" />
-                `;
+                // Background track — vertical axis: y=0=top=max, y=height=bottom=min
+                if (progressBgColor) {
+                    const bgYV = (1 - bgEndFrac) * trackHeight;
+                    const bgHV = (bgEndFrac - bgStartFrac) * trackHeight;
+                    const bgXV = progressX + (progressBarWidth - progressBgThickness) / 2;
+                    svg += bgPbPath(bgXV, bgYV, progressBgThickness, bgHV, false, progressBgColor);
+                }
+                svg += pbPath(progressX, progressY, progressBarWidth, progressBarHeight, false, progressColor);
             }
         }
 
@@ -2779,23 +2828,17 @@ export class LCARdSSlider extends LCARdSButton {
         // Calculate relative position (0 = top, 1 = bottom)
         const relativeY = (event.clientY - rect.top) / rect.height;
 
-        // Convert to value using DISPLAY range (for visual alignment with gauge)
-        // Then clamp to CONTROL range (what user can actually set)
-        const displayMin = this._displayConfig.min;
-        const displayMax = this._displayConfig.max;
-        let value = displayMax - (relativeY * (displayMax - displayMin));
-
-        // Apply invert fill if configured
-        if (this._invertFill) {
-            value = displayMax - value + displayMin;
-        }
-
-        // Clamp to control range and apply step
+        // The overlay div is constrained to the control-range band of the track,
+        // so relativeY 0→1 maps directly to ctrlMax→ctrlMin (no display range math needed).
         const controlMin = this._controlConfig.min;
         const controlMax = this._controlConfig.max;
-        value = Math.max(controlMin, Math.min(controlMax, value));
+        let value = this._invertFill
+            ? controlMin + (relativeY * (controlMax - controlMin))
+            : controlMax - (relativeY * (controlMax - controlMin));
+
+        // Step snap and safety clamp
         const step = this._controlConfig.step || 1;
-        value = Math.round(value / step) * step;
+        value = Math.max(controlMin, Math.min(controlMax, Math.round(value / step) * step));
 
         lcardsLog.debug(`[LCARdSSlider] Vertical slider input`, {
             mouseY: event.clientY,
@@ -2803,8 +2846,6 @@ export class LCARdSSlider extends LCARdSButton {
             rectHeight: rect.height,
             relativeY,
             value,
-            displayMin,
-            displayMax,
             controlMin,
             controlMax
         });
@@ -2827,23 +2868,17 @@ export class LCARdSSlider extends LCARdSButton {
         // Calculate relative position (0 = top, 1 = bottom)
         const relativeY = (touch.clientY - rect.top) / rect.height;
 
-        // Convert to value using DISPLAY range (for visual alignment with gauge)
-        // Then clamp to CONTROL range (what user can actually set)
-        const displayMin = this._displayConfig.min;
-        const displayMax = this._displayConfig.max;
-        let value = displayMax - (relativeY * (displayMax - displayMin));
-
-        // Apply invert fill if configured
-        if (this._invertFill) {
-            value = displayMax - value + displayMin;
-        }
-
-        // Clamp to control range and apply step
+        // The overlay div is constrained to the control-range band of the track,
+        // so relativeY 0→1 maps directly to ctrlMax→ctrlMin (no display range math needed).
         const controlMin = this._controlConfig.min;
         const controlMax = this._controlConfig.max;
-        value = Math.max(controlMin, Math.min(controlMax, value));
+        let value = this._invertFill
+            ? controlMin + (relativeY * (controlMax - controlMin))
+            : controlMax - (relativeY * (controlMax - controlMin));
+
+        // Step snap and safety clamp
         const step = this._controlConfig.step || 1;
-        value = Math.round(value / step) * step;
+        value = Math.max(controlMin, Math.min(controlMax, Math.round(value / step) * step));
 
         this._sliderValue = value;
         this._updateDynamicElements();
@@ -3159,9 +3194,24 @@ export class LCARdSSlider extends LCARdSButton {
         const controlZone = (effectiveMode === 'shaped' && zones._shaped) ? zones._shaped : zones.control;
         const isVertical = orientation === 'vertical';
 
+        // Map control range into display-range pixel space so the overlay/input
+        // spans only the fraction of the track that the control range covers.
+        // This keeps the thumb and the progress bar fill in exact alignment even
+        // when the display range extends beyond the control range.
+        const { min: ctrlMin, max: ctrlMax } = this._controlConfig;
+        const dispMin = this._displayConfig.min;
+        const dispMax = this._displayConfig.max;
+        const dispRange = dispMax - dispMin;
+        const ctrlStartFrac = dispRange > 0 ? Math.max(0, Math.min(1, (ctrlMin - dispMin) / dispRange)) : 0;
+        const ctrlEndFrac   = dispRange > 0 ? Math.max(0, Math.min(1, (ctrlMax - dispMin) / dispRange)) : 1;
+
         // For vertical sliders, use a div overlay with mouse events instead of <input type="range">
         // because writing-mode breaks mouse coordinate mapping in browsers
         if (isVertical) {
+            // Vertical: y=0 is top = visual max; y=zoneHeight is bottom = visual min.
+            // Overlay top aligns with ctrlMax, overlay bottom aligns with ctrlMin.
+            const overlayTop    = controlZone.y + (1 - ctrlEndFrac)   * controlZone.height;
+            const overlayHeight = (ctrlEndFrac - ctrlStartFrac) * controlZone.height;
             return html`
                 <div class="slider-container">
                     ${unsafeHTML(finalSvg)}
@@ -3172,9 +3222,9 @@ export class LCARdSSlider extends LCARdSButton {
                             @touchstart="${this._handleVerticalSliderTouchStart}"
                             style="
                                 left: ${controlZone.x}px;
-                                top: ${controlZone.y}px;
+                                top: ${overlayTop}px;
                                 width: ${controlZone.width}px;
-                                height: ${controlZone.height}px;
+                                height: ${overlayHeight}px;
                                 cursor: pointer;
                             "
                         ></div>
@@ -3184,13 +3234,16 @@ export class LCARdSSlider extends LCARdSButton {
         }
 
         // Horizontal sliders work fine with <input type="range">
+        // Constrain the input to the control-range pixel footprint within the display range
+        // so the native thumb position stays in sync with the fill bar.
         // When invert_fill is true, mirror the input value so the thumb visually aligns with
         // the fill end.  Using a CSS scaleX(-1) transform is unreliable because browsers
         // calculate the reported value from the pre-transform coordinate space, causing the
         // thumb and the fill to move in opposite directions during drag.  Feeding the mirrored
         // value (max - value + min) is the reliable equivalent: the event handlers already
         // invert the raw value back to the actual entity value.
-        const { min: ctrlMin, max: ctrlMax } = this._controlConfig;
+        const inputLeft  = controlZone.x + ctrlStartFrac * controlZone.width;
+        const inputWidth = (ctrlEndFrac - ctrlStartFrac) * controlZone.width;
         const inputDisplayValue = this._invertFill
             ? String(ctrlMax - this._sliderValue + ctrlMin)
             : String(this._sliderValue);
@@ -3210,9 +3263,9 @@ export class LCARdSSlider extends LCARdSButton {
                         @input="${this._handleSliderInput}"
                         @change="${this._handleSliderChange}"
                         style="
-                            left: ${controlZone.x}px;
+                            left: ${inputLeft}px;
                             top: ${controlZone.y}px;
-                            width: ${controlZone.width}px;
+                            width: ${inputWidth}px;
                             height: ${controlZone.height}px;
                         "
                     />
@@ -3527,9 +3580,46 @@ export class LCARdSSlider extends LCARdSButton {
             colorConfig: progressBarConfig.color,
             fallback: 'var(--lcars-blue-light)'
         });
+        // Radius: uniform number or per-end { start, end } object
+        const _prRawZ = progressBarConfig.radius;
+        const prZ = (_prRawZ !== null && typeof _prRawZ === 'object')
+            ? { start: _prRawZ.start ?? 2, end: _prRawZ.end ?? 2 }
+            : { start: (_prRawZ ?? 2), end: (_prRawZ ?? 2) };
+        // Background radius — independently configurable, defaults to fill radius
+        const _bgRRawZ = progressBarConfig.background?.radius ?? progressBarConfig.radius;
+        const bgPrZ = (_bgRRawZ !== null && typeof _bgRRawZ === 'object')
+            ? { start: _bgRRawZ.start ?? 2, end: _bgRRawZ.end ?? 2 }
+            : { start: (_bgRRawZ ?? 2), end: (_bgRRawZ ?? 2) };
+        const pbPathZ = (rad, px, py, pw, ph, isH, fill) => {
+            if (rad.start === rad.end) {
+                return `<rect x="${px}" y="${py}" width="${pw}" height="${ph}" fill="${fill}" rx="${rad.start}" ry="${rad.start}"></rect>`;
+            }
+            const corners = isH
+                ? { tl: rad.start, tr: rad.end,   br: rad.end,   bl: rad.start }
+                : { tl: rad.end,   tr: rad.end,   br: rad.start, bl: rad.start };
+            return `<path d="${this._buildRoundedRectPath(px, py, pw, ph, corners)}" fill="${fill}"></path>`;
+        };
+        // Optional background track — extent clamped to background.min/max (defaults to control range)
+        const bgColor = resolveStateColor({
+            actualState: this._entity?.state,
+            classifiedState: this._getButtonState(),
+            colorConfig: progressBarConfig.background?.color,
+            fallback: ''
+        });
+        const bgThicknessZ = progressBarConfig.background?.height ?? null;
+        // Background extent: background.min/max override, defaults to _controlConfig.min/max clamped to display range
+        const bgMinVal = progressBarConfig.background?.min ?? this._controlConfig.min;
+        const bgMaxVal = progressBarConfig.background?.max ?? this._controlConfig.max;
+        const bgStartFracZ = range > 0 ? Math.max(0, Math.min(1, (bgMinVal - min) / range)) : 0;
+        const bgEndFracZ   = range > 0 ? Math.max(0, Math.min(1, (bgMaxVal - min) / range)) : 1;
+        lcardsLog.debug('[LCARdSSlider] _generateProgressBar() background extent', {
+            bgMinVal, bgMaxVal, bgStartFracZ, bgEndFracZ,
+            controlMin: this._controlConfig.min, controlMax: this._controlConfig.max,
+            displayMin: min, displayMax: max
+        });
         let svg = '';
 
-        // Generate progress bar rect - fill zone based on value percentage
+        // Generate progress bar — fill zone based on value percentage
         if (isVertical) {
             const barHeight = height * progress;
             let barY = y + height - barHeight; // Start from bottom (default)
@@ -3539,7 +3629,15 @@ export class LCARdSSlider extends LCARdSButton {
                 barY = y; // Fill from top instead
             }
 
-            svg += `<rect x="${x}" y="${barY}" width="${width}" height="${barHeight}" fill="${fillColor}" rx="2" ry="2"></rect>`;
+            if (bgColor) {
+                const bgW   = bgThicknessZ ?? width;
+                const bgX2  = x + (width - bgW) / 2;
+                // Clamp background to bgStartFracZ..bgEndFracZ (y=0 is top = display max)
+                const bgH_z = (bgEndFracZ - bgStartFracZ) * height;
+                const bgY_z = y + (1 - bgEndFracZ) * height;
+                svg += pbPathZ(bgPrZ, bgX2, bgY_z, bgW, bgH_z, false, bgColor);
+            }
+            svg += pbPathZ(prZ, x, barY, width, barHeight, false, fillColor);
         } else {
             const barWidth = width * progress;
             let barX = x; // Start from left (default)
@@ -3549,7 +3647,15 @@ export class LCARdSSlider extends LCARdSButton {
                 barX = x + width - barWidth; // Fill from right instead
             }
 
-            svg += `<rect x="${barX}" y="${y}" width="${barWidth}" height="${height}" fill="${fillColor}" rx="2" ry="2"></rect>`;
+            if (bgColor) {
+                const bgH   = bgThicknessZ ?? height;
+                const bgY2  = y + (height - bgH) / 2;
+                // Clamp background to bgStartFracZ..bgEndFracZ (x=0 is left = display min)
+                const bgX_z = x + bgStartFracZ * width;
+                const bgW_z = (bgEndFracZ - bgStartFracZ) * width;
+                svg += pbPathZ(bgPrZ, bgX_z, bgY2, bgW_z, bgH, true, bgColor);
+            }
+            svg += pbPathZ(prZ, barX, y, barWidth, height, true, fillColor);
         }
 
         // Render indicator if in gauge mode and enabled
