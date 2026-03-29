@@ -1,7 +1,7 @@
 /**
  * LCARdS Chart Card
  *
- * Data visualization using ApexCharts library (already bundled).
+ * Data visualization using ApexCharts library (bundled, v5).
  * Supports real-time and historical data via the unified DataSource + ProcessorManager pipeline.
  *
  * Features:
