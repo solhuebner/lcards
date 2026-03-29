@@ -199,6 +199,9 @@ export class LCARdSChart extends LCARdSCard {
     // Subscribe to data sources (may auto-create them)
     await this._subscribeToDataSources();
 
+    // Subscribe to alert mode changes so chart colors re-resolve when the palette shifts
+    this._subscribeToAlertMode();
+
     // Note: Chart initialization now happens in updated() after container is rendered
   }
 
@@ -266,6 +269,40 @@ export class LCARdSChart extends LCARdSCard {
    */
   _onRulePatchesChanged() {
     if (this._chart && this._chartReady) {
+      this._updateChartOptions();
+    }
+  }
+
+  /**
+   * Subscribe to ThemeManager alert mode changes.
+   * Called once after first update (skipped in preview mode).
+   * @private
+   */
+  _subscribeToAlertMode() {
+    this._alertModeUnsubscribe?.();
+    this._alertModeUnsubscribe = null;
+
+    const themeManager = window.lcards?.core?.themeManager;
+    if (themeManager?.subscribeToAlertMode) {
+      this._alertModeUnsubscribe = themeManager.subscribeToAlertMode(
+        this._handleAlertModeChange.bind(this)
+      );
+      lcardsLog.debug('[LCARdSChart] Subscribed to ThemeManager alert mode changes');
+    } else {
+      lcardsLog.warn('[LCARdSChart] ThemeManager.subscribeToAlertMode not available — alert mode subscription skipped');
+    }
+  }
+
+  /**
+   * Called by ThemeManager AFTER CSS variables have been written and the
+   * token resolver cache has been cleared.  Re-resolves all chart colours
+   * so the canvas reflects the new palette immediately.
+   * @private
+   * @param {string} _mode - Incoming alert mode (unused; colours are re-read from CSS)
+   */
+  _handleAlertModeChange(_mode) {
+    if (this._chart && this._chartReady) {
+      lcardsLog.debug(`[LCARdSChart] Alert mode changed to '${_mode}' — updating chart colours`);
       this._updateChartOptions();
     }
   }
@@ -913,6 +950,10 @@ export class LCARdSChart extends LCARdSCard {
 
     this._chartReady = false;
     this._chartInitialized = false;
+
+    // Unsubscribe from alert mode changes
+    this._alertModeUnsubscribe?.();
+    this._alertModeUnsubscribe = null;
 
     super._onDisconnected();
   }
