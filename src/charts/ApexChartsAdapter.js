@@ -614,7 +614,11 @@ export class ApexChartsAdapter {
             shadeIntensity: monochromeIntensity
           }
         })
-      }
+      },
+
+      // Annotations (threshold lines, zero line)
+      // Built from style.zero_line and style.thresholds[]
+      annotations: this._buildAnnotations(style)
     };
 
     // ============================================================================
