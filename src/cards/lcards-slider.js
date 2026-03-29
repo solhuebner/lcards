@@ -644,7 +644,7 @@ export class LCARdSSlider extends LCARdSButton {
     _getEntityValue(entity) {
         if (!entity) return 0;
 
-        const attribute = this._controlConfig.attribute;
+        const attribute = this._resolveControlAttribute(this._controlConfig.attribute);
         let rawValue = 0;
 
         if (attribute && entity.attributes?.[attribute] !== undefined) {
@@ -797,6 +797,50 @@ export class LCARdSSlider extends LCARdSButton {
 
         lcardsLog.debug(`[LCARdSSlider] Could not resolve marker value template:`, template);
         return null;
+    }
+
+    /**
+     * Resolve a control attribute template to a string attribute name.
+     * Supports token templates ({entity.attributes.xxx}, {entity.state}) and
+     * JS templates ([[[return ...]]]). Plain strings are returned as-is.
+     * @param {string|null} rawAttr - Raw attribute config value
+     * @returns {string|null} Resolved attribute name string
+     * @private
+     */
+    _resolveControlAttribute(rawAttr) {
+        if (!rawAttr || typeof rawAttr !== 'string') return rawAttr;
+        const str = rawAttr.trim();
+
+        // Token: {entity.attributes.xxx} → resolve to the attribute value as string
+        const tokenMatch = str.match(/^\{([^}]+)\}$/);
+        if (tokenMatch) {
+            const token = tokenMatch[1];
+            if (token === 'entity.state') {
+                return String(this._entity?.state ?? rawAttr);
+            }
+            const attrMatch = token.match(/^entity\.attributes\.(.+)$/);
+            if (attrMatch) {
+                return String(this._entity?.attributes?.[attrMatch[1]] ?? rawAttr);
+            }
+        }
+
+        // JS template: [[[return expression]]]
+        if (str.startsWith('[[[') && str.endsWith(']]]')) {
+            if (!this.hass) return rawAttr;
+            const jsBody = str.slice(3, -3).trim();
+            try {
+                // eslint-disable-next-line no-new-func
+                const fn = new Function('hass', 'entity', 'states', jsBody);
+                const result = fn(this.hass, this._entity, this.hass.states);
+                return result != null ? String(result) : rawAttr;
+            } catch (e) {
+                lcardsLog.warn(`[LCARdSSlider] Control attribute JS template error:`, e);
+                return rawAttr;
+            }
+        }
+
+        // Plain string — return as-is
+        return rawAttr;
     }
 
     /**
@@ -1770,6 +1814,30 @@ export class LCARdSSlider extends LCARdSButton {
             return ColorUtils.mix(gradientEnd, gradientStart, t);
         };
 
+        /**
+         * Return the unfilled opacity for a specific pill, honoring per-band opacity
+         * overrides from style.ranges[].opacity. Falls back to globalDefault when no
+         * band covers the pill's value position.
+         */
+        const getRangeOpacity = (pillIndex, pillCount, globalDefault) => {
+            if (!ranges || ranges.length === 0) return globalDefault;
+            const valuePercent = pillIndex / (pillCount - 1 || 1);
+            const pillValue = this._invertFill
+                ? displayMax - (valuePercent * displayRange)
+                : displayMin + (valuePercent * displayRange);
+            for (let ri = 0; ri < ranges.length; ri++) {
+                const r = ranges[ri];
+                if ('value' in r) continue; // Skip marker ranges
+                if (r.opacity === undefined || r.opacity === null) continue;
+                const bounds = this._resolvedRangeBounds?.[ri];
+                const rMin = bounds?.min ?? r.min;
+                const rMax = bounds?.max ?? r.max;
+                if (rMin === null || rMax === null || rMin === undefined || rMax === undefined) continue;
+                if (pillValue >= rMin && pillValue <= rMax) return r.opacity;
+            }
+            return globalDefault;
+        };
+
         // Calculate count and dimensions based on orientation
         let count, pillWidth, pillHeight;
 
@@ -1905,7 +1973,8 @@ export class LCARdSSlider extends LCARdSButton {
                         rx="${radius}"
                         ry="${radius}"
                         fill="${color}"
-                        opacity="${unfilledOpacity}"
+                        opacity="${getRangeOpacity(i, count, unfilledOpacity)}"
+                        data-unfilled-opacity="${getRangeOpacity(i, count, unfilledOpacity)}"
                         data-pill-index="${i}"${markerAttrsV} />
                 `;
             }
@@ -1942,7 +2011,8 @@ export class LCARdSSlider extends LCARdSButton {
                         rx="${radius}"
                         ry="${radius}"
                         fill="${color}"
-                        opacity="${unfilledOpacity}"
+                        opacity="${getRangeOpacity(i, count, unfilledOpacity)}"
+                        data-unfilled-opacity="${getRangeOpacity(i, count, unfilledOpacity)}"
                         data-pill-index="${i}"${markerAttrsH} />
                 `;
             }
@@ -2077,7 +2147,10 @@ export class LCARdSSlider extends LCARdSButton {
             controlMin: this._controlConfig.min,  // Bust cache when control range changes (affects bg extent)
             controlMax: this._controlConfig.max,
             displayMin: this._displayConfig.min,
-            displayMax: this._displayConfig.max
+            displayMax: this._displayConfig.max,
+            classifiedState: this._getButtonState?.() ?? '',
+            resolvedMarkerValues: this._resolvedMarkerValues,
+            resolvedRangeBounds: this._resolvedRangeBounds
         });
 
         if (this._memoizedGauge && this._memoizedGaugeConfig === configHash) {
@@ -2539,6 +2612,11 @@ export class LCARdSSlider extends LCARdSButton {
         pills.forEach((pill, index) => {
             let opacity;
 
+            // Per-pill unfilled opacity: band ranges may specify their own opacity value.
+            // The SVG rect has data-unfilled-opacity set at generation time; fall back to
+            // the global trackConfig unfilled opacity when the attribute is absent.
+            const pillUnfilledOpacity = parseFloat(pill.getAttribute('data-unfilled-opacity') || '') || unfilledOpacity;
+
             // Determine if this pill should be fully filled (not including transition pill)
             let isFilled;
 
@@ -2561,21 +2639,21 @@ export class LCARdSSlider extends LCARdSButton {
                     // For inverted: transition pill is at the left boundary of filled region
                     const transitionPillIndex = pills.length - Math.ceil(fillCount);
                     if (index === transitionPillIndex) {
-                        opacity = unfilledOpacity + ((fillCount % 1) * (filledOpacity - unfilledOpacity));
+                        opacity = pillUnfilledOpacity + ((fillCount % 1) * (filledOpacity - pillUnfilledOpacity));
                     } else {
-                        opacity = unfilledOpacity;
+                        opacity = pillUnfilledOpacity;
                     }
                 } else {
                     // For normal: transition pill is at the right boundary of filled region
                     if (index === Math.floor(fillCount)) {
-                        opacity = unfilledOpacity + ((fillCount % 1) * (filledOpacity - unfilledOpacity));
+                        opacity = pillUnfilledOpacity + ((fillCount % 1) * (filledOpacity - pillUnfilledOpacity));
                     } else {
-                        opacity = unfilledOpacity;
+                        opacity = pillUnfilledOpacity;
                     }
                 }
             } else {
                 // Unfilled
-                opacity = unfilledOpacity;
+                opacity = pillUnfilledOpacity;
             }
             pill.setAttribute('opacity', opacity);
         });
