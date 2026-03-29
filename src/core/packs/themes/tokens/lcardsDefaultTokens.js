@@ -291,15 +291,13 @@ export const lcardsDefaultTokens = {
         }
       },
       gauge: {
-        color: {
-          default:     'colors.lcars.orange',
-          active:      'lighten(colors.lcars.orange, 0.1)',
-          inactive:    'darken(colors.lcars.orange, 0.2)',
-          unavailable: 'darken(colors.lcars.orange, 0.4)'
-        },
-        progress: {
-          color: 'colors.lcars.orange',
-          height: 4
+        progress_bar: {
+          color: {
+            default: 'var(--lcards-blue-light)',
+            active: 'var(--lcards-blue-light)',
+            inactive: 'var(--lcards-blue-light)',
+            unavailable: 'var(--lcards-blue-light)'
+          }
         },
         tick: {
           major: {
