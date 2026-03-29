@@ -58,6 +58,7 @@ import { lcardsLog } from '../utils/lcards-logging.js';
 import ApexCharts from 'apexcharts';
 import { ApexChartsAdapter } from '../charts/ApexChartsAdapter.js';
 import { resolveThemeTokensRecursive } from '../utils/lcards-theme.js';
+import { deepMerge } from '../utils/deepMerge.js';
 import { getChartSchema } from './schemas/chart-schema.js';
 // Import chart editor for GUI editing
 import '../editor/cards/lcards-chart-editor.js';
@@ -614,10 +615,51 @@ export class LCARdSChart extends LCARdSCard {
     // Get style with rule patches applied
     const style = this._getMergedStyleWithRules(this.config.style || {});
 
+    // Build style baseline from theme's components.chart tokens so minimal
+    // configs get LCARS colors / typography instead of ApexCharts palette1 defaults.
+    // User style always wins because deepMerge puts it on top.
+    let tokenStyleDefaults = {};
+    const tm = this._singletons?.themeManager;
+    if (tm) {
+      const seriesColors = tm.getToken('components.chart.colors');
+      const gridColor    = tm.getToken('components.chart.gridColor');
+      const axisColor    = tm.getToken('components.chart.axisColor');
+      const strokeWidth  = tm.getToken('components.chart.strokeWidth');
+      const fontFamily   = tm.getToken('components.chart.fontFamily');
+      const fontSize     = tm.getToken('components.chart.fontSize');
+
+      if (seriesColors != null) {
+        tokenStyleDefaults.colors = { series: seriesColors };
+      }
+      if (gridColor != null) {
+        tokenStyleDefaults.colors = { ...tokenStyleDefaults.colors, grid: gridColor };
+      }
+      if (axisColor != null) {
+        tokenStyleDefaults.colors = {
+          ...tokenStyleDefaults.colors,
+          axis: { x: axisColor, y: axisColor }
+        };
+      }
+      if (strokeWidth != null) {
+        tokenStyleDefaults.stroke = { width: strokeWidth };
+      }
+      if (fontFamily != null) {
+        tokenStyleDefaults.typography = { font_family: fontFamily };
+      }
+      if (fontSize != null) {
+        tokenStyleDefaults.typography = { ...tokenStyleDefaults.typography, font_size: fontSize };
+      }
+
+      lcardsLog.trace('[LCARdSChart] Chart token defaults:', tokenStyleDefaults);
+    }
+
+    // token defaults < user style: user config always overrides
+    const mergedStyle = deepMerge(tokenStyleDefaults, style);
+
     // Merge chart_type from config root into style for adapter
     let enhancedStyle = {
       chart_type: this.config.chart_type || 'line',
-      ...style
+      ...mergedStyle
     };
 
     // Map xaxis_type into chart_options so it passes through the adapter's
