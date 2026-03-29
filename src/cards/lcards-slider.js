@@ -450,7 +450,7 @@ export class LCARdSSlider extends LCARdSButton {
         // Call parent to handle state-based color resolution
         super._handleHassUpdate(newHass, oldHass);
 
-        // Update entity value
+        // Update entity value (only when a primary entity is configured)
         if (this.config.entity && this._entity) {
             // Get new value and set it
             // Lit's hasChanged() automatically determines if re-render is needed
@@ -466,10 +466,13 @@ export class LCARdSSlider extends LCARdSButton {
 
             // Update control config if entity attributes changed
             this._updateControlConfig();
-
-            // Re-resolve marker values since entity attributes may have changed
-            this._resolveMarkerValues();
         }
+
+        // Always re-resolve range templates — range bounds and colors may reference
+        // entities other than the primary entity (handled by _shouldUpdateOnHassChange).
+        // Called unconditionally so cards with no primary entity but with dynamic
+        // range templates also respond correctly.
+        this._resolveMarkerValues();
     }
 
     /**
@@ -811,6 +814,121 @@ export class LCARdSSlider extends LCARdSButton {
             lcardsLog.trace(`[LCARdSSlider] Marker range[${idx}] resolved: ${JSON.stringify(range.value)} → ${resolved}`);
             return resolved;
         });
+        // Also resolve dynamic band range bounds (min/max templates)
+        this._resolveRangeBounds();
+    }
+
+    /**
+     * Resolve band range `min`/`max` templates to numeric values.
+     * Supports the same template syntaxes as _resolveMarkerValue():
+     * static numbers, {entity.state}, {entity.attributes.xxx},
+     * {states.entity_id.state}, {states.entity_id.attributes.xxx}, [[[JS]]].
+     * Stores a parallel array in this._resolvedRangeBounds indexed to this._sliderStyle.ranges.
+     * Null entries correspond to marker ranges (those with a `value` key).
+     * Called automatically from _resolveMarkerValues() on every HASS update and style change.
+     * @private
+     */
+    _resolveRangeBounds() {
+        const ranges = this._sliderStyle?.ranges || [];
+        this._resolvedRangeBounds = ranges.map((range, idx) => {
+            if ('value' in range) return null; // Marker range, not a band
+            const resolvedMin = this._resolveMarkerValue(range.min);
+            const resolvedMax = this._resolveMarkerValue(range.max);
+            lcardsLog.trace(`[LCARdSSlider] Band range[${idx}] bounds resolved: min=${JSON.stringify(range.min)}→${resolvedMin}, max=${JSON.stringify(range.max)}→${resolvedMax}`);
+            return { min: resolvedMin, max: resolvedMax };
+        });
+        // Update entity dependency tracking so external entities trigger re-renders
+        this._extractRangeEntityDependencies();
+    }
+
+    /**
+     * Scan all range bound templates (min, max, value) for entity ID references
+     * and store them in this._rangeTemplateEntities.
+     * Handles both token syntax ({states.entity_id.state}) and JS template syntax
+     * (states['entity.id'], states["entity.id"], hass.states['entity.id']).
+     * Called from _resolveRangeBounds() so it refreshes on every style/hass update.
+     * @private
+     */
+    _extractRangeEntityDependencies() {
+        const entities = new Set();
+        const ranges = this._sliderStyle?.ranges || [];
+
+        const extractFromTemplate = (tmpl) => {
+            if (!tmpl || typeof tmpl !== 'string') return;
+
+            // Token syntax: {states.entity_id.state} or {states.entity_id.attributes.xxx}
+            const tokenMatch = tmpl.match(/^\{states\.([^.}]+\.[^.}]+)\./)
+            if (tokenMatch) {
+                entities.add(tokenMatch[1]);
+                return;
+            }
+
+            // JS template syntax: states['entity.id'] or states["entity.id"]
+            // Also matches hass.states['entity.id']
+            const jsMatches = tmpl.matchAll(/states\[['"](\S+?)['"]/g);
+            for (const m of jsMatches) {
+                entities.add(m[1]);
+            }
+        };
+
+        ranges.forEach(range => {
+            extractFromTemplate(range.min);
+            extractFromTemplate(range.max);
+            extractFromTemplate(range.value); // Marker ranges too
+        });
+
+        this._rangeTemplateEntities = entities;
+        lcardsLog.trace(`[LCARdSSlider] Range template dependencies:`, [...entities]);
+    }
+
+    /**
+     * Override shouldUpdate to also watch entities referenced in range templates.
+     * Without this override, if a range bound template references an entity other
+     * than the card's primary entity, changes to that entity would not trigger
+     * a re-render and the range bands would be stale.
+     * @override
+     */
+    _shouldUpdateOnHassChange(newHass, oldHass) {
+        // Always defer to parent logic first (handles primary entity + trackedEntities)
+        if (super._shouldUpdateOnHassChange(newHass, oldHass)) return true;
+
+        // Additionally check entities extracted from range bound templates
+        if (this._rangeTemplateEntities?.size > 0) {
+            for (const entityId of this._rangeTemplateEntities) {
+                if (oldHass?.states?.[entityId] !== newHass?.states?.[entityId]) {
+                    lcardsLog.debug(`[LCARdSSlider] Range template entity changed: ${entityId} — triggering re-render`);
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Resolve a range color value with optional state-awareness.
+     * If colorConfig is an object, routes through resolveStateColor() so the
+     * full state-aware syntax ({ active, inactive, above:70, … }) works on ranges.
+     * If colorConfig is a string (or undefined), falls back to _resolveColorValue()
+     * for static colors, CSS variables, and computed theme tokens — preserving the
+     * existing behavior for users who have not adopted the state-aware syntax.
+     * @param {string|Object} colorConfig - Color string or state-aware config object
+     * @param {string} [fallback='#888888'] - Fallback color
+     * @returns {string} Resolved color
+     * @private
+     */
+    _resolveRangeColor(colorConfig, fallback = '#888888') {
+        if (colorConfig && typeof colorConfig === 'object') {
+            const resolved = resolveStateColor({
+                actualState: this._entity?.state,
+                classifiedState: this._getButtonState(),
+                colorConfig,
+                fallback
+            });
+            // resolveStateColor can return string | number | null; coerce to string for SVG attributes
+            return resolved != null ? String(resolved) : fallback;
+        }
+        return this._resolveColorValue(colorConfig, fallback);
     }
 
 
@@ -1550,6 +1668,7 @@ export class LCARdSSlider extends LCARdSButton {
             `${orientation}|${width}|${height}|` +
             `${JSON.stringify(this._sliderStyle?.ranges || [])}|` +
             `${JSON.stringify(this._resolvedMarkerValues)}|` +
+            `${JSON.stringify(this._resolvedRangeBounds)}|` +
             `${this._lightColorValue || ''}|` +
             `${window.lcards?.core?.themeManager?.getAlertMode?.() || 'green_alert'}`; // Bust cache on alert mode change
 
@@ -1620,11 +1739,18 @@ export class LCARdSSlider extends LCARdSButton {
 
             // Check if this value falls within any defined range
             if (ranges.length > 0) {
-                // FIX: Use inclusive upper boundary (<=) to match standard range notation
-                // This ensures pills at exact boundaries (e.g., 66.6, 77.7, 88.8 in 66-100 range) are matched
-                const matchingRange = ranges.find(r => pillValue >= r.min && pillValue <= r.max);
-                if (matchingRange) {
-                    return this._resolveColorValue(matchingRange.color);
+                // Use resolved bounds (supports templates for min/max) with fallback to raw config values.
+                // FIX: Use inclusive upper boundary (<=) to match standard range notation.
+                for (let ri = 0; ri < ranges.length; ri++) {
+                    const r = ranges[ri];
+                    if ('value' in r) continue; // Skip marker ranges
+                    const bounds = this._resolvedRangeBounds?.[ri];
+                    const rMin = bounds?.min ?? r.min;
+                    const rMax = bounds?.max ?? r.max;
+                    if (rMin === null || rMax === null || rMin === undefined || rMax === undefined) continue;
+                    if (pillValue >= rMin && pillValue <= rMax) {
+                        return this._resolveRangeColor(r.color);
+                    }
                 }
             }
 
@@ -1731,7 +1857,7 @@ export class LCARdSSlider extends LCARdSButton {
             const pillIdx = Math.max(0, Math.min(count - 1, Math.round(valuePercent * (count - 1))));
             const pillStyle = range.pill_style || {};
             markerPillMap.set(pillIdx, {
-                color: this._resolveColorValue(range.color || 'var(--lcars-white, #ffffff)'),
+                color: this._resolveRangeColor(range.color || 'var(--lcars-white, #ffffff)'),
                 strokeEnabled: pillStyle.stroke !== false, // default true
                 strokeWidth: pillStyle.stroke_width ?? 2
             });
@@ -1963,9 +2089,11 @@ export class LCARdSSlider extends LCARdSButton {
 
             ranges.forEach((rangeConfig, idx) => {
                 if ('value' in rangeConfig) return; // Marker ranges are handled separately
-                const rangeMin = rangeConfig.min;
-                const rangeMax = rangeConfig.max;
-                const rangeColor = this._resolveColorValue(rangeConfig.color);
+                const bounds = this._resolvedRangeBounds?.[idx];
+                const rangeMin = bounds?.min ?? rangeConfig.min;
+                const rangeMax = bounds?.max ?? rangeConfig.max;
+                if (rangeMin === null || rangeMin === undefined || rangeMax === null || rangeMax === undefined) return;
+                const rangeColor = this._resolveRangeColor(rangeConfig.color);
                 const rangeOpacity = rangeConfig.opacity ?? 0.3;
 
                 // Calculate range position as percentage of display range
@@ -3142,10 +3270,11 @@ export class LCARdSSlider extends LCARdSButton {
         let svg = '';
         ranges.forEach((rangeConfig, idx) => {
             if ('value' in rangeConfig) return; // Skip markers
-            const rangeMin = rangeConfig.min;
-            const rangeMax = rangeConfig.max;
-            if (rangeMin === undefined || rangeMax === undefined) return;
-            const rangeColor = this._resolveColorValue(rangeConfig.color);
+            const bounds = this._resolvedRangeBounds?.[idx];
+            const rangeMin = bounds?.min ?? rangeConfig.min;
+            const rangeMax = bounds?.max ?? rangeConfig.max;
+            if (rangeMin === null || rangeMin === undefined || rangeMax === null || rangeMax === undefined) return;
+            const rangeColor = this._resolveRangeColor(rangeConfig.color);
             const rangeOpacity = rangeConfig.opacity ?? 0.3;
             const startPercent = Math.max(0, (rangeMin - min) / displayRange);
             const endPercent   = Math.min(1, (rangeMax - min) / displayRange);
@@ -3254,11 +3383,12 @@ export class LCARdSSlider extends LCARdSButton {
 
         let svg = '';
 
-        ranges.forEach(range => {
-            const rangeMin = range.min ?? displayMin;
-            const rangeMax = range.max ?? displayMax;
-            // Resolve through full pipeline so computed tokens work in range colors too
-            const color    = this._resolveColorValue(range.color, '#888888');
+        ranges.forEach((range, idx) => {
+            const bounds = this._resolvedRangeBounds?.[idx];
+            const rangeMin = bounds?.min ?? (range.min ?? displayMin);
+            const rangeMax = bounds?.max ?? (range.max ?? displayMax);
+            // Resolve through full pipeline; state-aware object syntax ({ active, inactive, … }) also supported
+            const color    = this._resolveRangeColor(range.color, '#888888');
             const opacity  = range.opacity ?? 1;
 
             const startPct = Math.max(0, (rangeMin - displayMin) / displayRange);

@@ -845,20 +845,16 @@ export function getSliderSchema(options = {}) {
                             type: 'object',
                             properties: {
                                 min: {
-                                    type: 'number',
-                                    description: 'Range start value (in display space, matching style.track.display.min/max)',
-                                    examples: [0, 18, 80]
+                                    type: ['number', 'string'],
+                                    description: 'Range start value (in display space). Supports static numbers or templates: {entity.state}, {entity.attributes.xxx}, {states.entity_id.state}, [[[JS return expr]]].',
+                                    examples: [0, 18, 80, '{entity.attributes.min_temp}', '{states.input_number.low.state}', '[[[return Number(entity.state) - 5]]]']
                                 },
                                 max: {
-                                    type: 'number',
-                                    description: 'Range end value (in display space, matching style.track.display.min/max)',
-                                    examples: [20, 24, 100]
+                                    type: ['number', 'string'],
+                                    description: 'Range end value (in display space). Supports static numbers or templates: {entity.state}, {entity.attributes.xxx}, {states.entity_id.state}, [[[JS return expr]]].',
+                                    examples: [20, 24, 100, '{entity.attributes.max_temp}', '{states.input_number.high.state}', '[[[return Number(entity.state) + 5]]]']
                                 },
-                                color: {
-                                    type: 'string',
-                                    description: 'Range background colour (hex, rgba, named colour, theme token, or CSS variable)',
-                                    examples: ['var(--error-color)', '#ff0000', 'rgba(255,0,0,0.3)', 'theme:palette.danger', 'orange', 'transparent']
-                                },
+                                color: stateColorSchema,
                                 opacity: {
                                     type: 'number',
                                     minimum: 0,
