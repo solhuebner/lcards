@@ -393,7 +393,6 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     <ha-icon-button
                         title="Clear — use entity state"
                         .path=${'M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z'}
-                        // @ts-ignore - TS2345: auto-suppressed
                         @click=${() => this._handleAttributeChange(/** @type {any} */ ({ detail: { value: '' } }))}>
                     </ha-icon-button>
                 ` : ''}
@@ -1155,78 +1154,151 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
      */
     _renderGaugeConfiguration() {
         return html`
-            <!-- Progress Bar with INLINE COLOR -->
+            <!-- Progress Bar -->
             <lcards-form-section
                 header="Progress Bar"
-                description="Current value indicator bar"
+                description="Fill bar and background track"
                 icon="mdi:progress-check"
                 ?expanded=${false}
                 ?outlined=${true}
                 headerLevel="4">
 
-                <lcards-grid-layout>
-                    ${FormField.renderField(this, 'style.gauge.progress_bar.height', {
-                        label: 'Height',
-                        helper: 'Cross-sectional thickness (width in vertical, height in horizontal)'
-                    })}
+                <!-- Progress Bar Fill subsection -->
+                <lcards-form-section
+                    header="Progress Bar Fill"
+                    description="Current value indicator bar"
+                    icon="mdi:progress-check"
+                    ?expanded=${false}
+                    ?outlined=${true}
+                    headerLevel="5">
 
-                    ${FormField.renderField(this, 'style.gauge.progress_bar.align', {
-                        label: 'Alignment',
-                        helper: 'Cross-sectional alignment (left/middle/right in vertical)',
-                        // @ts-ignore - TS2353: auto-suppressed
-                        type: 'select',
-                        mode: 'dropdown',
-                        options: [
-                            { value: 'start', label: 'Start' },
-                            { value: 'middle', label: 'Middle' },
-                            { value: 'end', label: 'End' }
-                        ]
-                    })}
+                    <!-- Layout: height, alignment, layer -->
+                    <lcards-grid-layout>
+                        ${FormField.renderField(this, 'style.gauge.progress_bar.height', {
+                            label: 'Height',
+                            helper: 'Cross-sectional thickness (width in vertical, height in horizontal)'
+                        })}
+                        ${FormField.renderField(this, 'style.gauge.progress_bar.align', {
+                            label: 'Alignment',
+                            helper: 'Cross-sectional alignment',
+                            // @ts-ignore - TS2353: auto-suppressed
+                            type: 'select',
+                            mode: 'dropdown',
+                            options: [
+                                { value: 'start', label: 'Start' },
+                                { value: 'middle', label: 'Middle' },
+                                { value: 'end', label: 'End' }
+                            ]
+                        })}
+                        ${FormField.renderField(this, 'style.gauge.progress_bar.layer', {
+                            label: 'Layer',
+                            helper: 'Render behind or in front of tick marks',
+                            // @ts-ignore - TS2353: auto-suppressed
+                            type: 'select',
+                            mode: 'dropdown',
+                            options: [
+                                { value: 'background', label: 'Behind ticks' },
+                                { value: 'foreground', label: 'In front of ticks' }
+                            ]
+                        })}
+                    </lcards-grid-layout>
 
-                    ${FormField.renderField(this, 'style.gauge.progress_bar.layer', {
-                        label: 'Layer',
-                        helper: 'Render behind or in front of gauge tick marks',
-                        // @ts-ignore - TS2353: auto-suppressed
-                        type: 'select',
-                        mode: 'dropdown',
-                        options: [
-                            { value: 'background', label: 'Background (behind ticks)' },
-                            { value: 'foreground', label: 'Foreground (in front of ticks)' }
-                        ]
-                    })}
-                </lcards-grid-layout>
+                    <!-- Fill radius: per-end controls (start = left/bottom, end = right/top) -->
+                    <lcards-grid-layout>
+                        ${FormField.renderField(this, 'style.gauge.progress_bar.radius.start', {
+                            label: 'Radius Start',
+                            helper: 'Fill bar start-end radius — left (horizontal) or bottom (vertical)'
+                        })}
+                        ${FormField.renderField(this, 'style.gauge.progress_bar.radius.end', {
+                            label: 'Radius End',
+                            helper: 'Fill bar end radius — right (horizontal) or top (vertical)'
+                        })}
+                    </lcards-grid-layout>
 
-                <!-- Progress bar padding -->
-                <lcards-grid-layout>
-                    ${FormField.renderField(this, 'style.gauge.progress_bar.padding.top', {
-                        label: 'Padding Top',
-                        helper: 'Top padding in pixels'
-                    })}
-                    ${FormField.renderField(this, 'style.gauge.progress_bar.padding.right', {
-                        label: 'Padding Right',
-                        helper: 'Right padding in pixels'
-                    })}
-                    ${FormField.renderField(this, 'style.gauge.progress_bar.padding.bottom', {
-                        label: 'Padding Bottom',
-                        helper: 'Bottom padding in pixels'
-                    })}
-                    ${FormField.renderField(this, 'style.gauge.progress_bar.padding.left', {
-                        label: 'Padding Left',
-                        helper: 'Left padding in pixels'
-                    })}
-                </lcards-grid-layout>
+                    <!-- Padding -->
+                    <lcards-grid-layout>
+                        ${FormField.renderField(this, 'style.gauge.progress_bar.padding.top', {
+                            label: 'Padding Top',
+                            helper: 'Top padding in pixels'
+                        })}
+                        ${FormField.renderField(this, 'style.gauge.progress_bar.padding.right', {
+                            label: 'Padding Right',
+                            helper: 'Right padding in pixels'
+                        })}
+                        ${FormField.renderField(this, 'style.gauge.progress_bar.padding.bottom', {
+                            label: 'Padding Bottom',
+                            helper: 'Bottom padding in pixels'
+                        })}
+                        ${FormField.renderField(this, 'style.gauge.progress_bar.padding.left', {
+                            label: 'Padding Left',
+                            helper: 'Left padding in pixels'
+                        })}
+                    </lcards-grid-layout>
 
-                <!-- INLINE: Progress bar color (state-aware) -->
-                <lcards-color-section-v2
-                    .editor=${this}
-                    .entityId=${this.config?.entity || ''}
-                    basePath="style.gauge.progress_bar.color"
-                    header="Progress Bar Colour"
-                    description="State-based colour for the filled progress bar"
-                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero']}
-                    ?allowCustomStates=${true}
-                    ?expanded=${false}>
-                </lcards-color-section-v2>
+                    <!-- Fill colour -->
+                    <lcards-color-section-v2
+                        .editor=${this}
+                        .entityId=${this.config?.entity || ''}
+                        basePath="style.gauge.progress_bar.color"
+                        header="Progress Bar Colour"
+                        description="State-based colour for the filled progress bar"
+                        .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero']}
+                        ?allowCustomStates=${true}
+                        ?expanded=${false}>
+                    </lcards-color-section-v2>
+
+                </lcards-form-section>
+
+                <!-- Background Track subsection -->
+                <lcards-form-section
+                    header="Background Track"
+                    description="Optional track drawn behind the fill bar"
+                    icon="mdi:rectangle-outline"
+                    ?expanded=${false}
+                    ?outlined=${true}
+                    headerLevel="5">
+
+                    <!-- Layout: thickness, extent min/max -->
+                    <lcards-grid-layout>
+                        ${FormField.renderField(this, 'style.gauge.progress_bar.background.height', {
+                            label: 'Thickness',
+                            helper: 'Background track cross-section. Defaults to the fill bar height.'
+                        })}
+                        ${FormField.renderField(this, 'style.gauge.progress_bar.background.min', {
+                            label: 'Start Value',
+                            helper: 'Value where the background track starts. Defaults to control.min.'
+                        })}
+                        ${FormField.renderField(this, 'style.gauge.progress_bar.background.max', {
+                            label: 'End Value',
+                            helper: 'Value where the background track ends. Defaults to control.max.'
+                        })}
+                    </lcards-grid-layout>
+
+                    <!-- Background radius: per-end controls -->
+                    <lcards-grid-layout>
+                        ${FormField.renderField(this, 'style.gauge.progress_bar.background.radius.start', {
+                            label: 'Radius Start',
+                            helper: 'Background start-end radius — left (horizontal) or bottom (vertical). Defaults to fill radius.'
+                        })}
+                        ${FormField.renderField(this, 'style.gauge.progress_bar.background.radius.end', {
+                            label: 'Radius End',
+                            helper: 'Background end radius — right (horizontal) or top (vertical). Defaults to fill radius.'
+                        })}
+                    </lcards-grid-layout>
+
+                    <!-- Background colour -->
+                    <lcards-color-section-v2
+                        .editor=${this}
+                        .entityId=${this.config?.entity || ''}
+                        basePath="style.gauge.progress_bar.background.color"
+                        header="Background Track Colour"
+                        description="No colour = no background track is drawn"
+                        .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero']}
+                        ?allowCustomStates=${true}
+                        ?expanded=${false}>
+                    </lcards-color-section-v2>
+
+                </lcards-form-section>
             </lcards-form-section>
 
             <!-- Tick Marks & Scale with INLINE COLOR -->

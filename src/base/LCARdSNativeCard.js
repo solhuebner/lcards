@@ -315,10 +315,11 @@ export class LCARdSNativeCard extends LitElement {
     /**
      * Determine if the card should re-render based on HASS changes
      * Checks if the card's entity or any tracked entities changed
+     * Subclasses may override to add additional entity dependency checks.
      * @param {Object} newHass - New HASS object
      * @param {Object} oldHass - Previous HASS object
      * @returns {boolean} True if re-render needed
-     * @private
+     * @protected
      */
     _shouldUpdateOnHassChange(newHass, oldHass) {
         // First HASS update - always render

@@ -450,7 +450,7 @@ export class LCARdSSlider extends LCARdSButton {
         // Call parent to handle state-based color resolution
         super._handleHassUpdate(newHass, oldHass);
 
-        // Update entity value
+        // Update entity value (only when a primary entity is configured)
         if (this.config.entity && this._entity) {
             // Get new value and set it
             // Lit's hasChanged() automatically determines if re-render is needed
@@ -466,10 +466,13 @@ export class LCARdSSlider extends LCARdSButton {
 
             // Update control config if entity attributes changed
             this._updateControlConfig();
-
-            // Re-resolve marker values since entity attributes may have changed
-            this._resolveMarkerValues();
         }
+
+        // Always re-resolve range templates — range bounds and colors may reference
+        // entities other than the primary entity (handled by _shouldUpdateOnHassChange).
+        // Called unconditionally so cards with no primary entity but with dynamic
+        // range templates also respond correctly.
+        this._resolveMarkerValues();
     }
 
     /**
@@ -641,7 +644,7 @@ export class LCARdSSlider extends LCARdSButton {
     _getEntityValue(entity) {
         if (!entity) return 0;
 
-        const attribute = this._controlConfig.attribute;
+        const attribute = this._resolveControlAttribute(this._controlConfig.attribute);
         let rawValue = 0;
 
         if (attribute && entity.attributes?.[attribute] !== undefined) {
@@ -797,6 +800,50 @@ export class LCARdSSlider extends LCARdSButton {
     }
 
     /**
+     * Resolve a control attribute template to a string attribute name.
+     * Supports token templates ({entity.attributes.xxx}, {entity.state}) and
+     * JS templates ([[[return ...]]]). Plain strings are returned as-is.
+     * @param {string|null} rawAttr - Raw attribute config value
+     * @returns {string|null} Resolved attribute name string
+     * @private
+     */
+    _resolveControlAttribute(rawAttr) {
+        if (!rawAttr || typeof rawAttr !== 'string') return rawAttr;
+        const str = rawAttr.trim();
+
+        // Token: {entity.attributes.xxx} → resolve to the attribute value as string
+        const tokenMatch = str.match(/^\{([^}]+)\}$/);
+        if (tokenMatch) {
+            const token = tokenMatch[1];
+            if (token === 'entity.state') {
+                return String(this._entity?.state ?? rawAttr);
+            }
+            const attrMatch = token.match(/^entity\.attributes\.(.+)$/);
+            if (attrMatch) {
+                return String(this._entity?.attributes?.[attrMatch[1]] ?? rawAttr);
+            }
+        }
+
+        // JS template: [[[return expression]]]
+        if (str.startsWith('[[[') && str.endsWith(']]]')) {
+            if (!this.hass) return rawAttr;
+            const jsBody = str.slice(3, -3).trim();
+            try {
+                // eslint-disable-next-line no-new-func
+                const fn = new Function('hass', 'entity', 'states', jsBody);
+                const result = fn(this.hass, this._entity, this.hass.states);
+                return result != null ? String(result) : rawAttr;
+            } catch (e) {
+                lcardsLog.warn(`[LCARdSSlider] Control attribute JS template error:`, e);
+                return rawAttr;
+            }
+        }
+
+        // Plain string — return as-is
+        return rawAttr;
+    }
+
+    /**
      * Resolve all value-based (marker) range entries to numeric positions.
      * Stores a parallel array to style.ranges in this._resolvedMarkerValues.
      * Null entries correspond to band ranges (min/max) or unresolvable templates.
@@ -811,6 +858,121 @@ export class LCARdSSlider extends LCARdSButton {
             lcardsLog.trace(`[LCARdSSlider] Marker range[${idx}] resolved: ${JSON.stringify(range.value)} → ${resolved}`);
             return resolved;
         });
+        // Also resolve dynamic band range bounds (min/max templates)
+        this._resolveRangeBounds();
+    }
+
+    /**
+     * Resolve band range `min`/`max` templates to numeric values.
+     * Supports the same template syntaxes as _resolveMarkerValue():
+     * static numbers, {entity.state}, {entity.attributes.xxx},
+     * {states.entity_id.state}, {states.entity_id.attributes.xxx}, [[[JS]]].
+     * Stores a parallel array in this._resolvedRangeBounds indexed to this._sliderStyle.ranges.
+     * Null entries correspond to marker ranges (those with a `value` key).
+     * Called automatically from _resolveMarkerValues() on every HASS update and style change.
+     * @private
+     */
+    _resolveRangeBounds() {
+        const ranges = this._sliderStyle?.ranges || [];
+        this._resolvedRangeBounds = ranges.map((range, idx) => {
+            if ('value' in range) return null; // Marker range, not a band
+            const resolvedMin = this._resolveMarkerValue(range.min);
+            const resolvedMax = this._resolveMarkerValue(range.max);
+            lcardsLog.trace(`[LCARdSSlider] Band range[${idx}] bounds resolved: min=${JSON.stringify(range.min)}→${resolvedMin}, max=${JSON.stringify(range.max)}→${resolvedMax}`);
+            return { min: resolvedMin, max: resolvedMax };
+        });
+        // Update entity dependency tracking so external entities trigger re-renders
+        this._extractRangeEntityDependencies();
+    }
+
+    /**
+     * Scan all range bound templates (min, max, value) for entity ID references
+     * and store them in this._rangeTemplateEntities.
+     * Handles both token syntax ({states.entity_id.state}) and JS template syntax
+     * (states['entity.id'], states["entity.id"], hass.states['entity.id']).
+     * Called from _resolveRangeBounds() so it refreshes on every style/hass update.
+     * @private
+     */
+    _extractRangeEntityDependencies() {
+        const entities = new Set();
+        const ranges = this._sliderStyle?.ranges || [];
+
+        const extractFromTemplate = (tmpl) => {
+            if (!tmpl || typeof tmpl !== 'string') return;
+
+            // Token syntax: {states.entity_id.state} or {states.entity_id.attributes.xxx}
+            const tokenMatch = tmpl.match(/^\{states\.([^.}]+\.[^.}]+)\./)
+            if (tokenMatch) {
+                entities.add(tokenMatch[1]);
+                return;
+            }
+
+            // JS template syntax: states['entity.id'] or states["entity.id"]
+            // Also matches hass.states['entity.id']
+            const jsMatches = tmpl.matchAll(/states\[['"](\S+?)['"]/g);
+            for (const m of jsMatches) {
+                entities.add(m[1]);
+            }
+        };
+
+        ranges.forEach(range => {
+            extractFromTemplate(range.min);
+            extractFromTemplate(range.max);
+            extractFromTemplate(range.value); // Marker ranges too
+        });
+
+        this._rangeTemplateEntities = entities;
+        lcardsLog.trace(`[LCARdSSlider] Range template dependencies:`, [...entities]);
+    }
+
+    /**
+     * Override shouldUpdate to also watch entities referenced in range templates.
+     * Without this override, if a range bound template references an entity other
+     * than the card's primary entity, changes to that entity would not trigger
+     * a re-render and the range bands would be stale.
+     * @override
+     */
+    _shouldUpdateOnHassChange(newHass, oldHass) {
+        // Always defer to parent logic first (handles primary entity + trackedEntities)
+        if (super._shouldUpdateOnHassChange(newHass, oldHass)) return true;
+
+        // Additionally check entities extracted from range bound templates
+        if (this._rangeTemplateEntities?.size > 0) {
+            for (const entityId of this._rangeTemplateEntities) {
+                if (oldHass?.states?.[entityId] !== newHass?.states?.[entityId]) {
+                    lcardsLog.debug(`[LCARdSSlider] Range template entity changed: ${entityId} — triggering re-render`);
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Resolve a range color value with optional state-awareness.
+     * If colorConfig is an object, routes through resolveStateColor() so the
+     * full state-aware syntax ({ active, inactive, above:70, … }) works on ranges.
+     * If colorConfig is a string (or undefined), falls back to _resolveColorValue()
+     * for static colors, CSS variables, and computed theme tokens — preserving the
+     * existing behavior for users who have not adopted the state-aware syntax.
+     * @param {string|Object} colorConfig - Color string or state-aware config object
+     * @param {string} [fallback='#888888'] - Fallback color
+     * @returns {string} Resolved color
+     * @private
+     */
+    _resolveRangeColor(colorConfig, fallback = '#888888') {
+        if (colorConfig && typeof colorConfig === 'object') {
+            const resolved = resolveStateColor({
+                actualState: this._entity?.state,
+                classifiedState: this._getButtonState(),
+                colorConfig,
+                fallback
+            });
+            // resolveStateColor can return string | number | null; coerce to string for SVG attributes
+            return resolved != null ? String(resolved) : fallback;
+        }
+        return this._resolveColorValue(colorConfig, fallback);
     }
 
 
@@ -1550,8 +1712,12 @@ export class LCARdSSlider extends LCARdSButton {
             `${orientation}|${width}|${height}|` +
             `${JSON.stringify(this._sliderStyle?.ranges || [])}|` +
             `${JSON.stringify(this._resolvedMarkerValues)}|` +
+            `${JSON.stringify(this._resolvedRangeBounds)}|` +
             `${this._lightColorValue || ''}|` +
-            `${window.lcards?.core?.themeManager?.getAlertMode?.() || 'green_alert'}`; // Bust cache on alert mode change
+            `${window.lcards?.core?.themeManager?.getAlertMode?.() || 'green_alert'}|` +
+            // Entity state + classified state bust the cache when state-aware range
+            // colors resolve differently (e.g. { active: red, inactive: gray }).
+            `${this._entity?.state ?? ''}|${this._getButtonState?.() ?? ''}`; // Bust cache on alert mode change
 
         // Check memoization cache
         if (this._memoizedTrack && this._memoizedTrackConfig === configHash) {
@@ -1614,17 +1780,30 @@ export class LCARdSSlider extends LCARdSButton {
          * @private
          */
         const getPillColor = (pillIndex, pillCount) => {
-            // Calculate the value this pill represents (in display space)
+            // Calculate the value this pill represents (in display space).
+            // When invert_fill is active, the pill at index 0 physically represents
+            // the display-max end of the value scale (matching the swapped gradient
+            // and the reversed fill direction from _updatePillOpacities), so the
+            // range lookup must also be mirrored to colour the correct pills.
             const valuePercent = pillIndex / (pillCount - 1 || 1);
-            const pillValue = displayMin + (valuePercent * displayRange);
+            const pillValue = this._invertFill
+                ? displayMax - (valuePercent * displayRange)
+                : displayMin + (valuePercent * displayRange);
 
             // Check if this value falls within any defined range
             if (ranges.length > 0) {
-                // FIX: Use inclusive upper boundary (<=) to match standard range notation
-                // This ensures pills at exact boundaries (e.g., 66.6, 77.7, 88.8 in 66-100 range) are matched
-                const matchingRange = ranges.find(r => pillValue >= r.min && pillValue <= r.max);
-                if (matchingRange) {
-                    return this._resolveColorValue(matchingRange.color);
+                // Use resolved bounds (supports templates for min/max) with fallback to raw config values.
+                // FIX: Use inclusive upper boundary (<=) to match standard range notation.
+                for (let ri = 0; ri < ranges.length; ri++) {
+                    const r = ranges[ri];
+                    if ('value' in r) continue; // Skip marker ranges
+                    const bounds = this._resolvedRangeBounds?.[ri];
+                    const rMin = bounds?.min ?? r.min;
+                    const rMax = bounds?.max ?? r.max;
+                    if (rMin === null || rMax === null || rMin === undefined || rMax === undefined) continue;
+                    if (pillValue >= rMin && pillValue <= rMax) {
+                        return this._resolveRangeColor(r.color);
+                    }
                 }
             }
 
@@ -1633,6 +1812,30 @@ export class LCARdSSlider extends LCARdSButton {
             // So we swap params: mix(end, start, t) to get start→end
             const t = pillIndex / (pillCount - 1 || 1);
             return ColorUtils.mix(gradientEnd, gradientStart, t);
+        };
+
+        /**
+         * Return the unfilled opacity for a specific pill, honoring per-band opacity
+         * overrides from style.ranges[].opacity. Falls back to globalDefault when no
+         * band covers the pill's value position.
+         */
+        const getRangeOpacity = (pillIndex, pillCount, globalDefault) => {
+            if (!ranges || ranges.length === 0) return globalDefault;
+            const valuePercent = pillIndex / (pillCount - 1 || 1);
+            const pillValue = this._invertFill
+                ? displayMax - (valuePercent * displayRange)
+                : displayMin + (valuePercent * displayRange);
+            for (let ri = 0; ri < ranges.length; ri++) {
+                const r = ranges[ri];
+                if ('value' in r) continue; // Skip marker ranges
+                if (r.opacity === undefined || r.opacity === null) continue;
+                const bounds = this._resolvedRangeBounds?.[ri];
+                const rMin = bounds?.min ?? r.min;
+                const rMax = bounds?.max ?? r.max;
+                if (rMin === null || rMax === null || rMin === undefined || rMax === undefined) continue;
+                if (pillValue >= rMin && pillValue <= rMax) return r.opacity;
+            }
+            return globalDefault;
         };
 
         // Calculate count and dimensions based on orientation
@@ -1731,7 +1934,7 @@ export class LCARdSSlider extends LCARdSButton {
             const pillIdx = Math.max(0, Math.min(count - 1, Math.round(valuePercent * (count - 1))));
             const pillStyle = range.pill_style || {};
             markerPillMap.set(pillIdx, {
-                color: this._resolveColorValue(range.color || 'var(--lcars-white, #ffffff)'),
+                color: this._resolveRangeColor(range.color || 'var(--lcars-white, #ffffff)'),
                 strokeEnabled: pillStyle.stroke !== false, // default true
                 strokeWidth: pillStyle.stroke_width ?? 2
             });
@@ -1770,7 +1973,8 @@ export class LCARdSSlider extends LCARdSButton {
                         rx="${radius}"
                         ry="${radius}"
                         fill="${color}"
-                        opacity="${unfilledOpacity}"
+                        opacity="${getRangeOpacity(i, count, unfilledOpacity)}"
+                        data-unfilled-opacity="${getRangeOpacity(i, count, unfilledOpacity)}"
                         data-pill-index="${i}"${markerAttrsV} />
                 `;
             }
@@ -1807,7 +2011,8 @@ export class LCARdSSlider extends LCARdSButton {
                         rx="${radius}"
                         ry="${radius}"
                         fill="${color}"
-                        opacity="${unfilledOpacity}"
+                        opacity="${getRangeOpacity(i, count, unfilledOpacity)}"
+                        data-unfilled-opacity="${getRangeOpacity(i, count, unfilledOpacity)}"
                         data-pill-index="${i}"${markerAttrsH} />
                 `;
             }
@@ -1938,7 +2143,14 @@ export class LCARdSSlider extends LCARdSButton {
             skipRanges,
             entityState: this._entity?.state,  // Include state for reactive tick colors
             lightColor: this._lightColorValue || null,  // Bust cache when light colour changes
-            alertMode: window.lcards?.core?.themeManager?.getAlertMode?.() || 'green_alert'  // Bust cache on alert mode change
+            alertMode: window.lcards?.core?.themeManager?.getAlertMode?.() || 'green_alert',  // Bust cache on alert mode change
+            controlMin: this._controlConfig.min,  // Bust cache when control range changes (affects bg extent)
+            controlMax: this._controlConfig.max,
+            displayMin: this._displayConfig.min,
+            displayMax: this._displayConfig.max,
+            classifiedState: this._getButtonState?.() ?? '',
+            resolvedMarkerValues: this._resolvedMarkerValues,
+            resolvedRangeBounds: this._resolvedRangeBounds
         });
 
         if (this._memoizedGauge && this._memoizedGaugeConfig === configHash) {
@@ -1963,9 +2175,11 @@ export class LCARdSSlider extends LCARdSButton {
 
             ranges.forEach((rangeConfig, idx) => {
                 if ('value' in rangeConfig) return; // Marker ranges are handled separately
-                const rangeMin = rangeConfig.min;
-                const rangeMax = rangeConfig.max;
-                const rangeColor = this._resolveColorValue(rangeConfig.color);
+                const bounds = this._resolvedRangeBounds?.[idx];
+                const rangeMin = bounds?.min ?? rangeConfig.min;
+                const rangeMax = bounds?.max ?? rangeConfig.max;
+                if (rangeMin === null || rangeMin === undefined || rangeMax === null || rangeMax === undefined) return;
+                const rangeColor = this._resolveRangeColor(rangeConfig.color);
                 const rangeOpacity = rangeConfig.opacity ?? 0.3;
 
                 // Calculate range position as percentage of display range
@@ -2057,7 +2271,48 @@ export class LCARdSSlider extends LCARdSButton {
             fallback: 'var(--lcars-blue-light)'
         });
         const progressHeight = progressConfig?.height || 12;
-        const progressRadius = progressConfig?.radius !== undefined ? progressConfig?.radius : 2;
+        // Fill bar radius: uniform number (default 2) or per-end { start, end } object
+        const _prRaw = progressConfig?.radius;
+        const pr = (_prRaw !== null && typeof _prRaw === 'object')
+            ? { start: _prRaw.start ?? 2, end: _prRaw.end ?? 2 }
+            : { start: (_prRaw ?? 2), end: (_prRaw ?? 2) };
+        // Background radius: independently configurable, defaults to fill radius
+        const _bgRRaw = progressConfig?.background?.radius ?? progressConfig?.radius;
+        const bgPr = (_bgRRaw !== null && typeof _bgRRaw === 'object')
+            ? { start: _bgRRaw.start ?? 2, end: _bgRRaw.end ?? 2 }
+            : { start: (_bgRRaw ?? 2), end: (_bgRRaw ?? 2) };
+        // Helper: rect (uniform) or path (per-end). isH=true: left=start,right=end; false: bottom=start,top=end
+        const pbRect = (rad, px, py, pw, ph, isH, fill, close = '') => {
+            if (rad.start === rad.end) {
+                return `<rect x="${px}" y="${py}" width="${pw}" height="${ph}" fill="${fill}" rx="${rad.start}" ry="${rad.start}" ${close}/>`;
+            }
+            const corners = isH
+                ? { tl: rad.start, tr: rad.end,   br: rad.end,   bl: rad.start }
+                : { tl: rad.end,   tr: rad.end,   br: rad.start, bl: rad.start };
+            return `<path d="${this._buildRoundedRectPath(px, py, pw, ph, corners)}" fill="${fill}" ${close}/>`;
+        };
+        const pbPath   = (px, py, pw, ph, isH, fill) => pbRect(pr,   px, py, pw, ph, isH, fill);
+        const bgPbPath = (px, py, pw, ph, isH, fill) => pbRect(bgPr, px, py, pw, ph, isH, fill);
+        const progressBgColor = resolveStateColor({
+            actualState: this._entity?.state,
+            classifiedState: this._getButtonState(),
+            colorConfig: progressConfig?.background?.color,
+            fallback: ''
+        });
+        const progressBgThickness = progressConfig?.background?.height ?? progressHeight;
+        // Background track extent — explicit background.min/max override control-range clamping
+        const _dispMin = this._displayConfig.min;
+        const _dispMax = this._displayConfig.max;
+        const _dispRange = _dispMax - _dispMin;
+        const _ctrlMin = progressConfig?.background?.min ?? this._controlConfig.min;
+        const _ctrlMax = progressConfig?.background?.max ?? this._controlConfig.max;
+        const bgStartFrac = _dispRange > 0 ? Math.max(0, Math.min(1, (_ctrlMin - _dispMin) / _dispRange)) : 0;
+        const bgEndFrac   = _dispRange > 0 ? Math.max(0, Math.min(1, (_ctrlMax - _dispMin) / _dispRange)) : 1;
+        lcardsLog.debug('[LCARdSSlider] _generateGaugeSVG() background extent', {
+            bgMin: _ctrlMin, bgMax: _ctrlMax, bgStartFrac, bgEndFrac,
+            controlMin: this._controlConfig.min, controlMax: this._controlConfig.max,
+            displayMin: _dispMin, displayMax: _dispMax
+        });
 
         // Calculate progress bar position (at bottom of minor ticks)
         const progressY = minorHeight;
@@ -2174,12 +2429,14 @@ export class LCARdSSlider extends LCARdSButton {
 
             // Draw progress bar (at bottom of minor ticks, extends based on value)
             if (!skipProgressBar) {
-                svg += `
-                    <rect x="${progressX}" y="${progressY}"
-                          width="${progressWidth}" height="${progressHeight}"
-                          fill="${progressColor}"
-                          rx="${progressRadius}" ry="${progressRadius}" />
-                `;
+                // Background track — extent clamped to control range (or background.min/max), optional custom thickness
+                if (progressBgColor) {
+                    const bgX = bgStartFrac * trackWidth;
+                    const bgW = (bgEndFrac - bgStartFrac) * trackWidth;
+                    const bgYH = progressY + (progressHeight - progressBgThickness) / 2;
+                    svg += bgPbPath(bgX, bgYH, bgW, progressBgThickness, true, progressBgColor);
+                }
+                svg += pbPath(progressX, progressY, progressWidth, progressHeight, true, progressColor);
             }
 
         } else {
@@ -2290,12 +2547,14 @@ export class LCARdSSlider extends LCARdSButton {
 
             // Draw progress bar (fills from bottom up) - skip if component has separate progress zone
             if (!skipProgressBar) {
-                svg += `
-                    <rect x="${progressX}" y="${progressY}"
-                          width="${progressBarWidth}" height="${progressBarHeight}"
-                          fill="${progressColor}"
-                          rx="${progressRadius}" ry="${progressRadius}" />
-                `;
+                // Background track — vertical axis: y=0=top=max, y=height=bottom=min
+                if (progressBgColor) {
+                    const bgYV = (1 - bgEndFrac) * trackHeight;
+                    const bgHV = (bgEndFrac - bgStartFrac) * trackHeight;
+                    const bgXV = progressX + (progressBarWidth - progressBgThickness) / 2;
+                    svg += bgPbPath(bgXV, bgYV, progressBgThickness, bgHV, false, progressBgColor);
+                }
+                svg += pbPath(progressX, progressY, progressBarWidth, progressBarHeight, false, progressColor);
             }
         }
 
@@ -2353,6 +2612,11 @@ export class LCARdSSlider extends LCARdSButton {
         pills.forEach((pill, index) => {
             let opacity;
 
+            // Per-pill unfilled opacity: band ranges may specify their own opacity value.
+            // The SVG rect has data-unfilled-opacity set at generation time; fall back to
+            // the global trackConfig unfilled opacity when the attribute is absent.
+            const pillUnfilledOpacity = parseFloat(pill.getAttribute('data-unfilled-opacity') || '') || unfilledOpacity;
+
             // Determine if this pill should be fully filled (not including transition pill)
             let isFilled;
 
@@ -2375,21 +2639,21 @@ export class LCARdSSlider extends LCARdSButton {
                     // For inverted: transition pill is at the left boundary of filled region
                     const transitionPillIndex = pills.length - Math.ceil(fillCount);
                     if (index === transitionPillIndex) {
-                        opacity = unfilledOpacity + ((fillCount % 1) * (filledOpacity - unfilledOpacity));
+                        opacity = pillUnfilledOpacity + ((fillCount % 1) * (filledOpacity - pillUnfilledOpacity));
                     } else {
-                        opacity = unfilledOpacity;
+                        opacity = pillUnfilledOpacity;
                     }
                 } else {
                     // For normal: transition pill is at the right boundary of filled region
                     if (index === Math.floor(fillCount)) {
-                        opacity = unfilledOpacity + ((fillCount % 1) * (filledOpacity - unfilledOpacity));
+                        opacity = pillUnfilledOpacity + ((fillCount % 1) * (filledOpacity - pillUnfilledOpacity));
                     } else {
-                        opacity = unfilledOpacity;
+                        opacity = pillUnfilledOpacity;
                     }
                 }
             } else {
                 // Unfilled
-                opacity = unfilledOpacity;
+                opacity = pillUnfilledOpacity;
             }
             pill.setAttribute('opacity', opacity);
         });
@@ -2642,23 +2906,17 @@ export class LCARdSSlider extends LCARdSButton {
         // Calculate relative position (0 = top, 1 = bottom)
         const relativeY = (event.clientY - rect.top) / rect.height;
 
-        // Convert to value using DISPLAY range (for visual alignment with gauge)
-        // Then clamp to CONTROL range (what user can actually set)
-        const displayMin = this._displayConfig.min;
-        const displayMax = this._displayConfig.max;
-        let value = displayMax - (relativeY * (displayMax - displayMin));
-
-        // Apply invert fill if configured
-        if (this._invertFill) {
-            value = displayMax - value + displayMin;
-        }
-
-        // Clamp to control range and apply step
+        // The overlay div is constrained to the control-range band of the track,
+        // so relativeY 0→1 maps directly to ctrlMax→ctrlMin (no display range math needed).
         const controlMin = this._controlConfig.min;
         const controlMax = this._controlConfig.max;
-        value = Math.max(controlMin, Math.min(controlMax, value));
+        let value = this._invertFill
+            ? controlMin + (relativeY * (controlMax - controlMin))
+            : controlMax - (relativeY * (controlMax - controlMin));
+
+        // Step snap and safety clamp
         const step = this._controlConfig.step || 1;
-        value = Math.round(value / step) * step;
+        value = Math.max(controlMin, Math.min(controlMax, Math.round(value / step) * step));
 
         lcardsLog.debug(`[LCARdSSlider] Vertical slider input`, {
             mouseY: event.clientY,
@@ -2666,8 +2924,6 @@ export class LCARdSSlider extends LCARdSButton {
             rectHeight: rect.height,
             relativeY,
             value,
-            displayMin,
-            displayMax,
             controlMin,
             controlMax
         });
@@ -2690,23 +2946,17 @@ export class LCARdSSlider extends LCARdSButton {
         // Calculate relative position (0 = top, 1 = bottom)
         const relativeY = (touch.clientY - rect.top) / rect.height;
 
-        // Convert to value using DISPLAY range (for visual alignment with gauge)
-        // Then clamp to CONTROL range (what user can actually set)
-        const displayMin = this._displayConfig.min;
-        const displayMax = this._displayConfig.max;
-        let value = displayMax - (relativeY * (displayMax - displayMin));
-
-        // Apply invert fill if configured
-        if (this._invertFill) {
-            value = displayMax - value + displayMin;
-        }
-
-        // Clamp to control range and apply step
+        // The overlay div is constrained to the control-range band of the track,
+        // so relativeY 0→1 maps directly to ctrlMax→ctrlMin (no display range math needed).
         const controlMin = this._controlConfig.min;
         const controlMax = this._controlConfig.max;
-        value = Math.max(controlMin, Math.min(controlMax, value));
+        let value = this._invertFill
+            ? controlMin + (relativeY * (controlMax - controlMin))
+            : controlMax - (relativeY * (controlMax - controlMin));
+
+        // Step snap and safety clamp
         const step = this._controlConfig.step || 1;
-        value = Math.round(value / step) * step;
+        value = Math.max(controlMin, Math.min(controlMax, Math.round(value / step) * step));
 
         this._sliderValue = value;
         this._updateDynamicElements();
@@ -3022,9 +3272,24 @@ export class LCARdSSlider extends LCARdSButton {
         const controlZone = (effectiveMode === 'shaped' && zones._shaped) ? zones._shaped : zones.control;
         const isVertical = orientation === 'vertical';
 
+        // Map control range into display-range pixel space so the overlay/input
+        // spans only the fraction of the track that the control range covers.
+        // This keeps the thumb and the progress bar fill in exact alignment even
+        // when the display range extends beyond the control range.
+        const { min: ctrlMin, max: ctrlMax } = this._controlConfig;
+        const dispMin = this._displayConfig.min;
+        const dispMax = this._displayConfig.max;
+        const dispRange = dispMax - dispMin;
+        const ctrlStartFrac = dispRange > 0 ? Math.max(0, Math.min(1, (ctrlMin - dispMin) / dispRange)) : 0;
+        const ctrlEndFrac   = dispRange > 0 ? Math.max(0, Math.min(1, (ctrlMax - dispMin) / dispRange)) : 1;
+
         // For vertical sliders, use a div overlay with mouse events instead of <input type="range">
         // because writing-mode breaks mouse coordinate mapping in browsers
         if (isVertical) {
+            // Vertical: y=0 is top = visual max; y=zoneHeight is bottom = visual min.
+            // Overlay top aligns with ctrlMax, overlay bottom aligns with ctrlMin.
+            const overlayTop    = controlZone.y + (1 - ctrlEndFrac)   * controlZone.height;
+            const overlayHeight = (ctrlEndFrac - ctrlStartFrac) * controlZone.height;
             return html`
                 <div class="slider-container">
                     ${unsafeHTML(finalSvg)}
@@ -3035,9 +3300,9 @@ export class LCARdSSlider extends LCARdSButton {
                             @touchstart="${this._handleVerticalSliderTouchStart}"
                             style="
                                 left: ${controlZone.x}px;
-                                top: ${controlZone.y}px;
+                                top: ${overlayTop}px;
                                 width: ${controlZone.width}px;
-                                height: ${controlZone.height}px;
+                                height: ${overlayHeight}px;
                                 cursor: pointer;
                             "
                         ></div>
@@ -3047,13 +3312,16 @@ export class LCARdSSlider extends LCARdSButton {
         }
 
         // Horizontal sliders work fine with <input type="range">
+        // Constrain the input to the control-range pixel footprint within the display range
+        // so the native thumb position stays in sync with the fill bar.
         // When invert_fill is true, mirror the input value so the thumb visually aligns with
         // the fill end.  Using a CSS scaleX(-1) transform is unreliable because browsers
         // calculate the reported value from the pre-transform coordinate space, causing the
         // thumb and the fill to move in opposite directions during drag.  Feeding the mirrored
         // value (max - value + min) is the reliable equivalent: the event handlers already
         // invert the raw value back to the actual entity value.
-        const { min: ctrlMin, max: ctrlMax } = this._controlConfig;
+        const inputLeft  = controlZone.x + ctrlStartFrac * controlZone.width;
+        const inputWidth = (ctrlEndFrac - ctrlStartFrac) * controlZone.width;
         const inputDisplayValue = this._invertFill
             ? String(ctrlMax - this._sliderValue + ctrlMin)
             : String(this._sliderValue);
@@ -3073,9 +3341,9 @@ export class LCARdSSlider extends LCARdSButton {
                         @input="${this._handleSliderInput}"
                         @change="${this._handleSliderChange}"
                         style="
-                            left: ${controlZone.x}px;
+                            left: ${inputLeft}px;
                             top: ${controlZone.y}px;
-                            width: ${controlZone.width}px;
+                            width: ${inputWidth}px;
                             height: ${controlZone.height}px;
                         "
                     />
@@ -3142,10 +3410,11 @@ export class LCARdSSlider extends LCARdSButton {
         let svg = '';
         ranges.forEach((rangeConfig, idx) => {
             if ('value' in rangeConfig) return; // Skip markers
-            const rangeMin = rangeConfig.min;
-            const rangeMax = rangeConfig.max;
-            if (rangeMin === undefined || rangeMax === undefined) return;
-            const rangeColor = this._resolveColorValue(rangeConfig.color);
+            const bounds = this._resolvedRangeBounds?.[idx];
+            const rangeMin = bounds?.min ?? rangeConfig.min;
+            const rangeMax = bounds?.max ?? rangeConfig.max;
+            if (rangeMin === null || rangeMin === undefined || rangeMax === null || rangeMax === undefined) return;
+            const rangeColor = this._resolveRangeColor(rangeConfig.color);
             const rangeOpacity = rangeConfig.opacity ?? 0.3;
             const startPercent = Math.max(0, (rangeMin - min) / displayRange);
             const endPercent   = Math.min(1, (rangeMax - min) / displayRange);
@@ -3254,11 +3523,12 @@ export class LCARdSSlider extends LCARdSButton {
 
         let svg = '';
 
-        ranges.forEach(range => {
-            const rangeMin = range.min ?? displayMin;
-            const rangeMax = range.max ?? displayMax;
-            // Resolve through full pipeline so computed tokens work in range colors too
-            const color    = this._resolveColorValue(range.color, '#888888');
+        ranges.forEach((range, idx) => {
+            const bounds = this._resolvedRangeBounds?.[idx];
+            const rangeMin = bounds?.min ?? (range.min ?? displayMin);
+            const rangeMax = bounds?.max ?? (range.max ?? displayMax);
+            // Resolve through full pipeline; state-aware object syntax ({ active, inactive, … }) also supported
+            const color    = this._resolveRangeColor(range.color, '#888888');
             const opacity  = range.opacity ?? 1;
 
             const startPct = Math.max(0, (rangeMin - displayMin) / displayRange);
@@ -3388,9 +3658,46 @@ export class LCARdSSlider extends LCARdSButton {
             colorConfig: progressBarConfig.color,
             fallback: 'var(--lcars-blue-light)'
         });
+        // Radius: uniform number or per-end { start, end } object
+        const _prRawZ = progressBarConfig.radius;
+        const prZ = (_prRawZ !== null && typeof _prRawZ === 'object')
+            ? { start: _prRawZ.start ?? 2, end: _prRawZ.end ?? 2 }
+            : { start: (_prRawZ ?? 2), end: (_prRawZ ?? 2) };
+        // Background radius — independently configurable, defaults to fill radius
+        const _bgRRawZ = progressBarConfig.background?.radius ?? progressBarConfig.radius;
+        const bgPrZ = (_bgRRawZ !== null && typeof _bgRRawZ === 'object')
+            ? { start: _bgRRawZ.start ?? 2, end: _bgRRawZ.end ?? 2 }
+            : { start: (_bgRRawZ ?? 2), end: (_bgRRawZ ?? 2) };
+        const pbPathZ = (rad, px, py, pw, ph, isH, fill) => {
+            if (rad.start === rad.end) {
+                return `<rect x="${px}" y="${py}" width="${pw}" height="${ph}" fill="${fill}" rx="${rad.start}" ry="${rad.start}"></rect>`;
+            }
+            const corners = isH
+                ? { tl: rad.start, tr: rad.end,   br: rad.end,   bl: rad.start }
+                : { tl: rad.end,   tr: rad.end,   br: rad.start, bl: rad.start };
+            return `<path d="${this._buildRoundedRectPath(px, py, pw, ph, corners)}" fill="${fill}"></path>`;
+        };
+        // Optional background track — extent clamped to background.min/max (defaults to control range)
+        const bgColor = resolveStateColor({
+            actualState: this._entity?.state,
+            classifiedState: this._getButtonState(),
+            colorConfig: progressBarConfig.background?.color,
+            fallback: ''
+        });
+        const bgThicknessZ = progressBarConfig.background?.height ?? null;
+        // Background extent: background.min/max override, defaults to _controlConfig.min/max clamped to display range
+        const bgMinVal = progressBarConfig.background?.min ?? this._controlConfig.min;
+        const bgMaxVal = progressBarConfig.background?.max ?? this._controlConfig.max;
+        const bgStartFracZ = range > 0 ? Math.max(0, Math.min(1, (bgMinVal - min) / range)) : 0;
+        const bgEndFracZ   = range > 0 ? Math.max(0, Math.min(1, (bgMaxVal - min) / range)) : 1;
+        lcardsLog.debug('[LCARdSSlider] _generateProgressBar() background extent', {
+            bgMinVal, bgMaxVal, bgStartFracZ, bgEndFracZ,
+            controlMin: this._controlConfig.min, controlMax: this._controlConfig.max,
+            displayMin: min, displayMax: max
+        });
         let svg = '';
 
-        // Generate progress bar rect - fill zone based on value percentage
+        // Generate progress bar — fill zone based on value percentage
         if (isVertical) {
             const barHeight = height * progress;
             let barY = y + height - barHeight; // Start from bottom (default)
@@ -3400,7 +3707,15 @@ export class LCARdSSlider extends LCARdSButton {
                 barY = y; // Fill from top instead
             }
 
-            svg += `<rect x="${x}" y="${barY}" width="${width}" height="${barHeight}" fill="${fillColor}" rx="2" ry="2"></rect>`;
+            if (bgColor) {
+                const bgW   = bgThicknessZ ?? width;
+                const bgX2  = x + (width - bgW) / 2;
+                // Clamp background to bgStartFracZ..bgEndFracZ (y=0 is top = display max)
+                const bgH_z = (bgEndFracZ - bgStartFracZ) * height;
+                const bgY_z = y + (1 - bgEndFracZ) * height;
+                svg += pbPathZ(bgPrZ, bgX2, bgY_z, bgW, bgH_z, false, bgColor);
+            }
+            svg += pbPathZ(prZ, x, barY, width, barHeight, false, fillColor);
         } else {
             const barWidth = width * progress;
             let barX = x; // Start from left (default)
@@ -3410,7 +3725,15 @@ export class LCARdSSlider extends LCARdSButton {
                 barX = x + width - barWidth; // Fill from right instead
             }
 
-            svg += `<rect x="${barX}" y="${y}" width="${barWidth}" height="${height}" fill="${fillColor}" rx="2" ry="2"></rect>`;
+            if (bgColor) {
+                const bgH   = bgThicknessZ ?? height;
+                const bgY2  = y + (height - bgH) / 2;
+                // Clamp background to bgStartFracZ..bgEndFracZ (x=0 is left = display min)
+                const bgX_z = x + bgStartFracZ * width;
+                const bgW_z = (bgEndFracZ - bgStartFracZ) * width;
+                svg += pbPathZ(bgPrZ, bgX_z, bgY2, bgW_z, bgH, true, bgColor);
+            }
+            svg += pbPathZ(prZ, barX, y, barWidth, height, true, fillColor);
         }
 
         // Render indicator if in gauge mode and enabled

@@ -614,7 +614,11 @@ export class ApexChartsAdapter {
             shadeIntensity: monochromeIntensity
           }
         })
-      }
+      },
+
+      // Annotations (threshold lines, zero line)
+      // Built from style.zero_line and style.thresholds[]
+      annotations: this._buildAnnotations(style)
     };
 
     // ============================================================================
@@ -1243,6 +1247,8 @@ export class ApexChartsAdapter {
       const original = obj;
       const resolver = window.lcards?.core?.themeManager?.resolver;
       const afterResolver = resolver ? resolver.resolve(obj, obj) : obj;
+      // ColorUtils.resolveCssVariable now does in-place per-var substitution so
+      // multi-value strings (font-family stacks, etc.) are fully preserved.
       const resolved = afterResolver.includes('var(') ? ColorUtils.resolveCssVariable(afterResolver) : afterResolver;
       if (original !== resolved) {
         lcardsLog.debug(`[ApexChartsAdapter] 🎨 Resolved CSS variable: ${original} → ${resolved}`);

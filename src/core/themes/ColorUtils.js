@@ -194,81 +194,125 @@ export class ColorUtils {
   }
 
   /**
-   * Resolve CSS variable to actual computed value
+   * Resolve all CSS variables in a string to their computed values.
    *
-   * Handles var() syntax with fallbacks, recursive resolution, and malformed cases.
-   * Used when CSS variables need to be resolved to actual values (e.g., for canvas rendering).
+   * Each `var()` in the input is replaced in-place so that multi-value CSS
+   * properties — font-family stacks, background shorthands, etc. — are fully
+   * preserved.  The previous implementation matched only the **first** `var()`
+   * and returned its resolved value, silently discarding the rest of the string.
    *
-   * @param {string|Array} value - CSS value that may contain var(), or array of values
-   * @param {string} [defaultValue='#000000'] - Default value if resolution fails
-   * @returns {string} Resolved color value (or array when array input is given)
+   * Single-var expressions (e.g. a plain color token) behave identically to
+   * before: the resolved value is returned directly.
+   *
+   * Overloads allow TypeScript to infer the return type from the input type so
+   * callers that pass a `string` don't need a cast to re-narrow the result.
+   *
+   * @overload
+   * @param {string} value
+   * @param {string} [defaultValue]
+   * @returns {string}
+   */
+  /**
+   * @overload
+   * @param {string[]} value
+   * @param {string} [defaultValue]
+   * @returns {string[]}
+   */
+  /**
+   * @param {string|string[]} value - CSS value that may contain one or more var(), or an array of values
+   * @param {string} [defaultValue='#000000'] - Fallback for each var() that cannot be resolved
+   * @returns {string|string[]} Input with every var() replaced by its computed value
    *
    * @example
-   * ColorUtils.resolveCssVariable('var(--primary-color, #ff0000)') // => computed color or '#ff0000'
-   * ColorUtils.resolveCssVariable('var(--color)') // => computed color or '#000000'
-   * ColorUtils.resolveCssVariable('#ff0000') // => '#ff0000' (passthrough)
+   * // Single var — unchanged behaviour
+   * ColorUtils.resolveCssVariable('var(--primary-color, #ff0000)') // => computed or '#ff0000'
+   * ColorUtils.resolveCssVariable('var(--color)')                  // => computed or '#000000'
+   * ColorUtils.resolveCssVariable('#ff0000')                       // => '#ff0000' (passthrough)
+   *
+   * // Multi-value strings — fixed: full string preserved
+   * ColorUtils.resolveCssVariable("var(--lcars-font), 'Antonio', sans-serif")
+   *   // => "Tungsten, 'Antonio', sans-serif"  (not just "Tungsten")
+   *
+   * // Arrays
    * ColorUtils.resolveCssVariable(['var(--color1)', 'var(--color2)']) // => [resolved1, resolved2]
    */
   static resolveCssVariable(value, defaultValue = '#000000') {
     // Handle arrays recursively
     if (Array.isArray(value)) {
-      // @ts-ignore - returns string[] when input is array, string otherwise
       return value.map(v => this.resolveCssVariable(v, defaultValue));
     }
 
-    // Non-string or falsy values pass through
+    // Non-string or falsy values pass through unchanged
     if (!value || typeof value !== 'string') {
       return value;
     }
 
-    // Check if it's a CSS variable
-    if (value.includes('var(')) {
-      // Handle potentially malformed or nested var() - extract the first complete var()
-      const match = value.match(/var\(([^,)]+)(?:,\s*(.+))?\)/);
-      if (match) {
-        const varName = match[1].trim();
-        const fallback = match[2]?.trim();
-
-        // Try to get computed value
-        try {
-          const computedValue = getComputedStyle(document.documentElement)
-            .getPropertyValue(varName).trim();
-
-          if (computedValue) {
-            lcardsLog.trace(`[ColorUtils] ✅ Resolved CSS variable: ${value} → ${computedValue}`);
-            return computedValue;
-          }
-        } catch (e) {
-          // getComputedStyle might fail during dashboard edits
-          lcardsLog.trace(`[ColorUtils] ⚠️ Error getting computed style for ${varName}:`, e.message);
-        }
-
-        // Recursively resolve fallback if it's also a var()
-        if (fallback) {
-          return this.resolveCssVariable(fallback, defaultValue);
-        }
-
-        // No computed value and no fallback - return default
-        lcardsLog.trace(`[ColorUtils] ⚠️ Using default for ${value}: ${defaultValue}`);
-        return defaultValue;
-      } else {
-        // Malformed var() - try to extract variable name and get its value
-        const varMatch = value.match(/var\(([^,)]+)/);
-        if (varMatch) {
-          try {
-            const computedValue = getComputedStyle(document.documentElement)
-              .getPropertyValue(varMatch[1].trim()).trim();
-            if (computedValue) return computedValue;
-          } catch (e) {
-            // Fall through to default
-          }
-        }
-        // Can't parse - return default
-        return defaultValue;
-      }
+    if (!value.includes('var(')) {
+      return value;
     }
 
-    return value;
+    // Replace every var() occurrence in-place.
+    // The regex handles one level of nesting — var(--a, var(--b, #x)) — which
+    // covers all real-world cases in the LCARdS token set.
+    const resolved = value.replace(
+      /var\((?:[^)(]|\([^)]*\))*\)/g,
+      (varExpr) => this._resolveSingleVar(varExpr, defaultValue)
+    );
+
+    lcardsLog.trace(`[ColorUtils] resolveCssVariable: ${value} → ${resolved}`);
+    return resolved;
+  }
+
+  /**
+   * Resolve a single, complete `var(--name, fallback)` expression.
+   *
+   * @private
+   * @param {string} varExpr - A complete `var(...)` token
+   * @param {string} defaultValue - Last-resort value if the var is undefined and has no fallback
+   * @returns {string} Resolved value
+   */
+  static _resolveSingleVar(varExpr, defaultValue) {
+    // Extract --custom-property-name and optional fallback.
+    // The fallback capture group is greedy so it picks up everything after the
+    // first comma, including nested var() expressions.
+    const match = varExpr.match(/^var\(\s*(--[^,)]+?)\s*(?:,\s*([\s\S]+))?\s*\)$/);
+    if (!match) {
+      // Malformed var() — attempt a best-effort extraction
+      const nameMatch = varExpr.match(/var\(\s*(--[^,)]+)/);
+      if (nameMatch) {
+        try {
+          const computed = getComputedStyle(document.documentElement)
+            .getPropertyValue(nameMatch[1].trim()).trim();
+          if (computed) return computed;
+        } catch (_) { /* ignore */ }
+      }
+      return defaultValue;
+    }
+
+    const varName = match[1].trim();
+    const fallback = match[2]?.trim();
+
+    try {
+      const computed = getComputedStyle(document.documentElement)
+        .getPropertyValue(varName).trim();
+      if (computed) {
+        lcardsLog.trace(`[ColorUtils] ✅ Resolved ${varName} → ${computed}`);
+        return computed;
+      }
+    } catch (e) {
+      lcardsLog.trace(`[ColorUtils] ⚠️ getComputedStyle failed for ${varName}:`, e.message);
+    }
+
+    // Var is undefined — recurse into the CSS-level fallback if one exists.
+    // String() cast: resolveCssVariable returns string|string[] depending on
+    // input type, but fallback is always a string here so the result is always
+    // a string. The cast keeps _resolveSingleVar's return type consistent.
+    if (fallback) {
+      return String(this.resolveCssVariable(fallback, defaultValue));
+    }
+
+    lcardsLog.trace(`[ColorUtils] ⚠️ Using default for ${varExpr}: ${defaultValue}`);
+    return defaultValue;
   }
 
   // ─── Public primitives ────────────────────────────────────────────────────
