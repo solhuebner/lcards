@@ -1670,7 +1670,10 @@ export class LCARdSSlider extends LCARdSButton {
             `${JSON.stringify(this._resolvedMarkerValues)}|` +
             `${JSON.stringify(this._resolvedRangeBounds)}|` +
             `${this._lightColorValue || ''}|` +
-            `${window.lcards?.core?.themeManager?.getAlertMode?.() || 'green_alert'}`; // Bust cache on alert mode change
+            `${window.lcards?.core?.themeManager?.getAlertMode?.() || 'green_alert'}|` +
+            // Entity state + classified state bust the cache when state-aware range
+            // colors resolve differently (e.g. { active: red, inactive: gray }).
+            `${this._entity?.state ?? ''}|${this._getButtonState?.() ?? ''}`; // Bust cache on alert mode change
 
         // Check memoization cache
         if (this._memoizedTrack && this._memoizedTrackConfig === configHash) {
@@ -1733,9 +1736,15 @@ export class LCARdSSlider extends LCARdSButton {
          * @private
          */
         const getPillColor = (pillIndex, pillCount) => {
-            // Calculate the value this pill represents (in display space)
+            // Calculate the value this pill represents (in display space).
+            // When invert_fill is active, the pill at index 0 physically represents
+            // the display-max end of the value scale (matching the swapped gradient
+            // and the reversed fill direction from _updatePillOpacities), so the
+            // range lookup must also be mirrored to colour the correct pills.
             const valuePercent = pillIndex / (pillCount - 1 || 1);
-            const pillValue = displayMin + (valuePercent * displayRange);
+            const pillValue = this._invertFill
+                ? displayMax - (valuePercent * displayRange)
+                : displayMin + (valuePercent * displayRange);
 
             // Check if this value falls within any defined range
             if (ranges.length > 0) {
