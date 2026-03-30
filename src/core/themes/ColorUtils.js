@@ -420,6 +420,55 @@ export class ColorUtils {
   }
 
   /**
+   * Convert a colour temperature in Kelvin to an approximate RGB value.
+   *
+   * Uses Tanner Helland's piecewise algorithm which gives visually accurate
+   * results for the 1000–40000 K range used by smart-home lighting.
+   *
+   * @param {number} kelvin - Colour temperature in Kelvin (clamped to 1000–40000)
+   * @returns {[number, number, number]} [r, g, b] integers in 0–255 range
+   *
+   * @example
+   * ColorUtils.kelvinToRgb(2700) // Returns approximately [255, 169, 87] — warm white
+   * ColorUtils.kelvinToRgb(6500) // Returns approximately [255, 249, 253] — daylight
+   */
+  static kelvinToRgb(kelvin) {
+    // Algorithm works in units of 100 K
+    const temp = Math.max(1000, Math.min(40000, kelvin)) / 100;
+
+    let r, g, b;
+
+    // Red channel
+    if (temp <= 66) {
+      r = 255;
+    } else {
+      r = 329.698727446 * Math.pow(temp - 60, -0.1332047592);
+      r = Math.max(0, Math.min(255, r));
+    }
+
+    // Green channel
+    if (temp <= 66) {
+      g = 99.4708025861 * Math.log(temp) - 161.1195681661;
+      g = Math.max(0, Math.min(255, g));
+    } else {
+      g = 288.1221695283 * Math.pow(temp - 60, -0.0755148492);
+      g = Math.max(0, Math.min(255, g));
+    }
+
+    // Blue channel
+    if (temp >= 66) {
+      b = 255;
+    } else if (temp <= 19) {
+      b = 0;
+    } else {
+      b = 138.5177312231 * Math.log(temp - 10) - 305.0447927307;
+      b = Math.max(0, Math.min(255, b));
+    }
+
+    return [Math.round(r), Math.round(g), Math.round(b)];
+  }
+
+  /**
    * Calculate relative luminance (WCAG formula)
    *
    * @param {string} color - Color value (hex, rgb, rgba)

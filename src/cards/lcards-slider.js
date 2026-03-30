@@ -1746,9 +1746,18 @@ export class LCARdSSlider extends LCARdSButton {
     _generatePillsSVG(trackBounds, trackConfig, orientation = 'horizontal') {
         const gap = parseInt(trackConfig?.gap) || 4;
         const radius = trackConfig?.shape?.radius ?? 4;
-        let gradientStart = this._resolveColorValue(trackConfig?.gradient?.start || 'var(--error-color, var(--lcards-orange-dark, #cc2200))');
-        let gradientEnd = this._resolveColorValue(trackConfig?.gradient?.end || 'var(--success-color, var(--lcards-green-medium, #33cc99))');
-
+        let gradientStart = this._resolveColorValue(String(resolveStateColor({
+            actualState: this._entity?.state,
+            classifiedState: this._getButtonState(),
+            colorConfig: trackConfig?.gradient?.start,
+            fallback: 'var(--error-color, var(--lcars-orange-dark, #cc2200))'
+        }) ?? ''));
+        let gradientEnd = this._resolveColorValue(String(resolveStateColor({
+            actualState: this._entity?.state,
+            classifiedState: this._getButtonState(),
+            colorConfig: trackConfig?.gradient?.end,
+            fallback: 'var(--success-color, var(--lcars-green-medium, #33cc99))'
+        }) ?? ''));
         // Reverse gradient direction when fill is inverted
         if (this._invertFill) {
             [gradientStart, gradientEnd] = [gradientEnd, gradientStart];

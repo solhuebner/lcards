@@ -3054,11 +3054,13 @@ export class LCARdSCard extends LCARdSNativeCard {
             const rgb = this._hsToRgb(h, s, this._entity.attributes.brightness || 255);
             color = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
         }
-        // Try color temp
+        // Try color temp — HA always provides rgb_color even in color_temp mode, but
+        // if we reach this branch (older integrations) convert the actual Kelvin value.
         else if (this._entity.attributes.color_temp) {
-            // For color temp, use a default warm white
-            // More sophisticated conversion could be added
-            color = '#ffd89b';
+            const kelvin = this._entity.attributes.color_temp_kelvin
+                ?? Math.round(1000000 / this._entity.attributes.color_temp);
+            const [r, g, b] = ColorUtils.kelvinToRgb(kelvin);
+            color = `rgb(${r}, ${g}, ${b})`;
         }
         // Brightness-only light (no colour capability) — derive a warm white scaled to brightness
         else {

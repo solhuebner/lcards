@@ -1107,19 +1107,28 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     })}
                 </lcards-grid-layout>
 
-                <!-- INLINE COLORS: Gradient colors appear right here with pills settings -->
-                <lcards-color-section
+                <!-- INLINE COLORS: Gradient colours — state-based pickers support match-light, active/inactive, etc. -->
+                <lcards-color-section-v2
                     .editor=${this}
                     .entityId=${this.config?.entity || ''}
-                    header="Gradient Colours"
-                    description="Start and end colours for pill gradient"
-                    .colorPaths=${[
-                        { path: 'style.track.segments.gradient.start', label: 'Gradient Start', helper: 'Colour at minimum value (left/bottom)' },
-                        { path: 'style.track.segments.gradient.end', label: 'Gradient End', helper: 'Colour at maximum value (right/top)' }
-                    ]}
-                    ?expanded=${false}
-                    ?useColorPicker=${true}>
-                </lcards-color-section>
+                    basePath="style.track.segments.gradient.start"
+                    header="Gradient Start Colour"
+                    description="State-based colour at minimum value (left/bottom)"
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                    ?allowCustomStates=${true}
+                    ?expanded=${false}>
+                </lcards-color-section-v2>
+
+                <lcards-color-section-v2
+                    .editor=${this}
+                    .entityId=${this.config?.entity || ''}
+                    basePath="style.track.segments.gradient.end"
+                    header="Gradient End Colour"
+                    description="State-based colour at maximum value (right/top)"
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                    ?allowCustomStates=${true}
+                    ?expanded=${false}>
+                </lcards-color-section-v2>
 
             </lcards-form-section>
 

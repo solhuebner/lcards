@@ -454,7 +454,10 @@ export class LCARdSColorPicker extends LitElement {
                 return `rgb(${r}, ${g}, ${b})`;
             })() : null;
         } else if (entity.attributes.color_temp) {
-            color = '#ffd89b';
+            const kelvin = entity.attributes.color_temp_kelvin
+                ?? Math.round(1000000 / entity.attributes.color_temp);
+            const [r, g, b] = ColorUtils.kelvinToRgb(kelvin);
+            color = `rgb(${r}, ${g}, ${b})`;
         } else {
             // Brightness-only light — derive a warm white scaled to brightness
             const b = entity.attributes.brightness ?? 255;
@@ -796,18 +799,14 @@ export class LCARdSColorPicker extends LitElement {
             </ha-dropdown-item>
         `);
 
-        // Match Light option (if enabled and entity has colour attributes)
+        // Match Light option (if enabled — allowMatchLight is already gated on light.* domain,
+        // so no further attribute sniffing needed; brightness-only lights are valid too)
         if (this.allowMatchLight) {
-            // @ts-ignore - TS2339: auto-suppressed
-            const attrs = this.hass?.states?.[this.entityId]?.attributes;
-            const hasColour = attrs && (attrs.rgb_color || attrs.hs_color);
-            if (hasColour) {
-                items.push(html`
-                    <ha-dropdown-item .value=${'match-light'}>
-                        💡 Match Light Colour
-                    </ha-dropdown-item>
-                `);
-            }
+            items.push(html`
+                <ha-dropdown-item .value=${'match-light'}>
+                    💡 Match Light Colour
+                </ha-dropdown-item>
+            `);
         }
 
         // CSS variables with color swatches
