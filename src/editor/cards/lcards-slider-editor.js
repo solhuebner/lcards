@@ -1107,7 +1107,18 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     })}
                 </lcards-grid-layout>
 
-                <!-- INLINE COLORS: Gradient colours — state-based pickers support match-light, active/inactive, etc. -->
+            </lcards-form-section>
+
+            <!-- Opacity Settings -->
+            <lcards-form-section
+                header="Appearance"
+                description="Opacity for filled and unfilled pills"
+                icon="mdi:opacity"
+                ?expanded=${false}
+                ?outlined=${true}
+                headerLevel="4">
+
+                <!-- Gradient colours — state-based pickers support match-light, active/inactive, etc. -->
                 <lcards-color-section-v2
                     .editor=${this}
                     .entityId=${this.config?.entity || ''}
@@ -1129,17 +1140,6 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     ?allowCustomStates=${true}
                     ?expanded=${false}>
                 </lcards-color-section-v2>
-
-            </lcards-form-section>
-
-            <!-- Opacity Settings -->
-            <lcards-form-section
-                header="Appearance"
-                description="Opacity for filled and unfilled pills"
-                icon="mdi:opacity"
-                ?expanded=${false}
-                ?outlined=${true}
-                headerLevel="4">
 
                 <lcards-grid-layout columns="1">
                     ${FormField.renderField(this, 'style.track.segments.appearance.unfilled.opacity', {
