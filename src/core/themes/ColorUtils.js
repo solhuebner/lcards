@@ -173,6 +173,7 @@ export class ColorUtils {
    * @example
    * ColorUtils.mix('#FF9900', '#9999FF', 0.5) // Returns color halfway between
    * ColorUtils.mix('var(--lcars-orange)', 'var(--lcars-blue)', 0.5) // Returns 'color-mix(in srgb, var(--lcars-orange) 50%, var(--lcars-blue) 50%)'
+   * ColorUtils.mix('rgba(0,0,128,0.18)', '#ff0000', 0.5) // Preserves interpolated alpha
    */
   static mix(color1, color2, weight = 0.5) {
     // Handle CSS variables with color-mix()
@@ -190,7 +191,35 @@ export class ColorUtils {
     const mixed = rgb1.map((val, i) =>
       Math.floor(val * weight + rgb2[i] * (1 - weight))
     );
+
+    // Preserve alpha channel if either input carries one (from rgba() values).
+    // _parseColor() only extracts [r, g, b]; extract alpha separately here.
+    const a1 = this._parseColorAlpha(color1);
+    const a2 = this._parseColorAlpha(color2);
+    if (a1 !== null || a2 !== null) {
+      const mixedAlpha = Math.round(((a1 ?? 1) * weight + (a2 ?? 1) * (1 - weight)) * 1000) / 1000;
+      return `rgba(${mixed[0]}, ${mixed[1]}, ${mixed[2]}, ${mixedAlpha})`;
+    }
+
     return this._rgbToHex(mixed[0], mixed[1], mixed[2]);
+  }
+
+  /**
+   * Extract the alpha value from an rgba() color string.
+   * Returns null for fully-opaque or non-rgba inputs so callers can
+   * distinguish "no alpha specified" from "alpha = 1".
+   *
+   * @private
+   * @param {string} color - Color string
+   * @returns {number|null} Alpha (0–1) or null when absent / fully opaque
+   */
+  static _parseColorAlpha(color) {
+    if (!color || typeof color !== 'string') return null;
+    const match = color.match(/rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)/);
+    if (!match) return null;
+    const a = parseFloat(match[1]);
+    // Treat alpha=1 as "no alpha info" so we don't output redundant rgba() for opaque colors
+    return a < 1 ? a : null;
   }
 
   /**
