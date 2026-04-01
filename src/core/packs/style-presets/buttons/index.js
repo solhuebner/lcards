@@ -50,6 +50,9 @@ export const BUTTON_PRESETS = {
         font_size: 'theme:components.button.text.font_size',
         font_weight: 'theme:components.button.text.font_weight',
         text_transform: 'theme:components.button.text.text_transform',
+        // Cap-height ratio — propagated from the theme token so overriding the
+        // font family in the theme also updates all font_size_percent calculations.
+        cap_height_ratio: 'theme:components.button.text.cap_height_ratio',
         color: {
           default: 'theme:components.button.text.color.active',
           active: 'theme:components.button.text.color.active',
@@ -535,7 +538,8 @@ export const BUTTON_PRESETS = {
     extends: 'button.base',
     description: 'Base bar label - filled button with text overlay that creates bar "break" effect',
 
-    // Height matches one HA row (56px standard)
+    // Default height = one HA grid row.  Override height in your card config to get a taller/
+    // shorter bar; font size auto-scales because text.default uses font_size_percent below.
     height: 56,
 
     // Filled background (uses normal button state colors) - no border
@@ -560,7 +564,10 @@ export const BUTTON_PRESETS = {
     // Text styling with opaque background for bar-break effect
     text: {
       default: {
-        font_size: 56,  // Slightly smaller than box for proper visual centering
+        // font_size_percent: font fills 100 % of the card height (auto-scales when the user
+        // overrides `height` in their card config).  Set an explicit `font_size` on a field
+        // in your card's text config to override this behaviour for that field.
+        font_size_percent: 100,
         font_weight: 100,  // Thin weight for LCARS aesthetic
         text_transform: 'uppercase',
         color: {
@@ -583,15 +590,20 @@ export const BUTTON_PRESETS = {
       },
       label: {
         show: true,
-        position: 'center'
+        position: 'center',
+        // Mirror text.default.font_size_percent at the field level so the value is reachable
+        // via the presetFieldConfig branch even if the text.default chain is bypassed.
+        font_size_percent: 100
       },
       state: {
         show: false,
-        position: 'center'
+        position: 'center',
+        font_size_percent: 100
       },
       name: {
         show: false,
-        position: 'center'
+        position: 'center',
+        font_size_percent: 100
       }
     },
 

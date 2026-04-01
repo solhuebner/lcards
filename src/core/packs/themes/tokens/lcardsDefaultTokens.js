@@ -182,7 +182,11 @@ export const lcardsDefaultTokens = {
         font_size: 'typography.fontSize.lg',
         font_weight: 'typography.fontWeight.normal',
         font_family: 'typography.fontFamily.primary',
-        text_transform: 'typography.textTransform.uppercase'
+        text_transform: 'typography.textTransform.uppercase',
+        // Cap-height ratio for the primary font family (Antonio).  Used to correct
+        // font_size_percent so that visible glyph height equals the requested % of
+        // the container height.  Override per card or text field for a different font.
+        cap_height_ratio: 0.72
       },
       icon: {
         size: 24,

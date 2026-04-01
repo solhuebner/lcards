@@ -3006,15 +3006,26 @@ export class LCARdSButton extends LCARdSCard {
             cardGuid: this._cardGuid
         });
 
+        // Properties that _resolveTextConfiguration always reads directly from
+        // _buttonStyle.text[fieldId] (presetFieldConfig).  Injecting them into
+        // config.text makes them look like user-explicit YAML values, which
+        // breaks priority logic — e.g. font_size: 16 (inherited from button.base)
+        // would supersede font_size_percent: 100 (from bar-label-base) because
+        // _userExplicitFontSize is truthy (issue #318).
+        const RENDER_ONLY_PROPS = new Set(['font_size', 'font_size_percent', 'size']);
+
         for (const [fieldId, presetFieldConfig] of Object.entries(presetTextFields)) {
             // Skip 'default' - it's configuration, not a field
             if (fieldId === 'default' || !presetFieldConfig || typeof presetFieldConfig !== 'object') {
                 continue;
             }
 
-            // If field doesn't exist in config, add it from preset
+            // If field doesn't exist in config, add it from preset (excluding render-only props)
             if (!this.config.text[fieldId]) {
-                this.config.text[fieldId] = { ...presetFieldConfig };
+                const safeDefaults = Object.fromEntries(
+                    Object.entries(presetFieldConfig).filter(([k]) => !RENDER_ONLY_PROPS.has(k))
+                );
+                this.config.text[fieldId] = safeDefaults;
                 lcardsLog.trace(`[LCARdSButton] Added preset text field '${fieldId}'`);
                 hasChanges = true;
             } else {
@@ -3023,6 +3034,10 @@ export class LCARdSButton extends LCARdSCard {
                 let fieldChanged = false;
 
                 for (const [propKey, propValue] of Object.entries(presetFieldConfig)) {
+                    // Never inject render-only sizing props — _resolveTextConfiguration
+                    // reads them from presetFieldConfig (_buttonStyle) directly, and
+                    // injecting them here would make them look user-explicit.
+                    if (RENDER_ONLY_PROPS.has(propKey)) continue;
                     if (configField[propKey] === undefined && propValue !== undefined) {
                         configField[propKey] = propValue;
                         fieldChanged = true;
@@ -3324,8 +3339,23 @@ export class LCARdSButton extends LCARdSCard {
                 });
             }
 
+            // When a concrete pixel height is configured, pin the container (and
+            // host element) to exactly that height so the SVG isn't vertically
+            // centred inside the taller HA grid-row cell (~56 px by default).
+            // Without this, `height: 100%` on .button-container fills the grid
+            // row and the bar-label bg rect / text appear offset (issue #318).
+            const configuredHeight = this._configPx(this.config.height);
+            const containerStyle = configuredHeight
+                ? `height: ${configuredHeight}px;`
+                : '';
+            if (configuredHeight) {
+                this.style.height = `${configuredHeight}px`;
+            } else {
+                this.style.removeProperty('height');
+            }
+
             return html`
-                <div class="button-container" data-render-time="${timestamp}">
+                <div class="button-container" style="${containerStyle}" data-render-time="${timestamp}">
                     ${unsafeHTML(svgMarkup)}
                 </div>
             `;
@@ -4661,8 +4691,84 @@ export class LCARdSButton extends LCARdSCard {
                 userDefaults_font_size: userDefaults.font_size,
                 presetFieldConfig_font_size: presetFieldConfig.font_size,
                 presetFieldConfig_size: presetFieldConfig.size,
-                presetTextDefaults_font_size: this._buttonStyle?.text?.default?.font_size
+                presetTextDefaults_font_size: this._buttonStyle?.text?.default?.font_size,
+                presetTextDefaults_font_size_percent: presetTextDefaults.font_size_percent,
+                presetFieldConfig_font_size_percent: presetFieldConfig.font_size_percent
             });
+
+            // ── Font size resolution ────────────────────────────────────────────────
+            // Priority (highest → lowest):
+            //   1. User explicit font_size in their card YAML → always wins, no scaling.
+            //   2. font_size_percent (from any source: user field, user default, preset
+            //      field, or preset default) → converted to px here using container
+            //      height.  This wins over any *inherited* absolute font_size from a
+            //      base preset (e.g. button.base's theme: token value of 16).
+            //   3. Inherited absolute font_size from the preset chain → used only when
+            //      neither of the above apply.
+            //   4. Hardcoded fallback of 14.
+            //
+            // Converting to px here (rather than in _processTextFields) means
+            // field.font_size is the single authoritative value leaving this stage.
+            // font_size_percent is still preserved on the field for component-mode
+            // (_buildComponentTextMarkup reads it in viewBox units independently).
+            //
+            // CRITICAL: _userExplicitFontSize must be derived from the raw user YAML
+            // (_rawUserComponentText), NOT from fieldConfig / this.config.text.
+            // CoreConfigManager merges the full preset (including button.base's
+            // font_size: 16) into this.config before _resolveTextConfiguration runs,
+            // so fieldConfig.font_size is always 16 regardless of what the user wrote.
+            // _rawUserComponentText is captured before that merge.
+            const _rawUserField    = this._rawUserComponentText?.[fieldId] || {};
+            const _rawUserDefaults = this._rawUserComponentText?.default   || {};
+            const _userExplicitFontSize = _rawUserField.font_size || _rawUserField.size
+                || _rawUserDefaults.font_size || null;
+            const _rawFsp = fieldConfig.font_size_percent !== undefined ? fieldConfig.font_size_percent
+                : (presetFieldConfig.font_size_percent !== undefined ? presetFieldConfig.font_size_percent
+                : (userDefaults.font_size_percent !== undefined ? userDefaults.font_size_percent
+                : (presetTextDefaults.font_size_percent !== undefined ? presetTextDefaults.font_size_percent : null)));
+            const _inheritedAbsFontSize = presetFieldConfig.font_size || presetFieldConfig.size
+                || presetTextDefaults.font_size || this._buttonStyle?.text?.default?.font_size || null;
+
+            // cap_height_ratio: resolved here and stored on the field so _processTextFields
+            // can apply a y-baseline correction for visually-centred cap-height text.
+            // cap_height_ratio is NOT used to scale font_size — it only adjusts the y
+            // coordinate in _processTextFields (see comment there).
+            // Waterfall: user field → user default → post-merge fieldConfig → preset field
+            //            → user defaults → preset text defaults → null (no correction).
+            // Using != null (not ||) so an explicit 0 does not fall through.
+            const _capHeightRatio = (
+                _rawUserField.cap_height_ratio      != null ? _rawUserField.cap_height_ratio      :
+                _rawUserDefaults.cap_height_ratio   != null ? _rawUserDefaults.cap_height_ratio   :
+                fieldConfig.cap_height_ratio        != null ? fieldConfig.cap_height_ratio        :
+                presetFieldConfig.cap_height_ratio  != null ? presetFieldConfig.cap_height_ratio  :
+                userDefaults.cap_height_ratio       != null ? userDefaults.cap_height_ratio       :
+                presetTextDefaults.cap_height_ratio != null ? presetTextDefaults.cap_height_ratio :
+                null);
+
+            let _resolvedFontSize;
+            if (_userExplicitFontSize) {
+                // User set font_size explicitly → use it as-is.
+                _resolvedFontSize = _userExplicitFontSize;
+            } else if (_rawFsp != null) {
+                // font_size_percent → convert to px using container height.
+                // Mirrors the height resolution order used in _renderButtonContent:
+                //   config.height (explicit px) → preset height → measured container → 56 fallback.
+                const _containerH = this._configPx(this.config.height)
+                    || this._configPx(this._buttonStyle?.height)
+                    || this._containerSize?.height
+                    || 56;
+                _resolvedFontSize = _containerH > 0
+                    ? Math.round(_rawFsp / 100 * _containerH)
+                    : (_inheritedAbsFontSize || 14);
+            } else {
+                // No percent — fall back to inherited absolute from preset chain.
+                _resolvedFontSize = _inheritedAbsFontSize || 14;
+            }
+
+            lcardsLog.trace(`[Button._resolveTextConfiguration] Field '${fieldId}' resolved font_size:`, {
+                _userExplicitFontSize, _rawFsp, _inheritedAbsFontSize, _resolvedFontSize, _capHeightRatio
+            });
+            // ── End font size resolution ────────────────────────────────────────────
 
             // Use processed template content if available (stored in _processedTemplates)
             // This survives config replacement by CoreConfigManager
@@ -4706,7 +4812,11 @@ export class LCARdSButton extends LCARdSCard {
                     );
                     return Object.assign({}, ...stripped);
                 })(),
-                font_size: fieldConfig.font_size || fieldConfig.size || userDefaults.font_size || presetFieldConfig.font_size || presetFieldConfig.size || this._buttonStyle?.text?.default?.font_size || 14,
+                // font_size is the resolved px value — see resolution block above.
+                // _user_explicit_font_size is preserved so callers can know whether the
+                // value was user-driven (e.g. to suppress auto-scaling in component mode).
+                font_size: _resolvedFontSize,
+                _user_explicit_font_size: !!_userExplicitFontSize,
                 color: fieldConfig.color || userDefaults.color || presetFieldConfig.color || presetTextDefaults.color || null, // null means use default
                 font_weight: fieldConfig.font_weight || userDefaults.font_weight || presetFieldConfig.font_weight || this._buttonStyle?.text?.default?.font_weight || 'normal',
                 font_family: fieldConfig.font_family || userDefaults.font_family || presetFieldConfig.font_family || this._buttonStyle?.text?.default?.font_family || "'LCARS', 'Antonio', sans-serif",
@@ -4722,8 +4832,14 @@ export class LCARdSButton extends LCARdSCard {
                 // font_size_percent: font size as % of the text_area height (alternative to
                 //   absolute viewBox-unit font_size; independent of viewBox coordinate scale)
                 text_area: fieldConfig.text_area || presetFieldConfig.text_area || null,
-                font_size_percent: fieldConfig.font_size_percent !== undefined ? fieldConfig.font_size_percent
-                    : (presetFieldConfig.font_size_percent !== undefined ? presetFieldConfig.font_size_percent : null),
+                // font_size_percent: preserved (raw, unconverted) for component-mode only.
+                // _buildComponentTextMarkup uses this in viewBox units independently of font_size.
+                // For standard mode, font_size above already incorporates the percent conversion.
+                font_size_percent: _rawFsp,
+                // cap_height_ratio: passed to _processTextFields so it can shift the SVG y
+                // coordinate when centre-aligning font_size_percent text, making the visible
+                // cap glyphs geometrically centred rather than the full em-square.
+                cap_height_ratio: _capHeightRatio,
 
                 // stretch: true → fill 100% of available width; number (0–1) → fill that fraction.
                 // In component mode uses the text_area width; in standard mode uses container width.
@@ -5086,18 +5202,56 @@ export class LCARdSButton extends LCARdSCard {
                 });
             }
 
+            // ── Cap-height fill mode ──────────────────────────────────────────────
+            // When font_size_percent + cap_height_ratio are both set AND the position is
+            // a centre-type (baseline === 'middle'), we want visible cap glyphs to fill
+            // the available padded height rather than the raw em-square.
+            //
+            // Strategy:
+            //   availH = textAreaBounds.height - padTop - padBottom
+            //   font_size = round((fsp/100 * availH) / cap_height_ratio)
+            //     → caps are exactly (fsp/100 * availH) px tall
+            //   y = areaTop + textAreaBounds.height - padBottom   (alphabetic baseline)
+            //     → cap bottom aligns with the padded bottom edge
+            //     → cap top  aligns with areaTop + padTop
+            //   dominant-baseline = alphabetic  (descenders clip via existing clipPath)
+            //
+            // No cap_height_ratio or explicit user baseline → use original middle logic.
+            let effectiveFontSize = field.font_size;
+
+            if (field.font_size_percent != null && field.cap_height_ratio != null && baseline === 'middle') {
+                const _pad = field.padding;
+                const _padTop    = (_pad != null && typeof _pad === 'object') ? (_pad.top    ?? 0) : (typeof _pad === 'number' ? _pad : 0);
+                const _padBottom = (_pad != null && typeof _pad === 'object') ? (_pad.bottom ?? 0) : (typeof _pad === 'number' ? _pad : 0);
+                const _areaTop   = textAreaBounds.top ?? 0;
+                const _areaH     = textAreaBounds.height;
+                const _availH    = _areaH - _padTop - _padBottom;
+                if (_availH > 0) {
+                    effectiveFontSize = Math.round((field.font_size_percent / 100 * _availH) / field.cap_height_ratio);
+                    baseline = 'alphabetic';
+                    y = _areaTop + _areaH - _padBottom;
+                }
+            }
+
             processedFields.push({
                 id: fieldId,
                 content: content,
                 x: x,
                 y: y,
-                font_size: field.font_size,
+                font_size: effectiveFontSize,
                 color: resolvedColor,
                 font_weight: field.font_weight,
                 font_family: field.font_family,
                 anchor: anchor,
                 baseline: baseline,
                 rotation: field.rotation,  // NEW: pass through rotation
+
+                // Carry the container/zone dimensions so _generateTextElements uses
+                // the correct bounds rather than this._containerSize (which may still
+                // reflect the HA default 56px row height before the ResizeObserver fires,
+                // or the full card size when rendering a sub-zone like a slider border).
+                _container_width: buttonWidth,
+                _container_height: buttonHeight,
 
                 // Text background properties for "bar label" effect
                 background: resolvedBackground,
@@ -5146,9 +5300,12 @@ export class LCARdSButton extends LCARdSCard {
                     bgWidth = bgMinWidth !== null ? Math.max(autoWidth, bgMinWidth) : autoWidth;
                 }
 
-                // For bar labels, use container height but round up to ensure full coverage
-                // (e.g., 55.984375 → 56). This respects custom row heights while preventing gaps.
-                const bgHeight = (Math.ceil(this._containerSize?.height || (metrics.height + (bgPadding * 2))) + 1);
+                // For bar labels, use the container/zone height that was baked into the field
+                // during _processTextFields (field._container_height). This is the actual
+                // rendered height — either the button's configured height or the slider zone
+                // height — preventing the bg from overflowing a border zone or using the HA
+                // default 56px when a custom height like 44 is configured (issue #318).
+                const bgHeight = (Math.ceil(field._container_height ?? this._containerSize?.height ?? (metrics.height + (bgPadding * 2))) + 1);
 
                 // Calculate background position based on text anchor
                 let bgX = field.x;
@@ -5215,9 +5372,11 @@ export class LCARdSButton extends LCARdSCard {
 
             // stretch: expand/compress glyphs to fill a fraction of the button width.
             // true → 100 %, number → that fraction (0–1).
+            // Use the zone/container width stored in the field (set by _processTextFields)
+            // so that slider border zones stretch within their own bounds, not the full card.
             if (field.stretch != null && field.stretch !== false) {
                 const factor = field.stretch === true ? 1.0 : Number(field.stretch);
-                const containerWidth = this._containerSize?.width || 200;
+                const containerWidth = field._container_width ?? this._containerSize?.width ?? 200;
                 if (factor > 0) {
                     textAttrs.push(`textLength="${(containerWidth * factor).toFixed(3)}"`);
                     textAttrs.push('lengthAdjust="spacingAndGlyphs"');

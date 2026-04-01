@@ -951,6 +951,43 @@ export function getTextSchema(options = {}) {
                             helper: 'Auto-sizes with text but will not shrink below this value — safe for dynamic content.',
                             selector: { number: { mode: 'box', min: 1, max: 2000, step: 1, unit_of_measurement: 'px' } }
                         }
+                    },
+                    font_size_percent: {
+                        type: 'number',
+                        minimum: 1,
+                        maximum: 100,
+                        description: 'Default font size as a percentage of the card height. All fields inherit this unless they set an explicit font_size. Useful for bar-label style presets that should auto-scale with the configured card height.',
+                        'x-ui-hints': {
+                            label: 'Font Size (% of height)',
+                            helper: 'Sets the default font size relative to the card height for all fields. 100 = full-height glyphs.',
+                            selector: {
+                                number: {
+                                    mode: 'slider',
+                                    min: 1,
+                                    max: 100,
+                                    step: 1,
+                                    unit_of_measurement: '%'
+                                }
+                            }
+                        }
+                    },
+                    cap_height_ratio: {
+                        type: 'number',
+                        minimum: 0.1,
+                        maximum: 1.0,
+                        description: 'Ratio of the font cap-height to the em-square (font-size). Used to correct font_size_percent so visible glyph height matches the requested percentage of the container. Defaults to the theme token value (0.72 for Antonio). Override when using a different font family.',
+                        'x-ui-hints': {
+                            label: 'Cap Height Ratio',
+                            helper: 'Correction factor for font_size_percent. Antonio = 0.72. 1.0 = no correction. Lower values increase the rendered font-size.',
+                            selector: {
+                                number: {
+                                    mode: 'box',
+                                    min: 0.1,
+                                    max: 1.0,
+                                    step: 0.01
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1133,6 +1170,24 @@ export function getTextSchema(options = {}) {
                                 max: 100,
                                 step: 1,
                                 unit_of_measurement: '%'
+                            }
+                        }
+                    }
+                },
+                cap_height_ratio: {
+                    type: 'number',
+                    minimum: 0.1,
+                    maximum: 1.0,
+                    description: 'Ratio of the font cap-height to the em-square. Used to correct font_size_percent so visible glyph height matches the requested percentage. Defaults to the theme token value (0.72 for Antonio). Override when using a different font.',
+                    'x-ui-hints': {
+                        label: 'Cap Height Ratio',
+                        helper: 'Correction factor for font_size_percent. Antonio = 0.72. 1.0 = no correction. Lower values increase rendered font-size.',
+                        selector: {
+                            number: {
+                                mode: 'box',
+                                min: 0.1,
+                                max: 1.0,
+                                step: 0.01
                             }
                         }
                     }

@@ -1627,18 +1627,35 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
     }
 
     /**
-     * Text Tab - Standard multi-text editor
+     * Text Tab - Standard multi-text editor with dynamic text area dropdown.
+     * Each enabled border (left/right/top/bottom) and the inner track are offered
+     * as named text areas in the per-field dropdown so users can route individual
+     * text fields to the appropriate visual zone.
      * @returns {TemplateResult}
      * @private
      */
     _renderTextTab() {
         // CRITICAL: Use this.config?.text to ensure Lit reactivity when config changes
         const textConfig = this.config?.text || {};
+
+        // Build the available text areas from the current border configuration.
+        // Only include borders that are actually enabled and have a non-zero size.
+        // 'track' (the inner slider body) is always present.
+        const borderCfg = this.config?.style?.border || {};
+        const getBorderSize = (b) => b?.size ?? b?.width ?? 0;
+        const componentTextAreas = {};
+        if (borderCfg.left?.enabled   && getBorderSize(borderCfg.left)   > 0) componentTextAreas.left   = 'Left Border';
+        if (borderCfg.right?.enabled  && getBorderSize(borderCfg.right)  > 0) componentTextAreas.right  = 'Right Border';
+        if (borderCfg.top?.enabled    && getBorderSize(borderCfg.top)    > 0) componentTextAreas.top    = 'Top Border';
+        if (borderCfg.bottom?.enabled && getBorderSize(borderCfg.bottom) > 0) componentTextAreas.bottom = 'Bottom Border';
+        componentTextAreas.track = 'Track (inner)';
+
         return html`
             <lcards-multi-text-editor-v2
                 .editor=${this}
                 .text=${textConfig}
                 .hass=${this.hass}
+                .componentTextAreas=${componentTextAreas}
                 @text-changed=${(e) => {
                     // CRITICAL: Replace entire text object, don't merge (deepMerge won't delete fields)
                     this.config = { ...this.config, text: e.detail.value };

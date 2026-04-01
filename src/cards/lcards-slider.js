@@ -1426,204 +1426,41 @@ export class LCARdSSlider extends LCARdSButton {
      * }
      */
     /**
-     * Override button's text area calculation to support slider-specific areas
-     * Provides text positioning in border caps (left/top/right/bottom) and track area
-     * Includes adjacent borders when they form a continuous visual border
-     * @param {number} sliderWidth - Slider width
-     * @param {number} sliderHeight - Slider height
-     * @param {Object} iconConfig - Icon configuration (unused for slider)
-     * @returns {Object} Text area bounds {left, top, width, height}
-     * @override
-     */
-    _calculateTextAreaBounds(sliderWidth, sliderHeight, iconConfig) {
-        // Get border configuration
-        const borderConfig = this._sliderStyle?.border;
-
-        // Calculate border offsets
-        // Helper to get border size (prefer .size, fall back to .width for legacy configs)
-        const getBorderSize = (borderDef) => borderDef?.size ?? borderDef?.width ?? 0;
-
-        const borderOffsets = {
-            left: borderConfig?.left?.enabled ? getBorderSize(borderConfig.left) : 0,
-            top: borderConfig?.top?.enabled ? getBorderSize(borderConfig.top) : 0,
-            right: borderConfig?.right?.enabled ? getBorderSize(borderConfig.right) : 0,
-            bottom: borderConfig?.bottom?.enabled ? getBorderSize(borderConfig.bottom) : 0
-        };
-
-        // Determine text area from config (default: 'auto' uses largest border)
-        const textArea = this.config?.text?.area || 'auto';
-
-        // Auto-select: use left border if available, else top, else track
-        if (textArea === 'auto') {
-            if (borderOffsets.left > 0) {
-                // Left border cap - INCLUDE adjacent top/bottom borders for continuous visual area
-                return {
-                    left: 0,
-                    top: 0,  // Include top border if present
-                    width: borderOffsets.left,
-                    height: sliderHeight  // Full height including top and bottom borders
-                };
-            } else if (borderOffsets.top > 0) {
-                // Top border cap - INCLUDE adjacent left/right borders
-                return {
-                    left: 0,  // Include left border if present
-                    top: 0,
-                    width: sliderWidth,  // Full width including left and right borders
-                    height: borderOffsets.top
-                };
-            } else {
-                // No borders: use full track area
-                const margins = this._sliderStyle?.margins || { top: 0, right: 0, bottom: 0, left: 0 };
-                return {
-                    left: borderOffsets.left + margins.left,
-                    top: borderOffsets.top + margins.top,
-                    width: sliderWidth - borderOffsets.left - borderOffsets.right - margins.left - margins.right,
-                    height: sliderHeight - borderOffsets.top - borderOffsets.bottom - margins.top - margins.bottom
-                };
-            }
-        }
-
-        // Explicit area selection - INCLUDE adjacent borders for continuous visual area
-        if (textArea === 'left' && borderOffsets.left > 0) {
-            return {
-                left: 0,
-                top: 0,  // Include top border
-                width: borderOffsets.left,
-                height: sliderHeight  // Include bottom border
-            };
-        } else if (textArea === 'top' && borderOffsets.top > 0) {
-            return {
-                left: 0,  // Include left border
-                top: 0,
-                width: sliderWidth,  // Include right border
-                height: borderOffsets.top
-            };
-        } else if (textArea === 'right' && borderOffsets.right > 0) {
-            return {
-                left: sliderWidth - borderOffsets.right,
-                top: 0,  // Include top border
-                width: borderOffsets.right,
-                height: sliderHeight  // Include bottom border
-            };
-        } else if (textArea === 'bottom' && borderOffsets.bottom > 0) {
-            return {
-                left: 0,  // Include left border
-                top: sliderHeight - borderOffsets.bottom,
-                width: sliderWidth,  // Include right border
-                height: borderOffsets.bottom
-            };
-        } else if (textArea === 'track') {
-            // Track area (inset by borders and margins)
-            const margins = this._sliderStyle?.margins || { top: 0, right: 0, bottom: 0, left: 0 };
-            return {
-                left: borderOffsets.left + margins.left,
-                top: borderOffsets.top + margins.top,
-                width: sliderWidth - borderOffsets.left - borderOffsets.right - margins.left - margins.right,
-                height: sliderHeight - borderOffsets.top - borderOffsets.bottom - margins.top - margins.bottom
-            };
-        }
-
-        // Fallback: full slider area
-        return {
-            left: 0,
-            top: 0,
-            width: sliderWidth,
-            height: sliderHeight
-        };
-    }
-
-    /**
-     * Calculate zones from border/margin configuration (for sliders without components).
-     * Creates zone structure similar to component's calculateZones() output.
+     * Calculate all named text zones from the border/margin configuration.
+     * Each enabled border becomes a named zone (left/right/top/bottom).
+     * The inner track area is always available as 'track'.
+     * Used by _renderWithRenderer to populate this._zones for per-field routing.
      * @param {number} width - Slider width
      * @param {number} height - Slider height
-     * @returns {Object} Zones object with text, track, etc.
+     * @returns {{ borderZones: Object.<string,{x,y,width,height}>, trackZone: {x,y,width,height} }}
      * @private
      */
     _calculateZonesFromBorders(width, height) {
         const borderConfig = this._sliderStyle?.border;
         const getBorderSize = (borderDef) => borderDef?.size ?? borderDef?.width ?? 0;
 
-        const borderOffsets = {
-            left: borderConfig?.left?.enabled ? getBorderSize(borderConfig.left) : 0,
-            top: borderConfig?.top?.enabled ? getBorderSize(borderConfig.top) : 0,
-            right: borderConfig?.right?.enabled ? getBorderSize(borderConfig.right) : 0,
-            bottom: borderConfig?.bottom?.enabled ? getBorderSize(borderConfig.bottom) : 0
-        };
+        const leftSize   = borderConfig?.left?.enabled   ? getBorderSize(borderConfig.left)   : 0;
+        const topSize    = borderConfig?.top?.enabled    ? getBorderSize(borderConfig.top)    : 0;
+        const rightSize  = borderConfig?.right?.enabled  ? getBorderSize(borderConfig.right)  : 0;
+        const bottomSize = borderConfig?.bottom?.enabled ? getBorderSize(borderConfig.bottom) : 0;
 
-        // Calculate text zone based on textArea config
-        const textArea = this.config?.text?.area || 'auto';
-        let textZone;
+        // Build a named zone for each enabled border
+        const borderZones = /** @type {Object.<string, {x:number, y:number, width:number, height:number}>} */ ({});
+        if (leftSize   > 0) borderZones.left   = { x: 0,                   y: 0,                    width: leftSize,   height: height               };
+        if (rightSize  > 0) borderZones.right  = { x: width - rightSize,   y: 0,                    width: rightSize,  height: height               };
+        if (topSize    > 0) borderZones.top    = { x: 0,                   y: 0,                    width: width,      height: topSize              };
+        if (bottomSize > 0) borderZones.bottom = { x: 0,                   y: height - bottomSize,  width: width,      height: bottomSize           };
 
-        if (textArea === 'auto' || textArea === 'left') {
-            if (borderOffsets.left > 0) {
-                // Left border area - full height including top/bottom
-                textZone = {
-                    x: 0,
-                    y: 0,
-                    width: borderOffsets.left,
-                    height: height
-                };
-            } else if (borderOffsets.top > 0) {
-                // Top border area - full width
-                textZone = {
-                    x: 0,
-                    y: 0,
-                    width: width,
-                    height: borderOffsets.top
-                };
-            } else {
-                // No borders: use full area
-                textZone = { x: 0, y: 0, width, height };
-            }
-        } else if (textArea === 'top') {
-            textZone = {
-                x: 0,
-                y: 0,
-                width: width,
-                height: borderOffsets.top || height
-            };
-        } else if (textArea === 'right') {
-            textZone = {
-                x: width - borderOffsets.right,
-                y: 0,
-                width: borderOffsets.right || width,
-                height: height
-            };
-        } else if (textArea === 'bottom') {
-            textZone = {
-                x: 0,
-                y: height - borderOffsets.bottom,
-                width: width,
-                height: borderOffsets.bottom || height
-            };
-        } else if (textArea === 'track') {
-            // Text in track area (inside borders)
-            const margins = this._sliderStyle?.margins || { top: 0, right: 0, bottom: 0, left: 0 };
-            textZone = {
-                x: borderOffsets.left + margins.left,
-                y: borderOffsets.top + margins.top,
-                width: width - borderOffsets.left - borderOffsets.right - margins.left - margins.right,
-                height: height - borderOffsets.top - borderOffsets.bottom - margins.top - margins.bottom
-            };
-        } else {
-            // Fallback: full area
-            textZone = { x: 0, y: 0, width, height };
-        }
-
-        // Calculate track zone (inside borders)
+        // Track zone: interior area inset by all enabled border sizes + track margins
         const margins = this._sliderStyle?.track?.margin || { top: 0, right: 0, bottom: 0, left: 0 };
         const trackZone = {
-            x: borderOffsets.left + margins.left,
-            y: borderOffsets.top + margins.top,
-            width: width - borderOffsets.left - borderOffsets.right - margins.left - margins.right,
-            height: height - borderOffsets.top - borderOffsets.bottom - margins.top - margins.bottom
+            x: leftSize   + (margins.left   || 0),
+            y: topSize    + (margins.top    || 0),
+            width:  width  - leftSize - rightSize  - (margins.left  || 0) - (margins.right  || 0),
+            height: height - topSize  - bottomSize - (margins.top   || 0) - (margins.bottom || 0)
         };
 
-        return {
-            text: textZone,
-            track: trackZone
-        };
+        return { borderZones, trackZone };
     }
 
     /**
@@ -1636,59 +1473,80 @@ export class LCARdSSlider extends LCARdSButton {
      * @private
      */
     _injectTextFieldsToElement(svgElement, width, height) {
-        // Use button's _resolveTextConfiguration() to get processed templates
+        // Resolve all text field configurations (inherited from button card)
         const textFields = this._resolveTextConfiguration();
         if (!textFields || Object.keys(textFields).length === 0) return;
 
-        // Find text-zone in the provided element
-        let textZone = svgElement.querySelector('#text-zone');
+        // Determine default zone: first enabled border in left→right→top→bottom priority,
+        // then fall back to track, then the component's own 'text' zone.
+        const borderPriority = ['left', 'right', 'top', 'bottom'];
+        const defaultZoneName =
+            borderPriority.find(n => this._zones.has(n)) ||
+            (this._zones.has('track') ? 'track' : 'text');
 
-        // ALWAYS use zones from this._zones (should be populated before calling this)
-        const textZoneData = this._zones.get('text');
-
-        if (!textZoneData) {
-            lcardsLog.error('[LCARdSSlider] No text zone in this._zones - zones must be calculated before text injection');
-            return;
+        // Group fields by their resolved text_area, falling back to the default zone.
+        const groups = {};
+        for (const [id, field] of Object.entries(textFields)) {
+            const requested = field.text_area || defaultZoneName;
+            // If the requested zone doesn't exist, fall back gracefully
+            const zoneName = this._zones.has(requested) ? requested
+                : (this._zones.has('track') ? 'track' : defaultZoneName);
+            if (!groups[zoneName]) groups[zoneName] = {};
+            groups[zoneName][id] = field;
         }
 
-        // Use zone bounds (width and height properties)
-        const zoneWidth = textZoneData.bounds.width;
-        const zoneHeight = textZoneData.bounds.height;
+        // Clear the legacy #text-zone element (used for the component's 'text' zone)
+        const legacyTextZone = svgElement.querySelector('#text-zone');
+        if (legacyTextZone) legacyTextZone.innerHTML = '';
 
-        if (!textZone) {
-            lcardsLog.warn('[LCARdSSlider] No text-zone found in SVG element');
-            return;
-        }
+        // Remove any previously dynamically-created text area groups (idempotent re-renders)
+        svgElement.querySelectorAll('.lcards-text-area').forEach(el => el.remove());
 
-        // Clear existing text
-        textZone.innerHTML = '';
-
-        // Process text fields using button's system with zone-relative dimensions
-        const processedFields = this._processTextFields(textFields, zoneWidth, zoneHeight, null);
-
-        // Generate SVG text elements (using button's method)
-        const textMarkup = this._generateTextElements(processedFields);
-
-        // Parse markup and append to text zone
         const parser = new DOMParser();
-        const wrappedMarkup = `<g>${textMarkup}</g>`;
-        const doc = parser.parseFromString(wrappedMarkup, 'image/svg+xml');
+        let totalInjected = 0;
 
-        // Check if parsing failed
-        const parseError = doc.querySelector('parsererror');
-        if (parseError) {
-            lcardsLog.trace('[LCARdSSlider] DOMParser failed to parse text markup!');
-            return;
+        for (const [zoneName, fields] of Object.entries(groups)) {
+            const zoneData = this._zones.get(zoneName);
+            if (!zoneData) {
+                lcardsLog.warn(`[LCARdSSlider] Text area '${zoneName}' not found in zones map — skipping`);
+                continue;
+            }
+
+            const { x, y, width: zoneWidth, height: zoneHeight } = zoneData.bounds;
+
+            // Process and generate elements relative to (0, 0) within the zone
+            const processedFields = this._processTextFields(fields, zoneWidth, zoneHeight, null);
+            const textMarkup = this._generateTextElements(processedFields);
+            if (!textMarkup) continue;
+
+            const doc = parser.parseFromString(`<g>${textMarkup}</g>`, 'image/svg+xml');
+            if (doc.querySelector('parsererror')) {
+                lcardsLog.warn(`[LCARdSSlider] Failed to parse text markup for zone '${zoneName}'`);
+                continue;
+            }
+
+            let targetGroup;
+            if (zoneName === 'text' && legacyTextZone) {
+                // For the component's native 'text' zone, reuse the pre-positioned #text-zone element
+                // (its transform was set by the component renderer and is already correct)
+                targetGroup = legacyTextZone;
+            } else {
+                // Create a new positioned group for named border areas and override zones
+                targetGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                targetGroup.setAttribute('class', 'lcards-text-area');
+                targetGroup.setAttribute('data-area', zoneName);
+                targetGroup.setAttribute('transform', `translate(${x}, ${y})`);
+                svgElement.appendChild(targetGroup);
+            }
+
+            Array.from(doc.documentElement.children).forEach(el => {
+                targetGroup.appendChild(el.cloneNode(true));
+            });
+
+            totalInjected += processedFields.length;
         }
 
-        const textElements = doc.documentElement.children;
-
-        // Append all text elements to text zone
-        Array.from(textElements).forEach(element => {
-            textZone.appendChild(element.cloneNode(true));
-        });
-
-        lcardsLog.debug(`[LCARdSSlider] Injected ${processedFields.length} text fields into text-zone`);
+        lcardsLog.debug(`[LCARdSSlider] Injected ${totalInjected} text fields across ${Object.keys(groups).length} zone(s)`);
     }
 
     /**
@@ -3079,13 +2937,21 @@ export class LCARdSSlider extends LCARdSButton {
             this._zones.set(zoneName, { bounds: zoneData });
         }
 
-        // Step 1.3: For Default component, override text zone with border-aware calculation
+        // Step 1.3: For Default component, register all named border zones for per-field routing.
+        // Each enabled border (left/right/top/bottom) becomes a named text area in this._zones.
+        // The track zone is also overridden with the border-aware interior bounds.
         const componentName = this.config.component || 'default';
         if (componentName === 'default') {
-            const borderBasedZones = this._calculateZonesFromBorders(width, height);
-            zones.text = borderBasedZones.text;
-            this._zones.set('text', { bounds: borderBasedZones.text });
-            lcardsLog.debug('[LCARdSSlider] Override Default component text zone with border-aware calculation:', zones.text);
+            const { borderZones, trackZone } = this._calculateZonesFromBorders(width, height);
+            for (const [name, bounds] of Object.entries(borderZones)) {
+                this._zones.set(name, { bounds });
+            }
+            // Override the component's track zone with the border-aware calculation
+            this._zones.set('track', { bounds: trackZone });
+            lcardsLog.debug('[LCARdSSlider] Registered named text zones from borders:', {
+                borderZones,
+                track: trackZone
+            });
         }
 
         lcardsLog.debug('[LCARdSSlider] Stored component zones in _zones Map:', this._zones);
@@ -4178,8 +4044,10 @@ export class LCARdSSlider extends LCARdSButton {
      * @override
      */
     _renderCard() {
-        const width = this._containerSize.width || 200;
-        const height = this._containerSize.height || 60;
+        // Prefer explicit config dimensions so text zones are correct even before the
+        // ResizeObserver fires (which would otherwise give the HA default 56px row height).
+        const width  = this._configPx(this.config.width)  || this._containerSize.width  || 200;
+        const height = this._configPx(this.config.height) || this._containerSize.height || 60;
 
         // Check if component is loaded
         if (this.config.component && !this._componentLoaded) {

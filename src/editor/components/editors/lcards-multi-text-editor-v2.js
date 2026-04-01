@@ -428,34 +428,15 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
                 </ha-selector>
             ` : ''}
 
-            <!-- Font Size % (component mode only) -->
-            ${this.componentTextAreas ? html`
-                ${FormField.renderField(this.editor, `text.${fieldName}.font_size_percent`, {
-                    label: 'Font Size (%)',
-                    helper: 'Font size as % of the text area height (overrides Font Size when set)'
-                })}
-            ` : ''}
-
-            <!-- Stretch -->
-            ${FormField.renderField(this.editor, `text.${fieldName}.stretch`, {
-                label: 'Stretch Text',
-                helper: 'Stretch/compress glyphs to fill a fraction of available width. true = 100%, 0.8 = 80%'
-            })}
-
             <!-- Font Section -->
             <lcards-form-section
                 header="Font"
-                description="Override default font settings"
+                description="Set font family, weight, and sizing"
                 icon="mdi:format-font"
                 ?expanded=${false}
                 ?outlined=${true}
                 headerLevel="6"
                 ?compact=${true}>
-
-                ${FormField.renderField(this.editor, `text.${fieldName}.font_size`, {
-                    label: 'Font Size',
-                    helper: hasDefaults && !fieldConfig.font_size ? 'Inherits from defaults' : ''
-                })}
 
                 ${FormField.renderField(this.editor, `text.${fieldName}.font_weight`, {
                     label: 'Font Weight',
@@ -466,6 +447,42 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
                     label: 'Font Family',
                     helper: hasDefaults && !fieldConfig.font_family ? 'Inherits from defaults' : ''
                 })}
+
+                <!-- Fixed size -->
+                ${FormField.renderField(this.editor, `text.${fieldName}.font_size`, {
+                    label: 'Font Size (px)',
+                    helper: hasDefaults && !fieldConfig.font_size
+                        ? 'Inherits from defaults — use this OR Font Size %, not both'
+                        : 'Absolute font size in px — overrides Font Size % when set explicitly'
+                })}
+
+                <!-- Fill-sizing group -->
+                <lcards-form-section
+                    header="Fill Sizing"
+                    description="Scale text to fill the card height. Use Font Size % + Cap Height Ratio instead of Font Size (px)."
+                    icon="mdi:arrow-expand-vertical"
+                    ?expanded=${!!(fieldConfig.font_size_percent || fieldConfig.cap_height_ratio || fieldConfig.stretch)}
+                    ?outlined=${false}
+                    headerLevel="6"
+                    ?compact=${true}>
+
+                    ${FormField.renderField(this.editor, `text.${fieldName}.font_size_percent`, {
+                        label: 'Font Size (% of height)',
+                        helper: 'Scales font so cap glyphs fill this % of the card height (when Cap Height Ratio is also set). Use instead of Font Size (px).'
+                    })}
+
+                    ${FormField.renderField(this.editor, `text.${fieldName}.cap_height_ratio`, {
+                        label: 'Cap Height Ratio',
+                        helper: 'Ratio of visible cap glyph height to the font em-square. Antonio ≈ 0.72. Adjust per font until caps fill the box. Has no effect without Font Size %.'
+                    })}
+
+                    ${FormField.renderField(this.editor, `text.${fieldName}.stretch`, {
+                        label: 'Stretch Width',
+                        helper: 'Stretch/compress glyphs to fill a fraction of the available width. true or 1 = 100%, 0.8 = 80%'
+                    })}
+
+                </lcards-form-section>
+
             </lcards-form-section>
 
             <!-- Alignment Section -->
