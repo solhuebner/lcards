@@ -241,7 +241,7 @@ Every card automatically divides its SVG surface into named **zones** — rectan
 | Card | Auto zones |
 |------|------------|
 | **Button** (preset mode) | `body` — full card area |
-| **Button** (component mode) | Named `text_areas` declared by the component (e.g. `label`, `value`) |
+| **Button** (component mode) | Named zones sourced from the SVG component's internal `zones` definition — these are declared by the component pack, not by your card config |
 | **Slider** | `track` (inner track bounds) + one zone per enabled border: `left`, `right`, `top`, `bottom` |
 | **Elbow** (simple) | `vertical_bar`, `horizontal_bar`, `body` (open corner area) |
 | **Elbow** (segmented) | `outer_vertical_bar`, `inner_vertical_bar`, `outer_horizontal_bar`, `inner_horizontal_bar`, `body` |
