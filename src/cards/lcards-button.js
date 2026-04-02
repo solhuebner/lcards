@@ -537,13 +537,13 @@ export class LCARdSButton extends LCARdSCard {
         // Store the component's text area map onto _processedSvg so that
         // _buildComponentTextMarkup can resolve per-field areas at render time.
         // Supports both:
-        //   text_areas: { areaId: { x, y, width, height }, ... }  (new, multi-area)
-        //   text_area:  { x, y, width, height }                    (old, wrapped as { default: ... })
+        //   zones: { zoneId: { x, y, width, height }, ... }  (current)
+        //   text_area:  { x, y, width, height }               (legacy, wrapped as { default: ... })
         if (this._processedSvg) {
-            if (componentDef.text_areas && Object.keys(componentDef.text_areas).length > 0) {
-                this._processedSvg.componentTextAreas = componentDef.text_areas;
+            if (componentDef.zones && Object.keys(componentDef.zones).length > 0) {
+                this._processedSvg.componentZones = componentDef.zones;
             } else if (componentDef.text_area) {
-                this._processedSvg.componentTextAreas = { default: componentDef.text_area };
+                this._processedSvg.componentZones = { default: componentDef.text_area };
             }
 
             // Apply aspect-ratio to the host element derived from the SVG's viewBox.
@@ -4391,13 +4391,13 @@ export class LCARdSButton extends LCARdSCard {
         if (!iconOnly) {
             const textFields = this._resolveTextConfiguration();
 
-            if (this._processedSvg?.componentTextAreas) {
+            if (this._processedSvg?.componentZones) {
                 // Component mode: build text in viewBox space and inject into
                 // the nested <svg> via _renderSvgBackground (cheap string op).
                 // backgroundMarkup is re-generated here so the <clipPath> ids are
                 // scoped inside the same <svg> element as the shape content.
                 const componentTextSvg = this._buildComponentTextMarkup(
-                    textFields, this._processedSvg.componentTextAreas
+                    textFields, this._processedSvg.componentZones
                 );
                 if (componentTextSvg) {
                     backgroundMarkup = this._renderSvgBackground(
@@ -4419,7 +4419,7 @@ export class LCARdSButton extends LCARdSCard {
 
         // Debug zone overlay — only present when config.debug_zones is true and
         // _rebuildZones has already been called (standard mode path above).
-        const debugZoneMarkup = (!this._processedSvg?.componentTextAreas)
+        const debugZoneMarkup = (!this._processedSvg?.componentZones)
             ? this._generateZoneDebugMarkup()
             : '';
 
@@ -4826,7 +4826,7 @@ export class LCARdSButton extends LCARdSCard {
                 show: fieldConfig.show !== undefined ? fieldConfig.show : (presetFieldConfig.show !== undefined ? presetFieldConfig.show : true),
                 template: fieldConfig.template !== undefined ? fieldConfig.template : (presetFieldConfig.template !== undefined ? presetFieldConfig.template : true),
 
-                // zone: which named area (from _zones / componentDef.text_areas) this field lives in.
+                // zone: which named area (from _zones / componentDef.zones) this field lives in.
                 // font_size_percent: font size as % of the zone height (alternative to
                 //   absolute viewBox-unit font_size; independent of viewBox coordinate scale)
                 zone: fieldConfig.zone || presetFieldConfig.zone || null,
@@ -5399,28 +5399,28 @@ export class LCARdSButton extends LCARdSCard {
      * shares the viewBox coordinate system — font_size is in viewBox units and
      * everything scales 1:1 with the shape at any button size.
      *
-     * Components declare one or more named text areas via `text_areas` in their
-     * definition.  Each text field references its area via a `text_area` key;
-     * if omitted, the first area in the map is used as the default.
+     * Components declare one or more named zones via `zones` in their
+     * definition.  Each text field references its zone via a `zone` key;
+     * if omitted, the first zone in the map is used as the default.
      *
-     * font_size is in viewBox units.  font_size_percent (% of the area's height)
+     * font_size is in viewBox units.  font_size_percent (% of the zone's height)
      * is an alternative that is independent of the viewBox coordinate scale and
      * lets you express "fill N % of this container" naturally.
      *
-     * One SVG <clipPath> per referenced text_area prevents overflow beyond the
+     * One SVG <clipPath> per referenced zone prevents overflow beyond the
      * shape interior at any button size.
      *
      * @private
      * @param {Object} textFields  Output of _resolveTextConfiguration()
-     * @param {Object.<string,{x,y,width,height}>} componentTextAreas
-     *   Named text-area rectangles in viewBox coordinate space.
+     * @param {Object.<string,{x,y,width,height}>} componentZones
+     *   Named zone rectangles in viewBox coordinate space.
      * @returns {string} SVG fragment (<clipPath>s + <text> elements) to inject
      *   inside the component's nested <svg>.
      */
-    _buildComponentTextMarkup(textFields, componentTextAreas) {
-        if (!textFields || !componentTextAreas) return '';
+    _buildComponentTextMarkup(textFields, componentZones) {
+        if (!textFields || !componentZones) return '';
 
-        const areaKeys = Object.keys(componentTextAreas);
+        const areaKeys = Object.keys(componentZones);
         if (areaKeys.length === 0) return '';
         const defaultAreaKey = areaKeys[0];
 
@@ -5428,9 +5428,9 @@ export class LCARdSButton extends LCARdSCard {
         const usedAreaIds = new Set();
         for (const [, field] of Object.entries(textFields)) {
             if (!field.show || !(field.content || '')) continue;
-            const areaId = (field.zone && componentTextAreas[field.zone])
+            const areaId = (field.zone && componentZones[field.zone])
                 ? field.zone : defaultAreaKey;
-            if (componentTextAreas[areaId]) usedAreaIds.add(areaId);
+            if (componentZones[areaId]) usedAreaIds.add(areaId);
         }
 
         if (usedAreaIds.size === 0) return '';
@@ -5438,7 +5438,7 @@ export class LCARdSButton extends LCARdSCard {
         // One <clipPath> per referenced zone, id scoped to this card instance
         const clipPaths = [];
         for (const areaId of usedAreaIds) {
-            const ta = componentTextAreas[areaId];
+            const ta = componentZones[areaId];
             if (!ta) continue;
             const clipId = `comp-clip-${this._cardGuid}-${areaId}`;
             clipPaths.push(
@@ -5470,9 +5470,9 @@ export class LCARdSButton extends LCARdSCard {
             }
 
             // Resolve which zone this field belongs to
-            const areaId = (field.zone && componentTextAreas[field.zone])
+            const areaId = (field.zone && componentZones[field.zone])
                 ? field.zone : defaultAreaKey;
-            const ta = componentTextAreas[areaId];
+            const ta = componentZones[areaId];
             if (!ta) continue;
 
             const clipId   = `comp-clip-${this._cardGuid}-${areaId}`;
@@ -5605,7 +5605,7 @@ export class LCARdSButton extends LCARdSCard {
     /**
      * Override of LCARdSCard._calculateZones — populate this._zones for the button.
      *
-     * - Component mode: translates componentTextAreas (from the component pack) into zones.
+     * - Component mode: translates componentZones (from the component pack) into zones.
      * - Default mode: adds a single 'body' zone covering the full card dimensions.
      *
      * Called by _rebuildZones() before any text injection.
@@ -5615,7 +5615,7 @@ export class LCARdSButton extends LCARdSCard {
      * @protected
      */
     _calculateZones(width, height) {
-        const compAreas = this._processedSvg?.componentTextAreas;
+        const compAreas = this._processedSvg?.componentZones;
         if (compAreas && Object.keys(compAreas).length > 0) {
             for (const [name, ta] of Object.entries(compAreas)) {
                 this._zones.set(name, { bounds: { x: ta.x, y: ta.y, width: ta.width, height: ta.height } });
@@ -5684,10 +5684,16 @@ export class LCARdSButton extends LCARdSCard {
 
             const { x, y, width: zoneWidth, height: zoneHeight } = zoneData.bounds;
 
-            // Re-apply font_size_percent against zone height (same correction as _injectTextFieldsToElement)
+            // Re-apply font_size_percent against zone height — but only when the user
+            // did NOT set an explicit font_size.  _resolveTextConfiguration() already
+            // converted font_size_percent → px using the full container height; here we
+            // replace that with the zone-relative height instead.  If the user wrote an
+            // explicit font_size (flagged by _user_explicit_font_size), it must not be
+            // overwritten — preset defaults may set font_size_percent on every field,
+            // and without this guard they would all end up with the same size.
             const zoneAdjustedFields = Object.fromEntries(
                 Object.entries(fields).map(([id, field]) => {
-                    if (field.font_size_percent != null && zoneHeight > 0) {
+                    if (field.font_size_percent != null && !field._user_explicit_font_size && zoneHeight > 0) {
                         return [id, { ...field, font_size: Math.round(field.font_size_percent / 100 * zoneHeight) }];
                     }
                     return [id, field];
@@ -5742,12 +5748,11 @@ export class LCARdSButton extends LCARdSCard {
 
             const { x, y, width: zoneWidth, height: zoneHeight } = zoneData.bounds;
 
-            // Re-apply font_size_percent against zone height.
-            // _resolveTextConfiguration() converted percent → px using full card height;
-            // now we have zone bounds we can compute the correct zone-relative size.
+            // Re-apply font_size_percent against zone height — only when no explicit
+            // user font_size was set (same guard as _generateZoneTextMarkup).
             const zoneAdjustedFields = Object.fromEntries(
                 Object.entries(fields).map(([id, field]) => {
-                    if (field.font_size_percent != null && zoneHeight > 0) {
+                    if (field.font_size_percent != null && !field._user_explicit_font_size && zoneHeight > 0) {
                         return [id, { ...field, font_size: Math.round(field.font_size_percent / 100 * zoneHeight) }];
                     }
                     return [id, field];

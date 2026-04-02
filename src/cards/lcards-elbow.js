@@ -2444,12 +2444,14 @@ export class LCARdSElbow extends LCARdSButton {
         // Re-apply font_size_percent against zone height for each field in its group.
         // _resolveTextConfiguration() converted percent → px using full card height;
         // now we have zone bounds we can compute the correct zone-relative size.
+        // Guard: skip when the user set an explicit font_size (_user_explicit_font_size),
+        // otherwise preset-default font_size_percent would overwrite it.
         for (const [zoneName, fields] of Object.entries(groups)) {
             const zoneData = this._zones.get(zoneName);
             if (!zoneData) continue;
             const zh = zoneData.bounds.height;
             for (const [id, field] of Object.entries(fields)) {
-                if (field.font_size_percent != null && zh > 0) {
+                if (field.font_size_percent != null && !field._user_explicit_font_size && zh > 0) {
                     fields[id] = { ...field, font_size: Math.round(field.font_size_percent / 100 * zh) };
                 }
             }

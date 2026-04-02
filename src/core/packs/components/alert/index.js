@@ -126,13 +126,13 @@ export const alertComponents = {
         },
 
         // ---------------------------------------------------------------------------
-        // text_areas — named map of interior cavities, in viewBox coordinate space
+        // zones — named map of interior cavities, in viewBox coordinate space
         // (viewBox: 0 0 100 85.56).  _buildComponentTextMarkup() uses these directly
         // to position text in viewBox units so it scales 1:1 with the shape.
         //
-        // Each text field declares which area it lives in via its `text_area` key.
-        // Position / x_percent / y_percent are resolved relative to that area.
-        // font_size is in viewBox units; font_size_percent (% of area height) is
+        // Each text field declares which zone it lives in via its `zone` key.
+        // Position / x_percent / y_percent are resolved relative to that zone.
+        // font_size is in viewBox units; font_size_percent (% of zone height) is
         // an alternative that is independent of the viewBox scale.
         //
         // 'center' cavity — between the two bar-cap sections, clear of side panels:
@@ -141,10 +141,10 @@ export const alertComponents = {
         //   Left side panel:  x = 15.10  (inner edge of left slab)
         //   Right side panel: x = 84.77  (inner edge of right slab)
         //
-        // Split into two named areas (one per label) so the editor can expose a
-        // text_area dropdown and each label can be independently sized/positioned.
+        // Split into two named zones (one per label) so the editor can expose a
+        // zone dropdown and each label can be independently sized/positioned.
         // ---------------------------------------------------------------------------
-        text_areas: {
+        zones: {
             alert_line: {
                 x:      15.10,
                 y:      25.26,

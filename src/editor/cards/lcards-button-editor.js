@@ -701,7 +701,7 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
         let componentTextFields = [];
         if (this.config?.component) {
             const componentDef = window.lcards?.core?.getComponentManager?.()?.getComponent?.(this.config.component);
-            availableZones  = { ...(componentDef?.text_areas || {}) };
+            availableZones  = { ...(componentDef?.zones || {}) };
             // Preset field names (excluding 'default') so the editor can offer them as
             // one-click "add" suggestions styled differently from generic quick-add fields.
             const allComponentFields = Object.keys(componentDef?.text || {}).filter(k => k !== 'default');
