@@ -3317,9 +3317,6 @@ export class LCARdSButton extends LCARdSCard {
         // Build button configuration
         const buttonConfig = {
             id: 'button',
-            label: this._processedTexts.label,
-            content: this._processedTexts.content,
-            texts: this._processedTexts.texts,
             preset: this.config.preset, // Pass preset for corner radius calculation
             style: this._buttonStyle,
             size: [width, height]
@@ -4254,13 +4251,6 @@ export class LCARdSButton extends LCARdSCard {
             fallback: 'var(--lcars-color-secondary, #000000)'
         }));
 
-        // Font properties: text.default.font_*
-        const fontSize = this._buttonStyle?.text?.default?.font_size || '14px';
-        const fontWeight = this._buttonStyle?.text?.default?.font_weight || 'bold';
-        const fontFamily = this._buttonStyle?.text?.default?.font_family || "'LCARS', 'Antonio', sans-serif";
-
-        const text = config.label || 'LCARdS Button';
-
         // Resolve border configuration with per-corner support
         const border = this._resolveBorderConfiguration();
 
@@ -4416,14 +4406,22 @@ export class LCARdSButton extends LCARdSCard {
                 }
                 // textMarkup stays '' — text already embedded in backgroundMarkup
             } else {
-                // Standard mode: text in outer button SVG (pixel space)
-                const processedFields = this._processTextFields(textFields, width, height, this._processedIcon);
-                textMarkup = this._generateTextElements(processedFields);
+                // Standard mode: text in outer button SVG (pixel space), zone-aware.
+                // _rebuildZones must be called here (not earlier) because width/height
+                // are computed just-in-time for every render in _renderButtonContent().
+                this._rebuildZones(width, height);
+                textMarkup = this._generateZoneTextMarkup(textFields);
             }
         }
 
         const svgAttrs = `width="${width}" height="${height}" viewBox="${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}" xmlns="http://www.w3.org/2000/svg"`;
         const gAttrs   = `data-button-id="button" data-overlay-id="button" class="button-group" style="pointer-events: visiblePainted; cursor: pointer;"`;
+
+        // Debug zone overlay — only present when config.debug_zones is true and
+        // _rebuildZones has already been called (standard mode path above).
+        const debugZoneMarkup = (!this._processedSvg?.componentTextAreas)
+            ? this._generateZoneDebugMarkup()
+            : '';
 
         const svgString = `
             <svg ${svgAttrs}>
@@ -4435,6 +4433,7 @@ export class LCARdSButton extends LCARdSCard {
                     ${iconData.markup}
                     ${textMarkup}
                 </g>
+                ${debugZoneMarkup}
             </svg>
         `.trim();
 
@@ -4827,11 +4826,10 @@ export class LCARdSButton extends LCARdSCard {
                 show: fieldConfig.show !== undefined ? fieldConfig.show : (presetFieldConfig.show !== undefined ? presetFieldConfig.show : true),
                 template: fieldConfig.template !== undefined ? fieldConfig.template : (presetFieldConfig.template !== undefined ? presetFieldConfig.template : true),
 
-                // Component text-area routing and relative font sizing
-                // text_area: which named area in componentDef.text_areas this field lives in
-                // font_size_percent: font size as % of the text_area height (alternative to
+                // zone: which named area (from _zones / componentDef.text_areas) this field lives in.
+                // font_size_percent: font size as % of the zone height (alternative to
                 //   absolute viewBox-unit font_size; independent of viewBox coordinate scale)
-                text_area: fieldConfig.text_area || presetFieldConfig.text_area || null,
+                zone: fieldConfig.zone || presetFieldConfig.zone || null,
                 // font_size_percent: preserved (raw, unconverted) for component-mode only.
                 // _buildComponentTextMarkup uses this in viewBox units independently of font_size.
                 // For standard mode, font_size above already incorporates the percent conversion.
@@ -5430,14 +5428,14 @@ export class LCARdSButton extends LCARdSCard {
         const usedAreaIds = new Set();
         for (const [, field] of Object.entries(textFields)) {
             if (!field.show || !(field.content || '')) continue;
-            const areaId = (field.text_area && componentTextAreas[field.text_area])
-                ? field.text_area : defaultAreaKey;
+            const areaId = (field.zone && componentTextAreas[field.zone])
+                ? field.zone : defaultAreaKey;
             if (componentTextAreas[areaId]) usedAreaIds.add(areaId);
         }
 
         if (usedAreaIds.size === 0) return '';
 
-        // One <clipPath> per referenced text_area, id scoped to this card instance
+        // One <clipPath> per referenced zone, id scoped to this card instance
         const clipPaths = [];
         for (const areaId of usedAreaIds) {
             const ta = componentTextAreas[areaId];
@@ -5471,9 +5469,9 @@ export class LCARdSButton extends LCARdSCard {
                 }
             }
 
-            // Resolve which text_area this field belongs to
-            const areaId = (field.text_area && componentTextAreas[field.text_area])
-                ? field.text_area : defaultAreaKey;
+            // Resolve which zone this field belongs to
+            const areaId = (field.zone && componentTextAreas[field.zone])
+                ? field.zone : defaultAreaKey;
             const ta = componentTextAreas[areaId];
             if (!ta) continue;
 
@@ -5598,6 +5596,194 @@ export class LCARdSButton extends LCARdSCard {
         if (textElements.length === 0) return '';
 
         return [...clipPaths, ...textElements].join('\n            ');
+    }
+
+    // ============================================================================
+    // Zone-based text injection (shared by slider, elbow, and future subclasses)
+    // ============================================================================
+
+    /**
+     * Override of LCARdSCard._calculateZones — populate this._zones for the button.
+     *
+     * - Component mode: translates componentTextAreas (from the component pack) into zones.
+     * - Default mode: adds a single 'body' zone covering the full card dimensions.
+     *
+     * Called by _rebuildZones() before any text injection.
+     *
+     * @param {number} width
+     * @param {number} height
+     * @protected
+     */
+    _calculateZones(width, height) {
+        const compAreas = this._processedSvg?.componentTextAreas;
+        if (compAreas && Object.keys(compAreas).length > 0) {
+            for (const [name, ta] of Object.entries(compAreas)) {
+                this._zones.set(name, { bounds: { x: ta.x, y: ta.y, width: ta.width, height: ta.height } });
+            }
+        } else {
+            // Default (non-component) button: single 'body' zone = full card area.
+            this._zones.set('body', { bounds: { x: 0, y: 0, width, height } });
+        }
+    }
+
+    /**
+     * Inject resolved text fields into a parsed SVG element, grouped by zone.
+     *
+     * Each field is routed to the zone named by its `zone` config key.
+     * Fields without a zone fall back to the first enabled border zone (for
+     * slider), then 'track', then 'text', then 'body'.
+     *
+     * Must be called after this._zones is populated (via _rebuildZones).
+     *
+     * @param {Element}  svgElement - Parsed SVG DOM element to inject into
+     * @param {number}   width      - SVG pixel width  (zone coordinate space)
+     * @param {number}   height     - SVG pixel height (zone coordinate space)
+     * @protected
+     */
+    /**
+     * Generate zone-aware text markup as an SVG string.
+     *
+     * This is the string-based counterpart of `_injectTextFieldsToElement` —
+     * it produces the same `<g class="lcards-text-area" transform="translate(x,y)">` groups
+     * but as a raw SVG string so it can be embedded directly in the button's SVG template.
+     *
+     * **Requires** `_rebuildZones(width, height)` to have been called first so that
+     * `this._zones` is current (including any user-defined zones from `config.zones`).
+     *
+     * @param {{[key: string]: any}} textFields — resolved text field config (from `_resolveTextConfiguration`)
+     * @returns {string} SVG markup string (empty string when there are no fields to render)
+     * @private
+     */
+    _generateZoneTextMarkup(textFields) {
+        if (!textFields || Object.keys(textFields).length === 0) return '';
+
+        // Determine default zone using same priority as _injectTextFieldsToElement
+        const borderPriority = ['left', 'right', 'top', 'bottom'];
+        const defaultZoneName =
+            borderPriority.find(n => this._zones.has(n)) ||
+            (this._zones.has('track') ? 'track' : (this._zones.has('text') ? 'text' : 'body'));
+
+        // Group fields by their resolved zone key, falling back gracefully
+        const groups = {};
+        for (const [id, field] of Object.entries(textFields)) {
+            const requested = field.zone || defaultZoneName;
+            const zoneName = this._zones.has(requested) ? requested
+                : (this._zones.has('track') ? 'track' : defaultZoneName);
+            if (!groups[zoneName]) groups[zoneName] = {};
+            groups[zoneName][id] = field;
+        }
+
+        let output = '';
+
+        for (const [zoneName, fields] of Object.entries(groups)) {
+            const zoneData = this._zones.get(zoneName);
+            if (!zoneData) {
+                lcardsLog.warn(`[LCARdSButton] _generateZoneTextMarkup: zone '${zoneName}' not found — skipping`);
+                continue;
+            }
+
+            const { x, y, width: zoneWidth, height: zoneHeight } = zoneData.bounds;
+
+            // Re-apply font_size_percent against zone height (same correction as _injectTextFieldsToElement)
+            const zoneAdjustedFields = Object.fromEntries(
+                Object.entries(fields).map(([id, field]) => {
+                    if (field.font_size_percent != null && zoneHeight > 0) {
+                        return [id, { ...field, font_size: Math.round(field.font_size_percent / 100 * zoneHeight) }];
+                    }
+                    return [id, field];
+                })
+            );
+
+            const processedFields = this._processTextFields(zoneAdjustedFields, zoneWidth, zoneHeight, null);
+            const zoneTextMarkup = this._generateTextElements(processedFields);
+            if (!zoneTextMarkup) continue;
+
+            output += `<g class="lcards-text-area" data-zone="${zoneName}" transform="translate(${x}, ${y})">${zoneTextMarkup}</g>`;
+        }
+
+        return output;
+    }
+
+    _injectTextFieldsToElement(svgElement, width, height) {
+        const textFields = this._resolveTextConfiguration();
+        if (!textFields || Object.keys(textFields).length === 0) return;
+
+        // Determine default zone: first enabled border in left→right→top→bottom priority,
+        // then fall back to track, then the component's native 'text' zone, then 'body'.
+        const borderPriority = ['left', 'right', 'top', 'bottom'];
+        const defaultZoneName =
+            borderPriority.find(n => this._zones.has(n)) ||
+            (this._zones.has('track') ? 'track' : (this._zones.has('text') ? 'text' : 'body'));
+
+        // Group fields by their resolved zone key, falling back gracefully.
+        const groups = {};
+        for (const [id, field] of Object.entries(textFields)) {
+            const requested = field.zone || defaultZoneName;
+            const zoneName = this._zones.has(requested) ? requested
+                : (this._zones.has('track') ? 'track' : defaultZoneName);
+            if (!groups[zoneName]) groups[zoneName] = {};
+            groups[zoneName][id] = field;
+        }
+        const legacyTextZone = svgElement.querySelector('#text-zone');
+        if (legacyTextZone) legacyTextZone.innerHTML = '';
+
+        // Remove any previously dynamically-created text area groups (idempotent re-renders)
+        svgElement.querySelectorAll('.lcards-text-area').forEach(el => el.remove());
+
+        const parser = new DOMParser();
+        let totalInjected = 0;
+
+        for (const [zoneName, fields] of Object.entries(groups)) {
+            const zoneData = this._zones.get(zoneName);
+            if (!zoneData) {
+                lcardsLog.warn(`[LCARdSButton] Zone '${zoneName}' not found in _zones — skipping`);
+                continue;
+            }
+
+            const { x, y, width: zoneWidth, height: zoneHeight } = zoneData.bounds;
+
+            // Re-apply font_size_percent against zone height.
+            // _resolveTextConfiguration() converted percent → px using full card height;
+            // now we have zone bounds we can compute the correct zone-relative size.
+            const zoneAdjustedFields = Object.fromEntries(
+                Object.entries(fields).map(([id, field]) => {
+                    if (field.font_size_percent != null && zoneHeight > 0) {
+                        return [id, { ...field, font_size: Math.round(field.font_size_percent / 100 * zoneHeight) }];
+                    }
+                    return [id, field];
+                })
+            );
+
+            const processedFields = this._processTextFields(zoneAdjustedFields, zoneWidth, zoneHeight, null);
+            const textMarkup = this._generateTextElements(processedFields);
+            if (!textMarkup) continue;
+
+            const doc = parser.parseFromString(`<g>${textMarkup}</g>`, 'image/svg+xml');
+            if (doc.querySelector('parsererror')) {
+                lcardsLog.warn(`[LCARdSButton] Failed to parse text markup for zone '${zoneName}'`);
+                continue;
+            }
+
+            let targetGroup;
+            if (zoneName === 'text' && legacyTextZone) {
+                // Reuse the component's pre-positioned #text-zone group
+                targetGroup = legacyTextZone;
+            } else {
+                targetGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                targetGroup.setAttribute('class', 'lcards-text-area');
+                targetGroup.setAttribute('data-zone', zoneName);
+                targetGroup.setAttribute('transform', `translate(${x}, ${y})`);
+                svgElement.appendChild(targetGroup);
+            }
+
+            Array.from(doc.documentElement.children).forEach(el => {
+                targetGroup.appendChild(el.cloneNode(true));
+            });
+
+            totalInjected += processedFields.length;
+        }
+
+        lcardsLog.debug(`[LCARdSButton] Injected ${totalInjected} text field(s) across ${Object.keys(groups).length} zone(s)`);
     }
 
     /**

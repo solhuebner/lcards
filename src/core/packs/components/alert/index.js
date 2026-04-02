@@ -169,7 +169,7 @@ export const alertComponents = {
         // ---------------------------------------------------------------------------
         text: {
             alert_text: {
-                text_area:   'alert_line',
+                zone:        'alert_line',
                 content:     'ALERT',
                 show:        true,
                 position:    'center',
@@ -184,7 +184,7 @@ export const alertComponents = {
                 }
             },
             sub_text: {
-                text_area:   'sub_line',
+                zone:        'sub_line',
                 content:     'CONDITION',
                 show:        true,
                 stretch:     true,  // stretch text to fill width of area

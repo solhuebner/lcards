@@ -13,6 +13,8 @@ import { deepMerge } from '../../core/config-manager/merge-helpers.js';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 import { LCARdSFormFieldHelper as FormField } from '../components/shared/lcards-form-field.js';
 import '../components/sound/lcards-card-sound-tab.js';
+import '../components/lcards-zone-list-editor.js';
+import '../components/shared/lcards-form-section.js';
 
 export class LCARdSBaseEditor extends LitElement {
 
@@ -1344,6 +1346,63 @@ export class LCARdSBaseEditor extends LitElement {
             { label: '🖖 Main Engineering', content: () => this._renderDeveloperTab() },
             { label: 'YAML', content: () => this._renderYamlTab() }
         ];
+    }
+
+    /**
+     * Zones tab — add/edit/remove custom zones that override or extend the
+     * card's automatically calculated zones.  Text fields reference zones by
+     * name via the `zone:` key.
+     *
+     * The tab is identical for all card types because zone management is
+     * handled entirely by the base-class _mergeUserZones / _rebuildZones pipeline.
+     *
+     * @returns {TemplateResult}
+     * @protected
+     */
+    _renderZonesTab() {
+        const zones = this.config?.zones || {};
+        const debugZones = this.config?.debug_zones === true;
+        return html`
+            <lcards-form-section
+                header="Custom Zones"
+                icon="mdi:vector-rectangle"
+                ?expanded=${true}>
+                <lcards-zone-list-editor
+                    .zones=${zones}
+                    @zones-changed=${(e) => {
+                        // CRITICAL: Replace zones entirely — deepMerge would re-add stripped
+                        // px/percent fields after a unit-mode toggle in the editor.
+                        this.config = { ...this.config, zones: e.detail.value };
+                        this._updateConfig(this.config, 'visual');
+                    }}>
+                </lcards-zone-list-editor>
+            </lcards-form-section>
+
+            <lcards-form-section
+                header="Developer Tools"
+                icon="mdi:bug-outline"
+                ?expanded=${debugZones}>
+                <div class="control-row" style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;">
+                    <div class="control-label" style="display:flex;flex-direction:column;gap:2px;">
+                        <span>Show zone debug overlay</span>
+                        <span class="hint" style="font-size:0.8em;opacity:0.7;">Renders coloured outlines and labels over each zone</span>
+                    </div>
+                    <ha-switch
+                        .checked=${debugZones}
+                        @change=${(e) => {
+                            const newConfig = { ...this.config };
+                            if (e.target.checked) {
+                                newConfig.debug_zones = true;
+                            } else {
+                                delete newConfig.debug_zones;
+                            }
+                            this.config = newConfig;
+                            this._updateConfig(this.config, 'visual');
+                        }}
+                    ></ha-switch>
+                </div>
+            </lcards-form-section>
+        `;
     }
 
     /**

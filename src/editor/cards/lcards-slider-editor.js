@@ -455,6 +455,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
         baseTabs.push(
             { label: 'Slider Track', content: () => this._renderTrackTab() },
             { label: 'Borders', content: () => this._renderBordersTab() },
+            { label: 'Zones', content: () => this._renderZonesTab() },
             { label: 'Text Fields', content: () => this._renderTextTab() },
             { label: 'Actions', content: () => this._renderActionsTab() },
             // Sound tab: per-card mute + slider & action event overrides
@@ -1638,24 +1639,30 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
         // CRITICAL: Use this.config?.text to ensure Lit reactivity when config changes
         const textConfig = this.config?.text || {};
 
-        // Build the available text areas from the current border configuration.
+        // Build the available zones from the current border configuration.
         // Only include borders that are actually enabled and have a non-zero size.
         // 'track' (the inner slider body) is always present.
         const borderCfg = this.config?.style?.border || {};
         const getBorderSize = (b) => b?.size ?? b?.width ?? 0;
-        const componentTextAreas = {};
-        if (borderCfg.left?.enabled   && getBorderSize(borderCfg.left)   > 0) componentTextAreas.left   = 'Left Border';
-        if (borderCfg.right?.enabled  && getBorderSize(borderCfg.right)  > 0) componentTextAreas.right  = 'Right Border';
-        if (borderCfg.top?.enabled    && getBorderSize(borderCfg.top)    > 0) componentTextAreas.top    = 'Top Border';
-        if (borderCfg.bottom?.enabled && getBorderSize(borderCfg.bottom) > 0) componentTextAreas.bottom = 'Bottom Border';
-        componentTextAreas.track = 'Track (inner)';
+        const availableZones = {};
+        if (borderCfg.left?.enabled   && getBorderSize(borderCfg.left)   > 0) availableZones.left   = 'Left Border';
+        if (borderCfg.right?.enabled  && getBorderSize(borderCfg.right)  > 0) availableZones.right  = 'Right Border';
+        if (borderCfg.top?.enabled    && getBorderSize(borderCfg.top)    > 0) availableZones.top    = 'Top Border';
+        if (borderCfg.bottom?.enabled && getBorderSize(borderCfg.bottom) > 0) availableZones.bottom = 'Bottom Border';
+        availableZones.track = 'Track (inner)';
+        // Always merge user-defined config.zones so any custom zones appear in the selector.
+        for (const name of Object.keys(this.config?.zones || {})) {
+            if (!availableZones[name]) {
+                availableZones[name] = name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            }
+        }
 
         return html`
             <lcards-multi-text-editor-v2
                 .editor=${this}
                 .text=${textConfig}
                 .hass=${this.hass}
-                .componentTextAreas=${componentTextAreas}
+                .availableZones=${availableZones}
                 @text-changed=${(e) => {
                     // CRITICAL: Replace entire text object, don't merge (deepMerge won't delete fields)
                     this.config = { ...this.config, text: e.detail.value };

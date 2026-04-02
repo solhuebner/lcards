@@ -55,7 +55,7 @@ text:
 | `x_percent` | number | — | X as percentage of card width (0–100) |
 | `y_percent` | number | — | Y as percentage of card height (0–100) |
 | `font_size` | number / string | from `default` | Size in px, or CSS value (`14px`, `1.2rem`, `var(--lcars-text-size)`) |
-| `font_size_percent` | number | — | Font size as a percentage of the text area height (1–100); overrides `font_size` in component mode |
+| `font_size_percent` | number | — | Font size as a percentage of the **zone height** (1–100+); overrides `font_size` when set. 100 = full zone height. See [Zones](#zones). |
 | `font_weight` | string / number | `"normal"` | CSS font-weight keyword (`normal`, `bold`) or numeric (100–900) |
 | `font_family` | string | from `default` | CSS font-family or variable, e.g. `"Antonio, sans-serif"` or `var(--lcars-font)` |
 | `text_transform` | string | `"none"` | `none`, `uppercase`, `lowercase`, `capitalize` |
@@ -65,7 +65,7 @@ text:
 | `rotation` | number | `0` | Rotation in degrees (−360 to 360) |
 | `padding` | number / object | — | Offset in px: single number (all sides) or `{ top, right, bottom, left }` |
 | `stretch` | boolean / number | — | Stretch text to fill available width; `true` = 100%, `0.8` = 80% |
-| `text_area` | string | — | Named text area key (component mode only) |
+| `zone` | string | auto | Named zone to render this field inside. Defaults to the card's primary zone (`body`, `track`, first border, etc.). See [Zones](#zones). |
 | `template` | boolean | `false` | Enable legacy template evaluation for `content` |
 | `display_format` | string | `"friendly"` | How to format entity state/attribute tokens — see [Display Format](#display-format) below |
 
@@ -229,6 +229,97 @@ text:
     font_size: 10
     color: "var(--lcards-gray)"
 ```
+
+---
+
+## Zones
+
+Every card automatically divides its SVG surface into named **zones** — rectangular areas that text fields can be targeted to via the `zone:` key.  The 9-point positioning system, padding, and `font_size_percent` all operate within the zone bounds, not the full card.
+
+### Auto-calculated zones per card type
+
+| Card | Auto zones |
+|------|------------|
+| **Button** (preset mode) | `body` — full card area |
+| **Button** (component mode) | Named `text_areas` declared by the component (e.g. `label`, `value`) |
+| **Slider** | `track` (inner track bounds) + one zone per enabled border: `left`, `right`, `top`, `bottom` |
+| **Elbow** (simple) | `vertical_bar`, `horizontal_bar`, `body` (open corner area) |
+| **Elbow** (segmented) | `outer_vertical_bar`, `inner_vertical_bar`, `outer_horizontal_bar`, `inner_horizontal_bar`, `body` |
+| **Elbow** (frame) | `top`, `bottom`, `left`, `right`, `body` |
+
+### Routing a field to a zone
+
+```yaml
+text:
+  label:
+    content: "Brightness"
+    zone: horizontal_bar     # render inside the elbow's horizontal bar
+    position: center
+    font_size_percent: 60    # 60% of the horizontal_bar height
+```
+
+Fields without a `zone:` key fall back to the card's primary zone (`body`, `track`, or the first enabled border).
+
+### Custom zones (config.zones)
+
+You can define additional zones or override auto-calculated ones with `config.zones`.  Values accept pixels, percent, or a mix per axis:
+
+```yaml
+zones:
+  sidebar:
+    x: 0
+    y: 0
+    width: 80
+    height_percent: 100     # full card height, fixed 80 px wide
+
+  value_area:
+    x_percent: 30
+    y_percent: 0
+    width_percent: 70
+    height_percent: 100
+```
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `x` | number (px) | Left edge in pixels |
+| `y` | number (px) | Top edge in pixels |
+| `width` | number (px) | Width in pixels |
+| `height` | number (px) | Height in pixels |
+| `x_percent` | number (0–100) | Left edge as % of card width |
+| `y_percent` | number (0–100) | Top edge as % of card height |
+| `width_percent` | number (0–100) | Width as % of card width |
+| `height_percent` | number (0–100) | Height as % of card height |
+
+Px takes precedence over percent when both are present on the same axis.  Percent values are resolved against the card's actual rendered pixel dimensions at rebuild time, so they are responsive to card size changes.
+
+Custom zone names that match an auto-calculated zone (e.g. `body`) **replace** the auto-calculated bounds entirely.
+
+Zones can be managed visually using the **Zones** tab in the card editor.
+
+### Debug overlay
+
+Set `debug_zones: true` on any card to render a coloured, dashed overlay showing every zone's bounds and name on top of the card. Useful when designing text layouts or diagnosing zone placement.
+
+```yaml
+type: custom:lcards-button
+entity: light.kitchen
+preset: lozenge
+debug_zones: true
+zones:
+  sidebar:
+    x: 0
+    y: 0
+    width: 60
+    height_percent: 100
+```
+
+The toggle is also available in the **Zones → Developer Tools** section of the card editor. Remove or set to `false` before committing your dashboard config.
+
+### font_size_percent and cap_height_ratio
+
+`font_size_percent: 100` sets the SVG `font-size` attribute equal to the zone height.  Because fonts include descenders and internal leading, the visible cap-height (uppercase letter tops) sits at roughly `font-size × cap_height_ratio` (~0.70 by default).  The text is still vertically centred optically within the zone via a `cap_height_ratio`-based y-shift.
+
+To make cap-tops fill the full zone height use `font_size_percent: ~143` (i.e. `100 / 0.70`).  Adjust `cap_height_ratio` on the field to match any custom font.
 
 ---
 

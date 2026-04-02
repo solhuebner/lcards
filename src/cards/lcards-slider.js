@@ -272,7 +272,6 @@ export class LCARdSSlider extends LCARdSButton {
         this._containerSize = { width: 200, height: 60 };
 
         // SVG component state
-        this._zones = new Map();          // Zone elements and bounds
         this._componentLoaded = false;
         this._componentMetadata = null;   // NEW: Component metadata (zones, features, etc.)
 
@@ -1464,90 +1463,47 @@ export class LCARdSSlider extends LCARdSButton {
     }
 
     /**
-     * Inject text fields into a parsed SVG element (new rendering path).
-     * This version works with parsed DOM elements instead of _componentSvg.
-     * Uses zones from this._zones (always populated before this is called).
-     * @param {Element} svgElement - Parsed SVG DOM element
-     * @param {number} width - SVG width (fallback only)
-     * @param {number} height - SVG height (fallback only)
-     * @private
+     * Override of LCARdSCard._calculateZones — populate this._zones for the slider.
+     *
+     * Called by _rebuildZones() (base-class) before text injection.
+     * - Gets named zones from the active component's calculateZones().
+     * - For the 'default' component, also registers the four enabled border zones
+     *   and a border-aware track zone so text fields can be routed per-border.
+     *
+     * @param {number} width
+     * @param {number} height
+     * @protected
      */
-    _injectTextFieldsToElement(svgElement, width, height) {
-        // Resolve all text field configurations (inherited from button card)
-        const textFields = this._resolveTextConfiguration();
-        if (!textFields || Object.keys(textFields).length === 0) return;
+    _calculateZones(width, height) {
+        const componentName = this.config.component || 'default';
+        const rawZones = this._componentCalculateZones
+            ? this._componentCalculateZones(width, height, { style: this._sliderStyle, config: this.config })
+            : null;
 
-        // Determine default zone: first enabled border in left→right→top→bottom priority,
-        // then fall back to track, then the component's own 'text' zone.
-        const borderPriority = ['left', 'right', 'top', 'bottom'];
-        const defaultZoneName =
-            borderPriority.find(n => this._zones.has(n)) ||
-            (this._zones.has('track') ? 'track' : 'text');
-
-        // Group fields by their resolved text_area, falling back to the default zone.
-        const groups = {};
-        for (const [id, field] of Object.entries(textFields)) {
-            const requested = field.text_area || defaultZoneName;
-            // If the requested zone doesn't exist, fall back gracefully
-            const zoneName = this._zones.has(requested) ? requested
-                : (this._zones.has('track') ? 'track' : defaultZoneName);
-            if (!groups[zoneName]) groups[zoneName] = {};
-            groups[zoneName][id] = field;
+        if (!rawZones) {
+            lcardsLog.warn('[LCARdSSlider] _calculateZones: component calculateZones() missing or returned null');
+            return;
         }
 
-        // Clear the legacy #text-zone element (used for the component's 'text' zone)
-        const legacyTextZone = svgElement.querySelector('#text-zone');
-        if (legacyTextZone) legacyTextZone.innerHTML = '';
-
-        // Remove any previously dynamically-created text area groups (idempotent re-renders)
-        svgElement.querySelectorAll('.lcards-text-area').forEach(el => el.remove());
-
-        const parser = new DOMParser();
-        let totalInjected = 0;
-
-        for (const [zoneName, fields] of Object.entries(groups)) {
-            const zoneData = this._zones.get(zoneName);
-            if (!zoneData) {
-                lcardsLog.warn(`[LCARdSSlider] Text area '${zoneName}' not found in zones map — skipping`);
-                continue;
-            }
-
-            const { x, y, width: zoneWidth, height: zoneHeight } = zoneData.bounds;
-
-            // Process and generate elements relative to (0, 0) within the zone
-            const processedFields = this._processTextFields(fields, zoneWidth, zoneHeight, null);
-            const textMarkup = this._generateTextElements(processedFields);
-            if (!textMarkup) continue;
-
-            const doc = parser.parseFromString(`<g>${textMarkup}</g>`, 'image/svg+xml');
-            if (doc.querySelector('parsererror')) {
-                lcardsLog.warn(`[LCARdSSlider] Failed to parse text markup for zone '${zoneName}'`);
-                continue;
-            }
-
-            let targetGroup;
-            if (zoneName === 'text' && legacyTextZone) {
-                // For the component's native 'text' zone, reuse the pre-positioned #text-zone element
-                // (its transform was set by the component renderer and is already correct)
-                targetGroup = legacyTextZone;
-            } else {
-                // Create a new positioned group for named border areas and override zones
-                targetGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-                targetGroup.setAttribute('class', 'lcards-text-area');
-                targetGroup.setAttribute('data-area', zoneName);
-                targetGroup.setAttribute('transform', `translate(${x}, ${y})`);
-                svgElement.appendChild(targetGroup);
-            }
-
-            Array.from(doc.documentElement.children).forEach(el => {
-                targetGroup.appendChild(el.cloneNode(true));
-            });
-
-            totalInjected += processedFields.length;
+        // Populate this._zones from component-provided zones
+        for (const [zoneName, zoneData] of Object.entries(rawZones)) {
+            this._zones.set(zoneName, { bounds: zoneData });
         }
 
-        lcardsLog.debug(`[LCARdSSlider] Injected ${totalInjected} text fields across ${Object.keys(groups).length} zone(s)`);
+        // For Default component, also register named border zones + border-aware track zone
+        if (componentName === 'default') {
+            const { borderZones, trackZone } = this._calculateZonesFromBorders(width, height);
+            for (const [name, bounds] of Object.entries(borderZones)) {
+                this._zones.set(name, { bounds });
+            }
+            this._zones.set('track', { bounds: trackZone });
+            lcardsLog.debug('[LCARdSSlider] _calculateZones: registered named text zones from borders:', { borderZones, track: trackZone });
+        }
+
+        lcardsLog.debug('[LCARdSSlider] _calculateZones: stored zones in Map:', this._zones);
     }
+
+    // _injectTextFieldsToElement is defined on LCARdSButton and inherited by this class.
 
     /**
      * Generate track content (pills or gradient bar)
@@ -2920,8 +2876,10 @@ export class LCARdSSlider extends LCARdSButton {
     _renderWithRenderer(width, height) {
         lcardsLog.debug(`[LCARdSSlider] _renderWithRenderer(${width}, ${height})`);
 
-        // Step 1: Calculate zones using component's helper.
-        // Pass full context so components like 'shaped' can read orientation and style config.
+        // Step 1: Get raw component zones for the render pipeline.
+        // These are the unadjusted zone bounds returned by the component — Step 1.5 will
+        // apply border/margin insets to them exactly once.
+        const componentName = this.config.component || 'default';
         const zones = this._componentCalculateZones
             ? this._componentCalculateZones(width, height, { style: this._sliderStyle, config: this.config })
             : null;
@@ -2931,28 +2889,11 @@ export class LCARdSSlider extends LCARdSButton {
             return html`<div class="slider-error">Component missing calculateZones()</div>`;
         }
 
-        // Step 1.25: Store zones in Map for unified text field processing
-        this._zones.clear();
-        for (const [zoneName, zoneData] of Object.entries(zones)) {
-            this._zones.set(zoneName, { bounds: zoneData });
-        }
-
-        // Step 1.3: For Default component, register all named border zones for per-field routing.
-        // Each enabled border (left/right/top/bottom) becomes a named text area in this._zones.
-        // The track zone is also overridden with the border-aware interior bounds.
-        const componentName = this.config.component || 'default';
-        if (componentName === 'default') {
-            const { borderZones, trackZone } = this._calculateZonesFromBorders(width, height);
-            for (const [name, bounds] of Object.entries(borderZones)) {
-                this._zones.set(name, { bounds });
-            }
-            // Override the component's track zone with the border-aware calculation
-            this._zones.set('track', { bounds: trackZone });
-            lcardsLog.debug('[LCARdSSlider] Registered named text zones from borders:', {
-                borderZones,
-                track: trackZone
-            });
-        }
+        // Step 1.25: Rebuild this._zones via the base-class pipeline for text-field routing.
+        // this._zones includes named border zones (left/right/top/bottom) and a border-aware
+        // track zone — used by _injectTextFieldsToElement, NOT by the render pipeline below.
+        // Keeping these separate avoids double-applying border insets to the render zones.
+        this._rebuildZones(width, height);
 
         lcardsLog.debug('[LCARdSSlider] Stored component zones in _zones Map:', this._zones);
 
@@ -3133,6 +3074,9 @@ export class LCARdSSlider extends LCARdSButton {
 
         // Inject text fields if configured
         this._injectTextFieldsToElement(shellElement, width, height);
+
+        // Debug zone overlay — appended after text so it renders on top
+        this._injectZoneDebugOverlay(shellElement);
 
         // Apply corner clip-path for rounded card corners (must be last — clips everything)
         this._applyCornerClip(shellElement, width, height);

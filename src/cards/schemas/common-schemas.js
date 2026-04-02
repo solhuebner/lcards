@@ -1192,12 +1192,12 @@ export function getTextSchema(options = {}) {
                         }
                     }
                 },
-                text_area: {
+                zone: {
                     type: 'string',
-                    description: 'Named text area key from the component\'s text_areas map. Positions this field within that area (component mode only). Defaults to the first area if not set.',
+                    description: 'Named zone key to route this text field to. For component cards this matches a key in the component\'s text_areas map. For slider/elbow cards this matches a named layout zone (e.g. left, track, vertical_bar). Defaults to the first zone if not set.',
                     'x-ui-hints': {
-                        label: 'Text Area',
-                        helper: 'Which named area on the component this text field belongs to'
+                        label: 'Zone',
+                        helper: 'Which named layout zone this text field is routed to'
                     }
                 },
                 display_format: {

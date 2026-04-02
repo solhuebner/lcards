@@ -403,6 +403,7 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
         if (mode === 'preset') {
             tabs.push(
                 { label: 'Card & Border', content: () => this._renderFromConfig(this._getCardBorderTabConfig()) },
+                { label: 'Zones', content: () => this._renderZonesTab() },
                 { label: 'Text', content: () => this._renderTextTab() },
                 { label: 'Icon', content: () => this._renderIconTab() }
             );
@@ -416,6 +417,7 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
         // Text tab is also available in component mode (for component text overlay fields)
         if (mode === 'component') {
             tabs.push(
+                { label: 'Zones', content: () => this._renderZonesTab() },
                 { label: 'Text', content: () => this._renderTextTab() }
             );
         }
@@ -692,18 +694,27 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
         // CRITICAL: Use this.config?.text to ensure Lit reactivity when config changes
         const textConfig = this.config?.text || {};
 
-        // Resolve component text areas so the editor can show area selectors and
+        // Resolve component zones so the editor can show zone selectors and
         // font_size_percent fields when this card uses a component with named text areas.
-        // Always provide arrays (possibly empty) to satisfy downstream prop types.
-        let componentTextAreas = [];
+        // Always provide an object (possibly empty) to satisfy downstream prop types.
+        let availableZones = {};
         let componentTextFields = [];
         if (this.config?.component) {
             const componentDef = window.lcards?.core?.getComponentManager?.()?.getComponent?.(this.config.component);
-            componentTextAreas  = componentDef?.text_areas || [];
+            availableZones  = { ...(componentDef?.text_areas || {}) };
             // Preset field names (excluding 'default') so the editor can offer them as
             // one-click "add" suggestions styled differently from generic quick-add fields.
             const allComponentFields = Object.keys(componentDef?.text || {}).filter(k => k !== 'default');
             componentTextFields = allComponentFields.length > 0 ? allComponentFields : [];
+        } else {
+            // Non-component preset mode: the card has a single full-card 'body' zone.
+            availableZones = { body: 'Body' };
+        }
+        // Always merge user-defined config.zones so any custom zones appear in the selector.
+        for (const name of Object.keys(this.config?.zones || {})) {
+            if (!availableZones[name]) {
+                availableZones[name] = name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            }
         }
 
         return html`
@@ -711,7 +722,7 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                 .editor=${this}
                 .text=${textConfig}
                 .hass=${this.hass}
-                .componentTextAreas=${componentTextAreas}
+                .availableZones=${availableZones}
                 .componentTextFields=${componentTextFields}
                 @text-changed=${(e) => {
                     // CRITICAL: Replace entire text object, don't merge (deepMerge won't delete fields)

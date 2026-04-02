@@ -169,16 +169,15 @@ export class LCARdSCard extends LCARdSNativeCard {
 
         // Template processing state
         this._templateUpdateScheduled = false;
-        this._processedTexts = {
-            label: '',
-            content: '',
-            texts: []
-        };
         /** @type {{[key: string]: any} | null} */
         this._processedIcon = null; // Processed icon configuration
 
         // SVG component reference (used by _extractZones; subclasses set this to their SVG element)
         this._componentSvg = null;
+
+        // Named zone map — populated by _rebuildZones() via each subclass's _calculateZones() override.
+        // Keys are zone names (e.g. 'left', 'track', 'horizontal_bar'); values are { bounds: {x,y,width,height} }.
+        this._zones = new Map();
 
         // Entity tracking for Jinja2 template updates
         this._trackedEntities = [];
@@ -3588,6 +3587,157 @@ export class LCARdSCard extends LCARdSNativeCard {
             zone.element.innerHTML = content;
             lcardsLog.trace(`[LCARdSCard] Injected content into zone "${zoneName}"`);
         }
+    }
+
+    // ============================================================================
+    // Programmatic Zone API (geometry-based, no DOM attributes required)
+    // ============================================================================
+
+    /**
+     * Abstract interface: calculate named zones for this card's geometry.
+     *
+     * Subclasses override this to populate this._zones with { bounds: {x,y,width,height} }
+     * entries for each layout region that text fields (or other content) can be routed to.
+     * The base implementation is a no-op; cards without zones simply leave _zones empty.
+     *
+     * Called automatically by _rebuildZones() before _mergeUserZones().
+     *
+     * @param {number} width  - Card/SVG pixel width
+     * @param {number} height - Card/SVG pixel height
+     * @protected
+     */
+    _calculateZones(width, height) { // eslint-disable-line no-unused-vars
+        // No-op in base class — subclasses override.
+    }
+
+    /**
+     * Merge user-defined zones from config.zones into this._zones.
+     *
+     * Runs after _calculateZones() so user entries supplement (or override) the
+     * card's calculated geometry.  Each entry must supply { x, y, width, height }.
+     *
+     * @protected
+     */
+    /**
+     * Merge user-defined zones from config.zones into _zones.
+     *
+     * Each zone definition supports either absolute pixel values or percent
+     * values (resolved against the card's rendered pixel dimensions at
+     * rebuild time).  Per-axis mixing is allowed — e.g. x:10 with
+     * height_percent:100 is valid.
+     *
+     * Supported keys (per zone):
+     *   x / x_percent, y / y_percent, width / width_percent, height / height_percent
+     *
+     * px takes precedence over percent when both are present on the same axis.
+     *
+     * @param {number} cardW - Card pixel width  (used to resolve *_percent values)
+     * @param {number} cardH - Card pixel height (used to resolve *_percent values)
+     * @protected
+     */
+    _mergeUserZones(cardW, cardH) {
+        const userZones = this.config?.zones;
+        if (!userZones || typeof userZones !== 'object') return;
+
+        for (const [name, def] of Object.entries(userZones)) {
+            if (!def || typeof def !== 'object') {
+                lcardsLog.warn(`[LCARdSCard] Skipping invalid user zone '${name}' — not an object`, def);
+                continue;
+            }
+
+            // Resolve each axis: px takes precedence, then percent × card dimension.
+            const resolve = (px, pct, total) => {
+                if (typeof px === 'number')  return px;
+                if (typeof pct === 'number') return pct / 100 * total;
+                return null;
+            };
+
+            const x = resolve(def.x, def.x_percent, cardW);
+            const y = resolve(def.y, def.y_percent, cardH);
+            const w = resolve(def.width, def.width_percent, cardW);
+            const h = resolve(def.height, def.height_percent, cardH);
+
+            if (x != null && y != null && w != null && h != null) {
+                this._zones.set(name, { bounds: { x, y, width: w, height: h } });
+                lcardsLog.trace(`[LCARdSCard] Merged user-defined zone '${name}'`, { x, y, width: w, height: h });
+            } else {
+                lcardsLog.warn(
+                    `[LCARdSCard] Skipping user zone '${name}' — each axis needs x/x_percent, y/y_percent, width/width_percent, height/height_percent`,
+                    def
+                );
+            }
+        }
+    }
+
+    /**
+     * Rebuild the complete zone map for the given card dimensions.
+     *
+     * Clears the existing zones, calls _calculateZones() (subclass geometry),
+     * then _mergeUserZones() (config.zones overrides).  Cards should call this
+     * once per render before any zone-dependent operations.
+     *
+     * @param {number} width  - Card/SVG pixel width
+     * @param {number} height - Card/SVG pixel height
+     * @protected
+     */
+    _rebuildZones(width, height) {
+        this._zones.clear();
+        this._calculateZones(width, height);
+        this._mergeUserZones(width, height);
+        lcardsLog.trace(`[LCARdSCard] Zones rebuilt (${this._zones.size} total):`, [...this._zones.keys()]);
+    }
+
+    /**
+     * Generate an SVG string fragment that overlays each zone with a labelled,
+     * colour-coded semi-transparent rectangle.  Useful during layout design to
+     * visualise exactly where zones are placed.
+     *
+     * Only produces markup when `config.debug_zones` is `true` AND `this._zones`
+     * has been populated (i.e. `_rebuildZones` has been called this render cycle).
+     *
+     * Embed the returned string as the last child inside an `<svg>` element so it
+     * renders on top of all other content.
+     *
+     * @returns {string} SVG `<g id="lcards-zone-debug" …>` fragment, or `''`
+     * @protected
+     */
+    _generateZoneDebugMarkup() {
+        if (!this.config?.debug_zones || this._zones.size === 0) return '';
+        const COLORS = ['#e8a838', '#4ecdc4', '#c45fce', '#52be80', '#5b9bd5', '#e06c75', '#f7c948'];
+        let inner = '';
+        let ci = 0;
+        for (const [name, zoneData] of this._zones) {
+            const { x, y, width, height } = zoneData.bounds;
+            const color = COLORS[ci++ % COLORS.length];
+            const fontSize = Math.max(9, Math.min(13, Math.round(Math.min(width, height) * 0.22)));
+            inner += `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${color}" fill-opacity="0.12" stroke="${color}" stroke-width="1.5" stroke-dasharray="5 3"/>`;
+            inner += `<text x="${x + width / 2}" y="${y + height / 2}" text-anchor="middle" dominant-baseline="central" fill="${color}" font-size="${fontSize}" font-weight="bold" font-family="monospace" paint-order="stroke" stroke="#000" stroke-width="2" stroke-linejoin="round">${name}</text>`;
+        }
+        return `<g id="lcards-zone-debug" pointer-events="none">${inner}</g>`;
+    }
+
+    /**
+     * DOM-mutation counterpart of `_generateZoneDebugMarkup` — appends (or
+     * replaces) the `#lcards-zone-debug` group directly on an SVG element.
+     *
+     * Use this variant when the render pipeline already has a live DOM
+     * `SVGElement` (e.g. slider, elbow after parsing).
+     *
+     * @param {Element} svgElement — the root `<svg>` element to annotate
+     * @protected
+     */
+    _injectZoneDebugOverlay(svgElement) {
+        // Always remove stale overlay first (idempotent)
+        svgElement.querySelector('#lcards-zone-debug')?.remove();
+        if (!this.config?.debug_zones || this._zones.size === 0) return;
+        const markup = this._generateZoneDebugMarkup();
+        if (!markup) return;
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(
+            `<svg xmlns="http://www.w3.org/2000/svg">${markup}</svg>`, 'image/svg+xml'
+        );
+        const g = doc.documentElement.firstElementChild;
+        if (g) svgElement.appendChild(g.cloneNode(true));
     }
 
     /**

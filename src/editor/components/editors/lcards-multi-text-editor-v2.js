@@ -31,7 +31,7 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
             editor: { type: Object },         // Parent editor reference (for child components)
             text: { type: Object },           // Text configuration object (our managed state)
             hass: { type: Object },           // Home Assistant instance
-            componentTextAreas: { type: Object }, // Named text areas from component def (may be null)
+            availableZones: { type: Object }, // Named zones for routing (from card zone map or component def)
             componentTextFields: { type: Array }, // Preset field names from component def (may be null)
             _expandedFields: { type: Object, state: true }, // Track which fields are expanded
             _showAddDialog: { type: Boolean, state: true },
@@ -44,7 +44,7 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
         this.editor = null;
         this.text = {};
         this.hass = null;
-        this.componentTextAreas = null;
+        this.availableZones = null;
         this.componentTextFields = null;
         this._expandedFields = {};
         this._showAddDialog = false;
@@ -416,15 +416,15 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
                 helper: 'Where to display this text on the card'
             })}
 
-            <!-- Text Area (component mode only, when >1 area exists) -->
-            ${this.componentTextAreas && Object.keys(this.componentTextAreas).length > 1 ? html`
+            <!-- Zone selector (only shown when >1 named zone is available) -->
+            ${this.availableZones && Object.keys(this.availableZones).length > 1 ? html`
                 <ha-selector
                     .hass=${this.editor?.hass}
-                    .selector=${{ select: { mode: 'dropdown', options: Object.keys(this.componentTextAreas).map(k => ({ value: k, label: k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) })) } }}
-                    .value=${this.editor?.config?.text?.[fieldName]?.text_area || Object.keys(this.componentTextAreas)[0]}
-                    .label=${'Text Area'}
-                    .helper=${'Which named area on the component this text field belongs to'}
-                    @value-changed=${(e) => this.editor?._setConfigValue?.(`text.${fieldName}.text_area`, e.detail.value)}>
+                    .selector=${{ select: { mode: 'dropdown', options: Object.keys(this.availableZones).map(k => ({ value: k, label: k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) })) } }}
+                    .value=${this.editor?.config?.text?.[fieldName]?.zone || Object.keys(this.availableZones)[0]}
+                    .label=${'Zone'}
+                    .helper=${'Which named layout zone this text field is routed to'}
+                    @value-changed=${(e) => this.editor?._setConfigValue?.(`text.${fieldName}.zone`, e.detail.value)}>
                 </ha-selector>
             ` : ''}
 
