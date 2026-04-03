@@ -1485,9 +1485,15 @@ export class LCARdSSlider extends LCARdSButton {
             return;
         }
 
+        // Internal-only SVG structure zones — used by the component render() template but
+        // not meaningful as user-targetable text zones (the border/track zones supersede them).
+        const INTERNAL_ZONES = new Set(['text']);
+
         // Populate this._zones from component-provided zones
         for (const [zoneName, zoneData] of Object.entries(rawZones)) {
-            this._zones.set(zoneName, { bounds: zoneData });
+            if (!INTERNAL_ZONES.has(zoneName)) {
+                this._zones.set(zoneName, { bounds: zoneData });
+            }
         }
 
         // For Default component, also register named border zones + border-aware track zone

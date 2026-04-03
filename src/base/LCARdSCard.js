@@ -3704,14 +3704,39 @@ export class LCARdSCard extends LCARdSNativeCard {
     _generateZoneDebugMarkup() {
         if (!this.config?.debug_zones || this._zones.size === 0) return '';
         const COLORS = ['#e8a838', '#4ecdc4', '#c45fce', '#52be80', '#5b9bd5', '#e06c75', '#f7c948'];
+
+        // First pass: derive the overall coordinate extent so font sizing scales
+        // correctly regardless of whether zones are in pixel-space (e.g. 0–400)
+        // or viewBox-space (e.g. 0–80 for the dpad component).
+        // Using a fixed 9–13 px clamp is correct for pixel space but proportionally
+        // enormous when rendered inside a small viewBox (9 units out of 80 ≈ 11%).
+        let maxExtent = 0;
+        for (const [, zoneData] of this._zones) {
+            const { x, y, width, height } = zoneData.bounds;
+            maxExtent = Math.max(maxExtent, x + width, y + height);
+        }
+        // Font size bounds as a fraction of the overall coordinate space.
+        // 0.025 × extent  →  floor (keeps tiny zones legible)
+        // 0.050 × extent  →  ceiling (prevents labels dwarfing large zones)
+        const minFontSize = maxExtent * 0.018;
+        const maxFontSize = maxExtent * 0.035;
+        // Stroke and text-stroke scale the same way, kept deliberately thin.
+        const strokeWidth     = Math.max(maxExtent * 0.005, Math.min(maxExtent * 0.013, maxExtent * 0.008));
+        const textStrokeWidth = strokeWidth * 1.2;
+
         let inner = '';
         let ci = 0;
         for (const [name, zoneData] of this._zones) {
             const { x, y, width, height } = zoneData.bounds;
             const color = COLORS[ci++ % COLORS.length];
-            const fontSize = Math.max(9, Math.min(13, Math.round(Math.min(width, height) * 0.22)));
-            inner += `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${color}" fill-opacity="0.12" stroke="${color}" stroke-width="1.5" stroke-dasharray="5 3"/>`;
-            inner += `<text x="${x + width / 2}" y="${y + height / 2}" text-anchor="middle" dominant-baseline="central" fill="${color}" font-size="${fontSize}" font-weight="bold" font-family="monospace" paint-order="stroke" stroke="#000" stroke-width="2" stroke-linejoin="round">${name}</text>`;
+            // Zone-size heuristic: 16% of the shorter axis, clamped to extent-derived bounds.
+            const zoneSizeBased = Math.min(width, height) * 0.16;
+            const fontSize = Math.max(minFontSize, Math.min(maxFontSize, zoneSizeBased));
+            // dash/gap lengths also scale with extent so they look consistent
+            const dash = maxExtent * 0.025;
+            const gap  = maxExtent * 0.03;
+            inner += `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${color}" fill-opacity="0.12" stroke="${color}" stroke-width="${strokeWidth}" stroke-dasharray="${dash} ${gap}"/>`;
+            inner += `<text x="${x + width / 2}" y="${y + height / 2}" text-anchor="middle" dominant-baseline="central" fill="${color}" font-size="${fontSize}" font-weight="bold" font-family="monospace" paint-order="stroke" stroke="#000" stroke-width="${textStrokeWidth}" stroke-linejoin="round">${name}</text>`;
         }
         return `<g id="lcards-zone-debug" pointer-events="none">${inner}</g>`;
     }

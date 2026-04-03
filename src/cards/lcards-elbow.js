@@ -1549,19 +1549,25 @@ export class LCARdSElbow extends LCARdSButton {
         const outerVbX = side === 'left' ? 0 : (width - outerHw);
         this._zones.set('outer_vertical_bar', { bounds: { x: outerVbX, y: 0, width: outerHw, height } });
 
-        // inner vertical bar
+        // horizontal bars — calculated first so innerHbY is available for inner_vertical_bar below
+        const outerHbY    = position === 'header' ? 0              : (height - outerBh);
+        // outer_horizontal_bar starts immediately past the outer vertical bar
+        const outerHorzX  = side === 'left' ? outerHw : 0;
+        const outerHorzW  = width - outerHw;
+        this._zones.set('outer_horizontal_bar', { bounds: { x: outerHorzX, y: outerHbY, width: outerHorzW, height: outerBh } });
+
+        // inner_horizontal_bar starts past both vertical bars
+        const innerHbY    = position === 'header' ? (outerBh + gap) : (height - totalBh);
+        const innerHorzX  = side === 'left' ? totalHw : 0;
+        const innerHorzW  = width - totalHw;
+        this._zones.set('inner_horizontal_bar', { bounds: { x: innerHorzX, y: innerHbY, width: innerHorzW, height: innerBh } });
+
+        // inner vertical bar — starts where the inner horizontal bar starts (does not extend
+        // into the horizontal bar region, unlike the outer vertical bar which spans full height)
         const innerVbX = side === 'left' ? (outerHw + gap) : (width - totalHw);
-        this._zones.set('inner_vertical_bar', { bounds: { x: innerVbX, y: 0, width: innerHw, height } });
-
-        // outer horizontal bar
-        const outerHbY  = position === 'header' ? 0              : (height - outerBh);
-        const horzBaseX = side === 'left' ? totalHw : 0;
-        const horzW     = width - totalHw;
-        this._zones.set('outer_horizontal_bar', { bounds: { x: horzBaseX, y: outerHbY, width: horzW, height: outerBh } });
-
-        // inner horizontal bar
-        const innerHbY = position === 'header' ? (outerBh + gap) : (height - totalBh);
-        this._zones.set('inner_horizontal_bar', { bounds: { x: horzBaseX, y: innerHbY, width: horzW, height: innerBh } });
+        const innerVbY = position === 'header' ? innerHbY : 0;
+        const innerVbH = position === 'header' ? (height - innerHbY) : innerHbY;
+        this._zones.set('inner_vertical_bar', { bounds: { x: innerVbX, y: innerVbY, width: innerHw, height: innerVbH } });
 
         // body
         const bodyX = side === 'left' ? totalHw : 0;
@@ -2419,7 +2425,8 @@ export class LCARdSElbow extends LCARdSButton {
         if (iconOnly) return svgString;
 
         const textFields = this._resolveTextConfiguration();
-        if (!textFields || Object.keys(textFields).length === 0) return svgString;
+        const hasTextFields = textFields && Object.keys(textFields).length > 0;
+        if (!hasTextFields && !this.config?.debug_zones) return svgString;
 
         const parser = new DOMParser();
         const doc = parser.parseFromString(svgString, 'image/svg+xml');
@@ -2434,7 +2441,7 @@ export class LCARdSElbow extends LCARdSButton {
 
         // Group ALL fields by resolved zone — fields without zone default to 'body'
         const groups = {};
-        for (const [id, field] of Object.entries(textFields)) {
+        for (const [id, field] of Object.entries(textFields || {})) {
             const requested = field.zone || 'body';
             const zoneName = this._zones.has(requested) ? requested : 'body';
             if (!groups[zoneName]) groups[zoneName] = {};

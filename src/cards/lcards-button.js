@@ -4396,12 +4396,24 @@ export class LCARdSButton extends LCARdSCard {
                 // the nested <svg> via _renderSvgBackground (cheap string op).
                 // backgroundMarkup is re-generated here so the <clipPath> ids are
                 // scoped inside the same <svg> element as the shape content.
+
+                // Populate this._zones in viewBox coordinate space so that
+                // _generateZoneDebugMarkup() can produce correctly-placed overlays.
+                // Parse vbW/vbH from the processedSvg viewBox string (e.g. "0 0 80 80").
+                const vbParts = (this._processedSvg.viewBox || '').split(/\s+/).map(Number);
+                const vbW = vbParts[2] || width;
+                const vbH = vbParts[3] || height;
+                this._rebuildZones(vbW, vbH);
+
                 const componentTextSvg = this._buildComponentTextMarkup(
                     textFields, this._processedSvg.componentZones
                 );
-                if (componentTextSvg) {
+                // Debug overlay in viewBox space, injected inside the same nested <svg>
+                const componentDebugSvg = this._generateZoneDebugMarkup();
+                const componentInnerMarkup = componentTextSvg + componentDebugSvg;
+                if (componentInnerMarkup) {
                     backgroundMarkup = this._renderSvgBackground(
-                        this._processedSvg, width, height, componentTextSvg
+                        this._processedSvg, width, height, componentInnerMarkup
                     );
                 }
                 // textMarkup stays '' — text already embedded in backgroundMarkup
@@ -4417,8 +4429,9 @@ export class LCARdSButton extends LCARdSCard {
         const svgAttrs = `width="${width}" height="${height}" viewBox="${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}" xmlns="http://www.w3.org/2000/svg"`;
         const gAttrs   = `data-button-id="button" data-overlay-id="button" class="button-group" style="pointer-events: visiblePainted; cursor: pointer;"`;
 
-        // Debug zone overlay — only present when config.debug_zones is true and
-        // _rebuildZones has already been called (standard mode path above).
+        // Debug zone overlay — only present when config.debug_zones is true.
+        // In component mode the overlay is already injected inside the nested <svg>
+        // (viewBox coords) above; here we only need it for standard/preset mode.
         const debugZoneMarkup = (!this._processedSvg?.componentZones)
             ? this._generateZoneDebugMarkup()
             : '';

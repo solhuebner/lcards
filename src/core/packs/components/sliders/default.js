@@ -31,6 +31,8 @@ export function calculateZones(width, height) {
         control: { ...sharedBounds },
         range: { ...sharedBounds },
         track: { ...sharedBounds },
+        // Internal SVG structure zone — used by the render() template, not exposed as a user zone.
+        // The slider card filters this out of this._zones in _calculateZones().
         text: {
             x: 5,
             y: 5,
