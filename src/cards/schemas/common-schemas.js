@@ -975,10 +975,10 @@ export function getTextSchema(options = {}) {
                         type: 'number',
                         minimum: 0.1,
                         maximum: 1.0,
-                        description: 'Ratio of the font cap-height to the em-square (font-size). Used to correct font_size_percent so visible glyph height matches the requested percentage of the container. Defaults to the theme token value (0.72 for Antonio). Override when using a different font family.',
+                        description: 'Ratio of the font cap-height to the em-square (font-size). Used to correct font_size_percent so visible glyph height matches the requested percentage of the container. Defaults to the theme token value (0.86 for Antonio). Override when using a different font family.',
                         'x-ui-hints': {
                             label: 'Cap Height Ratio',
-                            helper: 'Correction factor for font_size_percent. Antonio = 0.72. 1.0 = no correction. Lower values increase the rendered font-size.',
+                            helper: 'Correction factor for font_size_percent. Antonio = 0.86. 1.0 = no correction. Lower values increase the rendered font-size.',
                             selector: {
                                 number: {
                                     mode: 'box',
@@ -1178,10 +1178,10 @@ export function getTextSchema(options = {}) {
                     type: 'number',
                     minimum: 0.1,
                     maximum: 1.0,
-                    description: 'Ratio of the font cap-height to the em-square. Used to correct font_size_percent so visible glyph height matches the requested percentage. Defaults to the theme token value (0.72 for Antonio). Override when using a different font.',
+                    description: 'Ratio of the font cap-height to the em-square. Used to correct font_size_percent so visible glyph height matches the requested percentage. Defaults to the theme token value (0.86 for Antonio). Override when using a different font.',
                     'x-ui-hints': {
                         label: 'Cap Height Ratio',
-                        helper: 'Correction factor for font_size_percent. Antonio = 0.72. 1.0 = no correction. Lower values increase rendered font-size.',
+                        helper: 'Correction factor for font_size_percent. Antonio = 0.86. 1.0 = no correction. Lower values increase rendered font-size.',
                         selector: {
                             number: {
                                 mode: 'box',

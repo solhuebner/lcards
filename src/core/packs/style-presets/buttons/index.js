@@ -50,8 +50,8 @@ export const BUTTON_PRESETS = {
         font_size: 'theme:components.button.text.font_size',
         font_weight: 'theme:components.button.text.font_weight',
         text_transform: 'theme:components.button.text.text_transform',
-        // Cap-height ratio — propagated from the theme token so overriding the
-        // font family in the theme also updates all font_size_percent calculations.
+        // Cap-height ratio — propagated from the theme token so changing the
+        // primary font family in the theme updates all font_size_percent calculations.
         cap_height_ratio: 'theme:components.button.text.cap_height_ratio',
         color: {
           default: 'theme:components.button.text.color.active',
@@ -75,7 +75,7 @@ export const BUTTON_PRESETS = {
       label: {
         // State-specific overrides (if any)
         position: 'center',
-        content: "LCARdS Button",
+        content: "LCARdS",
         show: false
        }
     },
@@ -580,9 +580,12 @@ export const BUTTON_PRESETS = {
         background: { default: 'black' },
         background_padding: 15,  // Space between text and colored bars
         background_radius: 0,    // Sharp corners for LCARS aesthetic
+        // Explicit numeric value (not a token reference) so the cap-height block in
+        // _processTextFields always receives a finite number regardless of token resolution.
+        cap_height_ratio: 0.86,
         padding: {
           top: 0,
-          bottom: 4,    // Small offset down to visually center Antonio font (compensates for cap height)
+          bottom: 4,    // Small breathing room so cap glyphs don't touch the zone edges
           left: 15,
           right: 15
         },
@@ -591,19 +594,27 @@ export const BUTTON_PRESETS = {
       label: {
         show: true,
         position: 'center',
-        // Mirror text.default.font_size_percent at the field level so the value is reachable
-        // via the presetFieldConfig branch even if the text.default chain is bypassed.
-        font_size_percent: 100
+        // Mirror key text.default values at the field level so they are available via the
+        // presetFieldConfig waterfall branch in _resolveTextConfiguration, which has higher
+        // priority than presetTextDefaults.  Without this, a user-supplied text.default that
+        // omits padding/cap_height_ratio would silently drop the preset values.
+        font_size_percent: 100,
+        cap_height_ratio: 0.86,
+        padding: { top: 0, bottom: 0, left: 50, right: 50 }
       },
       state: {
         show: false,
         position: 'center',
-        font_size_percent: 100
+        font_size_percent: 100,
+        cap_height_ratio: 0.86,
+        padding: { top: 0, bottom: 0, left: 50, right: 50 }
       },
       name: {
         show: false,
         position: 'center',
-        font_size_percent: 100
+        font_size_percent: 100,
+        cap_height_ratio: 0.86,
+        padding: { top: 0, bottom: 4, left: 50, right: 50 }
       }
     },
 
@@ -618,13 +629,7 @@ export const BUTTON_PRESETS = {
 
     text: {
       default: {
-        position: 'left-center',
-        padding: {
-          top: 0,
-          bottom: 4,
-          left: 32,  // Space from left edge of bar
-          right: 15
-        }
+        position: 'left-center'
       },
       label: {
         show: true,
@@ -640,13 +645,7 @@ export const BUTTON_PRESETS = {
 
     text: {
       default: {
-        position: 'center',
-        padding: {
-          top: 0,
-          bottom: 4,
-          left: 15,
-          right: 15
-        }
+        position: 'center'
       },
       label: {
         show: true,
@@ -662,13 +661,7 @@ export const BUTTON_PRESETS = {
 
     text: {
       default: {
-        position: 'right-center',
-        padding: {
-          top: 0,
-          bottom: 4,
-          left: 15,
-          right: 32  // Space from right edge of bar
-        }
+        position: 'right-center'
       },
       label: {
         show: true,
@@ -723,35 +716,10 @@ export const BUTTON_PRESETS = {
     }
   },
 
-  // Bar Label Bullet Left - Half-lozenge with rounded left, flat right
+  // Bar Label Bullet Left - Half-lozenge with rounded right, flat left
   'bar-label-bullet-left': {
     extends: 'button.bar-label-left',
-    description: 'Bar label with rounded left side, flat right (left-pointing)',
-
-    border: {
-      radius: {
-        top_left: 'theme:components.button.radius.full',
-        top_right: 0,
-        bottom_left: 'theme:components.button.radius.full',
-        bottom_right: 0
-      }
-    },
-
-    text: {
-      default: {
-        position: 'left-center'
-      },
-      label: {
-        show: true,
-        position: 'left-center'
-      }
-    }
-  },
-
-  // Bar Label Bullet Right - Half-lozenge with flat left, rounded right
-  'bar-label-bullet-right': {
-    extends: 'button.bar-label-right',
-    description: 'Bar label with flat left side, rounded right (right-pointing)',
+    description: 'Bar label with rounded right side, flat left (right-pointing)',
 
     border: {
       radius: {
@@ -772,4 +740,80 @@ export const BUTTON_PRESETS = {
       }
     }
   },
+
+  // Bar Label Bullet Right - Half-lozenge with flat right, rounded left
+  'bar-label-bullet-right': {
+    extends: 'button.bar-label-right',
+    description: 'Bar label with flat right side, rounded left (left-pointing)',
+    icon_area: 'right',
+    border: {
+      radius: {
+        top_left: 'theme:components.button.radius.full',
+        top_right: 0,
+        bottom_left: 'theme:components.button.radius.full',
+        bottom_right: 0
+      }
+    },
+
+    text: {
+      default: {
+        position: 'left-center'
+      },
+      label: {
+        show: true,
+        position: 'left-center'
+      }
+    }
+  },
+
+  // Bar Label Capped Left - Half-lozenge with rounded left, flat right
+  'bar-label-capped-left': {
+    extends: 'button.bar-label-left',
+    description: 'Bar label with rounded left side, flat right (left-pointing)',
+    icon_area: 'right',
+    border: {
+      radius: {
+        top_left: 'theme:components.button.radius.full',
+        top_right: 0,
+        bottom_left: 'theme:components.button.radius.full',
+        bottom_right: 0
+      }
+    },
+
+    text: {
+      default: {
+        position: 'left-center'
+      },
+      label: {
+        show: true,
+        position: 'left-center'
+      }
+    }
+  },
+
+  // Bar Label Capped Right - Half-lozenge with rounded right, flat left
+  'bar-label-capped-right': {
+    extends: 'button.bar-label-left',
+    description: 'Bar label with rounded right side, flat left (right-pointing)',
+
+    border: {
+      radius: {
+        top_left: 0,
+        top_right: 'theme:components.button.radius.full',
+        bottom_left: 0,
+        bottom_right: 'theme:components.button.radius.full'
+      }
+    },
+
+    text: {
+      default: {
+        position: 'right-center'
+      },
+      label: {
+        show: true,
+        position: 'right-center'
+      }
+    }
+  },
+
 };

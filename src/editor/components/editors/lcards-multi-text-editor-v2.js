@@ -473,7 +473,7 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
 
                     ${FormField.renderField(this.editor, `text.${fieldName}.cap_height_ratio`, {
                         label: 'Cap Height Ratio',
-                        helper: 'Ratio of visible cap glyph height to the font em-square. Antonio ≈ 0.72. Adjust per font until caps fill the box. Has no effect without Font Size %.'
+                        helper: 'Ratio of visible cap glyph height to the font em-square. Antonio ≈ 0.86. Adjust per font until caps fill the box. Has no effect without Font Size %.'
                     })}
 
                     ${FormField.renderField(this.editor, `text.${fieldName}.stretch`, {

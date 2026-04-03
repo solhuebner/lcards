@@ -2452,7 +2452,31 @@ export class LCARdSElbow extends LCARdSButton {
             const zh = zoneData.bounds.height;
             for (const [id, field] of Object.entries(fields)) {
                 if (field.font_size_percent != null && !field._user_explicit_font_size && zh > 0) {
-                    fields[id] = { ...field, font_size: Math.round(field.font_size_percent / 100 * zh) };
+                    // Ensure cap_height_ratio is present on the field so that the
+                    // _processTextFields cap-height block fires and produces the correct
+                    // y-baseline shift.  _resolveTextConfiguration propagates it via the
+                    // preset chain (button.base → theme token), but falls back to null when
+                    // the token didn't resolve or no preset is active.  Pull from the live
+                    // theme as a safety net so elbow zone text always gets the correction
+                    // without needing an explicit cap_height_ratio in the user's config.
+                    let updatedField = field;
+                    if (!Number.isFinite(field.cap_height_ratio)) {
+                        // Elbow zones render inside an SVG coordinate space that differs
+                        // slightly from the button's container-height-based calculation,
+                        // so the measured correction factor for Antonio is 0.87 here
+                        // (vs 0.86 for button).  Try the theme token first so a theme
+                        // override still works; fall back to the elbow-specific constant.
+                        const _tm = window.lcards?.core?.themeManager;
+                        const _themeChr = (typeof _tm?.getCurrentTheme === 'function')
+                            ? _tm.getCurrentTheme()?.components?.elbow?.text?.cap_height_ratio
+                            : null;
+                        const _chr = Number.isFinite(_themeChr) ? _themeChr : 0.87;
+                        updatedField = { ...field, cap_height_ratio: _chr };
+                    }
+                    // font_size is set as a reasonable fallback; _processTextFields will
+                    // recalculate the final value via the cap-height block when cap_height_ratio
+                    // is present, giving the correct zone-relative size + y-shift.
+                    fields[id] = { ...updatedField, font_size: Math.round(field.font_size_percent / 100 * zh) };
                 }
             }
         }

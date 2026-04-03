@@ -64,7 +64,7 @@ text:
 | `baseline` | string | `"middle"` | SVG vertical alignment: `hanging` (top), `middle`, `central`, `alphabetic` (bottom) |
 | `rotation` | number | `0` | Rotation in degrees (−360 to 360) |
 | `padding` | number / object | — | Offset in px: single number (all sides) or `{ top, right, bottom, left }` |
-| `stretch` | boolean / number | — | Stretch text to fill available width; `true` = 100%, `0.8` = 80% |
+| `stretch` | boolean / number | — | Stretch/compress glyph spacing to fill a fraction of the **zone width** using SVG `textLength`. `true` = 100%, `0.8` = 80%. Pairs naturally with `font_size_percent` to fill both axes independently. |
 | `zone` | string | auto | Named zone to render this field inside. Defaults to the card's primary zone (`body`, `track`, first border, etc.). See [Zones](#zones). |
 | `template` | boolean | `false` | Enable legacy template evaluation for `content` |
 | `display_format` | string | `"friendly"` | How to format entity state/attribute tokens — see [Display Format](#display-format) below |
@@ -317,9 +317,20 @@ The toggle is also available in the **Zones → Developer Tools** section of the
 
 ### font_size_percent and cap_height_ratio
 
-`font_size_percent: 100` sets the SVG `font-size` attribute equal to the zone height.  Because fonts include descenders and internal leading, the visible cap-height (uppercase letter tops) sits at roughly `font-size × cap_height_ratio` (~0.70 by default).  The text is still vertically centred optically within the zone via a `cap_height_ratio`-based y-shift.
+`font_size_percent: 100` makes cap-height letters fill the full zone height.  The SVG `font-size` attribute is set to `zone_height / cap_height_ratio` so the visible cap-tops span the entire zone; `font_size_percent: 50` makes them fill half the zone height, and so on.  The text is optically centred at the target position via a matching y-shift.
 
-To make cap-tops fill the full zone height use `font_size_percent: ~143` (i.e. `100 / 0.70`).  Adjust `cap_height_ratio` on the field to match any custom font.
+The default `cap_height_ratio` is `0.86` (measured for the Antonio font used in LCARS themes — at this value `font_size_percent: 100` causes caps to fill the zone exactly).  Set a custom value on any text field to calibrate for other fonts; `cap_height_ratio: 1.0` means caps equal the full em-square with no correction.
+
+`font_size_percent` controls the **vertical** fill; add `stretch: true` to also fill the **horizontal** axis.  The two are independent — SVG scales glyph spacing via `textLength` without affecting font size:
+
+```yaml
+text:
+  label:
+    content: LCARDS
+    zone: zone_1
+    font_size_percent: 100   # caps fill zone height
+    stretch: true            # glyph spacing fills zone width
+```
 
 ---
 

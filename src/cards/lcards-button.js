@@ -5202,32 +5202,42 @@ export class LCARdSButton extends LCARdSCard {
 
             // ── Cap-height fill mode ──────────────────────────────────────────────
             // When font_size_percent + cap_height_ratio are both set AND the position is
-            // a centre-type (baseline === 'middle'), we want visible cap glyphs to fill
-            // the available padded height rather than the raw em-square.
+            // a centre-type (baseline === 'middle'), switch to alphabetic baseline so cap
+            // glyphs fill the intended fraction of the zone height rather than the full em-square.
             //
             // Strategy:
-            //   availH = textAreaBounds.height - padTop - padBottom
-            //   font_size = round((fsp/100 * availH) / cap_height_ratio)
-            //     → caps are exactly (fsp/100 * availH) px tall
-            //   y = areaTop + textAreaBounds.height - padBottom   (alphabetic baseline)
-            //     → cap bottom aligns with the padded bottom edge
-            //     → cap top  aligns with areaTop + padTop
-            //   dominant-baseline = alphabetic  (descenders clip via existing clipPath)
+            //   availH        = textAreaBounds.height - padTop - padBottom
+            //   effectiveFontSize = round((fsp/100 * availH) / cap_height_ratio)
+            //     → cap glyphs are exactly (fsp/100 * availH) px tall
+            //   capHeight     = effectiveFontSize * cap_height_ratio
+            //   y_alphabetic  = y_position + round(capHeight / 2)
+            //     → alphabetic baseline sits half a cap-height below the original
+            //        position-centre y, so cap glyphs are optically centred around y.
+            //
+            // This is position-agnostic: the formula reduces to the zone-bottom value
+            // (areaTop + areaH - padBottom) when fsp=100 and position is center, so
+            // it is fully backward-compatible with all existing presets.
             //
             // No cap_height_ratio or explicit user baseline → use original middle logic.
             let effectiveFontSize = field.font_size;
 
-            if (field.font_size_percent != null && field.cap_height_ratio != null && baseline === 'middle') {
+            if (field.font_size_percent != null && Number.isFinite(field.cap_height_ratio) && baseline === 'middle') {
                 const _pad = field.padding;
                 const _padTop    = (_pad != null && typeof _pad === 'object') ? (_pad.top    ?? 0) : (typeof _pad === 'number' ? _pad : 0);
                 const _padBottom = (_pad != null && typeof _pad === 'object') ? (_pad.bottom ?? 0) : (typeof _pad === 'number' ? _pad : 0);
-                const _areaTop   = textAreaBounds.top ?? 0;
                 const _areaH     = textAreaBounds.height;
-                const _availH    = _areaH - _padTop - _padBottom;
+                // Enforce a minimum 2px bottom clearance so the alphabetic baseline never
+                // sits at the zone edge regardless of the user's padding.bottom setting.
+                // When dominant-baseline="alphabetic" is at y==zoneHeight, antialiased
+                // rounded strokes (S, C, D…) partially fall outside the SVG clip rect.
+                const _safePadBottom = Math.max(_padBottom, 2);
+                const _availH    = _areaH - _padTop - _safePadBottom;
                 if (_availH > 0) {
                     effectiveFontSize = Math.round((field.font_size_percent / 100 * _availH) / field.cap_height_ratio);
                     baseline = 'alphabetic';
-                    y = _areaTop + _areaH - _padBottom;
+                    // Shift alphabetic baseline down by half the cap height from the
+                    // position y so cap glyphs are centred around that point.
+                    y = y + Math.round(effectiveFontSize * field.cap_height_ratio / 2);
                 }
             }
 
@@ -5243,6 +5253,10 @@ export class LCARdSButton extends LCARdSCard {
                 anchor: anchor,
                 baseline: baseline,
                 rotation: field.rotation,  // NEW: pass through rotation
+
+                // stretch: true → fill 100% of available width; number (0–1) → fraction.
+                // Must be forwarded here so _generateTextElements can emit textLength/lengthAdjust.
+                stretch: field.stretch ?? null,
 
                 // Carry the container/zone dimensions so _generateTextElements uses
                 // the correct bounds rather than this._containerSize (which may still
