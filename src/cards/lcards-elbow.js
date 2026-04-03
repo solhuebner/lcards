@@ -202,7 +202,9 @@ export class LCARdSElbow extends LCARdSButton {
         }
 
         // Adjust text positioning based on elbow type
-        this._adjustTextForElbow();
+        // @deprecated — zone-aware rendering (_injectZoneText) replaces this; left for any
+        // non-upgraded YAML configs that relied on the auto-padding side-effect.
+        // this._adjustTextForElbow();
 
         // Initialize position-aware default colors
         this._initializeElbowDefaultColors();
@@ -1454,9 +1456,156 @@ export class LCARdSElbow extends LCARdSButton {
         return geom;
     }
 
+    // ============================================================================
+    // Zone system — LCARdSCard._calculateZones override + helpers
+    // ============================================================================
+
     /**
-     * Adjust text positioning based on elbow type
-     * Auto-configure padding and alignment for optimal LCARS aesthetics
+     * Override of LCARdSCard._calculateZones — populate this._zones for the elbow.
+     *
+     * Derives zones from this._elbowGeometry (already available before rendering).
+     * Zone names can be referenced in text field `zone:` config keys.
+     *
+     * Simple/segmented elbow zone names:
+     *   vertical_bar, horizontal_bar, body  (simple)
+     *   outer_vertical_bar, inner_vertical_bar, outer_horizontal_bar,
+     *   inner_horizontal_bar, body  (segmented)
+     * Frame zone names:
+     *   top, bottom, left, right, body
+     *
+     * @param {number} width
+     * @param {number} height
+     * @protected
+     */
+    _calculateZones(width, height) {
+        const g = this._elbowGeometry;
+        if (!g) return;
+
+        if (g.type === 'frame') {
+            this._calculateFrameZones(width, height, g);
+            return;
+        }
+
+        const component = this._getElbowComponent(this._elbowConfig?.type);
+        const position  = component?.layout?.position || 'header';
+        const side      = component?.layout?.side     || 'left';
+
+        if (this._elbowConfig?.style === 'segmented') {
+            this._calculateSegmentedElbowZones(width, height, g, position, side);
+        } else {
+            this._calculateSimpleElbowZones(width, height, g, position, side);
+        }
+
+        lcardsLog.debug('[LCARdSElbow] _calculateZones:', this._zones);
+    }
+
+    /**
+     * Populate this._zones for a simple (L-shaped) elbow.
+     * @param {number} width
+     * @param {number} height
+     * @param {Object} g        - Simple elbow geometry
+     * @param {string} position - 'header' | 'footer'
+     * @param {string} side     - 'left' | 'right'
+     * @private
+     */
+    _calculateSimpleElbowZones(width, height, g, position, side) {
+        const hw = g.horizontal; // sidebar / vertical bar width
+        const bh = g.vertical;   // top/bottom bar height
+
+        // vertical_bar — the thick arm running the full card height
+        const vbX = side === 'left' ? 0 : (width - hw);
+        this._zones.set('vertical_bar', { bounds: { x: vbX, y: 0, width: hw, height } });
+
+        // horizontal_bar — the cap across the top or bottom
+        const hbY = position === 'header' ? 0 : (height - bh);
+        const hbX = side === 'left' ? hw : 0;
+        this._zones.set('horizontal_bar', { bounds: { x: hbX, y: hbY, width: width - hw, height: bh } });
+
+        // body — open content area (clear of bars)
+        const bodyX = side === 'left' ? hw  : 0;
+        const bodyY = position === 'header' ? bh : 0;
+        this._zones.set('body', { bounds: { x: bodyX, y: bodyY, width: width - hw, height: height - bh } });
+    }
+
+    /**
+     * Populate this._zones for a segmented (Picard-style double-ring) elbow.
+     * @param {number} width
+     * @param {number} height
+     * @param {Object} g        - Segmented elbow geometry
+     * @param {string} position - 'header' | 'footer'
+     * @param {string} side     - 'left' | 'right'
+     * @private
+     */
+    _calculateSegmentedElbowZones(width, height, g, position, side) {
+        const outerHw = g.outer.horizontal;
+        const outerBh = g.outer.vertical;
+        const innerHw = g.inner.horizontal;
+        const innerBh = g.inner.vertical;
+        const gap     = g.gap ?? 0;
+        const totalHw = outerHw + gap + innerHw;
+        const totalBh = outerBh + gap + innerBh;
+
+        // outer vertical bar
+        const outerVbX = side === 'left' ? 0 : (width - outerHw);
+        this._zones.set('outer_vertical_bar', { bounds: { x: outerVbX, y: 0, width: outerHw, height } });
+
+        // horizontal bars — calculated first so innerHbY is available for inner_vertical_bar below
+        const outerHbY    = position === 'header' ? 0              : (height - outerBh);
+        // outer_horizontal_bar starts immediately past the outer vertical bar
+        const outerHorzX  = side === 'left' ? outerHw : 0;
+        const outerHorzW  = width - outerHw;
+        this._zones.set('outer_horizontal_bar', { bounds: { x: outerHorzX, y: outerHbY, width: outerHorzW, height: outerBh } });
+
+        // inner_horizontal_bar starts past both vertical bars
+        const innerHbY    = position === 'header' ? (outerBh + gap) : (height - totalBh);
+        const innerHorzX  = side === 'left' ? totalHw : 0;
+        const innerHorzW  = width - totalHw;
+        this._zones.set('inner_horizontal_bar', { bounds: { x: innerHorzX, y: innerHbY, width: innerHorzW, height: innerBh } });
+
+        // inner vertical bar — starts where the inner horizontal bar starts (does not extend
+        // into the horizontal bar region, unlike the outer vertical bar which spans full height)
+        const innerVbX = side === 'left' ? (outerHw + gap) : (width - totalHw);
+        const innerVbY = position === 'header' ? innerHbY : 0;
+        const innerVbH = position === 'header' ? (height - innerHbY) : innerHbY;
+        this._zones.set('inner_vertical_bar', { bounds: { x: innerVbX, y: innerVbY, width: innerHw, height: innerVbH } });
+
+        // body
+        const bodyX = side === 'left' ? totalHw : 0;
+        const bodyY = position === 'header' ? totalBh : 0;
+        this._zones.set('body', { bounds: { x: bodyX, y: bodyY, width: width - totalHw, height: height - totalBh } });
+    }
+
+    /**
+     * Populate this._zones for a frame elbow.
+     * @param {number} width
+     * @param {number} height
+     * @param {Object} g - Frame geometry
+     * @private
+     */
+    _calculateFrameZones(width, height, g) {
+        const sides = g.sides || {};
+        const topH    = sides.top?.enabled    ? (sides.top.thickness    ?? 0) : 0;
+        const bottomH = sides.bottom?.enabled ? (sides.bottom.thickness ?? 0) : 0;
+        const leftW   = sides.left?.enabled   ? (sides.left.thickness   ?? 0) : 0;
+        const rightW  = sides.right?.enabled  ? (sides.right.thickness  ?? 0) : 0;
+
+        if (topH    > 0) this._zones.set('top',    { bounds: { x: 0,             y: 0,              width,          height: topH    } });
+        if (bottomH > 0) this._zones.set('bottom', { bounds: { x: 0,             y: height - bottomH, width,        height: bottomH } });
+        if (leftW   > 0) this._zones.set('left',   { bounds: { x: 0,             y: 0,              width: leftW,   height          } });
+        if (rightW  > 0) this._zones.set('right',  { bounds: { x: width - rightW, y: 0,             width: rightW,  height          } });
+
+        this._zones.set('body', { bounds: {
+            x: leftW, y: topH,
+            width:  width  - leftW - rightW,
+            height: height - topH  - bottomH
+        }});
+    }
+
+    /**
+     * @deprecated Replaced by zone-based rendering. The zone system positions text within
+     * named zone bounds (body, vertical_bar, etc.) so pre-render padding mutation is no
+     * longer needed. Call site at updateConfig() is commented out.
+     * Kept for reference only; not called from any active code path.
      * @private
      */
     _adjustTextForElbow() {
@@ -1893,6 +2042,9 @@ export class LCARdSElbow extends LCARdSButton {
             return super._generateButtonSVG(width, height, config);
         }
 
+        // Rebuild zone map so text field 'zone:' routing and editor zone dropdowns work.
+        this._rebuildZones(width, height);
+
         // Get button state for text color
         const buttonState = this._buttonStyle?._currentState || this._getButtonState();
         const actualEntityState = this._entity?.state;
@@ -1925,16 +2077,6 @@ export class LCARdSElbow extends LCARdSButton {
         // Check if we're in icon-only mode
         const iconOnly = this._processedIcon?.iconOnly && this._processedIcon?.show;
 
-        // Generate text markup
-        let textMarkup = '';
-        if (!iconOnly) {
-            const textFields = this._resolveTextConfiguration();
-            // Convert object to array of field values
-            const textFieldsArray = Object.values(textFields);
-            const processedFields = this._processTextFieldsForElbow(textFieldsArray, width, height);
-            textMarkup = this._generateTextElements(processedFields);
-        }
-
         // Generate shape texture layer
         const textureMarkup = this._generateTextureMarkup(width, height, {}, elbowPath);
 
@@ -1954,12 +2096,11 @@ export class LCARdSElbow extends LCARdSButton {
                     />
                     ${textureMarkup}
                     ${iconData.markup}
-                    ${textMarkup}
                 </g>
             </svg>
         `.trim();
 
-        return svgString;
+        return this._injectZoneText(svgString, width, height, iconOnly);
     }
 
     /**
@@ -1981,6 +2122,9 @@ export class LCARdSElbow extends LCARdSButton {
         }
 
         const { type, outer, inner, offset, gap } = segmentGeom;
+
+        // Rebuild zone map for text field 'zone:' routing and editor zone dropdowns.
+        this._rebuildZones(width, height);
 
         // Get colors for outer and inner segments using state-aware resolution
         const outerSegmentConfig = this._elbowConfig.segments.outer_segment;
@@ -2026,14 +2170,6 @@ export class LCARdSElbow extends LCARdSButton {
 
         const iconOnly = this._processedIcon?.iconOnly && this._processedIcon?.show;
 
-        let textMarkup = '';
-        if (!iconOnly) {
-            const textFields = this._resolveTextConfiguration();
-            const textFieldsArray = Object.values(textFields);
-            const processedFields = this._processTextFieldsForElbow(textFieldsArray, width, height);
-            textMarkup = this._generateTextElements(processedFields);
-        }
-
         // Compose segmented SVG with two elbow paths
         const svgString = `
             <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
@@ -2060,12 +2196,11 @@ export class LCARdSElbow extends LCARdSButton {
                         />
                     </g>
                     ${iconData.markup}
-                    ${textMarkup}
                 </g>
             </svg>
         `.trim();
 
-        return svgString;
+        return this._injectZoneText(svgString, width, height, iconOnly);
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -2191,6 +2326,9 @@ export class LCARdSElbow extends LCARdSButton {
             return super._generateButtonSVG(width, height, config);
         }
 
+        // Rebuild zone map for text field 'zone:' routing and editor zone dropdowns.
+        this._rebuildZones(width, height);
+
         // Outer ring color (uses same segment.color resolution as simple elbows)
         const outerColor = this._getElbowColor();
 
@@ -2231,13 +2369,6 @@ export class LCARdSElbow extends LCARdSButton {
         }
 
         const iconOnly = this._processedIcon?.iconOnly && this._processedIcon?.show;
-        let textMarkup = '';
-        if (!iconOnly) {
-            const textFields = this._resolveTextConfiguration();
-            const textFieldsArray = Object.values(textFields);
-            const processedFields = this._processTextFieldsForElbow(textFieldsArray, width, height);
-            textMarkup = this._generateTextElements(processedFields);
-        }
 
         const textureMarkup = this._generateTextureMarkup(width, height, {}, outerRingPath);
 
@@ -2269,12 +2400,126 @@ export class LCARdSElbow extends LCARdSButton {
                     />` : ''}
                     ${textureMarkup}
                     ${iconData.markup}
-                    ${textMarkup}
                 </g>
             </svg>
         `.trim();
 
-        return svgString;
+        return this._injectZoneText(svgString, width, height, iconOnly);
+    }
+
+    /**
+     * Inject all text fields into a composed elbow SVG string via the zone system.
+     *
+     * Fields with an explicit `zone` key are routed to the named zone.
+     * Fields without a `zone` key default to the `body` zone (the open content area).
+     * Returns the original string unchanged when iconOnly is true or no fields exist.
+     *
+     * @param {string}  svgString - Fully composed SVG markup
+     * @param {number}  width
+     * @param {number}  height
+     * @param {boolean} [iconOnly=false] - Skip text injection in icon-only mode
+     * @returns {string} SVG markup with all text injected into named zones
+     * @private
+     */
+    _injectZoneText(svgString, width, height, iconOnly = false) {
+        if (iconOnly) return svgString;
+
+        const textFields = this._resolveTextConfiguration();
+        const hasTextFields = textFields && Object.keys(textFields).length > 0;
+        if (!hasTextFields && !this.config?.debug_zones) return svgString;
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(svgString, 'image/svg+xml');
+        if (doc.querySelector('parsererror')) {
+            lcardsLog.warn('[LCARdSElbow] _injectZoneText: SVG parse error — skipping zone injection');
+            return svgString;
+        }
+        const svgElement = doc.documentElement;
+
+        // Clear any stale zone groups from previous renders
+        svgElement.querySelectorAll('.lcards-text-area').forEach(el => el.remove());
+
+        // Group ALL fields by resolved zone — fields without zone default to 'body'
+        const groups = {};
+        for (const [id, field] of Object.entries(textFields || {})) {
+            const requested = field.zone || 'body';
+            const zoneName = this._zones.has(requested) ? requested : 'body';
+            if (!groups[zoneName]) groups[zoneName] = {};
+            groups[zoneName][id] = field;
+        }
+
+        // Re-apply font_size_percent against zone height for each field in its group.
+        // _resolveTextConfiguration() converted percent → px using full card height;
+        // now we have zone bounds we can compute the correct zone-relative size.
+        // Guard: skip when the user set an explicit font_size (_user_explicit_font_size),
+        // otherwise preset-default font_size_percent would overwrite it.
+        for (const [zoneName, fields] of Object.entries(groups)) {
+            const zoneData = this._zones.get(zoneName);
+            if (!zoneData) continue;
+            const zh = zoneData.bounds.height;
+            for (const [id, field] of Object.entries(fields)) {
+                if (field.font_size_percent != null && !field._user_explicit_font_size && zh > 0) {
+                    // Ensure cap_height_ratio is present on the field so that the
+                    // _processTextFields cap-height block fires and produces the correct
+                    // y-baseline shift.  _resolveTextConfiguration propagates it via the
+                    // preset chain (button.base → theme token), but falls back to null when
+                    // the token didn't resolve or no preset is active.  Pull from the live
+                    // theme as a safety net so elbow zone text always gets the correction
+                    // without needing an explicit cap_height_ratio in the user's config.
+                    let updatedField = field;
+                    if (!Number.isFinite(field.cap_height_ratio)) {
+                        // Elbow zones render inside an SVG coordinate space that differs
+                        // slightly from the button's container-height-based calculation,
+                        // so the measured correction factor for Antonio is 0.87 here
+                        // (vs 0.86 for button).  Try the theme token first so a theme
+                        // override still works; fall back to the elbow-specific constant.
+                        const _tm = window.lcards?.core?.themeManager;
+                        const _themeChr = (typeof _tm?.getCurrentTheme === 'function')
+                            ? _tm.getCurrentTheme()?.components?.elbow?.text?.cap_height_ratio
+                            : null;
+                        const _chr = Number.isFinite(_themeChr) ? _themeChr : 0.87;
+                        updatedField = { ...field, cap_height_ratio: _chr };
+                    }
+                    // font_size is set as a reasonable fallback; _processTextFields will
+                    // recalculate the final value via the cap-height block when cap_height_ratio
+                    // is present, giving the correct zone-relative size + y-shift.
+                    fields[id] = { ...updatedField, font_size: Math.round(field.font_size_percent / 100 * zh) };
+                }
+            }
+        }
+
+        for (const [zoneName, fields] of Object.entries(groups)) {
+            const zoneData = this._zones.get(zoneName);
+            if (!zoneData) {
+                lcardsLog.warn(`[LCARdSElbow] _injectZoneText: zone '${zoneName}' not found — skipping`);
+                continue;
+            }
+            const { x, y, width: zoneWidth, height: zoneHeight } = zoneData.bounds;
+
+            const processedFields = this._processTextFields(fields, zoneWidth, zoneHeight, null);
+            const markup = this._generateTextElements(processedFields);
+            if (!markup) continue;
+
+            const groupDoc = parser.parseFromString(`<g>${markup}</g>`, 'image/svg+xml');
+            if (groupDoc.querySelector('parsererror')) continue;
+
+            const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            group.setAttribute('class', 'lcards-text-area');
+            group.setAttribute('data-zone', zoneName);
+            group.setAttribute('transform', `translate(${x}, ${y})`);
+            svgElement.appendChild(group);
+
+            Array.from(groupDoc.documentElement.children).forEach(el => {
+                group.appendChild(el.cloneNode(true));
+            });
+        }
+
+        lcardsLog.debug(`[LCARdSElbow] _injectZoneText: injected text into zones: ${Object.keys(groups).join(', ')}`);
+
+        // Debug zone overlay — appended last so it renders above all other content
+        this._injectZoneDebugOverlay(svgElement);
+
+        return new XMLSerializer().serializeToString(svgElement);
     }
 
     /**
@@ -2304,9 +2549,10 @@ export class LCARdSElbow extends LCARdSButton {
     }
 
     /**
-     * Process text fields with elbow-specific positioning
-     * Adjusts text position to be within the content area (not overlapping the elbow)
-     * Delegates to parent button card for standard text processing, then adjusts positions.
+     * @deprecated Replaced by zone-based rendering via _injectZoneText + _calculateZones.
+     * Non-zone fields now route to the 'body' zone which already starts at the open content
+     * area origin, so manual contentArea/padding arithmetic is no longer needed.
+     * Kept for reference; not called from any render path.
      * @private
      */
     _processTextFieldsForElbow(textFields, width, height) {

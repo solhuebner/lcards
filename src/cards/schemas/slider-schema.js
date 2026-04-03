@@ -383,8 +383,8 @@ export function getSliderSchema(options = {}) {
                                         type: 'object',
                                         description: 'Colour gradient configuration',
                                         properties: {
-                                            start: simpleColorSchema,
-                                            end: simpleColorSchema
+                                            start: stateColorSchema,
+                                            end: stateColorSchema
                                         }
                                     },
                                     appearance: {

@@ -272,7 +272,6 @@ export class LCARdSSlider extends LCARdSButton {
         this._containerSize = { width: 200, height: 60 };
 
         // SVG component state
-        this._zones = new Map();          // Zone elements and bounds
         this._componentLoaded = false;
         this._componentMetadata = null;   // NEW: Component metadata (zones, features, etc.)
 
@@ -1426,270 +1425,91 @@ export class LCARdSSlider extends LCARdSButton {
      * }
      */
     /**
-     * Override button's text area calculation to support slider-specific areas
-     * Provides text positioning in border caps (left/top/right/bottom) and track area
-     * Includes adjacent borders when they form a continuous visual border
-     * @param {number} sliderWidth - Slider width
-     * @param {number} sliderHeight - Slider height
-     * @param {Object} iconConfig - Icon configuration (unused for slider)
-     * @returns {Object} Text area bounds {left, top, width, height}
-     * @override
-     */
-    _calculateTextAreaBounds(sliderWidth, sliderHeight, iconConfig) {
-        // Get border configuration
-        const borderConfig = this._sliderStyle?.border;
-
-        // Calculate border offsets
-        // Helper to get border size (prefer .size, fall back to .width for legacy configs)
-        const getBorderSize = (borderDef) => borderDef?.size ?? borderDef?.width ?? 0;
-
-        const borderOffsets = {
-            left: borderConfig?.left?.enabled ? getBorderSize(borderConfig.left) : 0,
-            top: borderConfig?.top?.enabled ? getBorderSize(borderConfig.top) : 0,
-            right: borderConfig?.right?.enabled ? getBorderSize(borderConfig.right) : 0,
-            bottom: borderConfig?.bottom?.enabled ? getBorderSize(borderConfig.bottom) : 0
-        };
-
-        // Determine text area from config (default: 'auto' uses largest border)
-        const textArea = this.config?.text?.area || 'auto';
-
-        // Auto-select: use left border if available, else top, else track
-        if (textArea === 'auto') {
-            if (borderOffsets.left > 0) {
-                // Left border cap - INCLUDE adjacent top/bottom borders for continuous visual area
-                return {
-                    left: 0,
-                    top: 0,  // Include top border if present
-                    width: borderOffsets.left,
-                    height: sliderHeight  // Full height including top and bottom borders
-                };
-            } else if (borderOffsets.top > 0) {
-                // Top border cap - INCLUDE adjacent left/right borders
-                return {
-                    left: 0,  // Include left border if present
-                    top: 0,
-                    width: sliderWidth,  // Full width including left and right borders
-                    height: borderOffsets.top
-                };
-            } else {
-                // No borders: use full track area
-                const margins = this._sliderStyle?.margins || { top: 0, right: 0, bottom: 0, left: 0 };
-                return {
-                    left: borderOffsets.left + margins.left,
-                    top: borderOffsets.top + margins.top,
-                    width: sliderWidth - borderOffsets.left - borderOffsets.right - margins.left - margins.right,
-                    height: sliderHeight - borderOffsets.top - borderOffsets.bottom - margins.top - margins.bottom
-                };
-            }
-        }
-
-        // Explicit area selection - INCLUDE adjacent borders for continuous visual area
-        if (textArea === 'left' && borderOffsets.left > 0) {
-            return {
-                left: 0,
-                top: 0,  // Include top border
-                width: borderOffsets.left,
-                height: sliderHeight  // Include bottom border
-            };
-        } else if (textArea === 'top' && borderOffsets.top > 0) {
-            return {
-                left: 0,  // Include left border
-                top: 0,
-                width: sliderWidth,  // Include right border
-                height: borderOffsets.top
-            };
-        } else if (textArea === 'right' && borderOffsets.right > 0) {
-            return {
-                left: sliderWidth - borderOffsets.right,
-                top: 0,  // Include top border
-                width: borderOffsets.right,
-                height: sliderHeight  // Include bottom border
-            };
-        } else if (textArea === 'bottom' && borderOffsets.bottom > 0) {
-            return {
-                left: 0,  // Include left border
-                top: sliderHeight - borderOffsets.bottom,
-                width: sliderWidth,  // Include right border
-                height: borderOffsets.bottom
-            };
-        } else if (textArea === 'track') {
-            // Track area (inset by borders and margins)
-            const margins = this._sliderStyle?.margins || { top: 0, right: 0, bottom: 0, left: 0 };
-            return {
-                left: borderOffsets.left + margins.left,
-                top: borderOffsets.top + margins.top,
-                width: sliderWidth - borderOffsets.left - borderOffsets.right - margins.left - margins.right,
-                height: sliderHeight - borderOffsets.top - borderOffsets.bottom - margins.top - margins.bottom
-            };
-        }
-
-        // Fallback: full slider area
-        return {
-            left: 0,
-            top: 0,
-            width: sliderWidth,
-            height: sliderHeight
-        };
-    }
-
-    /**
-     * Calculate zones from border/margin configuration (for sliders without components).
-     * Creates zone structure similar to component's calculateZones() output.
+     * Calculate all named text zones from the border/margin configuration.
+     * Each enabled border becomes a named zone (left/right/top/bottom).
+     * The inner track area is always available as 'track'.
+     * Used by _renderWithRenderer to populate this._zones for per-field routing.
      * @param {number} width - Slider width
      * @param {number} height - Slider height
-     * @returns {Object} Zones object with text, track, etc.
+     * @returns {{ borderZones: Object.<string,{x,y,width,height}>, trackZone: {x,y,width,height} }}
      * @private
      */
     _calculateZonesFromBorders(width, height) {
         const borderConfig = this._sliderStyle?.border;
         const getBorderSize = (borderDef) => borderDef?.size ?? borderDef?.width ?? 0;
 
-        const borderOffsets = {
-            left: borderConfig?.left?.enabled ? getBorderSize(borderConfig.left) : 0,
-            top: borderConfig?.top?.enabled ? getBorderSize(borderConfig.top) : 0,
-            right: borderConfig?.right?.enabled ? getBorderSize(borderConfig.right) : 0,
-            bottom: borderConfig?.bottom?.enabled ? getBorderSize(borderConfig.bottom) : 0
-        };
+        const leftSize   = borderConfig?.left?.enabled   ? getBorderSize(borderConfig.left)   : 0;
+        const topSize    = borderConfig?.top?.enabled    ? getBorderSize(borderConfig.top)    : 0;
+        const rightSize  = borderConfig?.right?.enabled  ? getBorderSize(borderConfig.right)  : 0;
+        const bottomSize = borderConfig?.bottom?.enabled ? getBorderSize(borderConfig.bottom) : 0;
 
-        // Calculate text zone based on textArea config
-        const textArea = this.config?.text?.area || 'auto';
-        let textZone;
+        // Build a named zone for each enabled border
+        const borderZones = /** @type {Object.<string, {x:number, y:number, width:number, height:number}>} */ ({});
+        if (leftSize   > 0) borderZones.left   = { x: 0,                   y: 0,                    width: leftSize,   height: height               };
+        if (rightSize  > 0) borderZones.right  = { x: width - rightSize,   y: 0,                    width: rightSize,  height: height               };
+        if (topSize    > 0) borderZones.top    = { x: 0,                   y: 0,                    width: width,      height: topSize              };
+        if (bottomSize > 0) borderZones.bottom = { x: 0,                   y: height - bottomSize,  width: width,      height: bottomSize           };
 
-        if (textArea === 'auto' || textArea === 'left') {
-            if (borderOffsets.left > 0) {
-                // Left border area - full height including top/bottom
-                textZone = {
-                    x: 0,
-                    y: 0,
-                    width: borderOffsets.left,
-                    height: height
-                };
-            } else if (borderOffsets.top > 0) {
-                // Top border area - full width
-                textZone = {
-                    x: 0,
-                    y: 0,
-                    width: width,
-                    height: borderOffsets.top
-                };
-            } else {
-                // No borders: use full area
-                textZone = { x: 0, y: 0, width, height };
-            }
-        } else if (textArea === 'top') {
-            textZone = {
-                x: 0,
-                y: 0,
-                width: width,
-                height: borderOffsets.top || height
-            };
-        } else if (textArea === 'right') {
-            textZone = {
-                x: width - borderOffsets.right,
-                y: 0,
-                width: borderOffsets.right || width,
-                height: height
-            };
-        } else if (textArea === 'bottom') {
-            textZone = {
-                x: 0,
-                y: height - borderOffsets.bottom,
-                width: width,
-                height: borderOffsets.bottom || height
-            };
-        } else if (textArea === 'track') {
-            // Text in track area (inside borders)
-            const margins = this._sliderStyle?.margins || { top: 0, right: 0, bottom: 0, left: 0 };
-            textZone = {
-                x: borderOffsets.left + margins.left,
-                y: borderOffsets.top + margins.top,
-                width: width - borderOffsets.left - borderOffsets.right - margins.left - margins.right,
-                height: height - borderOffsets.top - borderOffsets.bottom - margins.top - margins.bottom
-            };
-        } else {
-            // Fallback: full area
-            textZone = { x: 0, y: 0, width, height };
-        }
-
-        // Calculate track zone (inside borders)
+        // Track zone: interior area inset by all enabled border sizes + track margins
         const margins = this._sliderStyle?.track?.margin || { top: 0, right: 0, bottom: 0, left: 0 };
         const trackZone = {
-            x: borderOffsets.left + margins.left,
-            y: borderOffsets.top + margins.top,
-            width: width - borderOffsets.left - borderOffsets.right - margins.left - margins.right,
-            height: height - borderOffsets.top - borderOffsets.bottom - margins.top - margins.bottom
+            x: leftSize   + (margins.left   || 0),
+            y: topSize    + (margins.top    || 0),
+            width:  width  - leftSize - rightSize  - (margins.left  || 0) - (margins.right  || 0),
+            height: height - topSize  - bottomSize - (margins.top   || 0) - (margins.bottom || 0)
         };
 
-        return {
-            text: textZone,
-            track: trackZone
-        };
+        return { borderZones, trackZone };
     }
 
     /**
-     * Inject text fields into a parsed SVG element (new rendering path).
-     * This version works with parsed DOM elements instead of _componentSvg.
-     * Uses zones from this._zones (always populated before this is called).
-     * @param {Element} svgElement - Parsed SVG DOM element
-     * @param {number} width - SVG width (fallback only)
-     * @param {number} height - SVG height (fallback only)
-     * @private
+     * Override of LCARdSCard._calculateZones — populate this._zones for the slider.
+     *
+     * Called by _rebuildZones() (base-class) before text injection.
+     * - Gets named zones from the active component's calculateZones().
+     * - For the 'default' component, also registers the four enabled border zones
+     *   and a border-aware track zone so text fields can be routed per-border.
+     *
+     * @param {number} width
+     * @param {number} height
+     * @protected
      */
-    _injectTextFieldsToElement(svgElement, width, height) {
-        // Use button's _resolveTextConfiguration() to get processed templates
-        const textFields = this._resolveTextConfiguration();
-        if (!textFields || Object.keys(textFields).length === 0) return;
+    _calculateZones(width, height) {
+        const componentName = this.config.component || 'default';
+        const rawZones = this._componentCalculateZones
+            ? this._componentCalculateZones(width, height, { style: this._sliderStyle, config: this.config })
+            : null;
 
-        // Find text-zone in the provided element
-        let textZone = svgElement.querySelector('#text-zone');
-
-        // ALWAYS use zones from this._zones (should be populated before calling this)
-        const textZoneData = this._zones.get('text');
-
-        if (!textZoneData) {
-            lcardsLog.error('[LCARdSSlider] No text zone in this._zones - zones must be calculated before text injection');
+        if (!rawZones) {
+            lcardsLog.warn('[LCARdSSlider] _calculateZones: component calculateZones() missing or returned null');
             return;
         }
 
-        // Use zone bounds (width and height properties)
-        const zoneWidth = textZoneData.bounds.width;
-        const zoneHeight = textZoneData.bounds.height;
+        // Internal-only SVG structure zones — used by the component render() template but
+        // not meaningful as user-targetable text zones (the border/track zones supersede them).
+        const INTERNAL_ZONES = new Set(['text']);
 
-        if (!textZone) {
-            lcardsLog.warn('[LCARdSSlider] No text-zone found in SVG element');
-            return;
+        // Populate this._zones from component-provided zones
+        for (const [zoneName, zoneData] of Object.entries(rawZones)) {
+            if (!INTERNAL_ZONES.has(zoneName)) {
+                this._zones.set(zoneName, { bounds: zoneData });
+            }
         }
 
-        // Clear existing text
-        textZone.innerHTML = '';
-
-        // Process text fields using button's system with zone-relative dimensions
-        const processedFields = this._processTextFields(textFields, zoneWidth, zoneHeight, null);
-
-        // Generate SVG text elements (using button's method)
-        const textMarkup = this._generateTextElements(processedFields);
-
-        // Parse markup and append to text zone
-        const parser = new DOMParser();
-        const wrappedMarkup = `<g>${textMarkup}</g>`;
-        const doc = parser.parseFromString(wrappedMarkup, 'image/svg+xml');
-
-        // Check if parsing failed
-        const parseError = doc.querySelector('parsererror');
-        if (parseError) {
-            lcardsLog.trace('[LCARdSSlider] DOMParser failed to parse text markup!');
-            return;
+        // For Default component, also register named border zones + border-aware track zone
+        if (componentName === 'default') {
+            const { borderZones, trackZone } = this._calculateZonesFromBorders(width, height);
+            for (const [name, bounds] of Object.entries(borderZones)) {
+                this._zones.set(name, { bounds });
+            }
+            this._zones.set('track', { bounds: trackZone });
+            lcardsLog.debug('[LCARdSSlider] _calculateZones: registered named text zones from borders:', { borderZones, track: trackZone });
         }
 
-        const textElements = doc.documentElement.children;
-
-        // Append all text elements to text zone
-        Array.from(textElements).forEach(element => {
-            textZone.appendChild(element.cloneNode(true));
-        });
-
-        lcardsLog.debug(`[LCARdSSlider] Injected ${processedFields.length} text fields into text-zone`);
+        lcardsLog.debug('[LCARdSSlider] _calculateZones: stored zones in Map:', this._zones);
     }
+
+    // _injectTextFieldsToElement is defined on LCARdSButton and inherited by this class.
 
     /**
      * Generate track content (pills or gradient bar)
@@ -1746,9 +1566,18 @@ export class LCARdSSlider extends LCARdSButton {
     _generatePillsSVG(trackBounds, trackConfig, orientation = 'horizontal') {
         const gap = parseInt(trackConfig?.gap) || 4;
         const radius = trackConfig?.shape?.radius ?? 4;
-        let gradientStart = this._resolveColorValue(trackConfig?.gradient?.start || 'var(--error-color, var(--lcards-orange-dark, #cc2200))');
-        let gradientEnd = this._resolveColorValue(trackConfig?.gradient?.end || 'var(--success-color, var(--lcards-green-medium, #33cc99))');
-
+        let gradientStart = this._resolveColorValue(String(resolveStateColor({
+            actualState: this._entity?.state,
+            classifiedState: this._getButtonState(),
+            colorConfig: trackConfig?.gradient?.start,
+            fallback: 'var(--error-color, var(--lcars-orange-dark, #cc2200))'
+        }) ?? ''));
+        let gradientEnd = this._resolveColorValue(String(resolveStateColor({
+            actualState: this._entity?.state,
+            classifiedState: this._getButtonState(),
+            colorConfig: trackConfig?.gradient?.end,
+            fallback: 'var(--success-color, var(--lcars-green-medium, #33cc99))'
+        }) ?? ''));
         // Reverse gradient direction when fill is inverted
         if (this._invertFill) {
             [gradientStart, gradientEnd] = [gradientEnd, gradientStart];
@@ -3053,8 +2882,10 @@ export class LCARdSSlider extends LCARdSButton {
     _renderWithRenderer(width, height) {
         lcardsLog.debug(`[LCARdSSlider] _renderWithRenderer(${width}, ${height})`);
 
-        // Step 1: Calculate zones using component's helper.
-        // Pass full context so components like 'shaped' can read orientation and style config.
+        // Step 1: Get raw component zones for the render pipeline.
+        // These are the unadjusted zone bounds returned by the component — Step 1.5 will
+        // apply border/margin insets to them exactly once.
+        const componentName = this.config.component || 'default';
         const zones = this._componentCalculateZones
             ? this._componentCalculateZones(width, height, { style: this._sliderStyle, config: this.config })
             : null;
@@ -3064,20 +2895,11 @@ export class LCARdSSlider extends LCARdSButton {
             return html`<div class="slider-error">Component missing calculateZones()</div>`;
         }
 
-        // Step 1.25: Store zones in Map for unified text field processing
-        this._zones.clear();
-        for (const [zoneName, zoneData] of Object.entries(zones)) {
-            this._zones.set(zoneName, { bounds: zoneData });
-        }
-
-        // Step 1.3: For Default component, override text zone with border-aware calculation
-        const componentName = this.config.component || 'default';
-        if (componentName === 'default') {
-            const borderBasedZones = this._calculateZonesFromBorders(width, height);
-            zones.text = borderBasedZones.text;
-            this._zones.set('text', { bounds: borderBasedZones.text });
-            lcardsLog.debug('[LCARdSSlider] Override Default component text zone with border-aware calculation:', zones.text);
-        }
+        // Step 1.25: Rebuild this._zones via the base-class pipeline for text-field routing.
+        // this._zones includes named border zones (left/right/top/bottom) and a border-aware
+        // track zone — used by _injectTextFieldsToElement, NOT by the render pipeline below.
+        // Keeping these separate avoids double-applying border insets to the render zones.
+        this._rebuildZones(width, height);
 
         lcardsLog.debug('[LCARdSSlider] Stored component zones in _zones Map:', this._zones);
 
@@ -3258,6 +3080,9 @@ export class LCARdSSlider extends LCARdSButton {
 
         // Inject text fields if configured
         this._injectTextFieldsToElement(shellElement, width, height);
+
+        // Debug zone overlay — appended after text so it renders on top
+        this._injectZoneDebugOverlay(shellElement);
 
         // Apply corner clip-path for rounded card corners (must be last — clips everything)
         this._applyCornerClip(shellElement, width, height);
@@ -4169,8 +3994,10 @@ export class LCARdSSlider extends LCARdSButton {
      * @override
      */
     _renderCard() {
-        const width = this._containerSize.width || 200;
-        const height = this._containerSize.height || 60;
+        // Prefer explicit config dimensions so text zones are correct even before the
+        // ResizeObserver fires (which would otherwise give the HA default 56px row height).
+        const width  = this._configPx(this.config.width)  || this._containerSize.width  || 200;
+        const height = this._configPx(this.config.height) || this._containerSize.height || 60;
 
         // Check if component is loaded
         if (this.config.component && !this._componentLoaded) {

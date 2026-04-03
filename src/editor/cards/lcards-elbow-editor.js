@@ -197,6 +197,7 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
         return [
             { label: 'Config', content: () => this._renderFromConfig(this._getConfigTabConfig()) },
             { label: 'Elbow Design', content: () => this._renderElbowDesignTab() },
+            { label: 'Zones', content: () => this._renderZonesTab() },
             { label: 'Text', content: () => this._renderTextTab() },
             { label: 'Symbiont', content: () => this._renderSymbiontTab() },
             { label: 'Actions', content: () => this._renderActionsTab() },
@@ -1818,6 +1819,48 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
     }
 
     /**
+     * Build a zone-name → label map for the zone routing dropdown,
+     * derived from the current elbow configuration (no live card instance needed).
+     * @param {Object} elbowCfg - this.config.elbow
+     * @returns {Object.<string,string>} zoneName → human label
+     * @private
+     */
+    _buildAvailableZones(elbowCfg) {
+        const type  = elbowCfg.type  || 'header-left';
+        const style = elbowCfg.style || 'simple';
+
+        // Frame — sides present in config
+        if (type === 'frame') {
+            const sides = elbowCfg.frame?.sides || {};
+            const zones = {};
+            if (sides.top?.enabled)    zones.top    = 'Top';
+            if (sides.bottom?.enabled) zones.bottom = 'Bottom';
+            if (sides.left?.enabled)   zones.left   = 'Left';
+            if (sides.right?.enabled)  zones.right  = 'Right';
+            zones.body = 'Body (interior)';
+            return zones;
+        }
+
+        // Segmented (Picard-style double elbow)
+        if (style === 'segmented') {
+            return {
+                outer_vertical_bar:   'Outer Vertical Bar',
+                inner_vertical_bar:   'Inner Vertical Bar',
+                outer_horizontal_bar: 'Outer Horizontal Bar',
+                inner_horizontal_bar: 'Inner Horizontal Bar',
+                body:                 'Body (open area)'
+            };
+        }
+
+        // Simple L-shaped elbow (default)
+        return {
+            vertical_bar:   'Vertical Bar',
+            horizontal_bar: 'Horizontal Bar',
+            body:           'Body (open area)'
+        };
+    }
+
+    /**
      * Render text tab
      * @returns {TemplateResult}
      * @private
@@ -1825,11 +1868,22 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
     _renderTextTab() {
         // CRITICAL: Use this.config?.text to ensure Lit reactivity when config changes
         const textConfig = this.config?.text || {};
+
+        // Build available zones from the current elbow configuration.
+        const availableZones = { ...this._buildAvailableZones(this.config?.elbow || {}) };
+        // Always merge user-defined config.zones so any custom zones appear in the selector.
+        for (const name of Object.keys(this.config?.zones || {})) {
+            if (!availableZones[name]) {
+                availableZones[name] = name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            }
+        }
+
         return html`
             <lcards-multi-text-editor-v2
                 .editor=${this}
                 .text=${textConfig}
                 .hass=${this.hass}
+                .availableZones=${availableZones}
                 @text-changed=${(e) => {
                     // CRITICAL: Replace entire text object, don't merge (deepMerge won't delete fields)
                     this.config = { ...this.config, text: e.detail.value };

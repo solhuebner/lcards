@@ -31,7 +31,7 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
             editor: { type: Object },         // Parent editor reference (for child components)
             text: { type: Object },           // Text configuration object (our managed state)
             hass: { type: Object },           // Home Assistant instance
-            componentTextAreas: { type: Object }, // Named text areas from component def (may be null)
+            availableZones: { type: Object }, // Named zones for routing (from card zone map or component def)
             componentTextFields: { type: Array }, // Preset field names from component def (may be null)
             _expandedFields: { type: Object, state: true }, // Track which fields are expanded
             _showAddDialog: { type: Boolean, state: true },
@@ -44,7 +44,7 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
         this.editor = null;
         this.text = {};
         this.hass = null;
-        this.componentTextAreas = null;
+        this.availableZones = null;
         this.componentTextFields = null;
         this._expandedFields = {};
         this._showAddDialog = false;
@@ -416,46 +416,27 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
                 helper: 'Where to display this text on the card'
             })}
 
-            <!-- Text Area (component mode only, when >1 area exists) -->
-            ${this.componentTextAreas && Object.keys(this.componentTextAreas).length > 1 ? html`
+            <!-- Zone selector (only shown when >1 named zone is available) -->
+            ${this.availableZones && Object.keys(this.availableZones).length > 1 ? html`
                 <ha-selector
                     .hass=${this.editor?.hass}
-                    .selector=${{ select: { mode: 'dropdown', options: Object.keys(this.componentTextAreas).map(k => ({ value: k, label: k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) })) } }}
-                    .value=${this.editor?.config?.text?.[fieldName]?.text_area || Object.keys(this.componentTextAreas)[0]}
-                    .label=${'Text Area'}
-                    .helper=${'Which named area on the component this text field belongs to'}
-                    @value-changed=${(e) => this.editor?._setConfigValue?.(`text.${fieldName}.text_area`, e.detail.value)}>
+                    .selector=${{ select: { mode: 'dropdown', options: Object.keys(this.availableZones).map(k => ({ value: k, label: k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) })) } }}
+                    .value=${this.editor?.config?.text?.[fieldName]?.zone || Object.keys(this.availableZones)[0]}
+                    .label=${'Zone'}
+                    .helper=${'Which named layout zone this text field is routed to'}
+                    @value-changed=${(e) => this.editor?._setConfigValue?.(`text.${fieldName}.zone`, e.detail.value)}>
                 </ha-selector>
             ` : ''}
-
-            <!-- Font Size % (component mode only) -->
-            ${this.componentTextAreas ? html`
-                ${FormField.renderField(this.editor, `text.${fieldName}.font_size_percent`, {
-                    label: 'Font Size (%)',
-                    helper: 'Font size as % of the text area height (overrides Font Size when set)'
-                })}
-            ` : ''}
-
-            <!-- Stretch -->
-            ${FormField.renderField(this.editor, `text.${fieldName}.stretch`, {
-                label: 'Stretch Text',
-                helper: 'Stretch/compress glyphs to fill a fraction of available width. true = 100%, 0.8 = 80%'
-            })}
 
             <!-- Font Section -->
             <lcards-form-section
                 header="Font"
-                description="Override default font settings"
+                description="Set font family, weight, and sizing"
                 icon="mdi:format-font"
                 ?expanded=${false}
                 ?outlined=${true}
                 headerLevel="6"
                 ?compact=${true}>
-
-                ${FormField.renderField(this.editor, `text.${fieldName}.font_size`, {
-                    label: 'Font Size',
-                    helper: hasDefaults && !fieldConfig.font_size ? 'Inherits from defaults' : ''
-                })}
 
                 ${FormField.renderField(this.editor, `text.${fieldName}.font_weight`, {
                     label: 'Font Weight',
@@ -466,6 +447,42 @@ export class LCARdSMultiTextEditorV2 extends LitElement {
                     label: 'Font Family',
                     helper: hasDefaults && !fieldConfig.font_family ? 'Inherits from defaults' : ''
                 })}
+
+                <!-- Fixed size -->
+                ${FormField.renderField(this.editor, `text.${fieldName}.font_size`, {
+                    label: 'Font Size (px)',
+                    helper: hasDefaults && !fieldConfig.font_size
+                        ? 'Inherits from defaults — use this OR Font Size %, not both'
+                        : 'Absolute font size in px — overrides Font Size % when set explicitly'
+                })}
+
+                <!-- Fill-sizing group -->
+                <lcards-form-section
+                    header="Fill Sizing"
+                    description="Scale text to fill the card height. Use Font Size % + Cap Height Ratio instead of Font Size (px)."
+                    icon="mdi:arrow-expand-vertical"
+                    ?expanded=${!!(fieldConfig.font_size_percent || fieldConfig.cap_height_ratio || fieldConfig.stretch)}
+                    ?outlined=${false}
+                    headerLevel="6"
+                    ?compact=${true}>
+
+                    ${FormField.renderField(this.editor, `text.${fieldName}.font_size_percent`, {
+                        label: 'Font Size (% of height)',
+                        helper: 'Scales font so cap glyphs fill this % of the card height (when Cap Height Ratio is also set). Use instead of Font Size (px).'
+                    })}
+
+                    ${FormField.renderField(this.editor, `text.${fieldName}.cap_height_ratio`, {
+                        label: 'Cap Height Ratio',
+                        helper: 'Ratio of visible cap glyph height to the font em-square. Antonio ≈ 0.86. Adjust per font until caps fill the box. Has no effect without Font Size %.'
+                    })}
+
+                    ${FormField.renderField(this.editor, `text.${fieldName}.stretch`, {
+                        label: 'Stretch Width',
+                        helper: 'Stretch/compress glyphs to fill a fraction of the available width. true or 1 = 100%, 0.8 = 80%'
+                    })}
+
+                </lcards-form-section>
+
             </lcards-form-section>
 
             <!-- Alignment Section -->

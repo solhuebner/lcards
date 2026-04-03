@@ -86,7 +86,41 @@ export const dpadComponents = {
         orientation: 'square',
 
         // Features supported by this component
-        features: ['multi-segment', 'state-based-styling'],
+        features: ['multi-segment', 'state-based-styling', 'zones', 'text-overlay'],
+
+        // -----------------------------------------------------------------------
+        // zones — named map of rectangular regions in viewBox coordinate space
+        // (viewBox: 0 0 80 80).
+        //
+        // Directional arrow zones match the tight bounding boxes of each arrow
+        // path.  These are narrow strips (~9–12 viewBox units on one axis); use
+        // font_size_percent to size text relative to zone height/width.
+        //
+        // The center zone covers the inner intersection square of the cross/plus
+        // shape (x 33–47, y 33–47).
+        //
+        // The cross arms have outer edges at x=10/70 and y=10/70.
+        // Corner zones fill the four diagonal quadrants snapped to those edges:
+        //   x: 10→33 (left corners) or 47→70 (right corners)
+        //   y: 10→33 (top corners)  or 47→70 (bottom corners)
+        // Center zone spans the full interior between all four arms (10→70 × 10→70).
+        // -----------------------------------------------------------------------
+        zones: {
+            // Directional arrows
+            up:    { x: 34,  y: 0.5, width: 12,  height: 9.5 },
+            down:  { x: 34,  y: 70,  width: 12,  height: 9.5 },
+            left:  { x: 0.5, y: 34,  width: 9.5, height: 12  },
+            right: { x: 70,  y: 34,  width: 9.5, height: 12  },
+
+            // Center — full interior between all four directional arms
+            center: { x: 10, y: 10, width: 60, height: 60 },
+
+            // Diagonal corner sections — outer edges at card boundary (0/80), inner edges at cross arm (33/47)
+            up_left:    { x:  0, y:  0, width: 33, height: 33 },
+            up_right:   { x: 47, y:  0, width: 33, height: 33 },
+            down_left:  { x:  0, y: 47, width: 33, height: 33 },
+            down_right: { x: 47, y: 47, width: 33, height: 33 },
+        },
 
         // Default segment configurations with theme token references
         segments: {

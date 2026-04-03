@@ -182,7 +182,13 @@ export const lcardsDefaultTokens = {
         font_size: 'typography.fontSize.lg',
         font_weight: 'typography.fontWeight.normal',
         font_family: 'typography.fontFamily.primary',
-        text_transform: 'typography.textTransform.uppercase'
+        text_transform: 'typography.textTransform.uppercase',
+        // Cap-height ratio for the primary font family (Antonio). Used by font_size_percent
+        // to scale font-size so visible cap glyphs match the requested % of zone height,
+        // and to position the alphabetic baseline so those glyphs are optically centred.
+        // 0.86 = Antonio: caps fill exactly the zone height at font_size_percent: 100.
+        // Override per card or text field when using a different font family.
+        cap_height_ratio: 0.86
       },
       icon: {
         size: 24,

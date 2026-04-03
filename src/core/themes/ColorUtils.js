@@ -173,6 +173,7 @@ export class ColorUtils {
    * @example
    * ColorUtils.mix('#FF9900', '#9999FF', 0.5) // Returns color halfway between
    * ColorUtils.mix('var(--lcars-orange)', 'var(--lcars-blue)', 0.5) // Returns 'color-mix(in srgb, var(--lcars-orange) 50%, var(--lcars-blue) 50%)'
+   * ColorUtils.mix('rgba(0,0,128,0.18)', '#ff0000', 0.5) // Preserves interpolated alpha
    */
   static mix(color1, color2, weight = 0.5) {
     // Handle CSS variables with color-mix()
@@ -190,7 +191,35 @@ export class ColorUtils {
     const mixed = rgb1.map((val, i) =>
       Math.floor(val * weight + rgb2[i] * (1 - weight))
     );
+
+    // Preserve alpha channel if either input carries one (from rgba() values).
+    // _parseColor() only extracts [r, g, b]; extract alpha separately here.
+    const a1 = this._parseColorAlpha(color1);
+    const a2 = this._parseColorAlpha(color2);
+    if (a1 !== null || a2 !== null) {
+      const mixedAlpha = Math.round(((a1 ?? 1) * weight + (a2 ?? 1) * (1 - weight)) * 1000) / 1000;
+      return `rgba(${mixed[0]}, ${mixed[1]}, ${mixed[2]}, ${mixedAlpha})`;
+    }
+
     return this._rgbToHex(mixed[0], mixed[1], mixed[2]);
+  }
+
+  /**
+   * Extract the alpha value from an rgba() color string.
+   * Returns null for fully-opaque or non-rgba inputs so callers can
+   * distinguish "no alpha specified" from "alpha = 1".
+   *
+   * @private
+   * @param {string} color - Color string
+   * @returns {number|null} Alpha (0–1) or null when absent / fully opaque
+   */
+  static _parseColorAlpha(color) {
+    if (!color || typeof color !== 'string') return null;
+    const match = color.match(/rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)/);
+    if (!match) return null;
+    const a = parseFloat(match[1]);
+    // Treat alpha=1 as "no alpha info" so we don't output redundant rgba() for opaque colors
+    return a < 1 ? a : null;
   }
 
   /**
@@ -417,6 +446,55 @@ export class ColorUtils {
       Math.round(g * 255),
       Math.round(b * 255)
     ];
+  }
+
+  /**
+   * Convert a colour temperature in Kelvin to an approximate RGB value.
+   *
+   * Uses Tanner Helland's piecewise algorithm which gives visually accurate
+   * results for the 1000–40000 K range used by smart-home lighting.
+   *
+   * @param {number} kelvin - Colour temperature in Kelvin (clamped to 1000–40000)
+   * @returns {[number, number, number]} [r, g, b] integers in 0–255 range
+   *
+   * @example
+   * ColorUtils.kelvinToRgb(2700) // Returns approximately [255, 169, 87] — warm white
+   * ColorUtils.kelvinToRgb(6500) // Returns approximately [255, 249, 253] — daylight
+   */
+  static kelvinToRgb(kelvin) {
+    // Algorithm works in units of 100 K
+    const temp = Math.max(1000, Math.min(40000, kelvin)) / 100;
+
+    let r, g, b;
+
+    // Red channel
+    if (temp <= 66) {
+      r = 255;
+    } else {
+      r = 329.698727446 * Math.pow(temp - 60, -0.1332047592);
+      r = Math.max(0, Math.min(255, r));
+    }
+
+    // Green channel
+    if (temp <= 66) {
+      g = 99.4708025861 * Math.log(temp) - 161.1195681661;
+      g = Math.max(0, Math.min(255, g));
+    } else {
+      g = 288.1221695283 * Math.pow(temp - 60, -0.0755148492);
+      g = Math.max(0, Math.min(255, g));
+    }
+
+    // Blue channel
+    if (temp >= 66) {
+      b = 255;
+    } else if (temp <= 19) {
+      b = 0;
+    } else {
+      b = 138.5177312231 * Math.log(temp - 10) - 305.0447927307;
+      b = Math.max(0, Math.min(255, b));
+    }
+
+    return [Math.round(r), Math.round(g), Math.round(b)];
   }
 
   /**

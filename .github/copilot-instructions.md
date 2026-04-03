@@ -48,7 +48,67 @@ LCARdSNativeCard (HA integration, shadow DOM, actions)
 
 ---
 
-## 🔧 Development Workflows
+## �️ Zone System
+
+Every card that supports text fields exposes **named zones** — rectangular regions of the SVG surface that text fields can be targeted to via `zone: <name>`.
+
+### Key APIs (all in `LCARdSCard`)
+
+```javascript
+// Populated by _rebuildZones() every render cycle
+this._zones  // Map<name, { bounds: { x, y, width, height } }>
+
+// Called by cards at start of each render to rebuild the zone map
+this._rebuildZones(width, height)
+//   → calls this._calculateZones(width, height)  (subclass override)
+//   → then  this._mergeUserZones(width, height)   (applies config.zones)
+
+// For string-based SVG pipelines (button)
+this._generateZoneTextMarkup(textFields)   // → SVG string with <g translate> groups
+this._generateZoneDebugMarkup()             // → SVG string with debug overlay
+
+// For DOM-based SVG pipelines (slider, elbow)
+this._injectTextFieldsToElement(svgEl, w, h)
+this._injectZoneDebugOverlay(svgEl)
+```
+
+### Auto-zones per card
+
+| Card | Auto zones |
+|------|------------|
+| Button (preset) | `body` |
+| Button (component) | Named `text_areas` from SVG def |
+| Slider | `track` + `left`/`right`/`top`/`bottom` when border enabled |
+| Elbow (simple) | `vertical_bar`, `horizontal_bar`, `body` |
+| Elbow (segmented) | `outer_*`, `inner_*` bars, `body` |
+| Elbow (frame) | `top`, `bottom`, `left`, `right`, `body` |
+
+### User-defined zones
+
+Users can add or override zones via `config.zones`. Mixed px/percent per axis is supported — px takes precedence when both are present:
+
+```yaml
+zones:
+  sidebar:
+    x: 0
+    y: 0
+    width: 80
+    height_percent: 100
+```
+
+### Debug overlay
+
+`config.debug_zones: true` renders coloured dashed rects + zone name labels on top of the card. Toggle in the editor's **Zones → Developer Tools** section. **Remove before shipping** — the key persists in config when left on.
+
+### Anti-patterns
+
+❌ Don't access `this._zones` before calling `_rebuildZones` — it will be empty or stale
+❌ Don't call `_calculateZones` directly — always go through `_rebuildZones` so user overrides are applied
+❌ Don't embed text markup via `_processTextFields(textFields, fullWidth, fullHeight)` in a zone-aware card — use `_generateZoneTextMarkup` (button) or `_injectTextFieldsToElement` (slider/elbow) instead
+
+---
+
+## �🔧 Development Workflows
 
 ### Build & Test Commands
 

@@ -455,6 +455,7 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
         baseTabs.push(
             { label: 'Slider Track', content: () => this._renderTrackTab() },
             { label: 'Borders', content: () => this._renderBordersTab() },
+            { label: 'Zones', content: () => this._renderZonesTab() },
             { label: 'Text Fields', content: () => this._renderTextTab() },
             { label: 'Actions', content: () => this._renderActionsTab() },
             // Sound tab: per-card mute + slider & action event overrides
@@ -1107,20 +1108,6 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                     })}
                 </lcards-grid-layout>
 
-                <!-- INLINE COLORS: Gradient colors appear right here with pills settings -->
-                <lcards-color-section
-                    .editor=${this}
-                    .entityId=${this.config?.entity || ''}
-                    header="Gradient Colours"
-                    description="Start and end colours for pill gradient"
-                    .colorPaths=${[
-                        { path: 'style.track.segments.gradient.start', label: 'Gradient Start', helper: 'Colour at minimum value (left/bottom)' },
-                        { path: 'style.track.segments.gradient.end', label: 'Gradient End', helper: 'Colour at maximum value (right/top)' }
-                    ]}
-                    ?expanded=${false}
-                    ?useColorPicker=${true}>
-                </lcards-color-section>
-
             </lcards-form-section>
 
             <!-- Opacity Settings -->
@@ -1131,6 +1118,29 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                 ?expanded=${false}
                 ?outlined=${true}
                 headerLevel="4">
+
+                <!-- Gradient colours — state-based pickers support match-light, active/inactive, etc. -->
+                <lcards-color-section-v2
+                    .editor=${this}
+                    .entityId=${this.config?.entity || ''}
+                    basePath="style.track.segments.gradient.start"
+                    header="Gradient Start Colour"
+                    description="State-based colour at minimum value (left/bottom)"
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                    ?allowCustomStates=${true}
+                    ?expanded=${false}>
+                </lcards-color-section-v2>
+
+                <lcards-color-section-v2
+                    .editor=${this}
+                    .entityId=${this.config?.entity || ''}
+                    basePath="style.track.segments.gradient.end"
+                    header="Gradient End Colour"
+                    description="State-based colour at maximum value (right/top)"
+                    .suggestedStates=${['default', 'active', 'inactive', 'unavailable']}
+                    ?allowCustomStates=${true}
+                    ?expanded=${false}>
+                </lcards-color-section-v2>
 
                 <lcards-grid-layout columns="1">
                     ${FormField.renderField(this, 'style.track.segments.appearance.unfilled.opacity', {
@@ -1618,18 +1628,41 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
     }
 
     /**
-     * Text Tab - Standard multi-text editor
+     * Text Tab - Standard multi-text editor with dynamic text area dropdown.
+     * Each enabled border (left/right/top/bottom) and the inner track are offered
+     * as named text areas in the per-field dropdown so users can route individual
+     * text fields to the appropriate visual zone.
      * @returns {TemplateResult}
      * @private
      */
     _renderTextTab() {
         // CRITICAL: Use this.config?.text to ensure Lit reactivity when config changes
         const textConfig = this.config?.text || {};
+
+        // Build the available zones from the current border configuration.
+        // Only include borders that are actually enabled and have a non-zero size.
+        // 'track' (the inner slider body) is always present.
+        const borderCfg = this.config?.style?.border || {};
+        const getBorderSize = (b) => b?.size ?? b?.width ?? 0;
+        const availableZones = {};
+        if (borderCfg.left?.enabled   && getBorderSize(borderCfg.left)   > 0) availableZones.left   = 'Left Border';
+        if (borderCfg.right?.enabled  && getBorderSize(borderCfg.right)  > 0) availableZones.right  = 'Right Border';
+        if (borderCfg.top?.enabled    && getBorderSize(borderCfg.top)    > 0) availableZones.top    = 'Top Border';
+        if (borderCfg.bottom?.enabled && getBorderSize(borderCfg.bottom) > 0) availableZones.bottom = 'Bottom Border';
+        availableZones.track = 'Track (inner)';
+        // Always merge user-defined config.zones so any custom zones appear in the selector.
+        for (const name of Object.keys(this.config?.zones || {})) {
+            if (!availableZones[name]) {
+                availableZones[name] = name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            }
+        }
+
         return html`
             <lcards-multi-text-editor-v2
                 .editor=${this}
                 .text=${textConfig}
                 .hass=${this.hass}
+                .availableZones=${availableZones}
                 @text-changed=${(e) => {
                     // CRITICAL: Replace entire text object, don't merge (deepMerge won't delete fields)
                     this.config = { ...this.config, text: e.detail.value };
