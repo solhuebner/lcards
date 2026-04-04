@@ -214,7 +214,7 @@ export const lcardsDefaultTokens = {
           standard: 45,
           icon: 45
         },
-        minHeight: 40,
+        minHeight: 56,
         minWidth: 0
       },
       radius: {
