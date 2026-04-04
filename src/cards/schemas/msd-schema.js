@@ -15,7 +15,9 @@ import {
     dataSourcesSchema,
     rulesSchema,
     cardHeightSchema,
-    cardWidthSchema
+    cardWidthSchema,
+    cardMinHeightSchema,
+    cardMinWidthSchema
 } from './common-schemas.js';
 
 /**
@@ -629,6 +631,10 @@ export function getMsdSchema(options = {}) {
       height: cardHeightSchema,
 
       width: cardWidthSchema,
+
+      min_height: cardMinHeightSchema,
+
+      min_width: cardMinWidthSchema,
 
       msd: msdConfigSchema,
 

@@ -554,7 +554,9 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                         columns: 2,
                         children: [
                             { type: 'field', path: 'height' },
-                            { type: 'field', path: 'width' }
+                            { type: 'field', path: 'width' },
+                            { type: 'field', path: 'min_height' },
+                            { type: 'field', path: 'min_width' }
                         ]
                     }
                 ]

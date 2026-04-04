@@ -410,6 +410,8 @@ export class LCARdSSelectMenuEditor extends LCARdSBaseEditor {
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
                     ${FormField.renderField(this, 'height')}
                     ${FormField.renderField(this, 'width')}
+                    ${FormField.renderField(this, 'min_height')}
+                    ${FormField.renderField(this, 'min_width')}
                 </div>
             </lcards-form-section>
         `;

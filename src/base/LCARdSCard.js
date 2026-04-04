@@ -122,6 +122,9 @@ export class LCARdSCard extends LCARdSNativeCard {
                     display: block;
                     width: 100%;
                     height: 100%;
+                    /* Allow CSS grid/flexbox to shrink below SVG intrinsic size */
+                    min-width: 0;
+                    min-height: 0;
                 }
 
                 .lcards-card-container {
@@ -966,9 +969,15 @@ export class LCARdSCard extends LCARdSNativeCard {
             }
         });
 
-        // Observe this element (the custom element itself)
-        // The web component should fill its container via CSS (width: 100%, height: 100%)
-        this._resizeObserver.observe(this);
+        // Observe the sizing-reference div instead of `this`.
+        // The size-ref is an empty, content-free div with `position:absolute; inset:0`
+        // that is sized purely by CSS/grid — it has no SVG intrinsic dimensions.
+        // Observing `this` would create a feedback loop:
+        //   SVG pixel w/h → card intrinsic size → ResizeObserver → re-render → svg w/h changes...
+        // The size-ref breaks that loop while still reflecting the true grid-allocated size,
+        // and naturally responds to sidebar/DevTools resizes without a window.resize listener.
+        const sizeRefTarget = this.shadowRoot?.querySelector('.lcards-size-ref') ?? this;
+        this._resizeObserver.observe(sizeRefTarget);
 
         // FALLBACK: window 'resize' listener
         //

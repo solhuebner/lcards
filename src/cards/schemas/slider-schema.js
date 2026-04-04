@@ -8,7 +8,7 @@
  * Editor UI is defined separately in lcards-slider-editor.js config.
  */
 
-import { dataSourcesSchema, simpleColorSchema, stateColorSchema, paddingSchema, getTextSchema, gridOptionsSchema, entitySchema, cardIdSchema, tagsSchema, actionSchema, cardHeightSchema, cardWidthSchema } from './common-schemas.js';
+import { dataSourcesSchema, simpleColorSchema, stateColorSchema, paddingSchema, getTextSchema, gridOptionsSchema, entitySchema, cardIdSchema, tagsSchema, actionSchema, cardHeightSchema, cardWidthSchema, cardMinHeightSchema, cardMinWidthSchema } from './common-schemas.js';
 
 /**
  * Get complete slider card schema
@@ -65,6 +65,10 @@ export function getSliderSchema(options = {}) {
             height: cardHeightSchema,
 
             width: cardWidthSchema,
+
+            min_height: cardMinHeightSchema,
+
+            min_width: cardMinWidthSchema,
 
 
             // ============================================================================

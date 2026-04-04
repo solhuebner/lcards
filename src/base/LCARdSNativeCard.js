@@ -77,6 +77,11 @@ export class LCARdSNativeCard extends LitElement {
             :host {
                 display: block;
                 position: relative;
+                /* Allow CSS grid/flexbox to shrink below the SVG's intrinsic pixel size.
+                 * Without these, min-width/min-height default to 'auto' which resolves to
+                 * the SVG's natural content dimensions, preventing fr-column shrinkage. */
+                min-width: 0;
+                min-height: 0;
             }
 
             .lcards-card {
@@ -84,6 +89,17 @@ export class LCARdSNativeCard extends LitElement {
                 height: 100%;
                 position: relative;
                 font-family: 'Antonio', 'Roboto', sans-serif;
+            }
+
+            /* Sizing reference div — has no content and no intrinsic size.
+             * The ResizeObserver watches this element instead of the host so that
+             * the SVG's pixel width/height attributes never feed back into the
+             * measured container size, breaking the resize oscillation loop. */
+            .lcards-size-ref {
+                position: absolute;
+                inset: 0;
+                pointer-events: none;
+                visibility: hidden;
             }
 
             .lcards-error {
@@ -305,6 +321,9 @@ export class LCARdSNativeCard extends LitElement {
             <div class="lcards-card">
                 ${this._renderCard()}
             </div>
+            <!-- Sizing reference: no content, sized purely by CSS/grid.
+                 ResizeObserver watches this div to avoid SVG intrinsic-size feedback loops. -->
+            <div class="lcards-size-ref" aria-hidden="true"></div>
         `;
     }
 

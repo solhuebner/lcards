@@ -18,6 +18,8 @@ import {
     tagsSchema,
     cardHeightSchema,
     cardWidthSchema,
+    cardMinHeightSchema,
+    cardMinWidthSchema,
 } from './common-schemas.js';
 
 /**
@@ -258,8 +260,10 @@ export function getSelectMenuSchema(options = {}) {
             tags: tagsSchema,
 
             // ── Sizing ────────────────────────────────────────────────────
-            height: cardHeightSchema,
-            width:  cardWidthSchema,
+            height:     cardHeightSchema,
+            width:      cardWidthSchema,
+            min_height: cardMinHeightSchema,
+            min_width:  cardMinWidthSchema,
 
             // ── Appearance ────────────────────────────────────────────────
             preset: {

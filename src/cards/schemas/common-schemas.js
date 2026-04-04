@@ -1496,3 +1496,45 @@ export const cardWidthSchema = {
         selector: { text: {} }
     }
 };
+
+export const cardMinHeightSchema = {
+    oneOf: [
+        {
+            type: 'number',
+            minimum: 0,
+            description: 'Minimum card height in pixels (bare integer, e.g. 40 = 40px)'
+        },
+        {
+            type: 'string',
+            pattern: '^[\\d.]+(\\s*(px|vh|vw|%|em|rem|vmin|vmax))?$',
+            description: 'Minimum card height with CSS unit (e.g. 40px, 10vh)'
+        }
+    ],
+    description: 'Minimum card height floor. Overrides the --lcards-button-min-height CSS token. Bare integer = px.',
+    'x-ui-hints': {
+        label: 'Min Height',
+        helper: 'Floor height (e.g. 40). Overrides --lcards-button-min-height token.',
+        selector: { text: {} }
+    }
+};
+
+export const cardMinWidthSchema = {
+    oneOf: [
+        {
+            type: 'number',
+            minimum: 0,
+            description: 'Minimum card width in pixels (bare integer, e.g. 80 = 80px)'
+        },
+        {
+            type: 'string',
+            pattern: '^[\\d.]+(\\s*(px|vh|vw|%|em|rem|vmin|vmax))?$',
+            description: 'Minimum card width with CSS unit (e.g. 80px, 10vw)'
+        }
+    ],
+    description: 'Minimum card width floor. Overrides the --lcards-button-min-width CSS token. Bare integer = px.',
+    'x-ui-hints': {
+        label: 'Min Width',
+        helper: 'Floor width (e.g. 80). Overrides --lcards-button-min-width token.',
+        selector: { text: {} }
+    }
+};
