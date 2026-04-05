@@ -67,10 +67,11 @@ import { lcardsLog } from '../utils/lcards-logging.js';
 import { resolveStateColor } from '../utils/state-color-resolver.js';
 import { getElbowSchema } from './schemas/elbow-schema.js';
 import {
+    normalizeHACardType,
     createCardElement,
+    createHuiCardWrapper,
     applyHassToCard,
-    applyCardConfig,
-    isCardModAvailable
+    applyCardConfig
 } from '../utils/ha-card-factory.js';
 
 // Import editor component for getConfigElement()
@@ -87,7 +88,7 @@ export class LCARdSElbow extends LCARdSButton {
             _elbowConfig: { type: Object, state: true },
             _elbowGeometry: { type: Object, state: true },
             _themeBarDimensions: { type: Object, state: true } // Track input_number values
-            // _symbiotElement and _symbiotMounted are plain instance properties (not Lit reactive)
+            // _symbiontElement and _symbiontMounted are plain instance properties (not Lit reactive)
             // to avoid triggering re-renders on imperative DOM reference changes
         };
     }
@@ -148,8 +149,11 @@ export class LCARdSElbow extends LCARdSButton {
         this._themeEntityUnsubscribes = []; // Track subscriptions for cleanup
 
         // Symbiont state (plain instance properties — not Lit reactive to avoid update loops)
-        this._symbiotElement = null;
-        this._symbiotMounted = false;
+        this._symbiontElement = null;         // Element mounted in DOM (may be a hui-card wrapper)
+        /** @type {(HTMLElement & { hass?: unknown; _element?: HTMLElement | null; load?: () => void; config?: unknown }) | null} */
+        this._symbiontWrapper = null;         // Non-null when hui-card lazy-load wrapper is used
+        this._symbiontMounted = false;
+        this._symbiontMounting = false;       // Guard against concurrent _mountSymbiontCard() calls
         this._lastSymbiontConfigJson = null; // Dirty-check for symbiont config changes
         this._lastImprintCss = null;         // Cache last injected imprint CSS
 
@@ -209,18 +213,31 @@ export class LCARdSElbow extends LCARdSButton {
         // Initialize position-aware default colors
         this._initializeElbowDefaultColors();
 
-        // Handle symbiont enable/disable when card is already initialized
-        // Use dirty-check to avoid remounting on every non-symbiont property change from the editor
+        // Handle symbiont changes when the card is already initialized.
+        // Only fully unmount+remount for changes that require a new element:
+        //   - enabled toggled
+        //   - card.type changed (different element class)
+        // All other symbiont property changes (position, imprint, custom_style)
+        // take effect on the next render/HASS update without a remount.
         if (this._initialized) {
-            const newSymbiontJson = JSON.stringify(config.symbiont);
-            if (newSymbiontJson !== this._lastSymbiontConfigJson) {
-                this._lastSymbiontConfigJson = newSymbiontJson;
+            const newEnabled  = !!config.symbiont?.enabled;
+            const oldEnabled  = !!JSON.parse(this._lastSymbiontConfigJson || '{}')?.enabled;
+            const newType     = config.symbiont?.card?.type   ?? null;
+            const oldType     = JSON.parse(this._lastSymbiontConfigJson || '{}')?.card?.type ?? null;
+            const needsRemount = newEnabled !== oldEnabled || newType !== oldType;
+
+            if (needsRemount) {
+                this._lastSymbiontConfigJson = JSON.stringify(config.symbiont);
                 if (config.symbiont?.enabled) {
                     this._unmountSymbiontCard();
                     this._mountSymbiontCard();
                 } else {
                     this._unmountSymbiontCard();
                 }
+            } else {
+                // Non-structural change — just update the cached JSON so the next
+                // dirty-check has the right baseline without triggering a remount.
+                this._lastSymbiontConfigJson = JSON.stringify(config.symbiont);
             }
         }
     }
@@ -574,9 +591,36 @@ export class LCARdSElbow extends LCARdSButton {
         // Subscribe to theme input_number entities if configured to use them
         this._subscribeToThemeEntities();
 
-        // Mount symbiont card if configured
+        // Mount symbiont card if configured.
+        // Seed _lastSymbiontConfigJson here so the dirty-check in setConfig
+        // doesn't treat the first post-mount setConfig call (e.g. after an
+        // edit-mode save) as a change and trigger a spurious unmount/remount.
         if (this.config?.symbiont?.enabled) {
+            this._lastSymbiontConfigJson = JSON.stringify(this.config.symbiont);
             this._mountSymbiontCard();
+        }
+    }
+
+    /**
+     * Reconnect safety-net: if the symbiont should be mounted but isn't
+     * (element lost during a disconnect/reconnect cycle or edit-mode transition),
+     * re-mount it.  This supplements the dirty-check in setConfig and the
+     * _attachSymbiontToContainer call in updated().
+     * @override
+     * @protected
+     */
+    async _onConnected() {
+        super._onConnected();
+
+        if (
+            this.config?.symbiont?.enabled &&
+            !this._symbiontElement &&
+            !this._symbiontMounting &&
+            this._initialized
+        ) {
+            lcardsLog.debug('[LCARdSElbow] Symbiont reconnect: re-mounting after disconnect/reconnect cycle');
+            this._lastSymbiontConfigJson = JSON.stringify(this.config.symbiont);
+            await this._mountSymbiontCard();
         }
     }
 
@@ -623,7 +667,7 @@ export class LCARdSElbow extends LCARdSButton {
         }
 
         // Re-attach symbiont element after each render (Lit may recreate container div)
-        if (this._symbiotElement) {
+        if (this._symbiontElement) {
             this._attachSymbiontToContainer();
         }
     }
@@ -639,7 +683,7 @@ export class LCARdSElbow extends LCARdSButton {
         this._updateThemeDimensionsFromHass();
 
         // Forward HASS to symbiont card
-        if (this._symbiotElement) {
+        if (this._symbiontElement) {
             this._applySymbiontHass(newHass);
         }
     }
@@ -2859,10 +2903,19 @@ export class LCARdSElbow extends LCARdSButton {
     /**
      * Mount the symbiont (embedded) card.
      *
-     * Uses the shared HACardFactory for 3-strategy element creation.
-     * HASS is applied BEFORE config (required order — same as MSD controls).
-     * Imprint injection uses a retry loop instead of a single RAF so lazy
-     * shadow roots (hui-* cards) are caught reliably.
+     * For card types that are already registered in customElements the
+     * existing 3-strategy HACardFactory path is used.
+     *
+     * For HA built-in card types that are NOT yet registered on page load
+     * (e.g. `alarm-panel` → `hui-alarm-panel-card`) we delegate to `hui-card`,
+     * which is HA's own universal card renderer.  It internally calls HA's
+     * `LAZY_LOAD_TYPES` dynamic-import map, triggering the correct ES-module
+     * import and registering the element.  This is the same approach used
+     * by every HA view/section/stack internally.
+     *
+     * Imprint injection uses a retry loop to wait for the inner shadow root
+     * to materialise (same as before; `_symbiontWrapper._element` is the
+     * correct target when the hui-card wrapper path is taken).
      * @private
      */
     async _mountSymbiontCard() {
@@ -2874,47 +2927,104 @@ export class LCARdSElbow extends LCARdSButton {
             return;
         }
 
-        const cardConfig = symbConfig.card;
-        lcardsLog.debug('[LCARdSElbow] Mounting symbiont card', { type: cardConfig.type });
-
-        // Create element via shared factory (3-strategy with upgrade wait)
-        const cardElement = await createCardElement(cardConfig.type, 'symbiont');
-        if (!cardElement) {
-            lcardsLog.warn('[LCARdSElbow] Symbiont: could not create card element for type:', cardConfig.type);
+        // Guard: prevent concurrent mount calls (e.g. rapid edit-mode transitions)
+        if (this._symbiontMounting) {
+            lcardsLog.debug('[LCARdSElbow] Symbiont: mount already in progress, skipping duplicate call');
             return;
         }
+        this._symbiontMounting = true;
 
-        // Apply HASS BEFORE config (required — same order as MSD controls)
-        if (this.hass) {
-            applyHassToCard(cardElement, this.hass, 'symbiont-mount');
-        }
+        try {
+            const cardConfig = symbConfig.card;
+            lcardsLog.debug('[LCARdSElbow] Mounting symbiont card', { type: cardConfig.type });
 
-        // Apply config
-        await applyCardConfig(cardElement, cardConfig, 'symbiont');
+            // Determine whether the underlying element is already registered.
+            // HA lazy-imports many built-in card modules (e.g. hui-alarm-panel-card)
+            // only when they appear directly on a dashboard view.  On a fresh page
+            // load they are absent from customElements, causing all three factory
+            // strategies to fail.  When that is the case we use hui-card as a
+            // wrapper — it is HA's canonical lazy-loading card renderer.
+            const normalizedType = normalizeHACardType(cardConfig.type);
+            const isRegistered = normalizedType ? !!customElements.get(normalizedType) : false;
 
-        this._symbiotElement = cardElement;
-        this._attachSymbiontToContainer();
+            let cardElement;
+            if (!isRegistered && normalizedType?.startsWith('hui-')) {
+                // hui-card wrapper path: triggers HA's LAZY_LOAD_TYPES dynamic import.
+                // hass + config are applied via reactive Lit properties — no setConfig needed.
+                lcardsLog.debug('[LCARdSElbow] Symbiont: type not yet registered, using hui-card wrapper', { type: cardConfig.type });
+                cardElement = createHuiCardWrapper(cardConfig, this.hass);
+                this._symbiontWrapper = cardElement; // remembered so imprint targets inner _element
 
-        // Inject imprint with retry loop to handle lazy shadow roots
-        if (symbConfig.imprint?.enabled !== false) {
-            this._injectSymbiontImprintWithRetry();
+                // HA fires 'card-updated' on the hui-card wrapper after the inner
+                // element has been upgraded, configured, and connected to the DOM.
+                // This is the reliable signal that the inner shadow root is about
+                // to materialise — use it to kick off a fresh imprint injection
+                // cycle in case the initial retry window was too narrow.
+                if (symbConfig.imprint?.enabled !== false) {
+                    cardElement.addEventListener('card-updated', () => {
+                        lcardsLog.debug('[LCARdSElbow] Symbiont: hui-card inner element ready (card-updated) — injecting imprint');
+                        this._injectSymbiontImprintWithRetry();
+                    }, { once: true });
+                }
+            } else {
+                // Normal path — element is already registered (custom cards, lcards-*,
+                // or HA built-in types that happen to be loaded at startup).
+                cardElement = await createCardElement(cardConfig.type, 'symbiont');
+                if (!cardElement) {
+                    lcardsLog.warn('[LCARdSElbow] Symbiont: could not create card element for type:', cardConfig.type);
+                    return;
+                }
+                this._symbiontWrapper = null;
+
+                // Apply HASS BEFORE config (required — same order as MSD controls)
+                if (this.hass) {
+                    applyHassToCard(cardElement, this.hass, 'symbiont-mount');
+                }
+
+                // Apply config
+                await applyCardConfig(cardElement, cardConfig, 'symbiont');
+            }
+
+            this._symbiontElement = cardElement;
+            this._attachSymbiontToContainer();
+
+            // Inject imprint with retry loop to handle lazy shadow roots.
+            // When using the hui-card wrapper the actual target is wrapper._element
+            // which materialises asynchronously — the retry loop handles this.
+            if (symbConfig.imprint?.enabled !== false) {
+                this._injectSymbiontImprintWithRetry();
+            }
+        } finally {
+            // Always clear the in-progress guard — even on early return or exception —
+            // so that a subsequent mount attempt is not permanently blocked.
+            this._symbiontMounting = false;
         }
     }
 
     /**
      * Forward HASS to symbiont and re-inject imprint when state-based colors may change.
      * Uses HACardFactory for consistent per-card-type HASS application.
+     * When a hui-card wrapper is in use, hass is set as a reactive property;
+     * hui-card propagates it internally to its inner _element.
      * @param {Object} hass - New HASS object
      * @private
      */
     _applySymbiontHass(hass) {
-        if (!this._symbiotElement) return;
+        if (!this._symbiontElement) return;
 
-        applyHassToCard(this._symbiotElement, hass, 'symbiont-hass');
+        if (this._symbiontWrapper) {
+            // hui-card wrapper: hass is a Lit reactive property — assignment
+            // automatically propagates to the inner rendered card element.
+            this._symbiontWrapper.hass = hass;
+        } else {
+            applyHassToCard(this._symbiontElement, hass, 'symbiont-hass');
+        }
 
-        // Re-inject imprint — entity state may have changed so resolved colors differ
+        // Re-inject imprint — entity state may have changed so resolved colors differ.
+        // Target the inner _element when using the hui-card wrapper.
         if (this.config?.symbiont?.imprint?.enabled !== false) {
-            this._injectSymbiontImprint(this._symbiotElement);
+            const imprintTarget = this._symbiontWrapper?._element ?? this._symbiontElement;
+            if (imprintTarget) this._injectSymbiontImprint(imprintTarget);
         }
     }
 
@@ -2923,11 +3033,12 @@ export class LCARdSElbow extends LCARdSButton {
      * @private
      */
     _unmountSymbiontCard() {
-        if (this._symbiotElement) {
-            this._symbiotElement.remove?.();
-            this._symbiotElement = null;
+        if (this._symbiontElement) {
+            this._symbiontElement.remove?.();
+            this._symbiontElement = null;
         }
-        this._symbiotMounted = false;
+        this._symbiontWrapper = null;
+        this._symbiontMounted = false;
         this._lastImprintCss = null; // Reset cache so next mount re-injects fresh styles
     }
 
@@ -2937,14 +3048,14 @@ export class LCARdSElbow extends LCARdSButton {
      * @private
      */
     _attachSymbiontToContainer() {
-        if (!this._symbiotElement) return;
+        if (!this._symbiontElement) return;
 
         const container = /** @type {HTMLElement|null} */ (this.renderRoot?.querySelector('#lcards-symbiont-host'));
         if (!container) return;
 
-        if (!container.contains(this._symbiotElement)) {
-            container.appendChild(this._symbiotElement);
-            this._symbiotMounted = true;
+        if (!container.contains(this._symbiontElement)) {
+            container.appendChild(this._symbiontElement);
+            this._symbiontMounted = true;
             lcardsLog.debug('[LCARdSElbow] Symbiont: attached to container');
         }
     }
@@ -2959,8 +3070,19 @@ export class LCARdSElbow extends LCARdSButton {
         let attempts = 0;
         const tryInject = () => {
             // Abort if symbiont was unmounted while we were waiting
-            if (!this._symbiotElement) return;
-            if (this._injectSymbiontImprint(this._symbiotElement)) return;
+            if (!this._symbiontElement) return;
+
+            // When using a hui-card wrapper, the actual shadow root to inject
+            // into lives on wrapper._element, which materialises asynchronously
+            // after hui-card's lazy import + first render cycle completes.
+            const imprintTarget = this._symbiontWrapper?._element ?? this._symbiontElement;
+            if (!imprintTarget) {
+                // Inner element not ready yet — wait and retry
+                if (++attempts < maxAttempts) setTimeout(tryInject, delayMs);
+                return;
+            }
+
+            if (this._injectSymbiontImprint(imprintTarget)) return;
             if (++attempts < maxAttempts) setTimeout(tryInject, delayMs);
         };
         requestAnimationFrame(tryInject);
@@ -2984,25 +3106,25 @@ export class LCARdSElbow extends LCARdSButton {
     _injectSymbiontImprint(cardElement) {
         if (!cardElement) return true;
 
-        // If the card config includes a card_mod block AND card-mod is loaded,
-        // let card-mod own the styling — don't compete with it.
-        const cardConfig = this.config?.symbiont?.card;
-        if (cardConfig?.card_mod && isCardModAvailable()) {
-            lcardsLog.debug('[LCARdSElbow] Symbiont: card_mod present and available — skipping native imprint');
-            return true;
-        }
-
         const imprintCss   = this._buildImprintStyle();
         const customCss    = this.config?.symbiont?.custom_style || '';
         const fullCss      = [imprintCss, customCss].filter(Boolean).join('\n\n');
 
         // Skip DOM mutation when styles haven't changed (called on every HASS update)
         if (fullCss === this._lastImprintCss) return true;
-        this._lastImprintCss = fullCss;
 
-        if (!fullCss) return true;
+        // Nothing to inject — record the empty state and exit cleanly.
+        // _lastImprintCss is only set here (empty) or after a successful injection
+        // below. It is intentionally NOT set when the shadow root is unavailable,
+        // so the retry loop will keep trying on the next tick.
+        if (!fullCss) {
+            this._lastImprintCss = fullCss;
+            return true;
+        }
 
-        // Inject into shadow root — return false if not ready yet
+        // Inject into shadow root — return false if not ready yet.
+        // Do NOT update _lastImprintCss here; we only stamp it after success so
+        // the retry loop knows injection hasn't happened yet.
         const shadowRoot = cardElement.shadowRoot;
         if (!shadowRoot) return false;
 
@@ -3013,6 +3135,9 @@ export class LCARdSElbow extends LCARdSButton {
             shadowRoot.appendChild(styleEl);
         }
         styleEl.textContent = fullCss;
+        // Stamp cache only after successful injection so the retry loop
+        // correctly re-attempts when the shadow root was not ready earlier.
+        this._lastImprintCss = fullCss;
 
         // Also propagate resolved colors as CSS custom-properties on the
         // container element as a fallback for light-DOM / slotted cards.

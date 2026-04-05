@@ -205,6 +205,154 @@ See [Button card — Shape Texture](../button/#shape-texture) for the full prese
 
 ---
 
+## Symbiont
+
+The Symbiont feature embeds any Home Assistant card inside the elbow's content area. LCARdS mounts the card in the open frame and can optionally inject styles directly into the embedded card's shadow root ("imprinting"), keeping the look consistent with your LCARS theme without modifying the embedded card's own config.
+
+### Basic Example
+
+```yaml
+type: custom:lcards-elbow
+elbow:
+  type: header-left
+  segment:
+    bar_width: 100
+    bar_height: 22
+symbiont:
+  enabled: true
+  card:
+    type: alarm-panel
+    entity: alarm_control_panel.home
+    states:
+      - arm_away
+      - arm_home
+```
+
+### Symbiont Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | boolean | `false` | Enable or disable the symbiont |
+| `card` | object | — | Any valid HA card config (`type` + card properties) |
+| `position` | object | — | Padding (px) within the elbow content area |
+| `position.top` | number | `10` | Top padding |
+| `position.left` | number | `10` | Left padding |
+| `position.right` | number | `10` | Right padding |
+| `position.bottom` | number | `0` | Bottom padding |
+| `imprint` | object | — | Shadow-root style injection — see below |
+| `custom_style` | string | — | Raw CSS appended to the embedded card's shadow root (no card-mod required) |
+
+### Imprint
+
+Imprint injects a `<style>` element directly into the embedded card's shadow root. Properties are resolved against the elbow's entity state, so they react to state changes exactly like the elbow's own colours.
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `imprint.enabled` | boolean | `true` by default — set `false` to disable all injection |
+| `imprint.background` | string / state map | Background colour injected on `ha-card` |
+| `imprint.text.color` | string / state map | Text colour injected on `ha-card` |
+| `imprint.text.font_size` | string | Font size (e.g. `"14px"`) |
+| `imprint.text.font_family` | string | Font family string |
+| `imprint.border_radius` | object | Per-corner border radii — see below |
+
+Colour values accept the same forms as everywhere else in LCARdS: hex, `rgba()`, `var(--token)`, `darken()`/`lighten()`/`alpha()` expressions, and full state maps with `default`/`active`/`inactive`/named-state keys.
+
+#### State-Reactive Imprint
+
+```yaml
+symbiont:
+  enabled: true
+  card:
+    type: alarm-panel
+    entity: alarm_control_panel.home
+  imprint:
+    background:
+      default: "rgba(0,0,0,0.5)"
+      active: "alpha(var(--lcars-red), 0.25)"
+    text:
+      color:
+        default: "var(--lcars-orange)"
+        active: "var(--lcars-red)"
+    border_radius:
+      top_left: match       # copies the elbow inner arc radius
+      top_right: 0
+      bottom_left: 0
+      bottom_right: 0
+```
+
+#### Border Radius Options
+
+Each corner accepts one of:
+
+| Value | Effect |
+|-------|--------|
+| `"match"` | Mirrors the elbow's inner arc radius (recommended for the corner adjacent to the elbow) |
+| number | Fixed radius in px |
+| *(absent)* | Not injected — card keeps its own radius |
+
+The legacy shorthand `imprint.border_radius.match_host: true` (default when `border_radius` is omitted) automatically applies `match` to only the single corner that is adjacent to the elbow hull, leaving the other three corners at `0`. Set to `false` to suppress all radius injection.
+
+### Custom Style
+
+`custom_style` lets you inject arbitrary CSS into the embedded card's shadow root without card-mod:
+
+```yaml
+symbiont:
+  enabled: true
+  card:
+    type: entities
+    entities:
+      - sensor.temperature
+  custom_style: |
+    ha-card {
+      --ha-card-border-radius: 0;
+      --secondary-text-color: var(--lcars-moonlight);
+    }
+```
+
+The custom style is appended **after** imprint styles, so it takes precedence when both set the same property.
+
+### Using card-mod with Symbiont
+
+card-mod works with symbiont cards. The `card_mod` block is part of the embedded card's config and is passed straight through to it.
+
+**Injection order:**
+1. card-mod injects its `<style>` during `setConfig`
+2. LCARdS imprint appends its `<style id="lcards-symbiont-imprint">` after the card is ready
+
+Because imprint is appended later in the shadow root, **imprint wins when both set the same property**. For properties that do not overlap there is no conflict.
+
+```yaml
+symbiont:
+  enabled: true
+  card:
+    type: alarm-panel
+    entity: alarm_control_panel.home
+    card_mod:
+      style: |
+        ha-card {
+          background: transparent !important;
+          box-shadow: none !important;
+          border: 1px solid var(--lcars-blue, #93e1ff) !important;
+          border-radius: 0 !important;
+        }
+  imprint:
+    text:
+      color:
+        default: "var(--lcars-orange)"
+        active: "var(--lcars-red)"
+```
+
+> **Note:** `custom_style` injects raw CSS without card-mod. For simple shadow-root overrides prefer `custom_style` — it avoids a card-mod dependency and is handled entirely by LCARdS.
+
+### Lazy-Loaded HA Card Types
+
+HA lazy-loads many of its own built-in card modules (e.g. `alarm-panel`, `thermostat`, `media-player`) — they are only imported when they first appear on a dashboard. On a fresh page load, before another dashboard view has triggered the import, the element is not yet registered.
+
+LCARdS handles this automatically: when the requested type is not yet registered, it routes through HA's internal `hui-card` wrapper which triggers the correct dynamic import. The card renders as soon as HA finishes loading the module — no configuration required.
+
+---
+
 ## Examples
 
 ### Standard header cap pair
