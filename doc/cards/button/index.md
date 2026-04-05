@@ -24,6 +24,7 @@ The card operates in one of three modes, selected by which top-level key is pres
 |--------|------|-------------|
 | `type` | string | `custom:lcards-button` (required) |
 | `entity` | string | Entity to monitor and control |
+| `ranges_attribute` | string | Entity attribute used for `above:`/`below:`/`between:` range conditions — see [Range Conditions](../../core/colours.md#range-conditions-on-non-numeric-entities-ranges_attribute) |
 | `id` | string | Custom card ID for rule targeting |
 | `tags` | list | Tags for rule targeting (e.g. `[nav, lights]`) |
 | `preset` | string | Button shape preset (preset mode) |
@@ -106,6 +107,7 @@ Fine-grained control over the icon appearance and placement within its area.
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `icon` | string / object | MDI icon name, or a [state map](../../core/colours.md) of icon names — overrides the top-level `icon` field |
 | `color` | string / object | Icon colour — [state map](../../core/colours.md) supported |
 | `size` | number | Icon size in px |
 | `area_size` | number | Width/height of the icon area in px |
@@ -128,6 +130,24 @@ icon_style:
   size: 32
   padding: 8
 ```
+
+### Per-State Icons
+
+Set `icon_style.icon` to a state map to swap the icon based on entity state (including range conditions):
+
+```yaml
+entity: light.tv
+ranges_attribute: brightness_pct   # range keys compare against brightness 0–100 %
+icon: mdi:lightbulb                # default / fallback icon
+icon_style:
+  icon:
+    active: mdi:lightbulb
+    inactive: mdi:lightbulb-off
+    above:90: mdi:lightbulb-alert
+    below:20: mdi:lightbulb-outline
+```
+
+The same resolution order as state-based colours applies (exact state → zero → ranges → non_zero → classified → default). See [Range Conditions on Non-Numeric Entities](../../core/colours.md#range-conditions-on-non-numeric-entities-ranges_attribute) for the `ranges_attribute` pattern.
 
 ---
 

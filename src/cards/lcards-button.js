@@ -1646,7 +1646,7 @@ export class LCARdSButton extends LCARdSCard {
 
                     // Priority 2: Entity state using resolveStateColor
                     if (entityState) {
-                        const resolved = resolveStateColor({
+                        const resolved = this._resolveStateValue({
                             actualState,
                             classifiedState,
                             colorConfig: value,
@@ -2755,6 +2755,27 @@ export class LCARdSButton extends LCARdSCard {
 
         // Store processed icon configuration
         // Parse the icon string to get type (mdi, si, entity) and icon name
+        // Resolve per-state icon override from icon_style.icon.
+        // Follows the same state-lookup chain as icon_style.color (resolveStateColor):
+        //   exact entity state → zero/non_zero/range → classified state → default → fallback (config.icon)
+        if (iconStyle.icon) {
+            if (typeof iconStyle.icon === 'object') {
+                const resolvedIconName = this._resolveStateValue({
+                    actualState: this._entity?.state,
+                    classifiedState: this._getButtonState(),
+                    colorConfig: iconStyle.icon,
+                    fallback: iconName
+                });
+                if (resolvedIconName && typeof resolvedIconName === 'string') {
+                    iconName = resolvedIconName;
+                    lcardsLog.trace('[LCARdSButton] Per-state icon resolved:', iconName);
+                }
+            } else if (typeof iconStyle.icon === 'string' && iconStyle.icon) {
+                iconName = iconStyle.icon;
+                lcardsLog.trace('[LCARdSButton] Icon style string override:', iconName);
+            }
+        }
+
         const parsedIcon = this._parseIconString(iconName);
 
         lcardsLog.trace('[LCARdSButton] Icon parsed:', parsedIcon);
@@ -2794,7 +2815,7 @@ export class LCARdSButton extends LCARdSCard {
 
             // 1. Check explicit iconStyle color
             if (iconStyle.color) {
-                iconColor = resolveStateColor({
+                iconColor = this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: buttonState,
                     colorConfig: iconStyle.color,
@@ -2804,7 +2825,7 @@ export class LCARdSButton extends LCARdSCard {
             }
             // 2. Check preset/resolvedStyle color
             else if (resolvedStyle.icon_style?.color) {
-                iconColor = resolveStateColor({
+                iconColor = this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: buttonState,
                     colorConfig: resolvedStyle.icon_style.color,
@@ -2814,7 +2835,7 @@ export class LCARdSButton extends LCARdSCard {
             }
             // 3. Check theme token (can be state-based)
             else if (iconTokens.color) {
-                iconColor = resolveStateColor({
+                iconColor = this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: buttonState,
                     colorConfig: iconTokens.color,
@@ -2824,7 +2845,7 @@ export class LCARdSButton extends LCARdSCard {
             }
             // 4. Fall back to text color (also state-based)
             else if (this._buttonStyle?.text?.default?.color) {
-                iconColor = resolveStateColor({
+                iconColor = this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: buttonState,
                     colorConfig: this._buttonStyle.text.default.color
@@ -2936,14 +2957,14 @@ export class LCARdSButton extends LCARdSCard {
             // Priority: config.icon_area_background > preset.icon_area_background > null
             let iconAreaBackground = null;
             if (this.config.icon_area_background) {
-                iconAreaBackground = resolveStateColor({
+                iconAreaBackground = this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: buttonState,
                     colorConfig: this.config.icon_area_background,
                     fallback: this.config.icon_area_background.active || null  // Legacy fallback
                 });
             } else if (resolvedStyle.icon_area_background) {
-                iconAreaBackground = resolveStateColor({
+                iconAreaBackground = this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: buttonState,
                     colorConfig: resolvedStyle.icon_area_background,
@@ -4055,7 +4076,7 @@ export class LCARdSButton extends LCARdSCard {
         if (resolvedConfig.color && typeof resolvedConfig.color === 'object') {
             resolvedConfig = {
                 ...resolvedConfig,
-                color: resolveStateColor({
+                color: this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: buttonState,
                     colorConfig: resolvedConfig.color,
@@ -4067,7 +4088,7 @@ export class LCARdSButton extends LCARdSCard {
         // Resolve state-based opacity
         let opacity = texConfig.opacity ?? 0.3;
         if (typeof opacity === 'object') {
-            opacity = resolveStateColor({
+            opacity = this._resolveStateValue({
                 actualState: actualEntityState,
                 classifiedState: buttonState,
                 colorConfig: opacity,
@@ -4079,7 +4100,7 @@ export class LCARdSButton extends LCARdSCard {
         // Resolve state-based speed multiplier
         let speed = texConfig.speed ?? null;
         if (speed !== null && typeof speed === 'object') {
-            speed = resolveStateColor({
+            speed = this._resolveStateValue({
                 actualState: actualEntityState,
                 classifiedState: buttonState,
                 colorConfig: speed,
@@ -4116,7 +4137,7 @@ export class LCARdSButton extends LCARdSCard {
                 resolvedConfig = { ...resolvedConfig, fill_pct: evaluated };
             } else {
                 // Form 3: state-based object (active/inactive/default keys)
-                const raw = resolveStateColor({
+                const raw = this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: buttonState,
                     colorConfig: fpObj,
@@ -4276,7 +4297,7 @@ export class LCARdSButton extends LCARdSCard {
 
         // Background color: card.color.background.{state}
         // Try actual entity state first (e.g., "heat"), then fall back to classified state (e.g., "inactive")
-        const backgroundColor = this._resolveMatchLightColor(resolveStateColor({
+        const backgroundColor = this._resolveMatchLightColor(this._resolveStateValue({
             actualState: actualEntityState,
             classifiedState: buttonState,
             colorConfig: this._buttonStyle?.card?.color?.background,
@@ -4284,7 +4305,7 @@ export class LCARdSButton extends LCARdSCard {
         }));
 
         // Text color: text.default.color.{state}
-        const textColor = this._resolveMatchLightColor(resolveStateColor({
+        const textColor = this._resolveMatchLightColor(this._resolveStateValue({
             actualState: actualEntityState,
             classifiedState: buttonState,
             colorConfig: this._buttonStyle?.text?.default?.color,
@@ -4292,7 +4313,7 @@ export class LCARdSButton extends LCARdSCard {
         }));
 
         // Border color: border.color.{state} or border.color (plain string)
-        const borderColor = this._resolveMatchLightColor(resolveStateColor({
+        const borderColor = this._resolveMatchLightColor(this._resolveStateValue({
             actualState: actualEntityState,
             classifiedState: buttonState,
             colorConfig: this._buttonStyle?.border?.color,
@@ -4591,7 +4612,7 @@ export class LCARdSButton extends LCARdSCard {
 
         // Color: border.color.{state} or border.color (plain string)
         const actualEntityState = this._entity?.state;
-        const globalColor = this._resolveMatchLightColor(resolveStateColor({
+        const globalColor = this._resolveMatchLightColor(this._resolveStateValue({
             actualState: actualEntityState,
             classifiedState: state,
             colorConfig: this._buttonStyle?.border?.color,
@@ -5239,7 +5260,7 @@ export class LCARdSButton extends LCARdSCard {
             let resolvedColor;
 
             if (field.color) {
-                resolvedColor = resolveStateColor({
+                resolvedColor = this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: entityState,
                     colorConfig: field.color,
@@ -5249,7 +5270,7 @@ export class LCARdSButton extends LCARdSCard {
 
             // Use default text color if no field color specified
             if (!resolvedColor) {
-                resolvedColor = resolveStateColor({
+                resolvedColor = this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: entityState,
                     colorConfig: this._buttonStyle?.text?.default?.color,
@@ -5262,7 +5283,7 @@ export class LCARdSButton extends LCARdSCard {
             // Resolve background color based on entity state (supports state-based color map)
             let resolvedBackground = null;
             if (field.background) {
-                resolvedBackground = resolveStateColor({
+                resolvedBackground = this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: entityState,
                     colorConfig: field.background,
@@ -5630,7 +5651,7 @@ export class LCARdSButton extends LCARdSCard {
             // ── Color resolution ──────────────────────────────────────────────
             let resolvedColor;
             if (field.color) {
-                resolvedColor = resolveStateColor({
+                resolvedColor = this._resolveStateValue({
                     actualState:     actualEntityState,
                     classifiedState: entityState,
                     colorConfig:     field.color,
@@ -5642,7 +5663,7 @@ export class LCARdSButton extends LCARdSCard {
                 }
             }
             if (!resolvedColor) {
-                resolvedColor = resolveStateColor({
+                resolvedColor = this._resolveStateValue({
                     actualState:     actualEntityState,
                     classifiedState: entityState,
                     colorConfig:     this._buttonStyle?.text?.default?.color,

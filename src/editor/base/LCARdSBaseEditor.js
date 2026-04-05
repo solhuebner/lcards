@@ -1005,6 +1005,66 @@ export class LCARdSBaseEditor extends LitElement {
     }
 
     /**
+     * Build ha-selector option list for the ranges_attribute dropdown.
+     * Injects the virtual "brightness_pct" option right after "brightness" (when present)
+     * so users get a clearly-labelled 0–100% computed value instead of the raw 0–255.
+     *
+     * @returns {Array<{value:string, label:string}>}
+     * @protected
+     */
+    _getRangesAttributeOptions() {
+        const entityId = this.config?.entity;
+        const options = [{ value: '', label: '(Entity state)' }];
+        if (!entityId || !this.hass?.states?.[entityId]) return options;
+        const attrs = Object.keys(this.hass.states[entityId].attributes || {}).sort();
+        for (const attr of attrs) {
+            options.push({ value: attr, label: attr });
+            if (attr === 'brightness') {
+                options.push({ value: 'brightness_pct', label: 'brightness_pct  (auto 0–100%)' });
+            }
+        }
+        return options;
+    }
+
+    /**
+     * Render the ranges_attribute dropdown selector.
+     *
+     * This attribute feeds the numeric value for ALL above:/below:/between: range
+     * conditions across the card — icons, colors, borders, backgrounds, text, and
+     * the state-driven ranges preset switcher.  Belongs next to the entity, not
+     * inside any specific feature section.
+     *
+     * Automatically promotes raw "brightness" selection to "brightness_pct" so
+     * range thresholds use the human-readable 0–100 scale.
+     *
+     * @returns {TemplateResult}
+     * @protected
+     */
+    _renderRangesAttributeSelector() {
+        const entityId = this.config?.entity;
+        return html`
+            <ha-selector
+                .hass=${this.hass}
+                .label=${'Range Attribute'}
+                .helper=${'Attribute value compared against range conditions (above:/below:/between:) for icons, colours, and borders. Leave blank to use entity state.'}
+                .disabled=${!entityId}
+                .selector=${{ select: {
+                    mode: 'dropdown',
+                    options: this._getRangesAttributeOptions(),
+                    custom_value: true
+                }}}
+                .value=${this.config?.ranges_attribute || ''}
+                @value-changed=${(e) => {
+                    let v = (e.detail.value ?? '').trim();
+                    if (v === 'brightness') v = 'brightness_pct';
+                    if (v) this._setConfigValue('ranges_attribute', v);
+                    else   this._removeConfigPath('ranges_attribute');
+                }}>
+            </ha-selector>
+        `;
+    }
+
+    /**
      * Build standard config tab structure with flexible field control
      *
      * @param {Object} options - Config tab options

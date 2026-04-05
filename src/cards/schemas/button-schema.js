@@ -8,7 +8,7 @@
  * Editor UI is defined separately in lcards-button-editor.js config.
  */
 
-import { dataSourcesSchema, actionSchema, animationSchema, filterSchema, stateColorSchema, paddingSchema, getTextSchema, gridOptionsSchema, entitySchema, cardIdSchema, tagsSchema, backgroundAnimationSchema, cardHeightSchema, cardWidthSchema, cardMinHeightSchema, cardMinWidthSchema } from './common-schemas.js';
+import { dataSourcesSchema, actionSchema, animationSchema, filterSchema, stateColorSchema, stateIconSchema, paddingSchema, getTextSchema, gridOptionsSchema, entitySchema, cardIdSchema, tagsSchema, backgroundAnimationSchema, cardHeightSchema, cardWidthSchema, cardMinHeightSchema, cardMinWidthSchema } from './common-schemas.js';
 
 /**
  * Get complete button card schema
@@ -241,6 +241,16 @@ export function getButtonSchema(options = {}) {
                         ]
                     },
                     color: stateColorSchema,
+                    icon: {
+                        title: 'State-Dependent Icons',
+                        description: 'Override icon per entity state. Falls back to the top-level "icon" field when no state matches.',
+                        ...stateIconSchema,
+                        'x-ui-hints': {
+                            ...stateIconSchema['x-ui-hints'],
+                            label: 'Per-state Icon Override',
+                            helper: 'Set a different icon per entity state (active, inactive, unavailable, etc.). Falls back to the top-level "icon" field.'
+                        }
+                    },
                     size: {
                         type: 'number',
                         minimum: 8,
@@ -911,11 +921,11 @@ export function getButtonSchema(options = {}) {
 
             ranges_attribute: {
                 type: 'string',
-                description: 'Entity attribute to evaluate for all range entries (e.g. "brightness", "brightness_pct", "temperature"). Use "brightness_pct" for a computed 0-100 light brightness value. Defaults to entity state.',
-                examples: ['brightness', 'brightness_pct', 'temperature', 'percentage', 'current_position'],
+                description: 'Entity attribute to use as the numeric value for ALL state-based range conditions (above:/below:/between: keys) across the entire card — icon_style.icon, icon_style.color, text color, background, border, and config.ranges preset switching. Use "brightness_pct" for a computed 0-100 light brightness value. Defaults to evaluating the raw entity state string.',
+                examples: ['brightness_pct', 'brightness', 'temperature', 'percentage', 'current_position'],
                 'x-ui-hints': {
                     label: 'Range Attribute',
-                    helper: 'Attribute to compare against range thresholds. Leave blank to use entity state.'
+                    helper: 'Attribute to compare against range thresholds (above:/below:/between:) for all state-based configs. Use "brightness_pct" for lights. Leave blank to use entity state.'
                 }
             },
 

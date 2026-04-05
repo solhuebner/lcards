@@ -177,3 +177,51 @@ style:
 ```
 
 ---
+
+## Range Conditions on Non-Numeric Entities — `ranges_attribute`
+
+Range keys (`above:N`, `below:N`, `between:N:M`) compare against the **numeric form of the entity state**. For many entities this works out of the box — sensors report numeric strings like `"72.4"`. But some domains give non-numeric states:
+
+- Lights: `state = "on"` / `"off"` — range conditions never match against a string
+- Cover/valve: `state = "open"` / `"closed"`
+- Media players: `state = "playing"` / `"idle"`
+
+For these, `ranges_attribute` tells LCARdS to compare range conditions against a named entity attribute instead of the entity state string. This affects **all** state maps on the card simultaneously — colours, borders, icons, and text.
+
+### Special value: `brightness_pct`
+
+Lights expose brightness as a raw `brightness` attribute in the range 0–255. Setting `ranges_attribute: brightness_pct` tells LCARdS to auto-compute a 0–100 percentage value (`Math.round(brightness / 2.55)`) so your thresholds can be written in familiar percentage terms.
+
+### Example — light with brightness-based colour and icon
+
+```yaml
+type: custom:lcards-button
+entity: light.tv
+ranges_attribute: brightness_pct   # all range conditions compare against 0–100 brightness %
+tap_action:
+  action: toggle
+show_icon: true
+icon: mdi:lightbulb
+icon_style:
+  color:
+    active: match-light
+    inactive: "var(--lcards-orange)"
+  icon:
+    active: mdi:lightbulb
+    inactive: mdi:lightbulb-off
+    above:90: mdi:lightbulb-alert      # > 90 % brightness
+    below:20: mdi:lightbulb-outline    # < 20 % brightness
+style:
+  card:
+    color:
+      background:
+        active: "alpha(match-light, 0.5)"
+        above:90: "var(--lcars-yellow)"
+        default: "var(--ha-card-background)"
+```
+
+### Supported cards
+
+`ranges_attribute` is a top-level key supported by `lcards-button`, `lcards-elbow`, and `lcards-slider`.
+
+---

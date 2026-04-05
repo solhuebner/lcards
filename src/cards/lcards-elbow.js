@@ -66,7 +66,6 @@ import { html, css } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { LCARdSButton } from './lcards-button.js';
 import { lcardsLog } from '../utils/lcards-logging.js';
-import { resolveStateColor } from '../utils/state-color-resolver.js';
 import { getElbowSchema } from './schemas/elbow-schema.js';
 import {
     normalizeHACardType,
@@ -1936,7 +1935,7 @@ export class LCARdSElbow extends LCARdSButton {
                 const backgroundColors = this._buttonStyle?.card?.color?.background;
 
                 // Try state-specific color first
-                const stateColor = resolveStateColor({
+                const stateColor = this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: classifiedState,
                     colorConfig: backgroundColors
@@ -1950,7 +1949,7 @@ export class LCARdSElbow extends LCARdSButton {
         // For segmented mode with static/state-based color in segment config
         if (segmentType && segmentConfig?.color) {
             const actualEntityState = this._entity?.state;
-            const resolvedColor = resolveStateColor({
+            const resolvedColor = this._resolveStateValue({
                 actualState: actualEntityState,
                 classifiedState: state,
                 colorConfig: segmentConfig.color
@@ -1964,7 +1963,7 @@ export class LCARdSElbow extends LCARdSButton {
         // Priority 1: Simple elbow - check segment.color from elbow config
         if (this._elbowConfig?.segment?.color) {
             const actualEntityState = this._entity?.state;
-            const resolvedColor = resolveStateColor({
+            const resolvedColor = this._resolveStateValue({
                 actualState: actualEntityState,
                 classifiedState: state,
                 colorConfig: this._elbowConfig.segment.color
@@ -1978,7 +1977,7 @@ export class LCARdSElbow extends LCARdSButton {
         // Priority 2: Explicit color override in elbow.colors.background (legacy support)
         if (this._elbowConfig?.colors?.background) {
             const actualEntityState = this._entity?.state;
-            const resolvedColor = resolveStateColor({
+            const resolvedColor = this._resolveStateValue({
                 actualState: actualEntityState,
                 classifiedState: state,
                 colorConfig: this._elbowConfig.colors.background
@@ -1993,7 +1992,7 @@ export class LCARdSElbow extends LCARdSButton {
         // Position-aware defaults are set in _initializeElbowDefaultColors()
         if (this._buttonStyle?.card?.color?.background) {
             const actualEntityState = this._entity?.state;
-            const stateColor = resolveStateColor({
+            const stateColor = this._resolveStateValue({
                 actualState: actualEntityState,
                 classifiedState: state,
                 colorConfig: this._buttonStyle.card.color.background
@@ -2111,7 +2110,7 @@ export class LCARdSElbow extends LCARdSButton {
 
         // Text color: text.default.color.{state}
         // Try actual entity state first (e.g., "heat"), then fall back to classified state (e.g., "inactive")
-        const textColor = resolveStateColor({
+        const textColor = this._resolveStateValue({
             actualState: actualEntityState,
             classifiedState: buttonState,
             colorConfig: this._buttonStyle?.text?.default?.color,
@@ -3164,7 +3163,7 @@ export class LCARdSElbow extends LCARdSButton {
             const actualState = this._entity?.state;
 
             if (imprint.background) {
-                const bg = resolveStateColor({
+                const bg = this._resolveStateValue({
                     actualState,
                     classifiedState: buttonState,
                     colorConfig: imprint.background,
@@ -3174,7 +3173,7 @@ export class LCARdSElbow extends LCARdSButton {
             }
 
             if (imprint.text?.color) {
-                const tc = resolveStateColor({
+                const tc = this._resolveStateValue({
                     actualState,
                     classifiedState: buttonState,
                     colorConfig: imprint.text.color,
@@ -3203,7 +3202,7 @@ export class LCARdSElbow extends LCARdSButton {
         // Resolve background color
         let bgColor = null;
         if (imprint.background) {
-            bgColor = resolveStateColor({
+            bgColor = this._resolveStateValue({
                 actualState,
                 classifiedState: buttonState,
                 colorConfig: imprint.background,
@@ -3214,7 +3213,7 @@ export class LCARdSElbow extends LCARdSButton {
         // Resolve text color
         let textColor = null;
         if (imprint.text?.color) {
-            textColor = resolveStateColor({
+            textColor = this._resolveStateValue({
                 actualState,
                 classifiedState: buttonState,
                 colorConfig: imprint.text.color,

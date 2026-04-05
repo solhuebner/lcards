@@ -38,6 +38,7 @@ style:
 |--------|------|-------------|
 | `type` | string | `custom:lcards-slider` (required) |
 | `entity` | string | Entity to display and/or control |
+| `ranges_attribute` | string | Entity attribute used for `above:`/`below:`/`between:` range conditions — see [Range Conditions](../../core/colours.md#range-conditions-on-non-numeric-entities-ranges_attribute) |
 | `preset` | string | Visual style preset |
 | `component` | string | Advanced SVG component name |
 | `orientation` | string | `horizontal` or `vertical` (default: `horizontal`) |

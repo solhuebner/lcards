@@ -258,29 +258,6 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
     }
 
     /**
-     * Build ha-selector option list for the ranges_attribute dropdown.
-     * Injects the virtual "brightness_pct" option after "brightness" (if present)
-     * and labels it clearly so users know it's the 0-100 computed value.
-     * @returns {Array<{value:string, label:string}>}
-     * @private
-     */
-    _getRangesAttributeOptions() {
-        const entityId = this.config?.entity;
-        const options = [{ value: '', label: '(Entity state)' }];
-        if (!entityId || !this.hass?.states?.[entityId]) return options;
-
-        const attrs = Object.keys(this.hass.states[entityId].attributes || {}).sort();
-        for (const attr of attrs) {
-            options.push({ value: attr, label: attr });
-            // Inject virtual brightness_pct right after brightness
-            if (attr === 'brightness') {
-                options.push({ value: 'brightness_pct', label: 'brightness_pct  (auto 0–100%)' });
-            }
-        }
-        return options;
-    }
-
-    /**
      * Render attribute selector dropdown
      * @returns {TemplateResult}
      * @private
@@ -572,6 +549,10 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                 {
                     type: 'custom',
                     render: () => this._renderAttributeSelector()
+                },
+                {
+                    type: 'custom',
+                    render: () => this._renderRangesAttributeSelector()
                 }
             ]
         });
@@ -1167,29 +1148,9 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                     <lcards-message type="info">
                         Ranges are evaluated top-to-bottom — the first match wins.
                         Each row maps a value condition to a component preset.
+                        The attribute used for range comparisons is set in
+                        <strong>Entity Configuration → Range Attribute</strong> above.
                     </lcards-message>
-
-                    <ha-selector
-                        style="margin-bottom: 4px;"
-                        .hass=${this.hass}
-                        .label=${'Attribute'}
-                        .helper=${'Entity attribute to compare against the thresholds. Leave as (Entity state) to use the entity state value directly.'}
-                        .selector=${{ select: {
-                            mode: 'dropdown',
-                            options: this._getRangesAttributeOptions(),
-                            custom_value: true
-                        }}}
-                        .value=${this.config?.ranges_attribute || ''}
-                        @value-changed=${(e) => {
-                            let v = (e.detail.value ?? '').trim();
-                            // Auto-convert: selecting the raw 'brightness' attribute
-                            // is almost never what the user wants — swap to the
-                            // virtual brightness_pct so ranges use a 0-100 scale.
-                            if (v === 'brightness') v = 'brightness_pct';
-                            if (v) this._setConfigValue('ranges_attribute', v);
-                            else   this._removeConfigPath('ranges_attribute');
-                        }}>
-                    </ha-selector>
 
                     <div style="${sectionStyle}">
                         ${ranges.length === 0 ? html`

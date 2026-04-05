@@ -26,6 +26,7 @@ elbow:
 | `type` | string | `custom:lcards-elbow` (required) |
 | `elbow` | object | Elbow geometry and styling (required) |
 | `entity` | string | Entity to monitor (for state-based styling) |
+| `ranges_attribute` | string | Entity attribute used for `above:`/`below:`/`between:` range conditions — see [Range Conditions](../../core/colours.md#range-conditions-on-non-numeric-entities-ranges_attribute) |
 | `id` | string | Card ID for rule targeting |
 | `tags` | list | Tags for rule targeting |
 | `text` | object | Text labels — see [Text Fields](../../core/text-fields.md) |
