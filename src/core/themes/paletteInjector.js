@@ -203,9 +203,30 @@ export async function reloadHATheme(hass) {
 
     lcardsLog.info('[PaletteInjector] ✅ Theme reloaded and applied');
   } catch (error) {
-    lcardsLog.error('[PaletteInjector] ❌ Theme reload failed:', error);
-    throw error;
+    // Log but do not re-throw — this service requires admin privileges in HA.
+    // The primary restore path uses restoreOriginalColors() instead.
+    lcardsLog.warn('[PaletteInjector] ⚠️ frontend/reload_themes failed (likely non-admin user). Use restoreOriginalColors() instead:', error?.message ?? error);
   }
+}
+
+/**
+ * Restore original --lcars-* CSS variables from a previously captured snapshot.
+ * This is the preferred restore path — requires no HA service call and works for all users.
+ *
+ * @param {Element} root - Root element to restore variables on
+ * @param {Object|null} colors - Snapshot map of variable names to color values (from captureOriginalColors)
+ */
+function restoreOriginalColors(root, colors) {
+  if (!colors || Object.keys(colors).length === 0) {
+    lcardsLog.warn('[PaletteInjector] ⚠️ No captured original colors to restore — --lcars-* variables may not fully revert. Was captureOriginalColors() called after theme activation?');
+    return;
+  }
+  let restored = 0;
+  Object.entries(colors).forEach(([varName, value]) => {
+    /** @type {HTMLElement} */ (root).style.setProperty(varName, value);
+    restored++;
+  });
+  lcardsLog.info(`[PaletteInjector] ✅ Restored ${restored} original --lcars-* variables from snapshot (no HA service call required)`);
 }
 
 /**
@@ -285,10 +306,9 @@ export async function setAlertMode(mode, hass, rootElement = null, opts = {}) {
   // can call it at the moment the screen is most obscured.
   const colorApplyFn = async () => {
     if (mode === 'green_alert') {
-      // Restore HA-LCARS theme variables (--lcars-*) by reloading the HA theme
-      await reloadHATheme(hass);
-      // Capture original colours for future transformations
-      originalLcarsColors = captureOriginalColors(root);
+        // Restore HA-LCARS theme variables (--lcars-*) from the captured snapshot.
+        // This avoids the admin-only frontend/reload_themes service call entirely.
+        restoreOriginalColors(root, originalLcarsColors);
       // Restore LCARdS fallback palette variables (--lcards-*)
       injectPalette(GREEN_ALERT_PALETTE, root);
     } else {
