@@ -21,8 +21,10 @@
  *
  * LCARS Arc Formula:
  * The LCARS elbow uses a specific geometric relationship:
- * - Outer arc radius (when 'auto') = horizontal / 2 (bar width divided by 2)
- *   This creates a corner where the arc reaches the flat edge at 50% of the bar width
+ * - Outer arc radius (when 'auto') = bar_width / 2 (bar width divided by 2)
+ *   This creates a corner where the arc reaches the flat edge at 50% of the bar width.
+ *   The render-time clamp in _generateElbowPath caps this to min(card_width, card_height)
+ *   so the arc never exits the SVG viewport when the card is size-constrained.
  * - Inner arc circumference (semicircle) = (outer_radius / 2) × π
  *
  * Example: For horizontal border = 150px:
@@ -661,7 +663,8 @@ export class LCARdSElbow extends LCARdSButton {
         const hasSegmentedInteraction = this._elbowOuterHoverStyle || this._elbowOuterPressedStyle ||
                                         this._elbowInnerHoverStyle || this._elbowInnerPressedStyle;
 
-        if (hasSimpleInteraction || hasSegmentedInteraction) {
+        // Guard on _elbowGeometry so we don't attempt setup before config has been processed.
+        if ((hasSimpleInteraction || hasSegmentedInteraction) && this._elbowGeometry) {
             lcardsLog.debug('[LCARdSElbow] Re-setting up interactivity after render');
             this._setupElbowInteractivity();
         }
@@ -1324,7 +1327,9 @@ export class LCARdSElbow extends LCARdSButton {
             lcardsLog.debug(`[LCARdSElbow] Resolved bar_height from theme: ${bar_height}px`);
         }
 
-        // Resolve outer_curve ('auto' means bar_width / 2)
+        // Resolve outer_curve ('auto' means bar_width / 2 — LCARS aesthetic default)
+        // The render-time clamp in _generateElbowPath will cap this to min(width, height)
+        // if the card is constrained to a smaller size than the natural arc would require.
         if (outer_curve === 'auto') {
             outer_curve = bar_width / 2;
             lcardsLog.debug(`[LCARdSElbow] Calculated auto outer_curve: ${outer_curve}px`);
@@ -1847,7 +1852,17 @@ export class LCARdSElbow extends LCARdSButton {
             const elbowBg = /** @type {HTMLElement|null} */ (this.shadowRoot?.querySelector('.elbow-bg'));
 
             if (!elbowBg) {
-                lcardsLog.warn('[LCARdSElbow] Cannot setup interactivity - .elbow-bg element not found');
+                // In the update() call that fires immediately after firstUpdated(), Lit has
+                // already set _mountResolved = true and run _handleFirstUpdate, but the DOM
+                // still reflects the *previous* render (the lcards-loading placeholder) because
+                // the re-render triggered by requestUpdate() inside _handleFirstUpdate hasn't
+                // committed yet.  Detect this by checking for the loading element; the true
+                // re-render will call updated() again and find .elbow-bg successfully.
+                if (this.shadowRoot?.querySelector('.lcards-loading')) {
+                    lcardsLog.debug('[LCARdSElbow] .elbow-bg not yet in DOM - card still in loading state');
+                } else {
+                    lcardsLog.warn('[LCARdSElbow] Cannot setup interactivity - .elbow-bg element not found');
+                }
                 return;
             }
 
@@ -2020,10 +2035,11 @@ export class LCARdSElbow extends LCARdSButton {
 
         const { position, side, horizontal, vertical, outerRadius, innerRadius, diagonalAngle } = g;
 
-        // Basic validation: ensure radii are non-negative
-        // Allow large radii for LineOverlay-style arcs (uniform width curved lines)
-        // Only clamp to prevent extreme values that would break rendering
-        const maxOuterRadius = Math.max(width, height); // Allow up to the larger dimension
+        // Basic validation: ensure radii are non-negative and within SVG viewport bounds.
+        // A quarter-circle arc whose tangent points lie on two perpendicular edges can only
+        // stay inside the viewport when r ≤ min(width, height). Using Math.max was wrong:
+        // on a wide, short card it allowed the arc to extend far below the bottom edge.
+        const maxOuterRadius = Math.min(width, height);
         const clampedOuterRadius = Math.max(0, Math.min(outerRadius, maxOuterRadius));
 
         // Inner radius should be smaller than outer, with minimum 1px gap
