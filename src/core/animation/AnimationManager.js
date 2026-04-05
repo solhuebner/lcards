@@ -632,12 +632,15 @@ export class AnimationManager extends BaseService {
         // Use stored type field from overlay metadata
         const cardType = overlayMetadata.type;
 
-        // Try scope with type prefix (e.g., "button-lcards-abc123")
-        const scopeId = `${cardType}-${overlayId}`;
+        // Scopes are keyed as "{type}-{cardGuid}" (the internal GUID, not config.id).
+        // overlayMetadata.sourceCardId holds the GUID — use it so that cards targeted
+        // by their config.id (e.g. "dishwasher_status_button") resolve correctly.
+        const cardGuid = overlayMetadata.sourceCardId || overlayId;
+        const scopeId = `${cardType}-${cardGuid}`;
         scopeData = this.scopes.get(scopeId);
 
         if (scopeData) {
-          lcardsLog.debug(`[AnimationManager] Resolved overlay ${overlayId} to scope ${scopeId} (type: ${cardType})`);
+          lcardsLog.debug(`[AnimationManager] Resolved overlay ${overlayId} to scope ${scopeId} (type: ${cardType}, guid: ${cardGuid})`);
           return { scopeId, scopeData };
         } else {
           lcardsLog.warn(`[AnimationManager] Scope not found for overlay: ${overlayId} (tried ${scopeId}). Card may not have initialized properly.`);
