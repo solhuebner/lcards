@@ -349,7 +349,11 @@ const LCARdSCardClasses = [
     }
 ];
 
-window.customCards.push(...LCARdSCardClasses);
+// Guard against double-registration when the bundle is evaluated more than once
+// (e.g. both add_extra_js_url AND a lingering hacsfiles Lovelace resource entry).
+if (!window.customCards.some(c => c.type === 'lcards-button')) {
+  window.customCards.push(...LCARdSCardClasses);
+}
 
 // ============================================================================
 // ALERT MODE CONSOLE API
