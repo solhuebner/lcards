@@ -763,7 +763,7 @@ export class LCARdSIconSection extends LitElement {
             closeButton.textContent = 'OK';
             closeButton.addEventListener('click', () => {
                 // @ts-ignore
-                dialog.close();
+                dialog.open = false;
                 resolve();
             });
 
