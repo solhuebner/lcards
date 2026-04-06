@@ -3408,11 +3408,23 @@ export class LCARdSButton extends LCARdSCard {
             const configuredMinHeight = this._configPx(this.config.min_height);
             const configuredWidth     = this._configPx(this.config.width);
             const configuredMinWidth  = this._configPx(this.config.min_width);
+            // Precedence rules for height vs min_height:
+            //   1. config.height is set  → exact height; min-height forced to 0 so that a
+            //      preset-injected or user-set min_height (e.g. the theme default of 56px)
+            //      never overrides an explicit height.  CSS min-height always wins over height
+            //      when larger, so we suppress it with an inline 0 that beats any CSS var or
+            //      preset value.
+            //   2. config.height absent, config.min_height set → apply as CSS floor.
+            //   3. Both absent → static CSS var(--lcars-button-min-height, 40px) takes over.
             const containerStyleParts = [];
-            if (configuredHeight)    containerStyleParts.push(`height: ${configuredHeight}px`);
-            if (configuredMinHeight) containerStyleParts.push(`min-height: ${configuredMinHeight}px`);
-            if (configuredWidth)     containerStyleParts.push(`width: ${configuredWidth}px`);
-            if (configuredMinWidth)  containerStyleParts.push(`min-width: ${configuredMinWidth}px`);
+            if (configuredHeight) {
+                containerStyleParts.push(`height: ${configuredHeight}px`);
+                containerStyleParts.push(`min-height: 0px`);
+            } else if (configuredMinHeight) {
+                containerStyleParts.push(`min-height: ${configuredMinHeight}px`);
+            }
+            if (configuredWidth)    containerStyleParts.push(`width: ${configuredWidth}px`);
+            if (configuredMinWidth) containerStyleParts.push(`min-width: ${configuredMinWidth}px`);
             const containerStyle = containerStyleParts.join('; ');
             if (configuredHeight) {
                 this.style.height = `${configuredHeight}px`;
