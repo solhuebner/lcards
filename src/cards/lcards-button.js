@@ -104,22 +104,38 @@ export class LCARdSButton extends LCARdSCard {
                 .button-container {
                     width: 100%;
                     height: 100%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    background: transparent;
                     position: relative;
+                    /* overflow:hidden clips the absolutely-positioned SVG to this box
+                     * during the one-frame gap before ResizeObserver fires on first load */
+                    overflow: hidden;
+                    /* --lcards-button-min-height / --lcards-button-min-width control the
+                     * visible floor/minimum in edge cases where the height/width 100% chain
+                     * collapses (e.g. card-mod height:auto override via shadow DOM).
+                     * Override system-wide in your HA theme YAML:
+                     *   --lcards-button-min-height: 32px
+                     *   --lcards-button-min-width: 80px
+                     * Per-card: use config.min_height / config.min_width
+                     * Core persistent settings will wire these from the
+                     * components.button.layout token once implemented. */
+                    min-height: var(--lcards-button-min-height, 40px);
+                    min-width: var(--lcards-button-min-width, 0px);
                 }
 
+                /* The SVG is positioned absolute so it fills the container without
+                 * participating in flow layout. This is the critical break in the
+                 * height feedback loop:
+                 *   flow SVG → container content height → host height → size-ref → loop
+                 * With position:absolute the SVG has zero flow contribution. The
+                 * container height is determined entirely by CSS/grid (height:100%
+                 * resolves from the grid track), the SVG silently fills it. */
+                .button-container > svg,
                 .button-svg {
+                    position: absolute;
+                    inset: 0;
                     display: block;
                     width: 100%;
                     height: 100%;
                     cursor: pointer;
-                }
-
-                .button-svg:hover {
-                    opacity: 0.8;
                 }
             `
         ];
@@ -134,8 +150,9 @@ export class LCARdSButton extends LCARdSCard {
         this._isButtonPressed = false;
         this._buttonInteractivityCleanup = null;
         this._lastActionElement = null;
-        this._containerSize = { width: 200, height: 56 };
+        this._containerSize = { width: 200, height: 40 };
         this._resizeObserver = null;
+        this._preEditHeight = null; // Frozen height captured just before entering edit mode
         this._fontsChecked = false; // Track if fonts have been loaded
 
         // SVG background support (Phase 1)
@@ -236,6 +253,22 @@ export class LCARdSButton extends LCARdSCard {
      * @protected
      */
     _handleHassUpdate(newHass, oldHass) {
+        // Track HA dashboard edit mode changes.
+        // When the dashboard enters edit mode, HA adds drag handles / toolbars that
+        // expand grid cell heights. Freeze the geometry height at the pre-edit value
+        // so buttons don't suddenly appear taller just because edit UI was added.
+        const wasEditing = oldHass?.editMode;
+        const isEditing  = newHass?.editMode;
+        if (!wasEditing && isEditing) {
+            // Entering edit mode — save current container height before the DOM grows.
+            this._preEditHeight = this._containerSize?.height ?? null;
+            lcardsLog.debug(`[LCARdSButton] Entering edit mode; freezing geometry height at ${this._preEditHeight}px`);
+        } else if (wasEditing && !isEditing) {
+            // Leaving edit mode — clear the freeze so normal resize resumes.
+            this._preEditHeight = null;
+            lcardsLog.debug(`[LCARdSButton] Leaving edit mode; geometry height unfrozen`);
+        }
+
         // Process templates when entity state changes
         if (this.config.entity && this._entity) {
             const oldState = oldHass?.states[this.config.entity]?.state;
@@ -1613,7 +1646,7 @@ export class LCARdSButton extends LCARdSCard {
 
                     // Priority 2: Entity state using resolveStateColor
                     if (entityState) {
-                        const resolved = resolveStateColor({
+                        const resolved = this._resolveStateValue({
                             actualState,
                             classifiedState,
                             colorConfig: value,
@@ -2722,6 +2755,27 @@ export class LCARdSButton extends LCARdSCard {
 
         // Store processed icon configuration
         // Parse the icon string to get type (mdi, si, entity) and icon name
+        // Resolve per-state icon override from icon_style.icon.
+        // Follows the same state-lookup chain as icon_style.color (resolveStateColor):
+        //   exact entity state → zero/non_zero/range → classified state → default → fallback (config.icon)
+        if (iconStyle.icon) {
+            if (typeof iconStyle.icon === 'object') {
+                const resolvedIconName = this._resolveStateValue({
+                    actualState: this._entity?.state,
+                    classifiedState: this._getButtonState(),
+                    colorConfig: iconStyle.icon,
+                    fallback: iconName
+                });
+                if (resolvedIconName && typeof resolvedIconName === 'string') {
+                    iconName = resolvedIconName;
+                    lcardsLog.trace('[LCARdSButton] Per-state icon resolved:', iconName);
+                }
+            } else if (typeof iconStyle.icon === 'string' && iconStyle.icon) {
+                iconName = iconStyle.icon;
+                lcardsLog.trace('[LCARdSButton] Icon style string override:', iconName);
+            }
+        }
+
         const parsedIcon = this._parseIconString(iconName);
 
         lcardsLog.trace('[LCARdSButton] Icon parsed:', parsedIcon);
@@ -2761,7 +2815,7 @@ export class LCARdSButton extends LCARdSCard {
 
             // 1. Check explicit iconStyle color
             if (iconStyle.color) {
-                iconColor = resolveStateColor({
+                iconColor = this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: buttonState,
                     colorConfig: iconStyle.color,
@@ -2771,7 +2825,7 @@ export class LCARdSButton extends LCARdSCard {
             }
             // 2. Check preset/resolvedStyle color
             else if (resolvedStyle.icon_style?.color) {
-                iconColor = resolveStateColor({
+                iconColor = this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: buttonState,
                     colorConfig: resolvedStyle.icon_style.color,
@@ -2781,7 +2835,7 @@ export class LCARdSButton extends LCARdSCard {
             }
             // 3. Check theme token (can be state-based)
             else if (iconTokens.color) {
-                iconColor = resolveStateColor({
+                iconColor = this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: buttonState,
                     colorConfig: iconTokens.color,
@@ -2791,7 +2845,7 @@ export class LCARdSButton extends LCARdSCard {
             }
             // 4. Fall back to text color (also state-based)
             else if (this._buttonStyle?.text?.default?.color) {
-                iconColor = resolveStateColor({
+                iconColor = this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: buttonState,
                     colorConfig: this._buttonStyle.text.default.color
@@ -2903,14 +2957,14 @@ export class LCARdSButton extends LCARdSCard {
             // Priority: config.icon_area_background > preset.icon_area_background > null
             let iconAreaBackground = null;
             if (this.config.icon_area_background) {
-                iconAreaBackground = resolveStateColor({
+                iconAreaBackground = this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: buttonState,
                     colorConfig: this.config.icon_area_background,
                     fallback: this.config.icon_area_background.active || null  // Legacy fallback
                 });
             } else if (resolvedStyle.icon_area_background) {
-                iconAreaBackground = resolveStateColor({
+                iconAreaBackground = this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: buttonState,
                     colorConfig: resolvedStyle.icon_area_background,
@@ -3304,7 +3358,13 @@ export class LCARdSButton extends LCARdSCard {
         // _configPx() returns null for viewport/relative units so sizing falls
         // back to the measured container size rather than a nonsense px value.
         const width  = this._configPx(this.config.width)  || this._containerSize?.width  || 400;
-        const height = this._configPx(this.config.height) || this._containerSize?.height || 56;
+        // When HA's dashboard is in edit mode, grid cells grow to accommodate drag handles
+        // and edit toolbars. Use the height frozen at edit-mode entry so geometry
+        // (arc radii, text positions) doesn't visually jump during editing.
+        const height = this._configPx(this.config.height)
+            || (this.hass?.editMode && this._preEditHeight ? this._preEditHeight : null)
+            || this._containerSize?.height
+            || 56;
 
         lcardsLog.trace(`[LCARdSButton] Size resolution:`, {
             'config.width': this.config.width,
@@ -3342,9 +3402,18 @@ export class LCARdSButton extends LCARdSCard {
             // Without this, `height: 100%` on .button-container fills the grid
             // row and the bar-label bg rect / text appear offset (issue #318).
             const configuredHeight = this._configPx(this.config.height);
-            const containerStyle = configuredHeight
-                ? `height: ${configuredHeight}px;`
-                : '';
+            // config.min_height / config.min_width override the CSS custom properties
+            // (--lcards-button-min-height / --lcards-button-min-width) on a per-card
+            // basis without touching CSS vars or the global token.
+            const configuredMinHeight = this._configPx(this.config.min_height);
+            const configuredWidth     = this._configPx(this.config.width);
+            const configuredMinWidth  = this._configPx(this.config.min_width);
+            const containerStyleParts = [];
+            if (configuredHeight)    containerStyleParts.push(`height: ${configuredHeight}px`);
+            if (configuredMinHeight) containerStyleParts.push(`min-height: ${configuredMinHeight}px`);
+            if (configuredWidth)     containerStyleParts.push(`width: ${configuredWidth}px`);
+            if (configuredMinWidth)  containerStyleParts.push(`min-width: ${configuredMinWidth}px`);
+            const containerStyle = containerStyleParts.join('; ');
             if (configuredHeight) {
                 this.style.height = `${configuredHeight}px`;
             } else {
@@ -4007,7 +4076,7 @@ export class LCARdSButton extends LCARdSCard {
         if (resolvedConfig.color && typeof resolvedConfig.color === 'object') {
             resolvedConfig = {
                 ...resolvedConfig,
-                color: resolveStateColor({
+                color: this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: buttonState,
                     colorConfig: resolvedConfig.color,
@@ -4019,7 +4088,7 @@ export class LCARdSButton extends LCARdSCard {
         // Resolve state-based opacity
         let opacity = texConfig.opacity ?? 0.3;
         if (typeof opacity === 'object') {
-            opacity = resolveStateColor({
+            opacity = this._resolveStateValue({
                 actualState: actualEntityState,
                 classifiedState: buttonState,
                 colorConfig: opacity,
@@ -4031,7 +4100,7 @@ export class LCARdSButton extends LCARdSCard {
         // Resolve state-based speed multiplier
         let speed = texConfig.speed ?? null;
         if (speed !== null && typeof speed === 'object') {
-            speed = resolveStateColor({
+            speed = this._resolveStateValue({
                 actualState: actualEntityState,
                 classifiedState: buttonState,
                 colorConfig: speed,
@@ -4068,7 +4137,7 @@ export class LCARdSButton extends LCARdSCard {
                 resolvedConfig = { ...resolvedConfig, fill_pct: evaluated };
             } else {
                 // Form 3: state-based object (active/inactive/default keys)
-                const raw = resolveStateColor({
+                const raw = this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: buttonState,
                     colorConfig: fpObj,
@@ -4228,7 +4297,7 @@ export class LCARdSButton extends LCARdSCard {
 
         // Background color: card.color.background.{state}
         // Try actual entity state first (e.g., "heat"), then fall back to classified state (e.g., "inactive")
-        const backgroundColor = this._resolveMatchLightColor(resolveStateColor({
+        const backgroundColor = this._resolveMatchLightColor(this._resolveStateValue({
             actualState: actualEntityState,
             classifiedState: buttonState,
             colorConfig: this._buttonStyle?.card?.color?.background,
@@ -4236,7 +4305,7 @@ export class LCARdSButton extends LCARdSCard {
         }));
 
         // Text color: text.default.color.{state}
-        const textColor = this._resolveMatchLightColor(resolveStateColor({
+        const textColor = this._resolveMatchLightColor(this._resolveStateValue({
             actualState: actualEntityState,
             classifiedState: buttonState,
             colorConfig: this._buttonStyle?.text?.default?.color,
@@ -4244,7 +4313,7 @@ export class LCARdSButton extends LCARdSCard {
         }));
 
         // Border color: border.color.{state} or border.color (plain string)
-        const borderColor = this._resolveMatchLightColor(resolveStateColor({
+        const borderColor = this._resolveMatchLightColor(this._resolveStateValue({
             actualState: actualEntityState,
             classifiedState: buttonState,
             colorConfig: this._buttonStyle?.border?.color,
@@ -4254,9 +4323,11 @@ export class LCARdSButton extends LCARdSCard {
         // Resolve border configuration with per-corner support
         const border = this._resolveBorderConfiguration();
 
-        // Clamp corner radii to half the button height to prevent overlapping
-        // This ensures lozenge/bullet buttons create perfect half-circles
-        const maxRadius = height / 2;
+        // Clamp corner radii to half the SHORTER dimension.
+        // Using height/2 alone breaks when the card is taller than wide (e.g. a tall
+        // narrow grid cell): the radius exceeds half the width, driving arc endpoints
+        // to negative-x values outside the viewBox.
+        const maxRadius = Math.min(height / 2, width / 2);
         border.topLeft = Math.min(border.topLeft, maxRadius);
         border.topRight = Math.min(border.topRight, maxRadius);
         border.bottomRight = Math.min(border.bottomRight, maxRadius);
@@ -4426,7 +4497,13 @@ export class LCARdSButton extends LCARdSCard {
             }
         }
 
-        const svgAttrs = `width="${width}" height="${height}" viewBox="${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}" xmlns="http://www.w3.org/2000/svg"`;
+        // width="100%" fills the CSS-controlled container; height is omitted so the
+        // SVG element has no intrinsic height of its own — the CSS rule
+        // `.button-container > svg { position: absolute; inset: 0 }` stretches it to
+        // fill the container without participating in flow layout.
+        // preserveAspectRatio="none" maps the viewBox 1:1 to the CSS-sized viewport so
+        // re-computing geometry at the measured container dimensions produces no distortion.
+        const svgAttrs = `width="100%" viewBox="${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"`;
         const gAttrs   = `data-button-id="button" data-overlay-id="button" class="button-group" style="pointer-events: visiblePainted; cursor: pointer;"`;
 
         // Debug zone overlay — only present when config.debug_zones is true.
@@ -4535,7 +4612,7 @@ export class LCARdSButton extends LCARdSCard {
 
         // Color: border.color.{state} or border.color (plain string)
         const actualEntityState = this._entity?.state;
-        const globalColor = this._resolveMatchLightColor(resolveStateColor({
+        const globalColor = this._resolveMatchLightColor(this._resolveStateValue({
             actualState: actualEntityState,
             classifiedState: state,
             colorConfig: this._buttonStyle?.border?.color,
@@ -4767,6 +4844,7 @@ export class LCARdSButton extends LCARdSCard {
                 //   config.height (explicit px) → preset height → measured container → 56 fallback.
                 const _containerH = this._configPx(this.config.height)
                     || this._configPx(this._buttonStyle?.height)
+                    || (this.hass?.editMode && this._preEditHeight ? this._preEditHeight : null)
                     || this._containerSize?.height
                     || 56;
                 _resolvedFontSize = _containerH > 0
@@ -5182,7 +5260,7 @@ export class LCARdSButton extends LCARdSCard {
             let resolvedColor;
 
             if (field.color) {
-                resolvedColor = resolveStateColor({
+                resolvedColor = this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: entityState,
                     colorConfig: field.color,
@@ -5192,7 +5270,7 @@ export class LCARdSButton extends LCARdSCard {
 
             // Use default text color if no field color specified
             if (!resolvedColor) {
-                resolvedColor = resolveStateColor({
+                resolvedColor = this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: entityState,
                     colorConfig: this._buttonStyle?.text?.default?.color,
@@ -5205,7 +5283,7 @@ export class LCARdSButton extends LCARdSCard {
             // Resolve background color based on entity state (supports state-based color map)
             let resolvedBackground = null;
             if (field.background) {
-                resolvedBackground = resolveStateColor({
+                resolvedBackground = this._resolveStateValue({
                     actualState: actualEntityState,
                     classifiedState: entityState,
                     colorConfig: field.background,
@@ -5573,7 +5651,7 @@ export class LCARdSButton extends LCARdSCard {
             // ── Color resolution ──────────────────────────────────────────────
             let resolvedColor;
             if (field.color) {
-                resolvedColor = resolveStateColor({
+                resolvedColor = this._resolveStateValue({
                     actualState:     actualEntityState,
                     classifiedState: entityState,
                     colorConfig:     field.color,
@@ -5585,7 +5663,7 @@ export class LCARdSButton extends LCARdSCard {
                 }
             }
             if (!resolvedColor) {
-                resolvedColor = resolveStateColor({
+                resolvedColor = this._resolveStateValue({
                     actualState:     actualEntityState,
                     classifiedState: entityState,
                     colorConfig:     this._buttonStyle?.text?.default?.color,
@@ -6537,12 +6615,16 @@ export class LCARdSButton extends LCARdSCard {
      * @returns {number} Card height in rows
      */
     getCardSize() {
-        // _configPx returns null for relative units so they don't distort row math.
-        const height = this._configPx(this.config.height)
-            || this._containerSize?.height
-            || 60;
-        // Convert to HA grid units (each unit is ~50px)
-        return Math.ceil(height / 50);
+        // Return a stable value derived only from config — never from observed DOM size.
+        // Reading _containerSize.height here creates a feedback loop:
+        //   observed height → getCardSize() → HA allocates N rows → card grows → loop.
+        // When no explicit px height is configured, return 1 (HA default); users can
+        // set `grid_options.rows` in their YAML to override the cell height.
+        const configuredHeight = this._configPx(this.config.height);
+        if (configuredHeight) {
+            return Math.ceil(configuredHeight / 50);
+        }
+        return 1;
     }
 
     /**

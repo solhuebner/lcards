@@ -88,7 +88,6 @@ import { html, css } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { LCARdSButton } from './lcards-button.js';
 import { lcardsLog } from '../utils/lcards-logging.js';
-import { resolveStateColor } from '../utils/state-color-resolver.js';
 import { ColorUtils } from '../core/themes/ColorUtils.js';
 import { deepMerge } from '../utils/deepMerge.js';
 import { resolveThemeTokensRecursive } from '../utils/lcards-theme.js';
@@ -962,7 +961,7 @@ export class LCARdSSlider extends LCARdSButton {
      */
     _resolveRangeColor(colorConfig, fallback = '#888888') {
         if (colorConfig && typeof colorConfig === 'object') {
-            const resolved = resolveStateColor({
+            const resolved = this._resolveStateValue({
                 actualState: this._entity?.state,
                 classifiedState: this._getButtonState(),
                 colorConfig,
@@ -1566,13 +1565,13 @@ export class LCARdSSlider extends LCARdSButton {
     _generatePillsSVG(trackBounds, trackConfig, orientation = 'horizontal') {
         const gap = parseInt(trackConfig?.gap) || 4;
         const radius = trackConfig?.shape?.radius ?? 4;
-        let gradientStart = this._resolveColorValue(String(resolveStateColor({
+        let gradientStart = this._resolveColorValue(String(this._resolveStateValue({
             actualState: this._entity?.state,
             classifiedState: this._getButtonState(),
             colorConfig: trackConfig?.gradient?.start,
             fallback: 'var(--error-color, var(--lcars-orange-dark, #cc2200))'
         }) ?? ''));
-        let gradientEnd = this._resolveColorValue(String(resolveStateColor({
+        let gradientEnd = this._resolveColorValue(String(this._resolveStateValue({
             actualState: this._entity?.state,
             classifiedState: this._getButtonState(),
             colorConfig: trackConfig?.gradient?.end,
@@ -2053,7 +2052,7 @@ export class LCARdSSlider extends LCARdSButton {
         // Major tick configuration
         const majorEnabled = tickConfig?.major?.enabled !== false;
         const majorInterval = tickConfig?.major?.interval || 10; // Value units (not percentage)
-        const majorColor = resolveStateColor({
+        const majorColor = this._resolveStateValue({
             actualState: this._entity?.state,
             classifiedState: this._getButtonState(),
             colorConfig: tickConfig?.major?.color,
@@ -2065,7 +2064,7 @@ export class LCARdSSlider extends LCARdSButton {
         // Minor tick configuration
         const minorEnabled = tickConfig?.minor?.enabled !== false;
         const minorInterval = tickConfig?.minor?.interval || 2; // Value units (not percentage)
-        const minorColor = resolveStateColor({
+        const minorColor = this._resolveStateValue({
             actualState: this._entity?.state,
             classifiedState: this._getButtonState(),
             colorConfig: tickConfig?.minor?.color,
@@ -2084,7 +2083,7 @@ export class LCARdSSlider extends LCARdSButton {
         const labelPadding = labelConfig?.padding || 3; // Padding between tick and label
 
         // Label color - state-aware resolution for tick labels
-        const tickLabelColor = resolveStateColor({
+        const tickLabelColor = this._resolveStateValue({
             actualState: this._entity?.state,
             classifiedState: this._getButtonState(),
             colorConfig: labelConfig?.color,
@@ -2093,7 +2092,7 @@ export class LCARdSSlider extends LCARdSButton {
 
         // Progress bar configuration
         const progressConfig = gaugeConfig?.progress_bar;
-        const progressColor = resolveStateColor({
+        const progressColor = this._resolveStateValue({
             actualState: this._entity?.state,
             classifiedState: this._getButtonState(),
             colorConfig: progressConfig?.color,
@@ -2122,7 +2121,7 @@ export class LCARdSSlider extends LCARdSButton {
         };
         const pbPath   = (px, py, pw, ph, isH, fill) => pbRect(pr,   px, py, pw, ph, isH, fill);
         const bgPbPath = (px, py, pw, ph, isH, fill) => pbRect(bgPr, px, py, pw, ph, isH, fill);
-        const progressBgColor = resolveStateColor({
+        const progressBgColor = this._resolveStateValue({
             actualState: this._entity?.state,
             classifiedState: this._getButtonState(),
             colorConfig: progressConfig?.background?.color,
@@ -2945,7 +2944,7 @@ export class LCARdSSlider extends LCARdSButton {
             borderLeft: this._resolveStateBorderColor(borderConfig?.left?.color),
             borderRight: this._resolveStateBorderColor(borderConfig?.right?.color),
             // Progress bar color (state-aware)
-            progressBar: resolveStateColor({
+            progressBar: this._resolveStateValue({
                 actualState: this._entity?.state,
                 classifiedState: this._getButtonState(),
                 colorConfig: this._sliderStyle?.gauge?.progress_bar?.color,
@@ -3477,7 +3476,7 @@ export class LCARdSSlider extends LCARdSButton {
         });
 
         // Get fill color (state-aware progress_bar color)
-        const fillColor = resolveStateColor({
+        const fillColor = this._resolveStateValue({
             actualState: this._entity?.state,
             classifiedState: this._getButtonState(),
             colorConfig: progressBarConfig.color,
@@ -3503,7 +3502,7 @@ export class LCARdSSlider extends LCARdSButton {
             return `<path d="${this._buildRoundedRectPath(px, py, pw, ph, corners)}" fill="${fill}"></path>`;
         };
         // Optional background track — extent clamped to background.min/max (defaults to control range)
-        const bgColor = resolveStateColor({
+        const bgColor = this._resolveStateValue({
             actualState: this._entity?.state,
             classifiedState: this._getButtonState(),
             colorConfig: progressBarConfig.background?.color,

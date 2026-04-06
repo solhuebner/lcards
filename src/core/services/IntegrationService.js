@@ -226,11 +226,15 @@ export class IntegrationService extends BaseService {
         if (!this._hass?.connection) return;
         if (this._eventUnsubscribe) return; // already subscribed
 
-        // subscribeEvents returns a Promise<unsubscribe fn>
+        // Use the custom lcards/subscribe WS command instead of the HA-native
+        // subscribeEvents API. subscribeEvents for custom bus event types is
+        // admin-only in HA; lcards/subscribe is registered by the Python
+        // integration without that restriction, so all users (including
+        // non-admin) receive push events such as reload and set_log_level.
         this._hass.connection
-            .subscribeEvents(
-                (event) => this._handleLcardsEvent(event),
-                'lcards_event',
+            .subscribeMessage(
+                (msg) => this._handleLcardsEvent(msg),
+                { type: 'lcards/subscribe' },
             )
             .then((unsub) => {
                 this._eventUnsubscribe = unsub;
@@ -244,21 +248,26 @@ export class IntegrationService extends BaseService {
     /**
      * Handle an incoming lcards_event from the HA backend.
      *
-     * @param {Object} event - HA event (event.data is the payload)
+     * Payload is delivered directly by subscribeMessage (not wrapped in an
+     * event envelope as it was with the legacy subscribeEvents path).
+     *
+     * @param {Object} data - Event data dict fired by the Python backend
      * @private
      */
-    _handleLcardsEvent(event) {
-        const data = event?.data ?? {};
-        lcardsLog.debug('[IntegrationService] Received lcards_event:', data);
+    _handleLcardsEvent(data) {
+        // With subscribeMessage the payload is delivered directly (not wrapped
+        // in event.data as it was with subscribeEvents).
+        const payload = data ?? {};
+        lcardsLog.debug('[IntegrationService] Received lcards_event:', payload);
 
-        switch (data.action) {
+        switch (payload.action) {
             case 'reload':
                 lcardsLog.info('[IntegrationService] Reload requested by backend — reloading page');
                 window.location.reload();
                 break;
 
             case 'set_log_level': {
-                const level = data.level;
+                const level = payload.level;
                 if (level && typeof window.lcards?.setGlobalLogLevel === 'function') {
                     lcardsLog.info(`[IntegrationService] Log level set by backend → ${level}`);
                     window.lcards.setGlobalLogLevel(level);
@@ -267,6 +276,6 @@ export class IntegrationService extends BaseService {
             }
 
             default:
-                lcardsLog.debug('[IntegrationService] Unknown lcards_event action:', data.action);
+                lcardsLog.debug('[IntegrationService] Unknown lcards_event action:', payload.action);
         }
     }}

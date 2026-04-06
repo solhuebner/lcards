@@ -386,7 +386,12 @@ window.lcards.setAlertMode = async (mode, opts = {}) => {
 
   // Apply theme change immediately.
   const previousMode = window.lcards.core.themeManager.getAlertMode?.();
-  await window.lcards.core.themeManager.setAlertMode(mode, { transitionStyle });
+    try {
+      await window.lcards.core.themeManager.setAlertMode(mode, { transitionStyle });
+    } catch (err) {
+      lcardsLog.error(`[LCARdS] setAlertMode('${mode}') failed:`, err);
+      return;
+    }
 
   // Sync the input_select helper if it exists.
   // This keeps the HA state in sync when called from the JS console or Config Panel,

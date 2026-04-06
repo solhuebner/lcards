@@ -450,6 +450,75 @@ export const stateColorSchema = {
 };
 
 /**
+ * State-icon schema — icon name (string) or per-state icon map.
+ * Follows the same shape as stateColorSchema but accepts icon name strings
+ * (e.g., "mdi:lightbulb", "si:github", "entity") rather than colour values.
+ * Resolved at render time via resolveStateColor() — same lookup order as colours.
+ */
+export const stateIconSchema = {
+    oneOf: [
+        {
+            type: 'string',
+            title: 'Single Icon',
+            description: 'One icon for all states',
+            examples: ['mdi:lightbulb', 'mdi:home', 'si:github', 'entity']
+        },
+        {
+            type: 'object',
+            title: 'State-Dependent Icons',
+            description: 'Different icons for different entity states',
+            examples: [{
+                active: 'mdi:lightbulb',
+                inactive: 'mdi:lightbulb-off'
+            }],
+            properties: {
+                default: {
+                    type: 'string',
+                    description: 'Default icon (fallback when no other state matches)',
+                    examples: ['mdi:lightbulb']
+                },
+                active: {
+                    type: 'string',
+                    description: 'Icon when entity is on/active',
+                    examples: ['mdi:lightbulb']
+                },
+                inactive: {
+                    type: 'string',
+                    description: 'Icon when entity is off/inactive',
+                    examples: ['mdi:lightbulb-off']
+                },
+                unavailable: {
+                    type: 'string',
+                    description: 'Icon when entity is unavailable or unknown',
+                    examples: ['mdi:help-circle-outline']
+                },
+                zero: {
+                    type: 'string',
+                    description: 'Icon when entity state is numeric 0',
+                    examples: ['mdi:numeric-0-circle']
+                },
+                non_zero: {
+                    type: 'string',
+                    description: 'Icon when entity state is a non-zero number',
+                    examples: ['mdi:numeric-positive-1']
+                }
+            },
+            additionalProperties: {
+                type: 'string',
+                description: 'Custom state icon (e.g., "on", "off", "heat", "cool")'
+            }
+        }
+    ],
+    'x-ui-hints': {
+        label: 'Icon',
+        helper: 'Specify an icon per entity state. Falls back to the top-level \"icon\" field when no state matches.',
+        selector: {
+            icon: {}
+        }
+    }
+};
+
+/**
  * Padding schema - uniform or per-side padding
  */
 export const paddingSchema = {
@@ -1493,6 +1562,48 @@ export const cardWidthSchema = {
     'x-ui-hints': {
         label: 'Width',
         helper: 'Bare integer = px (e.g. 400 = 400px). CSS units accepted: 400px, 50vw, 10em.',
+        selector: { text: {} }
+    }
+};
+
+export const cardMinHeightSchema = {
+    oneOf: [
+        {
+            type: 'number',
+            minimum: 0,
+            description: 'Minimum card height in pixels (bare integer, e.g. 40 = 40px)'
+        },
+        {
+            type: 'string',
+            pattern: '^[\\d.]+(\\s*(px|vh|vw|%|em|rem|vmin|vmax))?$',
+            description: 'Minimum card height with CSS unit (e.g. 40px, 10vh)'
+        }
+    ],
+    description: 'Minimum card height floor. Overrides the --lcards-button-min-height CSS token. Bare integer = px.',
+    'x-ui-hints': {
+        label: 'Min Height',
+        helper: 'Floor height (e.g. 40). Overrides --lcards-button-min-height token.',
+        selector: { text: {} }
+    }
+};
+
+export const cardMinWidthSchema = {
+    oneOf: [
+        {
+            type: 'number',
+            minimum: 0,
+            description: 'Minimum card width in pixels (bare integer, e.g. 80 = 80px)'
+        },
+        {
+            type: 'string',
+            pattern: '^[\\d.]+(\\s*(px|vh|vw|%|em|rem|vmin|vmax))?$',
+            description: 'Minimum card width with CSS unit (e.g. 80px, 10vw)'
+        }
+    ],
+    description: 'Minimum card width floor. Overrides the --lcards-button-min-width CSS token. Bare integer = px.',
+    'x-ui-hints': {
+        label: 'Min Width',
+        helper: 'Floor width (e.g. 80). Overrides --lcards-button-min-width token.',
         selector: { text: {} }
     }
 };

@@ -11,7 +11,7 @@
  * Editor UI is defined separately in lcards-elbow-editor.js config.
  */
 
-import { dataSourcesSchema, actionSchema, animationSchema, filterSchema, stateColorSchema, paddingSchema, getTextSchema, gridOptionsSchema, entitySchema, cardIdSchema, tagsSchema, backgroundAnimationSchema, cardHeightSchema, cardWidthSchema } from './common-schemas.js';
+import { dataSourcesSchema, actionSchema, animationSchema, filterSchema, stateColorSchema, paddingSchema, getTextSchema, gridOptionsSchema, entitySchema, cardIdSchema, tagsSchema, backgroundAnimationSchema, cardHeightSchema, cardWidthSchema, cardMinHeightSchema, cardMinWidthSchema } from './common-schemas.js';
 import { getElbowTypeNames } from '../../core/packs/components/elbows/index.js';
 
 /**
@@ -96,6 +96,16 @@ export function getElbowSchema(options = {}) {
 
             entity: entitySchema,
 
+            ranges_attribute: {
+                type: 'string',
+                description: 'Entity attribute to use as the numeric value for all range conditions (above:/below:/between: keys) in any state-based style config. Use "brightness_pct" for a computed 0–100 light brightness value. Defaults to evaluating the raw entity state string.',
+                examples: ['brightness_pct', 'brightness', 'temperature', 'percentage', 'current_position'],
+                'x-ui-hints': {
+                    label: 'Range Attribute',
+                    helper: 'Attribute to compare against range thresholds (above:/below:/between:). Use "brightness_pct" for lights. Leave blank to use entity state.'
+                }
+            },
+
             id: cardIdSchema,
 
             tags: tagsSchema,
@@ -107,6 +117,10 @@ export function getElbowSchema(options = {}) {
             height: cardHeightSchema,
 
             width: cardWidthSchema,
+
+            min_height: cardMinHeightSchema,
+
+            min_width: cardMinWidthSchema,
 
 
             preset: {

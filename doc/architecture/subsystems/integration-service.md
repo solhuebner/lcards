@@ -114,7 +114,9 @@ if (integration.available) {
 
 ## Push Channel
 
-After a successful `lcards/info` probe, `IntegrationService` subscribes to the `lcards_event` HA bus event. This gives Python service handlers a way to push instructions to all connected browser tabs without a WS request/response cycle.
+After a successful `lcards/info` probe, `IntegrationService` subscribes via the `lcards/subscribe` WS command. This gives Python service handlers a way to push instructions to all connected browser tabs — including non-admin users — without a WS request/response cycle.
+
+The `lcards/subscribe` command is registered by the Python integration and is not admin-gated, unlike the HA-native `subscribeEvents` API which restricts custom bus event types to admin users.
 
 ### Subscription
 
@@ -123,9 +125,9 @@ After a successful `lcards/info` probe, `IntegrationService` subscribes to the `
 _startEventListener() {
     if (this._eventUnsubscribe) return; // idempotent
     this._hass.connection
-        .subscribeEvents(
-            (event) => this._handleLcardsEvent(event),
-            'lcards_event'
+        .subscribeMessage(
+            (data) => this._handleLcardsEvent(data),
+            { type: 'lcards/subscribe' }
         )
         .then((unsub) => { this._eventUnsubscribe = unsub; });
 }
@@ -135,11 +137,13 @@ The subscription is cleaned up automatically when the WebSocket connection close
 
 ### Handled actions
 
-| `event.data.action` | JS response |
+| `data.action` | JS response |
 |---------------------|-------------|
 | `reload` | `window.location.reload()` — immediate, unconditional |
-| `set_log_level` | `window.lcards.setGlobalLogLevel(event.data.level)` if available |
+| `set_log_level` | `window.lcards.setGlobalLogLevel(data.level)` if available |
 | anything else | `lcardsLog.debug` — logged and ignored |
+
+Note: with `subscribeMessage`, the payload is delivered directly as `data` — it is not wrapped in an event envelope (no `event.data` unwrapping needed).
 
 ### Triggering from Python
 

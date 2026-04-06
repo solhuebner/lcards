@@ -13,7 +13,7 @@
  * @see doc/user/configuration/cards/chart.md
  */
 
-import { simpleColorSchema, cardIdSchema, tagsSchema, dataSourcesSchema } from './common-schemas.js';
+import { simpleColorSchema, cardIdSchema, tagsSchema, dataSourcesSchema, cardHeightSchema, cardWidthSchema, cardMinHeightSchema, cardMinWidthSchema } from './common-schemas.js';
 
 /**
  * Get complete chart card schema with nested structure
@@ -273,46 +273,13 @@ export function getChartSchema(options = {}) {
                 }
             },
 
-            height: {
-                type: 'number',
-                minimum: 100,
-                maximum: 1000,
-                default: 300,
-                description: 'Chart height in pixels',
-                'x-ui-hints': {
-                    label: 'Height',
-                    helper: 'Chart height in pixels',
-                    selector: {
-                        number: {
-                            mode: 'slider',
-                            min: 100,
-                            max: 1000,
-                            step: 50,
-                            unit_of_measurement: 'px'
-                        }
-                    }
-                }
-            },
+            height: cardHeightSchema,
 
-            width: {
-                type: 'number',
-                minimum: 100,
-                maximum: 2000,
-                description: 'Chart width in pixels (optional - defaults to container width)',
-                'x-ui-hints': {
-                    label: 'Width',
-                    helper: 'Chart width in pixels (leave empty to use container width)',
-                    selector: {
-                        number: {
-                            mode: 'slider',
-                            min: 100,
-                            max: 2000,
-                            step: 50,
-                            unit_of_measurement: 'px'
-                        }
-                    }
-                }
-            },
+            width: cardWidthSchema,
+
+            min_height: cardMinHeightSchema,
+
+            min_width: cardMinWidthSchema,
 
             show_legend: {
                 type: 'boolean',

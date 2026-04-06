@@ -58,7 +58,7 @@ graph TB
 | `__init__.py` | Entry point — wires up static paths, JS injection, sidebar panel, storage init, WS commands, services, log level, and options update listener |
 | `frontend.py` | Registers static HTTP paths and injects `lcards.js` (with `?log=` param) into every HA frontend session |
 | `config_flow.py` | Initial setup flow (single-instance, no user input) + options flow (panel, log level, sidebar customisation) |
-| `websocket_api.py` | Registers `lcards/info` and all `lcards/storage/*` WebSocket commands |
+| `websocket_api.py` | Registers `lcards/info`, `lcards/subscribe`, and all `lcards/storage/*` WebSocket commands |
 | `storage.py` | `LCARdSStorage` — HA Store-backed flat key/value persistence (`.storage/lcards`) |
 | `services.py` | Registers the `lcards.*` HA action namespace — 9 services covering alert modes and frontend control |
 | `services.yaml` | Action descriptions and field selectors shown in Developer Tools → Actions |
@@ -141,6 +141,16 @@ All changes applied immediately via entry reload — no HA restart required.
 ## WebSocket API
 
 The integration registers WebSocket commands under the `lcards/*` namespace via `websocket_api.py`. Commands registered in `async_setup()` (before the config entry) are available immediately after HA start.
+
+### `lcards/subscribe`
+
+Non-admin push-channel subscription — registered in `async_setup()`. Clients subscribe once and receive `lcards_event` bus events forwarded as WS event messages. This replaces the HA-native `subscribeEvents` API for this purpose, which is restricted to admin users for custom event types.
+
+| Command | Registered | Response |
+|---|---|---|
+| `lcards/subscribe` | `async_setup()` | `{}` result immediately, then event messages as `lcards_event` fires |
+
+Used by `IntegrationService` after a successful `lcards/info` probe. → See [Integration Service — Push Channel](subsystems/integration-service#push-channel).
 
 ### `lcards/info`
 
@@ -231,11 +241,13 @@ sequenceDiagram
     participant Auto as Automation / Developer Tools
     participant PY as services.py
     participant Bus as HA Event Bus
+    participant WS as websocket_api.py (ws_subscribe)
     participant JS as IntegrationService (JS)
 
     Auto->>PY: lcards.reload
     PY->>Bus: async_fire("lcards_event", {action: "reload"})
-    Bus-->>JS: subscribeEvents callback fires
+    Bus-->>WS: _forward callback fires
+    WS-->>JS: event_message({action: "reload"})
     JS->>JS: window.location.reload()
 ```
 
@@ -248,18 +260,20 @@ sequenceDiagram
 
 ### Subscription lifecycle
 
-`IntegrationService` subscribes to the `lcards_event` HA event **after** the `lcards/info` probe succeeds — so the push channel is only open when the backend is confirmed active:
+`IntegrationService` subscribes via the `lcards/subscribe` WS command **after** the `lcards/info` probe succeeds — so the push channel is only open when the backend is confirmed active. This command is non-admin-gated, so all users (including non-admin dashboards) receive push events:
 
 ```
 async_setup_entry → backend online → IntegrationService.initialize() succeeds
-    → _startEventListener() → hass.connection.subscribeEvents(handler, 'lcards_event')
+    → _startEventListener() → hass.connection.subscribeMessage(handler, { type: 'lcards/subscribe' })
         → stores unsub fn as _eventUnsubscribe
 
 async_unload_entry → integration unloaded (tab navigates away / WS closes)
     → WebSocket disconnect → subscription cleaned up automatically
 ```
 
-The channel is a **broadcast** — all open browser tabs subscribed to `lcards_event` receive every event simultaneously.
+On the Python side, `ws_subscribe` registers a `@callback`-decorated listener on the HA event bus for `lcards_event`. When the event fires, it forwards `event.data` directly to the WS connection via `connection.send_message(event_message(...))`. The `@callback` decorator ensures the forward runs on the event loop thread, not in an executor.
+
+The channel is a **broadcast** — all open browser tabs subscribed via `lcards/subscribe` receive every event simultaneously.
 
 → JS implementation details: [Integration Service — Push Channel](subsystems/integration-service#push-channel)
 

@@ -214,12 +214,20 @@ export const lcardsDefaultTokens = {
           standard: 45,
           icon: 45
         },
-        minHeight: 38
+        minHeight: 56,
+        minWidth: 0
       },
       radius: {
         none: 'borders.radius.none',
         large: 'borders.radius.lg',
-        full: 'borders.radius.full'
+        // 'full' follows the HA theme's --ha-card-border-radius (34px in HA-LCARS) rather
+        // than using 9999 clamped to height/2.  This means shaped presets (lozenge, bullet,
+        // capped, barrel) produce arcs that match what the HA theme designer intended and
+        // never blow up on tall cards.  The Math.min(height/2, width/2) safety clamp in
+        // _generateButtonSVG still prevents overflow on very narrow/short cards.
+        // To restore the old "perfectly round ends" behaviour for a specific card, set:
+        //   style.border.radius: 9999
+        full: 'var(--ha-card-border-radius, 34px)'
       }
     },
 

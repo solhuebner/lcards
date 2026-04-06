@@ -122,6 +122,9 @@ export class LCARdSCard extends LCARdSNativeCard {
                     display: block;
                     width: 100%;
                     height: 100%;
+                    /* Allow CSS grid/flexbox to shrink below SVG intrinsic size */
+                    min-width: 0;
+                    min-height: 0;
                 }
 
                 .lcards-card-container {
@@ -966,9 +969,15 @@ export class LCARdSCard extends LCARdSNativeCard {
             }
         });
 
-        // Observe this element (the custom element itself)
-        // The web component should fill its container via CSS (width: 100%, height: 100%)
-        this._resizeObserver.observe(this);
+        // Observe the sizing-reference div instead of `this`.
+        // The size-ref is an empty, content-free div with `position:absolute; inset:0`
+        // that is sized purely by CSS/grid — it has no SVG intrinsic dimensions.
+        // Observing `this` would create a feedback loop:
+        //   SVG pixel w/h → card intrinsic size → ResizeObserver → re-render → svg w/h changes...
+        // The size-ref breaks that loop while still reflecting the true grid-allocated size,
+        // and naturally responds to sidebar/DevTools resizes without a window.resize listener.
+        const sizeRefTarget = this.shadowRoot?.querySelector('.lcards-size-ref') ?? this;
+        this._resizeObserver.observe(sizeRefTarget);
 
         // FALLBACK: window 'resize' listener
         //
@@ -2469,15 +2478,71 @@ export class LCARdSCard extends LCARdSNativeCard {
      * );
      */
     _resolveEntityStateColor(colorConfig, fallback = null) {
-        const actualEntityState = this._entity?.state;
-        const classifiedState = this._getButtonState();
-
-        return resolveStateColor({
-            actualState: actualEntityState,
-            classifiedState: classifiedState,
+        return this._resolveStateValue({
+            actualState: this._entity?.state,
+            classifiedState: this._getButtonState(),
             colorConfig: colorConfig,
             fallback: fallback
         });
+    }
+
+    /**
+     * Resolve the numeric value used for range conditions in ALL state-based
+     * lookups across this card (colors, icons, text, borders, backgrounds).
+     *
+     * When config.ranges_attribute is set, above:/below:/between: keys in any
+     * state-based config object are evaluated against the resolved attribute
+     * value instead of the raw entity state string. This is essential for
+     * entities like lights whose state is always "on"/"off" but whose relevant
+     * numeric dimension (brightness, color_temp, etc.) lives in an attribute.
+     *
+     * Special virtual attribute:
+     *   "brightness_pct" → Math.round(attributes.brightness / 2.55)  (0–100)
+     * Any other string is treated as a literal attribute name.
+     * Returns undefined when no override is configured, letting resolveStateColor
+     * fall back to parsing the raw entity state string (correct for sensors).
+     *
+     * @returns {number|undefined}
+     * @protected
+     */
+    _getNumericStateForRanges() {
+        if (!this._entity || !this.config?.ranges_attribute) return undefined;
+
+        const attr = this.config.ranges_attribute;
+        if (attr === 'state') return undefined;  // Explicit opt-out
+
+        if (attr === 'brightness_pct') {
+            const brightness = this._entity.attributes?.brightness;
+            return brightness !== undefined ? Math.round(brightness / 2.55) : undefined;
+        }
+
+        const val = this._entity.attributes?.[attr];
+        if (val !== undefined && val !== null) {
+            const n = parseFloat(val);
+            return isNaN(n) ? undefined : n;
+        }
+
+        lcardsLog.debug(`[LCARdSCard] _getNumericStateForRanges → undefined (ranges_attribute="${attr}" not found on entity attributes)`);
+        return undefined;
+    }
+
+    /**
+     * Drop-in replacement for resolveStateColor() that automatically injects the
+     * entity's numeric range value (from config.ranges_attribute) so that
+     * above:/below:/between: keys in any state-based config work against any
+     * entity attribute — not just the raw entity state string.
+     *
+     * All state-based resolveStateColor call sites should use this wrapper so
+     * the feature applies uniformly across icons, colors, borders, backgrounds,
+     * text, and any future state-based config.
+     *
+     * @param {Object} options - Same options as resolveStateColor()
+     * @returns {*} Resolved value
+     * @protected
+     */
+    _resolveStateValue(options) {
+        const numericState = this._getNumericStateForRanges();
+        return resolveStateColor(numericState !== undefined ? { ...options, numericState } : options);
     }
 
     /**

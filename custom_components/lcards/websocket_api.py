@@ -12,7 +12,7 @@ Provides the lcards/* WebSocket command namespace:
 import logging
 import voluptuous as vol
 
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.components import websocket_api
 
 from .const import (
@@ -45,9 +45,10 @@ def async_setup_ws(hass: HomeAssistant) -> None:
         ws_storage_delete,
         ws_storage_reset,
         ws_storage_dump,
+        ws_subscribe,
     ):
         websocket_api.async_register_command(hass, cmd)
-    _LOGGER.debug("LCARdS: registered %d WebSocket command(s) under %s/*", 6, DOMAIN)
+    _LOGGER.debug("LCARdS: registered %d WebSocket command(s) under %s/*", 7, DOMAIN)
 
 
 @websocket_api.websocket_command(
@@ -221,3 +222,39 @@ async def ws_storage_dump(
         connection.send_error(msg["id"], _STORAGE_UNAVAILABLE, _STORAGE_UNAVAILABLE_MSG)
         return
     connection.send_result(msg["id"], storage.dump())
+
+
+# ---------------------------------------------------------------------------
+# Push-channel subscription
+# ---------------------------------------------------------------------------
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/subscribe",
+    }
+)
+@websocket_api.async_response
+async def ws_subscribe(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict,
+) -> None:
+    """Handle lcards/subscribe.
+
+    Registers a non-admin-gated subscription to the ``lcards_event`` HA bus.
+    The frontend IntegrationService uses this instead of the admin-only
+    ``subscribeEvents`` WS API so that non-admin dashboards also receive
+    push events such as ``reload`` and ``set_log_level``.
+
+    Each event fired on the bus is forwarded to the subscriber as a WS
+    event message containing the event's data dict directly.
+    """
+    @callback
+    def _forward(event):
+        connection.send_message(
+            websocket_api.event_message(msg["id"], event.data)
+        )
+
+    connection.subscriptions[msg["id"]] = hass.bus.async_listen("lcards_event", _forward)
+    connection.send_result(msg["id"])
+    _LOGGER.debug("LCARdS: browser session subscribed to lcards_event push channel")

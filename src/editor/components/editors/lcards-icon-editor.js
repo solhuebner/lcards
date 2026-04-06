@@ -20,6 +20,7 @@ import './lcards-color-section-v2.js';
 import '../shared/lcards-color-picker.js';
 import './lcards-icon-area-picker.js';
 import './lcards-padding-editor.js';
+import './lcards-icon-section.js';
 
 export class LCARdSIconEditor extends LitElement {
 
@@ -180,6 +181,17 @@ export class LCARdSIconEditor extends LitElement {
                         ?allowCustomStates=${true}
                         ?expanded=${false}>
                     </lcards-color-section-v2>
+
+                    <!-- Per-state Icons -->
+                    <lcards-icon-section
+                        .editor=${this.editor}
+                        basePath="icon_style.icon"
+                        header="Per-state Icons"
+                        description="Override icon based on entity state"
+                        .suggestedStates=${['default', 'active', 'inactive', 'unavailable', 'zero', 'non_zero']}
+                        ?allowCustomStates=${true}
+                        ?expanded=${false}>
+                    </lcards-icon-section>
                 </lcards-form-section>
             ` : ''}
         `;

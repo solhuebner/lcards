@@ -38,13 +38,17 @@ HASS state push
 ```yaml
 rules:
   - id: high_temp
-    priority: 10
+    priority: 10             # higher number = evaluated first
+    stop: false
+    enabled: true
     when:
       entity: sensor.cpu_temp
       above: 75
     apply:
-      style:
-        color: var(--lcards-red)
+      overlays:
+        tag:temp_widget:     # tag selector — all overlays tagged 'temp_widget'
+          style:
+            color: var(--lcars-red)
       animations:
         - tag: temp_widget
           preset: alert_pulse
@@ -55,8 +59,10 @@ rules:
       entity: binary_sensor.front_door
       state: "on"
     apply:
-      style:
-        background: var(--lcards-orange)
+      overlays:
+        front-door-button:   # direct overlay ID
+          style:
+            color: var(--lcars-orange)
 ```
 
 ---
@@ -65,26 +71,43 @@ rules:
 
 | Operator | Value type | Meaning |
 |---|---|---|
-| `state` | string | Exact state match |
-| `above` | number | `numeric_state > value` |
-| `below` | number | `numeric_state < value` |
-| `attribute` | `{ key, value }` | Attribute equals value |
-| `template` | JS string | `[[[code]]]` — truthy return |
-| `all` | array of conditions | AND |
-| `any` | array of conditions | OR |
+| `state` | string | Exact state match (alias for `equals`) |
+| `equals` | string/number | Exact equality |
+| `not_equals` | string/number | Inequality |
+| `above` | number | `numeric_state > value` (strictly greater) |
+| `below` | number | `numeric_state < value` (strictly less) |
+| `in` | array | State is one of the listed values |
+| `not_in` | array | State is not in the listed values |
+| `regex` | string | State matches regular expression |
+| `attribute` | string | Attribute name — pair with comparison operator |
+| `all` | condition[] | AND — all nested conditions must match |
+| `any` | condition[] | OR — at least one nested condition must match |
+| `not` | condition | Negate a nested condition |
+| `condition` | string | JS `[[[code]]]` or Jinja2 `{{template}}` — truthy return |
+| `jinja2` | string | Explicit Jinja2 template |
+| `javascript` | string | Explicit JavaScript expression |
+| `time_between` | `"HH:MM-HH:MM"` | True when current time is in range |
+| `weekday_in` | string[] | True when today is one of `mon`…`sun` |
+| `sun_elevation` | `{ above?, below? }` | True when sun elevation matches |
+| `perf_metric` | `{ key, above?, below? }` | Internal performance metric comparison |
+| `random_chance` | number 0–1 | True with given probability each evaluation |
 
 ---
 
 ## Targeting
 
-Rules target overlays via:
+The keys of `apply.overlays` are selectors. Each maps to a patch fragment:
 
-| Field | Matches |
+| Selector form | Matches |
 |---|---|
-| `id:` | Exact overlay ID |
-| `tag:` | Any overlay with that tag |
-| `type:` | All overlays of that card type |
-| `*` | All registered overlays |
+| `overlay-id` | Exact overlay ID (direct match) |
+| `tag:tagname` | All overlays with tag `tagname` |
+| `type:typename` | All overlays of type `typename` |
+| `pattern:regex` | All overlays whose ID matches the regex |
+| `all` | Every registered overlay |
+| `exclude` | Array of IDs to exclude from bulk selectors |
+
+Multiple selectors in one rule are merged; later selectors' style keys override earlier ones for the same overlay.
 
 ---
 
@@ -104,7 +127,9 @@ _onRulePatchesChanged(patches) {
 
 ## Priority & Stop Processing
 
-Higher `priority` (lower number) wins when multiple rules target the same overlay property. A rule can include `stop_processing: true` to prevent lower-priority rules from being evaluated for that overlay.
+Higher `priority` **number** wins when multiple rules target the same overlay property (default `0`). Rules are evaluated in descending priority order.
+
+Set `stop: true` on a rule to prevent lower-priority rules from running at all once this rule matches.
 
 ---
 

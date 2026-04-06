@@ -30,7 +30,6 @@
 import { html, css, svg } from 'lit';
 import { LCARdSCard } from '../base/LCARdSCard.js';
 import { lcardsLog } from '../utils/lcards-logging.js';
-import { resolveStateColor } from '../utils/state-color-resolver.js';
 import { deepMergeImmutable } from '../utils/deepMerge.js';
 import { resolveThemeTokensRecursive } from '../utils/lcards-theme.js';
 import { getSelectMenuSchema } from './schemas/select-menu-schema.js';
@@ -336,7 +335,7 @@ export class LCARdSSelectMenu extends LCARdSCard {
             :                                    'inactive';
 
         // ── Background ────────────────────────────────────────────────────
-        let bgColor = resolveStateColor({
+        let bgColor = this._resolveStateValue({
             actualState:     classifiedState,
             classifiedState: isSelected ? 'active' : 'inactive',
             colorConfig:     style.card?.color?.background,
@@ -357,7 +356,7 @@ export class LCARdSSelectMenu extends LCARdSCard {
         }
 
         // ── Text color ────────────────────────────────────────────────────
-        let textColor = resolveStateColor({
+        let textColor = this._resolveStateValue({
             actualState:     classifiedState,
             classifiedState: isSelected ? 'active' : 'inactive',
             colorConfig:     style.text?.default?.color,
@@ -382,7 +381,7 @@ export class LCARdSSelectMenu extends LCARdSCard {
         }
 
         const borderWidthPx = style.border?.width ?? 0;
-        let borderColor = resolveStateColor({
+        let borderColor = this._resolveStateValue({
             actualState:     classifiedState,
             classifiedState: isSelected ? 'active' : 'inactive',
             colorConfig:     style.border?.color,
@@ -410,7 +409,7 @@ export class LCARdSSelectMenu extends LCARdSCard {
 
         // ── Per-option overrides (highest priority) ───────────────────────
         if (optStyleOverride && Object.keys(optStyleOverride).length) {
-            const ovBg = resolveStateColor({
+            const ovBg = this._resolveStateValue({
                 actualState:     classifiedState,
                 classifiedState: isSelected ? 'active' : 'inactive',
                 colorConfig:     optStyleOverride.card?.color?.background,
@@ -418,7 +417,7 @@ export class LCARdSSelectMenu extends LCARdSCard {
             });
             if (ovBg) bgColor = ovBg;
 
-            const ovText = resolveStateColor({
+            const ovText = this._resolveStateValue({
                 actualState:     classifiedState,
                 classifiedState: isSelected ? 'active' : 'inactive',
                 colorConfig:     optStyleOverride.text?.default?.color,

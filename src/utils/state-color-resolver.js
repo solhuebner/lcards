@@ -116,7 +116,7 @@ function _resolveRangeColor(value, colorConfig) {
  * });
  * // Returns: '#FF9900'
  */
-export function resolveStateColor({ actualState, classifiedState, colorConfig, fallback = null }) {
+export function resolveStateColor({ actualState, classifiedState, colorConfig, fallback = null, numericState = undefined }) {
     // If colorConfig is null/undefined, return fallback
     if (!colorConfig) {
         return fallback;
@@ -140,33 +140,40 @@ export function resolveStateColor({ actualState, classifiedState, colorConfig, f
     //
     // NOTE: Use !== undefined throughout to avoid silently skipping falsy color
     // values (e.g., an empty string reset or a future numeric token).
+    //
+    // numericState: optional override for the numeric value used in steps 2-4.
+    // When provided, it replaces parseFloat(actualState) for range/zero/non_zero
+    // evaluation. This allows callers to use entity attributes (e.g. brightness_pct)
+    // for range conditions while keeping actualState for exact-string matching.
     let resolved;
 
-    // 1. Exact raw state match
+    // Pre-compute numeric value once: use explicit numericState when provided,
+    // otherwise parse actualState string (works for numeric sensor entities).
+    const numericVal = numericState !== undefined ? numericState : parseFloat(actualState);
+    const numericValValid = !isNaN(numericVal);
+
+    // 1. Exact raw state match (always uses actualState string, never the numeric override)
     if (actualState != null && colorConfig[actualState] !== undefined) {
         resolved = colorConfig[actualState];
     }
 
     // 2. "zero" — exact numeric zero (higher specificity than any range)
     if (resolved === undefined) {
-        const numericVal = parseFloat(actualState);
-        if (!isNaN(numericVal) && numericVal === 0 && colorConfig.zero !== undefined) {
+        if (numericValValid && numericVal === 0 && colorConfig.zero !== undefined) {
             resolved = colorConfig.zero;
         }
     }
 
     // 3. Range conditions (above:N, below:N, between:N:M) — most-specific match wins
     if (resolved === undefined) {
-        const numericVal = parseFloat(actualState);
-        if (!isNaN(numericVal)) {
+        if (numericValValid) {
             resolved = _resolveRangeColor(numericVal, colorConfig);
         }
     }
 
     // 4. "non_zero" — catch-all for any non-zero number (no range matched)
     if (resolved === undefined) {
-        const numericVal = parseFloat(actualState);
-        if (!isNaN(numericVal) && numericVal !== 0 && colorConfig.non_zero !== undefined) {
+        if (numericValValid && numericVal !== 0 && colorConfig.non_zero !== undefined) {
             resolved = colorConfig.non_zero;
         }
     }
@@ -211,11 +218,12 @@ export function resolveStateColor({ actualState, classifiedState, colorConfig, f
  *   fallback: 'var(--lcars-color-secondary)'
  * });
  */
-export function resolveNestedStateColor({ actualState, classifiedState, configPath, fallback = null }) {
+export function resolveNestedStateColor({ actualState, classifiedState, configPath, fallback = null, numericState = undefined }) {
     return resolveStateColor({
         actualState,
         classifiedState,
         colorConfig: configPath,
-        fallback
+        fallback,
+        numericState
     });
 }

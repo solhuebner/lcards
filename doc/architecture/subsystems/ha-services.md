@@ -196,11 +196,15 @@ action:
 Python service handler
     → hass.bus.async_fire("lcards_event", { "action": "...", ...payload })
         → HA internal event bus
-            → any connected browser tab subscribed to "lcards_event"
-                → IntegrationService._handleLcardsEvent(event)
-                    → window.location.reload()  (reload)
-                    → window.lcards.setGlobalLogLevel(level)  (set_log_level)
+            → ws_subscribe._forward() (websocket_api.py, @callback)
+                → connection.send_message(event_message(...))
+                    → every browser tab subscribed via lcards/subscribe
+                        → IntegrationService._handleLcardsEvent(data)
+                            → window.location.reload()  (reload)
+                            → window.lcards.setGlobalLogLevel(level)  (set_log_level)
 ```
+
+Browser tabs subscribe using the `lcards/subscribe` WS command (not the HA-native `subscribeEvents` API, which is restricted to admin users for custom event types). This means **all users including non-admins** receive push events.
 
 This is a **broadcast** — all connected browser tabs receive the event simultaneously. There is no targeted delivery to a single tab.
 

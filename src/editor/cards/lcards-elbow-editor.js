@@ -532,13 +532,45 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                             `
                         }
                     ]
+                },
+                {
+                    type: 'section',
+                    header: 'Entity',
+                    description: 'Entity to observe and attribute for state range conditions',
+                    icon: 'mdi:home-automation',
+                    expanded: false,
+                    outlined: true,
+                    children: [
+                        {
+                            type: 'custom',
+                            render: () => html`
+                                <ha-selector
+                                    .hass=${this.hass}
+                                    .label=${'Entity'}
+                                    .helper=${'[Optional] Entity whose state drives colour and icon changes'}
+                                    .selector=${{ entity: {} }}
+                                    .value=${this.config?.entity || ''}
+                                    @value-changed=${(e) => {
+                                        const v = e.detail.value;
+                                        if (v) this._setConfigValue('entity', v);
+                                        else   this._removeConfigPath('entity');
+                                    }}>
+                                </ha-selector>
+                            `
+                        },
+                        {
+                            type: 'custom',
+                            render: () => this._renderRangesAttributeSelector()
+                        }
+                    ]
                 }
             ],
             basicFields: [
-                { path: 'entity', label: 'Entity', helper: '[Optional] Entity to control' },
                 { path: 'id', label: 'Card ID', helper: '[Optional] Custom ID for targeting with rules and animations' },
                 { path: 'tags', label: 'Tags', helper: 'Select existing tags or type new ones for rule targeting' }
-            ]
+            ],
+            showBasicSection: true,
+            basicSectionHeader: 'Card Identification'
         }),
         {
             type: 'section',
@@ -553,7 +585,9 @@ export class LCARdSElbowEditor extends LCARdSBaseEditor {
                     columns: 2,
                     children: [
                         { type: 'field', path: 'height' },
-                        { type: 'field', path: 'width' }
+                        { type: 'field', path: 'width' },
+                        { type: 'field', path: 'min_height' },
+                        { type: 'field', path: 'min_width' }
                     ]
                 }
             ]

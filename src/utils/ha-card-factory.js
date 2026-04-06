@@ -215,6 +215,42 @@ export async function createCardElement(cardType, label = 'card') {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// hui-card wrapper (lazy-load fallback)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Create a card element using `hui-card` as a lazy-loading wrapper.
+ *
+ * This is the HA-canonical approach for built-in card types whose module
+ * hasn't been imported yet on a fresh page load (e.g. `hui-alarm-panel-card`,
+ * `hui-map-card`, etc.).  HA only lazy-imports those modules when the card
+ * type appears directly on a dashboard view; cards embedded as symbionts
+ * never appear there, so `customElements.get()` returns undefined at startup.
+ *
+ * `hui-card` is HA's own universal card renderer.  It internally calls
+ * HA's `tryCreateCardElement` / `LAZY_LOAD_TYPES` dynamic-import map, which
+ * triggers the correct ES-module import and registers the element.
+ *
+ * Important:
+ *   - `hui-card` has **no shadow root** (`createRenderRoot` returns `this`)
+ *   - The inner rendered card element is accessible at `wrapper._element`
+ *   - For style/imprint injection, target `wrapper._element`, not `wrapper`
+ *   - `wrapper._element` materialises asynchronously — use a retry loop
+ *
+ * @param {Object}  cardConfig  Full card config { type, entity, … }
+ * @param {Object}  [hass]      HASS object
+ * @returns {HTMLElement}       hui-card wrapper element (load() already called)
+ */
+export function createHuiCardWrapper(cardConfig, hass) {
+    const wrapper = /** @type {any} */ (document.createElement('hui-card'));
+    if (hass) wrapper.hass = hass;
+    wrapper.config = cardConfig;
+    wrapper.load();
+    lcardsLog.debug(`[HACardFactory] hui-card wrapper created for lazy type: ${cardConfig?.type}`);
+    return wrapper;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // HASS application
 // ─────────────────────────────────────────────────────────────────────────────
 
