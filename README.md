@@ -3,7 +3,10 @@
 **A unified card system for Home Assistant inspired by the iconic Star Trek LCARS interfaces.
 <br>Build your own LCARS-style dashboards and Master Systems Display (MSD) with realistic controls, reactivity and animations.**
 
-[![GitHub release](https://img.shields.io/github/v/release/snootched/LCARdS?display_name=release&logo=startrek&color=37a6d1")](https://github.com/snootched/LCARdS/releases)
+[![GitHub release](https://img.shields.io/github/v/release/snootched/lcards?logo=startrek&logoColor=37a6d1&color=37a6d1)](https://github.com/snootched/LCARdS/releases)
+
+![GitHub Downloads (all assets, latest release)](https://img.shields.io/github/downloads/snootched/lcards/latest/total?logo=startrek&logoColor=37a6d1&label=Latest%20Release%20Downloads&color=37a6d1)
+
 [![License](https://img.shields.io/badge/license-MIT-37a6d1?logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![Last commit](https://img.shields.io/github/last-commit/snootched/LCARdS?style=default&logo=git&logoColor=white&color=37a6d1)](https://github.com/snootched/LCARdS/commits/main)
 
