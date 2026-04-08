@@ -690,8 +690,16 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
             const allComponentFields = Object.keys(componentDef?.text || {}).filter(k => k !== 'default');
             componentTextFields = allComponentFields.length > 0 ? allComponentFields : [];
         } else {
-            // Non-component preset mode: the card has a single full-card 'body' zone.
-            availableZones = { body: 'Body' };
+            // Non-component preset mode: 'body' = icon-safe interior, 'full' = entire card.
+            // 'icon' zone is only registered at runtime when an area-based icon is present.
+            // Expose it in the selector so users can place text inside the icon strip.
+            const hasAreaIcon = (this.config?.show_icon || this.config?.icon_only) &&
+                                (this.config?.icon_area || 'left') !== 'none';
+            availableZones = {
+                body: 'Body',
+                full: 'Full',
+                ...(hasAreaIcon ? { icon: 'Icon' } : {})
+            };
         }
         // Always merge user-defined config.zones so any custom zones appear in the selector.
         for (const name of Object.keys(this.config?.zones || {})) {
@@ -844,8 +852,7 @@ export class LCARdSButtonEditor extends LCARdSBaseEditor {
                     <div class="form-row">
                         <ha-textarea
                             .value=${this.config.svg?.content || ''}
-                            // @ts-ignore - TS2339: auto-suppressed
-                            @input=${(e) => this.editor._setConfigValue('svg.content', e.target.value)}
+                            @input=${/* @ts-ignore TS2339 */ (e) => this.editor._setConfigValue('svg.content', e.target.value)}
                             placeholder="<svg viewBox='0 0 100 100'>...</svg>"
                             rows="10"
                             style="width: 100%; font-family: monospace;">
