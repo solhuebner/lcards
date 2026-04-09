@@ -34,6 +34,7 @@ BackgroundAnimationRenderer (Canvas2DRenderer)
 | `GridEffect` | Configurable grid pattern effect | `GridEffect.js` |
 | `StarfieldEffect` | Scrolling starfield with parallax | `StarfieldEffect.js` |
 | `ZoomEffect` | Layered scaling wrapper | `ZoomEffect.js` |
+| `ImageEffect` | Static or entity-reactive image layer | `effects/ImageEffect.js` |
 | `BACKGROUND_PRESETS` | Preset registry | `presets/index.js` |
 
 ---
@@ -256,6 +257,16 @@ export const BACKGROUND_PRESETS = {
 | `grid` | GridEffect | Unified grid with spacing/cell-based sizing, major/minor divisions, optional cell fill |
 | `grid-diagonal` | GridEffect | 45° diagonal hatch pattern with optional background fill |
 | `grid-hexagonal` | GridEffect | Honeycomb hexagonal tessellation with optional cell fill |
+| `starfield` | StarfieldEffect | Parallax multi-layer scrolling star field |
+| `nebula` | NebulaEffect | Gas-cloud turbulence effect |
+| `cascade` | CascadeEffect | Falling character/symbol cascade |
+| `level` | LevelTextureEffect | Animated fill-bar level indicator |
+| `fluid` | FluidTextureEffect | Organic fractal noise blobs |
+| `plasma` | PlasmaTextureEffect | Dual-colour energy wash |
+| `flow` | FlowTextureEffect | Directional streaming currents |
+| `shimmer` | ShimmerTextureEffect | Directional light-sweep highlight |
+| `scanlines` | ScanlineTextureEffect | CRT scan-line overlay |
+| `image` | ImageEffect | User-supplied image (static or entity-reactive via template URL) |
 
 
 ---

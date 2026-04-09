@@ -528,7 +528,7 @@ export function getButtonSchema(options = {}) {
                     preset: {
                         type: 'string',
                         description: 'Texture preset name',
-                        enum: ['grid', 'diagonal', 'hexagonal', 'dots', 'fluid', 'shimmer', 'plasma', 'flow', 'level', 'pulse', 'scanlines']
+                        enum: ['grid', 'diagonal', 'hexagonal', 'dots', 'fluid', 'shimmer', 'plasma', 'flow', 'level', 'pulse', 'scanlines', 'image']
                     },
                     opacity: {
                         description: 'Texture opacity (0-1). Supports state-based object.',

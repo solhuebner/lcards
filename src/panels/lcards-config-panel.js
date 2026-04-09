@@ -27,6 +27,7 @@ import '../editor/components/pack-explorer/lcards-pack-explorer-tab.js';
 import '../editor/components/shared/lcards-collapsible-section.js';
 import './components/lcards-sound-config-tab.js';
 import './components/lcards-storage-explorer-tab.js';
+import './components/lcards-about-tab.js';
 
 export class LCARdSConfigPanel extends LitElement {
   static properties = {
@@ -769,26 +770,30 @@ export class LCARdSConfigPanel extends LitElement {
 
         <ha-tab-group @wa-tab-show=${this._handleTabChange}>
           <ha-tab-group-tab value="0" ?active=${this._selectedTab === 0}>
+            <ha-icon icon="mdi:information-outline"></ha-icon>
+            About
+          </ha-tab-group-tab>
+          <ha-tab-group-tab value="1" ?active=${this._selectedTab === 1}>
             <ha-icon icon="mdi:cog"></ha-icon>
             Helpers
           </ha-tab-group-tab>
-          <ha-tab-group-tab value="1" ?active=${this._selectedTab === 1}>
+          <ha-tab-group-tab value="2" ?active=${this._selectedTab === 2}>
             <ha-icon icon="mdi:palette-swatch"></ha-icon>
             Alert Lab & Theme Browser
           </ha-tab-group-tab>
-          <ha-tab-group-tab value="2" ?active=${this._selectedTab === 2}>
+          <ha-tab-group-tab value="3" ?active=${this._selectedTab === 3}>
             <ha-icon icon="mdi:volume-high"></ha-icon>
             Sounds
           </ha-tab-group-tab>
-          <ha-tab-group-tab value="3" ?active=${this._selectedTab === 3}>
+          <ha-tab-group-tab value="4" ?active=${this._selectedTab === 4}>
             <ha-icon icon="mdi:package-variant"></ha-icon>
             Pack Explorer
           </ha-tab-group-tab>
-          <ha-tab-group-tab value="4" ?active=${this._selectedTab === 4}>
+          <ha-tab-group-tab value="5" ?active=${this._selectedTab === 5}>
             <ha-icon icon="mdi:database-cog"></ha-icon>
             Storage
           </ha-tab-group-tab>
-          <ha-tab-group-tab value="5" ?active=${this._selectedTab === 5}>
+          <ha-tab-group-tab value="6" ?active=${this._selectedTab === 6}>
             <ha-icon icon="mdi:code-braces"></ha-icon>
             YAML Export
           </ha-tab-group-tab>
@@ -813,20 +818,32 @@ export class LCARdSConfigPanel extends LitElement {
   _renderTabContent() {
     switch (this._selectedTab) {
       case 0:
-        return this._renderHelpersTab();
+        return this._renderAboutTab();
       case 1:
-        return this._renderThemeBrowserTab();
+        return this._renderHelpersTab();
       case 2:
-        return this._renderSoundTab();
+        return this._renderThemeBrowserTab();
       case 3:
-        return this._renderPackExplorerTab();
+        return this._renderSoundTab();
       case 4:
-        return this._renderStorageTab();
+        return this._renderPackExplorerTab();
       case 5:
+        return this._renderStorageTab();
+      case 6:
         return this._renderYAMLTab();
       default:
         return html`<div>Unknown tab</div>`;
     }
+  }
+
+  _renderAboutTab() {
+    return html`
+      <div class="studio-layout">
+        <lcards-about-tab
+          .hass=${this.hass}
+        ></lcards-about-tab>
+      </div>
+    `;
   }
 
   _renderHelpersTab() {

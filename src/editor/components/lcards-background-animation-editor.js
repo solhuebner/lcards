@@ -547,6 +547,11 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
       return html`${this._renderTexturePresetSection(preset, config, index)}`;
     }
 
+    // Image preset uses dedicated image section
+    if (preset === 'image') {
+      return html`${this._renderImageBackgroundSection(config, index)}`;
+    }
+
     // Grid presets use pattern/major-minor/scrolling/color sections
     return html`
       ${this._renderPatternSection(preset, config, index)}
@@ -978,6 +983,67 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
     `;
   }
 
+  _renderImageBackgroundSection(config, index) {
+    const url = config.url ?? '';
+    const showHttpWarning = url.startsWith('http:') &&
+      typeof location !== 'undefined' && location.protocol === 'https:';
+
+    return html`
+      <lcards-form-section header="Image" icon="mdi:image" ?expanded=${true}>
+        <div class="param-grid">
+          <!-- URL input (full width) -->
+          <ha-selector
+            .hass=${this.hass}
+            .selector=${{ text: {} }}
+            .value=${url}
+            .label=${'Image URL'}
+            .helper=${'Path to image, e.g. /local/images/room.jpg or an https:// URL. Supports templates: {entity.attributes.entity_picture}'}
+            @value-changed=${(e) => this._updateEffectConfig(index, 'url', e.detail.value)}
+            style="grid-column: 1 / -1"
+          ></ha-selector>
+
+          ${showHttpWarning ? html`
+            <div style="grid-column:1/-1;padding:6px 8px;border-radius:4px;background:rgba(255,193,7,0.15);color:#ffa000;font-size:12px;line-height:1.4;">
+              ⚠ http:// URLs will be blocked as mixed content when Home Assistant is served over HTTPS.
+              Use an https:// URL or a /local/ path instead.
+            </div>
+          ` : ''}
+
+          <!-- Size -->
+          <ha-selector
+            .hass=${this.hass}
+            .selector=${{ select: { mode: 'dropdown', options: [
+              { value: 'cover',   label: 'Cover (fill, may crop)' },
+              { value: 'contain', label: 'Contain (fit, may letterbox)' },
+              { value: 'fill',    label: 'Fill (stretch to canvas)' }
+            ]}}}
+            .value=${config.size ?? 'cover'}
+            .label=${'Size'}
+            .helper=${'How the image is scaled to fit the card background'}
+            @value-changed=${(e) => this._updateEffectConfig(index, 'size', e.detail.value)}
+          ></ha-selector>
+
+          <!-- Position -->
+          <ha-selector
+            .hass=${this.hass}
+            .selector=${{ text: {} }}
+            .value=${config.position ?? 'center'}
+            .label=${'Position'}
+            .helper=${'CSS background-position value, e.g. "center", "top left", "50% 20%"'}
+            @value-changed=${(e) => this._updateEffectConfig(index, 'position', e.detail.value)}
+          ></ha-selector>
+
+          <!-- Opacity -->
+          ${this._renderField({ key: 'opacity', label: 'Opacity', type: 'number', min: 0, max: 1, step: 0.05, default: 1 }, config, index)}
+
+          <!-- Repeat/Tile -->
+          ${this._renderField({ key: 'repeat', label: 'Tile / Repeat', type: 'boolean', default: false }, config, index)}
+        </div>
+      </lcards-form-section>
+      ${this._renderEntityBindingNote()}
+    `;
+  }
+
   _renderTexturePresetSection(preset, config, index) {
     const isTwoColor = preset === 'plasma';
     const hasScroll = ['fluid', 'plasma', 'flow', 'scanlines'].includes(preset);
@@ -1209,12 +1275,13 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
       'starfield': 'mdi:star-circle',
       'nebula': 'mdi:cloud',
       'cascade': 'mdi:format-columns',
-      'level': 'mdi:water',
-      'fluid': 'mdi:water-wave',
-      'plasma': 'mdi:fire',
-      'flow': 'mdi:wave',
-      'shimmer': 'mdi:shimmer',
-      'scanlines': 'mdi:television-scan'
+      'level':        'mdi:water',
+      'fluid':        'mdi:water-wave',
+      'plasma':       'mdi:fire',
+      'flow':         'mdi:wave',
+      'shimmer':      'mdi:shimmer',
+      'scanlines':    'mdi:television-scan',
+      'image':        'mdi:image'
     };
     return icons[preset] || 'mdi:blur';
   }

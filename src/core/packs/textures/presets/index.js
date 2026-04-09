@@ -20,6 +20,7 @@ import { PlasmaTextureEffect }   from '../effects/PlasmaTextureEffect.js';
 import { FlowTextureEffect }     from '../effects/FlowTextureEffect.js';
 import { ScanlineTextureEffect } from '../effects/ScanlineTextureEffect.js';
 import { LevelTextureEffect }    from '../effects/LevelTextureEffect.js';
+import { ImageTextureEffect }    from '../effects/ImageTextureEffect.js';
 
 /**
  * Built-in canvas texture presets
@@ -170,6 +171,18 @@ export const CANVAS_TEXTURE_PRESETS = {
             wave2_speed:       -15,
             slosh_amount:      0,
             slosh_period:      3,
+        },
+    },
+
+    'image': {
+        name:        'Image',
+        description: 'User-supplied image clipped to the card shape — supports /local/ paths and external HTTPS URLs',
+        effectClass: ImageTextureEffect,
+        defaults: {
+            url:      '',
+            size:     'cover',
+            position: 'center',
+            repeat:   false,
         },
     },
 

@@ -76,7 +76,7 @@ shape_texture:
 
 ## Preset Reference
 
-All 11 built-in presets are listed below. Color fields accept any of: `rgba()`, `#hex`, `var(--css-variable)`, `{theme:token.path}`, or state-based maps — the color pipeline resolves all formats before they reach the SVG renderer (see [Color Pipeline](#color-pipeline)).
+All 12 built-in presets are listed below. Color fields accept any of: `rgba()`, `#hex`, `var(--css-variable)`, `{theme:token.path}`, or state-based maps — the color pipeline resolves all formats before they reach the SVG renderer (see [Color Pipeline](#color-pipeline)).
 
 ### `grid`
 
@@ -214,6 +214,44 @@ Classic CRT-style scan-line overlay. Works as a darkening (or lightening) overla
 | `direction` | `'horizontal'` | `'horizontal'` \| `'vertical'` |
 | `scroll_speed_y` | `0` | Vertical scroll speed px/s (horizontal direction) |
 | `scroll_speed_x` | `0` | Horizontal scroll speed px/s (vertical direction) |
+
+### `image`
+
+User-supplied image rendered inside the card shape, clipped to the shape geometry via a Canvas2D Path2D clip path. Unlike the SVG-native presets above, this uses a `<foreignObject>` Canvas2D renderer (`CanvasTextureRenderer`) — the same pipeline as all other shape texture presets. There is no continuous animation frame cost when the image is static; the frame loop is always running but the draw call is a single GPU blit.
+
+| Config key | Default | Description |
+|---|---|---|
+| `url` | `''` | `/local/` path or HTTPS URL to the image. Supports template syntax (e.g. `'{entity.attributes.entity_picture}'`). |
+| `size` | `'cover'` | `'cover'` \| `'contain'` \| `'fill'` \| `'<n>px'` (explicit pixel size for the shorter axis) |
+| `position` | `'center'` | CSS `background-position` style string — keywords (`top left`, `center`, `bottom right`) or percentages (`50% 50%`) |
+| `repeat` | `false` | If `true`, tiles the image across the shape rather than fitting it |
+| `opacity` | `1` | Top-level `shape_texture.opacity` applies here via the standard pipeline; no `config.opacity` needed |
+
+**Template URL example** (entity thumbnail):
+
+```yaml
+shape_texture:
+  preset: image
+  opacity: 0.75
+  mix_blend_mode: overlay
+  config:
+    url: '{entity.attributes.entity_picture}'
+    size: cover
+```
+
+**Static image example**:
+
+```yaml
+shape_texture:
+  preset: image
+  opacity: 0.4
+  config:
+    url: '/local/images/bedroom.jpg'
+    size: cover
+    position: center top
+```
+
+> **HTTP URLs on HTTPS dashboards**: The editor shows a warning when the URL begins with `http:` and the dashboard is served over HTTPS. Mixed-content requests are blocked by most browsers — prefer `/local/` paths or `https://` URLs.
 
 ## Architecture
 
@@ -358,6 +396,9 @@ Because `_resolveShapeTextureConfig()` reads directly from `this.config` at ever
 | `src/core/packs/textures/index.js` | Re-exports |
 | `src/core/packs/lcards-textures-pack.js` | Pack metadata |
 | `src/editor/components/lcards-shape-texture-editor.js` | Editor UI component |
+| `src/core/packs/textures/effects/ImageTextureEffect.js` | Canvas2D image effect for the `image` preset |
+| `src/core/packs/shared/ImageLoader.js` | Shared singleton image cache (used by both image presets) |
+| `src/core/packs/shared/ImageDrawUtils.js` | Shared cover/contain/fill draw-param math |
 
 
 ## See Also

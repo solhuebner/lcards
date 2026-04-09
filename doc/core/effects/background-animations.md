@@ -678,6 +678,81 @@ The colour cycle for each row follows the CB-LCARS / data-grid keyframe structur
 
 ---
 
+### `image`
+
+User-supplied static image rendered as a full-bleed canvas background behind the card SVG. The image is drawn at `z-index: -1` and composited with any other effects in the stack.
+
+The `url` value supports all LCARdS template syntaxes, including `{entity.attributes.entity_picture}` — the background animation pipeline evaluates templates on every HASS update, so the displayed image automatically follows entity attribute changes.
+
+<details>
+
+**Configuration:**
+
+```yaml
+preset: image
+config:
+  url: '/local/images/bedroom.jpg'  # Required: /local/ path or https:// URL
+  size: 'cover'                      # 'cover' | 'contain' | 'fill' | '<n>px'
+  position: 'center'                 # CSS background-position string
+  opacity: 1                         # Composite opacity (0–1)
+  repeat: false                      # Tile the image instead of fitting it
+```
+
+| Config key | Default | Description |
+|---|---|---|
+| `url` | `''` | `/local/` path or `https://` URL to the image. Supports template syntax. |
+| `size` | `'cover'` | `'cover'` — scale to fill canvas (may crop)<br>`'contain'` — scale to fit canvas (may letterbox)<br>`'fill'` — stretch to exact canvas size<br>`'<n>px'` — explicit pixel size for the shorter axis |
+| `position` | `'center'` | CSS `background-position` string: keywords (`top left`, `bottom right`) or percentages (`50% 0%`) |
+| `opacity` | `1` | Composite opacity of this effect layer. Combine with other effects for overlay blending. |
+| `repeat` | `false` | Tile the image to fill the canvas. Useful for textures or patterns. |
+
+**Example — room area card:**
+
+```yaml
+background_animation:
+  effects:
+    - preset: image
+      config:
+        url: '/local/images/Areas/Bedroom.jpg'
+        size: cover
+        opacity: 0.85
+```
+
+**Example — entity thumbnail (e.g. camera or media player):**
+
+```yaml
+background_animation:
+  effects:
+    - preset: image
+      config:
+        url: '{entity.attributes.entity_picture}'
+        size: cover
+```
+
+**Example — image behind a grid overlay:**
+
+```yaml
+background_animation:
+  effects:
+    - preset: image
+      config:
+        url: '/local/backgrounds/lcars-panel.jpg'
+        size: cover
+        opacity: 0.6
+    - preset: grid
+      config:
+        color: 'rgba(255,153,102,0.25)'
+        line_spacing: 40
+```
+
+> **⚠️ HTTP URLs**: Using an `http://` URL on an HTTPS dashboard will be blocked by the browser's mixed-content policy. The editor shows a warning in this case. Use `/local/` paths or `https://` URLs instead.
+
+> **💡 Tip:** Combine `image` with a `grid` or `scanlines` overlay at low opacity for a classic LCARS data-panel look.
+
+</details>
+
+---
+
 ## 🔍 Zoom Wrapper
 
 The zoom wrapper applies a **layered scaling effect** with opacity fades to any preset, creating a pseudo-3D depth illusion.
