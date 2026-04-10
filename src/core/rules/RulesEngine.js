@@ -37,7 +37,7 @@ export class RulesEngine extends BaseService {
     // NEW: HASS subscription management
     this.hassUnsubscribe = null;
     this._reEvaluationCallbacks = []; // CHANGED: Array of callbacks for multiple MSD cards
-    this._hassEntities = new Set(); // Cached entity list for performance
+    // dependencyIndex.entityToRules is the live entity→rules map; no separate cache needed
     this._freshStateCache = new Map(); // Cache for fresh states from events (entityId -> state object)
 
     // ✨ NEW: Template evaluator for Jinja2/JS conditions
@@ -171,37 +171,7 @@ export class RulesEngine extends BaseService {
 
     this.dependencyIndex = { entityToRules, ruleToEntities };
 
-    // Update cached entity list for performance
-    if (this.hassUnsubscribe) {
-      const ruleEntities = Array.from(this.dependencyIndex?.entityToRules.keys() || [])
-        .filter(entityId => {
-          // Keep HA entity IDs (contain exactly one dot: domain.entity)
-          // Filter out DataSource references (multi-part dot paths whose root is a known DataSource)
-          if (entityId.includes('.')) {
-            const sourceName = entityId.split('.')[0];
-            if (this.dataSourceManager?.getSource(sourceName)) {
-              return false; // Known DataSource reference — skip
-            }
-          }
-          return true; // HA entity ID or unrecognised reference — keep
-        });
-      this._hassEntities = new Set(ruleEntities);
-
-      lcardsLog.debug(`[RulesEngine] Updated monitored entities: ${ruleEntities.length} entities`);
-    }
-
-    // Debug exposure
-    try {
-      const debugNamespace = (typeof window !== 'undefined') ? window : global;
-      if (debugNamespace.__msdDebug) {
-        debugNamespace.__msdDebug.rulesDeps = {
-          entityToRules: Object.fromEntries(entityToRules),
-          ruleToEntities: Object.fromEntries(ruleToEntities),
-          totalEntities: entityToRules.size,
-          totalRules: this.rules.length
-        };
-      }
-    } catch (e) {}
+    lcardsLog.debug(`[RulesEngine] Dependency index built: ${entityToRules.size} entities across ${this.rules.length} rules`);
   }
 
   extractEntityReferences(rule) {
@@ -209,8 +179,11 @@ export class RulesEngine extends BaseService {
 
     if (!rule.when) return Array.from(entities);
 
-    // Extract from all/any conditions
+    // Support flat form: when: { entity: ..., above: 15 }
+    // as well as compound form: when: { all: [...], any: [...] }
+    const flatCondition = (rule.when.entity || rule.when.entity_attr) ? [rule.when] : [];
     const conditions = [
+      ...flatCondition,
       ...(rule.when.all || []),
       ...(rule.when.any || [])
     ];
@@ -1560,18 +1533,17 @@ export class RulesEngine extends BaseService {
         return;
       }
 
-      // Cache entity list for performance
-      this._hassEntities = new Set(ruleEntities);
-
       lcardsLog.debug(`[RulesEngine] Setting up monitoring for ${ruleEntities.length} rule entities:`, ruleEntities);
 
-      // Direct subscription - following DataSource pattern
+      // Direct subscription - following DataSource pattern.
+      // NOTE: The listener consults dependencyIndex.entityToRules live (not a
+      // frozen snapshot) so that entities added by cards that load after this
+      // subscription is created are automatically covered. Map.has() is O(1).
       this.hassUnsubscribe = await hass.connection.subscribeEvents((event) => {
         if (event.event_type === 'state_changed' && event.data?.entity_id) {
           const entityId = event.data.entity_id;
 
-          // Performance: Use cached Set for O(1) lookup
-          if (this._hassEntities.has(entityId)) {
+          if (this.dependencyIndex?.entityToRules.has(entityId)) {
             this._handleRuleEntityChange(entityId, event.data);
           }
         }
@@ -1688,7 +1660,6 @@ export class RulesEngine extends BaseService {
       try {
         this.hassUnsubscribe();
         this.hassUnsubscribe = null;
-        this._hassEntities.clear();
         lcardsLog.debug('[RulesEngine] HASS subscription cleaned up');
       } catch (error) {
         lcardsLog.warn('[RulesEngine] Error cleaning up HASS subscription:', error);
@@ -1768,6 +1739,7 @@ export class RulesEngine extends BaseService {
    */
   getDebugInfo() {
     try {
+      const idx = this.dependencyIndex;
       return {
         type: 'RulesEngine',
         rulesCount: this.rules?.length || 0,
@@ -1775,6 +1747,12 @@ export class RulesEngine extends BaseService {
         dirtyRules: this.dirtyRules?.size || 0,
         evalCounts: this.evalCounts || {},
         hasDataSourceManager: !!this.dataSourceManager,
+        dependencyIndex: idx ? {
+          entityToRules: Object.fromEntries(idx.entityToRules),
+          ruleToEntities: Object.fromEntries(idx.ruleToEntities),
+          totalEntities: idx.entityToRules.size,
+          totalRules: this.rules?.length || 0
+        } : null,
         recentMatches: this.getRecentMatches(10000),
         trace: this.getTrace()
       };
