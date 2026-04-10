@@ -63,7 +63,7 @@ export function renderAnimationPreview(animation) {
       <div class="animation-details">
         ${animation.preset ? html`<div><strong>Preset:</strong> ${animation.preset}</div>` : ''}
         ${animation.duration ? html`<div><strong>Duration:</strong> ${animation.duration}ms</div>` : ''}
-        ${animation.easing ? html`<div><strong>Easing:</strong> ${animation.easing}</div>` : ''}
+        ${animation.ease ? html`<div><strong>Ease:</strong> ${animation.ease}</div>` : ''}
         ${animation.loop ? html`<div><strong>Loop:</strong> Yes</div>` : ''}
       </div>
     </div>

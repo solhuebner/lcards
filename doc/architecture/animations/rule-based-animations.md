@@ -199,9 +199,9 @@ animations:
     preset: fade_in           # Required: Animation preset name
     duration: 1000           # Optional: Duration in milliseconds
     delay: 100               # Optional: Delay before starting
-    easing: easeInOutQuad    # Optional: Easing function
+    ease: easeInOutQuad      # Optional: Easing function
     loop: true               # Optional: Loop animation (stops on unmatch)
-    direction: alternate     # Optional: Animation direction
+    alternate: true          # Optional: Reverse direction on each loop
 ```
 
 ## Complex Conditions

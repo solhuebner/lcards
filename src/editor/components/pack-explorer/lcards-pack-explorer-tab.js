@@ -1259,10 +1259,10 @@ export class LCARdSPackExplorerTab extends LitElement {
               <span class="detail-value">${animation.duration}ms</span>
             </div>
           ` : ''}
-          ${animation.easing ? html`
+          ${animation.ease ? html`
             <div class="detail-item">
-              <span class="detail-label">Easing:</span>
-              <span class="detail-value">${animation.easing}</span>
+              <span class="detail-label">Ease:</span>
+              <span class="detail-value">${animation.ease}</span>
             </div>
           ` : ''}
           ${animation.loop !== undefined ? html`

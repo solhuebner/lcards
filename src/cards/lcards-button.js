@@ -105,9 +105,7 @@ export class LCARdSButton extends LCARdSCard {
                     width: 100%;
                     height: 100%;
                     position: relative;
-                    /* overflow:hidden clips the absolutely-positioned SVG to this box
-                     * during the one-frame gap before ResizeObserver fires on first load */
-                    overflow: hidden;
+                    overflow: visible;
                     /* --lcards-button-min-height / --lcards-button-min-width control the
                      * visible floor/minimum in edge cases where the height/width 100% chain
                      * collapses (e.g. card-mod height:auto override via shadow DOM).
@@ -135,6 +133,7 @@ export class LCARdSButton extends LCARdSCard {
                     display: block;
                     width: 100%;
                     height: 100%;
+                    overflow: visible;
                     cursor: pointer;
                 }
             `

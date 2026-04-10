@@ -282,8 +282,8 @@ apply:
     - overlay: my-button-id    # Target a specific card by its id: value
       preset: blink
       loop: true               # Loop until rule unmatches
+      duration: 1000           # ms
       params:                  # Preset-specific parameters
-        duration: 1000
         max_scale: 1.1
 ```
 
@@ -297,7 +297,7 @@ apply:
       loop: true
       duration: 800            # ms
       delay: 0                 # ms before start
-      easing: easeInOutQuad
+      ease: easeInOutQuad
       params:
         speed: 2
         color: "#ff4400"

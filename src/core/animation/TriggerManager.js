@@ -36,6 +36,9 @@ export class TriggerManager {
     // Maps trigger type to cleanup function
     this.listeners = new Map(); // trigger -> cleanup function
 
+    // Tracks looping animations with a 'while' condition that are currently playing
+    this._whileActiveAnims = new Set(); // Set<animDef references>
+
     lcardsLog.debug(`[TriggerManager] Created for overlay: ${overlayId}`);
   }
 
@@ -116,71 +119,89 @@ export class TriggerManager {
 
     lcardsLog.debug(`[TriggerManager] Found ${animations.length} on_entity_change animations for ${this.overlayId}`);
 
-    // Get SystemsManager from AnimationManager
     const systemsManager = this.animationManager?.systemsManager;
     if (!systemsManager) {
       lcardsLog.warn('[TriggerManager] Cannot setup entity change listeners - no SystemsManager');
       return;
     }
 
-    // Track entity subscriptions for cleanup
     if (!this._entitySubscriptions) {
       this._entitySubscriptions = [];
     }
 
-    // Subscribe to each unique entity
     const subscribedEntities = new Set();
-
-    lcardsLog.debug(`[TriggerManager] Processing ${animations.length} animations for subscriptions`);
 
     animations.forEach(animDef => {
       const entityId = animDef.entity;
-
-      lcardsLog.debug(`[TriggerManager] Animation definition:`, {
-        hasEntity: !!entityId,
-        entityId: entityId,
-        trigger: animDef.trigger,
-        preset: animDef.preset
-      });
-
       if (!entityId) {
-        lcardsLog.warn(`[TriggerManager] on_entity_change animation missing entity_id for overlay: ${this.overlayId}`);
+        lcardsLog.warn(`[TriggerManager] on_entity_change animation missing 'entity' for overlay: ${this.overlayId}`);
         return;
       }
-
-      // Only subscribe once per entity
-      if (subscribedEntities.has(entityId)) {
-        return;
-      }
+      if (subscribedEntities.has(entityId)) return;
       subscribedEntities.add(entityId);
 
-      // Subscribe to entity state changes
-      // SystemsManager callback signature: (entityId, newState, oldState)
       const unsubscribe = systemsManager.subscribeToEntity(entityId, (changedEntityId, newState, oldState) => {
-        lcardsLog.trace(`[TriggerManager] Entity change detected: ${changedEntityId} (overlay: ${this.overlayId})`);
+        lcardsLog.trace(`[TriggerManager] Entity change: ${changedEntityId} (overlay: ${this.overlayId})`);
 
-        // Filter animations by state transition if specified
         animations.forEach(anim => {
-          if (anim.entity !== changedEntityId) {
-            return;
+          if (anim.entity !== changedEntityId) return;
+
+          const newValue = this._resolveEntityValue(anim, newState);
+          const oldValue = this._resolveEntityValue(anim, oldState);
+
+          // --- While-lifecycle path ---
+          // When 'while' is present it always gates the animation — the while-block
+          // always returns so the fire-and-forget path below is never reached.
+          if (anim.while) {
+            const condMet    = this._evaluateWhileCondition(anim, newValue);
+            const isActive   = this._whileActiveAnims.has(anim);
+            // loop may be at top level (canonical) or legacy params.loop
+            const effectiveLoop = anim.loop ?? anim.params?.loop;
+
+            if (effectiveLoop === true) {
+              // Full lifecycle: play while condition met, stop when it clears
+              if (condMet) {
+                if (!isActive) {
+                  // Respect from_state/to_state fire gates when starting for the first time
+                  const fromOk = anim.from_state === undefined || String(oldValue) === String(anim.from_state);
+                  const toOk   = anim.to_state   === undefined || String(newValue) === String(anim.to_state);
+                  if (fromOk && toOk) {
+                    this._whileActiveAnims.add(anim);
+                    lcardsLog.debug(`[TriggerManager] 🎬 while-start: ${this.overlayId}, entity: ${changedEntityId}`);
+                    this.animationManager.playAnimation(this.overlayId, anim);
+                  }
+                }
+                // Already active → loop continues, nothing to do
+              } else if (isActive) {
+                this._whileActiveAnims.delete(anim);
+                lcardsLog.debug(`[TriggerManager] ⏹️ while-stop: ${this.overlayId}, entity: ${changedEntityId}`);
+                this.animationManager.stopAnimations(this.overlayId, 'on_entity_change');
+              }
+            } else {
+              // while without loop: still gate on the condition, but no stop tracking.
+              // Fire only on the rising edge (condition newly true).
+              lcardsLog.warn(`[TriggerManager] 'while' works best with 'loop: true' — no auto-stop tracking for overlay: ${this.overlayId}`);
+              const wasCondMet = oldState ? this._evaluateWhileCondition(anim, oldValue) : false;
+              if (condMet && !wasCondMet) {
+                lcardsLog.debug(`[TriggerManager] 🎬 while-start (no-loop): ${this.overlayId}, entity: ${changedEntityId}`);
+                this.animationManager.playAnimation(this.overlayId, anim);
+              }
+            }
+            return; // while-path fully handled — never fall through to fire-and-forget
           }
 
-          // Check from_state filter
-          // Note: If oldState is null/undefined (entity just became available), only match if from_state is not specified
-          if (anim.from_state) {
-            if (!oldState || oldState.state !== anim.from_state) {
-              lcardsLog.trace(`[TriggerManager] Skipping animation - from_state mismatch: expected ${anim.from_state}, got ${oldState?.state || 'unavailable'}`);
+          // --- Fire-and-forget path ---
+          if (anim.from_state !== undefined) {
+            if (!oldState || String(oldValue) !== String(anim.from_state)) {
+              lcardsLog.trace(`[TriggerManager] from_state mismatch: expected ${anim.from_state}, got ${oldValue ?? 'unavailable'}`);
               return;
             }
           }
-
-          // Check to_state filter
-          if (anim.to_state && newState?.state !== anim.to_state) {
-            lcardsLog.trace(`[TriggerManager] Skipping animation - to_state mismatch: expected ${anim.to_state}, got ${newState?.state || 'unavailable'}`);
+          if (anim.to_state !== undefined && String(newValue) !== String(anim.to_state)) {
+            lcardsLog.trace(`[TriggerManager] to_state mismatch: expected ${anim.to_state}, got ${newValue ?? 'unavailable'}`);
             return;
           }
 
-          // State transition matches - trigger animation
           lcardsLog.debug(`[TriggerManager] 🎬 Triggering animation for ${this.overlayId} on entity change: ${changedEntityId}`);
           this.animationManager.playAnimation(this.overlayId, anim);
         });
@@ -190,42 +211,97 @@ export class TriggerManager {
       lcardsLog.debug(`[TriggerManager] ✅ Subscribed to entity: ${entityId} for overlay: ${this.overlayId}`);
     });
 
-    // Check initial state for animations with check_on_load flag
+    // check_on_load: evaluate against current state immediately
     animations.forEach(anim => {
-      if (!anim.check_on_load) {
-        return;
-      }
+      if (!anim.check_on_load) return;
 
       const entityId = anim.entity;
-      if (!entityId) {
-        return;
-      }
+      if (!entityId) return;
 
-      // Get current entity state from SystemsManager
       const currentState = systemsManager.getEntityState?.(entityId);
       if (!currentState) {
-        lcardsLog.debug(`[TriggerManager] check_on_load: No current state for ${entityId}`);
+        lcardsLog.debug(`[TriggerManager] check_on_load: no current state for ${entityId}`);
         return;
       }
 
-      lcardsLog.debug(`[TriggerManager] check_on_load: Checking initial state for ${entityId}`, {
-        currentState: currentState.state,
-        fromState: anim.from_state,
-        toState: anim.to_state
-      });
+      const currentValue = this._resolveEntityValue(anim, currentState);
+      lcardsLog.debug(`[TriggerManager] check_on_load: entity=${entityId} value=${currentValue} (attribute: ${anim.attribute ?? 'state'})`);
 
-      // Apply same filters as change handler
-      // For initial check, from_state is not applicable (there's no "old" state)
-      // Only check to_state filter
-      if (anim.to_state && currentState.state !== anim.to_state) {
-        lcardsLog.debug(`[TriggerManager] check_on_load: State mismatch for ${entityId} - expected ${anim.to_state}, got ${currentState.state}`);
+      // While condition: evaluate immediately — gate applies regardless of loop setting
+      if (anim.while) {
+        const condMet = this._evaluateWhileCondition(anim, currentValue);
+        // loop may be at top level (canonical) or legacy params.loop
+        const effectiveLoop = anim.loop ?? anim.params?.loop;
+        if (condMet) {
+          if (effectiveLoop === true) {
+            if (!this._whileActiveAnims.has(anim)) {
+              this._whileActiveAnims.add(anim);
+              lcardsLog.debug(`[TriggerManager] 🎬 check_on_load while-start: ${entityId} condition already met`);
+              this.animationManager.playAnimation(this.overlayId, anim);
+            }
+          } else {
+            lcardsLog.debug(`[TriggerManager] 🎬 check_on_load while-start (no-loop): ${entityId} condition already met`);
+            this.animationManager.playAnimation(this.overlayId, anim);
+          }
+        } else {
+          lcardsLog.debug(`[TriggerManager] check_on_load while: condition NOT met for ${entityId} — not starting`);
+        }
         return;
       }
 
-      // State matches - trigger animation as if it just changed to this state
-      lcardsLog.debug(`[TriggerManager] 🎬 check_on_load: Triggering initial animation for ${this.overlayId} - ${entityId} is in state ${currentState.state}`);
+      // Fire-and-forget: from_state not applicable on load (no prior state)
+      if (anim.to_state !== undefined && String(currentValue) !== String(anim.to_state)) {
+        lcardsLog.debug(`[TriggerManager] check_on_load: to_state mismatch for ${entityId} \u2014 expected ${anim.to_state}, got ${currentValue}`);
+        return;
+      }
+
+      lcardsLog.debug(`[TriggerManager] 🎬 check_on_load: triggering for ${this.overlayId} \u2014 ${entityId}=${currentValue}`);
       this.animationManager.playAnimation(this.overlayId, anim);
     });
+  }
+
+  /**
+   * Resolve the value to compare for an animation, respecting the top-level
+   * 'attribute' field and the virtual 'brightness_pct' attribute.
+   *
+   * @param {Object} anim      - Animation definition (may have .attribute)
+   * @param {Object} stateObj  - HA entity state object { state, attributes }
+   * @returns {string|number|undefined}
+   */
+  _resolveEntityValue(anim, stateObj) {
+    if (!stateObj) return undefined;
+    const attr = anim.attribute;
+    if (!attr) return stateObj.state;
+    if (attr === 'brightness_pct') {
+      const b = stateObj.attributes?.brightness;
+      return b !== undefined ? Math.round(b / 2.55) : undefined;
+    }
+    return stateObj.attributes?.[attr];
+  }
+
+  /**
+   * Evaluate a 'while' condition block against a resolved entity value.
+   *
+   * Supported keys (use exactly one):
+   *   state     {string}  — value equals this
+   *   not_state {string}  — value does not equal this
+   *   above     {number}  — numeric value > threshold
+   *   below     {number}  — numeric value < threshold
+   *
+   * @param {Object} anim         - Animation definition containing .while
+   * @param {*}      currentValue - Resolved entity value (string or number)
+   * @returns {boolean|null} true/false if condition evaluated, null if no usable condition
+   */
+  _evaluateWhileCondition(anim, currentValue) {
+    const w = anim.while;
+    if (!w || typeof w !== 'object') return null;
+    if (w.state     !== undefined) return String(currentValue) === String(w.state);
+    if (w.not_state !== undefined) return String(currentValue) !== String(w.not_state);
+    const numVal = Number(currentValue);
+    if (w.above !== undefined) return Number.isFinite(numVal) && numVal > Number(w.above);
+    if (w.below !== undefined) return Number.isFinite(numVal) && numVal < Number(w.below);
+    lcardsLog.warn(`[TriggerManager] 'while' has no recognised key (state/not_state/above/below) for overlay: ${this.overlayId}`);
+    return null;
   }
 
   /**
@@ -285,6 +361,9 @@ export class TriggerManager {
       this._entitySubscriptions = [];
       lcardsLog.debug(`[TriggerManager] Cleaned up entity subscriptions`);
     }
+
+    // Clear while-condition tracking set
+    this._whileActiveAnims.clear();
 
     // Clear all maps
     this.listeners.clear();

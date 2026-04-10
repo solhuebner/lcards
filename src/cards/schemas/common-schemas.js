@@ -271,20 +271,41 @@ export const animationSchema = {
             pattern: '^[a-zA-Z_]+\\.[a-zA-Z0-9_]+$',
             examples: ['light.bedroom', 'sensor.temperature', 'binary_sensor.door', 'climate.Home_HVAC']
         },
+        attribute: {
+            type: 'string',
+            description: 'Attribute to read instead of entity state. Applies uniformly to to_state, from_state, and the while condition. Use "brightness_pct" for a computed 0\u2013100 light brightness percentage (avoids converting raw 0\u2013255 values).',
+            examples: ['brightness', 'brightness_pct', 'color_temp', 'hvac_action', 'current_position']
+        },
         from_state: {
             type: 'string',
-            description: 'Filter: Only trigger when transitioning FROM this state (on_entity_change only)',
+            description: 'Fire-and-forget gate: Only trigger when the entity (or attribute) transitions FROM this value. The animation runs until completion and does not auto-stop a looping animation. For auto-stop on loops, use while.',
             examples: ['on', 'off', 'home', 'unavailable']
         },
         to_state: {
             type: 'string',
-            description: 'Filter: Only trigger when transitioning TO this state (on_entity_change only)',
+            description: 'Fire-and-forget gate: Only trigger when the entity (or attribute) transitions TO this value. The animation runs until completion and does not auto-stop a looping animation. For auto-stop on loops, use while.',
             examples: ['on', 'off', 'home', 'unavailable']
         },
         check_on_load: {
             type: 'boolean',
             default: false,
-            description: 'Check entity state immediately when card loads and trigger if it matches to_state filter (on_entity_change only)'
+            description: 'Also evaluate the condition when the card first loads. For while conditions, starts a looping animation if the condition is already met. For to_state/from_state, plays the animation if the entity is already in to_state. (on_entity_change only)'
+        },
+        while: {
+            type: 'object',
+            description: 'Lifecycle condition for looping animations (requires the top-level loop: true field). The animation plays while the condition is true and stops automatically when it becomes false. Note: to_state/from_state are fire-and-forget gates \u2014 they control when the animation starts but will not stop it. Use while to auto-stop a looping animation.',
+            properties: {
+                state:     { type: 'string', description: 'Play while entity value equals this string' },
+                not_state: { type: 'string', description: 'Play while entity value does NOT equal this string' },
+                above:     { type: 'number', description: 'Play while numeric entity value is strictly above this threshold' },
+                below:     { type: 'number', description: 'Play while numeric entity value is strictly below this threshold' }
+            },
+            examples: [
+                { state: 'on' },
+                { not_state: 'unavailable' },
+                { above: 50 },
+                { below: 100 }
+            ]
         },
         color: {
             type: 'string',
@@ -750,10 +771,10 @@ export const rulesSchema = {
                                     minimum: 0,
                                     description: 'Delay before animation starts (milliseconds). Also accepts a map_range descriptor for entity-driven dynamic delay.'
                                 },
-                                easing: {
+                                ease: {
                                     type: 'string',
-                                    description: 'Animation easing function',
-                                    examples: ['easeInOutQuad', 'linear', 'easeOutElastic']
+                                    description: 'Animation easing function (anime.js v4 name). Simple strings like \'inOutQuad\', \'outBounce\', \'inElastic\' or parametric types via ease_params.',
+                                    examples: ['inOutQuad', 'linear', 'outElastic', 'inOutBounce']
                                 },
                                 params: {
                                     type: 'object',

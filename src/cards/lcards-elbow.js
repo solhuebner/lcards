@@ -113,12 +113,14 @@ export class LCARdSElbow extends LCARdSButton {
                     justify-content: center;
                     background: transparent;
                     position: relative;
+                    overflow: visible;
                 }
 
                 .elbow-svg {
                     display: block;
                     width: 100%;
                     height: 100%;
+                    overflow: visible;
                     cursor: pointer;
                 }
 

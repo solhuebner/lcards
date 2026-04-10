@@ -10,7 +10,7 @@ import { BaseService } from '../../core/BaseService.js';
 import { compileRule, evalCompiled } from './compileConditions.js';  // ✨ NEW
 import { UnifiedTemplateEvaluator } from '../templates/UnifiedTemplateEvaluator.js';  // ✨ NEW
 import { deepMerge } from '../config-manager/merge-helpers.js';
-import { linearMap } from '../../utils/linearMap.js';
+import { resolveAnimParam, resolveAnimCommandParams } from '../animation/resolveAnimParams.js';
 
 export class RulesEngine extends BaseService {
   constructor(rules = [], dataSourceManager = null) {
@@ -1242,104 +1242,10 @@ export class RulesEngine extends BaseService {
    * @private
    */
   _resolveAnimParam(paramValue, hass) {
-    if (!paramValue || typeof paramValue !== 'object' || !paramValue.map_range) {
-      return paramValue;
-    }
-
-    const cfg = paramValue.map_range;
-    const entityId = cfg.entity;
-    if (!entityId) {
-      lcardsLog.warn('[RulesEngine] map_range param missing required "entity" field:', cfg);
-      return undefined;
-    }
-
-    // Look up entity state — use fresh state cache if available, then hass.states
-    let rawValue;
-    if (this._freshStateCache?.has(entityId)) {
-      const cached = this._freshStateCache.get(entityId);
-      rawValue = cfg.attribute ? cached.attributes?.[cfg.attribute] : cached.state;
-    } else if (hass?.states?.[entityId]) {
-      const entityObj = hass.states[entityId];
-      rawValue = cfg.attribute ? entityObj.attributes?.[cfg.attribute] : entityObj.state;
-    } else {
-      lcardsLog.warn(`[RulesEngine] map_range param: entity not found: ${entityId}`);
-      return undefined;
-    }
-
-    const numVal = Number(rawValue);
-    if (!Number.isFinite(numVal)) {
-      lcardsLog.warn(`[RulesEngine] map_range param: entity "${entityId}" value "${rawValue}" is not numeric`);
-      return undefined;
-    }
-
-    const [inMin, inMax] = cfg.input || [];
-    const clamp = cfg.clamp !== false; // Default true
-
-    if (![inMin, inMax].every(v => Number.isFinite(Number(v)))) {
-      lcardsLog.warn('[RulesEngine] map_range param: invalid "input" range:', cfg.input);
-      return undefined;
-    }
-
-    if (!Array.isArray(cfg.output) || cfg.output.length !== 2) {
-      lcardsLog.warn('[RulesEngine] map_range param: "output" must be a 2-element array:', cfg.output);
-      return undefined;
-    }
-    const [outMin, outMax] = cfg.output;
-
-    // Numeric output range
-    if (typeof outMin === 'number' && typeof outMax === 'number' && Number.isFinite(outMin) && Number.isFinite(outMax)) {
-      const result = linearMap(numVal, Number(inMin), Number(inMax), outMin, outMax, clamp);
-      lcardsLog.debug(`[RulesEngine] map_range resolved: ${entityId}=${numVal} → ${result} (input:[${inMin},${inMax}] output:[${outMin},${outMax}])`);
-      return result;
-    }
-
-    // Hex color string interpolation
-    if (typeof outMin === 'string' && typeof outMax === 'string') {
-      const t = linearMap(numVal, Number(inMin), Number(inMax), 0, 1, clamp);
-      const colorResult = this._interpolateHexColor(outMin, outMax, t);
-      lcardsLog.debug(`[RulesEngine] map_range color resolved: ${entityId}=${numVal} → t=${t.toFixed(3)} → ${colorResult}`);
-      return colorResult;
-    }
-
-    lcardsLog.warn('[RulesEngine] map_range param: "output" must be [number, number] or ["#hex", "#hex"]:', cfg.output);
-    return undefined;
+    return resolveAnimParam(paramValue, hass);
   }
 
-  /**
-   * Interpolate between two hex color strings by a normalized t value (0–1).
-   * Only supports 6-digit hex colors (#rrggbb).
-   *
-   * @param {string} hexA - Start color e.g. '#00ff88'
-   * @param {string} hexB - End color e.g. '#ff4400'
-   * @param {number} t - Interpolation factor 0–1
-   * @returns {string} Interpolated hex color string
-   * @private
-   */
-  _interpolateHexColor(hexA, hexB, t) {
-    const parse = (hex) => {
-      const h = hex.replace('#', '');
-      if (h.length !== 6 || !/^[0-9a-fA-F]{6}$/.test(h)) {
-        throw new Error(`Invalid 6-digit hex color: "${hex}"`);
-      }
-      return [
-        parseInt(h.substring(0, 2), 16),
-        parseInt(h.substring(2, 4), 16),
-        parseInt(h.substring(4, 6), 16)
-      ];
-    };
-
-    try {
-      const [r1, g1, b1] = parse(hexA);
-      const [r2, g2, b2] = parse(hexB);
-      const r = Math.round(r1 + (r2 - r1) * t);
-      const g = Math.round(g1 + (g2 - g1) * t);
-      const b = Math.round(b1 + (b2 - b1) * t);
-      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-    } catch (e) {
-      lcardsLog.warn(`[RulesEngine] _interpolateHexColor failed for "${hexA}" → "${hexB}":`, e);
-      return hexA;
-    }
-  }
+  // _interpolateHexColor moved to src/core/animation/resolveAnimParams.js
 
   /**
    * Resolve all map_range descriptors within an animation command's params object
@@ -1355,26 +1261,7 @@ export class RulesEngine extends BaseService {
    * @private
    */
   _resolveAnimCommandParams(animCmd, hass) {
-    const resolved = { ...animCmd };
-
-    // Resolve top-level animatable scalar fields that accept map_range
-    const topLevelFields = ['duration', 'delay'];
-    for (const field of topLevelFields) {
-      if (resolved[field] !== undefined) {
-        resolved[field] = this._resolveAnimParam(resolved[field], hass);
-      }
-    }
-
-    // Resolve nested params object (preset-specific params like speed, color, etc.)
-    if (resolved.params && typeof resolved.params === 'object') {
-      const resolvedParams = {};
-      for (const [key, val] of Object.entries(resolved.params)) {
-        resolvedParams[key] = this._resolveAnimParam(val, hass);
-      }
-      resolved.params = resolvedParams;
-    }
-
-    return resolved;
+    return resolveAnimCommandParams(animCmd, hass);
   }
 
   /**

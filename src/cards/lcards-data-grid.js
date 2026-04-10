@@ -65,7 +65,7 @@
  *     start: '#99ccff'
  *     text: '#4466aa'
  *     end: '#aaccff'
- *   easing: linear
+ *   ease: linear
  * ```
  *
  * CHANGE ANIMATION (One-shot highlight on data changes)
@@ -1016,7 +1016,7 @@ export class LCARdSDataGrid extends LCARdSCard {
           loop: true, // Cascade animations always loop
           alternate: false, // Legacy uses normal direction (no reverse)
           property: 'color',
-          easing: params.easing || 'linear'
+          ease: params.ease || params.easing || 'linear'  // ease is canonical; easing fallback for old configs
         }
       });
 
@@ -1194,7 +1194,7 @@ export class LCARdSDataGrid extends LCARdSCard {
     // Use loop:1 with alternate:true to play forward then back (total 2 iterations)
     const changeParams = {
       duration: this.config.animation?.change_duration || 500,
-      easing: this.config.animation?.change_easing || 'easeOutQuad',
+      ease: this.config.animation?.change_easing || 'easeOutQuad',
       loop: 1,            // Play twice total (forward + back in alternate mode)
       alternate: true,    // Return to original state after animation
       ...(this.config.animation?.change_params || {})

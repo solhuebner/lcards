@@ -49,19 +49,82 @@ animations:
 |--------|------|---------|-------------|
 | `trigger` | string | — | When to run (required) |
 | `preset` | string | — | Animation preset name (required) |
-| `id` | string | — | Optional identifier for this animation — alphanumeric, hyphens, and underscores only |
+| `id` | string | — | Optional identifier — alphanumeric, hyphens, and underscores only |
 | `enabled` | boolean | `true` | Set to `false` to disable without removing |
-| `duration` | number | preset default | Duration in ms (0–10 000) |
-| `delay` | number | `0` | Delay before starting (ms) |
+| `duration` | number | preset default | Duration in ms (0–10 000). Accepts a `map_range` descriptor. |
+| `delay` | number | `0` | Delay before starting (ms). Accepts a `map_range` descriptor. |
 | `loop` | boolean / number | preset default | `true` = infinite loop, `false` = once, number = iteration count |
 | `alternate` | boolean | preset default | Reverse direction on each loop |
 | `ease` | string / object | preset default | Easing function — see below |
-| `params` | object | — | Preset-specific parameters — see preset tables |
-| `target` | string | — | CSS selector or `data-field-id` attribute to restrict which element animates |
+| `params` | object | — | Preset-specific parameters. Each value may be a `map_range` descriptor. |
+| `target` | string | — | CSS selector or `data-field-id` to restrict which element animates |
 | `entity` | string | card entity | Entity to watch (for `on_entity_change`) |
-| `from_state` | string | — | Only fire when transitioning FROM this state |
-| `to_state` | string | — | Only fire when transitioning TO this state |
-| `check_on_load` | boolean | `false` | Check entity state immediately on load and fire if it matches `to_state` |
+| `attribute` | string | — | Attribute to read instead of entity state. Applies to `from_state`, `to_state`, and `while`. Use `brightness_pct` for a 0–100 light brightness percentage. |
+| `from_state` | string | — | **Fire-and-forget gate:** only trigger when transitioning FROM this value |
+| `to_state` | string | — | **Fire-and-forget gate:** only trigger when transitioning TO this value |
+| `while` | object | — | **Lifecycle condition** (`loop: true` required): plays while true, stops when false — see below |
+| `check_on_load` | boolean | `false` | Evaluate condition on card load too — starts immediately if already met |
+
+### `while` condition keys
+
+Use exactly one key inside `while`:
+
+| Key | Type | Meaning |
+|---|---|---|
+| `state` | string | value equals this string |
+| `not_state` | string | value does NOT equal this string |
+| `above` | number | numeric value strictly greater than threshold |
+| `below` | number | numeric value strictly less than threshold |
+
+```yaml
+# Auto-stop loop when light turns off
+- trigger: on_entity_change
+  entity: light.kitchen
+  preset: pulse
+  loop: true
+  while:
+    state: 'on'
+  check_on_load: true
+
+# Attribute-based threshold with brightness_pct
+- trigger: on_entity_change
+  entity: light.living_room
+  attribute: brightness_pct   # 0-100, computed from raw 0-255 brightness
+  while:
+    above: 50
+  preset: glow
+  loop: true
+```
+
+> **`to_state` / `from_state` vs `while`:** `to_state` and `from_state` are fire-and-forget gates — they control when an animation *starts* but will not stop a looping animation. Use `while` to auto-stop a loop when the condition clears.
+
+### `map_range` descriptors
+
+Parameters that accept a number (`duration`, `delay`, any `params` field) can instead be a `map_range` descriptor that maps a live entity value linearly into the parameter range:
+
+```yaml
+- trigger: on_entity_change
+  entity: sensor.wind_speed
+  preset: rotate
+  loop: true
+  params:
+    speed:
+      map_range:
+        entity: sensor.wind_speed
+        input: [0, 50]           # entity value range
+        output: [2000, 200]      # animation duration — faster when windier
+        clamp: true
+```
+
+`map_range` works in both inline `config.animations` and rule-based `apply.animations`.
+
+| Field | Required | Description |
+|---|---|---|
+| `entity` | ✅ | HA entity to read |
+| `attribute` | — | Attribute instead of state (supports `brightness_pct`) |
+| `input` | ✅ | `[min, max]` input range |
+| `output` | ✅ | `[min, max]` numeric, or `['#hex', '#hex']` for colour interpolation |
+| `clamp` | — | Clamp input to range (default `true`) |
 
 ---
 
@@ -461,10 +524,10 @@ animations:
     to_state: "on"
     check_on_load: true
     preset: pulse
+    duration: 1000
+    loop: true
     params:
       max_scale: 1.05
-      duration: 1000
-    loop: true
 
   # Entity turns off — stop loop by playing once in reverse
   - trigger: on_entity_change
