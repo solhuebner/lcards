@@ -36,6 +36,7 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
       _expandedIndex: { type: Number },
       _draggedIndex: { type: Number },
       _expandedEffects: { type: Object },
+      _imageSrcModes:  { type: Object, state: true },
       _insetEnabled: { type: Boolean, state: true }
     };
   }
@@ -247,10 +248,12 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
     super();
         /** @type {any} */
         this.hass = undefined;
+    /** @type {any} */
     this.config = null;
     this._expandedIndex = null;
     this._draggedIndex = null;
     this._expandedEffects = {};
+    this._imageSrcModes   = {};
     this._currentEffectIndex = null; // Track current effect for color section
     this._insetEnabled = false;
   }
@@ -259,15 +262,12 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
    * Normalize the incoming `config` value (bare array or envelope) into a
    * consistent internal form: `{ inset: null|Object|'auto', effects: Array }`.
    *
-   * @returns {{ inset: null|Object|string, effects: Array }}
+   * @returns {{ inset: null|Object|string, fps: number|null, effects: Array }}
    */
   get _normalizedConfig() {
-    const c = this.config;
-    // @ts-ignore - TS2353: auto-suppressed
+    const c = /** @type {any} */ (this.config);
     if (!c) return { inset: null, fps: null, effects: [] };
-    // @ts-ignore - TS2353: auto-suppressed
     if (Array.isArray(c)) return { inset: null, fps: null, effects: c };
-    // @ts-ignore - TS2353: auto-suppressed
     return { inset: c.inset ?? null, fps: c.fps ?? null, effects: c.effects ?? [] };
   }
 
@@ -304,7 +304,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
    * @private
    */
   _renderCanvasSettings() {
-    // @ts-ignore - TS2339: auto-suppressed
     const { inset, fps } = this._normalizedConfig;
     const insetEnabled = this._insetEnabled || (inset !== null && inset !== undefined);
     const isAuto = inset === 'auto';
@@ -317,7 +316,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
         ?expanded=${insetEnabled}>
 
         <ha-selector
-          // @ts-ignore - TS2339: auto-suppressed
           .hass=${this.hass}
           .selector=${{ number: { min: 1, max: 120, step: 1, mode: 'slider' } }}
           .value=${fps ?? 30}
@@ -330,7 +328,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
         ></ha-selector>
 
         <ha-selector
-          // @ts-ignore - TS2339: auto-suppressed
           .hass=${this.hass}
           .selector=${{ boolean: {} }}
           .value=${insetEnabled}
@@ -348,7 +345,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
 
         ${insetEnabled ? html`
           <ha-selector
-            // @ts-ignore - TS2339: auto-suppressed
             .hass=${this.hass}
             .selector=${{ boolean: {} }}
             .value=${isAuto}
@@ -379,7 +375,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
     ];
     return sides.map(([side, label]) => html`
       <ha-selector
-        // @ts-ignore - TS2339: auto-suppressed
         .hass=${this.hass}
         .selector=${{ number: { min: 0, max: 500, step: 1, mode: 'slider' } }}
         .value=${insetObj[side] ?? 0}
@@ -489,7 +484,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
         ?expanded=${true}>
 
         <ha-selector
-          // @ts-ignore - TS2339: auto-suppressed
           .hass=${this.hass}
           .selector=${{
             select: {
@@ -667,7 +661,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
         icon="mdi:palette"
         ?expanded=${true}>
         <lcards-color-list
-          // @ts-ignore - TS2339: auto-suppressed
           .hass=${this.hass}
           .colors=${config.colors || (config.color ? [config.color] : [])}
           .label=${'Star Colours'}
@@ -710,7 +703,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
         icon="mdi:palette"
         ?expanded=${true}>
         <lcards-color-list
-          // @ts-ignore - TS2339: auto-suppressed
           .hass=${this.hass}
           .colors=${config.colors || (config.color ? [config.color] : [])}
           .label=${'Cloud Colours'}
@@ -766,7 +758,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
       <!-- Data Format -->
       <lcards-form-section header="Data Format" icon="mdi:numeric" ?expanded=${true}>
         <ha-selector
-          // @ts-ignore - TS2339: auto-suppressed
           .hass=${this.hass}
           .selector=${{ select: { mode: 'dropdown', options: [
             { value: 'hex',   label: 'Hex (A3F1, 00FF)' },
@@ -780,7 +771,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
           @value-changed=${(e) => this._updateEffectConfig(index, 'format', e.detail.value)}
         ></ha-selector>
         <ha-selector
-          // @ts-ignore - TS2339: auto-suppressed
           .hass=${this.hass}
           .selector=${{ number: { min: 0, max: 60000, step: 500, mode: 'box' } }}
           .value=${config.refresh_interval ?? 0}
@@ -795,7 +785,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
         <div class="param-grid">
           ${this._renderField({ key: 'font_size', label: 'Font Size (px)', type: 'number', min: 6, max: 48, step: 1, default: 10 }, config, index)}
           <ha-selector
-            // @ts-ignore - TS2339: auto-suppressed
             .hass=${this.hass}
             .selector=${{ text: {} }}
             .value=${config.font_family ?? "'Antonio', monospace"}
@@ -809,7 +798,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
       <!-- Cascade Animation Timing -->
       <lcards-form-section header="Cascade Timing" icon="mdi:timer-outline" ?expanded=${true}>
         <ha-selector
-          // @ts-ignore - TS2339: auto-suppressed
           .hass=${this.hass}
           .selector=${{ select: { mode: 'dropdown', options: [
             { value: 'default', label: 'Default (authentic LCARS rhythm)' },
@@ -840,7 +828,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
           <div style="margin-bottom: 12px;">
             <div style="font-size: 14px; font-weight: 500; margin-bottom: 8px; padding: 2px 8px;">${slot.label}</div>
             <lcards-color-picker
-              // @ts-ignore - TS2339: auto-suppressed
               .hass=${this.hass}
               .value=${config.colors?.[slot.key] ?? slot.def}
               .variablePrefixes=${['--lcards-', '--lcars-', '--cblcars-']}
@@ -889,7 +876,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
         <div class="param-grid">
           ${this._renderField({ key: 'fill_pct', label: 'Fill %', type: 'number', min: 0, max: 100, step: 1, default: 50 }, config, index)}
           <ha-selector
-            // @ts-ignore - TS2339: auto-suppressed
             .hass=${this.hass}
             .selector=${{ select: { mode: 'dropdown', options: [
               { value: 'up', label: 'Up' },
@@ -909,7 +895,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
         <div style="margin-bottom:12px;">
           <div style="font-size:14px;font-weight:500;margin-bottom:8px;padding:2px 8px;">Primary Colour</div>
           <lcards-color-picker
-            // @ts-ignore - TS2339: auto-suppressed
             .hass=${this.hass}
             .value=${config.color_a ?? config.color ?? 'rgba(0,200,100,0.7)'}
             .variablePrefixes=${['--lcards-', '--lcars-', '--cblcars-']}
@@ -920,7 +905,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
         <div style="margin-bottom:12px;">
           <div style="font-size:14px;font-weight:500;margin-bottom:8px;padding:2px 8px;">Secondary Colour (gradient, optional)</div>
           <lcards-color-picker
-            // @ts-ignore - TS2339: auto-suppressed
             .hass=${this.hass}
             .value=${config.color_b ?? ''}
             .variablePrefixes=${['--lcards-', '--lcars-', '--cblcars-']}
@@ -959,7 +943,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
       <lcards-form-section header="Edge Glow" icon="mdi:flare" ?expanded=${false}>
         <div class="param-grid">
           <ha-selector
-            // @ts-ignore - TS2339: auto-suppressed
             .hass=${this.hass}
             .selector=${{ boolean: {} }}
             .value=${config.edge_glow ?? true}
@@ -971,7 +954,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
         <div style="margin-top:12px;">
           <div style="font-size:14px;font-weight:500;margin-bottom:8px;padding:2px 8px;">Glow Colour</div>
           <lcards-color-picker
-            // @ts-ignore - TS2339: auto-suppressed
             .hass=${this.hass}
             .value=${config.edge_glow_color ?? 'rgba(255,255,255,0.7)'}
             .variablePrefixes=${['--lcards-', '--lcars-', '--cblcars-']}
@@ -983,24 +965,84 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
     `;
   }
 
+  /**
+   * Return a combined list of builtin image options from both the `image` and `svg`
+   * asset registries.  Each entry is `{ value: 'builtin:key', label: key }`.
+   * @returns {Array<{value:string, label:string}>}
+   */
+  _getAvailableImages() {
+    const am = window.lcards?.core?.assetManager;
+    if (!am) return [];
+    const svgKeys   = am.listAssets?.('svg')   ?? [];
+    const imgKeys   = am.listImages?.()        ?? [];
+    const all       = [...new Set([...svgKeys, ...imgKeys])].sort();
+    return all.map(key => ({ value: `builtin:${key}`, label: key }));
+  }
+
+  /**
+   * Handle image source mode change for a specific effect index.
+   * When switching to 'asset' mode and the current value is not a builtin reference,
+   * automatically select the first available image.
+   * @param {number} index
+   * @param {string} mode  'asset' | 'custom'
+   * @param {string} currentSource
+   */
+  _handleImageSrcModeChange(index, mode, currentSource) {
+    this._imageSrcModes = { ...this._imageSrcModes, [index]: mode };
+    if (mode === 'asset' && !currentSource?.startsWith('builtin:')) {
+      const available = this._getAvailableImages();
+      if (available.length > 0) {
+        this._updateEffectConfig(index, 'source', available[0].value);
+      }
+    }
+  }
+
   _renderImageBackgroundSection(config, index) {
-    const url = config.url ?? '';
-    const showHttpWarning = url.startsWith('http:') &&
+    const source = config.source ?? config.url ?? '';
+    const mode   = this._imageSrcModes[index] ?? (source.startsWith('builtin:') ? 'asset' : 'custom');
+    const availableImages = this._getAvailableImages();
+    const showHttpWarning = mode === 'custom' && source.startsWith('http:') &&
       typeof location !== 'undefined' && location.protocol === 'https:';
 
     return html`
       <lcards-form-section header="Image" icon="mdi:image" ?expanded=${true}>
         <div class="param-grid">
-          <!-- URL input (full width) -->
+          <!-- Source mode selector (full width) -->
           <ha-selector
             .hass=${this.hass}
-            .selector=${{ text: {} }}
-            .value=${url}
-            .label=${'Image URL'}
-            .helper=${'Path to image, e.g. /local/images/room.jpg or an https:// URL. Supports templates: {entity.attributes.entity_picture}'}
-            @value-changed=${(e) => this._updateEffectConfig(index, 'url', e.detail.value)}
+            .selector=${{ select: { mode: 'dropdown', options: [
+              { value: 'asset',  label: 'Asset Library (builtin images & SVGs)' },
+              { value: 'custom', label: 'Custom URL / Template' }
+            ]}}}
+            .value=${mode}
+            .label=${'Image Source'}
+            @value-changed=${(e) => this._handleImageSrcModeChange(index, e.detail.value, source)}
             style="grid-column: 1 / -1"
           ></ha-selector>
+
+          ${mode === 'asset' ? html`
+            <!-- Asset picker -->
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ select: { mode: 'dropdown', options: availableImages }}}
+              .value=${availableImages.some(o => o.value === source) ? source : (availableImages[0]?.value ?? '')}
+              .label=${'Built-in Image'}
+              .helper=${'Images and SVGs registered in the Asset Library'}
+              @value-changed=${(e) => this._updateEffectConfig(index, 'source', e.detail.value)}
+              style="grid-column: 1 / -1"
+            ></ha-selector>
+          ` : html`
+            <!-- Custom URL / template input -->
+            <ha-selector
+              .hass=${this.hass}
+              .selector=${{ text: {} }}
+              .value=${source}
+              .label=${'Image URL'}
+              .helper=${'Path to image: /local/images/room.jpg · https://… · or a template: {entity.attributes.entity_picture}'}
+              @value-changed=${(e) => this._updateEffectConfig(index, 'source', e.detail.value)}
+              style="grid-column: 1 / -1"
+            ></ha-selector>
+          `}
 
           ${showHttpWarning ? html`
             <div style="grid-column:1/-1;padding:6px 8px;border-radius:4px;background:rgba(255,193,7,0.15);color:#ffa000;font-size:12px;line-height:1.4;">
@@ -1040,7 +1082,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
           ${this._renderField({ key: 'repeat', label: 'Tile / Repeat', type: 'boolean', default: false }, config, index)}
         </div>
       </lcards-form-section>
-      ${this._renderEntityBindingNote()}
     `;
   }
 
@@ -1054,7 +1095,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
           <div style="margin-bottom:12px;">
             <div style="font-size:14px;font-weight:500;margin-bottom:8px;padding:2px 8px;">Colour A</div>
             <lcards-color-picker
-              // @ts-ignore - TS2339: auto-suppressed
               .hass=${this.hass}
               .value=${config.color_a ?? 'rgba(80,0,255,0.9)'}
               .variablePrefixes=${['--lcards-', '--lcars-', '--cblcars-']}
@@ -1065,7 +1105,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
           <div style="margin-bottom:12px;">
             <div style="font-size:14px;font-weight:500;margin-bottom:8px;padding:2px 8px;">Colour B</div>
             <lcards-color-picker
-              // @ts-ignore - TS2339: auto-suppressed
               .hass=${this.hass}
               .value=${config.color_b ?? 'rgba(255,40,120,0.9)'}
               .variablePrefixes=${['--lcards-', '--lcars-', '--cblcars-']}
@@ -1075,7 +1114,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
           </div>
         ` : html`
           <lcards-color-picker
-            // @ts-ignore - TS2339: auto-suppressed
             .hass=${this.hass}
             .value=${config.color ?? 'rgba(100,180,255,0.8)'}
             .variablePrefixes=${['--lcards-', '--lcars-', '--cblcars-']}
@@ -1099,7 +1137,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
             ${this._renderField({ key: 'line_spacing', label: 'Line Spacing (px)', type: 'number', min: 1, max: 20, step: 1, default: 4 }, config, index)}
             ${this._renderField({ key: 'line_width', label: 'Line Width (px)', type: 'number', min: 0.5, max: 5, step: 0.5, default: 1.5 }, config, index)}
             <ha-selector
-              // @ts-ignore - TS2339: auto-suppressed
               .hass=${this.hass}
               .selector=${{ select: { mode: 'dropdown', options: [
                 { value: 'horizontal', label: 'Horizontal' },
@@ -1132,7 +1169,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
     if (field.type === 'color') {
       return html`
         <lcards-color-picker
-          // @ts-ignore - TS2339: auto-suppressed
           .hass=${this.hass}
           .value=${value}
           .variablePrefixes=${['--lcards-', '--lcars-', '--cblcars-']}
@@ -1144,7 +1180,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
 
     return html`
       <ha-selector
-        // @ts-ignore - TS2339: auto-suppressed
         .hass=${this.hass}
         .selector=${this._getFieldSelector(field)}
         .value=${value}
@@ -1187,7 +1222,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
         ${isEnabled ? html`
           <div class="param-grid">
             <ha-selector
-              // @ts-ignore - TS2339: auto-suppressed
               .hass=${this.hass}
               .selector=${{ number: { min: 2, max: 10, step: 1, mode: 'slider' } }}
               .value=${zoom.layers ?? 4}
@@ -1197,7 +1231,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
             ></ha-selector>
 
             <ha-selector
-              // @ts-ignore - TS2339: auto-suppressed
               .hass=${this.hass}
               .selector=${{ number: { min: 0.1, max: 1.0, step: 0.1, mode: 'slider' } }}
               .value=${zoom.scale_from ?? 0.5}
@@ -1207,7 +1240,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
             ></ha-selector>
 
             <ha-selector
-              // @ts-ignore - TS2339: auto-suppressed
               .hass=${this.hass}
               .selector=${{ number: { min: 1.0, max: 5.0, step: 0.1, mode: 'slider' } }}
               .value=${zoom.scale_to ?? 2.0}
@@ -1217,7 +1249,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
             ></ha-selector>
 
             <ha-selector
-              // @ts-ignore - TS2339: auto-suppressed
               .hass=${this.hass}
               .selector=${{ number: { min: 5, max: 60, step: 1, mode: 'slider' } }}
               .value=${zoom.duration ?? 15}
@@ -1227,7 +1258,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
             ></ha-selector>
 
             <ha-selector
-              // @ts-ignore - TS2339: auto-suppressed
               .hass=${this.hass}
               .selector=${{ number: { min: 0, max: 100, step: 5, mode: 'slider' } }}
               .value=${zoom.opacity_fade_in ?? 15}
@@ -1237,7 +1267,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
             ></ha-selector>
 
             <ha-selector
-              // @ts-ignore - TS2339: auto-suppressed
               .hass=${this.hass}
               .selector=${{ number: { min: 0, max: 100, step: 5, mode: 'slider' } }}
               .value=${zoom.opacity_fade_out ?? 75}
@@ -1497,6 +1526,18 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
     });
     this._expandedEffects = newExpanded;
 
+    // Update image source mode state
+    const newSrcModes = {};
+    Object.keys(this._imageSrcModes).forEach(key => {
+      const idx = parseInt(key);
+      if (idx < index) {
+        newSrcModes[idx] = this._imageSrcModes[idx];
+      } else if (idx > index) {
+        newSrcModes[idx - 1] = this._imageSrcModes[idx];
+      }
+    });
+    this._imageSrcModes = newSrcModes;
+
     this._emitChange(updatedEffects, inset);
   }
 
@@ -1653,6 +1694,23 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
     });
 
     this._expandedEffects = newExpandedState;
+
+    // Update image source mode state to follow moved items
+    const newSrcModeState = {};
+    Object.keys(this._imageSrcModes).forEach(oldIndex => {
+      const idx = parseInt(oldIndex);
+      let newIndex = idx;
+      if (idx === dragIndex) {
+        newIndex = dropIndex;
+      } else if (dragIndex < dropIndex && idx > dragIndex && idx <= dropIndex) {
+        newIndex = idx - 1;
+      } else if (dragIndex > dropIndex && idx >= dropIndex && idx < dragIndex) {
+        newIndex = idx + 1;
+      }
+      newSrcModeState[newIndex] = this._imageSrcModes[oldIndex];
+    });
+    this._imageSrcModes = newSrcModeState;
+
     this._draggedIndex = null;
 
     // Remove drag-over class
@@ -1677,7 +1735,6 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
    */
   _emitChange(effects, inset, fps) {
     // fps arg: explicit value overrides; undefined = preserve whatever is in current config.
-    // @ts-ignore - TS2339: auto-suppressed
     const fpsValue = fps !== undefined ? fps : this._normalizedConfig.fps;
     const hasInset = inset !== null && inset !== undefined;
     const hasFps   = fpsValue !== null && fpsValue !== undefined;

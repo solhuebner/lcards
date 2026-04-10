@@ -28,7 +28,7 @@ import { lcardsLog }      from '../../../../utils/lcards-logging.js';
 export class ImageEffect extends BaseEffect {
     /**
      * @param {Object}  config
-     * @param {string}  [config.url='']          - Absolute URL or /local/ path to the image.
+     * @param {string}  [config.source='']        - Image source: URL, /local/ path, builtin:key, or template.
      * @param {string}  [config.size='cover']     - 'cover' | 'contain' | 'fill' | '<n>px'
      * @param {string}  [config.position='center'] - CSS background-position style string.
      * @param {boolean} [config.repeat=false]     - If true, tile the image across the canvas.
@@ -37,7 +37,7 @@ export class ImageEffect extends BaseEffect {
     constructor(config = {}) {
         super(config);
 
-        this._url      = config.url      ?? '';
+        this._url      = config.source ?? '';
         this._size     = config.size     ?? 'cover';
         this._position = config.position ?? 'center';
         this._repeat   = config.repeat   ?? false;
@@ -77,14 +77,16 @@ export class ImageEffect extends BaseEffect {
      * @param {Object} newConfig - Partial config to apply.
      */
     updateConfig(newConfig) {
-        const newUrl = newConfig.url ?? '';
-        if (newUrl !== this._url) {
-            this._url = newUrl;
-            if (this._url) {
-                this._load();
-            } else {
-                this._img       = null;
-                this._loadError = false;
+        if (newConfig.source !== undefined) {
+            const newUrl = newConfig.source ?? '';
+            if (newUrl !== this._url) {
+                this._url = newUrl;
+                if (this._url) {
+                    this._load();
+                } else {
+                    this._img       = null;
+                    this._loadError = false;
+                }
             }
         }
 

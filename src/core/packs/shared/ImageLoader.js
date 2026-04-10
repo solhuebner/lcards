@@ -21,14 +21,48 @@ import { lcardsLog } from '../../../utils/lcards-logging.js';
 const _cache = new Map();
 
 /**
+ * Resolve a `builtin:<key>` URL via AssetManager, if available.
+ * Returns the resolved URL string, or null if the key is not registered.
+ *
+ * @param {string} key - Asset key (without 'builtin:' prefix).
+ * @returns {string|null}
+ */
+function _resolveBuiltin(key) {
+    try {
+        return window?.lcards?.core?.assetManager?.resolveImageUrl?.(key) ?? null;
+    } catch (_) {
+        return null;
+    }
+}
+
+/**
  * Load (or retrieve from cache) an image by URL.
  *
- * @param {string} url - Absolute URL or /local/ path to the image.
+ * Accepts:
+ * - `/local/` paths  — HA static file server
+ * - `https://` URLs  — external CORS-enabled sources
+ * - `builtin:<key>`  — named entries from the AssetManager image registry
+ * - Any other browser-loadable URL
+ *
+ * @param {string} url - Image source: URL, /local/ path, or builtin:key reference.
  * @returns {Promise<HTMLImageElement>} Resolves with the loaded image element.
  *   Rejects on network or CORS error — callers should handle gracefully.
  */
 export function loadImage(url) {
     if (!url) return Promise.reject(new Error('[ImageLoader] Empty URL'));
+
+    // Resolve builtin:key references via AssetManager image registry
+    if (url.startsWith('builtin:')) {
+        const key = url.slice('builtin:'.length);
+        const resolved = _resolveBuiltin(key);
+        if (!resolved) {
+            return Promise.reject(
+                new Error(`[ImageLoader] builtin image not found: "${key}". Register it via assetManager or lcards-images-pack.`)
+            );
+        }
+        lcardsLog.debug(`[ImageLoader] Resolved builtin:${key} → ${resolved}`);
+        url = resolved; // fall through to normal load with resolved URL
+    }
 
     // Warn about mixed-content risk early (before the browser silently blocks it)
     if (url.startsWith('http:') && typeof location !== 'undefined' && location.protocol === 'https:') {

@@ -25,6 +25,19 @@ const ASSET_TYPES = {
     lazyLoad: true,
     maxSize: 2 * 1024 * 1024 // 2 MB
   },
+  /**
+   * Image assets — URL-only entries (no content is fetched by AssetManager).
+   * The browser loads the image natively via ImageLoader (img element + crossOrigin).
+   * AssetManager only manages the key → URL mapping so cards can reference images
+   * as `builtin:<key>` just like MSD SVGs use `builtin:<key>`.
+   */
+  image: {
+    description: 'Raster and SVG image files (URL registry — no content fetch)',
+    sanitize: false,
+    cache: false,  // no content to cache — ImageLoader handles its own cache
+    lazyLoad: false,
+    urlOnly: true  // marker: only url metadata is stored; get() returns null by design
+  },
   font: {
     description: 'Custom font files',
     sanitize: false,
@@ -351,6 +364,21 @@ export class AssetManager extends BaseService {
       });
     }
 
+    // Image assets (URL-only registry — no content fetch)
+    if (packDef.image_assets) {
+      Object.entries(packDef.image_assets).forEach(([key, def]) => {
+        if (def.url) {
+          this.register('image', key, null, {
+            pack: packName,
+            url: def.url,
+            description: def.description,
+            label: def.label,
+            category: def.category
+          });
+        }
+      });
+    }
+
     // Audio assets
     if (packDef.audio_assets) {
       Object.entries(packDef.audio_assets).forEach(([key, def]) => {
@@ -367,9 +395,10 @@ export class AssetManager extends BaseService {
     await Promise.all(promises);
 
     const assetCounts = {
-      svg: packDef.svg_assets ? Object.keys(packDef.svg_assets).length : 0,
-      font: packDef.font_assets ? Object.keys(packDef.font_assets).length : 0,
-      audio: packDef.audio_assets ? Object.keys(packDef.audio_assets).length : 0
+      svg:   packDef.svg_assets   ? Object.keys(packDef.svg_assets).length   : 0,
+      font:  packDef.font_assets  ? Object.keys(packDef.font_assets).length  : 0,
+      audio: packDef.audio_assets ? Object.keys(packDef.audio_assets).length : 0,
+      image: packDef.image_assets ? Object.keys(packDef.image_assets).length : 0
     };
 
     lcardsLog.info(`[AssetManager] Preloaded from pack ${packName}:`, assetCounts);
@@ -410,6 +439,40 @@ export class AssetManager extends BaseService {
   clear() {
     this.registries.forEach(registry => registry.assets.clear());
     lcardsLog.debug('[AssetManager] Cleared all assets');
+  }
+
+  /**
+   * Resolve an image asset key to its URL (no I/O).
+   *
+   * This is the primary API for `builtin:key` resolution in ImageLoader.
+   * Returns `null` if the key is not registered.
+   *
+   * @param {string} key - Asset key (without 'builtin:' prefix).
+   * @returns {string|null} URL or null.
+   */
+  resolveImageUrl(key) {
+    try {
+      // Check the image registry first
+      const imageAsset = this.getRegistry('image').assets.get(key);
+      if (imageAsset?.url) return imageAsset.url;
+      // Fall back: SVG assets (ships, backgrounds, etc.) are also usable as <img> sources
+      const svgAsset = this.getRegistry('svg').assets.get(key);
+      return svgAsset?.url ?? null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /**
+   * List registered image asset keys.
+   * @returns {Array<string>} Sorted asset keys.
+   */
+  listImages() {
+    try {
+      return this.getRegistry('image').list();
+    } catch (_) {
+      return [];
+    }
   }
 
   /**

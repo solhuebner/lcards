@@ -383,8 +383,8 @@ export const BACKGROUND_PRESETS = {
 
   /**
    * Static (or entity-reactive) image rendered behind the full card area.
-   * Supports /local/ paths and external HTTPS URLs.
-   * url supports template syntax for entity-reactive images, e.g.
+   * Supports /local/ paths, external HTTPS URLs, and builtin:key references.
+   * source supports template syntax for entity-reactive images, e.g.
    *   '{entity.attributes.entity_picture}'
    */
   'image': {
@@ -393,7 +393,7 @@ export const BACKGROUND_PRESETS = {
 
     createEffects(config) {
       return [new ImageEffect({
-        url:      config.url      ?? '',
+        source:   config.source   ?? '',
         size:     config.size     ?? 'cover',
         position: config.position ?? 'center',
         repeat:   config.repeat   ?? false,

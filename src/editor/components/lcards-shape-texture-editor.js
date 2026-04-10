@@ -43,8 +43,9 @@ const TURBULENCE_PRESETS = new Set(['fluid', 'plasma', 'flow']);
 export class LCARdSShapeTextureEditor extends LitElement {
     static get properties() {
         return {
-            hass:   { type: Object },
-            config: { type: Object }
+            hass:          { type: Object },
+            config:        { type: Object },
+            _imageSrcMode: { type: String,  state: true }
         };
     }
 
@@ -81,9 +82,25 @@ export class LCARdSShapeTextureEditor extends LitElement {
         this.hass = undefined;
         /** @type {any} */
         this.config = undefined;
+        /** @type {string|null} 'asset' | 'custom' | null (auto-detect from value) */
+        this._imageSrcMode = null;
     }
 
     // ─── Event helpers ────────────────────────────────────────────────────────
+
+    /**
+     * Return a combined list of builtin image options from both the `image` and `svg`
+     * asset registries.  Each entry is `{ value: 'builtin:key', label: key }`.
+     * @returns {Array<{value:string, label:string}>}
+     */
+    _getAvailableImages() {
+        const am = window.lcards?.core?.assetManager;
+        if (!am) return [];
+        const svgKeys = am.listAssets?.('svg')  ?? [];
+        const imgKeys = am.listImages?.()       ?? [];
+        const all     = [...new Set([...svgKeys, ...imgKeys])].sort();
+        return all.map(key => ({ value: `builtin:${key}`, label: key }));
+    }
 
     _emit(value) {
         this.dispatchEvent(new CustomEvent('texture-changed', {
@@ -795,20 +812,56 @@ export class LCARdSShapeTextureEditor extends LitElement {
                     ></ha-selector></div>`;
 
             case 'image': {
-                const url = cfg.url ?? defaults.url ?? '';
-                const showHttpWarning = url.startsWith('http:') &&
+                const source = cfg.source ?? cfg.url ?? defaults.source ?? defaults.url ?? '';
+                // Derive mode from explicit state or from the current value
+                const mode   = this._imageSrcMode ?? (source.startsWith('builtin:') ? 'asset' : 'custom');
+                const availableImages = this._getAvailableImages();
+                const showHttpWarning = mode === 'custom' && source.startsWith('http:') &&
                     typeof location !== 'undefined' && location.protocol === 'https:';
 
                 return html`
                     <div class="row">
                         <ha-selector .hass=${this.hass}
-                            .selector=${{ text: {} }}
-                            .value=${url}
-                            .label=${'Image URL'}
-                            .helper=${'Path to image, e.g. /local/images/room.jpg or an https:// URL. Supports templates: {entity.attributes.entity_picture}'}
-                            @value-changed=${(e) => this._updatePresetConfig('url', e.detail.value)}
+                            .selector=${{ select: { mode: 'dropdown', options: [
+                                { value: 'asset',  label: 'Asset Library (builtin images & SVGs)' },
+                                { value: 'custom', label: 'Custom URL / Template' }
+                            ]}}}
+                            .value=${mode}
+                            .label=${'Image Source'}
+                            @value-changed=${(e) => {
+                                const newMode = e.detail.value;
+                                this._imageSrcMode = newMode;
+                                if (newMode === 'asset' && !source.startsWith('builtin:')) {
+                                    const available = this._getAvailableImages();
+                                    if (available.length > 0) {
+                                        this._updatePresetConfig('source', available[0].value);
+                                    }
+                                }
+                            }}
                         ></ha-selector>
                     </div>
+
+                    ${mode === 'asset' ? html`
+                        <div class="row">
+                            <ha-selector .hass=${this.hass}
+                                .selector=${{ select: { mode: 'dropdown', options: availableImages }}}
+                                .value=${availableImages.some(o => o.value === source) ? source : (availableImages[0]?.value ?? '')}
+                                .label=${'Built-in Image'}
+                                .helper=${'Images and SVGs registered in the Asset Library'}
+                                @value-changed=${(e) => this._updatePresetConfig('source', e.detail.value)}
+                            ></ha-selector>
+                        </div>
+                    ` : html`
+                        <div class="row">
+                            <ha-selector .hass=${this.hass}
+                                .selector=${{ text: {} }}
+                                .value=${source}
+                                .label=${'Image URL'}
+                                .helper=${'Path to image: /local/images/room.jpg · https://… · or a template: {entity.attributes.entity_picture}'}
+                                @value-changed=${(e) => this._updatePresetConfig('source', e.detail.value)}
+                            ></ha-selector>
+                        </div>
+                    `}
 
                     ${showHttpWarning ? html`
                         <div class="row" style="padding:6px 8px;border-radius:4px;background:rgba(255,193,7,0.15);color:#ffa000;font-size:12px;line-height:1.4;">

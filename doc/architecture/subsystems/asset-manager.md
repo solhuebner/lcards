@@ -1,12 +1,12 @@
 # Asset Manager
 
-> **`window.lcards.core.assetManager`** — SVG and font asset loading and caching.
+> **`window.lcards.core.assetManager`** — Named asset loading, URL registry, and caching.
 
 ---
 
 ## Overview
 
-`AssetManager` loads external SVG and font assets from pack definitions, caches them in memory, and serves them to cards on request. It ensures that the same asset URL is never fetched twice within a session.
+`AssetManager` loads external SVG and font assets from pack definitions, caches them in memory, and serves them to cards on request. It also maintains a URL-only registry for image assets, which allows cards to reference images as `builtin:<key>` without AssetManager fetching the file content (the browser loads images natively via `ImageLoader`).
 
 ---
 
@@ -20,8 +20,10 @@
 
 | Type | Pack key | Description |
 |---|---|---|
-| SVG | `svg_assets` | SVG markup strings; used as card backgrounds, MSD base SVGs, component shapes |
-| Font | `font_assets` | Webfont declarations loaded at startup |
+| `svg` | `svg_assets` | SVG markup strings; used as card backgrounds, MSD base SVGs, component shapes. Fetched via `fetch()`, sanitized, cached as text. |
+| `font` | `font_assets` | Webfont declarations loaded at startup. |
+| `audio` | `audio_assets` | Sound clip files, loaded as `ArrayBuffer`. |
+| `image` | `image_assets` | URL-only registry for raster and SVG images. **No content is fetched by AssetManager** — stores only `key → url`. The browser loads images via `ImageLoader` using the resolved URL. |
 
 ---
 
@@ -34,12 +36,37 @@ Assets are registered by `PackManager` during startup:
 export const MY_PACK = {
   svg_assets: {
     'enterprise_schematic': { url: '/local/lcards/assets/enterprise.svg' },
-    'bridge_layout':        { url: '/local/lcards/assets/bridge.svg' },
   },
   font_assets: {
     'okuda': { url: '/local/lcards/fonts/okuda.woff2', family: 'Okuda' },
+  },
+  // URL-only image registry — no content fetch
+  image_assets: {
+    'bedroom': {
+      url: '/hacsfiles/lcards/images/bedroom.jpg',
+      label: 'Bedroom',
+      category: 'rooms'
+    },
+    'lcars_panel': {
+      url: '/hacsfiles/lcards/images/lcars-panel.png',
+      label: 'LCARS Panel',
+      category: 'backgrounds'
+    }
   }
 };
+```
+
+Users can also register their own images at runtime:
+
+```javascript
+// Register a user /local/ image under a friendly name
+window.lcards.core.assetManager.register('image', 'living-room', null, {
+  url: '/local/images/living-room.jpg',
+  label: 'Living Room'
+});
+
+// Cards can then reference it as:
+// config.url: 'builtin:living-room'
 ```
 
 ---
@@ -50,10 +77,12 @@ export const MY_PACK = {
 |---|---|---|
 | `loadSvg(key)` | `Promise<string>` | Load SVG by key; cached after first fetch |
 | `hasSvg(key)` | `boolean` | True if SVG is already cached |
-| `getSvgKeys()` | `string[]` | All registered SVG asset keys |
-| `listFonts()` | `string[]` | All registered font asset keys |
+| `resolveImageUrl(key)` | `string\|null` | Resolve an image key → URL (no I/O). Used by `ImageLoader` for `builtin:key` references. |
+| `listImages()` | `string[]` | All registered image asset keys |
+| `listFonts()` | `Object[]` | All registered font asset entries |
 | `listTypes()` | `string[]` | All registered asset categories |
-| `getRegistry(type)` | `Object` | Full asset registry for a category |
+| `register(type, key, content, metadata)` | `void` | Low-level registration; content may be `null` for URL-only types |
+| `getRegistry(type)` | `AssetRegistry` | Full asset registry for a category |
 
 ```javascript
 const assetManager = window.lcards.core.assetManager;
@@ -61,18 +90,39 @@ const assetManager = window.lcards.core.assetManager;
 // Returns promise resolving to SVG string (cached after first load)
 const svg = await assetManager.loadSvg('enterprise_schematic');
 
-// Check if already cached
-if (assetManager.hasSvg('bridge_layout')) { ... }
+// Resolve an image key to its URL (synchronous — no fetch)
+const url = assetManager.resolveImageUrl('bedroom');
+// → '/hacsfiles/lcards/images/bedroom.jpg'
 
-// All registered SVG keys
-const keys = assetManager.getSvgKeys();
+// All registered image keys
+const images = assetManager.listImages();
+// → ['bedroom', 'living-room', 'lcars_panel', ...]
+```
+
+---
+
+## `builtin:key` Resolution Flow
+
+```
+card config: url = 'builtin:bedroom'
+    │
+    ↓ ImageLoader.loadImage('builtin:bedroom')
+      │
+      ↓ assetManager.resolveImageUrl('bedroom')
+        → '/hacsfiles/lcards/images/bedroom.jpg'
+      │
+      ↓ new Image() with resolved URL
+        → browser fetches & caches the image
+      │
+      ↓ ctx.drawImage(img, ...) in ImageEffect / ImageTextureEffect
 ```
 
 ---
 
 ## Caching
 
-Assets are cached by key in a `Map`. The cache persists for the browser session. There is no expiry or invalidation — a page reload clears it.
+- **SVG / Font / Audio**: Cached by key in `AssetRegistry.assets` after first fetch. Session-scoped; cleared on page reload.
+- **Image**: `AssetManager` stores only the URL. `ImageLoader` maintains its own `Map<url, Promise<HTMLImageElement>>` cache (also session-scoped).
 
 ---
 
@@ -81,17 +131,17 @@ Assets are cached by key in a `Map`. The cache persists for the browser session.
 ::: code-group
 ```javascript [Snapshot]
 window.lcards.debug.singleton('assetManager')
-// → { type: 'AssetManager', initialized: true, svgCacheSize: 12, registeredTypes: ['svg', 'font'] }
+// → { type: 'AssetManager', initialized: true, registeredTypes: ['svg', 'font', 'audio', 'image'] }
 ```
 ```javascript [Live object]
 const am = window.lcards.core.assetManager
 
 const svg = await am.loadSvg('enterprise_schematic')  // fetch + cache
-am.hasSvg('bridge_layout')   // check cache
-am.getSvgKeys()              // all registered SVG keys
-am.listFonts()               // registered font keys
-am.listTypes()               // ['svg', 'font', ...]
-am.getRegistry('svg')        // raw registry map for a type
+am.resolveImageUrl('bedroom')  // resolve builtin key → URL (sync)
+am.listImages()                // all registered image keys
+am.listFonts()                 // registered font entries
+am.listTypes()                 // ['svg', 'font', 'audio', 'image']
+am.getRegistry('image')        // raw registry map for images
 ```
 :::
 

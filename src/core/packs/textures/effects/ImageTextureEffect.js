@@ -27,7 +27,7 @@ import { lcardsLog }         from '../../../../utils/lcards-logging.js';
 export class ImageTextureEffect extends BaseTextureEffect {
     /**
      * @param {Object}     config
-     * @param {string}     [config.url='']           - Absolute URL or /local/ path to the image.
+     * @param {string}     [config.source='']         - Image source: URL, /local/ path, builtin:key, or template.
      * @param {string}     [config.size='cover']      - 'cover' | 'contain' | 'fill' | '<n>px'
      * @param {string}     [config.position='center'] - CSS background-position style string.
      * @param {boolean}    [config.repeat=false]      - If true, tile the image inside the shape.
@@ -37,7 +37,7 @@ export class ImageTextureEffect extends BaseTextureEffect {
     constructor(config = {}) {
         super(config); // handles opacity, speed, _clipPath
 
-        this._url      = config.url      ?? '';
+        this._url      = config.source ?? '';
         this._size     = config.size     ?? 'cover';
         this._position = config.position ?? 'center';
         this._repeat   = config.repeat   ?? false;
@@ -79,8 +79,8 @@ export class ImageTextureEffect extends BaseTextureEffect {
     updateConfig(cfg) {
         super.updateConfig(cfg); // handles opacity, speed, _clipPath
 
-        const newUrl = cfg.url ?? '';
-        if (cfg.url !== undefined && newUrl !== this._url) {
+        const newUrl = cfg.source ?? '';
+        if (cfg.source !== undefined && newUrl !== this._url) {
             this._url = newUrl;
             if (this._url) {
                 this._load();

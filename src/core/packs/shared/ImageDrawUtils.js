@@ -35,8 +35,11 @@ const KEYWORDS = { left: 0, center: 0.5, right: 1, top: 0, bottom: 1 };
  */
 export const ImageDrawUtils = {
     computeDrawParams(img, canvasW, canvasH, size = 'cover', position = 'center') {
-        const iw = img.naturalWidth  || img.width;
-        const ih = img.naturalHeight || img.height;
+        // naturalWidth/naturalHeight are 0 for SVG elements that lack explicit width/height
+        // attributes (common output from Inkscape, Figma, etc.).  Fall back to the canvas
+        // dimensions so the image still fills the available area instead of drawing nothing.
+        let iw = img.naturalWidth  || img.width  || canvasW;
+        let ih = img.naturalHeight || img.height || canvasH;
 
         let dw, dh;
 

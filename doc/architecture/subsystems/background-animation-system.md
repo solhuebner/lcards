@@ -37,6 +37,13 @@ BackgroundAnimationRenderer (Canvas2DRenderer)
 | `ImageEffect` | Static or entity-reactive image layer | `effects/ImageEffect.js` |
 | `BACKGROUND_PRESETS` | Preset registry | `presets/index.js` |
 
+**Shared utilities** (used by both `ImageEffect` and `ImageTextureEffect`):
+
+| File | Role |
+|---|---|
+| `src/core/packs/shared/ImageLoader.js` | Singleton `<img>` cache; resolves `builtin:key` via AssetManager |
+| `src/core/packs/shared/ImageDrawUtils.js` | CSS `background-size`/`background-position` math; SVG zero-dimension fallback |
+
 ---
 
 ## Data Flow

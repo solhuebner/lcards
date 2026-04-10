@@ -221,7 +221,7 @@ User-supplied image rendered inside the card shape, clipped to the shape geometr
 
 | Config key | Default | Description |
 |---|---|---|
-| `url` | `''` | `/local/` path or HTTPS URL to the image. Supports template syntax (e.g. `'{entity.attributes.entity_picture}'`). |
+| `url` | `''` | `/local/` path, `https://` URL, `builtin:<key>` reference, or a template (e.g. `'{entity.attributes.entity_picture}'`). SVG files are also supported — they are loaded via `<img>` and painted into Canvas2D like any raster image. |
 | `size` | `'cover'` | `'cover'` \| `'contain'` \| `'fill'` \| `'<n>px'` (explicit pixel size for the shorter axis) |
 | `position` | `'center'` | CSS `background-position` style string — keywords (`top left`, `center`, `bottom right`) or percentages (`50% 50%`) |
 | `repeat` | `false` | If `true`, tiles the image across the shape rather than fitting it |
@@ -250,6 +250,20 @@ shape_texture:
     size: cover
     position: center top
 ```
+
+**Named asset from the Asset Library**:
+
+```yaml
+shape_texture:
+  preset: image
+  opacity: 0.5
+  mix_blend_mode: overlay
+  config:
+    url: 'builtin:bedroom'  # key registered in lcards-images-pack or via Config Panel
+    size: cover
+```
+
+> **SVG files**: `.svg` sources work — they load via `<img>` and are painted into Canvas2D. SVG files should be self-contained; files without explicit `width`/`height` attributes fall back to canvas dimensions automatically.
 
 > **HTTP URLs on HTTPS dashboards**: The editor shows a warning when the URL begins with `http:` and the dashboard is served over HTTPS. Mixed-content requests are blocked by most browsers — prefer `/local/` paths or `https://` URLs.
 
@@ -397,8 +411,8 @@ Because `_resolveShapeTextureConfig()` reads directly from `this.config` at ever
 | `src/core/packs/lcards-textures-pack.js` | Pack metadata |
 | `src/editor/components/lcards-shape-texture-editor.js` | Editor UI component |
 | `src/core/packs/textures/effects/ImageTextureEffect.js` | Canvas2D image effect for the `image` preset |
-| `src/core/packs/shared/ImageLoader.js` | Shared singleton image cache (used by both image presets) |
-| `src/core/packs/shared/ImageDrawUtils.js` | Shared cover/contain/fill draw-param math |
+| `src/core/packs/shared/ImageLoader.js` | Shared singleton image cache; resolves `builtin:key` via AssetManager |
+| `src/core/packs/shared/ImageDrawUtils.js` | Shared cover/contain/fill draw-param math; handles SVG zero-dimension fallback |
 
 
 ## See Also

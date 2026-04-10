@@ -179,7 +179,7 @@ export const CANVAS_TEXTURE_PRESETS = {
         description: 'User-supplied image clipped to the card shape — supports /local/ paths and external HTTPS URLs',
         effectClass: ImageTextureEffect,
         defaults: {
-            url:      '',
+            source:   '',
             size:     'cover',
             position: 'center',
             repeat:   false,

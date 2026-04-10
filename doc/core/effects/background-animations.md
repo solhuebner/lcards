@@ -700,7 +700,7 @@ config:
 
 | Config key | Default | Description |
 |---|---|---|
-| `url` | `''` | `/local/` path or `https://` URL to the image. Supports template syntax. |
+| `url` | `''` | `/local/` path, `https://` URL, `builtin:<key>` reference, or a template (e.g. `'{entity.attributes.entity_picture}'`). |
 | `size` | `'cover'` | `'cover'` — scale to fill canvas (may crop)<br>`'contain'` — scale to fit canvas (may letterbox)<br>`'fill'` — stretch to exact canvas size<br>`'<n>px'` — explicit pixel size for the shorter axis |
 | `position` | `'center'` | CSS `background-position` string: keywords (`top left`, `bottom right`) or percentages (`50% 0%`) |
 | `opacity` | `1` | Composite opacity of this effect layer. Combine with other effects for overlay blending. |
@@ -744,6 +744,20 @@ background_animation:
         color: 'rgba(255,153,102,0.25)'
         line_spacing: 40
 ```
+
+**Example — named image from the Asset Library:**
+
+```yaml
+background_animation:
+  effects:
+    - preset: image
+      config:
+        url: 'builtin:bedroom'   # key registered in lcards-images-pack or via Config Panel
+        size: cover
+        opacity: 0.8
+```
+
+> **SVG files**: `.svg` files work as image sources — they load via an `<img>` element and paint into Canvas2D just like raster images. SVG files must be self-contained (no external resource references) and work best with explicit `width`/`height` attributes; files without them will be rendered at canvas size automatically.
 
 > **⚠️ HTTP URLs**: Using an `http://` URL on an HTTPS dashboard will be blocked by the browser's mixed-content policy. The editor shows a warning in this case. Use `/local/` paths or `https://` URLs instead.
 
