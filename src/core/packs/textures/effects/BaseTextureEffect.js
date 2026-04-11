@@ -39,7 +39,12 @@ export class BaseTextureEffect extends BaseEffect {
      */
     draw(ctx, w, h) {
         ctx.save();
-        if (this._clipPath) ctx.clip(this._clipPath);
+        // Use 'evenodd' fill rule so that composite paths (e.g. the frame elbow's
+        // ring path which consists of two CW sub-paths — outer + inner boundary)
+        // correctly produce a clipped hole.  For single-sub-path shapes (all
+        // other elbows, buttons) evenodd and nonzero are identical, so this is
+        // a safe global change.
+        if (this._clipPath) ctx.clip(this._clipPath, 'evenodd');
         ctx.globalAlpha = Math.max(0, Math.min(1, this.opacity));
         this._draw(ctx, w, h);
         ctx.restore();
