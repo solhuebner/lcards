@@ -8,7 +8,7 @@
  *
  * Degraded mode (integration not installed):
  *   - this.available === false
- *   - Services fall back to localStorage or no-op behaviour
+ *   - Services operate in no-op / limited mode until the integration responds
  *
  * @module core/services/IntegrationService
  */

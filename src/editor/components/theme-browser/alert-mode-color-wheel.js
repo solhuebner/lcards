@@ -207,15 +207,12 @@ export class AlertModeColorWheel extends LitElement {
           ${this._renderHSLWheel()}
 
           <!-- Anchor range (if configured) -->
-          // @ts-ignore - TS2339: auto-suppressed
           ${this.anchorConfig ? this._renderAnchorRange() : ''}
 
           <!-- Hue shift target indicator -->
-          // @ts-ignore - TS2339: auto-suppressed
           ${this.hueShift !== null && this.hueShift !== undefined ? this._renderHueShiftTarget() : ''}
 
           <!-- Transformation arrows -->
-          // @ts-ignore - TS2339: auto-suppressed
           ${this.showArrows ? this._renderTransformationArrows() : ''}
 
           <!-- Original color positions -->
@@ -244,10 +241,8 @@ export class AlertModeColorWheel extends LitElement {
 
     return html`
       <div class="legend">
-        // @ts-ignore - TS2339: auto-suppressed
         ${this.originalColors.map((colorData, index) => {
           const isHidden = this.hiddenVariables.has(colorData.varName);
-          // @ts-ignore - TS2339: auto-suppressed
           const transformedColor = this.transformedColors[index];
 
           return html`

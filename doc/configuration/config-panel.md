@@ -33,7 +33,6 @@ After restarting, **LCARdS Config** appears in the HA sidebar.
 | **[Alert Mode Lab](alert-mode-lab.md)** | Customise colour palette parameters (hue, saturation, lightness) per alert level; preview live; save to helpers |
 | **[Sound](../core/sounds.md)** | Enable/disable sounds, configure the active scheme, set per-event overrides, control volume |
 | **Pack Explorer** | Browse installed content packs — view presets, animations, themes, and sound schemes per pack |
-| **YAML Export** | Generate a complete `configuration.yaml` snippet for all LCARdS helpers — for manual setup or backup |
 
 ::: tip First launch
 Open the **Helpers** tab and click **Create All Helpers** — this creates every HA input helper LCARdS needs in one step. Do this before using Alert Mode or Sounds.

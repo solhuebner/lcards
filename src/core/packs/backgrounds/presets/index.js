@@ -19,6 +19,7 @@ import { PlasmaTextureEffect }   from '../../textures/effects/PlasmaTextureEffec
 import { FlowTextureEffect }     from '../../textures/effects/FlowTextureEffect.js';
 import { ShimmerTextureEffect }  from '../../textures/effects/ShimmerTextureEffect.js';
 import { ScanlineTextureEffect } from '../../textures/effects/ScanlineTextureEffect.js';
+import { ImageEffect }            from '../effects/ImageEffect.js';
 import { lcardsLog } from '../../../../utils/lcards-logging.js';
 
 /**
@@ -376,6 +377,27 @@ export const BACKGROUND_PRESETS = {
         scroll_speed_x: config.scroll_speed_x ?? 0,
         scroll_speed_y: config.scroll_speed_y ?? 0,
         opacity:        config.opacity        ?? 1,
+      })];
+    }
+  },
+
+  /**
+   * Static (or entity-reactive) image rendered behind the full card area.
+   * Supports /local/ paths, external HTTPS URLs, and builtin:key references.
+   * source supports template syntax for entity-reactive images, e.g.
+   *   '{entity.attributes.entity_picture}'
+   */
+  'image': {
+    name: 'Background Image',
+    description: 'User-supplied image rendered behind the entire card',
+
+    createEffects(config) {
+      return [new ImageEffect({
+        source:   config.source   ?? '',
+        size:     config.size     ?? 'cover',
+        position: config.position ?? 'center',
+        repeat:   config.repeat   ?? false,
+        opacity:  config.opacity  ?? 1,
       })];
     }
   },

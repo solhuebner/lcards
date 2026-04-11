@@ -4,7 +4,7 @@ title: LCARdS
 
 hero:
   name: LCARdS
-  text: LCARS for Home Assistant
+  text: LCARS Card System for Home Assistant
   tagline: Build your own LCARS-style dashboards with realistic controls, reactivity and animations.
   image:
     src: /img/lcards-hero-banner.gif
@@ -18,7 +18,7 @@ hero:
       link: https://github.com/snootched/lcards
 
 features:
-  - icon: 🚀
+  - icon: 🖖
     title: Getting Started
     details: Install LCARdS, understand how it works, and migrate from CB-LCARS.
     link: /getting-started/what-is-lcards

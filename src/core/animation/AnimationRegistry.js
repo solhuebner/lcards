@@ -67,7 +67,7 @@ export class AnimationRegistry {
       preset: definition.preset,
       params: this.normalizeParams(definition.params),
       duration: this.normalizeNumber(definition.duration),
-      easing: definition.easing,
+      ease: definition.ease,
       loop: definition.loop,
       alternate: definition.alternate,
       delay: this.normalizeNumber(definition.delay),
@@ -320,7 +320,7 @@ export class AnimationRegistry {
       pack: 'core',
       preset: definition.preset,
       duration: definition.duration,
-      easing: definition.easing,
+      ease: definition.ease,
       loop: definition.loop
     };
   }

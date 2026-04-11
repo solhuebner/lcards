@@ -164,6 +164,7 @@ export class LCARdSSlider extends LCARdSButton {
                     justify-content: center;
                     position: relative;
                     box-sizing: border-box;
+                    overflow: visible;
                     /* CSS borders applied via inline styles from config */
                 }
 
@@ -171,6 +172,7 @@ export class LCARdSSlider extends LCARdSButton {
                     display: block;
                     width: 100%;
                     height: 100%;
+                    overflow: visible;
                 }
 
                 .text-overlay {

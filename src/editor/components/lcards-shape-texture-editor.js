@@ -43,8 +43,9 @@ const TURBULENCE_PRESETS = new Set(['fluid', 'plasma', 'flow']);
 export class LCARdSShapeTextureEditor extends LitElement {
     static get properties() {
         return {
-            hass:   { type: Object },
-            config: { type: Object }
+            hass:          { type: Object },
+            config:        { type: Object },
+            _imageSrcMode: { type: String,  state: true }
         };
     }
 
@@ -81,9 +82,25 @@ export class LCARdSShapeTextureEditor extends LitElement {
         this.hass = undefined;
         /** @type {any} */
         this.config = undefined;
+        /** @type {string|null} 'asset' | 'custom' | null (auto-detect from value) */
+        this._imageSrcMode = null;
     }
 
     // ─── Event helpers ────────────────────────────────────────────────────────
+
+    /**
+     * Return a combined list of builtin image options from both the `image` and `svg`
+     * asset registries.  Each entry is `{ value: 'builtin:key', label: key }`.
+     * @returns {Array<{value:string, label:string}>}
+     */
+    _getAvailableImages() {
+        const am = window.lcards?.core?.assetManager;
+        if (!am) return [];
+        const svgKeys = am.listAssets?.('svg')  ?? [];
+        const imgKeys = am.listImages?.()       ?? [];
+        const all     = [...new Set([...svgKeys, ...imgKeys])].sort();
+        return all.map(key => ({ value: `builtin:${key}`, label: key }));
+    }
 
     _emit(value) {
         this.dispatchEvent(new CustomEvent('texture-changed', {
@@ -134,7 +151,6 @@ export class LCARdSShapeTextureEditor extends LitElement {
             <!-- ── Enable toggle ─────────────────────────────────── -->
             <div class="row">
                 <ha-selector
-                    // @ts-ignore - TS2339: auto-suppressed
                     .hass=${this.hass}
                     .selector=${{ boolean: {} }}
                     .value=${enabled}
@@ -160,7 +176,6 @@ export class LCARdSShapeTextureEditor extends LitElement {
                 <lcards-form-section header="Preset" ?expanded=${true}>
                     <div class="row">
                         <ha-selector
-                            // @ts-ignore - TS2339: auto-suppressed
                             .hass=${this.hass}
                             .selector=${{ select: { options: presetOptions, mode: 'dropdown' } }}
                             .value=${preset}
@@ -187,10 +202,9 @@ export class LCARdSShapeTextureEditor extends LitElement {
                 <lcards-form-section header="Appearance" ?expanded=${true}>
 
                     <!-- Color (not shown for presets that manage their own colors) -->
-                    ${presetDef && !['plasma', 'level'].includes(preset) ? html`
+                    ${presetDef && !['plasma', 'level', 'image'].includes(preset) ? html`
                         <div class="row">
                             <lcards-color-picker
-                                // @ts-ignore - TS2339: auto-suppressed
                                 .hass=${this.hass}
                                 .label=${'Texture Color'}
                                 .value=${presetConfig.color ?? defaults.color ?? 'rgba(255,255,255,0.3)'}
@@ -202,14 +216,12 @@ export class LCARdSShapeTextureEditor extends LitElement {
                     <!-- Plasma dual colors -->
                     ${preset === 'plasma' ? html`
                         <div class="row">
-                            // @ts-ignore - TS2339: auto-suppressed
                             <lcards-color-picker .hass=${this.hass} .label=${'Color A'}
                                 .value=${presetConfig.color_a ?? defaults.color_a ?? 'rgba(80,0,255,0.9)'}
                                 @value-changed=${(e) => this._updatePresetConfig('color_a', e.detail.value)}
                             ></lcards-color-picker>
                         </div>
                         <div class="row">
-                            // @ts-ignore - TS2339: auto-suppressed
                             <lcards-color-picker .hass=${this.hass} .label=${'Color B'}
                                 .value=${presetConfig.color_b ?? defaults.color_b ?? 'rgba(255,40,120,0.9)'}
                                 @value-changed=${(e) => this._updatePresetConfig('color_b', e.detail.value)}
@@ -220,21 +232,18 @@ export class LCARdSShapeTextureEditor extends LitElement {
                     <!-- Level fill + gradient colors -->
                     ${preset === 'level' ? html`
                         <div class="row">
-                            // @ts-ignore - TS2339: auto-suppressed
                             <lcards-color-picker .hass=${this.hass} .label=${'Fill Colour'}
                                 .value=${presetConfig.color_a ?? presetConfig.color ?? defaults.color_a ?? 'rgba(0,200,100,0.7)'}
                                 @value-changed=${(e) => this._updatePresetConfig('color_a', e.detail.value)}
                             ></lcards-color-picker>
                         </div>
                         <div class="row">
-                            // @ts-ignore - TS2339: auto-suppressed
                             <lcards-color-picker .hass=${this.hass} .label=${'Edge Tint (optional gradient)'}
                                 .value=${presetConfig.color_b ?? defaults.color_b ?? ''}
                                 @value-changed=${(e) => this._updatePresetConfig('color_b', e.detail.value || null)}
                             ></lcards-color-picker>
                         </div>
                         <div class="row">
-                            // @ts-ignore - TS2339: auto-suppressed
                             <ha-selector .hass=${this.hass}
                                 .selector=${{ number: { min: 0, max: 100, step: 1, mode: 'slider' } }}
                                 .value=${presetConfig.gradient_crossover ?? defaults.gradient_crossover ?? 80}
@@ -248,10 +257,8 @@ export class LCARdSShapeTextureEditor extends LitElement {
                     <!-- Opacity -->
                     <div class="row">
                         <ha-selector
-                            // @ts-ignore - TS2339: auto-suppressed
                             .hass=${this.hass}
                             .selector=${{ number: { min: 0, max: 1, step: 0.05, mode: 'slider' } }}
-                            // @ts-ignore - TS2339: auto-suppressed
                             .value=${this.config?.opacity ?? 0.3}
                             .label=${'Opacity'}
                             .helper=${'0 = invisible · 1 = fully opaque'}
@@ -262,7 +269,6 @@ export class LCARdSShapeTextureEditor extends LitElement {
                     <!-- Blend Mode -->
                     <div class="row">
                         <ha-selector
-                            // @ts-ignore - TS2339: auto-suppressed
                             .hass=${this.hass}
                             .selector=${{ select: {
                                 options: BLEND_MODE_OPTIONS.map(m => ({ value: m.value, label: m.label })),
@@ -286,10 +292,8 @@ export class LCARdSShapeTextureEditor extends LitElement {
                         ${!TURBULENCE_PRESETS.has(preset) ? html`
                             <div class="row">
                                 <ha-selector
-                                    // @ts-ignore - TS2339: auto-suppressed
                                     .hass=${this.hass}
                                     .selector=${{ number: { min: 0, max: 10, step: 0.1, mode: 'slider' } }}
-                                    // @ts-ignore - TS2339: auto-suppressed
                                     .value=${this.config?.speed ?? 1.0}
                                     .label=${'Speed Multiplier'}
                                     .helper=${'Scales all scroll speeds — 0 freezes, 1 = default, 2 = double'}
@@ -806,6 +810,100 @@ export class LCARdSShapeTextureEditor extends LitElement {
                         .label=${'Line Width'}
                         @value-changed=${(e) => this._updatePresetConfig('line_width', e.detail.value)}
                     ></ha-selector></div>`;
+
+            case 'image': {
+                const source = cfg.source ?? cfg.url ?? defaults.source ?? defaults.url ?? '';
+                // Derive mode from explicit state or from the current value
+                const mode   = this._imageSrcMode ?? (source.startsWith('builtin:') ? 'asset' : 'custom');
+                const availableImages = this._getAvailableImages();
+                const showHttpWarning = mode === 'custom' && source.startsWith('http:') &&
+                    typeof location !== 'undefined' && location.protocol === 'https:';
+
+                return html`
+                    <div class="row">
+                        <ha-selector .hass=${this.hass}
+                            .selector=${{ select: { mode: 'dropdown', options: [
+                                { value: 'asset',  label: 'Asset Library (builtin images & SVGs)' },
+                                { value: 'custom', label: 'Custom URL / Template' }
+                            ]}}}
+                            .value=${mode}
+                            .label=${'Image Source'}
+                            @value-changed=${(e) => {
+                                const newMode = e.detail.value;
+                                this._imageSrcMode = newMode;
+                                if (newMode === 'asset' && !source.startsWith('builtin:')) {
+                                    const available = this._getAvailableImages();
+                                    if (available.length > 0) {
+                                        this._updatePresetConfig('source', available[0].value);
+                                    }
+                                }
+                            }}
+                        ></ha-selector>
+                    </div>
+
+                    ${mode === 'asset' ? html`
+                        <div class="row">
+                            <ha-selector .hass=${this.hass}
+                                .selector=${{ select: { mode: 'dropdown', options: availableImages }}}
+                                .value=${availableImages.some(o => o.value === source) ? source : (availableImages[0]?.value ?? '')}
+                                .label=${'Built-in Image'}
+                                .helper=${'Images and SVGs registered in the Asset Library'}
+                                @value-changed=${(e) => this._updatePresetConfig('source', e.detail.value)}
+                            ></ha-selector>
+                        </div>
+                    ` : html`
+                        <div class="row">
+                            <ha-selector .hass=${this.hass}
+                                .selector=${{ text: {} }}
+                                .value=${source}
+                                .label=${'Image URL'}
+                                .helper=${'Path to image: /local/images/room.jpg · https://… · or a template: {entity.attributes.entity_picture}'}
+                                @value-changed=${(e) => this._updatePresetConfig('source', e.detail.value)}
+                            ></ha-selector>
+                        </div>
+                    `}
+
+                    ${showHttpWarning ? html`
+                        <div class="row" style="padding:6px 8px;border-radius:4px;background:rgba(255,193,7,0.15);color:#ffa000;font-size:12px;line-height:1.4;">
+                            ⚠ http:// URLs will be blocked as mixed content when Home Assistant is served over HTTPS.
+                            Use an https:// URL or a /local/ path instead.
+                        </div>
+                    ` : ''}
+
+                    <div class="row">
+                        <ha-selector .hass=${this.hass}
+                            .selector=${{ select: { mode: 'dropdown', options: [
+                                { value: 'cover',   label: 'Cover (fill, may crop)' },
+                                { value: 'contain', label: 'Contain (fit, may letterbox)' },
+                                { value: 'fill',    label: 'Fill (stretch to canvas)' }
+                            ]}}}
+                            .value=${cfg.size ?? defaults.size ?? 'cover'}
+                            .label=${'Size'}
+                            .helper=${'How the image is scaled to fit inside the shape'}
+                            @value-changed=${(e) => this._updatePresetConfig('size', e.detail.value)}
+                        ></ha-selector>
+                    </div>
+
+                    <div class="row">
+                        <ha-selector .hass=${this.hass}
+                            .selector=${{ text: {} }}
+                            .value=${cfg.position ?? defaults.position ?? 'center'}
+                            .label=${'Position'}
+                            .helper=${'CSS background-position value, e.g. "center", "top left", "50% 20%"'}
+                            @value-changed=${(e) => this._updatePresetConfig('position', e.detail.value)}
+                        ></ha-selector>
+                    </div>
+
+                    <div class="row">
+                        <ha-selector .hass=${this.hass}
+                            .selector=${{ boolean: {} }}
+                            .value=${cfg.repeat ?? defaults.repeat ?? false}
+                            .label=${'Tile / Repeat'}
+                            .helper=${'Tile the image across the shape area'}
+                            @value-changed=${(e) => this._updatePresetConfig('repeat', e.detail.value)}
+                        ></ha-selector>
+                    </div>`;
+            }
 
             case 'circuit':
                 return html``; // removed — fall through

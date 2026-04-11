@@ -19,6 +19,7 @@ import { lcardsLog } from '../../utils/lcards-logging.js';
 import { AnimationRegistry } from './AnimationRegistry.js';
 import { TriggerManager } from './TriggerManager.js';
 import { BaseService } from '../BaseService.js';
+import { resolveAnimCommandParams } from './resolveAnimParams.js';
 
 export class AnimationManager extends BaseService {
   constructor(systemsManager) {
@@ -670,7 +671,7 @@ export class AnimationManager extends BaseService {
     try {
       // Resolve datasource-driven parameters if needed
       const resolvedParams = await this.resolveDatasourceParams(animDef);
-      const finalAnimDef = { ...animDef, ...resolvedParams };
+      let finalAnimDef = { ...animDef, ...resolvedParams };
 
       // Get overlay instance from AdvancedRenderer for target resolution
       // Try scope-specific systemsManager first (MSD cards), then fall back to global (simple cards)
@@ -820,24 +821,41 @@ export class AnimationManager extends BaseService {
       // Get HASS context from SystemsManager
       const hass = this.systemsManager?.getHass?.() || this.systemsManager?._hass;
 
+      // Resolve map_range descriptors (duration, delay, params) so they work for
+      // all animation paths, not just the rules engine path
+      finalAnimDef = resolveAnimCommandParams(finalAnimDef, hass);
+
       // Build animation options for animateElement
       // For stagger presets with multiple targets, pass as array directly to animateElement
       // which will handle them properly via anime.js stagger functionality
+
+      // Resolve ease config: combine string ease + ease_params (from params) into the
+      // object form that resolveEasing() understands, e.g.:
+      //   ease: 'irregular' + ease_params: {steps:16} → {type:'irregular', params:{steps:16}}
+      // For simple string easings (inOutQuad, inOutBounce, etc.) easeConfig stays as the string.
+      let easeConfig = finalAnimDef.ease ?? finalAnimDef.easing ?? finalAnimDef.params?.ease ?? finalAnimDef.params?.easing;
+      const _easeParams = finalAnimDef.params?.ease_params;
+      if (easeConfig && typeof easeConfig === 'string' && _easeParams && Object.keys(_easeParams).length > 0) {
+        easeConfig = { type: easeConfig, params: _easeParams };
+      }
+
       const animOptions = {
         type: finalAnimDef.preset || finalAnimDef.type,
         targets: targetElements,  // Pass resolved DOM elements, not original selectors
         root: scopeData.element.getRootNode(),
-        duration: finalAnimDef.duration,
-        easing: finalAnimDef.easing,
-        loop: finalAnimDef.loop,
-        alternate: finalAnimDef.alternate,
-        delay: finalAnimDef.delay,
-        // Pass through preset-specific params but exclude original target/targets selectors
+        // Spread preset-specific params first so that top-level canonical fields
+        // (duration, loop, alternate, delay, ease) take precedence when both are present.
+        // Legacy configs may have these in params; new configs have them at top level.
         ...(finalAnimDef.params || {}),
+        duration: finalAnimDef.duration ?? finalAnimDef.params?.duration,
+        ease: easeConfig,  // 'ease' is the anime.js v4 name; animateElement reads params.ease
+        loop: finalAnimDef.loop ?? finalAnimDef.params?.loop,
+        alternate: finalAnimDef.alternate ?? finalAnimDef.params?.alternate,
+        delay: finalAnimDef.delay ?? finalAnimDef.params?.delay,
         // Pass other animation def properties except targets/target which we already resolved
         ...Object.fromEntries(
           Object.entries(finalAnimDef).filter(([key]) =>
-            !['target', 'targets', 'params', 'preset', 'type', 'duration', 'easing', 'loop', 'alternate', 'delay'].includes(key)
+            !['target', 'targets', 'params', 'preset', 'type', 'duration', 'ease', 'easing', 'loop', 'alternate', 'delay'].includes(key)
           )
         )
       };

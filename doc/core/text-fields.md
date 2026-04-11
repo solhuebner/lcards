@@ -240,7 +240,8 @@ Every card automatically divides its SVG surface into named **zones** — rectan
 
 | Card | Auto zones |
 |------|------------|
-| **Button** (preset mode) | `body` — full card area |
+| **Button** (preset mode, no icon) | `body` = full card area · `full` = full card area (always) |
+| **Button** (preset mode, area icon) | `body` = card area excluding icon strip · `full` = full card area · `icon` = icon strip only |
 | **Button** (component mode) | Named zones sourced from the SVG component's internal `zones` definition — these are declared by the component pack, not by your card config |
 | **Slider** | `track` (inner track bounds) + one zone per enabled border: `left`, `right`, `top`, `bottom` |
 | **Elbow** (simple) | `vertical_bar`, `horizontal_bar`, `body` (open corner area) |

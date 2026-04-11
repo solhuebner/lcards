@@ -801,7 +801,7 @@ export class LCARdSCard extends LCARdSNativeCard {
                     if (this._singletons.rulesEngine.hassUnsubscribe) {
                         lcardsLog.trace(`[LCARdSCard] Entity-based rule monitoring enabled for ${this._getDisplayId()}`);
                     } else {
-                        lcardsLog.warn(`[LCARdSCard] setupHassMonitoring() completed but no subscription created for ${this._getDisplayId()}`);
+                        lcardsLog.debug(`[LCARdSCard] setupHassMonitoring() completed but no subscription created for ${this._getDisplayId()} (likely another card's setup is in progress)`);
                     }
                 } catch (error) {
                     lcardsLog.error(`[LCARdSCard] Failed to setup rule monitoring:`, error);

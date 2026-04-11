@@ -106,10 +106,10 @@ The LCARdS animation system consists of several integrated components:
 |---------|-----------|---------------|
 | **Configuration** | In `rules` array | In `overlay.animations` |
 | **Targeting** | Multi-overlay (tag, type, ID, pattern) | Single overlay (implicit) |
-| **Conditions** | Full RulesEngine logic | State transitions only |
-| **Auto-stop** | Yes (on unmatch) | No |
+| **Conditions** | Full RulesEngine logic | State, attribute, simple numeric (`while`) |
+| **Auto-stop** | Yes (on unmatch) | Yes — with `while` + `loop: true` |
 | **Cross-card** | Yes | No |
-| **Best for** | Complex logic, coordination | Simple reactions |
+| **Best for** | Complex logic, coordination | Simple reactions, inline config |
 
 ## Debugging
 

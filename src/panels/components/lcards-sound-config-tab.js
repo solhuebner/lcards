@@ -425,7 +425,7 @@ export class LCARdSSoundConfigTab extends LitElement {
             <div class="overrides-header-row">
               <lcards-message
                 type="info"
-                message="Overrides are stored in this browser only — configure each device separately."
+                message="Overrides are stored in LCARdS Integration persistent storage.  See Storage tab for details."
               ></lcards-message>
               ${Object.keys(this._overrides).length > 0 ? html`
                 <ha-button @click=${this._resetOverrides} class="reset-overrides-btn">

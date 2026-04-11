@@ -234,8 +234,7 @@ export class LCARdSStorageExplorerTab extends LitElement {
       if (sm) {
         sm._overridesCache  = {};
         sm._overridesLoaded = true; // keep loaded=true to prevent a re-read race
-        try { localStorage.removeItem('lcards_sound_overrides'); } catch { /* ignore */ }
-        lcardsLog.debug('[StorageExplorer] SoundManager cache + localStorage cleared after reset');
+        lcardsLog.debug('[StorageExplorer] SoundManager cache cleared after reset');
       }
 
       lcardsLog.info('[StorageExplorer] Reset all storage');

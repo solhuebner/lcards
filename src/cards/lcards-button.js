@@ -105,9 +105,7 @@ export class LCARdSButton extends LCARdSCard {
                     width: 100%;
                     height: 100%;
                     position: relative;
-                    /* overflow:hidden clips the absolutely-positioned SVG to this box
-                     * during the one-frame gap before ResizeObserver fires on first load */
-                    overflow: hidden;
+                    overflow: visible;
                     /* --lcards-button-min-height / --lcards-button-min-width control the
                      * visible floor/minimum in edge cases where the height/width 100% chain
                      * collapses (e.g. card-mod height:auto override via shadow DOM).
@@ -135,6 +133,7 @@ export class LCARdSButton extends LCARdSCard {
                     display: block;
                     width: 100%;
                     height: 100%;
+                    overflow: visible;
                     cursor: pointer;
                 }
             `
@@ -4504,6 +4503,17 @@ export class LCARdSButton extends LCARdSCard {
                 // Standard mode: text in outer button SVG (pixel space), zone-aware.
                 // _rebuildZones must be called here (not earlier) because width/height
                 // are computed just-in-time for every render in _renderButtonContent().
+                //
+                // Capture icon geometry so _calculateZones can produce an icon-safe
+                // 'body' zone (mirroring elbow semantics where 'body' = usable interior)
+                // alongside a 'full' zone that always spans the entire card.
+                this._iconGeometry = usesIconArea && !hasExplicitCoords
+                    ? {
+                        area:        iconArea,
+                        widthUsed:   iconData.widthUsed  || 0,
+                        heightUsed:  iconData.heightUsed || 0
+                      }
+                    : null;
                 this._rebuildZones(width, height);
                 textMarkup = this._generateZoneTextMarkup(textFields);
             }
@@ -5738,8 +5748,45 @@ export class LCARdSButton extends LCARdSCard {
                 this._zones.set(name, { bounds: { x: ta.x, y: ta.y, width: ta.width, height: ta.height } });
             }
         } else {
-            // Default (non-component) button: single 'body' zone = full card area.
-            this._zones.set('body', { bounds: { x: 0, y: 0, width, height } });
+            // 'full' — always the entire card surface; use zone: full to intentionally
+            // overlap the icon strip (e.g. for decorative / absolute-positioned text).
+            this._zones.set('full', { bounds: { x: 0, y: 0, width, height } });
+
+            // 'body' — the usable interior, mirroring elbow semantics where 'body' is
+            // inset from the structural bars.  When an area-based icon is present the
+            // zone is shrunk to exclude the icon strip + divider so that default text
+            // fields never overlap the icon.  When no area icon is active body === full.
+            const geo = this._iconGeometry;  // set by _generateButtonSVG just before _rebuildZones
+            let bodyBounds;
+            let iconBounds = null;
+            if (geo && geo.widthUsed > 0 && (geo.area === 'left' || geo.area === 'right')) {
+                // Left/right area icon: shrink body horizontally
+                if (geo.area === 'left') {
+                    iconBounds = { x: 0,                    y: 0, width: geo.widthUsed,              height };
+                    bodyBounds = { x: geo.widthUsed,        y: 0, width: width - geo.widthUsed,      height };
+                } else {
+                    iconBounds = { x: width - geo.widthUsed, y: 0, width: geo.widthUsed,             height };
+                    bodyBounds = { x: 0,                     y: 0, width: width - geo.widthUsed,     height };
+                }
+            } else if (geo && geo.heightUsed > 0 && (geo.area === 'top' || geo.area === 'bottom')) {
+                // Top/bottom area icon: shrink body vertically
+                if (geo.area === 'top') {
+                    iconBounds = { x: 0, y: 0,                      width, height: geo.heightUsed            };
+                    bodyBounds = { x: 0, y: geo.heightUsed,         width, height: height - geo.heightUsed  };
+                } else {
+                    iconBounds = { x: 0, y: height - geo.heightUsed, width, height: geo.heightUsed           };
+                    bodyBounds = { x: 0, y: 0,                       width, height: height - geo.heightUsed  };
+                }
+            } else {
+                // No area icon (flexible / none / absent) → body == full
+                bodyBounds = { x: 0, y: 0, width, height };
+            }
+            this._zones.set('body', { bounds: bodyBounds });
+            // 'icon' — the icon strip itself; only registered when an area-based icon
+            // is present so users can place overlay text inside the icon area.
+            if (iconBounds) {
+                this._zones.set('icon', { bounds: iconBounds });
+            }
         }
     }
 

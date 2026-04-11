@@ -205,12 +205,13 @@ function processOverlayAnimations(overlayId, animations, customPresets, issues =
       'on_load',
       'on_tap',
       'on_hover',
-      'on_leave',         // ✨ NEW: Phase 1.5 - stops hover animations
-      'on_double_tap',    // Already supported in Phase 1
+      'on_leave',
+      'on_double_tap',
       'on_hold',
+      'on_entity_change',
       'on_redraw',
       'on_exit',
-      'on_datasource_change'  // ✨ NEW: Phase 2 - reactive animations
+      'on_datasource_change'
     ];
 
     if (animDef.trigger && !validTriggers.includes(animDef.trigger)) {
@@ -235,14 +236,14 @@ function processOverlayAnimations(overlayId, animations, customPresets, issues =
       }
     }
 
-    // ✨ NEW: Phase 2 - Warn about deprecated 'when' property
+    // Warn about deprecated 'when' property — replaced by 'while' for inline use
     if (animDef.when) {
       issues.push({
         severity: 'warning',
-        message: `Animation ${index} for overlay "${overlayId}" uses 'when' property - conditions should be defined in rules instead. This property will be ignored.`,
+        message: `Animation ${index} for overlay "${overlayId}" uses deprecated 'when' property which is ignored. Use 'while' for inline lifecycle conditions (on_entity_change + loop: true), or move to a rule for complex multi-entity conditions.`,
         overlayId,
         animationIndex: index,
-        suggestion: 'Move conditions to a rule in the rules section with apply.overlays[].animations'
+        suggestion: `Replace 'when' with 'while: { state: \'your_state\' }' on the animation definition, or define a rule in the rules section.`
       });
     }
 

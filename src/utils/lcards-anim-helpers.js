@@ -25,6 +25,7 @@ const _LCARDS_META_PARAMS = new Set([
   'grid',         // Stagger: grid dimensions consumed by stagger() — not an anime.js anim param
   'trigger',      // AnimationManager: when to fire (on_load, on_tap…) — not anime.js
   'easing',       // v3 alias: anime.js v4 uses 'ease' not 'easing'
+  'ease_params',  // LCARdS: parametric ease config (merged into ease object before animateElement)
   'amplitude',    // stagger-wave preset meta-param (converted to property value by preset)
   // stagger-flash meta-params — consumed by preset / WAAPI setup, not anime.js
   'lead_color',
