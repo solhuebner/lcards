@@ -22,6 +22,7 @@ import {
   renderThemePreview,
   rendererStyles
 } from '../../dialogs/pack-explorer/renderers/asset-renderers.js';
+import { CANVAS_TEXTURE_PRESETS } from '../../../core/packs/textures/presets/index.js';
 
 export class LCARdSPackExplorerTab extends LitElement {
   static get properties() {
@@ -426,6 +427,52 @@ export class LCARdSPackExplorerTab extends LitElement {
         max-width: 400px;
       }
 
+      .image-preview-container {
+        background: rgba(40,40,40,0.7);
+        border-radius: var(--ha-card-border-radius, 12px);
+        padding: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 120px;
+        overflow: hidden;
+      }
+
+      .image-preview-container img {
+        max-width: 100%;
+        max-height: 400px;
+        border-radius: 6px;
+        object-fit: contain;
+      }
+
+      .texture-preset-defaults {
+        background: rgba(0,0,0,0.3);
+        border-radius: 6px;
+        padding: 10px 14px;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        white-space: pre-wrap;
+        overflow: auto;
+        max-height: 200px;
+      }
+
+      .texture-swatch {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+      }
+
+      .texture-swatch-dot {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        border: 1px solid rgba(255,255,255,0.2);
+        flex-shrink: 0;
+      }
+
       .preset-preview-container {
         background: rgba(60,60,60,0.5);
         border: 1px solid var(--divider-color);
@@ -710,6 +757,56 @@ export class LCARdSPackExplorerTab extends LitElement {
         packNode.children.push(audioNode);
       }
 
+      // Add image assets category
+      const imageAssets = this._getAssetsForPack('image', pack.id);
+      if (imageAssets.length > 0) {
+        const imageNode = {
+          id: `${packNode.id}_image_assets`,
+          type: 'category',
+          label: `🖼️ Images (${imageAssets.length})`,
+          icon: '🖼️',
+          data: { category: 'image_assets', packId: pack.id },
+          children: []
+        };
+
+        imageAssets.forEach(asset => {
+          imageNode.children.push({
+            id: `image_${asset.key}`,
+            type: 'image_asset',
+            label: asset.label || asset.key,
+            icon: '🖼️',
+            data: asset
+          });
+        });
+
+        packNode.children.push(imageNode);
+      }
+
+      // Add texture presets category (lcards_textures pack — presets defined in CANVAS_TEXTURE_PRESETS)
+      if (pack.id === 'lcards_textures') {
+        const textureEntries = Object.entries(CANVAS_TEXTURE_PRESETS);
+        const textureNode = {
+          id: `${packNode.id}_texture_presets`,
+          type: 'category',
+          label: `🎞️ Texture Presets (${textureEntries.length})`,
+          icon: '🎞️',
+          data: { category: 'texture_presets', packId: pack.id },
+          children: []
+        };
+
+        textureEntries.forEach(([key, preset]) => {
+          textureNode.children.push({
+            id: `texture_${key}`,
+            type: 'texture_preset',
+            label: preset.name,
+            icon: '🎞️',
+            data: { key, ...preset }
+          });
+        });
+
+        packNode.children.push(textureNode);
+      }
+
       tree.push(packNode);
     });
 
@@ -718,14 +815,15 @@ export class LCARdSPackExplorerTab extends LitElement {
   }
 
   /**
-   * Get total asset count for a pack (SVG + font + audio)
+   * Get total asset count for a pack (SVG + font + audio + image)
    * @private
    */
   _getAssetCountForPack(packId) {
     const svgCount = this._getAssetsForPack('svg', packId).length;
     const fontCount = this._getAssetsForPack('font', packId).length;
     const audioCount = this._getAssetsForPack('audio', packId).length;
-    return svgCount + fontCount + audioCount;
+    const imageCount = this._getAssetsForPack('image', packId).length;
+    return svgCount + fontCount + audioCount + imageCount;
   }
 
   /**
@@ -889,6 +987,10 @@ export class LCARdSPackExplorerTab extends LitElement {
         return this._renderFontAssetDetail(node.data);
       case 'audio_asset':
         return this._renderAudioAssetDetail(node.data);
+      case 'image_asset':
+        return this._renderImageAssetDetail(node.data);
+      case 'texture_preset':
+        return this._renderTexturePresetDetail(node.data);
       case 'category':
         return this._renderCategoryDetail(node);
       default:
@@ -956,6 +1058,8 @@ export class LCARdSPackExplorerTab extends LitElement {
           ${this._renderStatCard('🖼️', this._getAssetsForPack('svg', pack.id).length, 'SVG')}
           ${this._renderStatCard('🔤', this._getAssetsForPack('font', pack.id).length, 'Fonts')}
           ${this._renderStatCard('🔊', this._getAssetsForPack('audio', pack.id).length, 'Audio')}
+          ${this._renderStatCard('📷', this._getAssetsForPack('image', pack.id).length, 'Images')}
+          ${pack.id === 'lcards_textures' ? this._renderStatCard('🎞️', Object.keys(CANVAS_TEXTURE_PRESETS).length, 'Textures') : ''}
         </div>
       </div>
     `;
@@ -1494,6 +1598,120 @@ export class LCARdSPackExplorerTab extends LitElement {
           </div>
         </div>
       ` : ''}
+    `;
+  }
+
+  _renderImageAssetDetail(asset) {
+    return html`
+      <div class="detail-section">
+        <h4>Image Asset</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">Key:</span>
+            <span class="detail-value">${asset.key}</span>
+          </div>
+          ${asset.label ? html`
+            <div class="detail-item">
+              <span class="detail-label">Label:</span>
+              <span class="detail-value">${asset.label}</span>
+            </div>
+          ` : ''}
+          ${asset.category ? html`
+            <div class="detail-item">
+              <span class="detail-label">Category:</span>
+              <span class="detail-value">${asset.category}</span>
+            </div>
+          ` : ''}
+          ${asset.url ? html`
+            <div class="detail-item">
+              <span class="detail-label">URL:</span>
+              <span class="detail-value" style="word-break:break-all">${asset.url}</span>
+            </div>
+          ` : ''}
+          ${asset.description ? html`
+            <div class="detail-item">
+              <span class="detail-label">Description:</span>
+              <span class="detail-value">${asset.description}</span>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+
+      ${asset.url ? html`
+        <div class="detail-section">
+          <h4>Preview</h4>
+          <div class="image-preview-container">
+            <img
+              src="${asset.url}"
+              alt="${asset.label || asset.key}"
+              @error=${(e) => { e.target.style.display='none'; e.target.insertAdjacentHTML('afterend', '<span style="color:var(--secondary-text-color)">Image not found</span>'); }}
+            />
+          </div>
+        </div>
+        <div class="detail-section">
+          <h4>Usage</h4>
+          <div class="texture-preset-defaults">source: builtin:${asset.key}</div>
+        </div>
+      ` : ''}
+    `;
+  }
+
+  _renderTexturePresetDetail(data) {
+    const { key, name, description, defaults } = data;
+    // Extract color swatches from defaults
+    const colorKeys = Object.entries(defaults || {}).filter(([k, v]) => typeof v === 'string' && v.startsWith('rgba'));
+    const defaultsText = JSON.stringify(
+      Object.fromEntries(Object.entries(defaults || {}).map(([k, v]) => [k, v])),
+      null, 2
+    );
+    return html`
+      <div class="detail-section">
+        <h4>Texture Preset</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span class="detail-label">Key:</span>
+            <span class="detail-value">${key}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Name:</span>
+            <span class="detail-value">${name}</span>
+          </div>
+          ${description ? html`
+            <div class="detail-item">
+              <span class="detail-label">Description:</span>
+              <span class="detail-value">${description}</span>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+
+      ${colorKeys.length > 0 ? html`
+        <div class="detail-section">
+          <h4>Default Colours</h4>
+          <div class="detail-grid">
+            ${colorKeys.map(([k, v]) => html`
+              <div class="detail-item">
+                <span class="detail-label">${k}</span>
+                <span class="texture-swatch">
+                  <span class="texture-swatch-dot" style="background:${v}"></span>
+                  ${v}
+                </span>
+              </div>
+            `)}
+          </div>
+        </div>
+      ` : ''}
+
+      <div class="detail-section">
+        <h4>Default Config</h4>
+        <div class="texture-preset-defaults">${defaultsText}</div>
+      </div>
+
+      <div class="detail-section">
+        <h4>Usage</h4>
+        <div class="texture-preset-defaults">shape_texture:
+  preset: ${key}</div>
+      </div>
     `;
   }
 
