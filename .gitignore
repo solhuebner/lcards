@@ -420,6 +420,7 @@ custom_components/lcards/lcards.js.map
 custom_components/lcards/fonts/
 custom_components/lcards/msd/
 custom_components/lcards/sounds/
+custom_components/lcards/images/
 
 # VitePress build output & cache
 docs/site/
