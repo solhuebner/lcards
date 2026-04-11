@@ -4,7 +4,6 @@
  * Tabbed interface for managing LCARdS persistent configuration:
  * - Helpers tab: View status, create, and edit helper values
  * - Theme Browser tab: Theme tokens and alert mode configuration
- * - YAML Export tab: Copyable YAML for manual setup
  *
  * This panel must be registered manually in Home Assistant's configuration.yaml:
  *
@@ -135,23 +134,53 @@ export class LCARdSConfigPanel extends LitElement {
     }
 
     .header {
-      padding: 24px 24px 16px;
-      border-bottom: 1px solid var(--divider-color);
-      background: var(--card-background-color);
+      display: flex;
+      align-items: center;
+      gap: 0;
+      background: var(--lcars-ui-primary, #1b4f8a);
+      overflow: hidden;
+      min-height: 68px;
       flex-shrink: 0;
     }
 
-    .header h1 {
-      font-size: 1.8em;
-      margin: 0 0 4px 0;
-      color: var(--primary-text-color);
-      font-weight: 500;
+    .banner-logo {
+      height: 52px;
+      width: auto;
+      margin: 0 16px 0 12px;
+      flex-shrink: 0;
+      object-fit: contain;
     }
 
-    .header p {
-      margin: 0;
-      color: var(--secondary-text-color);
+    .banner-content {
+      flex: 1;
+      padding: 14px 20px;
+    }
+
+    .banner-title {
+      font-size: 2em;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: white;
+      line-height: 1;
+      text-transform: uppercase;
+      font-family: var(--lcars-font-family, 'Antonio', sans-serif);
+    }
+
+    .banner-subtitle {
+      font-size: 0.82em;
+      color: rgba(255,255,255,0.72);
+      margin-top: 3px;
+      letter-spacing: 0.04em;
+    }
+
+    .banner-version {
+      padding: 0 20px;
       font-size: 0.95em;
+      font-weight: 600;
+      color: rgba(255,255,255,0.55);
+      letter-spacing: 0.1em;
+      white-space: nowrap;
+      font-family: var(--lcars-font-family, 'Antonio', sans-serif);
     }
 
     /* HA Native Tab Styling */
@@ -327,21 +356,6 @@ export class LCARdSConfigPanel extends LitElement {
       padding: 12px 24px;
       font-size: 1em;
       margin-bottom: 16px;
-    }
-
-    .yaml-output {
-      background: var(--code-editor-background-color, #1e1e1e);
-      color: var(--code-editor-text-color, #d4d4d4);
-      padding: 16px;
-      border-radius: 8px;
-      font-family: 'Courier New', monospace;
-      font-size: 0.9em;
-      white-space: pre;
-      overflow-x: auto;
-      max-height: 600px;
-      overflow-y: auto;
-      margin-top: 12px;
-      border: 1px solid var(--divider-color);
     }
 
     /* Empty State */
@@ -689,35 +703,6 @@ export class LCARdSConfigPanel extends LitElement {
     }
   }
 
-  _copyYAMLToClipboard() {
-    const yaml = this._generateYAML();
-
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(yaml).then(() => {
-        this._showSuccess('YAML copied to clipboard');
-      }).catch(err => {
-        this._showError('Failed to copy YAML');
-      });
-    } else {
-      // Fallback for older browsers
-      const textarea = document.createElement('textarea');
-      textarea.value = yaml;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-      this._showSuccess('YAML copied to clipboard');
-    }
-  }
-
-  _generateYAML() {
-    if (!window.lcards?.core?.helperManager) {
-      return '# Helper Manager not available';
-    }
-
-    return window.lcards.core.helperManager.generateYAML();
-  }
-
   _showSuccess(message) {
     lcardsLog.info(`[ConfigPanel] Success: ${message}`);
 
@@ -760,18 +745,32 @@ export class LCARdSConfigPanel extends LitElement {
     }));
   }
 
+  _getVersion() {
+    return window.lcards?.version ?? '';
+  }
+
   render() {
+    const version = this._getVersion();
     return html`
       <div class="panel-container">
         <div class="header">
-          <h1>🖖 LCARdS Configuration</h1>
-          <p>Manage persistent configuration via Home Assistant input helpers</p>
+          <img
+            class="banner-logo"
+            src="/hacsfiles/lcards/brand/icon@2x.png"
+            alt="LCARdS"
+            @error=${(e) => { e.target.style.display = 'none'; }}
+          />
+          <div class="banner-content">
+            <div class="banner-title">LCARdS</div>
+            <div class="banner-subtitle">LCARS Card System for Home Assistant</div>
+          </div>
+          <div class="banner-version">${version ? html`v${version}` : ''}</div>
         </div>
 
         <ha-tab-group @wa-tab-show=${this._handleTabChange}>
           <ha-tab-group-tab value="0" ?active=${this._selectedTab === 0}>
             <ha-icon icon="mdi:information-outline"></ha-icon>
-            About
+            Welcome
           </ha-tab-group-tab>
           <ha-tab-group-tab value="1" ?active=${this._selectedTab === 1}>
             <ha-icon icon="mdi:cog"></ha-icon>
@@ -792,10 +791,6 @@ export class LCARdSConfigPanel extends LitElement {
           <ha-tab-group-tab value="5" ?active=${this._selectedTab === 5}>
             <ha-icon icon="mdi:database-cog"></ha-icon>
             Storage
-          </ha-tab-group-tab>
-          <ha-tab-group-tab value="6" ?active=${this._selectedTab === 6}>
-            <ha-icon icon="mdi:code-braces"></ha-icon>
-            YAML Export
           </ha-tab-group-tab>
         </ha-tab-group>
 
@@ -829,8 +824,6 @@ export class LCARdSConfigPanel extends LitElement {
         return this._renderPackExplorerTab();
       case 5:
         return this._renderStorageTab();
-      case 6:
-        return this._renderYAMLTab();
       default:
         return html`<div>Unknown tab</div>`;
     }
@@ -841,6 +834,10 @@ export class LCARdSConfigPanel extends LitElement {
       <div class="studio-layout">
         <lcards-about-tab
           .hass=${this.hass}
+          @lcards-navigate-tab=${(e) => {
+            this._selectedTab = e.detail.tab;
+            this.requestUpdate();
+          }}
         ></lcards-about-tab>
       </div>
     `;
@@ -1209,26 +1206,6 @@ export class LCARdSConfigPanel extends LitElement {
     `;
   }
 
-  _renderYAMLTab() {
-    const yaml = this._generateYAML();
-
-    return html`
-      <div class="card">
-          <h2>
-            <ha-icon icon="mdi:code-braces"></ha-icon>
-            YAML Configuration
-          </h2>
-          <p>Copy this YAML to your Home Assistant <code>configuration.yaml</code> to manually create helpers:</p>
-
-          <ha-button raised @click=${this._copyYAMLToClipboard}>
-            <ha-icon icon="mdi:content-copy"></ha-icon>
-            Copy to Clipboard
-          </ha-button>
-
-          <div class="yaml-output">${yaml}</div>
-        </div>
-    `;
-  }
 }
 
 if (!customElements.get('lcards-config-panel')) customElements.define('lcards-config-panel', LCARdSConfigPanel);

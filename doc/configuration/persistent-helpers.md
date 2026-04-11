@@ -52,7 +52,7 @@ The [Alert Mode Lab](alert-mode-lab.md) creates and manages a set of `input_numb
 
 ## Manual YAML Setup
 
-If you prefer to define helpers manually rather than using the Config Panel, use the **YAML Export** tab in the Config Panel, or add the following to `configuration.yaml`:
+If you prefer to define helpers manually rather than using the Config Panel, add the following to `configuration.yaml`:
 
 ### Alert Mode
 

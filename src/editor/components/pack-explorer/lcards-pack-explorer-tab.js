@@ -1059,7 +1059,7 @@ export class LCARdSPackExplorerTab extends LitElement {
           ${this._renderStatCard('🔤', this._getAssetsForPack('font', pack.id).length, 'Fonts')}
           ${this._renderStatCard('🔊', this._getAssetsForPack('audio', pack.id).length, 'Audio')}
           ${this._renderStatCard('📷', this._getAssetsForPack('image', pack.id).length, 'Images')}
-          ${pack.id === 'lcards_textures' ? this._renderStatCard('🎞️', Object.keys(CANVAS_TEXTURE_PRESETS).length, 'Textures') : ''}
+          ${this._renderStatCard('🎞️', this._getTextureCountForPack(pack.id), 'Textures')}
         </div>
       </div>
     `;
@@ -1087,6 +1087,15 @@ export class LCARdSPackExplorerTab extends LitElement {
   _getAnimationCountForPack(packId) {
     const animations = window.lcards?.core?.animationRegistry?.getAnimationsWithMetadata() || [];
     return animations.filter(a => a.pack === packId).length;
+  }
+
+  /**
+   * Get texture preset count for a pack.
+   * All Canvas2D texture presets live in the lcards_textures pack; other packs return 0.
+   * @private
+   */
+  _getTextureCountForPack(packId) {
+    return packId === 'lcards_textures' ? Object.keys(CANVAS_TEXTURE_PRESETS).length : 0;
   }
 
   _renderThemeDetail(theme) {

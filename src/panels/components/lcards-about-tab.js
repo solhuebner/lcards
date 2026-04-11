@@ -1,11 +1,10 @@
 /**
  * @fileoverview LCARdS About / Welcome Tab
  *
- * Displays a welcome banner, version info, live runtime stats,
- * and quick links to documentation and GitHub.
- *
- * Stats are gathered lazily from window.lcards.core on each render so the
- * numbers stay current even if the panel is opened before full core init.
+ * Displays a Get Started checklist, a Panel Guide with clickable tab
+ * navigation cards, and resource links. Fires `lcards-navigate-tab`
+ * (bubbles, composed) when the user clicks a Panel Guide card so the
+ * parent config panel can switch tabs without tight coupling.
  *
  * @element lcards-about-tab
  */
@@ -13,89 +12,71 @@
 import { LitElement, html, css } from 'lit';
 import { lcardsLog } from '../../utils/lcards-logging.js';
 
-/**
- * @typedef {{ label: string; value: string | number; icon: string; _ok?: boolean; _alert?: boolean; _warn?: boolean; }} StatItem
- */
-
 export class LCARdSAboutTab extends LitElement {
   static properties = {
     hass: { type: Object },
-    /** Trigger a re-render on a manual "Refresh" press */
-    _refreshTick: { type: Number, state: true },
   };
 
   constructor() {
     super();
     /** @type {any} */
     this.hass = undefined;
-    this._refreshTick = 0;
   }
 
   // ============================================================================
-  // STATS HELPERS
+  // TAB GUIDE DEFINITIONS
   // ============================================================================
 
-  _getVersion() {
-    return window.lcards?.version ?? 'unknown';
-  }
-
-  _getBuildDate() {
-    const core = window.lcards?.core;
-    // Build date is stamped on the info function result; also available via the
-    // __LCARDS_BUILD_DATE__ define but not importable here at runtime.
-    // Fall back to window.lcards.info() if available.
-    try {
-      const info = window.lcards?.info?.();
-      return info?.buildDate ?? '—';
-    } catch {
-      return '—';
-    }
-  }
-
-  _getHAVersion() {
-    return this.hass?.config?.version ?? '—';
-  }
-
-  /** @returns {StatItem[]} */
-  _gatherStats() {
-    const core = window.lcards?.core;
-    const coreReady = !!core?._coreInitialized;
-
-    const activeTheme = core?.themeManager?.getActiveTheme?.()?.id ?? '—';
-    const alertMode  = core?.themeManager?.getAlertMode?.() ?? 'off';
-    const dsCount    = core?.dataSourceManager
-      ? Object.keys(core.dataSourceManager.sources ?? {}).length
-      : 0;
-    const packCount  = core?.packManager?.loadedPacks?.size ?? 0;
-    const helperTotal = core?.helperManager ? core.helperManager.getAllHelpers().length : 0;
-    const helperMissing = core?.helperManager ? core.helperManager.getMissingHelpers().length : 0;
-    const helperOk   = helperTotal - helperMissing;
-
-    // Registered card types from window.customCards — deduplicate by type in
-    // case the bundle was evaluated more than once and entries were pushed twice.
-    const cardTypes = new Set(
-      (window.customCards ?? [])
-        .filter(c => typeof c.type === 'string' && c.type.startsWith('lcards-'))
-        .map(c => c.type)
-    ).size;
-
+  static get _TAB_GUIDE() {
     return [
-      { icon: 'mdi:tag-outline',         label: 'Version',         value: this._getVersion() },
-      { icon: 'mdi:calendar-outline',    label: 'Build Date',      value: this._getBuildDate() },
-      { icon: 'mdi:home-assistant',      label: 'Home Assistant',  value: this._getHAVersion() },
-      { icon: 'mdi:check-circle-outline',label: 'Core Status',     value: coreReady ? 'Initialized' : 'Pending…', _ok: coreReady },
-      { icon: 'mdi:palette',             label: 'Active Theme',    value: activeTheme },
-      { icon: 'mdi:alert-circle-outline',label: 'Alert Mode',      value: alertMode === 'off' ? 'Off' : alertMode.toUpperCase(), _alert: alertMode !== 'off' },
-      { icon: 'mdi:package-variant',     label: 'Loaded Packs',    value: packCount },
-      { icon: 'mdi:cards-outline',       label: 'Card Types',      value: cardTypes },
-      { icon: 'mdi:database-outline',    label: 'Data Sources',    value: dsCount },
-      { icon: 'mdi:tune',                label: 'Helpers',         value: `${helperOk} / ${helperTotal}`, _warn: helperMissing > 0 },
+      {
+        index: 1,
+        icon: 'mdi:cog',
+        label: 'Helpers',
+        desc: 'Create and manage the HA input helpers LCARdS and HA-LCARS use to store dynamic configuration values',
+      },
+      {
+        index: 2,
+        icon: 'mdi:palette-swatch',
+        label: 'Alert Lab & Theme Browser',
+        desc: 'Customize and preview how colours are derived for ALERT modes.  You can also browse tokens and CSS variables in the system for easy visual reference',
+      },
+      {
+        index: 3,
+        icon: 'mdi:volume-high',
+        label: 'Sounds',
+        desc: 'Select sound schemes and customize/preview sounds for alert modes and interactions types',
+      },
+      {
+        index: 4,
+        icon: 'mdi:package-variant',
+        label: 'Pack Explorer',
+        desc: 'Browse the pre-built content packs that add cards styles, fonts, sounds, images and more',
+      },
+      {
+        index: 5,
+        icon: 'mdi:database-cog',
+        label: 'Storage',
+        desc: 'Advanced: Inspect and manage the raw key/value data LCARdS stores for persistent configuration (data that is not stored in HA helpers - use with caution)',
+      },
     ];
   }
 
-  _refresh() {
-    this._refreshTick++;
-    lcardsLog.debug('[AboutTab] Manual refresh triggered');
+  // ============================================================================
+  // NAVIGATION
+  // ============================================================================
+
+  /**
+   * Fire a bubbling event so the parent config panel switches to the given tab.
+   * @param {number} tabIndex
+   */
+  _navigateToTab(tabIndex) {
+    this.dispatchEvent(new CustomEvent('lcards-navigate-tab', {
+      detail: { tab: tabIndex },
+      bubbles: true,
+      composed: true,
+    }));
+    lcardsLog.debug(`[AboutTab] Navigating to tab ${tabIndex}`);
   }
 
   // ============================================================================
@@ -103,65 +84,63 @@ export class LCARdSAboutTab extends LitElement {
   // ============================================================================
 
   render() {
-    const stats = this._gatherStats();
-    const version = this._getVersion();
-
     return html`
       <div class="scrollable-body">
 
-      <!-- ── Banner ─────────────────────────────────────────────── -->
-      <div class="banner">
-        <div class="banner-left-bar"></div>
-        <img
-          class="banner-logo"
-          src="/hacsfiles/lcards/brand/icon@2x.png"
-          alt="LCARdS logo"
-          @error=${(e) => { e.target.style.display = 'none'; }}
-        />
-        <div class="banner-content">
-          <div class="banner-title">LCARdS</div>
-          <div class="banner-subtitle">LCARS Card System for Home Assistant</div>
-        </div>
-        <div class="banner-version">v${version}</div>
-        <div class="banner-right-bar"></div>
-      </div>
-
-      <!-- ── Intro text ──────────────────────────────────────────── -->
-      <div class="section intro-section">
-        <p class="intro-text">
-          Welcome to <strong>LCARdS</strong> — a Lit-based LCARS-inspired card system bringing
-          Starfleet aesthetics to your Home Assistant dashboard. Use the tabs above to manage
-          helpers, explore themes, configure sounds, and more.
-        </p>
-        <p class="intro-text">
-          Questions, bugs, or ideas? Head to the links in the <em>Resources</em> section below.
-          Live long and automate. 🖖
-        </p>
-      </div>
-
-      <!-- ── Stats grid ─────────────────────────────────────────── -->
+      <!-- ── Getting Started ───────────────────────────────────────── -->
       <div class="section">
         <div class="section-header">
-          <ha-icon icon="mdi:information-outline"></ha-icon>
-          System Information
-          <ha-icon-button
-            class="refresh-btn"
-            label="Refresh"
-            title="Refresh stats"
-            @click=${this._refresh}
-          >
-            <ha-icon icon="mdi:refresh"></ha-icon>
-          </ha-icon-button>
+          <ha-icon icon="mdi:rocket-launch-outline"></ha-icon>
+          Getting Started
         </div>
+        <ol class="steps-list">
+          <li class="step">
+            <div class="step-number">1</div>
+            <div class="step-body">
+              <span class="step-title">Create Helpers</span>
+              <span class="step-desc">Setup LCARdS and HA-LCARS input helper entities - used to dynamically configure certain settings</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-number">2</div>
+            <div class="step-body">
+              <span class="step-title">Customize ALERT Modes</span>
+              <span class="step-desc">Customize your LCARS alert mode visuals from the Alert Lab</span>
+            </div>
+          </li>
+          <li class="step">
+            <div class="step-number">3</div>
+            <div class="step-body">
+              <span class="step-title">Customize Sounds</span>
+              <span class="step-desc">Configure audio feedback for alert modes and card interactions — assign sounds and adjust volume levels</span>
+            </div>
+          </li>
+        </ol>
+      </div>
 
-        <div class="stats-grid">
-          ${stats.map(s => html`
-            <div class="stat-item ${s._alert ? 'stat-alert' : s._warn ? 'stat-warn' : s._ok === false ? 'stat-pending' : ''}">
-              <ha-icon icon="${s.icon}" class="stat-icon"></ha-icon>
-              <div class="stat-body">
-                <span class="stat-label">${s.label}</span>
-                <span class="stat-value">${s.value}</span>
+      <!-- ── Panel Guide ───────────────────────────────────────── -->
+      <div class="section">
+        <div class="section-header">
+          <ha-icon icon="mdi:view-dashboard-outline"></ha-icon>
+          Panel Guide
+        </div>
+        <div class="tab-guide-grid">
+          ${LCARdSAboutTab._TAB_GUIDE.map(tab => html`
+            <div
+              class="tab-guide-card"
+              role="button"
+              tabindex="0"
+              @click=${() => this._navigateToTab(tab.index)}
+              @keydown=${(e) => e.key === 'Enter' && this._navigateToTab(tab.index)}
+            >
+              <div class="tab-guide-icon">
+                <ha-icon icon="${tab.icon}"></ha-icon>
               </div>
+              <div class="tab-guide-body">
+                <span class="tab-guide-title">${tab.label}</span>
+                <span class="tab-guide-desc">${tab.desc}</span>
+              </div>
+              <ha-icon icon="mdi:arrow-right" class="tab-guide-arrow"></ha-icon>
             </div>
           `)}
         </div>
@@ -204,7 +183,7 @@ export class LCARdSAboutTab extends LitElement {
           <a class="link-card" href="https://github.com/snootched/LCARdS/releases" target="_blank" rel="noopener">
             <ha-icon icon="mdi:tag-multiple-outline"></ha-icon>
             <div class="link-body">
-              <span class="link-title">Release Notes</span>
+              <span class="link-title">Releases</span>
               <span class="link-url">github.com/snootched/LCARdS/releases</span>
             </div>
             <ha-icon icon="mdi:open-in-new" class="link-external"></ha-icon>
@@ -214,7 +193,8 @@ export class LCARdSAboutTab extends LitElement {
 
       <!-- ── Legal / attribution ───────────────────────────────── -->
       <div class="footer">
-        LCARdS is licensed MIT &nbsp;·&nbsp; LCARS aesthetics inspired by Star Trek, a&nbsp;trademark of CBS/Paramount
+        LCARdS is licensed <a href="https://github.com/snootched/lcards/blob/main/LICENSE" target="_blank" rel="noopener">MIT</a>
+        · LCARS aesthetics inspired by Star Trek <a href="https://lcards.unimatrix01.ca/credits.html" target="_blank" rel="noopener">[disclaimer]</a>
       </div>
 
       </div>
@@ -245,82 +225,11 @@ export class LCARdSAboutTab extends LitElement {
       padding-bottom: 8px;
     }
 
-    /* ── Banner ──────────────────────────────────────── */
-    .banner {
-      display: flex;
-      align-items: center;
-      gap: 0;
-      background: var(--primary-color, #1b4f8a);
-      border-radius: var(--ha-card-border-radius, 12px);
-      overflow: hidden;
-      min-height: 72px;
-      flex-shrink: 0;
-    }
-
-    .banner-left-bar {
-      width: 12px;
-      align-self: stretch;
-      background: color-mix(in srgb, var(--primary-color, #1b4f8a) 50%, black);
-      flex-shrink: 0;
-    }
-
-    .banner-logo {
-      height: 64px;
-      width: auto;
-      margin: 0 16px 0 12px;
-      flex-shrink: 0;
-      object-fit: contain;
-    }
-
-    .banner-right-bar {
-      width: 24px;
-      align-self: stretch;
-      background: color-mix(in srgb, var(--primary-color, #1b4f8a) 50%, black);
-      flex-shrink: 0;
-    }
-
-    .banner-content {
-      flex: 1;
-      padding: 16px 20px;
-    }
-
-    .banner-title {
-      font-size: 2.2em;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      color: white;
-      line-height: 1;
-      text-transform: uppercase;
-      font-family: var(--lcars-font-family, 'Antonio', sans-serif);
-    }
-
-    .banner-subtitle {
-      font-size: 0.85em;
-      color: rgba(255,255,255,0.75);
-      margin-top: 4px;
-      letter-spacing: 0.05em;
-    }
-
-    .banner-version {
-      padding: 0 20px;
-      font-size: 1em;
-      font-weight: 600;
-      color: rgba(255,255,255,0.6);
-      letter-spacing: 0.1em;
-      white-space: nowrap;
-      font-family: var(--lcars-font-family, 'Antonio', sans-serif);
-    }
-
     /* ── Sections — matches lcards-form-section background ─────── */
     .section {
       background: rgba(60, 60, 60, 0.5);
       border-radius: var(--ha-card-border-radius, 12px);
       padding: 12px 16px;
-    }
-
-    .intro-section {
-      background: color-mix(in srgb, var(--primary-color, #1b4f8a) 12%, rgba(60, 60, 60, 0.5));
-      border: 1px solid color-mix(in srgb, var(--primary-color, #1b4f8a) 30%, transparent);
     }
 
     .section-header {
@@ -340,87 +249,117 @@ export class LCARdSAboutTab extends LitElement {
       color: var(--primary-color);
     }
 
-    /* ── Intro text ──────────────────────────────────── */
-    .intro-text {
-      margin: 0 0 10px 0;
-      color: var(--primary-text-color);
-      font-size: 0.92em;
-      line-height: 1.6;
+    /* ── Get Started steps ───────────────────────────── */
+    .steps-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
 
-    .intro-text:last-child { margin-bottom: 0; }
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
 
-    /* ── Stats grid ──────────────────────────────────── */
-    .stats-grid {
+    .step-number {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--primary-color, #1b4f8a);
+      color: white;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--lcars-font-family, 'Antonio', sans-serif);
+      letter-spacing: 0.05em;
+      margin-top: 1px;
+    }
+
+    .step-body {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .step-title {
+      font-weight: 600;
+      color: var(--primary-text-color);
+    }
+
+    .step-desc {
+      color: var(--secondary-text-color);
+      line-height: 1.5;
+      font-size: 0.9em;
+    }
+
+    /* ── Panel Guide grid ────────────────────────────── */
+    .tab-guide-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
       gap: 6px;
     }
 
-    .stat-item {
+    .tab-guide-card {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 8px 10px;
-      background: rgba(40, 40, 40, 0.6);
-      border-radius: 8px;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: var(--ha-card-border-radius, 12px);
       border: 1px solid color-mix(in srgb, var(--divider-color) 60%, transparent);
+      background: rgba(40, 40, 40, 0.6);
+      cursor: pointer;
+      color: var(--primary-text-color);
+      transition: background 0.15s, border-color 0.15s;
     }
 
-    .stat-item.stat-alert {
-      border-color: var(--error-color, #f44336);
-      background: color-mix(in srgb, var(--error-color, #f44336) 15%, rgba(40, 40, 40, 0.6));
+    .tab-guide-card:hover {
+      background: color-mix(in srgb, var(--primary-color, #1b4f8a) 18%, rgba(40, 40, 40, 0.8));
+      border-color: var(--primary-color);
     }
 
-    .stat-item.stat-warn {
-      border-color: var(--warning-color, #ff9800);
-      background: color-mix(in srgb, var(--warning-color, #ff9800) 15%, rgba(40, 40, 40, 0.6));
+    .tab-guide-card:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 2px;
     }
 
-    .stat-item.stat-pending {
-      opacity: 0.55;
-    }
-
-    .stat-icon {
-      --mdc-icon-size: 20px;
-      color: var(--primary-color);
+    .tab-guide-icon {
       flex-shrink: 0;
+      --mdc-icon-size: 22px;
+      color: var(--primary-color);
     }
 
-    .stat-alert .stat-icon { color: var(--error-color, #f44336); }
-    .stat-warn  .stat-icon { color: var(--warning-color, #ff9800); }
-
-    .stat-body {
+    .tab-guide-body {
       display: flex;
       flex-direction: column;
+      gap: 2px;
+      flex: 1;
       min-width: 0;
     }
 
-    .stat-label {
-      font-size: 0.73em;
+    .tab-guide-title {
+      font-weight: 600;
+    }
+
+    .tab-guide-desc {
       color: var(--secondary-text-color);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+      line-height: 1.4;
+      font-size: 0.9em;
     }
 
-    .stat-value {
-      font-size: 0.92em;
-      font-weight: 500;
-      color: var(--primary-text-color);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* Refresh button sits at end of section-header */
-    .refresh-btn {
-      margin-left: auto;
-      --mdc-icon-button-size: 30px;
+    .tab-guide-arrow {
       --mdc-icon-size: 16px;
       color: var(--secondary-text-color);
+      flex-shrink: 0;
+      transition: color 0.15s;
     }
 
-    .refresh-btn:hover {
+    .tab-guide-card:hover .tab-guide-arrow {
       color: var(--primary-color);
     }
 
@@ -436,7 +375,7 @@ export class LCARdSAboutTab extends LitElement {
       align-items: center;
       gap: 12px;
       padding: 10px 12px;
-      border-radius: 8px;
+      border-radius: var(--ha-card-border-radius, 12px);
       border: 1px solid color-mix(in srgb, var(--divider-color) 60%, transparent);
       background: rgba(40, 40, 40, 0.6);
       text-decoration: none;
@@ -463,13 +402,12 @@ export class LCARdSAboutTab extends LitElement {
     }
 
     .link-title {
-      font-size: 0.92em;
       font-weight: 500;
     }
 
     .link-url {
-      font-size: 0.75em;
       color: var(--secondary-text-color);
+      font-size: 0.85em;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -484,9 +422,18 @@ export class LCARdSAboutTab extends LitElement {
     /* ── Footer ──────────────────────────────────────── */
     .footer {
       text-align: center;
-      font-size: 0.75em;
+      font-size: 0.9em;
       color: var(--secondary-text-color);
       padding: 4px 0 12px;
+    }
+
+    .footer a {
+      color: var(--primary-color);
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
     }
   `;
 }
