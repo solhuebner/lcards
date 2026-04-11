@@ -417,13 +417,15 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
     return html`
       <div
         class="effect-item ${isDragging ? 'dragging' : ''}"
-        draggable="true"
-        @dragstart=${(e) => this._handleDragStart(e, index)}
-        @dragend=${(e) => this._handleDragEnd(e)}
         @dragover=${(e) => this._handleDragOver(e, index)}
         @drop=${(e) => this._handleDrop(e, index)}>
 
-        <div class="effect-header" @click=${() => this._toggleExpanded(index)}>
+        <div
+          class="effect-header"
+          draggable="true"
+          @dragstart=${(e) => this._handleDragStart(e, index)}
+          @dragend=${(e) => this._handleDragEnd(e)}
+          @click=${() => this._toggleExpanded(index)}>
           <!-- Drag Handle -->
           <ha-icon
             class="drag-handle"
@@ -1464,6 +1466,18 @@ export class LCARdSBackgroundAnimationEditor extends LitElement {
 
     if (['fluid', 'plasma', 'flow', 'shimmer', 'scanlines'].includes(preset)) {
       if (config.opacity !== undefined && config.opacity !== 1) parts.push(`opacity: ${config.opacity}`);
+    }
+
+    if (preset === 'image') {
+      const src = config.source ?? config.url ?? '';
+      if (src.startsWith('builtin:')) {
+        parts.push(src.slice('builtin:'.length));
+      } else if (src) {
+        // Show just the filename portion of a URL/path
+        parts.push(src.split('/').pop() || src);
+      } else {
+        parts.push('no source');
+      }
     }
 
     return parts.join(' • ') || 'No configuration';
