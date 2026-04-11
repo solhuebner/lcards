@@ -93,6 +93,7 @@ export class LCARdSAboutTab extends LitElement {
           <ha-icon icon="mdi:rocket-launch-outline"></ha-icon>
           Getting Started
         </div>
+        <p class="section-intro">Welcome to LCARdS for Home Assistant!   Follow these steps to get started:</p>
         <ol class="steps-list">
           <li class="step">
             <div class="step-number">1</div>
@@ -250,6 +251,12 @@ export class LCARdSAboutTab extends LitElement {
     }
 
     /* ── Get Started steps ───────────────────────────── */
+    .section-intro {
+      margin: 0 0 12px 0;
+      color: var(--secondary-text-color);
+      line-height: 1.5;
+    }
+
     .steps-list {
       list-style: none;
       margin: 0;

@@ -1355,12 +1355,12 @@ export function getTextSchema(options = {}) {
  *
  * Lets each card independently control whether it participates in the global
  * sound system, and override individual event sounds without touching the global
- * scheme or localStorage overrides.
+ * scheme or per-event backend storage overrides.
  *
  * Resolution order inside SoundManager.play():
  *   1. sounds.enabled === false  → card is completely silent
  *   2. sounds[eventType]         → card-level asset override (null = mute event)
- *   3. localStorage overrides    → global per-event override
+ *   3. Backend storage overrides → global per-event override
  *   4. Active scheme             → scheme mapping
  *   5. Silence
  *

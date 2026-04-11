@@ -76,7 +76,7 @@ Set to **none** to disable all sounds without turning off the helpers.
 
 You can assign a different sound (or silence) to any individual event, independent of the active scheme.
 
-> **Per-browser setting** — overrides are stored in `localStorage` on the current device. If you use LCARdS on multiple devices or browsers, you'll need to configure overrides on each one separately.
+> **Persistent setting** — overrides are stored in the LCARdS integration's persistent storage and are shared across all browsers and devices.
 
 In the Sound tab, find the event in the overrides table and pick an asset from the dropdown, or set it to **— (use scheme default)** to revert. When any overrides are active, a **Reset all to scheme defaults** button appears above the table to clear them all at once.
 
@@ -130,7 +130,7 @@ In the overrides table, set the event's asset to **Silence** (the explicit silen
 
 - Sounds require at least one user click before they'll play (browser autoplay policy). The first tap on any card unlocks audio.
 - Volume is shared across all events — there's no per-event volume.
-- Overrides are per-browser. If you use multiple devices, configure each separately.
+- Overrides are stored in the integration's persistent storage and apply across all devices and browsers.
 - The sound scheme helper's option list updates automatically as you install sound packs — no manual YAML edits needed.
 
 ---

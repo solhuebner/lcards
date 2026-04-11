@@ -100,6 +100,7 @@ export class LCARdSConfigPanel extends LitElement {
       flex-direction: column;
       height: 100%;
       margin: 0 auto;
+      background-color: var(--lcars-ui-primary, var(--card-background-color, #1b4f8a));
     }
 
     /* Helpers tab container */
@@ -190,6 +191,7 @@ export class LCARdSConfigPanel extends LitElement {
       border-bottom: 2px solid var(--divider-color);
       background: var(--card-background-color);
       flex-shrink: 0;
+      border-top-left-radius: 17px;
     }
 
     ha-tab-group-tab ha-icon {

@@ -105,8 +105,8 @@ if (integration.available) {
     // Reads / writes go to the persistent HA .storage/lcards file
     const value = await integration.readStorage('sound_overrides');
 } else {
-    // Fall back to localStorage or no-op
-    const value = JSON.parse(localStorage.getItem('lcards_sound_overrides') ?? '{}');
+    // Integration unavailable — log a warning and operate with empty / default state
+    lcardsLog.warn('[MyService] Integration unavailable — overrides will not be persisted');
 }
 ```
 
@@ -166,7 +166,7 @@ The event is a **broadcast** — every browser tab with an active `IntegrationSe
 When `available === false` (integration not installed, or removed):
 
 - All three storage helpers return `undefined` / `false` silently — no throws
-- Services must fall back to `localStorage` or no-op behaviour
+- Services log a warning and operate with empty / in-memory-only state; they do not fall back to `localStorage`
 - Cards continue to work fully — JS injection is independent of the integration probe
 - `window.lcards.info()` reports `integration: { available: false, version: null }`
 

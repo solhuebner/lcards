@@ -1932,9 +1932,8 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
               </div>
 
               <ha-selector
-                // @ts-ignore - TS2339: auto-suppressed
                 .hass="${this.hass}"
-                .label="${'Auto-apply changes'}"
+                .label="${'Auto-apply ALERT mode on selection'}"
                 .value="${this._livePreviewEnabled}"
                 .selector=${{
                   boolean: {}
@@ -2078,7 +2077,6 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
   _renderParameterSlider(paramPath, label, min, max, step, unit, value) {
     return html`
       <ha-selector
-        // @ts-ignore - TS2339: auto-suppressed
         .hass="${this.hass}"
         .label="${label}"
         .value="${value || min}"
@@ -2708,17 +2706,13 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       // Try multiple methods to detect HA theme
 
       // Method 1: Check hass.themes
-      // @ts-ignore - TS2339: auto-suppressed
       if (this.hass?.themes?.theme) {
-        // @ts-ignore - TS2339: auto-suppressed
         this._haThemeName = this.hass.themes.theme;
         return;
       }
 
       // Method 2: Check hass.selectedTheme
-      // @ts-ignore - TS2339: auto-suppressed
       if (this.hass?.selectedTheme) {
-        // @ts-ignore - TS2339: auto-suppressed
         this._haThemeName = this.hass.selectedTheme;
         return;
       }
@@ -3721,7 +3715,6 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
 
     return html`
       <lcards-pack-explorer-dialog
-        // @ts-ignore - TS2339: auto-suppressed
         .hass=${this.hass}
         .open=${this._packExplorerOpen}
         @closed=${this._closePackExplorer}>

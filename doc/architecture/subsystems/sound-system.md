@@ -33,7 +33,7 @@ SoundManager (BaseService singleton)
     │   └─ URL resolved from AssetManager registry (no async preload needed)
     │
     └─ Override Store
-        └─ localStorage key: 'lcards_sound_overrides'  (JSON eventType→assetKey map)
+        └─ Integration persistent storage key: 'sound_overrides'  (JSON eventType→assetKey map)
 ```
 
 ### Key Files
@@ -117,7 +117,7 @@ Six input helpers store sound configuration. They are created via the Sound Conf
    │  null  → explicitly silenced (return immediately)
    │  string → use this asset key directly
    │
-2. localStorage override (lcards_sound_overrides)
+2. Integration persistent storage override (sound_overrides)
    │  { eventType: assetKey } — per-event user override
    │
 3. Active scheme mapping
@@ -214,7 +214,7 @@ export const MY_SOUND_PACK = {
 
 ## Override Storage
 
-Per-event overrides are stored in `localStorage` under the key `lcards_sound_overrides` as a JSON object:
+Per-event overrides are stored in the LCARdS integration's persistent storage under the key `lcards_sound_overrides` as a JSON object:
 
 ```json
 { "card_tap": "my_tap", "nav_sidebar": null }
