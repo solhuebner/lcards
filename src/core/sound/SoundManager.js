@@ -1440,9 +1440,23 @@ export class SoundManager extends BaseService {
         lcardsLog.warn('[SoundManager] sound_scheme options synced but restore failed — will retry');
         needsRetry = true;
         this._schemeSyncRetryAttempts++;
+      } else {
+        // optionsUpdated is false — most commonly the helper entity isn't in
+        // hass.states yet (a real race at startup: this sync can run before
+        // HA's initial state dump has hydrated, particularly right after a
+        // full HA restart). Previously this fell through as if the sync had
+        // settled successfully, permanently skipping the persist for this
+        // boot with no retry and no visible log — silently leaving the
+        // helper's persisted options stuck at creation-time defaults, which
+        // is exactly what causes HA's own restore-on-restart logic to later
+        // reject a since-selected value it can no longer find in that stale
+        // options list. Retry instead of accepting this as settled.
+        lcardsLog.warn('[SoundManager] sound_scheme options sync did not run (helper not ready yet?) — will retry');
+        needsRetry = true;
+        this._schemeSyncRetryAttempts++;
       }
     } catch (e) {
-      lcardsLog.debug('[SoundManager] Could not sync sound_scheme options:', e.message);
+      lcardsLog.warn('[SoundManager] Could not sync sound_scheme options:', e.message);
       needsRetry = true;
       this._schemeSyncRetryAttempts++;
     } finally {

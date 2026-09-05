@@ -28,7 +28,8 @@ import {
   ensureHelper,
   helperExists as apiHelperExists,
   getHelperValue as apiGetHelperValue,
-  setHelperValue as apiSetHelperValue
+  setHelperValue as apiSetHelperValue,
+  updateHelperConfig
 } from './lcards-helper-api.js';
 
 /**
@@ -692,8 +693,21 @@ export class LCARdSHelperManager extends BaseService {
    * Used by SoundManager to sync sound scheme options after packs load.
    * Non-fatal if helper doesn't exist yet.
    *
-   * Uses the documented `input_select.set_options` HA service rather than
-   * the undocumented WebSocket API for reliability across HA versions.
+   * Persists the new options via the WebSocket storage-collection
+   * `input_select/update` command, not the `input_select.set_options`
+   * service — the service only mutates the live entity's in-memory state
+   * and is silently lost on the next HA restart (HA reloads the stale
+   * persisted options list, sees the previously-selected value is no
+   * longer in it, and resets to options[0]). The WS update path also
+   * leaves `current_option` untouched, so no restore-after-update is
+   * needed in the normal case.
+   *
+   * Falls back to the `input_select.set_options` service (with the usual
+   * reset-then-restore dance) if the WS path fails for any reason — most
+   * notably, resolving the storage id requires `config/entity_registry/get`,
+   * which is admin-gated, so this always falls back for non-admin users —
+   * so a sync still completes (non-persisted) rather than being lost
+   * entirely.
    *
    * HA's set_options resets the current value to the first option, so we
    * restore it afterwards if it's present in the new options list.
@@ -752,22 +766,44 @@ export class LCARdSHelperManager extends BaseService {
     }
 
     try {
-      await hass.callService('input_select', 'set_options', {
-        entity_id: definition.entity_id,
-        options: options
+      await updateHelperConfig(hass, 'input_select', definition.entity_id, {
+        name: definition.name,
+        options,
+        ...(definition.icon ? { icon: definition.icon } : {})
       });
-      lcardsLog.debug(`[HelperManager] Updated ${key} options:`, options);
+      lcardsLog.debug(`[HelperManager] Persisted ${key} options:`, options);
 
-      // Restore the target selection if it's a valid option
+      // The WS update path leaves current_option untouched, so a restore is
+      // only needed as a defensive fallback (e.g. the previous value was
+      // already invalid for some unrelated reason).
       let restored = true;
-      if (restoreTarget && options.includes(restoreTarget)) {
+      if (restoreTarget && restoreTarget !== currentValue && options.includes(restoreTarget)) {
         restored = await this._selectOptionWithRetry(hass, definition.entity_id, restoreTarget, key);
       }
 
       return { optionsUpdated: true, restored };
-    } catch (e) {
-      lcardsLog.warn(`[HelperManager] Failed to update ${key} options:`, e.message);
-      return { optionsUpdated: false, restored: false };
+    } catch (persistErr) {
+      lcardsLog.warn(`[HelperManager] Failed to persist ${key} options, falling back to set_options:`, persistErr.message);
+
+      try {
+        await hass.callService('input_select', 'set_options', {
+          entity_id: definition.entity_id,
+          options: options
+        });
+        lcardsLog.debug(`[HelperManager] Updated ${key} options (fallback, not persisted):`, options);
+
+        // set_options resets the current value to options[0] if it's no
+        // longer valid, so restore it here.
+        let restored = true;
+        if (restoreTarget && options.includes(restoreTarget)) {
+          restored = await this._selectOptionWithRetry(hass, definition.entity_id, restoreTarget, key);
+        }
+
+        return { optionsUpdated: true, restored };
+      } catch (e) {
+        lcardsLog.warn(`[HelperManager] Failed to update ${key} options:`, e.message);
+        return { optionsUpdated: false, restored: false };
+      }
     }
   }
 

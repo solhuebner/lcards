@@ -11,7 +11,21 @@
 
 import * as LCARdS from '../lcards-vars.js';
 
-let lcardsGlobalLogLevel = 'info';
+const LOG_LEVEL_STORAGE_KEY = 'lcards-global-log-level';
+
+function readStoredLogLevel() {
+  try {
+    return window.localStorage.getItem(LOG_LEVEL_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+// Persisted across reloads (including a full HA restart) so a level set via
+// `window.lcards.setGlobalLogLevel('debug')` survives long enough to catch
+// startup-sequence logging, which is otherwise gone the instant the page
+// reloads and this module re-initializes with the 'info' default.
+let lcardsGlobalLogLevel = readStoredLogLevel() || 'info';
 
 export function lcardsSetGlobalLogLevel(level) {
   const validLevels = ['error', 'warn', 'info', 'debug', 'trace'];
@@ -20,6 +34,12 @@ export function lcardsSetGlobalLogLevel(level) {
     level = 'info';
   }
   lcardsGlobalLogLevel = level;
+  try {
+    window.localStorage.setItem(LOG_LEVEL_STORAGE_KEY, level);
+  } catch {
+    // Best-effort only — private browsing / storage-blocked contexts just
+    // won't persist the level across reloads.
+  }
   console.log('🔵 LCARdS|INFO: Setting LCARdS global log level to:', level);
 }
 export function lcardsGetGlobalLogLevel() {
