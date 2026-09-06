@@ -156,7 +156,7 @@ function resolveAnimationCssVariables(params) {
  * resolveEasing({ type: 'inBack', params: { overshoot: 2.5 } })  // → inBack(2.5) function
  *
  * // Spring physics
- * resolveEasing({ type: 'spring', params: { stiffness: 150, damping: 15 } })  // → createSpring() function
+ * resolveEasing({ type: 'spring', params: { stiffness: 150, damping: 15 } })  // → spring() function
  */
 export function resolveEasing(easingConfig) {
   // Simple string - use as-is (default case)
@@ -212,7 +212,7 @@ export function resolveEasing(easingConfig) {
           return anim.eases.outInElastic(params.amplitude ?? 1, params.period ?? 0.3);
 
         // Advanced easings (cubicBezier, steps, linear, irregular are on anime.eases)
-        // Note: spring is the ONLY one that's a top-level function (anime.createSpring)
+        // Note: spring is the ONLY one that's a top-level function (anime.spring)
         case 'cubicBezier':
           return anim.eases.cubicBezier(
             params.x1 ?? 0.25,
@@ -222,7 +222,7 @@ export function resolveEasing(easingConfig) {
           );
 
         case 'spring':
-          // spring is a top-level function (anime.createSpring), not on eases object
+          // spring is a top-level function (anime.spring), not on eases object
           // Returns an easing function that generates spring physics-based curves
           return anim.spring({
             mass: params.mass ?? 1,

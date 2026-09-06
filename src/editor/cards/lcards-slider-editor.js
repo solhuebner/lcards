@@ -653,6 +653,48 @@ export class LCARdSSliderEditor extends LCARdSBaseEditor {
                 </lcards-object-editor>
             </lcards-form-section>
 
+            <!-- Value Tween -->
+            <lcards-form-section
+                header="Value Animation"
+                description="Ease the track (fill or pills) and markers between old and new values when the entity changes on its own (does not affect dragging)"
+                icon="mdi:motion"
+                ?expanded=${false}
+                ?outlined=${true}
+                headerLevel="4">
+
+                <lcards-grid-layout columns="2">
+                    ${FormField.renderField(this, 'value_tween.enabled', {
+                        label: 'Enable Value Tween'
+                    })}
+
+                    ${FormField.renderField(this, 'value_tween.duration', {
+                        label: 'Duration'
+                    })}
+
+                    ${FormField.renderField(this, 'value_tween.ease', {
+                        label: 'Easing'
+                    })}
+                </lcards-grid-layout>
+
+                ${this.config?.value_tween?.enabled !== false ? html`
+                    <lcards-grid-layout columns="2">
+                        <!--
+                            "track" always applies (it covers whichever value
+                            representation the current track type has: gauge/shaped
+                            fill, or pills opacity).
+                            "markers" is hidden in shaped mode, which never renders them.
+                        -->
+                        ${FormField.renderField(this, 'value_tween.targets.track', {
+                            label: 'Track'
+                        })}
+
+                        ${trackType !== 'shaped' ? FormField.renderField(this, 'value_tween.targets.markers', {
+                            label: 'Markers'
+                        }) : ''}
+                    </lcards-grid-layout>
+                ` : ''}
+            </lcards-form-section>
+
             <!-- Color-Coded Ranges -->
             ${this._renderRangesConfiguration()}
         `;

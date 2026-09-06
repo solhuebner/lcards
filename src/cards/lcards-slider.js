@@ -312,6 +312,35 @@ export class LCARdSSlider extends LCARdSButton {
         // Resolved numeric values for value-based (marker) range entries
         this._resolvedMarkerValues = [];
 
+        // Value-tween state (see value_tween config). _displayValue/_displayMarkerValues
+        // are plain (non-reactive) fields — they're mutated every animation frame by
+        // _valueTween's onUpdate and must NOT trigger a Lit re-render each tick. The
+        // authoritative _sliderValue/_resolvedMarkerValues (both reactive/tracked
+        // elsewhere) always reflect the true target; these track the currently-painted
+        // (possibly mid-tween) visual position, applied imperatively by
+        // _updateAnimatedElements() on top of the already-correct full render.
+        this._displayValue = 0;
+        this._displayMarkerValues = [];
+        this._valueTween = null;
+        // True from the moment _handleHassUpdate() decides a tween WILL start through
+        // to _maybeStartValueTween() actually creating the anime instance. Needed
+        // because _effectiveSliderValue()/_effectiveMarkerValue() must already return
+        // the OLD (pre-change) value for the "settle" render that happens BEFORE the
+        // tween exists — otherwise that render flashes straight to the final value,
+        // and the tween starting immediately afterward visibly rewinds back to the
+        // old position before animating forward. See _handleHassUpdate() for the fix.
+        this._pendingTween = false;
+        // Last _lightColorValue that actually caused a memoization invalidation —
+        // see _onLightColorChanged() for why this dedupe exists.
+        this._lastInvalidatedLightColor = null;
+
+        // Pills-mode marker-pill highlight state (populated by _generatePillsSVG(),
+        // consumed by _updatePillOpacities() every real render and every value_tween
+        // animation frame — see _updatePillOpacities() for why this is dynamic rather
+        // than baked into the SVG string).
+        this._pillMarkerStyles = [];
+        this._lastMarkedPillIndex = new Map();
+
         // Control configuration (derived from config + entity)
         this._controlConfig = {
             min: 0,
@@ -459,16 +488,37 @@ export class LCARdSSlider extends LCARdSButton {
      * changes so subsequent renders pick up the new resolved colour instead
      * of the stale cached SVG (which may have been built before the variable
      * was set on the first render after a card reload).
+     *
+     * This hook fires far more often than "this light changed": the base class's
+     * _updateLightColorVariable() (LCARdSCard.js) calls it unconditionally from
+     * _onHassChanged(), which itself runs on EVERY HASS object change reaching this
+     * card — any entity anywhere in the install, not just this card's own tracked
+     * entities — and never compares the newly-resolved colour against the previous
+     * one first. Left unguarded, this forces a full gauge SVG rebuild (bypassing the
+     * configHash memoization entirely, since _invalidateMemoization() nulls the cache
+     * directly) on basically every unrelated HASS push — e.g. a once-per-second clock
+     * sensor — landing inside nearly every value_tween animation window and causing a
+     * very consistently-timed jank. Dedupe against the last colour that actually
+     * triggered an invalidation so only genuine colour/brightness changes rebuild.
      * @protected
      * @override
      */
     _onLightColorChanged() {
+        if (this._lightColorValue === this._lastInvalidatedLightColor) return;
+        this._lastInvalidatedLightColor = this._lightColorValue;
         this._invalidateMemoization();
     }
 
     _handleHassUpdate(newHass, oldHass) {
         // Call parent to handle state-based color resolution
         super._handleHassUpdate(newHass, oldHass);
+
+        // Snapshot marker values before _resolveMarkerValues() below overwrites them,
+        // so a value_tween (if one starts) knows what to animate FROM.
+        const prevResolvedMarkerValues = [...(this._resolvedMarkerValues || [])];
+
+        let previousValue = this._sliderValue;
+        let valueChanged = false;
 
         // Update entity value (only when a primary entity is configured)
         if (this.config.entity && this._entity) {
@@ -484,9 +534,10 @@ export class LCARdSSlider extends LCARdSButton {
                 // Get new value and set it
                 // Lit's hasChanged() automatically determines if re-render is needed
                 const newValue = this._getEntityValue(this._entity);
-                const previousValue = this._sliderValue;
+                previousValue = this._sliderValue;
 
                 this._sliderValue = newValue;
+                valueChanged = !!oldHass && previousValue !== newValue;
 
                 // Log value changes (first load or actual change)
                 if (!oldHass || previousValue !== newValue) {
@@ -506,6 +557,208 @@ export class LCARdSSlider extends LCARdSButton {
         // Called unconditionally so cards with no primary entity but with dynamic
         // range templates also respond correctly.
         this._resolveMarkerValues();
+
+        if (!oldHass) {
+            // First render — nothing to tween from yet.
+            this._displayValue = this._sliderValue;
+            this._displayMarkerValues = [...(this._resolvedMarkerValues || [])];
+            return;
+        }
+
+        const markersChanged = this._markersChanged(prevResolvedMarkerValues, this._resolvedMarkerValues);
+        const willTween = (valueChanged || markersChanged) && this._valueTweenAvailable();
+
+        if (willTween) {
+            if (!this._valueTween) {
+                // Not already mid-tween: hold display state at the OLD position through
+                // the "settle" render below (which otherwise draws the new authoritative
+                // value/markers immediately) — _pendingTween tells
+                // _effectiveSliderValue()/_effectiveMarkerValue() to keep returning this
+                // instead of the new target until the tween itself takes over. Without
+                // this, the settle render flashes to final and the tween — which always
+                // starts from the OLD value — then visibly rewinds before animating
+                // forward, on every single change. If a tween IS already running,
+                // leave _displayValue/_displayMarkerValues alone; they already hold the
+                // correct current in-flight position (already gated by _valueTween).
+                this._displayValue = previousValue;
+                this._displayMarkerValues = [...prevResolvedMarkerValues];
+                this._pendingTween = true;
+            }
+            const fromValue = previousValue;
+            const toValue = this._sliderValue;
+            // Wait for this update cycle's DOM to reflect the new (target) state before
+            // starting the tween overlay — see _maybeStartValueTween() for why.
+            this.updateComplete.then(() => {
+                this._maybeStartValueTween(fromValue, toValue, prevResolvedMarkerValues);
+            });
+        } else if (!this._valueTween) {
+            // No tween will run and none is active — mirror the authoritative value
+            // immediately (today's snap behavior: disabled, reduced-motion, or no
+            // actual change).
+            this._pendingTween = false;
+            this._displayValue = this._sliderValue;
+            this._displayMarkerValues = [...(this._resolvedMarkerValues || [])];
+        }
+    }
+
+    /**
+     * True if any resolved marker/range value differs between two snapshots
+     * (including a changed marker count).
+     * @private
+     */
+    _markersChanged(prev, curr) {
+        if (!curr || curr.length === 0) return false;
+        if (!prev || prev.length !== curr.length) return true;
+        return curr.some((v, i) => v !== prev[i]);
+    }
+
+    /**
+     * Whether a value_tween can actually run right now (config enabled, OS motion
+     * preference allows it, anime.js is available). Shared between
+     * _handleHassUpdate() (to decide whether to hold display state at the old value)
+     * and _maybeStartValueTween() (to decide whether to actually start one).
+     * @private
+     */
+    _valueTweenAvailable() {
+        const tweenConfig = this.config?.value_tween;
+        const enabled = tweenConfig?.enabled !== false;
+        const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+        const anime = window.lcards?.anim?.anime;
+        return enabled && !reducedMotion && typeof anime === 'function' && !!this.shadowRoot;
+    }
+
+    /**
+     * Start (or redirect) a value_tween animation that eases the gauge fill, value
+     * indicator, pills, threshold markers, and value text from their previous visual
+     * position to the newly-rendered one.
+     *
+     * By the time this runs (deferred via updateComplete), the full SVG has already
+     * been rebuilt — but _handleHassUpdate() arranged for _pendingTween to hold
+     * _displayValue/_displayMarkerValues at the OLD position for that render (see its
+     * comment), so this DOM already shows the old state, not the new target. This
+     * method takes over from there, animating from the old position to the new one
+     * that render is otherwise fully correct for, the same way _updatePillOpacities()
+     * has always mutated pill attributes in place after render.
+     * @param {number} from - Previous slider value
+     * @param {number} to - New (current) slider value
+     * @param {Array<number|null>} prevMarkerValues - Previous _resolvedMarkerValues snapshot
+     * @private
+     */
+    _maybeStartValueTween(from, to, prevMarkerValues) {
+        const tweenConfig = this.config?.value_tween;
+        const targetMarkers = this._resolvedMarkerValues || [];
+        const available = this._valueTweenAvailable();
+
+        if (!available) {
+            this._valueTween?.revert();
+            this._valueTween = null;
+            this._pendingTween = false;
+            this._setPillTransitionsSuspended(false);
+            this._displayValue = to;
+            this._displayMarkerValues = [...targetMarkers];
+            return;
+        }
+
+        // If a tween is already mid-flight, restart from the currently-painted
+        // position (not the stale `from`) so the new tween doesn't visually snap back.
+        const startFrom = this._valueTween ? this._displayValue : from;
+        const startMarkers = this._valueTween ? (this._displayMarkerValues || prevMarkerValues) : prevMarkerValues;
+        this._valueTween?.revert();
+
+        // Pills have their own CSS opacity transition (.pill { transition: opacity
+        // 0.15s ease-out }), added long before this feature to softly fade a single
+        // once-per-real-render opacity change. Now that value_tween drives opacity
+        // every animation frame, that CSS transition keeps retargeting mid-flight and
+        // never catches up — producing a visible jank/pause right as the JS tween
+        // stops and the CSS transition has to finish its own lagging 150ms. Suspend it
+        // for the duration of the JS tween; restore it in onComplete/below so the
+        // original lightweight fade still applies whenever value_tween is off/disabled.
+        const pillsTargeted = tweenConfig?.targets?.track !== false && this._mode === 'pills';
+        this._setPillTransitionsSuspended(pillsTargeted);
+
+        const duration = Math.max(0, Math.min(5000, tweenConfig?.duration ?? 500));
+        // 'spring' isn't a named anime.js ease string — it requires an actual
+        // anime.spring() Spring instance (exposed as window.lcards.anim.spring;
+        // the deprecated alias is createSpring(), which just logs a console
+        // warning and constructs the identical thing — never call it directly).
+        //
+        // CRITICAL: anime.js v4 completely IGNORES the `duration` passed to the
+        // anime() call below whenever `ease` is a Spring instance — it always uses
+        // the spring's own physics-derived `settlingDuration` instead (see
+        // node_modules/animejs animation.js: `hasSpring ? ease.settlingDuration :
+        // duration`). Constructing the spring from raw {mass, stiffness, damping}
+        // (the previous approach here) ignores value_tween.duration entirely and
+        // can settle far slower than configured — e.g. {mass:1, stiffness:100,
+        // damping:10} is a zeta≈0.5 underdamped spring whose natural settling
+        // duration is ~1.7-2s regardless of what duration/config says, which reads
+        // as a long, slow, oscillating "jank" tail rather than a bug in the tween
+        // logic itself. Constructing from {duration, bounce} instead (anime.js's
+        // "perceived duration" API — see Spring.calculateSDFromBD()) derives
+        // stiffness/damping FROM the configured duration, so the spring's actual
+        // settling time tracks value_tween.duration instead of ignoring it.
+        //
+        // bounce and damping ratio (zeta) are related by zeta = 1 - bounce (verified
+        // directly against the installed anime.js Spring class): the old raw-physics
+        // {mass:1, stiffness:100, damping:10} spring had zeta≈0.5, a genuinely
+        // underdamped/visibly-bouncy spring — bounce:0.5 reproduces that exact same
+        // damping ratio (settlingDuration≈1440ms for a 500ms configured duration,
+        // vs the old version's coincidental, duration-independent ~1760ms). A lower
+        // bounce (e.g. 0.2, zeta=0.8) is close to critically damped and reads as
+        // barely any spring effect at all — that undershoot was the bug reported
+        // after the first duration-based attempt.
+        const easeName = tweenConfig?.ease ?? 'outQuad';
+        const ease = easeName === 'spring'
+            ? window.lcards.anim.spring({ duration, bounce: 0.5 })
+            : easeName;
+
+        this._displayValue = startFrom;
+        this._displayMarkerValues = [...startMarkers];
+        // The real tween now owns display state via _valueTween — the "about to
+        // tween" placeholder is no longer needed.
+        this._pendingTween = false;
+
+        // `t` rides the same duration/ease curve as `v` but always spans 0→1 — needed
+        // so markers still animate even when the primary value itself doesn't change
+        // (e.g. a marker's own bound entity moved), when `v`'s span would otherwise be 0.
+        const proxy = { v: startFrom, t: 0 };
+        const anime = window.lcards.anim.anime;
+        this._valueTween = anime(proxy, {
+            v: [startFrom, to],
+            t: [0, 1],
+            duration,
+            ease,
+            onUpdate: () => {
+                this._displayValue = proxy.v;
+                this._displayMarkerValues = targetMarkers.map((tv, i) => {
+                    const sv = startMarkers[i];
+                    if (sv == null || tv == null) return tv;
+                    return sv + (tv - sv) * proxy.t;
+                });
+                this._updateAnimatedElements();
+            },
+            onComplete: () => {
+                this._displayValue = to;
+                this._displayMarkerValues = [...targetMarkers];
+                this._valueTween = null;
+                this._setPillTransitionsSuspended(false);
+            }
+        });
+    }
+
+    /**
+     * Suspend (or restore) the `.pill` CSS opacity transition. Must be suspended
+     * while value_tween is driving pill opacity every frame — see the comment in
+     * _maybeStartValueTween() for why the two otherwise fight and produce jank.
+     * @param {boolean} suspend
+     * @private
+     */
+    _setPillTransitionsSuspended(suspend) {
+        if (!this.shadowRoot) return;
+        /** @type {NodeListOf<SVGElement>} */
+        const pills = (this.shadowRoot.querySelectorAll('.pill'));
+        pills.forEach((pill) => {
+            pill.style.transition = suspend ? 'none' : '';
+        });
     }
 
     /**
@@ -527,6 +780,8 @@ export class LCARdSSlider extends LCARdSButton {
         if (this._entity) {
             this._sliderValue = this._getEntityValue(this._entity);
         }
+        this._displayValue = this._sliderValue;
+        this._displayMarkerValues = [...(this._resolvedMarkerValues || [])];
 
         // NEW: Trigger initial pill opacity update
         if (this._mode === 'pills') {
@@ -1854,16 +2109,27 @@ export class LCARdSSlider extends LCARdSButton {
         }
 
         // ====================================================================
-        // Build marker pill map: pillIndex → { color, strokeEnabled, strokeWidth }
-        // Computed after count is determined so each marker maps to its nearest pill.
+        // Build marker style list (for the pill highlight) and marker label list.
+        // Computed after count is determined (marker labels need final pill
+        // geometry constants; the highlight itself no longer does — see below).
+        //
+        // The pill highlight is intentionally NOT assigned to a specific pill index
+        // here at build time. That used to be baked in via a rounded pillIdx, which
+        // could only ever mark one pill per real render — no per-frame updater
+        // existed for it, so it stayed a snap-to-final. this._pillMarkerStyles just
+        // carries the resolved style per marker range; _updatePillOpacities() (run
+        // every real render AND every value_tween animation frame) computes which
+        // pill is nearest from the CURRENT (possibly tween-interpolated) value each
+        // time it runs — see that method for why this lets the highlight sweep
+        // across the row instead of snapping.
         // ====================================================================
-        const markerPillMap = new Map();
+        this._pillMarkerStyles = [];
+        const markerLabels = [];
         (this._sliderStyle?.ranges || []).forEach((range, idx) => {
             if (!('value' in range)) return; // Band range, skip
             const resolvedValue = this._resolvedMarkerValues[idx];
             if (resolvedValue === null || resolvedValue === undefined) return;
             const valuePercent = displayRange > 0 ? (resolvedValue - displayMin) / displayRange : 0;
-            const pillIdx = Math.max(0, Math.min(count - 1, Math.round(valuePercent * (count - 1))));
             const pillStyle = range.pill_style || {};
             const fillColor = this._resolveRangeColor(range.color || 'var(--lcars-text-light, #ffffff)');
 
@@ -1881,16 +2147,25 @@ export class LCARdSSlider extends LCARdSButton {
                 offsetY: range.label.offset?.y
             } : null;
 
-            markerPillMap.set(pillIdx, {
+            this._pillMarkerStyles.push({
+                index: idx,
                 color: fillColor,
                 strokeColor: pillStyle.stroke_color
                     ? this._resolveRangeColor(pillStyle.stroke_color, fillColor)
                     : fillColor,
                 strokeEnabled: pillStyle.stroke !== false, // default true
-                strokeWidth: pillStyle.stroke_width ?? 2,
-                label
+                strokeWidth: pillStyle.stroke_width ?? 2
             });
+
+            if (label) {
+                markerLabels.push({ index: idx, label, valuePercent: Math.max(0, Math.min(1, valuePercent)) });
+            }
         });
+        // Fresh pill DOM is about to be built below — any previously-marked pill
+        // index no longer applies (and a pill-count change would make it point at
+        // the wrong pill entirely), so _updatePillOpacities() must recompute from
+        // scratch on its next call rather than trying to revert a stale index.
+        this._lastMarkedPillIndex.clear();
 
         // Calculate pill dimensions
         let pills = '';
@@ -1916,11 +2191,6 @@ export class LCARdSSlider extends LCARdSButton {
                 // NEW: Use range color if defined, else gradient
                 const color = getPillColor(i, count);
 
-                const markerInfoV = markerPillMap.get(i);
-                const markerAttrsV = markerInfoV
-                    ? ` data-marker-color="${markerInfoV.color}" data-marker-stroke="${markerInfoV.strokeEnabled ? markerInfoV.strokeWidth : 0}" data-marker-stroke-color="${markerInfoV.strokeColor}"`
-                    : '';
-
                 pills += `
                     <rect
                         id="pill-${i}"
@@ -1934,20 +2204,9 @@ export class LCARdSSlider extends LCARdSButton {
                         fill="${color}"
                         opacity="${getRangeOpacity(i, count, unfilledOpacity)}"
                         data-unfilled-opacity="${getRangeOpacity(i, count, unfilledOpacity)}"
-                        data-pill-index="${i}"${markerAttrsV} />
+                        data-base-fill="${color}"
+                        data-pill-index="${i}" />
                 `;
-
-                if (markerInfoV?.label?.text) {
-                    // Default: beside the pill, vertically centered
-                    const labelX = x + pillWidth + (markerInfoV.label.offsetX ?? 6);
-                    const labelY = y + (pillHeight / 2) + (markerInfoV.label.offsetY ?? 0);
-                    labelsMarkup += `
-                        <text x="${labelX}" y="${labelY}"
-                              font-size="${markerInfoV.label.fontSize}px" font-weight="400" font-family="var(--primary-font-family, Antonio, sans-serif)"
-                              fill="${markerInfoV.label.color}"
-                              text-anchor="start" dominant-baseline="middle">${escapeHtml(markerInfoV.label.text)}</text>
-                    `;
-                }
             }
         } else {
             // Horizontal: pills stretch from left to right
@@ -1966,11 +2225,6 @@ export class LCARdSSlider extends LCARdSButton {
                 // NEW: Use range color if defined, else gradient
                 const color = getPillColor(i, count);
 
-                const markerInfoH = markerPillMap.get(i);
-                const markerAttrsH = markerInfoH
-                    ? ` data-marker-color="${markerInfoH.color}" data-marker-stroke="${markerInfoH.strokeEnabled ? markerInfoH.strokeWidth : 0}" data-marker-stroke-color="${markerInfoH.strokeColor}"`
-                    : '';
-
                 pills += `
                     <rect
                         id="pill-${i}"
@@ -1984,22 +2238,59 @@ export class LCARdSSlider extends LCARdSButton {
                         fill="${color}"
                         opacity="${getRangeOpacity(i, count, unfilledOpacity)}"
                         data-unfilled-opacity="${getRangeOpacity(i, count, unfilledOpacity)}"
-                        data-pill-index="${i}"${markerAttrsH} />
+                        data-base-fill="${color}"
+                        data-pill-index="${i}" />
                 `;
-
-                if (markerInfoH?.label?.text) {
-                    // Default: above the pill, horizontally centered
-                    const labelX = x + (pillWidth / 2) + (markerInfoH.label.offsetX ?? 0);
-                    const labelY = y + (markerInfoH.label.offsetY ?? -6);
-                    labelsMarkup += `
-                        <text x="${labelX}" y="${labelY}"
-                              font-size="${markerInfoH.label.fontSize}px" font-weight="400" font-family="var(--primary-font-family, Antonio, sans-serif)"
-                              fill="${markerInfoH.label.color}"
-                              text-anchor="middle">${escapeHtml(markerInfoH.label.text)}</text>
-                    `;
-                }
             }
         }
+
+        // ====================================================================
+        // Marker label positioning — animatable, continuous across the pill row.
+        //
+        // Deliberately separate from _pillMarkerStyles/the per-pill loops above.
+        // The pill highlight (see _updatePillMarkerHighlight()) rounds to the nearest
+        // discrete pill index every frame, so it hops from pill to pill as it
+        // sweeps rather than moving smoothly — but the LABEL doesn't have to snap
+        // to that same discrete step: pill position is already linear in loop index
+        // (x = trackX + i*(pillWidth+gap) horizontal, y = trackY + trackHeight -
+        // (i+1)*pillHeight - i*gap vertical), so using the UNROUNDED valuePercent
+        // (i_continuous = valuePercent*(count-1)) instead of a rounded pill index
+        // reduces to an exact linear posBase/posScale pair — the same shape
+        // _applyTransformFromCoefficients() already expects for gauge marker
+        // labels — so the label glides smoothly and continuously, one step ahead
+        // of the highlight's discrete per-pill hops. Placed after the isVertical/else
+        // split above so pillWidth reflects its final (possibly reassigned, see the
+        // horizontal branch) value regardless of orientation.
+        // ====================================================================
+        markerLabels.forEach(({ index, label, valuePercent }) => {
+            let posBase, posScale, fixed, axis;
+            if (isVertical) {
+                axis = 'y';
+                posBase = trackY + trackHeight - (pillHeight / 2) + (label.offsetY ?? 0);
+                posScale = -(count - 1) * (pillHeight + gap);
+                fixed = trackX + pillWidth + (label.offsetX ?? 6);
+            } else {
+                axis = 'x';
+                posBase = trackX + (pillWidth / 2) + (label.offsetX ?? 0);
+                posScale = (count - 1) * (pillWidth + gap);
+                fixed = trackY + (label.offsetY ?? -6);
+            }
+            const pos = posBase + posScale * valuePercent;
+            const labelX = axis === 'x' ? pos : fixed;
+            const labelY = axis === 'x' ? fixed : pos;
+
+            const labelTag =
+                `data-lcards-role="range-marker-label" data-marker-index="${index}" ` +
+                `data-pos-axis="${axis}" data-pos-base="${posBase}" data-pos-scale="${posScale}" ` +
+                `data-pos-fixed="${fixed}" data-pos-rotation="0"`;
+
+            labelsMarkup += `
+                <text ${labelTag} x="0" y="0" transform="translate(${labelX},${labelY})"
+                      font-size="${label.fontSize}px" font-weight="400" font-family="var(--primary-font-family, Antonio, sans-serif)"
+                      fill="${label.color}"
+                      text-anchor="${isVertical ? 'start' : 'middle'}" dominant-baseline="${isVertical ? 'middle' : 'auto'}">${escapeHtml(label.text)}</text>
+            `;
+        });
 
         return defs + pills + labelsMarkup;
     }
@@ -2073,7 +2364,7 @@ export class LCARdSSlider extends LCARdSButton {
      * @returns {string} SVG markup for indicator
      * @private
      */
-    _renderIndicator(type, centerX, centerY, width, height, rotation, color, borderEnabled, borderColor, borderWidth, isVertical = false) {
+    _renderIndicator(type, centerX, centerY, width, height, rotation, color, borderEnabled, borderColor, borderWidth, isVertical = false, extraAttrs = '') {
         if (type === 'round') {
             const rx = width / 2;
             const ry = height / 2;
@@ -2081,6 +2372,7 @@ export class LCARdSSlider extends LCARdSButton {
                 <ellipse cx="0" cy="0" rx="${rx}" ry="${ry}"
                          fill="${color}"
                          ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}"` : ''}
+                         ${extraAttrs}
                          transform="translate(${centerX},${centerY}) rotate(${rotation})" />
             `;
         } else if (type === 'triangle') {
@@ -2101,6 +2393,7 @@ export class LCARdSSlider extends LCARdSButton {
                 <polygon points="${points}"
                          fill="${color}"
                          ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}" stroke-linejoin="miter"` : ''}
+                         ${extraAttrs}
                          transform="translate(${centerX},${centerY}) rotate(${rotation})" />
             `;
         } else {
@@ -2116,6 +2409,7 @@ export class LCARdSSlider extends LCARdSButton {
                       fill="${color}"
                       ${borderEnabled ? `stroke="${borderColor}" stroke-width="${borderWidth}"` : ''}
                       rx="1" ry="1"
+                      ${extraAttrs}
                       transform="translate(${centerX},${centerY}) rotate(${rotation})" />
             `;
         }
@@ -2134,7 +2428,23 @@ export class LCARdSSlider extends LCARdSButton {
         const orientation = this._sliderStyle?.track?.orientation || 'horizontal';
         const isVertical = orientation === 'vertical';
 
-        // Config hash for memoization (include entity state for reactive colors)
+        // Config hash for memoization (include entity state for reactive colors).
+        // Deliberately keys on the STABLE this._sliderValue, not _effectiveSliderValue()
+        // — while a value_tween is active, _effectiveSliderValue() changes every
+        // animation frame, which would make this hash miss on every incidental
+        // re-render an unrelated part of the app triggers during the tween window
+        // (e.g. the base class's _scheduleTemplateUpdate(), which fires a
+        // requestUpdate() after every HASS change regardless of whether anything
+        // changed) — forcing an expensive full tick/label rebuild each time, only
+        // for the per-frame imperative updater to immediately overwrite it again on
+        // the very next frame. Keeping this stable means such re-renders keep
+        // hitting the cache and skip the rebuild entirely; since the DOM subtree is
+        // then untouched (unsafeHTML no-ops on an unchanged string), the imperative
+        // overlay's in-progress attributes are left completely undisturbed. The one
+        // place this value actually needs to reflect the tween (the "settle" render
+        // that happens before a tween starts, via _pendingTween) still gets it right
+        // because _calculateValuePercent() below independently falls back to
+        // _effectiveSliderValue() when actually computing fill geometry.
         const configHash = JSON.stringify({
             gaugeConfig,
             width: trackWidth,
@@ -2293,7 +2603,7 @@ export class LCARdSSlider extends LCARdSButton {
                 : { tl: rad.end,   tr: rad.end,   br: rad.start, bl: rad.start };
             return `<path d="${this._buildRoundedRectPath(px, py, pw, ph, corners)}" fill="${fill}" ${close}/>`;
         };
-        const pbPath   = (px, py, pw, ph, isH, fill) => pbRect(pr,   px, py, pw, ph, isH, fill);
+        const pbPath   = (px, py, pw, ph, isH, fill, close = '') => pbRect(pr,   px, py, pw, ph, isH, fill, close);
         const bgPbPath = (px, py, pw, ph, isH, fill) => pbRect(bgPr, px, py, pw, ph, isH, fill);
         const progressBgColor = this._resolveColorValue(String(this._resolveStateValue({
             actualState: this._entity?.state,
@@ -2326,8 +2636,11 @@ export class LCARdSSlider extends LCARdSButton {
         const labelY = trackHeight - labelBottomMargin; // Position labels near bottom with margin (horizontal)
         const labelX = trackWidth - labelBottomMargin; // Position labels near right edge with margin (vertical)
 
-        // Calculate current value percentage
-        const valuePercent = this._calculateValuePercent();
+        // Calculate current value percentage. targetEnabled=false when
+        // value_tween.targets.track is off — see _effectiveSliderValue() — so a
+        // disabled track target snaps immediately instead of getting stuck showing
+        // the pre-tween value forever (nothing would ever correct it otherwise).
+        const valuePercent = this._calculateValuePercent(undefined, this.config?.value_tween?.targets?.track !== false);
 
         if (!isVertical) {
             // === HORIZONTAL GAUGE ===
@@ -2438,7 +2751,14 @@ export class LCARdSSlider extends LCARdSButton {
                     const bgYH = progressY + (progressHeight - progressBgThickness) / 2;
                     svg += bgPbPath(bgX, bgYH, bgW, progressBgThickness, true, progressBgColor);
                 }
-                svg += pbPath(progressX, progressY, progressWidth, progressHeight, true, progressColor);
+                const fillTag =
+                    `data-lcards-role="progress-fill" data-fill-axis="h" ` +
+                    `data-fill-size-scale="${trackWidth}" ` +
+                    `data-fill-pos-base="${this._invertFill ? trackWidth : 0}" ` +
+                    `data-fill-pos-scale="${this._invertFill ? -trackWidth : 0}" ` +
+                    `data-fill-fixed-pos="${progressY}" data-fill-fixed-size="${progressHeight}" ` +
+                    `data-fill-radius-start="${pr.start}" data-fill-radius-end="${pr.end}"`;
+                svg += pbPath(progressX, progressY, progressWidth, progressHeight, true, progressColor, fillTag);
             }
 
         } else {
@@ -2556,7 +2876,14 @@ export class LCARdSSlider extends LCARdSButton {
                     const bgXV = progressX + (progressBarWidth - progressBgThickness) / 2;
                     svg += bgPbPath(bgXV, bgYV, progressBgThickness, bgHV, false, progressBgColor);
                 }
-                svg += pbPath(progressX, progressY, progressBarWidth, progressBarHeight, false, progressColor);
+                const fillTag =
+                    `data-lcards-role="progress-fill" data-fill-axis="v" ` +
+                    `data-fill-size-scale="${trackHeight}" ` +
+                    `data-fill-pos-base="${this._invertFill ? 0 : trackHeight}" ` +
+                    `data-fill-pos-scale="${this._invertFill ? 0 : -trackHeight}" ` +
+                    `data-fill-fixed-pos="${progressX}" data-fill-fixed-size="${progressBarWidth}" ` +
+                    `data-fill-radius-start="${pr.start}" data-fill-radius-end="${pr.end}"`;
+                svg += pbPath(progressX, progressY, progressBarWidth, progressBarHeight, false, progressColor, fillTag);
             }
         }
 
@@ -2570,16 +2897,77 @@ export class LCARdSSlider extends LCARdSButton {
     /**
      * Calculate value as percentage (0-1) within DISPLAY range
      * Used for visual rendering of pills/gauge position
+     * @param {number} [valueOverride] - Use this value instead of the tween-aware default
+     *   (used by the value_tween imperative updater to compute an in-flight,
+     *   interpolated percentage explicitly)
+     * @param {boolean} [targetEnabled=true] - Forwarded to _effectiveSliderValue()
+     *   when valueOverride isn't given — see its docs for why this matters.
      * @private
      * @returns {number} Percentage (0-1)
      */
-    _calculateValuePercent() {
+    _calculateValuePercent(valueOverride, targetEnabled = true) {
         // Use DISPLAY range (visual scale), not control range
         const displayMin = this._displayConfig.min;
         const displayMax = this._displayConfig.max;
-        const value = this._sliderValue;
+        const value = valueOverride !== undefined ? valueOverride : this._effectiveSliderValue(targetEnabled);
 
         return Math.max(0, Math.min(1, (value - displayMin) / (displayMax - displayMin)));
+    }
+
+    /**
+     * The value that should drive fill/needle/percent computations for the CURRENT
+     * render, whatever triggered it. While a value_tween is in flight, this returns
+     * the tween's current interpolated position rather than the authoritative target
+     * (this._sliderValue) — so that ANY re-render firing mid-tween (not just the
+     * imperative per-frame overlay this card drives itself) paints the correct
+     * in-progress position instead of jumping to the final one.
+     *
+     * This matters because at least one such re-render is essentially guaranteed
+     * during almost every tween: the base class's _scheduleTemplateUpdate()
+     * (LCARdSCard.js) unconditionally calls requestUpdate() one rAF + one async
+     * template round-trip after every HASS change, regardless of whether anything
+     * actually changed — and that round-trip typically resolves well inside this
+     * card's ~500ms tween window. Without this indirection, that unrelated
+     * requestUpdate() would rebuild the full SVG from the (already-final)
+     * authoritative value, snapping the fill/needle/markers to 100% early; this
+     * card's OWN tween tick immediately after would then find the freshly-rebuilt
+     * elements (its per-frame updates always re-query the DOM, never cache element
+     * references) and visibly drag them back down to resume the interpolation before
+     * finishing normally — the exact "slides mostly there, snaps, corrects itself"
+     * artifact this method exists to prevent.
+     *
+     * Also returns the interpolated value while `_pendingTween` is set (a tween has
+     * been decided on but hasn't started its anime instance yet) — without this, the
+     * "settle" render that happens before the tween exists would jump straight to the
+     * final value, and the tween starting immediately after would then visibly
+     * rewind back to the old value before animating forward. See _handleHassUpdate().
+     *
+     * @param {boolean} [targetEnabled=true] - Whether the caller's own element is
+     *   actually covered by value_tween.targets.*. If that target is disabled,
+     *   nothing will EVER run the imperative per-frame update that would otherwise
+     *   carry this element from the held-back "pending" value to the real one — the
+     *   "settle" render is the only render that will ever happen for it — so it must
+     *   return the authoritative value immediately instead of holding back. Passing
+     *   `false` here is what makes a disabled target snap instantly (matching
+     *   pre-value_tween behavior) instead of getting stuck one value change behind.
+     * @private
+     */
+    _effectiveSliderValue(targetEnabled = true) {
+        if (!targetEnabled) return this._sliderValue;
+        return (this._valueTween || this._pendingTween) ? this._displayValue : this._sliderValue;
+    }
+
+    /**
+     * Same rationale as _effectiveSliderValue(), for one entry of _resolvedMarkerValues.
+     * @param {number} index
+     * @param {boolean} [targetEnabled=true] - See _effectiveSliderValue().
+     * @private
+     */
+    _effectiveMarkerValue(index, targetEnabled = true) {
+        if (targetEnabled && (this._valueTween || this._pendingTween) && this._displayMarkerValues?.[index] != null) {
+            return this._displayMarkerValues[index];
+        }
+        return this._resolvedMarkerValues?.[index];
     }
 
     /**
@@ -2596,10 +2984,28 @@ export class LCARdSSlider extends LCARdSButton {
     }
 
     /**
-     * Update pill opacities based on current value
+     * Update pill opacities AND marker-pill highlighting for the current value —
+     * a thin wrapper combining _updatePillFillOpacity() and
+     * _updatePillMarkerHighlight(), used by the unconditional "after any real
+     * render" call sites (_updateDynamicElements(), updated(),
+     * _handleFirstUpdate()) where both should always run together regardless of
+     * value_tween.targets. During a value_tween animation frame, the two are
+     * instead called separately by _updateAnimatedElements(), each gated by its
+     * own respective target (targets.track vs targets.markers) — see those methods.
+     * @param {number} [valueOverride] - See _calculateValuePercent()
      * @private
      */
-    _updatePillOpacities() {
+    _updatePillOpacities(valueOverride) {
+        this._updatePillFillOpacity(valueOverride);
+        this._updatePillMarkerHighlight();
+    }
+
+    /**
+     * Update pill opacities (the fill sweep) based on current value.
+     * @param {number} [valueOverride] - See _calculateValuePercent()
+     * @private
+     */
+    _updatePillFillOpacity(valueOverride) {
         const trackConfig = this._sliderStyle?.track?.segments;
         const filledOpacity = trackConfig?.appearance?.filled?.opacity ?? 1.0;
         const unfilledOpacity = trackConfig?.appearance?.unfilled?.opacity ?? 0.2;
@@ -2608,7 +3014,10 @@ export class LCARdSSlider extends LCARdSButton {
         const pills = this.shadowRoot?.querySelectorAll('.pill');
         if (!pills || pills.length === 0) return;
 
-        const fillRatio = this._calculateValuePercent();
+        // targetEnabled=false when value_tween.targets.track is off (and no explicit
+        // valueOverride was given) — see _effectiveSliderValue() — so a disabled
+        // track target snaps immediately instead of getting stuck behind.
+        const fillRatio = this._calculateValuePercent(valueOverride, this.config?.value_tween?.targets?.track !== false);
         const fillCount = fillRatio * pills.length;
 
         pills.forEach((pill, index) => {
@@ -2659,22 +3068,270 @@ export class LCARdSSlider extends LCARdSButton {
             }
             pill.setAttribute('opacity', opacity);
         });
+    }
 
-        // Apply marker pill styling: full opacity, marker colour, outline stroke.
-        // Runs after the opacity loop so markers always override fill/opacity
-        // regardless of where they fall in the filled or unfilled zone.
-        pills.forEach((pill) => {
-            const markerColor = pill.getAttribute('data-marker-color');
-            if (!markerColor) return;
-            const strokeWidth = parseFloat(pill.getAttribute('data-marker-stroke') || '0');
-            const strokeColor = pill.getAttribute('data-marker-stroke-color') || markerColor;
-            pill.setAttribute('opacity', '1');
-            pill.setAttribute('fill', markerColor);
-            if (strokeWidth > 0) {
-                pill.setAttribute('stroke', strokeColor);
-                pill.setAttribute('stroke-width', String(strokeWidth));
+    /**
+     * Apply marker pill styling: full opacity, marker colour, outline stroke.
+     * Called after _updatePillFillOpacity() so markers always override fill/opacity
+     * regardless of where they fall in the filled or unfilled zone — either back to
+     * back via _updatePillOpacities()'s combined wrapper (after a real render), or
+     * independently from _updateAnimatedElements() during a value_tween animation
+     * frame, gated there by value_tween.targets.markers (NOT targets.track — this is
+     * the pills-mode equivalent of the gauge marker concept, so it must respect the
+     * same "markers" target as gauge does, independently of whether pill fill/opacity
+     * tweening is itself enabled).
+     *
+     * Computed fresh from the CURRENT (possibly value_tween-interpolated) marker
+     * value every time this runs — including every animation frame — rather than
+     * being baked into one pill at SVG-build time. That's what lets the highlighted
+     * pill sweep/hop across the row as the marker's value animates instead of
+     * snapping directly to its final pill. _lastMarkedPillIndex tracks which pill
+     * each marker last painted so a pill it moves off of gets cleanly reverted via
+     * its baked-in data-base-fill (opacity is already correct for every pill from
+     * _updatePillFillOpacity(), so only fill/stroke need reverting here).
+     * @private
+     */
+    _updatePillMarkerHighlight() {
+        const pills = this.shadowRoot?.querySelectorAll('.pill');
+        if (!pills || pills.length === 0) return;
+
+        // targetEnabled=false when value_tween.targets.markers is off — see
+        // _effectiveMarkerValue() — so a disabled markers target snaps immediately
+        // instead of getting stuck showing the pre-tween marker pill forever.
+        const markersTargetEnabled = this.config?.value_tween?.targets?.markers !== false;
+
+        (this._pillMarkerStyles || []).forEach(({ index, color, strokeColor, strokeEnabled, strokeWidth }) => {
+            const resolvedValue = this._effectiveMarkerValue(index, markersTargetEnabled);
+            const lastIdx = this._lastMarkedPillIndex.get(index);
+
+            if (resolvedValue === null || resolvedValue === undefined) {
+                if (lastIdx != null) {
+                    this._revertMarkerPill(pills[lastIdx]);
+                    this._lastMarkedPillIndex.delete(index);
+                }
+                return;
             }
+
+            const markerPercent = this._calculateValuePercent(resolvedValue);
+            const pillIdx = Math.max(0, Math.min(pills.length - 1, Math.round(markerPercent * (pills.length - 1))));
+
+            if (lastIdx != null && lastIdx !== pillIdx) {
+                this._revertMarkerPill(pills[lastIdx]);
+            }
+
+            const pill = pills[pillIdx];
+            if (pill) {
+                pill.setAttribute('opacity', '1');
+                pill.setAttribute('fill', color);
+                if (strokeEnabled && strokeWidth > 0) {
+                    pill.setAttribute('stroke', strokeColor);
+                    pill.setAttribute('stroke-width', String(strokeWidth));
+                }
+            }
+            this._lastMarkedPillIndex.set(index, pillIdx);
         });
+    }
+
+    /**
+     * Restore a pill that's no longer a marker's nearest to its normal appearance —
+     * fill from the baked-in data-base-fill, no stroke. Idempotent/safe to call on
+     * a pill that was never marked (data-base-fill just re-applies its own current
+     * fill, and removeAttribute on an absent attribute is a no-op).
+     * @param {Element} pill
+     * @private
+     */
+    _revertMarkerPill(pill) {
+        if (!pill) return;
+        const baseFill = pill.getAttribute('data-base-fill');
+        if (baseFill) pill.setAttribute('fill', baseFill);
+        pill.removeAttribute('stroke');
+        pill.removeAttribute('stroke-width');
+    }
+
+    // ========================================================================
+    // VALUE TWEEN — imperative per-frame updaters
+    //
+    // Called from _maybeStartValueTween()'s onUpdate every animation frame.
+    // These never call requestUpdate()/trigger a Lit re-render — they mutate
+    // attributes directly on DOM nodes that the last real render already built,
+    // reading small "linear coefficient" data-* attributes baked into that markup
+    // at render time (see _generateGaugeSVG/_generateShapedContent/_generateProgressBar/
+    // _generateGaugeMarkers) so geometry can be recomputed from a percent without
+    // re-running the full SVG-string builders. Exactly the same pattern
+    // _updatePillOpacities() already uses, just generalized to more element types.
+    // ========================================================================
+
+    /**
+     * Apply the value_tween's current interpolated state to every animatable
+     * element, respecting value_tween.targets.
+     *
+     * targets.track covers whichever value-representation the current track type
+     * actually has — the gauge/shaped fill (+ its needle indicator) in those
+     * modes, or the pill opacity sweep in pills mode. These used to be two
+     * separate target flags (fill / pills), but a card is always in exactly one
+     * track mode, so there was never a real scenario needing them configured
+     * independently — merged into one, consistent with how `shaped` mode already
+     * reused the gauge fill's target rather than getting its own.
+     * @private
+     */
+    _updateAnimatedElements() {
+        if (!this.shadowRoot) return;
+        const targets = this.config?.value_tween?.targets ?? {};
+
+        if (targets.track !== false) {
+            this._updateFillGeometryFromValue();
+            this._updateValueIndicatorFromValue();
+        }
+        if (this._mode === 'pills') {
+            // Both the fill/opacity baseline AND the marker-pill highlight are
+            // refreshed EVERY frame, regardless of targets.track/targets.markers —
+            // not optional for either. They share the same pill elements
+            // (_updatePillFillOpacity sets opacity on every pill; _updatePillMarker-
+            // Highlight overrides opacity+fill+stroke on whichever pill is nearest
+            // a marker), so each would otherwise erase state the other is
+            // responsible for maintaining the instant only one of them keeps
+            // running:
+            //  - Skipping the fill pass while markers animates left a pill the
+            //    marker swept past stuck at opacity:1 forever (nothing ever reset
+            //    it) — "colouring in all the pills on the way to the target".
+            //  - Skipping the marker pass while only track is active lets the
+            //    fill loop's unconditional per-pill opacity reset drag a marker's
+            //    pill back down to the dim "unfilled" opacity — its fill colour
+            //    stays correct, but it visibly "loses its full colour" (opacity)
+            //    the moment any tween frame runs, e.g. from an unrelated marker-
+            //    only value change with targets.markers off.
+            // targets.track/targets.markers instead control which VALUE feeds each
+            // computation (tween-interpolated vs static authoritative) — i.e.
+            // whether it visibly *animates* — never whether the function runs at
+            // all. When a target is off, its function still runs every frame, but
+            // using the unchanging authoritative value, making it a harmless no-op
+            // repaint of the same already-correct state rather than a re-introduced
+            // animation.
+            this._updatePillFillOpacity(targets.track !== false ? this._displayValue : undefined);
+            this._updatePillMarkerHighlight();
+        }
+        if (targets.markers !== false) {
+            this._updateMarkerPositionsFromValue();
+        }
+    }
+
+    /**
+     * Recompute the gauge/shaped/progress-zone fill rect's geometry from
+     * this._displayValue and patch it onto the already-rendered fill element.
+     *
+     * The fill element (tagged data-lcards-role="progress-fill" by whichever of
+     * the three fill builders drew it) carries the linear relationship between
+     * value-percent and its own geometry as data-fill-* attributes:
+     *   size = sizeScale * percent
+     *   pos  = posBase + posScale * percent
+     * with axis="h"|"v" selecting which of {x,width} vs {y,height} is the
+     * variable pair vs the fixed (cross-axis) pair. This is an exact algebraic
+     * restatement of what each builder already computes once per real render —
+     * see the pbPath/pbRect closures in _generateGaugeSVG, the fillX/fillY math
+     * in _generateShapedContent, and pbPathZ in _generateProgressBar.
+     * @private
+     */
+    _updateFillGeometryFromValue() {
+        const el = this.shadowRoot.querySelector('[data-lcards-role="progress-fill"]');
+        if (!el) return;
+
+        const percent = this._calculateValuePercent(this._displayValue);
+        const axis = el.getAttribute('data-fill-axis');
+        const sizeScale = parseFloat(el.getAttribute('data-fill-size-scale')) || 0;
+        const posBase = parseFloat(el.getAttribute('data-fill-pos-base')) || 0;
+        const posScale = parseFloat(el.getAttribute('data-fill-pos-scale')) || 0;
+        const fixedPos = parseFloat(el.getAttribute('data-fill-fixed-pos')) || 0;
+        const fixedSize = parseFloat(el.getAttribute('data-fill-fixed-size')) || 0;
+
+        const size = Math.max(0, sizeScale * percent);
+        const pos = posBase + posScale * percent;
+
+        const isH = axis === 'h';
+        const x = isH ? pos : fixedPos;
+        const y = isH ? fixedPos : pos;
+        const width = isH ? size : fixedSize;
+        const height = isH ? fixedSize : size;
+
+        if (el.tagName.toLowerCase() === 'path') {
+            const rStart = parseFloat(el.getAttribute('data-fill-radius-start')) || 0;
+            const rEnd = parseFloat(el.getAttribute('data-fill-radius-end')) || 0;
+            const corners = isH
+                ? { tl: rStart, tr: rEnd, br: rEnd, bl: rStart }
+                : { tl: rEnd, tr: rEnd, br: rStart, bl: rStart };
+            el.setAttribute('d', this._buildRoundedRectPath(x, y, width, height, corners));
+        } else {
+            el.setAttribute('x', String(x));
+            el.setAttribute('y', String(y));
+            el.setAttribute('width', String(width));
+            el.setAttribute('height', String(height));
+        }
+    }
+
+    /**
+     * Reposition the gauge-mode "current value" indicator/needle (the shape drawn
+     * by _renderIndicator() at the leading edge of the progress bar in
+     * _generateProgressBar()) from this._displayValue. Same linear-coefficient
+     * data-attribute scheme as the fill rect, but for a single translate(x,y)
+     * transform instead of rect/path geometry.
+     * @private
+     */
+    _updateValueIndicatorFromValue() {
+        const el = this.shadowRoot.querySelector('[data-lcards-role="value-indicator"]');
+        if (!el) return;
+
+        const percent = this._calculateValuePercent(this._displayValue);
+        this._applyTransformFromCoefficients(el, percent);
+    }
+
+    /**
+     * Reposition every threshold/range marker indicator — and its label, if any —
+     * from its interpolated (this._displayMarkerValues) value. Both the marker shape
+     * and its label are tagged data-marker-index so each element can look up its own
+     * display value; the label carries its own posBase/fixed (marker's own + the
+     * label's constant offset, see _renderMarkerLabel) but is looked up by the same
+     * index, so it moves in lockstep with the marker it belongs to.
+     * @private
+     */
+    _updateMarkerPositionsFromValue() {
+        const values = this._displayMarkerValues;
+        if (!values || values.length === 0) return;
+
+        const displayMin = this._displayConfig.min;
+        const displayMax = this._displayConfig.max;
+        const markerEls = this.shadowRoot.querySelectorAll(
+            '[data-lcards-role="range-marker"], [data-lcards-role="range-marker-label"]'
+        );
+
+        markerEls.forEach((el) => {
+            const idx = parseInt(el.getAttribute('data-marker-index'), 10);
+            const dv = values[idx];
+            if (dv === null || dv === undefined || Number.isNaN(dv)) return;
+
+            const percent = Math.max(0, Math.min(1, (dv - displayMin) / ((displayMax - displayMin) || 1)));
+            this._applyTransformFromCoefficients(el, percent);
+        });
+    }
+
+    /**
+     * Shared helper for both the value indicator and range markers: reads the
+     * linear-coefficient data-* attributes baked in at render time and writes
+     * `transform="translate(x,y) rotate(r)"` for the given percent.
+     * @param {Element} el
+     * @param {number} percent - 0-1
+     * @private
+     */
+    _applyTransformFromCoefficients(el, percent) {
+        const axis = el.getAttribute('data-pos-axis'); // 'x' | 'y' — which coordinate varies
+        const posBase = parseFloat(el.getAttribute('data-pos-base')) || 0;
+        const posScale = parseFloat(el.getAttribute('data-pos-scale')) || 0;
+        const fixed = parseFloat(el.getAttribute('data-pos-fixed')) || 0;
+        const rotation = el.getAttribute('data-pos-rotation') || '0';
+
+        const pos = posBase + posScale * percent;
+        const x = axis === 'x' ? pos : fixed;
+        const y = axis === 'x' ? fixed : pos;
+
+        el.setAttribute('transform', `translate(${x},${y}) rotate(${rotation})`);
     }
 
     /**
@@ -3488,7 +4145,9 @@ export class LCARdSSlider extends LCARdSButton {
             fallback: this._sliderStyle?.gauge?.fill?.color?.active ?? 'theme:components.slider.shaped.fill.color'
         }) ?? ''));
 
-        const progress = this._calculateValuePercent();
+        // targetEnabled=false when value_tween.targets.track is off — see
+        // _effectiveSliderValue() — so a disabled track target snaps immediately.
+        const progress = this._calculateValuePercent(undefined, this.config?.value_tween?.targets?.track !== false);
 
         let svg = '';
 
@@ -3502,11 +4161,19 @@ export class LCARdSSlider extends LCARdSButton {
         if (isVertical) {
             const fillH = h * progress;
             const fillY = this._invertFill ? y : y + h - fillH;
-            svg += `<rect x="${x}" y="${fillY}" width="${w}" height="${fillH}" fill="${fillColor}" />`;
+            const fillTag =
+                `data-lcards-role="progress-fill" data-fill-axis="v" data-fill-size-scale="${h}" ` +
+                `data-fill-pos-base="${this._invertFill ? y : y + h}" data-fill-pos-scale="${this._invertFill ? 0 : -h}" ` +
+                `data-fill-fixed-pos="${x}" data-fill-fixed-size="${w}"`;
+            svg += `<rect ${fillTag} x="${x}" y="${fillY}" width="${w}" height="${fillH}" fill="${fillColor}" />`;
         } else {
             const fillW = w * progress;
             const fillX = this._invertFill ? x + w - fillW : x;
-            svg += `<rect x="${fillX}" y="${y}" width="${fillW}" height="${h}" fill="${fillColor}" />`;
+            const fillTag =
+                `data-lcards-role="progress-fill" data-fill-axis="h" data-fill-size-scale="${w}" ` +
+                `data-fill-pos-base="${this._invertFill ? x + w : x}" data-fill-pos-scale="${this._invertFill ? -w : 0}" ` +
+                `data-fill-fixed-pos="${y}" data-fill-fixed-size="${h}"`;
+            svg += `<rect ${fillTag} x="${fillX}" y="${y}" width="${fillW}" height="${h}" fill="${fillColor}" />`;
         }
 
         lcardsLog.debug('[LCARdSSlider] _generateShapedContent()', { zoneSpec, x, y, w, h, orientation, progress, fillColor });
@@ -3653,7 +4320,11 @@ export class LCARdSSlider extends LCARdSButton {
         // This ensures the visual position matches the gauge scale
         const min = this._displayConfig.min;
         const max = this._displayConfig.max;
-        const value = Number(this._sliderValue);
+        // targetEnabled=false when value_tween.targets.track is off — see
+        // _effectiveSliderValue() — so a disabled track target (which also governs
+        // this zone's value-indicator needle, drawn further down using this same
+        // `progress`) snaps immediately instead of getting stuck behind.
+        const value = Number(this._effectiveSliderValue(this.config?.value_tween?.targets?.track !== false));
         const range = max - min;
         const progress = range > 0 ? (value - min) / range : 0;
 
@@ -3688,14 +4359,14 @@ export class LCARdSSlider extends LCARdSButton {
         const bgPrZ = (_bgRRawZ !== null && typeof _bgRRawZ === 'object')
             ? { start: _bgRRawZ.start ?? 2, end: _bgRRawZ.end ?? 2 }
             : { start: (_bgRRawZ ?? 2), end: (_bgRRawZ ?? 2) };
-        const pbPathZ = (rad, px, py, pw, ph, isH, fill) => {
+        const pbPathZ = (rad, px, py, pw, ph, isH, fill, close = '') => {
             if (rad.start === rad.end) {
-                return `<rect x="${px}" y="${py}" width="${pw}" height="${ph}" fill="${fill}" rx="${rad.start}" ry="${rad.start}"></rect>`;
+                return `<rect x="${px}" y="${py}" width="${pw}" height="${ph}" fill="${fill}" rx="${rad.start}" ry="${rad.start}" ${close}></rect>`;
             }
             const corners = isH
                 ? { tl: rad.start, tr: rad.end,   br: rad.end,   bl: rad.start }
                 : { tl: rad.end,   tr: rad.end,   br: rad.start, bl: rad.start };
-            return `<path d="${this._buildRoundedRectPath(px, py, pw, ph, corners)}" fill="${fill}"></path>`;
+            return `<path d="${this._buildRoundedRectPath(px, py, pw, ph, corners)}" fill="${fill}" ${close}></path>`;
         };
         // Optional background track — extent clamped to background.min/max (defaults to control range)
         const bgColor = this._resolveColorValue(String(this._resolveStateValue({
@@ -3735,7 +4406,12 @@ export class LCARdSSlider extends LCARdSButton {
                 const bgY_z = y + (1 - bgEndFracZ) * height;
                 svg += pbPathZ(bgPrZ, bgX2, bgY_z, bgW, bgH_z, false, bgColor);
             }
-            svg += pbPathZ(prZ, x, barY, width, barHeight, false, fillColor);
+            const fillTagZ =
+                `data-lcards-role="progress-fill" data-fill-axis="v" data-fill-size-scale="${height}" ` +
+                `data-fill-pos-base="${this._invertFill ? y : y + height}" data-fill-pos-scale="${this._invertFill ? 0 : -height}" ` +
+                `data-fill-fixed-pos="${x}" data-fill-fixed-size="${width}" ` +
+                `data-fill-radius-start="${prZ.start}" data-fill-radius-end="${prZ.end}"`;
+            svg += pbPathZ(prZ, x, barY, width, barHeight, false, fillColor, fillTagZ);
         } else {
             const barWidth = width * progress;
             let barX = x; // Start from left (default)
@@ -3753,7 +4429,12 @@ export class LCARdSSlider extends LCARdSButton {
                 const bgW_z = (bgEndFracZ - bgStartFracZ) * width;
                 svg += pbPathZ(bgPrZ, bgX_z, bgY2, bgW_z, bgH, true, bgColor);
             }
-            svg += pbPathZ(prZ, barX, y, barWidth, height, true, fillColor);
+            const fillTagZ =
+                `data-lcards-role="progress-fill" data-fill-axis="h" data-fill-size-scale="${width}" ` +
+                `data-fill-pos-base="${this._invertFill ? x + width : x}" data-fill-pos-scale="${this._invertFill ? -width : 0}" ` +
+                `data-fill-fixed-pos="${y}" data-fill-fixed-size="${height}" ` +
+                `data-fill-radius-start="${prZ.start}" data-fill-radius-end="${prZ.end}"`;
+            svg += pbPathZ(prZ, barX, y, barWidth, height, true, fillColor, fillTagZ);
         }
 
         // Render indicator if in gauge mode and enabled
@@ -3771,6 +4452,11 @@ export class LCARdSSlider extends LCARdSButton {
                     const indicatorX = x + (width / 2) + indicator.offsetX;
                     const indicatorY = y + baseIndicatorY + indicator.offsetY;
 
+                    const indicatorTag =
+                        `data-lcards-role="value-indicator" data-pos-axis="y" ` +
+                        `data-pos-base="${this._invertFill ? y + indicator.offsetY : y + indicator.offsetY + height}" ` +
+                        `data-pos-scale="${this._invertFill ? height : -height}" ` +
+                        `data-pos-fixed="${indicatorX}" data-pos-rotation="${indicator.rotation}"`;
                     svg += this._renderIndicator(
                         indicator.type,
                         indicatorX,
@@ -3782,7 +4468,8 @@ export class LCARdSSlider extends LCARdSButton {
                         indicator.borderEnabled,
                         indicator.borderColor,
                         indicator.borderWidth,
-                        true // isVertical
+                        true, // isVertical
+                        indicatorTag
                     );
                 } else {
                     // Calculate indicator position along value axis (X)
@@ -3795,6 +4482,11 @@ export class LCARdSSlider extends LCARdSButton {
                     indicatorX += x + indicator.offsetX;
                     const indicatorY = y + (height / 2) + indicator.offsetY;
 
+                    const indicatorTag =
+                        `data-lcards-role="value-indicator" data-pos-axis="x" ` +
+                        `data-pos-base="${this._invertFill ? x + indicator.offsetX + width : x + indicator.offsetX}" ` +
+                        `data-pos-scale="${this._invertFill ? -width : width}" ` +
+                        `data-pos-fixed="${indicatorY}" data-pos-rotation="${indicator.rotation}"`;
                     svg += this._renderIndicator(
                         indicator.type,
                         indicatorX,
@@ -3806,7 +4498,8 @@ export class LCARdSSlider extends LCARdSButton {
                         indicator.borderEnabled,
                         indicator.borderColor,
                         indicator.borderWidth,
-                        false // isVertical = false for horizontal
+                        false, // isVertical = false for horizontal
+                        indicatorTag
                     );
                 }
             }
@@ -3830,9 +4523,13 @@ export class LCARdSSlider extends LCARdSButton {
         const zoneHeight = zoneSpec.height;
         const gaugeConfig = this._sliderStyle?.gauge;
 
+        // targetEnabled=false when value_tween.targets.markers is off — see
+        // _effectiveMarkerValue() — so a disabled markers target snaps immediately
+        // instead of getting stuck showing the pre-tween marker position forever.
+        const markersTargetEnabled = this.config?.value_tween?.targets?.markers !== false;
         const markerRanges = (this._sliderStyle?.ranges || [])
-            .map((r, i) => ({ range: r, resolvedValue: this._resolvedMarkerValues[i] }))
-            .filter(({ range, resolvedValue }) => 'value' in range && resolvedValue !== null);
+            .map((r, i) => ({ range: r, resolvedValue: this._effectiveMarkerValue(i, markersTargetEnabled), index: i }))
+            .filter(({ range, resolvedValue }) => 'value' in range && resolvedValue != null);
 
         if (markerRanges.length === 0) return '';
 
@@ -3851,7 +4548,7 @@ export class LCARdSSlider extends LCARdSButton {
         //   Vertical:   offset.x = 0. Border size varies; each preset that needs it
         //               (e.g. picard) sets the correct value in its marker_indicator block.
 
-        for (const { range, resolvedValue } of markerRanges) {
+        for (const { range, resolvedValue, index } of markerRanges) {
             const globalIndicator = this._getIndicatorConfig(gaugeConfig);
             const riCfg = range.indicator || {};
             // Fallback chain: per-range indicator → style.gauge.marker_indicator (preset) → component-aware defaults
@@ -3914,13 +4611,24 @@ export class LCARdSSlider extends LCARdSButton {
                              : markerIndicator.align === 'end'   ? zoneWidth
                              : zoneWidth / 2; // 'center'
                 const mX = alignX + markerIndicator.offsetX;
+                const posCoeffs = {
+                    index, axis: 'y',
+                    posBase: this._invertFill ? markerIndicator.offsetY : zoneHeight + markerIndicator.offsetY,
+                    posScale: this._invertFill ? zoneHeight : -zoneHeight,
+                    fixed: mX
+                };
+                const markerTag =
+                    `data-lcards-role="range-marker" data-marker-index="${posCoeffs.index}" data-pos-axis="${posCoeffs.axis}" ` +
+                    `data-pos-base="${posCoeffs.posBase}" data-pos-scale="${posCoeffs.posScale}" ` +
+                    `data-pos-fixed="${posCoeffs.fixed}" data-pos-rotation="${markerIndicator.rotation}"`;
                 svg += this._renderIndicator(
                     markerIndicator.type, mX, mY + markerIndicator.offsetY,
                     markerIndicator.width, markerIndicator.height, markerIndicator.rotation,
                     markerIndicator.color, markerIndicator.borderEnabled,
-                    markerIndicator.borderColor, markerIndicator.borderWidth, true
+                    markerIndicator.borderColor, markerIndicator.borderWidth, true,
+                    markerTag
                 );
-                labelsMarkup += this._renderMarkerLabel(range, markerIndicator, mX, mY + markerIndicator.offsetY, true);
+                labelsMarkup += this._renderMarkerLabel(range, markerIndicator, mX, mY + markerIndicator.offsetY, true, posCoeffs);
             } else {
                 // X: value position along zone width
                 let mX = zoneWidth * markerPercent;
@@ -3930,13 +4638,24 @@ export class LCARdSSlider extends LCARdSButton {
                              : markerIndicator.align === 'end'   ? zoneHeight
                              : zoneHeight / 2; // 'center'
                 const mY = alignY + markerIndicator.offsetY;
+                const posCoeffs = {
+                    index, axis: 'x',
+                    posBase: this._invertFill ? zoneWidth + markerIndicator.offsetX : markerIndicator.offsetX,
+                    posScale: this._invertFill ? -zoneWidth : zoneWidth,
+                    fixed: mY
+                };
+                const markerTag =
+                    `data-lcards-role="range-marker" data-marker-index="${posCoeffs.index}" data-pos-axis="${posCoeffs.axis}" ` +
+                    `data-pos-base="${posCoeffs.posBase}" data-pos-scale="${posCoeffs.posScale}" ` +
+                    `data-pos-fixed="${posCoeffs.fixed}" data-pos-rotation="${markerIndicator.rotation}"`;
                 svg += this._renderIndicator(
                     markerIndicator.type, mX + markerIndicator.offsetX, mY,
                     markerIndicator.width, markerIndicator.height, markerIndicator.rotation,
                     markerIndicator.color, markerIndicator.borderEnabled,
-                    markerIndicator.borderColor, markerIndicator.borderWidth, false
+                    markerIndicator.borderColor, markerIndicator.borderWidth, false,
+                    markerTag
                 );
-                labelsMarkup += this._renderMarkerLabel(range, markerIndicator, mX + markerIndicator.offsetX, mY, false);
+                labelsMarkup += this._renderMarkerLabel(range, markerIndicator, mX + markerIndicator.offsetX, mY, false, posCoeffs);
             }
         }
         return svg + labelsMarkup;
@@ -3949,15 +4668,25 @@ export class LCARdSSlider extends LCARdSButton {
      * (not the pre-offset value position).
      * Default position (no `label.offset`): above the marker in horizontal orientation,
      * beside it in vertical orientation — matching where there's normally clear space.
+     *
+     * Positioned via a `transform="translate(...)"` on a fixed x="0" y="0" origin
+     * (rather than baking x/y directly) so value_tween can reposition it in lockstep
+     * with the marker shape — its position is always `marker_position + constant`, so
+     * it shares the marker's own posScale and just shifts posBase/fixed by the
+     * label's own (percent-independent) offset. Content itself is never re-interpolated
+     * — unlike the primary value-text tween, only position moves here, so this applies
+     * equally whether `label.text` is a static string or a template.
      * @param {Object} range - Range config (`range.label` may be undefined)
      * @param {Object} markerIndicator - Resolved indicator geometry (for sizing the default offset)
      * @param {number} drawX - Marker's final drawn X coordinate
      * @param {number} drawY - Marker's final drawn Y coordinate
      * @param {boolean} isVertical
+     * @param {{index:number, axis:string, posBase:number, posScale:number, fixed:number}} posCoeffs
+     *   - The marker's own linear-coefficient geometry (see _generateGaugeMarkers)
      * @returns {string} SVG markup, or '' if no label configured
      * @private
      */
-    _renderMarkerLabel(range, markerIndicator, drawX, drawY, isVertical) {
+    _renderMarkerLabel(range, markerIndicator, drawX, drawY, isVertical, posCoeffs) {
         const rawText = range.label?.text;
         if (!rawText) return '';
 
@@ -3972,21 +4701,34 @@ export class LCARdSSlider extends LCARdSButton {
         }) ?? ''));
         const labelFontSize = range.label.font_size ?? 14;
 
-        let labelX, labelY, textAnchor;
+        let labelX, labelY, textAnchor, labelPosBase, labelFixed;
         if (isVertical) {
             // Default: beside the marker (clear of the value-progress fill along the track)
-            labelX = drawX + (range.label.offset?.x ?? (markerIndicator.width / 2 + 6));
-            labelY = drawY + (range.label.offset?.y ?? 0);
+            const crossOffset = range.label.offset?.x ?? (markerIndicator.width / 2 + 6);
+            const alongOffset = range.label.offset?.y ?? 0;
+            labelX = drawX + crossOffset;
+            labelY = drawY + alongOffset;
             textAnchor = 'start';
+            labelPosBase = posCoeffs.posBase + alongOffset;
+            labelFixed = posCoeffs.fixed + crossOffset;
         } else {
             // Default: above the marker
-            labelX = drawX + (range.label.offset?.x ?? 0);
-            labelY = drawY + (range.label.offset?.y ?? -(markerIndicator.height / 2 + 6));
+            const alongOffset = range.label.offset?.x ?? 0;
+            const crossOffset = range.label.offset?.y ?? -(markerIndicator.height / 2 + 6);
+            labelX = drawX + alongOffset;
+            labelY = drawY + crossOffset;
             textAnchor = 'middle';
+            labelPosBase = posCoeffs.posBase + alongOffset;
+            labelFixed = posCoeffs.fixed + crossOffset;
         }
 
+        const labelTag =
+            `data-lcards-role="range-marker-label" data-marker-index="${posCoeffs.index}" ` +
+            `data-pos-axis="${posCoeffs.axis}" data-pos-base="${labelPosBase}" ` +
+            `data-pos-scale="${posCoeffs.posScale}" data-pos-fixed="${labelFixed}" data-pos-rotation="0"`;
+
         return `
-            <text x="${labelX}" y="${labelY}"
+            <text ${labelTag} x="0" y="0" transform="translate(${labelX},${labelY})"
                   font-size="${labelFontSize}px" font-weight="400" font-family="var(--primary-font-family, Antonio, sans-serif)"
                   fill="${labelColor}"
                   text-anchor="${textAnchor}" dominant-baseline="${isVertical ? 'middle' : 'auto'}">${escapeHtml(labelText)}</text>
@@ -4240,6 +4982,10 @@ export class LCARdSSlider extends LCARdSButton {
      */
     disconnectedCallback() {
         super.disconnectedCallback();
+
+        // Cancel any in-flight value_tween animation
+        this._valueTween?.revert();
+        this._valueTween = null;
 
         // Unsubscribe from alert mode changes
         this._alertModeUnsubscribe?.();

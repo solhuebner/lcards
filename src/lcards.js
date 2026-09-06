@@ -146,7 +146,7 @@ async function initializeCustomCard() {
         animejs: anime,                // full animejs module
         anime: anime.animate,          // shortcut for anime.animate
         stagger: anime.stagger,        // stagger function for animations
-        spring: anime.createSpring,    // spring easing generator (v4 API)
+        spring: anime.spring,          // spring easing generator (v4 API; createSpring is a deprecated alias of this)
         createScope: anime.createScope, // scope factory for overlay-scoped animations
         utils: anime.utils,            // CENTRAL canonical utils reference
         splitText: anime.splitText,    // native text splitter (v4.1+)
@@ -160,7 +160,7 @@ async function initializeCustomCard() {
         // Easing function API reference:
         // - Built-in parametric: anime.eases.in(), .out(), .inOut(), .inBack(), etc.
         // - Advanced generators:
-        //   • anime.createSpring({ mass, stiffness, damping, velocity }) - top-level export
+        //   • anime.spring({ mass, stiffness, damping, velocity } | { duration, bounce }) - top-level export
         //   • anime.eases.cubicBezier(x1, y1, x2, y2)
         //   • anime.eases.steps(count, fromStart)
         //   • anime.eases.linear(...points)
