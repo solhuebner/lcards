@@ -158,6 +158,7 @@ export default withMermaid(defineConfig({
               { text: 'Overview',          link: '/cards/' },
               { text: 'Common Properties', link: '/cards/common' },
               { text: 'Main Engineering',  link: '/cards/main-engineering' },
+              { text: 'Getting AI Help',   link: '/cards/ai-assistance' },
             ],
           },
           {
@@ -238,6 +239,7 @@ export default withMermaid(defineConfig({
           { text: 'Card Foundation',    link: '/architecture/cards/lcards-card-foundation' },
           { text: 'Layout View',        link: '/architecture/layout-view' },
           { text: 'MSD Pipeline',       link: '/architecture/msd/' },
+          { text: 'Routing Engine (RouterCore)', link: '/architecture/msd/routing' },
           { text: 'Animation Architecture', link: '/architecture/animations/' },
           { text: 'Core Subsystems →',       link: '/architecture/subsystems/' },
           { text: 'Internals →',             link: '/architecture/internals/' },
@@ -303,6 +305,7 @@ export default withMermaid(defineConfig({
             { text: 'Overview',          link: '/cards/' },
             { text: 'Common Properties', link: '/cards/common' },
             { text: 'Main Engineering',  link: '/cards/main-engineering' },
+            { text: 'Getting AI Help',   link: '/cards/ai-assistance' },
           ],
         },
         {
@@ -473,6 +476,7 @@ export default withMermaid(defineConfig({
             { text: 'Card Foundation',  link: '/architecture/cards/lcards-card-foundation' },
             { text: 'Layout View',      link: '/architecture/layout-view' },
             { text: 'MSD Pipeline',     link: '/architecture/msd/' },
+            { text: 'Routing Engine (RouterCore)', link: '/architecture/msd/routing' },
           ],
         },
         {

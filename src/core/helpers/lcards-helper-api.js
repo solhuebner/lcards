@@ -118,6 +118,107 @@ export async function deleteHelper(hass, domain, helperId) {
 }
 
 /**
+ * Cache of entity_id -> storage-collection item id (the registry entry's
+ * `unique_id`), so repeated syncs within a session don't each pay for a
+ * `config/entity_registry/get` round trip. Module-level: this mapping is
+ * effectively permanent for the lifetime of a given helper entity.
+ * @type {Map<string, string>}
+ */
+const _storageIdCache = new Map();
+
+/**
+ * Resolve a helper entity's storage-collection item id (needed for
+ * `<domain>/update` and `<domain>/delete` WS calls) from its entity_id.
+ *
+ * This id is NOT the entity_id (which may have been renamed via
+ * `updateHelperEntityId`) and is NOT available on `hass.entities` — that's
+ * the lightweight `EntityRegistryDisplayEntry` used for the frontend's
+ * always-on registry cache, which omits `unique_id` entirely. The only way
+ * to get it from a normal card's `hass` object is the single-entity
+ * `config/entity_registry/get` WS command, which returns the full
+ * registry entry (including `unique_id`) — but is admin-gated on the HA
+ * side, so this will fail for non-admin users.
+ *
+ * @param {Object} hass - Home Assistant instance
+ * @param {string} entityId - Entity ID to resolve
+ * @returns {Promise<string|null>} The storage item id, or null if unresolvable
+ */
+async function resolveHelperStorageId(hass, entityId) {
+  if (_storageIdCache.has(entityId)) {
+    return _storageIdCache.get(entityId);
+  }
+
+  try {
+    const entry = await hass.callWS({ type: 'config/entity_registry/get', entity_id: entityId });
+    const uniqueId = entry?.unique_id ?? null;
+    if (uniqueId) {
+      _storageIdCache.set(entityId, uniqueId);
+    }
+    return uniqueId;
+  } catch (error) {
+    lcardsLog.debug(`[HelperAPI] Could not resolve storage id for ${entityId} (likely non-admin user):`, error.message);
+    return null;
+  }
+}
+
+/**
+ * Update a helper's stored config (e.g. options list) via the WebSocket
+ * storage-collection API, so the change actually persists to
+ * `.storage/<domain>` — unlike the `<domain>.set_options`/etc. services,
+ * which only mutate the live entity's in-memory state and are lost on the
+ * next HA restart.
+ *
+ * Requires resolving the entity's storage-collection item id first — see
+ * `resolveHelperStorageId`. That lookup is admin-gated, so this throws
+ * (letting the caller fall back to the ephemeral service call) when run
+ * as a non-admin user.
+ *
+ * The update schema replaces the whole stored config rather than merging,
+ * so callers must pass every field that should be kept (e.g. `name`, and
+ * `icon` if one is set) even when only `options` actually changed.
+ *
+ * @param {Object} hass - Home Assistant instance
+ * @param {string} domain - Helper domain (e.g. 'input_select')
+ * @param {string} entityId - Current entity_id of the helper
+ * @param {Object} config - Full config to write (e.g. { name, options, icon })
+ * @returns {Promise<Object>} Updated storage item
+ * @throws {Error} If the storage id can't be resolved or the update fails
+ *
+ * @example
+ * await updateHelperConfig(hass, 'input_select', 'input_select.lcards_sound_scheme', {
+ *   name: 'LCARdS Sound Scheme',
+ *   options: ['none', 'lcards_default'],
+ *   icon: 'mdi:music-box-multiple'
+ * });
+ */
+export async function updateHelperConfig(hass, domain, entityId, config) {
+  if (!hass || !hass.callWS) {
+    throw new Error('[HelperAPI] HASS instance or callWS not available');
+  }
+
+  const storageId = await resolveHelperStorageId(hass, entityId);
+  if (!storageId) {
+    throw new Error(`[HelperAPI] Could not resolve storage id for ${entityId}`);
+  }
+
+  lcardsLog.debug(`[HelperAPI] Updating ${domain} config: ${entityId} (storage id: ${storageId})`);
+
+  try {
+    const result = await hass.callWS({
+      type: `${domain}/update`,
+      [`${domain}_id`]: storageId,
+      ...config
+    });
+
+    lcardsLog.info(`[HelperAPI] ✅ Persisted ${domain} config: ${entityId}`);
+    return result;
+  } catch (error) {
+    lcardsLog.error(`[HelperAPI] ❌ Failed to update ${domain} config for "${entityId}":`, error);
+    throw new Error(`Failed to update helper config: ${error.message || 'Unknown error'}`);
+  }
+}
+
+/**
  * Update helper entity_id via entity registry
  *
  * @param {Object} hass - Home Assistant instance

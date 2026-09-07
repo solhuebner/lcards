@@ -112,6 +112,10 @@ tap_action:
   action: more-info
 animations: []
 background_animation: []
+value_tween:                # see Value Tween below
+  enabled: true
+  duration: 500
+  ease: outQuad
 sounds: {}
 
 # ── Layout ─────────────────────────────────────────────────────────────────────
@@ -144,6 +148,7 @@ triggers_update: []
 | `control` | object | Control behaviour — see [Control Options](#control-options) |
 | `text` | object | Text label definitions — see [Text Fields](../../core/text-fields.md) |
 | `style` | object | Visual style overrides — see [Style Object](#style-object) |
+| `value_tween` | object | Ease the track (fill or pills) and markers between values on entity-driven changes — see [Value Tween](#value-tween) |
 
 ---
 
@@ -327,12 +332,40 @@ style:
 
 ---
 
+## Value Tween
+
+Eases the gauge fill, the current-value indicator, pills, and threshold/range markers between their old and new positions whenever the bound entity's state changes on its own — a genuine LCARS-style scroll/sweep instead of an instant snap. Only applies to entity-driven changes; dragging the slider directly stays instant. Purely positional — it does not animate any text field's content (there's no "current value" text scroll/odometer effect; text fields, if configured, always show the correct value immediately).
+
+```yaml
+value_tween:
+  enabled: true      # default true. Forced off under the OS-level prefers-reduced-motion setting
+  duration: 500       # ms, 0-5000, default 500
+  ease: outQuad        # default outQuad
+  targets:               # which elements animate — all default true
+    track: true
+    markers: true
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `enabled` | boolean | Enable value tweening (default `true`) |
+| `duration` | number | Tween duration in milliseconds, 0-5000 (default `500`) |
+| `ease` | string | Any anime.js v4 named easing that takes no extra parameters — `linear`, the `in`/`out`/`inOut`/`outIn` variants of Power/Quad/Cubic/Quart/Quint/Sine/Expo/Circ/Back/Elastic/Bounce, or `spring` (default `outQuad`) |
+| `targets.track` | boolean | Tween the card's primary value representation, whichever form the current track type gives it: the gauge/shaped fill plus its value indicator/needle, or the pills opacity sweep. A card is always in exactly one track type, so this single flag covers whichever one applies |
+| `targets.markers` | boolean | Tween threshold/range marker position — including its label, if any, which moves in lockstep with the marker regardless of whether `label.text` is a static string or a template (only the label's *position* is animated, never its content). In `pills` mode this also governs which pill is highlighted as the marker sweeps. Applies to `gauge` and `pills` track types — `shaped` never renders markers at all |
+
+The slider editor's Value Animation section always shows `track` (its label switches between "Fill" and "Pills" to match the card's current track type) and hides `markers` only in `shaped` mode, which never renders them.
+
+Zone/threshold *colours* are never tweened (they stay an instant, alert-like state change), and this has no effect while a `component: shaped` fill colour or range band colour changes — only positional/numeric elements animate.
+
+---
+
 ## Ranges
 
 Define colour-coded value bands and point markers on the track. Two item types:
 
 - **Band** (`min` + `max`): coloured background zone
-- **Marker** (`value`): live point indicator that tracks a value
+- **Marker** (`value`): live point indicator that tracks a value, with an optional text `label`
 
 ```yaml
 style:
@@ -349,17 +382,21 @@ style:
       max: 100
       color: "var(--warning-color)"
       opacity: 0.3
-    # Value marker — triangle at a live entity value
+    # Value marker — triangle at a live entity value, with a caption
     - value: "{entity.attributes.target_temp}"
       color: "var(--lcards-orange)"
+      label:
+        text: "Target"
 ```
+
+`min`/`max`/`value` all support [templates](../../core/templates/) — but only the **synchronous** subset (JS, token, DataSource — no Jinja2), since these positions are resolved on every entity-state update. `label.text` supports the **full** template system, including Jinja2, since it's resolved separately and doesn't need to be synchronous.
 
 ### Range band fields
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `min` | number / string | required | Band start value — supports templates: `{entity.attributes.x}`, `[[[JS]]]` |
-| `max` | number / string | required | Band end value — supports templates |
+| `min` | number / string | required | Band start value — supports templates: `{entity.state}`, `{entity.attributes.x}`, `{states.domain.object_id.state}`, `{datasource:name}`, `{config.x}`, `{variables.x}`, `[[[JS]]]` |
+| `max` | number / string | required | Band end value — supports the same templates as `min` |
 | `color` | string / object | — | Band fill colour — [state map](../../core/colours.md) supported |
 | `opacity` | number | `0.3` | Band opacity (0–1) |
 
@@ -367,7 +404,7 @@ style:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `value` | number / string | required | Position value — supports templates: `{entity.attributes.x}`, `{states.id.state}`, `[[[JS]]]` |
+| `value` | number / string | required | Position value — supports templates: `{entity.state}`, `{entity.attributes.x}`, `{states.domain.object_id.state}`, `{datasource:name}`, `{config.x}`, `{variables.x}`, `[[[JS]]]` |
 | `color` | string / object | — | Marker colour — [state map](../../core/colours.md) supported |
 | `indicator.type` | string | `triangle` | Shape: `line`, `round`, `triangle` |
 | `indicator.align` | string | `center` | Cross-axis pin: `start`, `center`, `end` |
@@ -385,6 +422,20 @@ style:
 | `pill_style.stroke_color` | string/object | — | Pills mode: outline colour. Falls back to the pill fill colour (`color`) if unset. Supports state-object syntax |
 
 Global marker defaults can be set at `style.gauge.marker_indicator` — individual range entries override per field.
+
+### Label fields
+
+An optional text caption next to the marker (gauge mode) or highlighted pill (pills mode).
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `label.text` | string | — | Label text. Nothing renders unless this is set. Supports **all four** [template types](../../core/templates/), including Jinja2 and DataSource |
+| `label.color` | string / object | theme default | Label text colour — [state map](../../core/colours.md) supported |
+| `label.font_size` | number | `14` | Font size in px — defaults to the gauge tick-label size |
+| `label.offset.x` | number | — | Horizontal offset in px from the default position |
+| `label.offset.y` | number | — | Vertical offset in px from the default position |
+
+Default position (no `offset` set): above the marker in horizontal orientation, beside it in vertical orientation. There's no automatic collision avoidance against tick labels, the value readout, or other markers — use `offset` to manually clear overlaps, the same way `indicator.offset` already works for the marker shape itself.
 
 ---
 

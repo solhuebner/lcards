@@ -813,7 +813,39 @@ export class ConnectionOverlayService extends BaseService {
         // Refresh config from storage after every reconnect.  This picks up any
         // changes that were saved just before HA restarted (when the post-save
         // loadConfig() call was interrupted by the WS closing).
-        this.loadConfig().catch(() => {});
+        this._loadConfigWithRetry();
+    }
+
+    /**
+     * Load config after a reconnect, with a couple of follow-up retries.
+     *
+     * On a full HA restart, the browser's WS connection can reconnect to the
+     * freshly-booted HA core before LCARdS's own custom component has
+     * finished registering its `lcards/*` WebSocket commands (a real
+     * boot-order race between HA core and slower-loading custom
+     * integrations) — the immediate loadConfig() call then fails outright
+     * (`unknown_command`) and, since that failure is otherwise silently
+     * swallowed with no retry anywhere, any scoped setting resolves to its
+     * built-in default and stays stuck there until the page is reloaded.
+     *
+     * loadConfig() is idempotent and already called on every reconnect, so
+     * a couple of extra calls a few seconds later is cheap and harmless —
+     * this doesn't need to distinguish "read failed" from "no value saved"
+     * to be effective, it just needs to try again after the backend has
+     * had time to finish starting up.
+     * @private
+     */
+    _loadConfigWithRetry() {
+        const RETRY_DELAYS_MS = [3000, 8000];
+        this.loadConfig().catch(e => {
+            lcardsLog.debug('[ConnectionOverlayService] Post-reconnect loadConfig failed (will retry):', e.message);
+        });
+        RETRY_DELAYS_MS.forEach(delay => {
+            setTimeout(() => {
+                lcardsLog.debug(`[ConnectionOverlayService] Post-reconnect loadConfig retry (+${delay}ms)`);
+                this.loadConfig().catch(() => {});
+            }, delay);
+        });
     }
 
     _startReconnectedTimer() {

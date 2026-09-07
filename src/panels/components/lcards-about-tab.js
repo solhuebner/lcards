@@ -11,20 +11,16 @@
 
 import { LitElement, html, css } from 'lit';
 import { lcardsLog } from '../../utils/lcards-logging.js';
-import './lcards-preview-chip.js';
 
 export class LCARdSAboutTab extends LitElement {
   static properties = {
     hass: { type: Object },
-    previewEnabled: { type: Boolean },
   };
 
   constructor() {
     super();
     /** @type {any} */
     this.hass = undefined;
-    /** @type {boolean} */
-    this.previewEnabled = false;
   }
 
   // ============================================================================
@@ -42,8 +38,8 @@ export class LCARdSAboutTab extends LitElement {
       {
         index: 2,
         icon: 'mdi:palette-swatch',
-        label: 'Alert Lab & Theme Browser',
-        desc: 'Customize and preview how colours are derived for ALERT modes.  You can also browse tokens and CSS variables in the system for easy visual reference',
+        label: 'Theme Studio',
+        desc: 'LCARdS Alert Mode Lab (fully customize alert colour transforms), HA-LCARS Theme Lab, browsable LCARdS/HA CSS variable references',
       },
       {
         index: 3,
@@ -76,9 +72,9 @@ export class LCARdSAboutTab extends LitElement {
   // NAVIGATION
   // ============================================================================
 
-  /** True when the user has opted into preview / experimental features. */
-  _isPreviewEnabled() {
-    return this.previewEnabled;
+  /** True when the dev-only features URL parameter is present (?lcards_dev_features=true). */
+  _isDevFeaturesEnabled() {
+    return new URLSearchParams(window.location.search).get('lcards_dev_features') === 'true';
   }
 
   /**
@@ -175,39 +171,25 @@ export class LCARdSAboutTab extends LitElement {
               </div>
               <ha-icon icon="mdi:arrow-right" class="tab-guide-arrow"></ha-icon>
             </div>
-        </div>
-      </div>
-
-      <!-- ── Preview Features ──────────────────────────────────── -->
-      <div class="section">
-        <div class="section-header">
-          <ha-icon icon="mdi:flask-outline"></ha-icon>
-          Preview Features
-          <lcards-preview-chip></lcards-preview-chip>
-        </div>
-        <p class="section-intro" style="margin-bottom:0;">
-          To enable, go to <strong>Settings → Devices &amp; Services → LCARdS → Configure</strong>
-          and turn on <em>Enable Preview Features</em>.
-        </p>
-
-        <p class="section-intro">
-          Preview features are already included in the release &mdash; by opting-in with this setting it will surface their configuration across the UI allowing you can control them.
-          By default, features will operate behind the scenes with established defaults &mdash; you simply won&rsquo;t see the settings.
-        </p>
-        <p class="section-intro">
-          Features in preview:
-        </p>
-
-        <ul class="preview-features-list">
-          <li>
-            <ha-icon icon="mdi:tune"></ha-icon>
-            <div>
-              <span class="pf-title">Token Overrides (Alert Lab)</span>
-              <span class="pf-desc">A dedicated <em>Token Overrides</em> tab in the Alert Lab allowing you to create scoped or global token overrides that persist as part of your LCARdS configuration.</span>
+          ${this._isDevFeaturesEnabled() ? html`
+            <div
+                class="tab-guide-card"
+                role="button"
+                tabindex="0"
+                @click=${() => this._navigateToTab(8)}
+                @keydown=${(e) => e.key === 'Enter' && this._navigateToTab(8)}
+              >
+              <div class="tab-guide-icon">
+                <ha-icon icon="mdi:view-grid-plus-outline"></ha-icon>
+              </div>
+              <div class="tab-guide-body">
+                <span class="tab-guide-title">Layouts</span>
+                <span class="tab-guide-desc">Dev preview: compose reusable card layouts with a WYSIWYG grid editor (enabled via the ?lcards_dev_features=true URL parameter).</span>
+              </div>
+              <ha-icon icon="mdi:arrow-right" class="tab-guide-arrow"></ha-icon>
             </div>
-          </li>
-        </ul>
-
+          ` : ''}
+        </div>
       </div>
 
       <!-- ── Resources ─────────────────────────────────────────── -->
@@ -249,6 +231,15 @@ export class LCARdSAboutTab extends LitElement {
             <div class="link-body">
               <span class="link-title">Releases</span>
               <span class="link-url">github.com/snootched/LCARdS/releases</span>
+            </div>
+            <ha-icon icon="mdi:open-in-new" class="link-external"></ha-icon>
+          </a>
+
+          <a class="link-card" href="https://github.com/th3jesta/ha-lcars" target="_blank" rel="noopener">
+            <ha-icon icon="mdi:source-branch"></ha-icon>
+            <div class="link-body">
+              <span class="link-title">HA-LCARS Theme</span>
+              <span class="link-url">github.com/th3jesta/ha-lcars</span>
             </div>
             <ha-icon icon="mdi:open-in-new" class="link-external"></ha-icon>
           </a>
@@ -322,58 +313,6 @@ export class LCARdSAboutTab extends LitElement {
       margin: 0 0 12px 0;
       color: var(--secondary-text-color);
       line-height: 1.5;
-    }
-
-    /* ── Preview features list ───────────────────────── */
-    .preview-features-list {
-      list-style: none;
-      margin: 0 0 14px 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .preview-features-list li {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      padding: 9px 12px;
-      border-radius: var(--ha-border-radius-md);
-      background: color-mix(in srgb, var(--info-color, #03a9f4) 7%, rgba(40,40,40,0.5));
-      border: var(--ha-border-width-sm) solid color-mix(in srgb, var(--info-color, #03a9f4) 20%, transparent);
-    }
-
-    .preview-features-list ha-icon {
-      flex-shrink: 0;
-      color: var(--info-color, #03a9f4);
-      margin-top: 2px;
-    }
-
-    .preview-features-list div {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-
-    .pf-title {
-      font-weight: 600;
-      color: var(--primary-text-color);
-      font-size: 0.92em;
-    }
-
-    .pf-desc {
-      color: var(--secondary-text-color);
-      font-size: 0.85em;
-      line-height: 1.5;
-    }
-
-    .pf-desc code {
-      font-family: monospace;
-      background: color-mix(in srgb, var(--primary-text-color) 8%, transparent);
-      padding: 1px 4px;
-      border-radius: 3px;
-      font-size: 0.95em;
     }
 
     .steps-list {

@@ -484,7 +484,7 @@ export class LCARdSCard extends LCARdSNativeCard {
                     lcardsLog.debug(`[LCARdSCard] Created DataSource '${name}'`, {
                         entity: config.entity,
                         hasHistory: !!config.history,
-                        windowSeconds: config.window_seconds,
+                        windowSeconds: config.windowSeconds,
                         cardId: this._getDisplayId()
                     });
                     return source;
@@ -1960,8 +1960,12 @@ export class LCARdSCard extends LCARdSNativeCard {
                 entity: this._entity,
                 config: this.config,
                 hass: this.hass,
+                // Mirrors the `states` variable already available to [[[JS]]] templates
+                // (LCARdSCardTemplateEvaluator._safeEvalCode), so {states.entity_id.state}-style
+                // token templates resolve the same way JS templates already can.
+                states: this.hass?.states,
                 variables: this.config?.variables || {},
-                theme: this._singletons?.themeManager?.getCurrentTheme?.(),
+                theme: this._singletons?.themeManager?.getActiveTheme?.(),
                 // displayFormat controls how {entity.state} and {entity.attributes.*} tokens
                 // are rendered. Defaults to 'friendly' (HA-translated display strings).
                 // Callers may pass 'raw', 'parts', or 'unit' via options.displayFormat.

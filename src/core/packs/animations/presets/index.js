@@ -1694,13 +1694,11 @@ registerAnimationPreset('physics-spring', (def) => {
     return { anime: {}, styles: {} };
   }
 
-  // Use anime.js v4 spring as easing function. `createSpring` is the real
-  // export on the raw anime.js module (there is no bare `.spring` — the
-  // `window.lcards.anim.spring` alias in src/lcards.js is `anime.createSpring`
-  // under a different name) — the old `.spring` reference here always
-  // resolved to undefined, silently falling through to the fallback string
-  // below on every call.
-  const springEasing = window.lcards?.animejs?.createSpring?.({
+  // Use anime.js v4 spring as easing function. `spring` and `createSpring` are
+  // both real exports on the raw anime.js module and construct the identical
+  // Spring instance — `createSpring` is just a deprecated alias that logs a
+  // console warning on every call, so use `spring` directly.
+  const springEasing = window.lcards?.animejs?.spring?.({
     stiffness,
     damping,
     mass,

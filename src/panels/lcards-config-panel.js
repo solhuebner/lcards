@@ -29,7 +29,6 @@ import './components/lcards-storage-explorer-tab.js';
 import './components/lcards-about-tab.js';
 import './components/lcards-users-devices-tab.js';
 import './components/lcards-layouts-tab.js';
-import './components/lcards-preview-chip.js';
 import './components/lcards-connectivity-tab.js';
 
 export class LCARdSConfigPanel extends LitElement {
@@ -774,7 +773,7 @@ export class LCARdSConfigPanel extends LitElement {
           </ha-tab-group-tab>
           <ha-tab-group-tab value="2" ?active=${this._selectedTab === 2}>
             <ha-icon icon="mdi:palette-swatch"></ha-icon>
-            Alert Lab & Theme Browser
+            Theme Studio
           </ha-tab-group-tab>
           <ha-tab-group-tab value="3" ?active=${this._selectedTab === 3}>
             <ha-icon icon="mdi:wifi-off"></ha-icon>
@@ -827,11 +826,6 @@ export class LCARdSConfigPanel extends LitElement {
     return this.hass?.user?.is_admin === true;
   }
 
-  /** True when the user has opted into preview / experimental features. */
-  _isPreviewEnabled() {
-    return window.lcards?.core?.integrationService?.options?.enable_previews ?? false;
-  }
-
   /** True when the dev-only features URL parameter is present (?lcards_dev_features=true). */
   _isDevFeaturesEnabled() {
     return new URLSearchParams(window.location.search).get('lcards_dev_features') === 'true';
@@ -875,7 +869,6 @@ export class LCARdSConfigPanel extends LitElement {
       <div class="studio-layout">
         <lcards-about-tab
           .hass=${this.hass}
-          .previewEnabled=${this._isPreviewEnabled()}
           @lcards-navigate-tab=${(e) => {
             this._selectedTab = e.detail.tab;
             this.requestUpdate();

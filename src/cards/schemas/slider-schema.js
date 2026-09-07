@@ -10,6 +10,60 @@
 
 import { dataSourcesSchema, simpleColorSchema, stateColorSchema, paddingSchema, getTextSchema, gridOptionsSchema, entitySchema, cardIdSchema, tagsSchema, actionSchema, animationSchema, backgroundAnimationSchema, soundsSchema, cardHeightSchema, cardWidthSchema, cardMinHeightSchema, cardMinWidthSchema, cardMaxHeightSchema, cardMaxWidthSchema, cardOverflowSchema, cardOverflowXSchema, cardOverflowYSchema, cardZIndexSchema, triggersUpdateSchema, stateClassificationSchema } from './common-schemas.js';
 
+// value_tween.ease options: every anime.js v4 named easing that takes no extra
+// params (same set offered in lcards-animation-editor.js), plus 'spring' — the
+// one parametrized option, which the card special-cases via anime.createSpring().
+// Deliberately excludes cubicBezier/steps/custom-linear-points/irregular/custom,
+// which require a params UI we're not building for this bespoke, single-card feature.
+const _valueTweenEaseOptions = [
+    { value: 'linear', label: 'Linear' },
+    { value: 'in', label: 'Power - In' },
+    { value: 'out', label: 'Power - Out' },
+    { value: 'inOut', label: 'Power - In/Out' },
+    { value: 'outIn', label: 'Power - Out/In' },
+    { value: 'inQuad', label: 'Quad - In' },
+    { value: 'outQuad', label: 'Quad - Out (default)' },
+    { value: 'inOutQuad', label: 'Quad - In/Out' },
+    { value: 'outInQuad', label: 'Quad - Out/In' },
+    { value: 'inCubic', label: 'Cubic - In' },
+    { value: 'outCubic', label: 'Cubic - Out' },
+    { value: 'inOutCubic', label: 'Cubic - In/Out' },
+    { value: 'outInCubic', label: 'Cubic - Out/In' },
+    { value: 'inQuart', label: 'Quart - In' },
+    { value: 'outQuart', label: 'Quart - Out' },
+    { value: 'inOutQuart', label: 'Quart - In/Out' },
+    { value: 'outInQuart', label: 'Quart - Out/In' },
+    { value: 'inQuint', label: 'Quint - In' },
+    { value: 'outQuint', label: 'Quint - Out' },
+    { value: 'inOutQuint', label: 'Quint - In/Out' },
+    { value: 'outInQuint', label: 'Quint - Out/In' },
+    { value: 'inSine', label: 'Sine - In' },
+    { value: 'outSine', label: 'Sine - Out' },
+    { value: 'inOutSine', label: 'Sine - In/Out' },
+    { value: 'outInSine', label: 'Sine - Out/In' },
+    { value: 'inExpo', label: 'Expo - In' },
+    { value: 'outExpo', label: 'Expo - Out' },
+    { value: 'inOutExpo', label: 'Expo - In/Out' },
+    { value: 'outInExpo', label: 'Expo - Out/In' },
+    { value: 'inCirc', label: 'Circ - In' },
+    { value: 'outCirc', label: 'Circ - Out' },
+    { value: 'inOutCirc', label: 'Circ - In/Out' },
+    { value: 'outInCirc', label: 'Circ - Out/In' },
+    { value: 'inBack', label: 'Back - In' },
+    { value: 'outBack', label: 'Back - Out' },
+    { value: 'inOutBack', label: 'Back - In/Out' },
+    { value: 'outInBack', label: 'Back - Out/In' },
+    { value: 'inElastic', label: 'Elastic - In' },
+    { value: 'outElastic', label: 'Elastic - Out' },
+    { value: 'inOutElastic', label: 'Elastic - In/Out' },
+    { value: 'outInElastic', label: 'Elastic - Out/In' },
+    { value: 'inBounce', label: 'Bounce - In' },
+    { value: 'outBounce', label: 'Bounce - Out' },
+    { value: 'inOutBounce', label: 'Bounce - In/Out' },
+    { value: 'outInBounce', label: 'Bounce - Out/In' },
+    { value: 'spring', label: 'Spring - Physics-based' }
+];
+
 /**
  * Get complete slider card schema
  * @param {Object} [options] - Schema options
@@ -966,19 +1020,19 @@ export function getSliderSchema(options = {}) {
 
                     ranges: {
                         type: 'array',
-                        description: 'Colour-coded value ranges and point markers.\n\nTwo item types:\n• Band range (min+max): coloured background zone — rect in gauge mode, segment overrides in pills mode.\n• Value marker (value): live point indicator — triangle on gauge ticks, highlighted pill in pills mode. Resolves {entity.attributes.x}, {states.id.state}, and [[[JS]]] templates.',
+                        description: 'Colour-coded value ranges and point markers.\n\nTwo item types:\n• Band range (min+max): coloured background zone — rect in gauge mode, segment overrides in pills mode.\n• Value marker (value): live point indicator — triangle on gauge ticks, highlighted pill in pills mode.\n\nmin/max/value resolve static numbers, {entity.state}/{entity.attributes.x}/{states.domain.object_id.state} tokens, {datasource:name}, {config.x}/{variables.x} tokens, theme token references, and [[[JS]]] — evaluated synchronously (no Jinja2; see range.label.text for full Jinja2/DataSource async support on the label caption).',
                         items: {
                             type: 'object',
                             properties: {
                                 min: {
                                     type: ['number', 'string'],
-                                    description: 'Range start value (in display space). Supports static numbers or templates: {entity.state}, {entity.attributes.xxx}, {states.entity_id.state}, [[[JS return expr]]].',
-                                    examples: [0, 18, 80, '{entity.attributes.min_temp}', '{states.input_number.low.state}', '[[[return Number(entity.state) - 5]]]']
+                                    description: 'Range start value (in display space). Supports static numbers or templates: {entity.state}, {entity.attributes.xxx}, {states.domain.object_id.state}, {datasource:name}, {config.x}, {variables.x}, [[[JS return expr]]]. (Synchronous only — no Jinja2.)',
+                                    examples: [0, 18, 80, '{entity.attributes.min_temp}', '{states.input_number.low.state}', '{datasource:low_threshold}', '[[[return Number(entity.state) - 5]]]']
                                 },
                                 max: {
                                     type: ['number', 'string'],
-                                    description: 'Range end value (in display space). Supports static numbers or templates: {entity.state}, {entity.attributes.xxx}, {states.entity_id.state}, [[[JS return expr]]].',
-                                    examples: [20, 24, 100, '{entity.attributes.max_temp}', '{states.input_number.high.state}', '[[[return Number(entity.state) + 5]]]']
+                                    description: 'Range end value (in display space). Supports static numbers or templates: {entity.state}, {entity.attributes.xxx}, {states.domain.object_id.state}, {datasource:name}, {config.x}, {variables.x}, [[[JS return expr]]]. (Synchronous only — no Jinja2.)',
+                                    examples: [20, 24, 100, '{entity.attributes.max_temp}', '{states.input_number.high.state}', '{datasource:high_threshold}', '[[[return Number(entity.state) + 5]]]']
                                 },
                                 color: stateColorSchema,
                                 opacity: {
@@ -990,7 +1044,7 @@ export function getSliderSchema(options = {}) {
                                 },
                                 value: {
                                     type: ['string', 'number'],
-                                    description: 'Numeric value or template resolving to a position on the track. When present (instead of min/max), renders a point marker rather than a coloured band. Supports {entity.attributes.xxx}, {states.entity_id.state}, and [[[JS]]] templates.',
+                                    description: 'Numeric value or template resolving to a position on the track. When present (instead of min/max), renders a point marker rather than a coloured band. Supports {entity.state}, {entity.attributes.xxx}, {states.domain.object_id.state}, {datasource:name}, {config.x}, {variables.x}, and [[[JS]]] templates. (Synchronous only — no Jinja2.)',
                                     'x-ui-hints': {
                                         label: 'Marker Value',
                                         helper: 'Template or number — places a visual marker at this value rather than drawing a coloured band'
@@ -1044,6 +1098,34 @@ export function getSliderSchema(options = {}) {
                                     'x-ui-hints': {
                                         label: 'Pill Marker Style',
                                         helper: 'Controls how the marker pill appears in pills mode'
+                                    }
+                                },
+                                label: {
+                                    type: 'object',
+                                    description: 'Optional text caption shown next to the marker (gauge mode) or highlighted pill (pills mode).',
+                                    properties: {
+                                        text: {
+                                            type: 'string',
+                                            description: 'Label text. Supports the full template system: {entity.attributes.xxx} / {states.entity_id.state} tokens, {{ Jinja2 }}, [[[ JS ]]], and {datasource:name} references — or a plain static string.',
+                                            'x-ui-hints': {
+                                                label: 'Label Text',
+                                                helper: 'Static text or a template — {entity.attributes.x} / {states.entity_id.state} tokens, {{ Jinja2 }}, [[[ JS ]]], or {datasource:name} are all supported.'
+                                            }
+                                        },
+                                        color: { ...stateColorSchema, description: 'State-based colour of the label text. Falls back to theme:components.slider.indicator.label.color.' },
+                                        font_size: { type: 'number', description: 'Label font size in pixels. Defaults to the gauge tick-label size.' },
+                                        offset: {
+                                            type: 'object',
+                                            description: 'Pixel offset from the marker’s default label position (above the marker in horizontal orientation, beside it in vertical).',
+                                            properties: {
+                                                x: { type: 'number', description: 'Horizontal offset in pixels' },
+                                                y: { type: 'number', description: 'Vertical offset in pixels' }
+                                            }
+                                        }
+                                    },
+                                    'x-ui-hints': {
+                                        label: 'Label',
+                                        helper: 'Optional text caption shown next to the marker'
                                     }
                                 }
                             }
@@ -1194,6 +1276,69 @@ export function getSliderSchema(options = {}) {
             // ============================================================================
 
             background_animation: backgroundAnimationSchema,
+
+            // ============================================================================
+            // VALUE TWEEN
+            // ============================================================================
+
+            value_tween: {
+                type: 'object',
+                description: 'Eases the gauge/pills track and markers between old and new positions on entity-driven state changes (does not affect direct drag interaction). Distinct from the animations array, which is trigger/preset based.',
+                examples: [
+                    { enabled: true, duration: 500, ease: 'outQuad' },
+                    { enabled: true, duration: 700, ease: 'spring', targets: { track: true, markers: false } }
+                ],
+                properties: {
+                    enabled: {
+                        type: 'boolean',
+                        default: true,
+                        description: 'Enable value tweening. Automatically forced off when the OS-level prefers-reduced-motion setting is active, regardless of this value.',
+                        'x-ui-hints': {
+                            label: 'Enable Value Tween',
+                            selector: { boolean: {} }
+                        }
+                    },
+                    duration: {
+                        type: 'number',
+                        minimum: 0,
+                        maximum: 5000,
+                        default: 500,
+                        description: 'Tween duration in milliseconds (0-5000)',
+                        'x-ui-hints': {
+                            label: 'Duration',
+                            selector: { number: { mode: 'box', min: 0, max: 5000, step: 50, unit_of_measurement: 'ms' } }
+                        }
+                    },
+                    ease: {
+                        type: 'string',
+                        enum: _valueTweenEaseOptions.map(o => o.value),
+                        default: 'outQuad',
+                        description: 'anime.js v4 easing function used for the tween',
+                        'x-ui-hints': {
+                            label: 'Easing',
+                            selector: { select: { mode: 'dropdown', options: _valueTweenEaseOptions } }
+                        }
+                    },
+                    targets: {
+                        type: 'object',
+                        description: 'Which elements the tween applies to. All default to true.',
+                        properties: {
+                            track: {
+                                type: 'boolean',
+                                default: true,
+                                description: 'Tween the gauge/shaped fill or the pills opacity sweep, whichever the card\'s track type uses.',
+                                'x-ui-hints': { label: 'Track', selector: { boolean: {} } }
+                            },
+                            markers: {
+                                type: 'boolean',
+                                default: true,
+                                description: 'Tween threshold/range marker position (and, in pills mode, which pill is highlighted). Applies to `gauge` and `pills` track types — `shaped` never renders markers at all.',
+                                'x-ui-hints': { label: 'Markers', selector: { boolean: {} } }
+                            }
+                        }
+                    }
+                }
+            },
 
             // ============================================================================
             // SOUNDS

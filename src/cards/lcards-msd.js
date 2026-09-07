@@ -1077,8 +1077,12 @@ export class LCARdSMSDCard extends LCARdSCard {
             // fetchable, unlike builtin:/plain-path sources below.
             this._svgContent = await assetManager.loadSvgFromMediaSource(svgSource);
         } else {
-            // ✅ FIX: Use get() method, not loadSvg()
-            this._svgContent = await assetManager.get('svg', assetKey);
+            // loadSvg() derives the registry key and auto-registers /local/
+            // and http(s):// sources on first use — calling get() directly
+            // here skipped that registration, so those sources always
+            // reported "Asset not found" (builtin: sources still worked
+            // because packs pre-register them).
+            this._svgContent = await assetManager.loadSvg(svgSource);
         }
 
         if (this._svgContent) {
