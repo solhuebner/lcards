@@ -30,10 +30,71 @@ import '../shared/lcards-color-picker.js';
 import './alert-mode-color-wheel.js';
 import '../../dialogs/pack-explorer/lcards-pack-explorer-dialog.js';
 import '../../../panels/components/shared/lcards-scope-selector.js';
-import '../../../panels/components/lcards-preview-chip.js';
 import { STORAGE_KEY_THEME_OVERRIDES } from '../../../core/services/ScopedSettingsConstants.js';
 import { copyTextToClipboard } from '../../../utils/clipboard-utils.js';
-import './lcards-theme-generator-view.js';
+import { LEGACY_FIELD_DEFS } from './lcards-theme-generator-view.js';
+
+const LEGACY_KEY_SET = new Set(LEGACY_FIELD_DEFS.map(f => f.key));
+
+// Curated "major colours" for the Alert Mode Lab's Live Preview swatches and HSL Wheel — keys
+// are cross-checked against LEGACY_FIELD_DEFS (the same canonical catalog the HA-LCARS Theme
+// Lab uses) so this list can't quietly drift out of sync / typo again.
+const ALERT_LAB_COLOR_GROUP_DEFS = [
+  {
+    title: 'UI Colours',
+    colors: [
+      { name: 'Primary', key: 'lcars-ui-primary' },
+      { name: 'Secondary', key: 'lcars-ui-secondary' },
+      { name: 'Tertiary', key: 'lcars-ui-tertiary' },
+      { name: 'Quaternary', key: 'lcars-ui-quaternary' },
+      { name: 'Accent', key: 'lcars-ui-accent-color' },
+    ],
+  },
+  {
+    title: 'Card Colours',
+    colors: [
+      { name: 'Top', key: 'lcars-card-top-color' },
+      { name: 'Mid', key: 'lcars-card-mid-color' },
+      { name: 'Button', key: 'lcars-card-button-color' },
+      { name: 'Bottom', key: 'lcars-card-bottom-color' },
+      { name: 'Settings', key: 'lcars-settings-card-color' },
+    ],
+  },
+  {
+    title: 'Alert Colours',
+    colors: [
+      { name: 'Current', key: 'lcars-alert-color' },
+      { name: 'Red', key: 'lcars-alert-red' },
+      { name: 'Yellow', key: 'lcars-alert-yellow' },
+      { name: 'Blue', key: 'lcars-alert-blue' },
+      { name: 'White', key: 'lcars-alert-white' },
+      { name: 'UV', key: 'lcars-alert-uv' },
+      { name: 'UVC', key: 'lcars-alert-uvc' },
+    ],
+  },
+  {
+    title: 'State Colours',
+    colors: [
+      { name: 'Success', key: 'success-color' },
+      { name: 'Warning', key: 'warning-color' },
+      { name: 'Error', key: 'error-color' },
+      { name: 'Info', key: 'info-color' },
+      { name: 'Active', key: 'state-active-color' },
+      { name: 'Inactive', key: 'state-inactive-color' },
+      { name: 'Unavailable', key: 'state-unavailable-color' },
+      { name: 'Unknown', key: 'state-unknown-color' },
+    ],
+  },
+];
+
+function getAlertLabColorGroups() {
+  return ALERT_LAB_COLOR_GROUP_DEFS.map(group => ({
+    title: group.title,
+    colors: group.colors
+      .filter(c => LEGACY_KEY_SET.has(c.key))
+      .map(c => ({ name: c.name, cssVar: `--${c.key}` })),
+  }));
+}
 
 export class LCARdSThemeTokenBrowserTab extends LitElement {
   static get properties() {
@@ -214,6 +275,11 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
           --ha-dialog-width-md: 90vw;
           --ha-dialog-min-height: 80vh;
           --ha-dialog-max-height: 80vh;
+        }
+
+        ha-tab-group-tab ha-icon {
+          --mdc-icon-size: 18px;
+          margin-right: 8px;
         }
 
       .dialog-content {
@@ -1320,14 +1386,6 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
     this._loadTokens();
   }
 
-  /**
-   * Returns true when the HA integration has preview features enabled.
-   * The overrides view is gated behind this flag.
-   */
-  _isPreviewEnabled() {
-    return window.lcards?.core?.integrationService?.options?.enable_previews ?? false;
-  }
-
   render() {
     // If in inline mode, render dialog content directly without ha-dialog wrapper
     // @ts-ignore - TS2339: auto-suppressed
@@ -1440,9 +1498,11 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
         <!-- Using HA native tab components (Issue #82) -->
         <ha-tab-group @wa-tab-show=${this._handleTabChange}>
           <ha-tab-group-tab value="alert-lab" ?active=${this._activeView === 'alert-lab'}>
-            Alert Mode Lab
+            <ha-icon icon="mdi:flask-outline"></ha-icon>
+            LCARdS Alert Mode Lab
           </ha-tab-group-tab>
           <ha-tab-group-tab value="generator" ?active=${this._activeView === 'generator'}>
+            <ha-icon icon="mdi:auto-fix"></ha-icon>
             HA-LCARS Theme Lab
           </ha-tab-group-tab>
           <ha-tab-group-tab value="tokens" ?active=${this._activeView === 'tokens'}>
@@ -1454,11 +1514,9 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
           <ha-tab-group-tab value="all-vars" ?active=${this._activeView === 'all-vars'}>
             All CSS Variables (${this._allCssVariables.length})
           </ha-tab-group-tab>
-          ${this._isPreviewEnabled() ? html`
-            <ha-tab-group-tab value="overrides" ?active=${this._activeView === 'overrides'}>
-              Token Overrides <lcards-preview-chip></lcards-preview-chip>
-            </ha-tab-group-tab>
-          ` : ''}
+          <ha-tab-group-tab value="overrides" ?active=${this._activeView === 'overrides'}>
+            Token Overrides
+          </ha-tab-group-tab>
         </ha-tab-group>
         ${this._activeView === 'css-vars' ? html`
           <lcards-form-section
@@ -1652,9 +1710,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
     }
 
     if (this._activeView === 'overrides') {
-      return this._isPreviewEnabled()
-        ? this._renderOverridesView()
-        : html``;
+      return this._renderOverridesView();
     }
 
     // Default: tokens view
@@ -2356,36 +2412,7 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
    * Render alert mode preview swatches
    */
   _renderAlertModePreviewSwatches() {
-    // Key LCARS colors to show in preview - organized in 3 groups (4x3 grid)
-    const colorGroups = [
-      {
-        title: 'UI Colours',
-        colors: [
-          { name: 'Primary', cssVar: '--lcars-ui-primary' },
-          { name: 'Secondary', cssVar: '--lcars-ui-secondary' },
-          { name: 'Tertiary', cssVar: '--lcars-ui-tertiary' },
-          { name: 'Quaternary', cssVar: '--lcars-ui-quaternary' },
-        ]
-      },
-      {
-        title: 'Card Colours',
-        colors: [
-          { name: 'Top', cssVar: '--lcars-card-top-color' },
-          { name: 'Mid-Left', cssVar: '--lcars-card-mid-left-color' },
-          { name: 'Button', cssVar: '--lcars-card-button' },
-          { name: 'Bottom', cssVar: '--lcars-card-bottom-color' },
-        ]
-      },
-      {
-        title: 'State & Alert Colours',
-        colors: [
-          { name: 'Success', cssVar: '--success-color' },
-          { name: 'Warning', cssVar: '--warning-color' },
-          { name: 'Error', cssVar: '--error-color' },
-          { name: 'Alert', cssVar: '--lcars-alert-color' },
-        ]
-      }
-    ];
+    const colorGroups = getAlertLabColorGroups();
 
     return html`
       <div class="preview-swatches-container">
@@ -2477,32 +2504,15 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
       `;
     }
 
-    // Get the same 12 key colors that are shown in the preview swatches above
-    const keyVars = [
-      // UI Colors (4)
-      '--lcars-ui-primary',
-      '--lcars-ui-secondary',
-      '--lcars-ui-tertiary',
-      '--lcars-ui-quaternary',
-      // Card Colors (4)
-      '--lcars-card-top-color',
-      '--lcars-card-mid-left-color',
-      '--lcars-card-button',
-      '--lcars-card-bottom-color',
-      // HA State Colors (3)
-      '--success-color',
-      '--warning-color',
-      '--error-color',
-      // Alert Color (1)
-      '--lcars-alert-color'
-    ];
+    // Same curated groups shown in the Live Preview swatches above
+    const keyColors = getAlertLabColorGroups().flatMap(group => group.colors);
 
-    const originalColors = keyVars
-      .filter(varName => this._originalLcarsColors[varName])
-      .map(varName => ({
-        color: this._originalLcarsColors[varName],
-        varName: varName,
-        name: varName.replace('--lcars-', '').replace(/-/g, ' ')
+    const originalColors = keyColors
+      .filter(c => this._originalLcarsColors[c.cssVar])
+      .map(c => ({
+        color: this._originalLcarsColors[c.cssVar],
+        varName: c.cssVar,
+        name: c.name
       }));
 
     const transformedColors = originalColors.map(orig => ({
@@ -4280,7 +4290,6 @@ export class LCARdSThemeTokenBrowserTab extends LitElement {
 
   /**
    * Main render method for the Token Overrides view.
-   * Preview-gated — only called when _isPreviewEnabled() is true.
    */
   _renderOverridesView() {
     const filter = this._overridesFilter.toLowerCase();

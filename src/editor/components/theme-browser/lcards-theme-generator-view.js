@@ -224,7 +224,7 @@ const iconOn = (bgLabel) => `Icon colour rendered on top of ${bgLabel}.`;
 const alertVariant = (colourName) => `Indicator colour HA-LCARS switches --lcars-alert-color to during a ${colourName} alert.`;
 const labelBadgeVariant = (colourName) => `Background colour for a ${colourName}-variant ha-label-badge.`;
 
-const LEGACY_FIELD_DEFS = [
+export const LEGACY_FIELD_DEFS = [
   // ── Core ──
   { key: 'primary-color', label: 'Primary Colour', group: 'Core', role: 'primary', tone: 40, description: "HA's own accent colour — buttons, active toggles, selected tabs, and focus rings across stock HA UI." },
   { key: 'accent-color', label: 'Accent Colour', group: 'Core', role: 'primary', tone: 40, description: 'A secondary accent used alongside Primary Colour for less prominent highlights in stock HA components.' },
@@ -397,7 +397,7 @@ const DOMAIN_FALLBACK_KEYS = new Set([
 // too, just to plain HA chrome rather than LCARS-specific styling. Status Colours and Tooltip &
 // Misc are the least commonly hand-tuned, so they trail.
 const LEGACY_GROUP_ORDER = ['LCARS UI', 'Core', 'Text', 'Cards', 'Sidebar', 'Status Colours', 'Alert Colours', 'Tooltip & Misc'];
-const LEGACY_GROUPS = LEGACY_GROUP_ORDER.filter(g => LEGACY_FIELD_DEFS.some(f => f.group === g));
+export const LEGACY_GROUPS = LEGACY_GROUP_ORDER.filter(g => LEGACY_FIELD_DEFS.some(f => f.group === g));
 
 const DOMAIN_KEY_RE = /^state-([a-z0-9_]+)-([a-z0-9_]+)-color$/;
 
@@ -1570,7 +1570,7 @@ export class LCARdSThemeGeneratorView extends LitElement {
           <p class="preset-info-guide-tip">A Palette Seed role left as <strong>None</strong> is left out of the export — HA's own default palette applies instead. Dashed badge
             <span class="gen-fallback-badge">HA-LCARS Default</span> appears for values that are the HA-LCARS theme defaults; and <span class="gen-fallback-badge">HA Default</span>
             for values from HA defaults.</p>
-          <p>Most fields support separate light/dark values. Switch to <strong>Preview &amp; Export</strong> above any time to see the current state and generated YAML.</p>
+          <p>Most fields support separate light/dark values. Switch to <strong>Preview &amp; Export</strong> mode at any time to see the current state and generated YAML.</p>
         `)}
         ${this._renderLabTabToggle()}
         <div class="gen-lab-tab-panel" ?hidden=${this._labViewMode !== 'config'}>

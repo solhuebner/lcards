@@ -306,7 +306,12 @@ export function captureOriginalColors(root = null) {
   }
 
   // Also capture Home Assistant state colors (used in LCARS theme)
-  const stateColors = ['--success-color', '--warning-color', '--error-color'];
+  const stateColors = [
+    '--success-color', '--warning-color', '--error-color', '--info-color',
+    '--primary-color', '--accent-color',
+    '--state-active-color', '--state-inactive-color',
+    '--state-unavailable-color', '--state-unknown-color',
+  ];
   for (const varName of stateColors) {
     const value = computedStyle.getPropertyValue(varName).trim();
     if (value && value.match(/^#|^rgb|^hsl/i)) {
